@@ -1,6 +1,12 @@
 stunnel         Universal SSL tunnel for daemons invoked by inetd
 
-1. If possible add certificate signed by a thrusted CA.
+1. Add -r remote mode to connect to remote unencrypted service
+   instead of spawning a process.
+
+2. Add -s stand-alone mode to work without inetd as a separate
+   daemon.
+
+3. If possible add certificate signed by a thrusted CA.
    If not -> build a web page to add new certificate to browser.
 
-2. Make stunnel compatible with M$ products.
+4. Make stunnel compatible with M$ products.

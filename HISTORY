@@ -1,5 +1,8 @@
 stunnel         Universal SSL tunnel for daemons invoked by inetd
 
+1.6 1998.02.24	Linux bind fix.
+		New TODO ideas!
+
 1.5 1998.02.24	make_sockets() implemented with Internet sockets instead
 		of Unix sockets for better compatibility.
 		(i.e. to avoid random data returned by getpeername(2))

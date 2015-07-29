@@ -3,8 +3,8 @@
  *   Copyright (c) 1998 Michal Trojnara <mtrojnar@ddc.daewoo.com.pl>
  *                 All Rights Reserved
  *
- *   Version:      1.5              (stunnel.c)
- *   Date:         1998.02.24
+ *   Version:      1.6              (stunnel.c)
+ *   Date:         1998.03.02
  *   Author:       Michal Trojnara  <mtrojnar@ddc.daewoo.com.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
@@ -217,9 +217,9 @@ void make_sockets(int fd[2]) /* make pair of connected sockets */
     addr.sin_addr.s_addr=INADDR_LOOPBACK;
     addr.sin_port=0; /* dynamic port allocation */
     if(bind(s, (struct sockaddr *)&addr, addrlen))
-        ioerror("bind#1");
+        syslog(LOG_DEBUG, "bind#1: %s (%d)", strerror(errno), errno);
     if(bind(fd[1], (struct sockaddr *)&addr, addrlen))
-        ioerror("bind#2");
+        syslog(LOG_DEBUG, "bind#2: %s (%d)", strerror(errno), errno);
     if(listen(s, 5))
         ioerror("listen");
     if(getsockname(s, (struct sockaddr *)&addr, &addrlen))
