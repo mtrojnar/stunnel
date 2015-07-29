@@ -131,7 +131,7 @@ static void daemon_loop(void) {
     s_poll_set fds;
     LOCAL_OPTIONS *opt;
     get_limits();
-    s_poll_zero(&fds);
+    s_poll_init(&fds);
 #if !defined(USE_WIN32) && !defined(USE_OS2)
     s_poll_add(&fds, signal_pipe_init(), 1, 0);
 #endif
@@ -145,7 +145,7 @@ static void daemon_loop(void) {
     for(opt=local_options.next; opt; opt=opt->next) {
         if(!opt->option.accept) /* no need to bind this service */
             continue;
-        memcpy(&addr, &opt->local_addr.addr[0], sizeof(SOCKADDR_UNION));
+        memcpy(&addr, &opt->local_addr.addr[0], sizeof addr);
         if((opt->fd=socket(addr.sa.sa_family, SOCK_STREAM, 0))<0) {
             sockerror("local socket");
             die(1);
@@ -211,7 +211,7 @@ static void accept_connection(LOCAL_OPTIONS *opt) {
     int s;
     socklen_t addrlen;
 
-    addrlen=sizeof(SOCKADDR_UNION);
+    addrlen=sizeof addr;
     while((s=accept(opt->fd, &addr.sa, &addrlen))<0) {
         switch(get_last_socket_error()) {
             case EINTR:

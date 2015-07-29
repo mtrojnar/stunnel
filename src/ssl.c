@@ -47,7 +47,7 @@ static int add_rand_file(char *);
 static void init_engine(void);
 #endif
 
-int cli_index; /* to keep CLI structure for verify callback */
+int cli_index, opt_index; /* to keep structure for callbacks */
 
 void ssl_init(void) { /* init SSL before parsing configuration file */
 #ifdef HAVE_OPENSSL
@@ -56,6 +56,7 @@ void ssl_init(void) { /* init SSL before parsing configuration file */
     SSLeay_add_ssl_algorithms();
     SSL_load_error_strings();
     cli_index=SSL_get_ex_new_index(0, "cli index", NULL, NULL, NULL);
+    opt_index=SSL_CTX_get_ex_new_index(0, "opt index", NULL, NULL, NULL);
 #ifdef HAVE_OSSL_ENGINE_H
     ENGINE_load_builtin_engines();
 #endif

@@ -61,7 +61,7 @@ int getpeername(int s, struct sockaddr_in *name, int *len) {
     if((value=getenv("REMOTE_PORT")))
         name->sin_port=htons(atoi(value));
     else
-        name->sin_port=htons(0);
+        name->sin_port=htons(0); /* dynamic port allocation */
     return 0;
 }
 

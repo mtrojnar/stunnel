@@ -4,9 +4,6 @@ stunnel         Universal SSL tunnel
   - Add service-level logging.
   - Log file rotation with a signal on Unix and with GUI on Windows.
   - Graceful configuration reload with a signal on Unix and with GUI on Windows.
-  - Transparent proxy for Linux 2.6.x with TPROXY patch.
-    http://www.balabit.com/products/oss/tproxy/
-  - In transparent proxy mode bind source port (not only IP).
   - In transparent proxy mode add an option to connect destination address
     of the the original connection instead of a fixed IP list.
 
@@ -22,6 +19,7 @@ stunnel         Universal SSL tunnel
   - Add support for Server Name Indication SSL extension.
 
 * Features I'd prefer NOT to support (waiting for a wealthy sponsor):
+  - Authentication based on reverse DNS lookup matching CN of X.509.
   - HTTP protocol support (adding X-Forwarded-For header to each request,
     URL rewriting).
   - SMTP protocol support (adding X-Forwarded-For header to each email).

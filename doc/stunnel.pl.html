@@ -51,6 +51,7 @@
 
 <p>
 </p>
+<hr />
 <h1><a name="nazwa">NAZWA</a></h1>
 <p>stunnel - uniwersalny tunel protoko³u SSL</p>
 <p>
@@ -183,6 +184,9 @@ umieszczonego wewn±trz katalogu podanego w opcji <em>chroot</em>.</p>
 <dd>
 <p>wybór algorytmu kompresji przesy³anych danych</p>
 <p>domy¶lnie: bez kompresji</p>
+<p>Kompresja zlib zaimplementowana w OpenSSL 0.9.8 i nowszych nie jest
+kompatybilna implementacj± OpenSSL 0.9.7.</p>
+<p>Kompresja rle nie jest zaimplementowana w aktualnych wersjach OpenSSL.</p>
 </dd>
 <dt><strong><a name="debug_poziom_podsystem" class="item"><strong>debug</strong> = poziom[.podsystem]</a></strong></dt>
 
@@ -575,10 +579,29 @@ w programie Eudora mo¿na u¿yæ opcji:</p>
 <dd>
 <p>tryb przezroczystego proxy</p>
 <p>Przepisz adres, aby nawi±zywane po³±czenie wydawa³o siê pochodziæ
-bezpo¶rednio od klienta, a nie od programu <em>stunnel</em>.
-Opcja dzia³a tylko w trybie lokalnym (opcja <em>exec</em>) przez za³adowanie
-przy pomocy LD_PRELOAD biblioteki env.so, albo w trybie zdalnym (opcja
-<em>connect</em>) na systemie Linux 2.2 z w³±czon± opcj± <em>transparent proxy</em>.</p>
+bezpo¶rednio od klienta, a nie od programu <em>stunnel</em>.</p>
+<p>Opcja jest aktualnie obs³ugiwana w:</p>
+<pre>
+    trybie zdalnym (opcja I&lt;connect&gt; na j±drze Linux &gt;=2.6.28
+    trybie zdalnym (opcja I&lt;connect&gt; na j±drze Linux 2.2.x
+    trybie lokalnym (opcja I&lt;exec&gt;)</pre>
+<p><strong>Tryb zdalny</strong> (zarówno 2.2.x jak i &gt;=2.6.28) wymaga, aby stunnel by³ pracowa³
+z prawami u¿ytkownika root.  W szczególno¶ci opcja <strong>setuid</strong> nie pozwoli na
+pracê przezroczystego proxy.</p>
+<p><strong>Linux &gt;=2.6.28</strong> wymaga nastêpuj±cych ustawieñ iptables oraz routingu
+(na przyk³ad w pliku /etc/rc.local lub analogicznym):</p>
+<pre>
+    iptables -t mangle -N DIVERT
+    iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
+    iptables -t mangle -A DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A DIVERT -j ACCEPT
+    ip rule add fwmark 1 lookup 100
+    ip route add local 0.0.0.0/0 dev lo table 100</pre>
+<p><strong>Linux 2.2.x</strong> wymaga skompilowania j±dra z opcj± <em>transparent proxy</em>.
+Docelowa us³uga musi byæ umieszczona na osobnej maszynie, do której routing
+kierowany jest poprzez serwer stunnela.</p>
+<p><strong>Tryb lokalny</strong> jest realizowany poprzez za³adowanie przy pomocy LD_PRELOAD
+biblioteki env.so.</p>
 </dd>
 <dt><strong><a name="verify_poziom" class="item"><strong>verify</strong> = poziom</a></strong></dt>
 

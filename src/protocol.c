@@ -137,7 +137,7 @@ static void cifs_server(CLI *c) {
     read_blocking(c, c->local_rfd.fd, buffer, 4) ;/* NetBIOS header */
     len=buffer[3];
     len|=(u16)(buffer[2]) << 8;
-    if(len>sizeof(buffer)-4) {
+    if(len>sizeof buffer-4) {
         s_log(LOG_ERR, "Received block too long");
         longjmp(c->err, 1);
     }
@@ -156,7 +156,7 @@ u8 ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
 static void pgsql_client(CLI *c) {
     u8 buffer[1];
 
-    write_blocking(c, c->remote_fd.fd, ssl_request, sizeof(ssl_request));
+    write_blocking(c, c->remote_fd.fd, ssl_request, sizeof ssl_request);
     read_blocking(c, c->remote_fd.fd, buffer, 1);
     /* S - accepted, N - rejected, non-SSL preferred */
     if(buffer[0]!='S') {
@@ -168,14 +168,14 @@ static void pgsql_client(CLI *c) {
 static void pgsql_server(CLI *c) {
     u8 buffer[8], ssl_ok[1]={'S'};
 
-    memset(buffer, 0, sizeof(buffer));
-    read_blocking(c, c->local_rfd.fd, buffer, sizeof(buffer));
-    if(memcmp(buffer, ssl_request, sizeof(ssl_request))) {
+    memset(buffer, 0, sizeof buffer);
+    read_blocking(c, c->local_rfd.fd, buffer, sizeof buffer);
+    if(memcmp(buffer, ssl_request, sizeof ssl_request)) {
         s_log(LOG_ERR, "PostgreSQL client did not request SSL, rejecting");
         /* no way to send error on startup, so just drop the client */
         longjmp(c->err, 1);
     }
-    write_blocking(c, c->local_wfd.fd, ssl_ok, sizeof(ssl_ok));
+    write_blocking(c, c->local_wfd.fd, ssl_ok, sizeof ssl_ok);
 }
 
 static void smtp_client(CLI *c) {
@@ -208,7 +208,7 @@ static void smtp_client(CLI *c) {
 static void smtp_server(CLI *c) {
     char line[STRLEN];
 
-    s_poll_zero(&c->fds);
+    s_poll_init(&c->fds);
     s_poll_add(&c->fds, c->local_rfd.fd, 1, 0);
     switch(s_poll_wait(&c->fds, 0, 200)) { /* wait up to 200ms */
     case 0: /* fd not ready to read */
@@ -299,7 +299,7 @@ static void imap_client(CLI *c) {
 static void imap_server(CLI *c) {
     char line[STRLEN], id[STRLEN], *tail, *capa;
  
-    s_poll_zero(&c->fds);
+    s_poll_init(&c->fds);
     s_poll_add(&c->fds, c->local_rfd.fd, 1, 0);
     switch(s_poll_wait(&c->fds, 0, 200)) {
     case 0: /* fd not ready to read */
@@ -487,12 +487,12 @@ static void connect_client(CLI *c) {
 static char *ntlm1() {
     char phase1[16];
 
-    memset(phase1, 0, sizeof(phase1));
+    memset(phase1, 0, sizeof phase1);
     strcpy(phase1, "NTLMSSP");
     phase1[8]=1; /* type: 1 */
     phase1[12]=2; /* flag: negotiate OEM */
     phase1[13]=2; /* flag: negotiate NTLM */
-    return base64(1, phase1, sizeof(phase1)); /* encode */
+    return base64(1, phase1, sizeof phase1); /* encode */
 }
 
 static char *ntlm3(char *username, char *password, char *phase2) {
@@ -501,10 +501,10 @@ static char *ntlm3(char *username, char *password, char *phase2) {
     char phase3[146];
     unsigned char md4_hash[21];
     int userlen=strlen(username);
-    int phase3len=s_min(88+userlen, sizeof(phase3));
+    int phase3len=s_min(88+userlen, sizeof phase3);
 
     /* setup phase3 structure */
-    memset(phase3, 0, sizeof(phase3));
+    memset(phase3, 0, sizeof phase3);
     strcpy(phase3, "NTLMSSP");
     phase3[8]=3;            /* type: 3 */
     phase3[16]=phase3len;   /* LM-resp off */
@@ -539,7 +539,7 @@ static char *ntlm3(char *username, char *password, char *phase2) {
         (unsigned char *)decoded+24, md4_hash+14);
     free(decoded);
 
-    strncpy(phase3+88, username, sizeof(phase3)-88);
+    strncpy(phase3+88, username, sizeof phase3-88);
 
     return base64(1, phase3, phase3len); /* encode */
 }

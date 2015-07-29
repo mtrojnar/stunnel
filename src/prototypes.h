@@ -110,7 +110,7 @@ typedef enum {
     COMP_NONE, COMP_ZLIB, COMP_RLE
 } COMP_TYPE;
 
-extern int cli_index;
+extern int cli_index, opt_index;;
 
 void ssl_init(void);
 void ssl_configure(void);
@@ -201,12 +201,12 @@ typedef struct local_options {
     unsigned long ocsp_flags;
 #endif /* OpenSSL-0.9.7 */
     SSL_METHOD *client_method, *server_method;
+    SOCKADDR_LIST sessiond_addr;
 
         /* service-specific data for client.c */
     int fd;        /* file descriptor accepting connections for this service */
     char *execname, **execargs; /* program name and arguments for local mode */
-    SOCKADDR_LIST local_addr, remote_addr;
-    SOCKADDR_LIST source_addr;
+    SOCKADDR_LIST local_addr, remote_addr, source_addr;
     char *username;
     char *remote_address;
     int timeout_busy; /* maximum waiting for data time */
@@ -230,6 +230,7 @@ typedef struct local_options {
         unsigned int accept:1;
         unsigned int remote:1;
         unsigned int retry:1; /* loop remote+program */
+        unsigned int sessiond:1;
 #ifndef USE_WIN32
         unsigned int program:1;
         unsigned int pty:1;
@@ -290,7 +291,7 @@ typedef struct {
 #endif
 } s_poll_set;
 
-void s_poll_zero(s_poll_set *);
+void s_poll_init(s_poll_set *);
 void s_poll_add(s_poll_set *, int, int, int);
 int s_poll_canread(s_poll_set *, int);
 int s_poll_canwrite(s_poll_set *, int);

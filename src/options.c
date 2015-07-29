@@ -1125,6 +1125,29 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         break;
     }
 
+    /* sessiond */
+    switch(cmd) {
+    case CMD_INIT:
+        section->option.sessiond=0;
+        memset(&section->sessiond_addr, 0, sizeof(SOCKADDR_LIST));
+        section->sessiond_addr.addr[0].in.sin_family=AF_INET;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "sessiond"))
+            break;
+        section->option.sessiond=1;
+        section->ssl_options|=SSL_OP_NO_TICKET;
+        if(!name2addrlist(&section->sessiond_addr, arg, DEFAULT_LOOPBACK))
+            return "Failed to resolve sessiond server address";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_RAW, "%-15s = [host:]port use sessiond at host:port",
+            "sessiond");
+        break;
+    }
+
 #ifndef USE_FORK
     /* stack */
     switch(cmd) {
@@ -1680,24 +1703,32 @@ static int parse_ssl_option(char *arg) {
         {"SSLEAY_080_CLIENT_DH_BUG", SSL_OP_SSLEAY_080_CLIENT_DH_BUG},
         {"TLS_D5_BUG", SSL_OP_TLS_D5_BUG},
         {"TLS_BLOCK_PADDING_BUG", SSL_OP_TLS_BLOCK_PADDING_BUG},
-        {"TLS_ROLLBACK_BUG", SSL_OP_TLS_ROLLBACK_BUG},
-#ifdef SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         {"DONT_INSERT_EMPTY_FRAGMENTS", SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS},
+        {"NO_QUERY_MTU", SSL_OP_NO_QUERY_MTU},
+        {"COOKIE_EXCHANGE", SSL_OP_COOKIE_EXCHANGE},
+        {"NO_TICKET", SSL_OP_NO_TICKET},
+        {"NO_SESSION_RESUMPTION_ON_RENEGOTIATION",
+            SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION},
+#ifdef SSL_OP_NO_COMPRESSION
+        {"NO_COMPRESSION", SSL_OP_NO_COMPRESSION},
 #endif
-        {"ALL", SSL_OP_ALL},
+        {"SINGLE_ECDH_USE", SSL_OP_SINGLE_ECDH_USE},
         {"SINGLE_DH_USE", SSL_OP_SINGLE_DH_USE},
         {"EPHEMERAL_RSA", SSL_OP_EPHEMERAL_RSA},
+        {"CIPHER_SERVER_PREFERENCE", SSL_OP_CIPHER_SERVER_PREFERENCE},
+        {"TLS_ROLLBACK_BUG", SSL_OP_TLS_ROLLBACK_BUG},
         {"NO_SSLv2", SSL_OP_NO_SSLv2},
         {"NO_SSLv3", SSL_OP_NO_SSLv3},
         {"NO_TLSv1", SSL_OP_NO_TLSv1},
         {"PKCS1_CHECK_1", SSL_OP_PKCS1_CHECK_1},
         {"PKCS1_CHECK_2", SSL_OP_PKCS1_CHECK_2},
         {"NETSCAPE_CA_DN_BUG", SSL_OP_NETSCAPE_CA_DN_BUG},
-#ifdef SSL_OP_NON_EXPORT_FIRST
-        {"NON_EXPORT_FIRST", SSL_OP_NON_EXPORT_FIRST},
-#endif
         {"NETSCAPE_DEMO_CIPHER_CHANGE_BUG",
             SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG},
+#ifdef SSL_OP_CRYPTOPRO_TLSEXT_BUG
+        {"CRYPTOPRO_TLSEXT_BUG", SSL_OP_CRYPTOPRO_TLSEXT_BUG},
+#endif
+        {"ALL", SSL_OP_ALL},
         {NULL, 0}
     }, *option;
 
@@ -1738,6 +1769,15 @@ SOCK_OPT sock_opts[] = {
 #ifdef SO_BINDTODEVICE
     {"SO_BINDTODEVICE", SOL_SOCKET,  SO_BINDTODEVICE, TYPE_STRING,  DEF_VALS},
 #endif
+#ifdef TCP_KEEPCNT
+    {"TCP_KEEPCNT",     SOL_TCP,     TCP_KEEPCNT,     TYPE_INT,     DEF_VALS},
+#endif
+#ifdef TCP_KEEPIDLE
+    {"TCP_KEEPIDLE",    SOL_TCP,     TCP_KEEPIDLE,    TYPE_INT,     DEF_VALS},
+#endif
+#ifdef TCP_KEEPINTVL
+    {"TCP_KEEPINTVL",   SOL_TCP,     TCP_KEEPINTVL,   TYPE_INT,     DEF_VALS},
+#endif
 #ifdef IP_TOS
     {"IP_TOS",          IPPROTO_IP,  IP_TOS,          TYPE_INT,     DEF_VALS},
 #endif
@@ -1771,7 +1811,7 @@ static int print_socket_options(void) {
         print_option(line, ptr->opt_type, ptr->opt_val[1]);
         print_option(line, ptr->opt_type, ptr->opt_val[2]);
         /* display OS default value */
-        optlen=sizeof(val);
+        optlen=sizeof val;
         if(getsockopt(fd, ptr->opt_level,
                 ptr->opt_name, (void *)&val, &optlen)) {
             if(get_last_socket_error()!=ENOPROTOOPT) {

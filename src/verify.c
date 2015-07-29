@@ -233,7 +233,7 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx,
 
     /* try to retrieve a CRL corresponding to the _subject_ of
      * the current certificate in order to verify it's integrity */
-    memset((char *)&obj, 0, sizeof(obj));
+    memset((char *)&obj, 0, sizeof obj);
     X509_STORE_CTX_init(&store_ctx, c->opt->revocation_store, NULL, NULL);
     rc=X509_STORE_get_by_subject(&store_ctx, X509_LU_CRL, subject, &obj);
     X509_STORE_CTX_cleanup(&store_ctx);
@@ -281,7 +281,7 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx,
 
     /* try to retrieve a CRL corresponding to the _issuer_ of
      * the current certificate in order to check for revocation */
-    memset((char *)&obj, 0, sizeof(obj));
+    memset((char *)&obj, 0, sizeof obj);
     X509_STORE_CTX_init(&store_ctx, c->opt->revocation_store, NULL, NULL);
     rc=X509_STORE_get_by_subject(&store_ctx, X509_LU_CRL, issuer, &obj);
     X509_STORE_CTX_cleanup(&store_ctx);
@@ -346,7 +346,7 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx,
     }
     if(alloc_fd(c->fd))
         goto cleanup;
-    memcpy(&addr, &c->opt->ocsp_addr.addr[0], sizeof(SOCKADDR_UNION));
+    memcpy(&addr, &c->opt->ocsp_addr.addr[0], sizeof addr);
     if(connect_blocking(c, &addr, addr_len(addr)))
         goto cleanup;
     s_log(LOG_DEBUG, "OCSP: server connected");

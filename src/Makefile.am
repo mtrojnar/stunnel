@@ -35,7 +35,7 @@ EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak nogui.c os
 EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES =  $(common_headers) $(common_sources) $(win32_sources)
 
-OPENSSLDIR=/usr/src/openssl-0.9.8k
+OPENSSLDIR=/usr/src/openssl-0.9.8l
 WINCFLAGS=-O2 -Wall -I$(OPENSSLDIR)/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
 WINLIBS=-L$(OPENSSLDIR) -lzdll -leay32 -lssl32 -lws2_32 -lgdi32 -mwindows
 

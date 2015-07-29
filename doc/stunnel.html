@@ -179,6 +179,9 @@ you also have to copy its configuration files (/etc/hosts.allow and
 <dd>
 <p>select data compression algorithm</p>
 <p>default: no compression</p>
+<p>zlib compression of OpenSSL 0.9.8 or above is not backward compatible with
+OpenSSL 0.9.7.</p>
+<p>rle compression is currently not implemented by the OpenSSL library.</p>
 </dd>
 <dt><strong><a name="debug_facility_level" class="item"><strong>debug</strong> = [facility.]level</a></strong></dt>
 
@@ -551,13 +554,27 @@ the following option can be used:</p>
 <dd>
 <p>transparent proxy mode</p>
 <p>Re-write address to appear as if wrapped daemon is connecting
-from the SSL client machine instead of the machine running <strong>stunnel</strong>.
-This option is only available in local mode (<em>exec</em> option)
-by LD_PRELOADing env.so shared library or in remote mode (<em>connect</em>
-option) on Linux 2.2 kernel compiled with <em>transparent proxy</em> option
-and then only in server mode. Note that this option will not combine
-with proxy mode (<em>connect</em>) unless the client's default route to the target
-machine lies through the host running <strong>stunnel</strong>, which cannot be localhost.</p>
+from the SSL client machine instead of the machine running <strong>stunnel</strong>.</p>
+<p>This option is currently available in:</p>
+<pre>
+    remote mode (I&lt;connect&gt; option) on Linux &gt;=2.6.28
+    remote mode (I&lt;connect&gt; option) 2.2.x
+    local mode (I&lt;exec&gt; option)</pre>
+<p><strong>Remote mode</strong> (either 2.2.x and &gt;=2.6.28) requires stunnel to be executed as
+root.  <strong>setuid</strong> option will also break this functionality.</p>
+<p><strong>Linux &gt;=2.6.28</strong> requires the following setup for iptables and routing
+(possibly in /etc/rc.local or equivalent file):</p>
+<pre>
+    iptables -t mangle -N DIVERT
+    iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
+    iptables -t mangle -A DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A DIVERT -j ACCEPT
+    ip rule add fwmark 1 lookup 100
+    ip route add local 0.0.0.0/0 dev lo table 100</pre>
+<p><strong>Linux 2.2.x</strong> requires kernel to be compiled with <em>transparent proxy</em> option.
+Connected service must be installed on a separate host.
+Routing towards the clients has to go through the stunnel box.</p>
+<p><strong>Local mode</strong> works by LD_PRELOADing env.so shared library.</p>
 </dd>
 <dt><strong><a name="verify_level" class="item"><strong>verify</strong> = level</a></strong></dt>
 
@@ -568,6 +585,11 @@ machine lies through the host running <strong>stunnel</strong>, which cannot be 
     level 2 - verify peer certificate
     level 3 - verify peer with locally installed certificate
     default - no verify</pre>
+<p>It is important to understand, that this option was solely designed for access
+control and not for authorization.  Specifically for level 2 every non-revoked
+certificate is accepted regardless of its Common Name.  For this reason a
+dedicated CA should be used with level 2, and not a generic CA commonly used
+for webservers.  Level 3 is preferred for point-to-point connections.</p>
 </dd>
 </dl>
 <p>

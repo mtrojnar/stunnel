@@ -129,6 +129,11 @@ select data compression algorithm
 
 default: no compression
 
+zlib compression of OpenSSL 0.9.8 or above is not backward compatible with
+OpenSSL 0.9.7.
+
+rle compression is currently not implemented by the OpenSSL library.
+
 =item B<debug> = [facility.]level
 
 debugging level
@@ -507,12 +512,31 @@ transparent proxy mode
 
 Re-write address to appear as if wrapped daemon is connecting
 from the SSL client machine instead of the machine running B<stunnel>.
-This option is only available in local mode (I<exec> option)
-by LD_PRELOADing env.so shared library or in remote mode (I<connect>
-option) on Linux 2.2 kernel compiled with I<transparent proxy> option
-and then only in server mode. Note that this option will not combine
-with proxy mode (I<connect>) unless the client's default route to the target
-machine lies through the host running B<stunnel>, which cannot be localhost.
+
+This option is currently available in:
+
+    remote mode (I<connect> option) on Linux >=2.6.28
+    remote mode (I<connect> option) 2.2.x
+    local mode (I<exec> option)
+
+B<Remote mode> (either 2.2.x and >=2.6.28) requires stunnel to be executed as
+root.  B<setuid> option will also break this functionality.
+
+B<Linux E<gt>=2.6.28> requires the following setup for iptables and routing
+(possibly in /etc/rc.local or equivalent file):
+
+    iptables -t mangle -N DIVERT
+    iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
+    iptables -t mangle -A DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A DIVERT -j ACCEPT
+    ip rule add fwmark 1 lookup 100
+    ip route add local 0.0.0.0/0 dev lo table 100
+
+B<Linux 2.2.x> requires kernel to be compiled with I<transparent proxy> option.
+Connected service must be installed on a separate host.
+Routing towards the clients has to go through the stunnel box.
+
+B<Local mode> works by LD_PRELOADing env.so shared library.
 
 =item B<verify> = level
 
@@ -522,6 +546,12 @@ verify peer certificate
     level 2 - verify peer certificate
     level 3 - verify peer with locally installed certificate
     default - no verify
+
+It is important to understand, that this option was solely designed for access
+control and not for authorization.  Specifically for level 2 every non-revoked
+certificate is accepted regardless of its Common Name.  For this reason a
+dedicated CA should be used with level 2, and not a generic CA commonly used
+for webservers.  Level 3 is preferred for point-to-point connections.
 
 =back
 

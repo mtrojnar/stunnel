@@ -1,5 +1,19 @@
 stunnel         Universal SSL tunnel
 
+Version 4.28, 2009.11.08, urgency: MEDIUM:
+* New features
+  - Win32 DLLs for OpenSSL 0.9.8l.
+  - Transparent proxy support on Linux kernels >=2.6.28.
+    See the manual for details.
+  - New socket options to control TCP keepalive on Linux:
+    TCP_KEEPCNT, TCP_KEEPIDLE, TCP_KEEPINTVL.
+  - SSL options updated for the recent version of OpenSSL library.
+* Bugfixes
+  - A serious bug in asynchronous shutdown code fixed.
+  - Data alignment updated in libwrap.c.
+  - Polish manual encoding fixed.
+  - Notes on compression implementation in OpenSSL added to the manual.
+
 Version 4.27, 2009.04.16, urgency: MEDIUM:
 * New features
   - Win32 DLLs for OpenSSL 0.9.8k.

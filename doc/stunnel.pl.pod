@@ -1,3 +1,5 @@
+=encoding iso-8859-2
+
 =head1 NAZWA
 
 stunnel - uniwersalny tunel protoko³u SSL
@@ -130,6 +132,11 @@ umieszczonego wewn±trz katalogu podanego w opcji I<chroot>.
 wybór algorytmu kompresji przesy³anych danych
 
 domy¶lnie: bez kompresji
+
+Kompresja zlib zaimplementowana w OpenSSL 0.9.8 i nowszych nie jest
+kompatybilna implementacj± OpenSSL 0.9.7.
+
+Kompresja rle nie jest zaimplementowana w aktualnych wersjach OpenSSL.
 
 =item B<debug> = poziom[.podsystem]
 
@@ -528,9 +535,33 @@ tryb przezroczystego proxy
 
 Przepisz adres, aby nawi±zywane po³±czenie wydawa³o siê pochodziæ
 bezpo¶rednio od klienta, a nie od programu I<stunnel>.
-Opcja dzia³a tylko w trybie lokalnym (opcja I<exec>) przez za³adowanie
-przy pomocy LD_PRELOAD biblioteki env.so, albo w trybie zdalnym (opcja
-I<connect>) na systemie Linux 2.2 z w³±czon± opcj± I<transparent proxy>.
+
+Opcja jest aktualnie obs³ugiwana w:
+
+    trybie zdalnym (opcja I<connect> na j±drze Linux >=2.6.28
+    trybie zdalnym (opcja I<connect> na j±drze Linux 2.2.x
+    trybie lokalnym (opcja I<exec>)
+
+B<Tryb zdalny> (zarówno 2.2.x jak i >=2.6.28) wymaga, aby stunnel by³ pracowa³
+z prawami u¿ytkownika root.  W szczególno¶ci opcja B<setuid> nie pozwoli na
+pracê przezroczystego proxy.
+
+B<Linux E<gt>=2.6.28> wymaga nastêpuj±cych ustawieñ iptables oraz routingu
+(na przyk³ad w pliku /etc/rc.local lub analogicznym):
+
+    iptables -t mangle -N DIVERT
+    iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
+    iptables -t mangle -A DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A DIVERT -j ACCEPT
+    ip rule add fwmark 1 lookup 100
+    ip route add local 0.0.0.0/0 dev lo table 100
+
+B<Linux 2.2.x> wymaga skompilowania j±dra z opcj± I<transparent proxy>.
+Docelowa us³uga musi byæ umieszczona na osobnej maszynie, do której routing
+kierowany jest poprzez serwer stunnela.
+
+B<Tryb lokalny> jest realizowany poprzez za³adowanie przy pomocy LD_PRELOAD
+biblioteki env.so.
 
 =item B<verify> = poziom
 

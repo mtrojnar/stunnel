@@ -116,7 +116,7 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
 
     addr_list->cur=0; /* initialize round-robin counter */
 
-    memset(&hints, 0, sizeof(hints));
+    memset(&hints, 0, sizeof hints);
 #if defined(USE_IPv6) || defined(USE_WIN32)
     hints.ai_family=PF_UNSPEC;
 #else
@@ -412,24 +412,6 @@ static int getnameinfo(const struct sockaddr *sa, int salen,
     /* sin_port is in the same place both in sockaddr_in and sockaddr_in6 */
     /* ignore servlen since it's long enough in stunnel code */
     return 0;
-}
-#endif
-
-/**************************************** Some optional debugging stuff */
-
-#if 0
-void debug_sockaddr_union(SOCKADDR_UNION *addr) {
-    int i;
-    char t[3*sizeof(SOCKADDR_UNION)];
-    const char hex[16]="0123456789abcdef";
-
-    for(i=0; i<sizeof(SOCKADDR_UNION); i++) {
-        t[3*i]=hex[((u8 *)addr)[i]/16];
-        t[3*i+1]=hex[((u8 *)addr)[i]%16];
-        t[3*i+2]=' ';
-    }
-    t[3*sizeof(SOCKADDR_UNION)-1]='\0';
-    s_log(LOG_DEBUG, "%s\n", t);
 }
 #endif
 

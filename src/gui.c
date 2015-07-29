@@ -95,7 +95,6 @@ TCHAR win32_name[STRLEN];
 static SERVICE_STATUS serviceStatus;
 static SERVICE_STATUS_HANDLE serviceStatusHandle=0;
 #endif
-static HANDLE stopServiceEvent=0;
 
 static int visible=0, error_mode=0;
 static jmp_buf jump_buf;
@@ -187,7 +186,7 @@ static void parse_cmdline(LPSTR command_line) {
     char line[STRLEN], *c, *opt;
 
     safecopy(line, command_line);
-    memset(&cmdline, 0, sizeof(cmdline));
+    memset(&cmdline, 0, sizeof cmdline);
 
     c=line;
     while(*c && (*c=='/' || *c=='-')) {
@@ -285,7 +284,7 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     /* register the class */
 #ifndef _WIN32_WCE
-    wc.cbSize=sizeof(WNDCLASSEX);
+    wc.cbSize=sizeof wc;
 #endif
     wc.style=CS_VREDRAW|CS_HREDRAW;
     wc.lpfnWndProc=wndProc;
@@ -341,8 +340,8 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 static void update_taskbar(void) { /* create the taskbar icon */
     NOTIFYICONDATA nid;
 
-    ZeroMemory(&nid, sizeof(nid));
-    nid.cbSize=sizeof(NOTIFYICONDATA); /* size */
+    ZeroMemory(&nid, sizeof nid);
+    nid.cbSize=sizeof nid; /* size */
     nid.hWnd=hwnd; /* window to receive notifications */
     nid.uID=1;     /* application-defined ID for icon */
     if(error_mode)
@@ -443,8 +442,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 #endif
         if(htraymenu)
             DestroyMenu(htraymenu);
-        ZeroMemory(&nid, sizeof(nid));
-        nid.cbSize=sizeof(NOTIFYICONDATA);
+        ZeroMemory(&nid, sizeof nid);
+        nid.cbSize=sizeof nid;
         nid.hWnd=hwnd;
         nid.uID=1;
         nid.uFlags=NIF_TIP; /* not really sure what to put here, but it works */
@@ -611,10 +610,10 @@ static void save_file(HWND hwnd) {
     if(cmdline.service) /* do not allow to save file in the service mode */
         return;
 
-    ZeroMemory(&ofn, sizeof(ofn));
+    ZeroMemory(&ofn, sizeof ofn);
     szFileName[0]='\0';
 
-    ofn.lStructSize=sizeof(ofn);
+    ofn.lStructSize=sizeof ofn;
     ofn.hwndOwner=hwnd;
     ofn.lpstrFilter=TEXT("Log Files (*.log)\0*.log\0All Files (*.*)\0*.*\0\0");
     ofn.lpstrFile=szFileName;
@@ -860,7 +859,7 @@ static int service_start(void) {
         return 1;
     }
     do {
-        sleep(1);
+        Sleep(1000);
         if(!QueryServiceStatus(service, &serviceStatus)) {
             error_box(TEXT("QueryServiceStatus"));
             CloseServiceHandle(service);
@@ -921,7 +920,7 @@ static int service_stop(void) {
         return 1;
     }
     do {
-        sleep(1);
+        Sleep(1000);
         if(!QueryServiceStatus(service, &serviceStatus)) {
             error_box(TEXT("QueryServiceStatus"));
             CloseServiceHandle(service);
@@ -955,9 +954,6 @@ static void WINAPI service_main(DWORD argc, LPTSTR* argv) {
         serviceStatus.dwCurrentState=SERVICE_START_PENDING;
         SetServiceStatus(serviceStatusHandle, &serviceStatus);
 
-        /* do initialisation here */
-        stopServiceEvent=CreateEvent(0, FALSE, FALSE, 0);
-
         /* running */
         serviceStatus.dwControlsAccepted|=
             (SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN);
@@ -969,10 +965,6 @@ static void WINAPI service_main(DWORD argc, LPTSTR* argv) {
         /* service was stopped */
         serviceStatus.dwCurrentState=SERVICE_STOP_PENDING;
         SetServiceStatus(serviceStatusHandle, &serviceStatus);
-
-        /* do cleanup here */
-        CloseHandle(stopServiceEvent);
-        stopServiceEvent=0;
 
         /* service is now stopped */
         serviceStatus.dwControlsAccepted&=
@@ -992,7 +984,6 @@ static void WINAPI control_handler(DWORD controlCode) {
         serviceStatus.dwCurrentState=SERVICE_STOP_PENDING;
         SetServiceStatus(serviceStatusHandle, &serviceStatus);
         PostMessage(hwnd, WM_COMMAND, IDM_EXIT, 0);
-        SetEvent(stopServiceEvent);
         return;
 
     case SERVICE_CONTROL_PAUSE:

@@ -91,7 +91,7 @@ void libwrap_init(int num) {
                 if(read_fd(ipc_socket[2*i+1], servname, STRLEN, &rfd)<=0)
                     _exit(0);
                 result=check_libwrap(servname, rfd);
-                write(ipc_socket[2*i+1], (u8 *)&result, sizeof(result));
+                write(ipc_socket[2*i+1], (u8 *)&result, sizeof result);
                 if(rfd>=0)
                     close(rfd);
             }
@@ -146,7 +146,7 @@ void auth_libwrap(CLI *c) {
         write_fd(ipc_socket[2*my_process], c->opt->servname,
             strlen(c->opt->servname)+1, c->local_rfd.fd);
         read_blocking(c, ipc_socket[2*my_process],
-            (u8 *)&result, sizeof(result));
+            (u8 *)&result, sizeof result);
         s_log(LOG_DEBUG, "Releasing libwrap process #%d", my_process);
 
         retval=pthread_mutex_lock(&mutex);
@@ -213,7 +213,7 @@ static ssize_t read_fd(int fd, void *ptr, size_t nbytes, int *recvfd) {
     struct cmsghdr *cmptr;
 
     msg.msg_control=control_un.control;
-    msg.msg_controllen=sizeof(control_un.control);
+    msg.msg_controllen=sizeof control_un.control;
 #else
     int newfd;
 
@@ -246,7 +246,7 @@ static ssize_t read_fd(int fd, void *ptr, size_t nbytes, int *recvfd) {
         s_log(LOG_ERR, "control type != SCM_RIGHTS");
         return -1;
     }
-    *recvfd=*((int *)CMSG_DATA(cmptr));
+    memcpy(recvfd, CMSG_DATA(cmptr), sizeof(int));
 #else
     if(msg.msg_accrightslen==sizeof(int))
         *recvfd=newfd;
@@ -267,13 +267,13 @@ static ssize_t write_fd(int fd, void *ptr, size_t nbytes, int sendfd) {
     struct cmsghdr *cmptr;
 
     msg.msg_control=control_un.control;
-    msg.msg_controllen=sizeof(control_un.control);
+    msg.msg_controllen=sizeof control_un.control;
 
     cmptr=CMSG_FIRSTHDR(&msg);
     cmptr->cmsg_len=CMSG_LEN(sizeof(int));
     cmptr->cmsg_level=SOL_SOCKET;
     cmptr->cmsg_type=SCM_RIGHTS;
-    *((int *)CMSG_DATA(cmptr))=sendfd;
+    memcpy(CMSG_DATA(cmptr), &sendfd, sizeof(int));
 #else
     msg.msg_accrights=(caddr_t)&sendfd;
     msg.msg_accrightslen=sizeof(int);

@@ -6,19 +6,19 @@
  *   under the terms of the GNU General Public License as published by the
  *   Free Software Foundation; either version 2 of the License, or (at your
  *   option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *   See the GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License along
  *   with this program; if not, see <http://www.gnu.org/licenses>.
- * 
+ *
  *   Linking stunnel statically or dynamically with other modules is making
  *   a combined work based on stunnel. Thus, the terms and conditions of
  *   the GNU General Public License cover the whole combination.
- * 
+ *
  *   In addition, as a special exception, the copyright holder of stunnel
  *   gives you permission to combine stunnel with free software programs or
  *   libraries that are released under the GNU LGPL and with code included
@@ -26,7 +26,7 @@
  *   modified versions of such code, with unchanged license). You may copy
  *   and distribute such a system following the terms of the GNU GPL for
  *   stunnel and the licenses of the other code concerned.
- * 
+ *
  *   Note that people who make modified versions of stunnel are not obligated
  *   to grant this special exception for their modified versions; it is their
  *   choice whether to do so. The GNU General Public License gives permission
@@ -61,8 +61,18 @@ static int init_dh(SSL_CTX *, LOCAL_OPTIONS *);
 
 /* loading certificate */
 static void load_certificate(LOCAL_OPTIONS *);
-static int cache_cb(char *, int, int, void *);
+static int password_cb(char *, int, int, void *);
 
+/* session cache callbacks */
+static int sess_new_cb(SSL *, SSL_SESSION *);
+static SSL_SESSION *sess_get_cb(SSL *, unsigned char *, int, int *);
+static void sess_remove_cb(SSL_CTX *, SSL_SESSION *);
+static void cache_transfer(SSL_CTX *, const unsigned int, const unsigned,
+    const unsigned char *, const unsigned int,
+    const unsigned char *, const unsigned int,
+    unsigned char **, unsigned int *);
+
+/* info callbacks */
 #if SSLEAY_VERSION_NUMBER >= 0x00907000L
 static void info_callback(const SSL *, int, int);
 #else /* OpenSSL-0.9.7 */
@@ -93,11 +103,14 @@ void context_init(LOCAL_OPTIONS *section) { /* init SSL context */
             s_log(LOG_WARNING, "Wrong permissions on %s", section->key);
 #endif /* defined USE_WIN32 */
     }
+
     /* create SSL context */
-    if(section->option.client) {
+    if(section->option.client)
         section->ctx=SSL_CTX_new(section->client_method);
-    } else { /* Server mode */
+    else /* Server mode */
         section->ctx=SSL_CTX_new(section->server_method);
+    SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
+    if(!section->option.client) { /* RSA/DH callbacks */
 #ifndef NO_RSA
         SSL_CTX_set_tmp_rsa_callback(section->ctx, tmp_rsa_cb);
 #endif /* NO_RSA */
@@ -123,14 +136,23 @@ void context_init(LOCAL_OPTIONS *section) { /* init SSL context */
         SSL_MODE_ENABLE_PARTIAL_WRITE|SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 #endif /* OpenSSL-0.9.6 */
 
+    /* session cache */
     SSL_CTX_set_session_cache_mode(section->ctx, SSL_SESS_CACHE_BOTH);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
+    if(section->option.sessiond) {
+        SSL_CTX_sess_set_new_cb(section->ctx, sess_new_cb);
+        SSL_CTX_sess_set_get_cb(section->ctx, sess_get_cb);
+        SSL_CTX_sess_set_remove_cb(section->ctx, sess_remove_cb);
+    }
 
+    /* info callback */
+    SSL_CTX_set_info_callback(section->ctx, info_callback);
+
+    /* initialize certificate verification */
     if(section->option.cert)
         load_certificate(section);
+    verify_init(section);
 
-    verify_init(section); /* initialize certificate verification */
-    SSL_CTX_set_info_callback(section->ctx, info_callback);
     s_log(LOG_DEBUG, "SSL context initialized for service %s",
         section->servname);
 }
@@ -268,7 +290,7 @@ static void load_certificate(LOCAL_OPTIONS *section) {
     s_log(LOG_DEBUG, "Certificate loaded");
 
     s_log(LOG_DEBUG, "Key file: %s", section->key);
-    SSL_CTX_set_default_passwd_cb(section->ctx, cache_cb);
+    SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
 #ifdef HAVE_OSSL_ENGINE_H
 #ifdef USE_WIN32
     uim=UI_create_method("stunnel WIN32 UI");
@@ -332,7 +354,7 @@ static void load_certificate(LOCAL_OPTIONS *section) {
     s_log(LOG_DEBUG, "Private key loaded");
 }
 
-static int cache_cb(char *buf, int size, int rwflag, void *userdata) {
+static int password_cb(char *buf, int size, int rwflag, void *userdata) {
     static char cache[PEM_BUFSIZE];
     int len;
 
@@ -354,7 +376,184 @@ static int cache_cb(char *buf, int size, int rwflag, void *userdata) {
     }
     return len;
 }
- 
+
+/**************************************** session cache callbacks */
+
+#define CACHE_CMD_NEW     0x00
+#define CACHE_CMD_GET     0x01
+#define CACHE_CMD_REMOVE  0x02
+#define CACHE_RESP_ERR    0x80
+#define CACHE_RESP_OK     0x81
+
+static int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
+    unsigned char *val, *val_tmp;
+    int val_len;
+
+    val_len=i2d_SSL_SESSION(sess, NULL);
+    val_tmp=val=malloc(val_len);
+    if(!val)
+        return 1;
+    i2d_SSL_SESSION(sess, &val_tmp);
+
+    cache_transfer(ssl->ctx, CACHE_CMD_NEW, SSL_SESSION_get_timeout(sess),
+        sess->session_id, sess->session_id_length, val, val_len, NULL, NULL);
+    free(val);
+    return 1; /* leave the session in local cache for reuse */
+}
+
+static SSL_SESSION *sess_get_cb(SSL *ssl,
+        unsigned char *key, int key_len, int *do_copy) {
+    unsigned char *val, *val_tmp=NULL;
+    unsigned int val_len=0;
+    SSL_SESSION *sess;
+
+    *do_copy = 0; /* allow the session to be freed autmatically */
+    cache_transfer(ssl->ctx, CACHE_CMD_GET, 0,
+        key, key_len, NULL, 0, &val, &val_len);
+    if(!val)
+        return NULL;
+    val_tmp=val;
+    sess=d2i_SSL_SESSION(NULL, (const unsigned char **)&val_tmp, val_len);
+    free(val);
+    return sess;
+}
+
+static void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
+    cache_transfer(ctx, CACHE_CMD_REMOVE, 0,
+        sess->session_id, sess->session_id_length, NULL, 0, NULL, NULL);
+}
+
+#define MAX_VAL_LEN 512
+typedef struct {
+    u_char version, type;
+    u_short timeout;
+    u_char key[SSL_MAX_SSL_SESSION_ID_LENGTH];
+    u_char val[MAX_VAL_LEN];
+} CACHE_PACKET;
+
+static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
+        const unsigned int timeout,
+        const unsigned char *key, const unsigned int key_len,
+        const unsigned char *val, const unsigned int val_len,
+        unsigned char **ret, unsigned int *ret_len) {
+    char session_id_txt[2*SSL_MAX_SSL_SESSION_ID_LENGTH+1];
+    const char hex[16]="0123456789ABCDEF";
+    const char *type_description[]={"new", "get", "remove"};
+    int i, s, len;
+    SOCKADDR_UNION addr;
+    struct timeval t;
+    CACHE_PACKET *packet;
+    LOCAL_OPTIONS *opt;
+
+    if(ret) /* set error as the default result if required */
+        *ret=NULL;
+
+    /* log the request information */
+    for(i=0; i<key_len && i<SSL_MAX_SSL_SESSION_ID_LENGTH; ++i) {
+        session_id_txt[2*i]=hex[key[i]>>4];
+        session_id_txt[2*i+1]=hex[key[i]&0x0f];
+    }
+    session_id_txt[2*i]='\0';
+    s_log(LOG_INFO,
+        "cache_transfer: request=%s, timeout=%u, id=%s, length=%d",
+        type_description[type], timeout, session_id_txt, val_len);
+
+    /* allocate UDP packet buffer */
+    if(key_len>SSL_MAX_SSL_SESSION_ID_LENGTH) {
+        s_log(LOG_ERR, "cache_transfer: session id too big (%d bytes)",
+            key_len);
+        return;
+    }
+    if(val_len>MAX_VAL_LEN) {
+        s_log(LOG_ERR, "cache_transfer: encoded session too big (%d bytes)",
+            key_len);
+        return;
+    }
+    packet=calloc(1, sizeof(CACHE_PACKET));
+    if(!packet) {
+        s_log(LOG_ERR, "cache_transfer: packet buffer allocation failed");
+        return;
+    }
+
+    /* setup packet */
+    packet->version=1;
+    packet->type=type;
+    packet->timeout=htons(timeout<64800?timeout:64800); /* 18 hours */
+    memcpy(packet->key, key, key_len);
+    memcpy(packet->val, val, val_len);
+
+    /* create the socket */
+    s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if(s==-1) {
+        sockerror("cache_transfer: socket");
+        free(packet);
+        return;
+    }
+
+    /* retrieve pointer to the section structure of this ctx */
+    opt=SSL_CTX_get_ex_data(ctx, opt_index);
+    memcpy(&addr, &opt->sessiond_addr.addr[0], sizeof addr);
+    if(sendto(s, (void *)packet, sizeof(CACHE_PACKET)-MAX_VAL_LEN+val_len, 0,
+            &addr.sa, addr_len(addr))==-1) {
+        sockerror("cache_transfer: sendto");
+        closesocket(s);
+        free(packet);
+        return;
+    }
+
+    if(!ret || !ret_len) { /* no response is required */
+        closesocket(s);
+        free(packet);
+        return;
+    }
+
+    /* set recvfrom timeout to 200ms */
+    t.tv_sec=0;
+    t.tv_usec=200;
+    if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (void *)&t, sizeof t)==-1) {
+        sockerror("cache_transfer: setsockopt SO_RCVTIMEO");
+        closesocket(s);
+        free(packet);
+        return;
+    }
+
+    /* retrieve response */
+    len=recv(s, (void *)packet, sizeof(CACHE_PACKET), 0);
+    closesocket(s);
+    if(len==-1) {
+        if(get_last_socket_error()==EAGAIN)
+            s_log(LOG_INFO, "cache_transfer: recv timeout");
+        else
+            sockerror("cache_transfer: recv");
+        free(packet);
+        return;
+    }
+
+    /* parse results */
+    if(len<sizeof(CACHE_PACKET)-MAX_VAL_LEN || /* too short */
+            packet->version!=1 || /* wrong version */
+            memcmp(packet->key, key, key_len)) { /* wrong session id */
+        s_log(LOG_DEBUG, "cache_transfer: malformed packet received");
+        free(packet);
+        return;
+    }
+    if(packet->type!=CACHE_RESP_OK) {
+        s_log(LOG_INFO, "cache_transfer: session not found");
+        free(packet);
+        return;
+    }
+    *ret_len=len-(sizeof(CACHE_PACKET)-MAX_VAL_LEN);
+    *ret=malloc(*ret_len);
+    if(!*ret) {
+        s_log(LOG_ERR, "cache_transfer: return value allocation failed");
+        free(packet);
+        return;
+    }
+    s_log(LOG_INFO, "cache_transfer: session found");
+    memcpy(*ret, packet->val, *ret_len);
+    free(packet);
+}
+
 /**************************************** informational callback */
 
 #if SSLEAY_VERSION_NUMBER >= 0x00907000L
@@ -395,9 +594,14 @@ static void print_stats(SSL_CTX *ctx) { /* print statistics */
     s_log(LOG_DEBUG, "%4ld server renegotiations requested",
         SSL_CTX_sess_accept_renegotiate(ctx));
 #endif
-    s_log(LOG_DEBUG, "%4ld session cache hits", SSL_CTX_sess_hits(ctx));
-    s_log(LOG_DEBUG, "%4ld session cache misses", SSL_CTX_sess_misses(ctx));
-    s_log(LOG_DEBUG, "%4ld session cache timeouts", SSL_CTX_sess_timeouts(ctx));
+    s_log(LOG_DEBUG, "%4ld session cache hits",
+        SSL_CTX_sess_hits(ctx));
+    s_log(LOG_DEBUG, "%4ld external session cache hits",
+        SSL_CTX_sess_cb_hits(ctx));
+    s_log(LOG_DEBUG, "%4ld session cache misses",
+        SSL_CTX_sess_misses(ctx));
+    s_log(LOG_DEBUG, "%4ld session cache timeouts",
+        SSL_CTX_sess_timeouts(ctx));
 }
 
 /**************************************** SSL error reporting */

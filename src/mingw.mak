@@ -8,7 +8,7 @@
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=../openssl-0.9.8k
+SSLDIR=../openssl-0.9.8l
 
 DEFINES=-DUSE_WIN32 -DHAVE_OPENSSL
 

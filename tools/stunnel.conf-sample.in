@@ -19,7 +19,7 @@ pid = /stunnel.pid
 ; Some performance tunings
 socket = l:TCP_NODELAY=1
 socket = r:TCP_NODELAY=1
-;compression = rle
+;compression = zlib
 
 ; Workaround for Eudora bug
 ;options = DONT_INSERT_EMPTY_FRAGMENTS

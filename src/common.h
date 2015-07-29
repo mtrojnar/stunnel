@@ -187,6 +187,7 @@ typedef unsigned long u32;
 #define EINPROGRESS WSAEINPROGRESS
 #define EWOULDBLOCK WSAEWOULDBLOCK
 #define EISCONN WSAEISCONN
+#define EADDRINUSE WSAEADDRINUSE
 
 #ifdef EINVAL
 #undef EINVAL
@@ -321,6 +322,14 @@ extern char *sys_errlist[];
 #define strerror(num) ((num)==0 ? "No error" : \
     ((num)>=sys_nerr ? "Unknown error" : sys_errlist[num]))
 #endif /* SunOS 4 */
+
+/* Linux */
+#ifdef __linux__
+#ifndef IP_TRANSPARENT
+/* old kernel headers without IP_TRANSPARENT definition */
+#define IP_TRANSPARENT 19
+#endif /* IP_TRANSPARENT */
+#endif /* __linux__ */
 
 #endif /* USE_WIN32 */
 

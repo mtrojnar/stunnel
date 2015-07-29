@@ -61,7 +61,7 @@ static void client_status(void); /* dead children detected */
 
 #ifdef USE_POLL
 
-void s_poll_zero(s_poll_set *fds) {
+void s_poll_init(s_poll_set *fds) {
     fds->nfds=0;
 }
 
@@ -281,10 +281,10 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
 
 #else /* select */
 
-void s_poll_zero(s_poll_set *fds) {
+void s_poll_init(s_poll_set *fds) {
     FD_ZERO(&fds->irfds);
     FD_ZERO(&fds->iwfds);
-    fds->max = 0; /* No file descriptors */
+    fds->max = 0; /* no file descriptors */
 }
 
 void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
@@ -369,23 +369,23 @@ int signal_pipe_init(void) {
     int pipe_in;
 
     FD_ZERO(&set_pipe);
-    signal_pipe[0] = socket(PF_OS2, SOCK_STREAM, 0);
+    signal_pipe[0]=socket(PF_OS2, SOCK_STREAM, 0);
     pipe_in=signal_pipe[0];
-    signal_pipe[1] = socket(PF_OS2, SOCK_STREAM, 0);
+    signal_pipe[1]=socket(PF_OS2, SOCK_STREAM, 0);
 
     alloc_fd(signal_pipe[0]);
     alloc_fd(signal_pipe[1]);
 
     /* Connect the two endpoints */
-    memset(&un, 0, sizeof(un));
+    memset(&un, 0, sizeof un);
 
-    un.sun_len = sizeof(un);
-    un.sun_family = AF_OS2;
+    un.sun_len=sizeof un;
+    un.sun_family=AF_OS2;
     sprintf(un.sun_path, "\\socket\\stunnel-%u", getpid());
     /* Make the first endpoint listen */
-    bind(signal_pipe[0], (struct sockaddr *)&un, sizeof(un));
+    bind(signal_pipe[0], (struct sockaddr *)&un, sizeof un);
     listen(signal_pipe[0], 5);
-    connect(signal_pipe[1], (struct sockaddr *)&un, sizeof(un));
+    connect(signal_pipe[1], (struct sockaddr *)&un, sizeof un);
     FD_SET(signal_pipe[0], &set_pipe);
     if (select(signal_pipe[0]+1, &set_pipe, NULL, NULL, NULL)>0) {
         signal_pipe[0]=accept(signal_pipe[0], NULL, 0);
@@ -414,9 +414,9 @@ int signal_pipe_init(void) {
 static void signal_pipe_empty(void) {
     s_log(LOG_DEBUG, "Cleaning up the signal pipe");
 #ifdef __INNOTEK_LIBC__
-    readsocket(signal_pipe[0], signal_buffer, sizeof(signal_buffer));
+    readsocket(signal_pipe[0], signal_buffer, sizeof signal_buffer);
 #else
-    read(signal_pipe[0], signal_buffer, sizeof(signal_buffer));
+    read(signal_pipe[0], signal_buffer, sizeof signal_buffer);
 #endif
 #ifdef USE_FORK
     client_status(); /* report status of client process */
@@ -572,7 +572,7 @@ int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
 
     s_log(LOG_DEBUG, "connect_blocking: s_poll_wait %s: waiting %d seconds",
         dst, c->opt->timeout_connect);
-    s_poll_zero(&c->fds);
+    s_poll_init(&c->fds);
     s_poll_add(&c->fds, c->fd, 1, 1);
     switch(s_poll_wait(&c->fds, c->opt->timeout_connect, 0)) {
     case -1:
@@ -587,7 +587,7 @@ int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
         if(s_poll_canread(&c->fds, c->fd)) {
             /* newly connected socket should not be ready for read */
             /* get the resulting error code, now */
-            optlen=sizeof(error);
+            optlen=sizeof error;
             if(getsockopt(c->fd, SOL_SOCKET, SO_ERROR,
                     (void *)&error, &optlen))
                 error=get_last_socket_error(); /* failed -> ask why */
@@ -614,7 +614,7 @@ void write_blocking(CLI *c, int fd, void *ptr, int len) {
     int num;
 
     while(len>0) {
-        s_poll_zero(&fds);
+        s_poll_init(&fds);
         s_poll_add(&fds, fd, 0, 1); /* write */
         switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
         case -1:
@@ -646,7 +646,7 @@ void read_blocking(CLI *c, int fd, void *ptr, int len) {
     int num;
 
     while(len>0) {
-        s_poll_zero(&fds);
+        s_poll_init(&fds);
         s_poll_add(&fds, fd, 1, 0); /* read */
         switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
         case -1:
@@ -695,7 +695,7 @@ void fdgetline(CLI *c, int fd, char *line) {
     int ptr;
 
     for(ptr=0;;) {
-        s_poll_zero(&fds);
+        s_poll_init(&fds);
         s_poll_add(&fds, fd, 1, 0); /* read */
         switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
         case -1:
