@@ -60,7 +60,7 @@ static int parse_socket_option(char *);
 static char *parse_ocsp_url(SERVICE_OPTIONS *, char *);
 static unsigned long parse_ocsp_flag(char *);
 
-static void syntax(CONF_TYPE);
+static void print_syntax(void);
 static void config_error(int, const char *, const char *);
 static void section_error(int, const char *, const char *);
 static char *str_dup_err(char *);
@@ -548,6 +548,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->option.accept=0;
         memset(&section->local_addr, 0, sizeof(SOCKADDR_LIST));
         section->local_addr.addr[0].in.sin_family=AF_INET;
+        section->fd=-1;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "accept"))
@@ -1569,19 +1570,22 @@ void parse_commandline(char *name, char *parameter) {
     if(!strcasecmp(name, "-fd")) {
         if(!parameter) {
             s_log(LOG_ERR, "No file descriptor specified");
-            syntax(CONF_FD);
+            print_syntax();
+            die(1);
         }
-        parse_conf(parameter, CONF_FD);
+        if(parse_conf(parameter, CONF_FD))
+            die(1);
     } else
 #else
     (void)parameter; /* skip warning about unused parameter */
 #endif
-        parse_conf(name, CONF_FILE);
+        if(parse_conf(name, CONF_FILE))
+            die(1);
 }
 
 /**************************************** parse configuration file */
 
-void parse_conf(char *name, CONF_TYPE type) {
+int parse_conf(char *name, CONF_TYPE type) {
     DISK_FILE *df;
     char line_text[CONFLINELEN], *errstr;
     char config_line[CONFLINELEN], *config_opt, *config_arg;
@@ -1606,7 +1610,8 @@ void parse_conf(char *name, CONF_TYPE type) {
         fd=strtol(filename, &tmpstr, 10);
         if(tmpstr==filename || *tmpstr) { /* not a number */
             s_log(LOG_ERR, "Invalid file descriptor number");
-            syntax(type);
+            print_syntax();
+            die(1);
         }
         df=file_fdopen(fd);
     } else
@@ -1614,7 +1619,12 @@ void parse_conf(char *name, CONF_TYPE type) {
         df=file_open(filename, 0);
     if(!df) {
         s_log(LOG_ERR, "Cannot read configuration");
-        syntax(type);
+        if(type==CONF_RELOAD) {
+            return 1;
+        } else {
+            print_syntax();
+            die(1);
+        }
     }
 
     memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
@@ -1642,9 +1652,7 @@ void parse_conf(char *name, CONF_TYPE type) {
         if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
             if(!section_init(line_number-1, section, 0)) {
                 file_close(df);
-                if(type==CONF_RELOAD)
-                    return;
-                die(1);
+                return 1;
             }
             ++config_opt;
             config_opt[strlen(config_opt)-1]='\0';
@@ -1652,9 +1660,7 @@ void parse_conf(char *name, CONF_TYPE type) {
             if(!new_section) {
                 s_log(LOG_ERR, "Fatal memory allocation error");
                 file_close(df);
-                if(type==CONF_RELOAD)
-                    return;
-                die(1);
+                return 1;
             }
             memcpy(new_section, &new_service_options, sizeof(SERVICE_OPTIONS));
             new_section->servname=str_dup_err(config_opt);
@@ -1666,9 +1672,7 @@ void parse_conf(char *name, CONF_TYPE type) {
             if(++sections>MAX_FD) {
                 config_error(line_number, line_text, "Too many sections");
                 file_close(df);
-                if(type==CONF_RELOAD)
-                    return;
-                die(1);
+                return 1;
             }
 #endif
             continue;
@@ -1677,9 +1681,7 @@ void parse_conf(char *name, CONF_TYPE type) {
         if(!config_arg) {
             config_error(line_number, line_text, "No '=' found");
             file_close(df);
-            if(type==CONF_RELOAD)
-                return;
-            die(1);
+            return 1;
         }
         *config_arg++='\0'; /* split into option name and argument value */
         for(i=strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
@@ -1692,38 +1694,30 @@ void parse_conf(char *name, CONF_TYPE type) {
         if(errstr) {
             config_error(line_number, line_text, errstr);
             file_close(df);
-            if(type==CONF_RELOAD)
-                return;
-            die(1);
+            return 1;
         }
     }
     file_close(df);
 
     /* initialize the last section */
-    if(!section_init(line_number, section, 1)) {
-        if(type==CONF_RELOAD)
-            return;
-        die(1);
-    }
+    if(!section_init(line_number, section, 1))
+        return 1;
 
     /* final checks */
     if(!new_service_options.next) { /* inetd mode */
         if(section->option.accept) {
             s_log(LOG_ERR, "Accept option is not allowed in inetd mode");
             s_log(LOG_ERR, "Remove accept option or define a [section]");
-            if(type==CONF_RELOAD)
-                return;
-            die(1);
+            return 1;
         }
         if(!section->option.remote && !section->execname) {
             s_log(LOG_ERR, "Inetd mode must have 'connect' or 'exec' options");
-            if(type==CONF_RELOAD)
-                return;
-            die(1);
+            return 1;
         }
     }
     memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
     s_log(LOG_NOTICE, "Configuration successful");
+    return 0;
 }
 
 /**************************************** validate and initialize section */
@@ -2174,9 +2168,7 @@ static unsigned long parse_ocsp_flag(char *arg) {
 
 /**************************************** fatal error */
 
-static void syntax(CONF_TYPE type) {
-    if(type==CONF_RELOAD)
-        return; /* don't print syntax or die */
+static void print_syntax(void) {
     s_log(LOG_NOTICE, " ");
     s_log(LOG_NOTICE, "Syntax:");
     s_log(LOG_NOTICE, "stunnel "
@@ -2204,7 +2196,6 @@ static void syntax(CONF_TYPE type) {
     s_log(LOG_NOTICE, "    -help       - get config file help");
     s_log(LOG_NOTICE, "    -version    - display version and defaults");
     s_log(LOG_NOTICE, "    -sockets    - display default socket options");
-    die(1);
 }
 
 /**************************************** various supporting funstions */

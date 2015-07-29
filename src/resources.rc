@@ -1,6 +1,6 @@
 #include <windows.h>
 #include "resources.h"
-#include "version.h" // pdelaage 20101024
+#include "version.h"
 
 IDI_MYICON ICON "stunnel.ico"
 
@@ -9,8 +9,12 @@ BEGIN
     POPUP "Ooops?"
     BEGIN
         MENUITEM "&About", IDM_ABOUT
-        MENUITEM "&Log", IDM_LOG
-        MENUITEM "&Reload", IDM_RELOAD
+        MENUITEM SEPARATOR
+        MENUITEM "&Show log window", IDM_SHOW_LOG
+        MENUITEM "Reopen &log file", IDM_REOPEN_LOG
+        MENUITEM SEPARATOR
+        MENUITEM "&Edit stunnel.conf", IDM_EDIT_CONFIG
+        MENUITEM "&Reload stunnel.conf", IDM_RELOAD_CONFIG
         MENUITEM SEPARATOR
         MENUITEM "E&xit", IDM_EXIT
     END
@@ -20,13 +24,15 @@ IDM_MAINMENU MENU
 BEGIN
     POPUP "&File"
     BEGIN
-        MENUITEM "&Save Log As", IDM_SAVEAS
+        MENUITEM "&Save Log As", IDM_SAVE_LOG
+        MENUITEM "Reopen &log file", IDM_REOPEN_LOG
         MENUITEM SEPARATOR
         MENUITEM "&Close", IDM_CLOSE
     END
     POPUP "&Configuration"
     BEGIN
-        MENUITEM "&Reload", IDM_RELOAD
+        MENUITEM "&Edit stunnel.conf", IDM_EDIT_CONFIG
+        MENUITEM "&Reload stunnel.conf", IDM_RELOAD_CONFIG
     END
     POPUP "&Help"
     BEGIN

@@ -40,7 +40,6 @@
 
 /**************************************** prototypes */
 
-static void daemon_loop(void);
 static void accept_connection(SERVICE_OPTIONS *);
 static void get_limits(void); /* setup global max_clients and max_fds */
 #if !defined(USE_WIN32) && !defined(__vms)
@@ -58,9 +57,7 @@ static int max_clients=0;
 
 int volatile num_clients=0; /* current number of clients */
 s_poll_set fds; /* file descriptors of listening sockets */
-#if !defined(USE_WIN32) && !defined(USE_OS2)
 int signal_fd;
-#endif
 
 /**************************************** startup */
 
@@ -68,7 +65,14 @@ int signal_fd;
 int main(int argc, char* argv[]) { /* execution begins here 8-) */
     str_init(); /* initialize per-thread string management */
     main_initialize(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL);
-    main_execute();
+    if(service_options.next) { /* there are service sections -> daemon mode */
+        num_clients=0;
+        daemon_loop();
+    } else { /* inetd mode */
+        num_clients=1;
+        client(alloc_client_session(&service_options, 0, 1));
+        log_close();
+    }
     return 0; /* success */
 }
 #endif
@@ -76,10 +80,16 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
 void main_initialize(char *arg1, char *arg2) {
     ssl_init(); /* initialize SSL library */
     sthreads_init(); /* initialize critical sections & SSL callbacks */
-    parse_commandline(arg1, arg2);
+    get_limits(); /* required by setup_fd() */
 
-    max_fds=FD_SETSIZE; /* start with select() limit */
-    get_limits();
+    signal_fd=signal_pipe_init();
+    s_poll_init(&fds);
+    s_poll_add(&fds, signal_fd, 1, 0);
+    /* the most essential initialization is performed here,
+     * so gui.c can execute a thread with daemon_loop() */
+
+    stunnel_info(LOG_NOTICE);
+    parse_commandline(arg1, arg2);
 #ifdef USE_LIBWRAP
     /* spawn LIBWRAP_CLIENTS processes unless inetd mode is configured
      * execute after parse_commandline() to know service_options.next,
@@ -91,10 +101,7 @@ void main_initialize(char *arg1, char *arg2) {
      * to be able to access /dev/log socket */
     syslog_open();
 #endif /* !defined(USE_WIN32) && !defined(__vms) */
-#if !defined(USE_WIN32) && !defined(USE_OS2)
-    signal_fd=signal_pipe_init();
-#endif
-    if(!bind_ports())
+    if(bind_ports())
         die(1);
 
 #ifdef HAVE_CHROOT
@@ -124,35 +131,23 @@ void main_initialize(char *arg1, char *arg2) {
         create_pid();
     }
 #endif /* standard Unix */
-
-    stunnel_info(LOG_NOTICE);
-}
-
-void main_execute(void) {
-    if(service_options.next) { /* there are service sections -> daemon mode */
-        num_clients=0;
-        while(1)
-            daemon_loop();
-    } else { /* inetd mode */
-        num_clients=1;
-        client(alloc_client_session(&service_options, 0, 1));
-        log_close();
-    }
 }
 
 /**************************************** main loop */
 
-static void daemon_loop(void) {
+void daemon_loop(void) {
     SERVICE_OPTIONS *opt;
 
-    if(s_poll_wait(&fds, -1, -1)>=0) { /* non-critical error */
-        for(opt=service_options.next; opt; opt=opt->next)
-            if(s_poll_canread(&fds, opt->fd))
-                accept_connection(opt);
-    } else {
-        log_error(LOG_INFO, get_last_socket_error(),
-            "daemon_loop: s_poll_wait");
-        sleep(1); /* to avoid log trashing */
+    while(1) {
+        if(s_poll_wait(&fds, -1, -1)>=0) { /* non-critical error */
+            for(opt=service_options.next; opt; opt=opt->next)
+                if(s_poll_canread(&fds, opt->fd))
+                    accept_connection(opt);
+        } else {
+            log_error(LOG_INFO, get_last_socket_error(),
+                "daemon_loop: s_poll_wait");
+            sleep(1); /* to avoid log trashing */
+        }
     }
 }
 
@@ -210,66 +205,76 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
 
 /**************************************** initialization helpers */
 
-/* close old ports, open new ports, update fds */
-int bind_ports(void) {
+/* clear fds, close old ports */
+void unbind_ports(void) {
     SERVICE_OPTIONS *opt;
-    static SERVICE_OPTIONS *prev_opt=NULL;
-    SOCKADDR_UNION addr;
 
     s_poll_init(&fds);
-#if !defined(USE_WIN32) && !defined(USE_OS2)
     s_poll_add(&fds, signal_fd, 1, 0);
-#endif
-
-    for(opt=prev_opt; opt; opt=opt->next)
-        if(opt->option.accept) {
+    for(opt=service_options.next; opt; opt=opt->next)
+        if(opt->option.accept && opt->fd>=0) {
             closesocket(opt->fd);
             s_log(LOG_DEBUG, "Service %s closed FD=%d",
                 opt->servname, opt->fd);
+            opt->fd=-1;
         }
-    prev_opt=service_options.next;
+}
 
-    for(opt=prev_opt; opt; opt=opt->next) {
+/* open new ports, update fds */
+int bind_ports(void) {
+    SERVICE_OPTIONS *opt;
+    SOCKADDR_UNION addr;
+
+    s_poll_init(&fds);
+    s_poll_add(&fds, signal_fd, 1, 0);
+    for(opt=service_options.next; opt; opt=opt->next) {
         if(opt->option.accept) {
             memcpy(&addr, &opt->local_addr.addr[0], sizeof addr);
             opt->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "accept socket");
             if(opt->fd<0)
-                return 0;
-            if(set_socket_options(opt->fd, 0)<0)
-                return 0;
+                return 1;
+            if(set_socket_options(opt->fd, 0)<0) {
+                closesocket(opt->fd);
+                return 1;
+            }
             s_ntop(opt->local_address, &addr);
             if(bind(opt->fd, &addr.sa, addr_len(addr))) {
                 s_log(LOG_ERR, "Error binding %s to %s",
                     opt->servname, opt->local_address);
                 sockerror("bind");
-                return 0;
+                closesocket(opt->fd);
+                return 1;
             }
             s_log(LOG_DEBUG, "Service %s bound to %s",
                 opt->servname, opt->local_address);
             if(listen(opt->fd, SOMAXCONN)) {
                 sockerror("listen");
-                return 0;
+                closesocket(opt->fd);
+                return 1;
             }
             s_poll_add(&fds, opt->fd, 1, 0);
             s_log(LOG_DEBUG, "Service %s opened FD=%d",
                 opt->servname, opt->fd);
-        } else if(opt->option.program) { /* create exec+connect services */
+        } else if(opt->option.program && opt->option.remote) {
+            /* create exec+connect services */
             enter_critical_section(CRIT_CLIENTS);
             ++num_clients;
             leave_critical_section(CRIT_CLIENTS);
             create_client(-1, -1, alloc_client_session(opt, -1, -1), client);
         }
     }
-    return 1; /* OK */
+    return 0; /* OK */
 }
 
 static void get_limits(void) {
 #if defined(USE_WIN32) || defined(USE_POLL)
     max_fds=0; /* unlimited */
 #elif defined(USE_OS2) && defined(__INNOTEK_LIBC__)
+    max_fds=0; /* unlimited */
     /* OS/2 with the Innotek LIBC does not share the same
        handles between files and socket connections */
 #else /* Unix */
+    max_fds=FD_SETSIZE; /* start with select() limit */
 #if defined(HAVE_SYSCONF)
     int open_max;
 
@@ -292,10 +297,10 @@ static void get_limits(void) {
 
     if(max_fds) {
         max_clients=max_fds>=256 ? max_fds*125/256 : (max_fds-6)/2;
-        s_log(LOG_NOTICE, "Clients allowed=%d", max_clients);
+        s_log(LOG_DEBUG, "Clients allowed=%d", max_clients);
     } else {
         max_clients=0;
-        s_log(LOG_NOTICE, "No limit detected for the number of clients");
+        s_log(LOG_DEBUG, "No limit detected for the number of clients");
     }
 }
 
@@ -605,7 +610,7 @@ void stunnel_info(int level) {
 #else /* defined(USE_POLL) */
         "SELECT"
 #endif /* defined(USE_POLL) */
-        ", IPv%c",
+        ",IPv%c",
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
         s_getaddrinfo ? '6' : '4'
 #else /* defined(USE_WIN32) */
@@ -623,7 +628,7 @@ void stunnel_info(int level) {
 void die(int status) { /* some cleanup and exit */
     log_flush(LOG_MODE_ERROR);
 #ifdef USE_WIN32
-    exit_win32(status);
+    win_exit(status);
 #else
     exit(status);
 #endif

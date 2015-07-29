@@ -1,12 +1,10 @@
-# create RSA certs - Server
-
-RANDFILE = stunnel.rnd
+# create a server certificate
 
 [ req ]
-default_bits = 1024
-encrypt_key = yes
-distinguished_name = req_dn
-x509_extensions = cert_type
+default_bits                    = 2048
+encrypt_key                     = no
+distinguished_name              = req_dn
+x509_extensions                 = cert_type
 
 [ req_dn ]
 countryName = Country Name (2 letter code)
@@ -15,15 +13,16 @@ countryName_min                 = 2
 countryName_max                 = 2
 
 stateOrProvinceName             = State or Province Name (full name)
-stateOrProvinceName_default     = Some-State
+stateOrProvinceName_default     = Mazovia Province
 
 localityName                    = Locality Name (eg, city)
+localityName_default            = Warsaw
 
-0.organizationName              = Organization Name (eg, company)
-0.organizationName_default      = Stunnel Developers Ltd
+organizationName                = Organization Name (eg, company)
+organizationName_default        = Stunnel Developers
 
 organizationalUnitName          = Organizational Unit Name (eg, section)
-#organizationalUnitName_default =
+organizationalUnitName_default  = Provisional CA
 
 0.commonName                    = Common Name (FQDN of your server)
 0.commonName_default            = localhost
@@ -36,5 +35,5 @@ organizationalUnitName          = Organizational Unit Name (eg, section)
 # to see how Netscape understands commonName.
 
 [ cert_type ]
-nsCertType = server
+nsCertType                      = server
 

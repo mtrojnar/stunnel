@@ -1,6 +1,14 @@
 stunnel change log
 
 
+Version 4.39, 2011.07.06, urgency: LOW:
+* New features
+  - New Win32 installer module to build self-signed stunnel.pem.
+  - Added configuration file editing with Windows GUI.
+  - Added log file reopening file editing with Windows GUI.
+    It might be useful to also implement log file rotation.
+  - Improved configuration file reload with Windows GUI.
+
 Version 4.38, 2011.06.28, urgency: MEDIUM:
 * New features
   - Server-side SNI implemented (RFC 3546 section 3.1) with a new

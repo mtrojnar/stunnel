@@ -35,9 +35,6 @@
  *   forward this exception.
  */
 
-/* undefine if you have problems with make_sockets() */
-#define INET_SOCKET_PAIR
-
 #include "common.h"
 #include "prototypes.h"
 
@@ -65,7 +62,6 @@ static void parse_socket_error(CLI *, const char *);
 static void print_cipher(CLI *);
 static void auth_user(CLI *);
 static int connect_local(CLI *);
-static void make_sockets(CLI *, int [2]);
 static int connect_remote(CLI *);
 #ifdef SO_ORIGINAL_DST
 static int connect_transparent(CLI *);
@@ -879,7 +875,8 @@ static int connect_local(CLI *c) { /* spawn local process */
     PROCESS_INFORMATION pi;
     LPTSTR execname_l, execargs_l;
 
-    make_sockets(c, fd);
+    if(make_sockets(fd))
+        longjmp(c->err, 1);
     memset(&si, 0, sizeof si);
     si.cb=sizeof si;
     si.wShowWindow=SW_HIDE;
@@ -916,7 +913,8 @@ static int connect_local(CLI *c) { /* spawn local process */
             longjmp(c->err, 1);
         s_log(LOG_DEBUG, "TTY=%s allocated", tty);
     } else
-        make_sockets(c, fd);
+        if(make_sockets(fd))
+            longjmp(c->err, 1);
 
     pid=fork();
     c->pid=(unsigned long)pid;
@@ -972,57 +970,6 @@ static int connect_local(CLI *c) { /* spawn local process */
 }
 
 #endif /* not USE_WIN32 or __vms */
-
-static void make_sockets(CLI *c, int fd[2]) { /* make a pair of connected sockets */
-#ifdef INET_SOCKET_PAIR
-    SOCKADDR_UNION addr;
-    socklen_t addrlen;
-    int s; /* temporary socket awaiting for connection */
-
-    s=s_socket(AF_INET, SOCK_STREAM, 0, 1, "socket#1");
-    if(s<0)
-        longjmp(c->err, 1);
-    c->fd=s_socket(AF_INET, SOCK_STREAM, 0, 1, "socket#2");
-    if(c->fd<0)
-        longjmp(c->err, 1);
-
-    addrlen=sizeof addr;
-    memset(&addr, 0, addrlen);
-    addr.in.sin_family=AF_INET;
-    addr.in.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
-    addr.in.sin_port=htons(0); /* dynamic port allocation */
-    if(bind(s, &addr.sa, addrlen))
-        log_error(LOG_DEBUG, get_last_socket_error(), "bind#1");
-    if(bind(c->fd, &addr.sa, addrlen))
-        log_error(LOG_DEBUG, get_last_socket_error(), "bind#2");
-
-    if(listen(s, 1)) {
-        closesocket(s);
-        sockerror("listen");
-        longjmp(c->err, 1);
-    }
-    if(getsockname(s, &addr.sa, &addrlen)) {
-        closesocket(s);
-        sockerror("getsockname");
-        longjmp(c->err, 1);
-    }
-    if(connect_blocking(c, &addr, addr_len(addr))) {
-        closesocket(s);
-        longjmp(c->err, 1);
-    }
-    fd[0]=s_accept(s, &addr.sa, &addrlen, 1, "accept");
-    if(fd[0]<0) {
-        closesocket(s);
-        longjmp(c->err, 1);
-    }
-    fd[1]=c->fd;
-    c->fd=-1;
-    closesocket(s); /* don't care about the result */
-#else
-    if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, fd, 1, "socketpair"))
-        longjmp(c->err, 1);
-#endif
-}
 
 static int connect_remote(CLI *c) { /* connect remote host */
     SOCKADDR_UNION addr;
