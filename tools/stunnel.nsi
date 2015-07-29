@@ -2,11 +2,23 @@
 
 !include "Sections.nsh"
 
+!ifndef VERSION
+!define VERSION 4.54
+!endif
+
+!ifndef ZLIBDIR
+!define ZLIBDIR zlib-1.2.7
+!endif
+
+!ifndef OPENSSLDIR
+!define OPENSSLDIR openssl-1.0.1c
+!endif
+
 Name "stunnel ${VERSION}"
 OutFile "stunnel-${VERSION}-installer.exe" 
 InstallDir "$PROGRAMFILES\stunnel"
 BrandingText "Author: Michal Trojnara" 
-LicenseData "${SRCDIR}/tools/stunnel.license"
+LicenseData "stunnel.license"
 SetCompressor /SOLID LZMA
 InstallDirRegKey HKLM "Software\NSIS_stunnel" "Install_Dir"
 
@@ -38,16 +50,35 @@ skip_process_exit:
 
   # write files
   SetOverwrite off
-  File "${SRCDIR}/tools/stunnel.conf"
+  File "stunnel.conf"
   SetOverwrite on
-  #File "${DLLS}/*eay32.dll"
-  File "${DLLS}/libeay32.dll"
-  File "${DLLS}/ssleay32.dll"
-  File "${DLLS}/zlib1.dll"
-  File "${DLLS}/msvcr90.dll"
-  File "${DLLS}/Microsoft.VC90.CRT.manifest"
-  File "src/stunnel.exe"
-  File "${SRCDIR}/doc/stunnel.html"
+  !cd ".."
+  !cd "doc"
+  File "stunnel.html"
+  !cd ".."
+  !cd "bin"
+  !cd "W32"
+  File "stunnel.exe"
+  File "stunnel.exe.manifest"
+  !cd ".."
+  !cd ".."
+  !cd ".."
+  !cd "${ZLIBDIR}"
+  File "zlib1.dll"
+  File "zlib1.dll.manifest"
+  !cd ".."
+  !cd "${OPENSSLDIR}"
+  !cd "out32dll"
+  File "*.dll"
+  File "*.dll.manifest"
+  !cd ".."
+  !cd ".."
+  !cd "redist"
+  File "msvcr90.dll"
+  File "Microsoft.VC90.CRT.manifest"
+  !cd ".."
+  !cd "stunnel"
+  !cd "tools"
   WriteUninstaller "uninstall.exe"
 
   # add uninstaller registry entries
@@ -70,8 +101,17 @@ Section "Self-signed Certificate Tools" sectionCA
   SetOutPath "$INSTDIR"
 
   # write files
-  File "${DLLS}/openssl.exe"
-  File "${SRCDIR}/tools/stunnel.cnf"
+  !cd ".."
+  !cd ".."
+  !cd "${OPENSSLDIR}"
+  !cd "out32dll"
+  File "openssl.exe"
+  File "openssl.exe.manifest"
+  !cd ".."
+  !cd ".."
+  !cd "stunnel"
+  !cd "tools"
+  File "stunnel.cnf"
   IfSilent lbl_skip_new_pem
   IfFileExists "$INSTDIR\stunnel.pem" lbl_skip_new_pem
   ExecWait '"$INSTDIR\openssl.exe" req -new -x509 -days 365 -config stunnel.cnf -out stunnel.pem -keyout stunnel.pem'
@@ -154,13 +194,12 @@ skip_service_uninstall:
   Delete "$INSTDIR\stunnel.conf"
   Delete "$INSTDIR\stunnel.pem"
   Delete "$INSTDIR\stunnel.exe"
+  Delete "$INSTDIR\stunnel.exe.manifest"
   Delete "$INSTDIR\stunnel.cnf"
   Delete "$INSTDIR\openssl.exe"
-  #Delete "$INSTDIR\*eay32.dll"
-  Delete "$INSTDIR\libeay32.dll"
-  Delete "$INSTDIR\ssleay32.dll"
-  Delete "$INSTDIR\zlib1.dll"
-  Delete "$INSTDIR\msvcr90.dll"
+  Delete "$INSTDIR\openssl.exe.manifest"
+  Delete "$INSTDIR\*.dll"
+  Delete "$INSTDIR\*.dll.manifest"
   Delete "$INSTDIR\Microsoft.VC90.CRT.manifest"
   Delete "$INSTDIR\stunnel.html"
   Delete "$INSTDIR\uninstall.exe"

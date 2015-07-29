@@ -156,29 +156,29 @@ odinstalowaniu</p>
 <h1><a name="plik_konfiguracyjny">PLIK KONFIGURACYJNY</a></h1>
 <p>Linia w pliku konfiguracyjnym może być:</p>
 <ul>
-<li><strong><a name="pusta" class="item">pusta (ignorowana)</a></strong>
-
+<li>
+<p>pusta (ignorowana)</p>
 </li>
-<li><strong><a name="komentarzem_rozpoczynaj_cym_si_znakiem_ignorowana" class="item">komentarzem rozpoczynającym się znakiem ';' (ignorowana)</a></strong>
-
+<li>
+<p>komentarzem rozpoczynającym się znakiem ';' (ignorowana)</p>
 </li>
-<li><strong><a name="par_nazwa_opcji_warto_opcji" class="item">parą 'nazwa_opcji = wartość_opcji'</a></strong>
-
+<li>
+<p>parą 'nazwa_opcji = wartość_opcji'</p>
 </li>
-<li><strong><a name="tekstem_nazwa_us_ugi_wskazuj_cym_pocz_tek_definicji_us_ugi" class="item">tekstem '[nazwa_usługi]' wskazującym początek definicji usługi</a></strong>
-
+<li>
+<p>tekstem '[nazwa_usługi]' wskazującym początek definicji usługi</p>
 </li>
 </ul>
 <p>Parametr adres może być:</p>
 <ul>
-<li><strong><a name="numerem_portu" class="item">numerem portu</a></strong>
-
+<li>
+<p>numerem portu</p>
 </li>
-<li><strong><a name="adresu" class="item">oddzieloną średnikiem parą adresu (IPv4, IPv6, lub nazwą domenową) i numeru portu</a></strong>
-
+<li>
+<p>oddzieloną średnikiem parą adresu (IPv4, IPv6, lub nazwą domenową) i numeru portu</p>
 </li>
-<li><strong>ścieżką do gniazda Unix (tylko Unix)</strong>
-
+<li>
+<p>ścieżką do gniazda Unix (tylko Unix)</p>
 </li>
 </ul>
 <p>
@@ -194,6 +194,18 @@ odinstalowaniu</p>
 połączeń.  Ścieżki podane w opcjach <em>CApath</em>, <em>CRLpath</em>, <em>pid</em>
 oraz <em>exec</em> muszą być umieszczone wewnątrz katalogu podanego w opcji
 <em>chroot</em> i określone względem tego katalogu.</p>
+<p>Niektóre funkcje systemu operacyjnego mogą wymagać dodatkowych plików umieszczonych w katalogu podanego w parametrze chroot:</p>
+<ul>
+<li>
+<p>opóźnione rozwinięcie adresów DNS typowo wymaga /etc/nsswitch.conf i /etc/resolv.conf</p>
+</li>
+<li>
+<p>lokalizacja strefy czasowej w logach wymaga pliku /etc/timezone</p>
+</li>
+<li>
+<p>niektóre inne pliki mogą potrzebować plików urządzeń, np. /dev/zero lub /dev/null</p>
+</li>
+</ul>
 </dd>
 <dt><strong><a name="compression_deflate_zlib_rle" class="item"><strong>compression</strong> = deflate | zlib | rle</a></strong></dt>
 
@@ -659,16 +671,48 @@ Wsparcie dla tego rozrzeczenia zostało zarzucone w wersji 3.0.0 serwera Samba.<
 <dd>
 <p>alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'</p>
 </dd>
-<dt><strong><strong>retry</strong> = yes | no (tylko Unix)</strong></dt>
+<dt><strong><a name="renegotiation_yes_no" class="item"><strong>renegotiation</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>pozwalaj na renegocjację SSL</p>
+<p>Wśród zastosowań renegocjacji SSL są niektóre scenariusze uwierzytelnienia,
+oraz renegocjacja kluczy dla długotrwałych połączeń.</p>
+<p>Z drugiej strony własność na może ułatwić trywialny atak DoS poprzez
+wygenerowanie obciążenia procesora:</p>
+<p><a href="http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html">http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html</a></p>
+<p>Warto zauważyć, że zablokowanie renegocjacji SSL nie zebezpiecza w pełni
+przed opisanym problemem.</p>
+<p>domyślnie: yes (o ile wspierane przez OpenSSL)</p>
+</dd>
+<dt><strong><a name="reset_yes_no" class="item"><strong>reset</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>sygnalizuj wystąpienie błędu przy pomocy flagi TCP RST</p>
+<p>Ta opcja nie jest wspierana na niektórych platformach.</p>
+<p>domyślnie: yes</p>
+</dd>
+<dt><strong><a name="retry_yes_no" class="item"><strong>retry</strong> = yes | no</a></strong></dt>
 
 <dd>
 <p>połącz ponownie sekcję connect+exec po rozłączeniu</p>
 <p>domyślnie: no</p>
 </dd>
-<dt><strong><a name="session_przeterminowanie_pami_ci_podr_cznej_sesji" class="item"><strong>session</strong> = przeterminowanie_pamięci_podręcznej_sesji</a></strong></dt>
+<dt><strong><a name="sessioncachesize_rozmiar" class="item"><strong>sessionCacheSize</strong> = rozmiar</a></strong></dt>
 
 <dd>
-<p>czas w sekundach, po którym sesja SSL zostanie usunięta z pamięci podręcznej</p>
+<p>rozmiar pamięci podręcznej sesji SSL</p>
+<p>Parametr określa maksymalną liczbę pozycji wewnętrznej pamięci podręcznej
+sesji.</p>
+<p>Wartość 0 oznacza brak ograniczenia rozmiaru.  Nie jest to zalecane dla
+systemów produkcyjnych z uwagi na ryzyko ataku DoS przez wyczerpanie pamięci
+RAM.</p>
+</dd>
+<dt><strong><a name="sessioncachetimeout_czas" class="item"><strong>sessionCacheTimeout</strong> = czas</a></strong></dt>
+
+<dd>
+<p>przeterminowanie pamięci podręcznej sesji SSL</p>
+<p>Parametr określa czas w sekundach, po którym sesja SSL zostanie usunięta z
+pamięci podręcznej.</p>
 </dd>
 <dt><strong><a name="sessiond_adres_port" class="item"><strong>sessiond</strong> = adres:port</a></strong></dt>
 
@@ -679,7 +723,7 @@ Wsparcie dla tego rozrzeczenia zostało zarzucone w wersji 3.0.0 serwera Samba.<
 
 <dd>
 <p>wersja protokołu SSL</p>
-<p>Dozwolone opcje: all, SSLv2, SSLv3, TLSv1</p>
+<p>Dozwolone opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
 </dd>
 <dt><strong><a name="w" class="item"><strong>stack</strong> = liczba_bajtów (z wyjątkiem modelu FORK)</a></strong></dt>
 
@@ -805,18 +849,36 @@ dodatkowe opcje:</p>
 <dd>
 <p>weryfikuj certyfikat drugiej strony połączenia</p>
 <dl>
-<dt><strong><a name="poziom_0_zarz_daj_certyfikatu_i_zignoruj_go" class="item"><em>poziom 0</em> - zarządaj certyfikatu i zignoruj go</a></strong></dt>
+<dt><strong><a name="poziom_0" class="item"><em>poziom 0</em></a></strong></dt>
 
-<dt><strong><a name="poziom_1_weryfikuj_je_eli_zosta_przedstawiony" class="item"><em>poziom 1</em> - weryfikuj, jeżeli został przedstawiony</a></strong></dt>
+<dd>
+<p>zarządaj certyfikatu i zignoruj go</p>
+</dd>
+<dt><strong><a name="poziom_1" class="item"><em>poziom 1</em></a></strong></dt>
 
-<dt><strong><a name="poziom_2_weryfikuj_z_zainstalowanym_certyfikatem_centrum_certyfikacji" class="item"><em>poziom 2</em> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji</a></strong></dt>
+<dd>
+<p>weryfikuj, jeżeli został przedstawiony</p>
+</dd>
+<dt><strong><a name="poziom_2" class="item"><em>poziom 2</em></a></strong></dt>
 
-<dt><strong><a name="poziom_3_weryfikuj_z_lokalnie_zainstalowanym_certyfikatem_drugiej_strony" class="item"><em>poziom 3</em> - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony</a></strong></dt>
+<dd>
+<p>weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji</p>
+</dd>
+<dt><strong><a name="poziom_3" class="item"><em>poziom 3</em></a></strong></dt>
 
-<dt><strong><a name="poziom_4_weryfikuj_z_certyfikatem_drugiej_strony_ignoruj_c_a_cuch_ca" class="item"><em>poziom 4</em> - weryfikuj z certyfikatem drugiej strony ignorując łańcuch CA</a></strong></dt>
+<dd>
+<p>weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony</p>
+</dd>
+<dt><strong><a name="poziom_4" class="item"><em>poziom 4</em></a></strong></dt>
 
-<dt><strong><a name="domy_lnie_nie_weryfikuj" class="item"><em>domyślnie</em> - nie weryfikuj</a></strong></dt>
+<dd>
+<p>weryfikuj z certyfikatem drugiej strony ignorując łańcuch CA</p>
+</dd>
+<dt><strong><a name="domy_lnie" class="item"><em>domyślnie</em></a></strong></dt>
 
+<dd>
+<p>nie weryfikuj</p>
+</dd>
 </dl>
 </dd>
 </dl>
@@ -838,20 +900,20 @@ w przypadku błędu.</p>
 <p>Załaduj ponownie plik konfiguracyjny.</p>
 <p>Niektóre globalne opcje nie będą przeładowane:</p>
 <ul>
-<li><strong><a name="chroot" class="item">chroot</a></strong>
-
+<li>
+<p>chroot</p>
 </li>
-<li><strong><a name="foreground" class="item">foreground</a></strong>
-
+<li>
+<p>foreground</p>
 </li>
-<li><strong><a name="pid" class="item">pid</a></strong>
-
+<li>
+<p>pid</p>
 </li>
-<li><strong><a name="setgid" class="item">setgid</a></strong>
-
+<li>
+<p>setgid</p>
 </li>
-<li><strong><a name="setuid" class="item">setuid</a></strong>
-
+<li>
+<p>setuid</p>
 </li>
 </ul>
 <p>Jeżeli wykorzystywana jest opcja 'setuid' stunnel nie będzie mógł załadować
@@ -970,32 +1032,32 @@ gdyż protokół SSL wymaga do bezpieczeństwa kryptograficznego źródła
 dobrej losowości.  Następujące źródła są kolejno odczytywane aż do
 uzyskania  wystarczającej ilości entropii:</p>
 <ul>
-<li><strong><a name="zawarto_pliku_podanego_w_opcji_rndfile" class="item">Zawartość pliku podanego w opcji <em>RNDfile</em>.</a></strong>
-
+<li>
+<p>Zawartość pliku podanego w opcji <em>RNDfile</em>.</p>
 </li>
-<li><strong><a name="zawarto_pliku_o_nazwie_okre_lonej_przez_zmienn_rodowiskow_randfile_o_ile_jest_ona_ustawiona" class="item">Zawartość pliku o nazwie określonej przez zmienną środowiskową
-RANDFILE, o ile jest ona ustawiona.</a></strong>
-
+<li>
+<p>Zawartość pliku o nazwie określonej przez zmienną środowiskową
+RANDFILE, o ile jest ona ustawiona.</p>
 </li>
-<li><strong><a name="plik_rnd_umieszczony_w_katalogu_domowym_u_ytkownika_je_eli_zmienna_randfile_nie_jest_ustawiona" class="item">Plik .rnd umieszczony w katalogu domowym użytkownika,
-jeżeli zmienna RANDFILE nie jest ustawiona.</a></strong>
-
+<li>
+<p>Plik .rnd umieszczony w katalogu domowym użytkownika,
+jeżeli zmienna RANDFILE nie jest ustawiona.</p>
 </li>
-<li><strong><a name="plik_podany_w_opcji_with_random_w_czasie_konfiguracji_programu" class="item">Plik podany w opcji '--with-random' w czasie konfiguracji programu.</a></strong>
-
+<li>
+<p>Plik podany w opcji '--with-random' w czasie konfiguracji programu.</p>
 </li>
-<li><strong><a name="zawarto_ekranu_w_systemie_windows" class="item">Zawartość ekranu w systemie Windows.</a></strong>
-
+<li>
+<p>Zawartość ekranu w systemie Windows.</p>
 </li>
-<li><strong><a name="gniazdo_egd_je_eli_u_yta_zosta_a_opcja_egd" class="item">Gniazdo egd, jeżeli użyta została opcja <em>EGD</em>.</a></strong>
-
+<li>
+<p>Gniazdo egd, jeżeli użyta została opcja <em>EGD</em>.</p>
 </li>
-<li><strong><a name="gniazdo_egd_podane_w_opcji_with_egd_socket_w_czasie_konfiguracji_programu" class="item">Gniazdo egd podane w opcji '--with-egd-socket' w czasie konfiguracji
-programu.</a></strong>
-
+<li>
+<p>Gniazdo egd podane w opcji '--with-egd-socket' w czasie konfiguracji
+programu.</p>
 </li>
-<li><strong><a name="urz_dzenie_dev_urandom" class="item">Urządzenie /dev/urandom.</a></strong>
-
+<li>
+<p>Urządzenie /dev/urandom.</p>
 </li>
 </ul>
 <p>Współczesne (&gt;=0.9.5a) wersje biblioteki <em>OpenSSL</em> automatycznie
@@ -1043,7 +1105,7 @@ parametry DH.</p>
 </p>
 <hr />
 <h1><a name="b____dy">BŁĘDY</a></h1>
-<p>Opcja <em>execargs</em> nie obsługuje cytowania.</p>
+<p>Opcja <em>execargs</em> oraz linia komend Win32 nie obsługuje cytowania.</p>
 <p>
 </p>
 <hr />

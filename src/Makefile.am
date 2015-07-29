@@ -36,7 +36,7 @@ EXTRA_DIST += mingw.mak evc.mak vc.mak os2.mak
 EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_sources)
 
-OPENSSLDIR = /usr/src/openssl-0.9.8s-fips
+OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
 # OPENSSLDIR = /usr/src/openssl-1.0.0f-i586
 # WINCPPFLAGS = -I$(OPENSSLDIR)/include

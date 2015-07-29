@@ -6,19 +6,19 @@
  *   under the terms of the GNU General Public License as published by the
  *   Free Software Foundation; either version 2 of the License, or (at your
  *   option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *   See the GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License along
  *   with this program; if not, see <http://www.gnu.org/licenses>.
- * 
+ *
  *   Linking stunnel statically or dynamically with other modules is making
  *   a combined work based on stunnel. Thus, the terms and conditions of
  *   the GNU General Public License cover the whole combination.
- * 
+ *
  *   In addition, as a special exception, the copyright holder of stunnel
  *   gives you permission to combine stunnel with free software programs or
  *   libraries that are released under the GNU LGPL and with code included
@@ -26,7 +26,7 @@
  *   modified versions of such code, with unchanged license). You may copy
  *   and distribute such a system following the terms of the GNU GPL for
  *   stunnel and the licenses of the other code concerned.
- * 
+ *
  *   Note that people who make modified versions of stunnel are not obligated
  *   to grant this special exception for their modified versions; it is their
  *   choice whether to do so. The GNU General Public License gives permission
@@ -225,7 +225,7 @@ static int add_rand_file(GLOBAL_OPTIONS *global, const char *filename) {
     struct stat sb;
 
     if(stat(filename, &sb))
-        return 0; /* could not stat() file  -> return 0 bytes */
+        return 0; /* could not stat() file --> return 0 bytes */
     if((readbytes=RAND_load_file(filename, global->random_bytes)))
         s_log(LOG_DEBUG, "Snagged %d random bytes from %s",
             readbytes, filename);
@@ -233,7 +233,7 @@ static int add_rand_file(GLOBAL_OPTIONS *global, const char *filename) {
         s_log(LOG_INFO, "Unable to retrieve any random data from %s",
             filename);
     /* write new random data for future seeding if it's a regular file */
-    if(global->option.rand_write && (sb.st_mode & S_IFREG)){
+    if(global->option.rand_write && (sb.st_mode & S_IFREG)) {
         writebytes=RAND_write_file(filename);
         if(writebytes==-1)
             s_log(LOG_WARNING, "Failed to write strong random data to %s - "

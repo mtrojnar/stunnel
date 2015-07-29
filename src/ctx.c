@@ -126,6 +126,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
         }
     }
     SSL_CTX_set_session_cache_mode(section->ctx, SSL_SESS_CACHE_BOTH);
+    SSL_CTX_sess_set_cache_size(section->ctx, section->session_size);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
     if(section->option.sessiond) {
         SSL_CTX_sess_set_new_cb(section->ctx, sess_new_cb);
@@ -134,8 +135,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     }
 
     /* set info callback */
-    if(global_options.debug_level==LOG_DEBUG) /* performance optimization */
-        SSL_CTX_set_info_callback(section->ctx, info_callback);
+    SSL_CTX_set_info_callback(section->ctx, info_callback);
 
     /* ciphers, options, mode */
     if(section->cipher_list)
@@ -300,6 +300,7 @@ static int init_ecdh(SERVICE_OPTIONS *section) {
 
     ecdh=EC_KEY_new_by_curve_name(section->curve);
     if(!ecdh) {
+        sslerror("EC_KEY_new_by_curve_name");
         s_log(LOG_ERR, "Unable to create curve %s",
             OBJ_nid2ln(section->curve));
         return 1; /* FAILED */
@@ -615,6 +616,31 @@ static void info_callback(
         const
 #endif
         SSL *ssl, int where, int ret) {
+    CLI *c;
+
+    c=SSL_get_ex_data(ssl, cli_index);
+    if(c) {
+        if((where&SSL_CB_HANDSHAKE_DONE)
+                && c->reneg_state==RENEG_INIT) {
+            /* first (initial) handshake was completed, remember this,
+             * so that further renegotiation attempts can be detected */
+            c->reneg_state=RENEG_ESTABLISHED;
+        } else if((where&SSL_CB_ACCEPT_LOOP)
+                && c->reneg_state==RENEG_ESTABLISHED) {
+            int state=SSL_get_state(ssl);
+
+            if(state==SSL3_ST_SR_CLNT_HELLO_A
+                    || state==SSL23_ST_SR_CLNT_HELLO_A) {
+                /* client hello received after initial handshake,
+                 * this means renegotiation -> mark it */
+                c->reneg_state=RENEG_DETECTED;
+            }
+        }
+    }
+
+    if(global_options.debug_level<LOG_DEBUG)
+        return; /* performance optimization */
+
     if(where & SSL_CB_LOOP) {
         s_log(LOG_DEBUG, "SSL state (%s): %s",
             where & SSL_ST_CONNECT ? "connect" :

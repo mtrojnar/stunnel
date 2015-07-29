@@ -94,13 +94,21 @@ Linia w pliku konfiguracyjnym może być:
 
 =over 4
 
-=item * pusta (ignorowana)
+=item *
 
-=item * komentarzem rozpoczynającym się znakiem ';' (ignorowana)
+pusta (ignorowana)
 
-=item * parą 'nazwa_opcji = wartość_opcji'
+=item *
 
-=item * tekstem '[nazwa_usługi]' wskazującym początek definicji usługi
+komentarzem rozpoczynającym się znakiem ';' (ignorowana)
+
+=item *
+
+parą 'nazwa_opcji = wartość_opcji'
+
+=item *
+
+tekstem '[nazwa_usługi]' wskazującym początek definicji usługi
 
 =back
 
@@ -108,11 +116,17 @@ Parametr adres może być:
 
 =over 4
 
-=item * numerem portu
+=item *
 
-=item * oddzieloną średnikiem parą adresu (IPv4, IPv6, lub nazwą domenową) i numeru portu
+numerem portu
 
-=item * ścieżką do gniazda Unix (tylko Unix)
+=item *
+
+oddzieloną średnikiem parą adresu (IPv4, IPv6, lub nazwą domenową) i numeru portu
+
+=item *
+
+ścieżką do gniazda Unix (tylko Unix)
 
 =back
 
@@ -129,6 +143,24 @@ B<stunnel> tuż po jego inicjalizacji, a przed rozpoczęciem odbierania
 połączeń.  Ścieżki podane w opcjach I<CApath>, I<CRLpath>, I<pid>
 oraz I<exec> muszą być umieszczone wewnątrz katalogu podanego w opcji
 I<chroot> i określone względem tego katalogu.
+
+Niektóre funkcje systemu operacyjnego mogą wymagać dodatkowych plików umieszczonych w katalogu podanego w parametrze chroot:
+
+=over 4
+
+=item *
+
+opóźnione rozwinięcie adresów DNS typowo wymaga /etc/nsswitch.conf i /etc/resolv.conf
+
+=item *
+
+lokalizacja strefy czasowej w logach wymaga pliku /etc/timezone
+
+=item *
+
+niektóre inne pliki mogą potrzebować plików urządzeń, np. /dev/zero lub /dev/null
+
+=back
 
 =item B<compression> = deflate | zlib | rle
 
@@ -611,15 +643,54 @@ nazwa użytkownika do negocjacji protokołu
 
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
 
-=item B<retry> = yes | no (tylko Unix)
+=item B<renegotiation> = yes | no
+
+pozwalaj na renegocjację SSL
+
+Wśród zastosowań renegocjacji SSL są niektóre scenariusze uwierzytelnienia,
+oraz renegocjacja kluczy dla długotrwałych połączeń.
+
+Z drugiej strony własność na może ułatwić trywialny atak DoS poprzez
+wygenerowanie obciążenia procesora:
+
+http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html
+
+Warto zauważyć, że zablokowanie renegocjacji SSL nie zebezpiecza w pełni
+przed opisanym problemem.
+
+domyślnie: yes (o ile wspierane przez OpenSSL)
+
+=item B<reset> = yes | no
+
+sygnalizuj wystąpienie błędu przy pomocy flagi TCP RST
+
+Ta opcja nie jest wspierana na niektórych platformach.
+
+domyślnie: yes
+
+=item B<retry> = yes | no
 
 połącz ponownie sekcję connect+exec po rozłączeniu
 
 domyślnie: no
 
-=item B<session> = przeterminowanie_pamięci_podręcznej_sesji
+=item B<sessionCacheSize> = rozmiar
 
-czas w sekundach, po którym sesja SSL zostanie usunięta z pamięci podręcznej
+rozmiar pamięci podręcznej sesji SSL
+
+Parametr określa maksymalną liczbę pozycji wewnętrznej pamięci podręcznej
+sesji.
+
+Wartość 0 oznacza brak ograniczenia rozmiaru.  Nie jest to zalecane dla
+systemów produkcyjnych z uwagi na ryzyko ataku DoS przez wyczerpanie pamięci
+RAM.
+
+=item B<sessionCacheTimeout> = czas
+
+przeterminowanie pamięci podręcznej sesji SSL
+
+Parametr określa czas w sekundach, po którym sesja SSL zostanie usunięta z
+pamięci podręcznej.
 
 =item B<sessiond> = adres:port
 
@@ -629,7 +700,7 @@ adres sessiond - servera cache sesji SSL
 
 wersja protokołu SSL
 
-Dozwolone opcje: all, SSLv2, SSLv3, TLSv1
+Dozwolone opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 
 =item B<stack> = liczba_bajtów (z wyjątkiem modelu FORK)
 
@@ -754,17 +825,29 @@ weryfikuj certyfikat drugiej strony połączenia
 
 =over 4
 
-=item I<poziom 0> - zarządaj certyfikatu i zignoruj go
+=item I<poziom 0>
 
-=item I<poziom 1> - weryfikuj, jeżeli został przedstawiony
+zarządaj certyfikatu i zignoruj go
 
-=item I<poziom 2> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji
+=item I<poziom 1>
 
-=item I<poziom 3> - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony
+weryfikuj, jeżeli został przedstawiony
 
-=item I<poziom 4> - weryfikuj z certyfikatem drugiej strony ignorując łańcuch CA
+=item I<poziom 2>
 
-=item I<domyślnie> - nie weryfikuj
+weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji
+
+=item I<poziom 3>
+
+weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony
+
+=item I<poziom 4>
+
+weryfikuj z certyfikatem drugiej strony ignorując łańcuch CA
+
+=item I<domyślnie>
+
+nie weryfikuj
 
 =back
 
@@ -791,15 +874,25 @@ Niektóre globalne opcje nie będą przeładowane:
 
 =over 4
 
-=item * chroot
+=item *
 
-=item * foreground
+chroot
 
-=item * pid
+=item *
 
-=item * setgid
+foreground
 
-=item * setuid
+=item *
+
+pid
+
+=item *
+
+setgid
+
+=item *
+
+setuid
 
 =back
 
@@ -926,24 +1019,40 @@ uzyskania  wystarczającej ilości entropii:
 
 =over 4
 
-=item * Zawartość pliku podanego w opcji I<RNDfile>.
+=item *
 
-=item * Zawartość pliku o nazwie określonej przez zmienną środowiskową
+Zawartość pliku podanego w opcji I<RNDfile>.
+
+=item *
+
+Zawartość pliku o nazwie określonej przez zmienną środowiskową
 RANDFILE, o ile jest ona ustawiona.
 
-=item * Plik .rnd umieszczony w katalogu domowym użytkownika,
+=item *
+
+Plik .rnd umieszczony w katalogu domowym użytkownika,
 jeżeli zmienna RANDFILE nie jest ustawiona.
 
-=item * Plik podany w opcji '--with-random' w czasie konfiguracji programu.
+=item *
 
-=item * Zawartość ekranu w systemie Windows.
+Plik podany w opcji '--with-random' w czasie konfiguracji programu.
 
-=item * Gniazdo egd, jeżeli użyta została opcja I<EGD>.
+=item *
 
-=item * Gniazdo egd podane w opcji '--with-egd-socket' w czasie konfiguracji
+Zawartość ekranu w systemie Windows.
+
+=item *
+
+Gniazdo egd, jeżeli użyta została opcja I<EGD>.
+
+=item *
+
+Gniazdo egd podane w opcji '--with-egd-socket' w czasie konfiguracji
 programu.
 
-=item * Urządzenie /dev/urandom.
+=item *
+
+Urządzenie /dev/urandom.
 
 =back
 
@@ -997,7 +1106,7 @@ plik konfiguracyjny programu
 
 =head1 BŁĘDY
 
-Opcja I<execargs> nie obsługuje cytowania.
+Opcja I<execargs> oraz linia komend Win32 nie obsługuje cytowania.
 
 
 =head1 ZOBACZ RÓWNIEŻ

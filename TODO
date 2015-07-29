@@ -3,6 +3,7 @@ stunnel TODO
 
 High priority features.  They will likely be supported some day.
 A sponsor could allocate my time to get them faster.
+* Perform protocol negotiations after SSL negotiations if possible.
 * Command-line server control interface on both Unix and Windows.
 * Separate GUI process running as current user on Windows.
 * Optional line-buffering of the log file.
@@ -15,6 +16,7 @@ A sponsor could allocate my time to get them faster.
 * Configuration file option to limit the number of concurrent connections.
 * SOCKS 4 protocol support.
   http://archive.socks.permeo.com/protocol/socks4.protocol
+* Option to redirect instead of rejecting connections on failed authentication.
 
 Low priority features.  They will unlikely ever be supported.
 * Provide 64-bit Windows builds (besides 32-bit builds).
@@ -32,8 +34,11 @@ Features I won't support, unless convinced otherwise by a wealthy sponsor.
     This feature is less useful since PROXY protocol support is available.
   - Support for adding X-Forwarded-For to SMTP email headers.
     This feature is most likely to be implemented as a separate proxy.
-* Additional certificate checks (including wildcard comparison) based on CN
-  and X509v3 Subject Alternative Name.
+* Additional certificate checks (including wildcard comparison) based on:
+  - CN (Common Name);
+  - SAN (Subject Alternative Name);
+  - O (Organization), and
+  - OU (Organizational Unit).
 * Set processes title that appear on the ps(1) and top(1) commands.
   I could not find a portable *and* non-copyleft library for it.
 

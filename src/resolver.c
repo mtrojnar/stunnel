@@ -6,19 +6,19 @@
  *   under the terms of the GNU General Public License as published by the
  *   Free Software Foundation; either version 2 of the License, or (at your
  *   option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *   See the GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License along
  *   with this program; if not, see <http://www.gnu.org/licenses>.
- * 
+ *
  *   Linking stunnel statically or dynamically with other modules is making
  *   a combined work based on stunnel. Thus, the terms and conditions of
  *   the GNU General Public License cover the whole combination.
- * 
+ *
  *   In addition, as a special exception, the copyright holder of stunnel
  *   gives you permission to combine stunnel with free software programs or
  *   libraries that are released under the GNU LGPL and with code included
@@ -26,7 +26,7 @@
  *   modified versions of such code, with unchanged license). You may copy
  *   and distribute such a system following the terms of the GNU GPL for
  *   stunnel and the licenses of the other code concerned.
- * 
+ *
  *   Note that people who make modified versions of stunnel are not obligated
  *   to grant this special exception for their modified versions; it is their
  *   choice whether to do so. The GNU General Public License gives permission
@@ -39,6 +39,9 @@
 #include "prototypes.h"
 
 /**************************************** prototypes */
+
+static int name2addrlist(SOCKADDR_LIST *, char *, char *);
+static int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
 
 #ifndef HAVE_GETADDRINFO
 
@@ -107,7 +110,15 @@ int hostport2addr(SOCKADDR_UNION *addr, char *hostname, char *portname) {
     return retval;
 }
 
-int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
+int namelist2addrlist(SOCKADDR_LIST *addr_list, NAME_LIST *name_list, char *default_host) {
+    /* recursive implementation to reverse the list */
+    if(!name_list)
+        return 0;
+    return namelist2addrlist(addr_list, name_list->next, default_host) +
+        name2addrlist(addr_list, name_list->name, default_host);
+}
+
+static int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
     char *tmp, *hostname, *portname;
     int retval;
 
@@ -146,10 +157,10 @@ int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
     return retval;
 }
 
-int hostport2addrlist(SOCKADDR_LIST *addr_list,
+static int hostport2addrlist(SOCKADDR_LIST *addr_list,
         char *hostname, char *portname) {
     struct addrinfo hints, *res=NULL, *cur;
-    int err;
+    int err, retries=0;
 
     memset(&hints, 0, sizeof hints);
 #if defined(USE_IPv6) || defined(USE_WIN32)
@@ -159,15 +170,15 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
 #endif
     hints.ai_socktype=SOCK_STREAM;
     hints.ai_protocol=IPPROTO_TCP;
-    do {
+    for(;;) {
         err=getaddrinfo(hostname, portname, &hints, &res);
         if(err && res)
             freeaddrinfo(res);
-        if(err==EAI_AGAIN) {
-            s_log(LOG_DEBUG, "getaddrinfo: EAI_AGAIN received: retrying");
-            sleep(1);
-        }
-    } while(err==EAI_AGAIN);
+        if(err!=EAI_AGAIN || ++retries>=3)
+            break;
+        s_log(LOG_DEBUG, "getaddrinfo: EAI_AGAIN received: retrying");
+        sleep(1);
+    }
     switch(err) {
     case 0:
         break; /* success */

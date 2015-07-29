@@ -156,29 +156,29 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <h1><a name="configuration_file">CONFIGURATION FILE</a></h1>
 <p>Each line of the configuration file can be either:</p>
 <ul>
-<li><strong><a name="line" class="item">an empty line (ignored)</a></strong>
-
+<li>
+<p>An empty line (ignored).</p>
 </li>
-<li><strong><a name="a_comment_starting_with_ignored" class="item">a comment starting with ';' (ignored)</a></strong>
-
+<li>
+<p>A comment starting with ';' (ignored).</p>
 </li>
-<li><strong><a name="an_option_name_option_value_pair" class="item">an 'option_name = option_value' pair</a></strong>
-
+<li>
+<p>An 'option_name = option_value' pair.</p>
 </li>
-<li><strong><a name="service_name_indicating_a_start_of_a_service_definition" class="item">'[service_name]' indicating a start of a service definition</a></strong>
-
+<li>
+<p>'[service_name]' indicating a start of a service definition.</p>
 </li>
 </ul>
 <p>An address parameter of an option may be either:</p>
 <ul>
-<li><strong><a name="a_port_number" class="item">a port number</a></strong>
-
+<li>
+<p>A port number.</p>
 </li>
-<li><strong><a name="address" class="item">a colon-separated pair of IP address (either IPv4, IPv6, or domain name) and port number</a></strong>
-
+<li>
+<p>A colon-separated pair of IP address (either IPv4, IPv6, or domain name) and port number.</p>
 </li>
-<li><strong><a name="path" class="item">a Unix socket path (Unix only)</a></strong>
-
+<li>
+<p>A Unix socket path (Unix only).</p>
 </li>
 </ul>
 <p>
@@ -192,6 +192,18 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <p><strong>chroot</strong> keeps <strong>stunnel</strong> in chrooted jail.  <em>CApath</em>, <em>CRLpath</em>, <em>pid</em>
 and <em>exec</em> are located inside the jail and the patches have to be relative
 to the directory specified with <strong>chroot</strong>.</p>
+<p>Several functions of the operating system also need their files to be located within chroot jail, e.g.:</p>
+<ul>
+<li>
+<p>Delayed resolver typically needs /etc/nsswitch.conf and /etc/resolv.conf.</p>
+</li>
+<li>
+<p>Local time in log files needs /etc/timezone.</p>
+</li>
+<li>
+<p>Some other functions may need devices, e.g. /dev/zero or /dev/null.</p>
+</li>
+</ul>
 </dd>
 <dt><strong><a name="compression_deflate_zlib_rle" class="item"><strong>compression</strong> = deflate | zlib | rle</a></strong></dt>
 
@@ -216,7 +228,7 @@ all levels numerically less than it will be shown.  Use <em>debug = debug</em> o
 (Facilities are not supported on Win32.)</p>
 <p>Case is ignored for both facilities and levels.</p>
 </dd>
-<dt><strong><strong>EGD</strong> = egd path (Unix only)</strong></dt>
+<dt><strong><a name="path" class="item"><strong>EGD</strong> = egd path (Unix only)</a></strong></dt>
 
 <dd>
 <p>path to Entropy Gathering Daemon socket</p>
@@ -311,12 +323,12 @@ number generator.</p>
 <dt><strong><a name="groupname" class="item"><strong>setgid</strong> = groupname (Unix only)</a></strong></dt>
 
 <dd>
-<p><a href="#setgid"><code>setgid()</code></a> to groupname in daemon mode and clears all other groups</p>
+<p><code>setgid()</code> to groupname in daemon mode and clears all other groups</p>
 </dd>
 <dt><strong><a name="username" class="item"><strong>setuid</strong> = username (Unix only)</a></strong></dt>
 
 <dd>
-<p><a href="#setuid"><code>setuid()</code></a> to username in daemon mode</p>
+<p><code>setuid()</code> to username in daemon mode</p>
 </dd>
 <dt><strong><a name="socket_a_l_r_option_value_value" class="item"><strong>socket</strong> = a|l|r:option=value[:value]</a></strong></dt>
 
@@ -637,16 +649,46 @@ Support for this extension was dropped in Samba 3.0.0.</p>
 <dd>
 <p>allocate pseudo terminal for 'exec' option</p>
 </dd>
-<dt><strong><strong>retry</strong> = yes | no (Unix only)</strong></dt>
+<dt><strong><a name="renegotiation_yes_no" class="item"><strong>renegotiation</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>support SSL renegotiation</p>
+<p>Applications of the SSL renegotiation include some authentication scenarios,
+or re-keying long lasting connections.</p>
+<p>On the other hand this feature can facilitate a trivial CPU-exhaustion
+DoS attack:</p>
+<p><a href="http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html">http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html</a></p>
+<p>Please note that disabling SSL renegotiation does not fully mitigate
+this issue.</p>
+<p>default: yes (if supported by OpenSSL)</p>
+</dd>
+<dt><strong><a name="reset_yes_no" class="item"><strong>reset</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>attempt to use TCP RST flag to indicate an error</p>
+<p>This option is not supported on some platforms.</p>
+<p>default: yes</p>
+</dd>
+<dt><strong><a name="retry_yes_no" class="item"><strong>retry</strong> = yes | no</a></strong></dt>
 
 <dd>
 <p>reconnect a connect+exec section after it's disconnected</p>
 <p>default: no</p>
 </dd>
-<dt><strong><a name="session_timeout" class="item"><strong>session</strong> = timeout</a></strong></dt>
+<dt><strong><a name="sessioncachesize_size" class="item"><strong>sessionCacheSize</strong> = size</a></strong></dt>
+
+<dd>
+<p>session cache size</p>
+<p>The parameter specifies the maximum number of the internal session cache
+entries.</p>
+<p>The value of 0 can be used for unlimited size.  It is not recommended
+for production use due to the risk of memory exhaustion DoS attack.</p>
+</dd>
+<dt><strong><a name="sessioncachetimeout_timeout" class="item"><strong>sessionCacheTimeout</strong> = timeout</a></strong></dt>
 
 <dd>
 <p>session cache timeout</p>
+<p>This is the number of seconds to keep cached SSL sessions.</p>
 </dd>
 <dt><strong><a name="sessiond_host_port" class="item"><strong>sessiond</strong> = host:port</a></strong></dt>
 
@@ -657,7 +699,7 @@ Support for this extension was dropped in Samba 3.0.0.</p>
 
 <dd>
 <p>select version of SSL protocol</p>
-<p>Allowed options: all, SSLv2, SSLv3, TLSv1</p>
+<p>Allowed options: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
 </dd>
 <dt><strong><a name="bytes" class="item"><strong>stack</strong> = bytes (except for FORK model)</a></strong></dt>
 
@@ -784,18 +826,36 @@ other platforms.</p>
 <dd>
 <p>verify peer certificate</p>
 <dl>
-<dt><strong><a name="level_0_request_and_ignore_peer_certificate" class="item"><em>level 0</em> - request and ignore peer certificate</a></strong></dt>
+<dt><strong><a name="level_0" class="item">level 0</a></strong></dt>
 
-<dt><strong><a name="level_1_verify_peer_certificate_if_present" class="item"><em>level 1</em> - verify peer certificate if present</a></strong></dt>
+<dd>
+<p>Request and ignore peer certificate.</p>
+</dd>
+<dt><strong><a name="level_1" class="item">level 1</a></strong></dt>
 
-<dt><strong><a name="level_2_verify_peer_certificate" class="item"><em>level 2</em> - verify peer certificate</a></strong></dt>
+<dd>
+<p>Verify peer certificate if present.</p>
+</dd>
+<dt><strong><a name="level_2" class="item">level 2</a></strong></dt>
 
-<dt><strong><a name="level_3_verify_peer_with_locally_installed_certificate" class="item"><em>level 3</em> - verify peer with locally installed certificate</a></strong></dt>
+<dd>
+<p>Verify peer certificate.</p>
+</dd>
+<dt><strong><a name="level_3" class="item">level 3</a></strong></dt>
 
-<dt><strong><a name="level_4_ignore_ca_chain_and_only_verify_peer_certificate" class="item"><em>level 4</em> - ignore CA chain and only verify peer certificate</a></strong></dt>
+<dd>
+<p>Verify peer with locally installed certificate.</p>
+</dd>
+<dt><strong><a name="level_4" class="item">level 4</a></strong></dt>
 
-<dt><strong><a name="default_no_verify" class="item"><em>default</em> - no verify</a></strong></dt>
+<dd>
+<p>Ignore CA chain and only verify peer certificate.</p>
+</dd>
+<dt><strong><a name="default" class="item">default</a></strong></dt>
 
+<dd>
+<p>No verify.</p>
+</dd>
 </dl>
 <p>It is important to understand, that this option was solely designed for access
 control and not for authorization.  Specifically for level 2 every non-revoked
@@ -821,20 +881,20 @@ for webservers.  Level 3 is preferred for point-to-point connections.</p>
 <p>Force a reload of the configuration file.</p>
 <p>Some global options will not be reloaded:</p>
 <ul>
-<li><strong><a name="chroot" class="item">chroot</a></strong>
-
+<li>
+<p>chroot</p>
 </li>
-<li><strong><a name="foreground" class="item">foreground</a></strong>
-
+<li>
+<p>foreground</p>
 </li>
-<li><strong><a name="pid" class="item">pid</a></strong>
-
+<li>
+<p>pid</p>
 </li>
-<li><strong><a name="setgid" class="item">setgid</a></strong>
-
+<li>
+<p>setgid</p>
 </li>
-<li><strong><a name="setuid" class="item">setuid</a></strong>
-
+<li>
+<p>setuid</p>
 </li>
 </ul>
 <p>The use of 'setuid' option will also prevent stunnel from binding privileged
@@ -940,29 +1000,29 @@ should be discarded. So the file should look like this:</p>
 order for SSL to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:</p>
 <ul>
-<li><strong><a name="the_file_specified_with_the_rndfile_flag" class="item">The file specified with the <em>RNDfile</em> flag.</a></strong>
-
+<li>
+<p>The file specified with the <em>RNDfile</em> flag.</p>
 </li>
 <li><strong><a name="the_file_specified_by_the_randfile_environment_variable_if_set" class="item">The file specified by the RANDFILE environment variable, if set.</a></strong>
 
 </li>
-<li><strong><a name="the_file_rnd_in_your_home_directory_if_randfile_not_set" class="item">The file .rnd in your home directory, if RANDFILE not set.</a></strong>
-
+<li>
+<p>The file .rnd in your home directory, if RANDFILE not set.</p>
 </li>
-<li><strong><a name="the_file_specified_with_with_random_at_compile_time" class="item">The file specified with '--with-random' at compile time.</a></strong>
-
+<li>
+<p>The file specified with '--with-random' at compile time.</p>
 </li>
-<li><strong><a name="the_contents_of_the_screen_if_running_on_windows" class="item">The contents of the screen if running on Windows.</a></strong>
-
+<li>
+<p>The contents of the screen if running on Windows.</p>
 </li>
-<li><strong><a name="the_egd_socket_specified_with_the_egd_flag" class="item">The egd socket specified with the <em>EGD</em> flag.</a></strong>
-
+<li>
+<p>The egd socket specified with the <em>EGD</em> flag.</p>
 </li>
-<li><strong><a name="the_egd_socket_specified_with_with_egd_sock_at_compile_time" class="item">The egd socket specified with '--with-egd-sock' at compile time.</a></strong>
-
+<li>
+<p>The egd socket specified with '--with-egd-sock' at compile time.</p>
 </li>
-<li><strong><a name="the_dev_urandom_device" class="item">The /dev/urandom device.</a></strong>
-
+<li>
+<p>The /dev/urandom device.</p>
 </li>
 </ul>
 <p>With recent (&gt;=OpenSSL 0.9.5a) version of SSL it will stop loading
@@ -1007,7 +1067,7 @@ OpenSSLs.</p>
 </p>
 <hr />
 <h1><a name="bugs">BUGS</a></h1>
-<p>Option <em>execargs</em> does not support quoting.</p>
+<p>Option <em>execargs</em> and Win32 command line does not support quoting.</p>
 <p>
 </p>
 <hr />

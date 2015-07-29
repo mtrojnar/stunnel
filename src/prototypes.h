@@ -60,6 +60,11 @@ typedef union sockaddr_union {
 #endif
 } SOCKADDR_UNION;
 
+typedef struct name_list_struct {
+    char *name;
+    struct name_list_struct *next;
+} NAME_LIST;
+
 typedef struct sockaddr_list {                          /* list of addresses */
     SOCKADDR_UNION *addr;                           /* the list of addresses */
     u16 cur;                              /* current address for round-robin */
@@ -146,7 +151,7 @@ typedef struct service_options_struct {
     char *cipher_list;
     char *cert;                                             /* cert filename */
     char *key;                               /* pem (priv key/cert) filename */
-    long session_timeout;
+    long session_size, session_timeout;
     long ssl_options;
     SSL_METHOD *client_method, *server_method;
     SOCKADDR_UNION sessiond_addr;
@@ -173,7 +178,7 @@ typedef struct service_options_struct {
     SOCKADDR_UNION local_addr, source_addr;
     SOCKADDR_LIST connect_addr;
     char *username;
-    char *connect_name;
+    NAME_LIST *connect_list;
     int timeout_busy;                       /* maximum waiting for data time */
     int timeout_close;                          /* maximum close_notify time */
     int timeout_connect;                           /* maximum connect() time */
@@ -218,6 +223,8 @@ typedef struct service_options_struct {
 #ifdef HAVE_OSSL_OCSP_H
         unsigned int ocsp:1;
 #endif
+        unsigned int reset:1;           /* reset sockets on error */
+        unsigned int renegotiation:1;
     } option;
 } SERVICE_OPTIONS;
 
@@ -396,6 +403,12 @@ int make_sockets(int [2]);
 
 /**************************************** prototypes for client.c */
 
+typedef enum {
+    RENEG_INIT, /* initial state */
+    RENEG_ESTABLISHED, /* initial handshake completed */
+    RENEG_DETECTED /* renegotiation detected */
+} RENEG_STATE;
+
 typedef struct {
     jmp_buf err; /* exception handler needs to be 16-byte aligned on Itanium */
     SSL *ssl; /* SSL connnection */
@@ -410,6 +423,7 @@ typedef struct {
         /* IP for explicit local bind or transparent proxy */
     unsigned long pid; /* PID of the local process */
     int fd; /* temporary file descriptor */
+    RENEG_STATE reneg_state; /* used to track renegotiation attempts */
 
     /* data for transfer() function */
     char sock_buff[BUFFSIZE]; /* socket read buffer */
@@ -447,17 +461,16 @@ typedef enum {
     PROTOCOL_PRE_CONNECT,
     PROTOCOL_PRE_SSL,
     PROTOCOL_POST_SSL
-} PROTOCOL_TYPE;
+} PROTOCOL_PHASE;
 
 int find_protocol_id(const char *);
-void protocol(CLI *, const PROTOCOL_TYPE);
+void protocol(CLI *, const PROTOCOL_PHASE);
 
 /**************************************** prototypes for resolver.c */
 
 int name2addr(SOCKADDR_UNION *, char *, char *);
 int hostport2addr(SOCKADDR_UNION *, char *, char *);
-int name2addrlist(SOCKADDR_LIST *, char *, char *);
-int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
+int namelist2addrlist(SOCKADDR_LIST *, NAME_LIST *, char *);
 char *s_ntop(SOCKADDR_UNION *, socklen_t);
 socklen_t addr_len(const SOCKADDR_UNION *);
 const char *s_gai_strerror(int);

@@ -6,19 +6,19 @@
  *   under the terms of the GNU General Public License as published by the
  *   Free Software Foundation; either version 2 of the License, or (at your
  *   option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *   See the GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License along
  *   with this program; if not, see <http://www.gnu.org/licenses>.
- * 
+ *
  *   Linking stunnel statically or dynamically with other modules is making
  *   a combined work based on stunnel. Thus, the terms and conditions of
  *   the GNU General Public License cover the whole combination.
- * 
+ *
  *   In addition, as a special exception, the copyright holder of stunnel
  *   gives you permission to combine stunnel with free software programs or
  *   libraries that are released under the GNU LGPL and with code included
@@ -26,7 +26,7 @@
  *   modified versions of such code, with unchanged license). You may copy
  *   and distribute such a system following the terms of the GNU GPL for
  *   stunnel and the licenses of the other code concerned.
- * 
+ *
  *   Note that people who make modified versions of stunnel are not obligated
  *   to grant this special exception for their modified versions; it is their
  *   choice whether to do so. The GNU General Public License gives permission
@@ -129,7 +129,7 @@ void client_main(CLI *c) {
 }
 
 static void client_run(CLI *c) {
-    int error;
+    int err, rst;
 
 #ifndef USE_FORK
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
@@ -145,13 +145,13 @@ static void client_run(CLI *c) {
     c->connect_addr.num=0;
     c->connect_addr.addr=NULL;
 
-    error=setjmp(c->err);
-    if(!error)
+    err=setjmp(c->err);
+    if(!err)
         client_try(c);
-
+    rst=err==1 && c->opt->option.reset;
     s_log(LOG_NOTICE,
         "Connection %s: %d byte(s) sent to SSL, %d byte(s) sent to socket",
-         error==1 ? "reset" : "closed", c->ssl_bytes, c->sock_bytes);
+         rst ? "reset" : "closed", c->ssl_bytes, c->sock_bytes);
 
         /* cleanup temporary (e.g. IDENT) socket */
     if(c->fd>=0)
@@ -168,7 +168,7 @@ static void client_run(CLI *c) {
 
         /* cleanup remote socket */
     if(c->remote_fd.fd>=0) { /* remote socket initialized */
-        if(error==1 && c->remote_fd.is_socket) /* reset */
+        if(rst && c->remote_fd.is_socket) /* reset */
             reset(c->remote_fd.fd, "linger (remote)");
         closesocket(c->remote_fd.fd);
         s_log(LOG_DEBUG, "Remote socket (FD=%d) closed", c->remote_fd.fd);
@@ -178,14 +178,14 @@ static void client_run(CLI *c) {
         /* cleanup local socket */
     if(c->local_rfd.fd>=0) { /* local socket initialized */
         if(c->local_rfd.fd==c->local_wfd.fd) {
-            if(error==1 && c->local_rfd.is_socket)
+            if(rst && c->local_rfd.is_socket)
                 reset(c->local_rfd.fd, "linger (local)");
             closesocket(c->local_rfd.fd);
             s_log(LOG_DEBUG, "Local socket (FD=%d) closed", c->local_rfd.fd);
         } else { /* stdin/stdout */
-            if(error==1 && c->local_rfd.is_socket)
+            if(rst && c->local_rfd.is_socket)
                 reset(c->local_rfd.fd, "linger (local_rfd)");
-            if(error==1 && c->local_wfd.is_socket)
+            if(rst && c->local_wfd.is_socket)
                 reset(c->local_wfd.fd, "linger (local_wfd)");
         }
         c->local_rfd.fd=c->local_wfd.fd=-1;
@@ -217,7 +217,7 @@ static void client_try(CLI *c) {
         /* server mode and no protocol negotiation needed */
         init_ssl(c);
         init_remote(c);
-    } else {
+    } else { /* client mode or protocol negotiation enabled */
         protocol(c, PROTOCOL_PRE_CONNECT);
         init_remote(c);
         protocol(c, PROTOCOL_PRE_SSL);
@@ -303,7 +303,12 @@ static void init_remote(CLI *c) {
         c->bind_addr=NULL; /* don't bind */
 
     /* setup c->remote_fd, now */
-    if(c->opt->option.remote) { /* try remote first for exec+connect targets */
+    if(c->opt->option.remote
+#ifndef USE_WIN32
+                || c->opt->option.transparent_dst
+#endif
+            ) {
+        /* try remote first for exec+connect targets */
         c->remote_fd.fd=connect_remote(c);
     } else if(c->opt->option.program) { /* exec+connect uses local fd */
         c->remote_fd.fd=connect_local(c);
@@ -602,6 +607,11 @@ static void transfer(CLI *c) {
         if(!(sock_can_rd || sock_can_wr || ssl_can_rd || ssl_can_wr)) {
             s_log(LOG_ERR, "INTERNAL ERROR: "
                 "s_poll_wait returned %d, but no descriptor is ready", err);
+            longjmp(c->err, 1);
+        }
+
+        if(c->reneg_state==RENEG_DETECTED && !c->opt->option.renegotiation) {
+            s_log(LOG_ERR, "Aborting due to renegotiation request");
             longjmp(c->err, 1);
         }
 
@@ -1159,8 +1169,8 @@ static SOCKADDR_LIST *dynamic_remote_addr(CLI *c) {
 #endif /* SO_ORIGINAL_DST */
 
     if(c->opt->option.delayed_lookup) {
-        if(!name2addrlist(&c->connect_addr,
-                c->opt->connect_name, DEFAULT_LOOPBACK)) {
+        if(!namelist2addrlist(&c->connect_addr,
+                c->opt->connect_list, DEFAULT_LOOPBACK)) {
             s_log(LOG_ERR, "No host resolved");
             longjmp(c->err, 1);
         }

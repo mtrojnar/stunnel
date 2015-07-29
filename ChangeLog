@@ -1,6 +1,40 @@
 stunnel change log
 
 
+Version 4.54, 2012.10.09, urgency: MEDIUM:
+* New Win32 features
+  - FIPS module updated to version 2.0.
+  - OpenSSL DLLs updated to version 1.0.1c.
+  - zlib DLL updated to version 1.2.7.
+  - Engine DLLs added: 4758cca, aep, atalla, capi, chil, cswift, gmp, gost,
+    nuron, padlock, sureware, ubsec.
+* Other new features
+  - "session" option renamed to more readable "sessionCacheTimeout".
+    The old name remains accepted for backward compatibility.
+  - New service-level "sessionCacheSize" option to control session cache size.
+  - New service-level option "reset" to control whether TCP RST flag is used
+    to indicate errors.  The default value is "reset = yes".
+  - New service-level option "renegotiation" to disable SSL renegotiation.
+    This feature is based on a public-domain patch by Janusz Dziemidowicz.
+  - New FreeBSD socket options: IP_FREEBIND, IP_BINDANY, IPV6_BINDANY (thx
+    to Janusz Dziemidowicz).
+  - New parameters to configure TLS v1.1/v1.2 with OpenSSL version 1.0.1
+    or higher (thx to Henrik Riomar).
+* Bugfixes
+  - Fixed "Application Failed to Initialize Properly (0xc0150002)" error.
+  - Fixed missing SSL state debug log entries.
+  - Fixed a race condition in libwrap code resulting in random stalls (thx
+    to Andrew Skalski).
+  - Session cache purged at configuration file reload to reduce memory leak.
+    Remaining leak of a few kilobytes per section is yet to be fixed.
+  - Fixed regression bug in "transparent = destination" functionality (thx
+    to Stefan Lauterbach). This bug was introduced in stunnel 4.51.
+  - "transparent = destination" is now a valid endpoint in inetd mode.
+  - "delay = yes" fixed to work even if specified *after* "connect" option.
+  - Multiple "connect" targets fixed to also work with delayed resolver.
+  - The number of resolver retries of EAI_AGAIN error has been limited to 3
+    in order to prevent infinite loops.
+
 Version 4.53, 2012.03.19, urgency: MEDIUM:
 * New features
   - Added client-mode "sni" option to directly control the value of

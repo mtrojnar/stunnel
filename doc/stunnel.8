@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2012.01.14" "4.53" "stunnel"
+.TH STUNNEL 8 "2012.09.20" "4.54" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -132,21 +132,21 @@ Don't display any message boxes
 .IX Header "CONFIGURATION FILE"
 Each line of the configuration file can be either:
 .IP "\(bu" 4
-an empty line (ignored)
+An empty line (ignored).
 .IP "\(bu" 4
-a comment starting with ';' (ignored)
+A comment starting with ';' (ignored).
 .IP "\(bu" 4
-an 'option_name = option_value' pair
+An 'option_name = option_value' pair.
 .IP "\(bu" 4
-\&'[service_name]' indicating a start of a service definition
+\&'[service_name]' indicating a start of a service definition.
 .PP
 An address parameter of an option may be either:
 .IP "\(bu" 4
-a port number
+A port number.
 .IP "\(bu" 4
-a colon-separated pair of \s-1IP\s0 address (either IPv4, IPv6, or domain name) and port number
+A colon-separated pair of \s-1IP\s0 address (either IPv4, IPv6, or domain name) and port number.
 .IP "\(bu" 4
-a Unix socket path (Unix only)
+A Unix socket path (Unix only).
 .SS "\s-1GLOBAL\s0 \s-1OPTIONS\s0"
 .IX Subsection "GLOBAL OPTIONS"
 .IP "\fBchroot\fR = directory (Unix only)" 4
@@ -156,6 +156,18 @@ directory to chroot \fBstunnel\fR process
 \&\fBchroot\fR keeps \fBstunnel\fR in chrooted jail.  \fICApath\fR, \fICRLpath\fR, \fIpid\fR
 and \fIexec\fR are located inside the jail and the patches have to be relative
 to the directory specified with \fBchroot\fR.
+.Sp
+Several functions of the operating system also need their files to be located within chroot jail, e.g.:
+.RS 4
+.IP "\(bu" 4
+Delayed resolver typically needs /etc/nsswitch.conf and /etc/resolv.conf.
+.IP "\(bu" 4
+Local time in log files needs /etc/timezone.
+.IP "\(bu" 4
+Some other functions may need devices, e.g. /dev/zero or /dev/null.
+.RE
+.RS 4
+.RE
 .IP "\fBcompression\fR = deflate | zlib | rle" 4
 .IX Item "compression = deflate | zlib | rle"
 select data compression algorithm
@@ -570,14 +582,48 @@ username for protocol negotiations
 .IP "\fBpty\fR = yes | no (Unix only)" 4
 .IX Item "pty = yes | no (Unix only)"
 allocate pseudo terminal for 'exec' option
-.IP "\fBretry\fR = yes | no (Unix only)" 4
-.IX Item "retry = yes | no (Unix only)"
+.IP "\fBrenegotiation\fR = yes | no" 4
+.IX Item "renegotiation = yes | no"
+support \s-1SSL\s0 renegotiation
+.Sp
+Applications of the \s-1SSL\s0 renegotiation include some authentication scenarios,
+or re-keying long lasting connections.
+.Sp
+On the other hand this feature can facilitate a trivial CPU-exhaustion
+DoS attack:
+.Sp
+http://vincent.bernat.im/en/blog/2011\-ssl\-dos\-mitigation.html
+.Sp
+Please note that disabling \s-1SSL\s0 renegotiation does not fully mitigate
+this issue.
+.Sp
+default: yes (if supported by OpenSSL)
+.IP "\fBreset\fR = yes | no" 4
+.IX Item "reset = yes | no"
+attempt to use \s-1TCP\s0 \s-1RST\s0 flag to indicate an error
+.Sp
+This option is not supported on some platforms.
+.Sp
+default: yes
+.IP "\fBretry\fR = yes | no" 4
+.IX Item "retry = yes | no"
 reconnect a connect+exec section after it's disconnected
 .Sp
 default: no
-.IP "\fBsession\fR = timeout" 4
-.IX Item "session = timeout"
+.IP "\fBsessionCacheSize\fR = size" 4
+.IX Item "sessionCacheSize = size"
+session cache size
+.Sp
+The parameter specifies the maximum number of the internal session cache
+entries.
+.Sp
+The value of 0 can be used for unlimited size.  It is not recommended
+for production use due to the risk of memory exhaustion DoS attack.
+.IP "\fBsessionCacheTimeout\fR = timeout" 4
+.IX Item "sessionCacheTimeout = timeout"
 session cache timeout
+.Sp
+This is the number of seconds to keep cached \s-1SSL\s0 sessions.
 .IP "\fBsessiond\fR = host:port" 4
 .IX Item "sessiond = host:port"
 address of sessiond \s-1SSL\s0 cache server
@@ -585,7 +631,7 @@ address of sessiond \s-1SSL\s0 cache server
 .IX Item "sslVersion = version"
 select version of \s-1SSL\s0 protocol
 .Sp
-Allowed options: all, SSLv2, SSLv3, TLSv1
+Allowed options: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 .IP "\fBstack\fR = bytes (except for \s-1FORK\s0 model)" 4
 .IX Item "stack = bytes (except for FORK model)"
 thread stack size
@@ -697,22 +743,26 @@ This options has been renamed to \fInone\fR.
 .IX Item "verify = level"
 verify peer certificate
 .RS 4
-.IP "\fIlevel 0\fR \- request and ignore peer certificate" 4
-.IX Item "level 0 - request and ignore peer certificate"
-.PD 0
-.IP "\fIlevel 1\fR \- verify peer certificate if present" 4
-.IX Item "level 1 - verify peer certificate if present"
-.IP "\fIlevel 2\fR \- verify peer certificate" 4
-.IX Item "level 2 - verify peer certificate"
-.IP "\fIlevel 3\fR \- verify peer with locally installed certificate" 4
-.IX Item "level 3 - verify peer with locally installed certificate"
-.IP "\fIlevel 4\fR \- ignore \s-1CA\s0 chain and only verify peer certificate" 4
-.IX Item "level 4 - ignore CA chain and only verify peer certificate"
-.IP "\fIdefault\fR \- no verify" 4
-.IX Item "default - no verify"
+.IP "level 0" 4
+.IX Item "level 0"
+Request and ignore peer certificate.
+.IP "level 1" 4
+.IX Item "level 1"
+Verify peer certificate if present.
+.IP "level 2" 4
+.IX Item "level 2"
+Verify peer certificate.
+.IP "level 3" 4
+.IX Item "level 3"
+Verify peer with locally installed certificate.
+.IP "level 4" 4
+.IX Item "level 4"
+Ignore \s-1CA\s0 chain and only verify peer certificate.
+.IP "default" 4
+.IX Item "default"
+No verify.
 .RE
 .RS 4
-.PD
 .Sp
 It is important to understand, that this option was solely designed for access
 control and not for authorization.  Specifically for level 2 every non-revoked
@@ -908,7 +958,7 @@ It is also possible to specify \s-1DH\s0 parameters in the certificate file:
 \&\fBstunnel\fR configuration file
 .SH "BUGS"
 .IX Header "BUGS"
-Option \fIexecargs\fR does not support quoting.
+Option \fIexecargs\fR and Win32 command line does not support quoting.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 .IP "\fItcpd\fR\|(8)" 4

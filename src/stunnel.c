@@ -6,19 +6,19 @@
  *   under the terms of the GNU General Public License as published by the
  *   Free Software Foundation; either version 2 of the License, or (at your
  *   option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *   See the GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License along
  *   with this program; if not, see <http://www.gnu.org/licenses>.
- * 
+ *
  *   Linking stunnel statically or dynamically with other modules is making
  *   a combined work based on stunnel. Thus, the terms and conditions of
  *   the GNU General Public License cover the whole combination.
- * 
+ *
  *   In addition, as a special exception, the copyright holder of stunnel
  *   gives you permission to combine stunnel with free software programs or
  *   libraries that are released under the GNU LGPL and with code included
@@ -26,7 +26,7 @@
  *   modified versions of such code, with unchanged license). You may copy
  *   and distribute such a system following the terms of the GNU GPL for
  *   stunnel and the licenses of the other code concerned.
- * 
+ *
  *   Note that people who make modified versions of stunnel are not obligated
  *   to grant this special exception for their modified versions; it is their
  *   choice whether to do so. The GNU General Public License gives permission
@@ -298,7 +298,8 @@ void unbind_ports(void) {
     s_poll_init(fds);
     s_poll_add(fds, signal_pipe[0], 1, 0);
 
-    for(opt=service_options.next; opt; opt=opt->next)
+    for(opt=service_options.next; opt; opt=opt->next) {
+        s_log(LOG_DEBUG, "Closing service [%s]", opt->servname);
         if(opt->option.accept && opt->fd>=0) {
             closesocket(opt->fd);
             s_log(LOG_DEBUG, "Service [%s] closed (FD=%d)",
@@ -318,7 +319,21 @@ void unbind_ports(void) {
                         opt->local_addr.un.sun_path);
             }
 #endif
+        } else if(opt->option.program && opt->option.remote) {
+            /* create exec+connect services */
+            /* FIXME: this is just a crude workaround */
+            /*        is it better to kill the service? */
+            opt->option.retry=0;
         }
+        if(opt->ctx) {
+            s_log(LOG_DEBUG, "Sessions cached before flush: %ld",
+                SSL_CTX_sess_number(opt->ctx));
+            SSL_CTX_flush_sessions(opt->ctx, time(NULL)+opt->session_timeout+1);
+            s_log(LOG_DEBUG, "Sessions cached after flush: %ld",
+                SSL_CTX_sess_number(opt->ctx));
+        }
+        s_log(LOG_DEBUG, "Service [%s] closed", opt->servname);
+    }
 }
 
 /* open new ports, update fds */
@@ -375,6 +390,7 @@ int bind_ports(void) {
             str_free(local_address);
         } else if(opt->option.program && opt->option.remote) {
             /* create exec+connect services */
+            /* FIXME: needs to be delayed on reload with opt->option.retry set */
             create_client(-1, -1,
                 alloc_client_session(opt, -1, -1), client_thread);
         }

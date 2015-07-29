@@ -6,19 +6,19 @@
  *   under the terms of the GNU General Public License as published by the
  *   Free Software Foundation; either version 2 of the License, or (at your
  *   option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *   See the GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License along
  *   with this program; if not, see <http://www.gnu.org/licenses>.
- * 
+ *
  *   Linking stunnel statically or dynamically with other modules is making
  *   a combined work based on stunnel. Thus, the terms and conditions of
  *   the GNU General Public License cover the whole combination.
- * 
+ *
  *   In addition, as a special exception, the copyright holder of stunnel
  *   gives you permission to combine stunnel with free software programs or
  *   libraries that are released under the GNU LGPL and with code included
@@ -26,7 +26,7 @@
  *   modified versions of such code, with unchanged license). You may copy
  *   and distribute such a system following the terms of the GNU GPL for
  *   stunnel and the licenses of the other code concerned.
- * 
+ *
  *   Note that people who make modified versions of stunnel are not obligated
  *   to grant this special exception for their modified versions; it is their
  *   choice whether to do so. The GNU General Public License gives permission
@@ -71,7 +71,7 @@ typedef void (*FUNCTION)(CLI *);
 static const struct {
     char *name;
     struct {
-        PROTOCOL_TYPE type;
+        PROTOCOL_PHASE type;
         FUNCTION func;
     } handlers[2];
 } protocols[]={
@@ -95,7 +95,7 @@ int find_protocol_id(const char *name) {
     return -1;
 }
 
-void protocol(CLI *c, const PROTOCOL_TYPE type) {
+void protocol(CLI *c, const PROTOCOL_PHASE type) {
     const int id=c->opt->protocol, mode=(unsigned int)c->opt->option.client;
 
     if(id<0 || type!=protocols[id].handlers[mode].type ||
@@ -112,7 +112,7 @@ void protocol(CLI *c, const PROTOCOL_TYPE type) {
 
 /*
  * PROXY protocol: http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
- * this is a protocol client support for stunnel acting as an SSL server 
+ * this is a protocol client support for stunnel acting as an SSL server
  * I don't think anything else is useful, but feel free to discuss on the
  * stunnel-users mailing list if you disagree
  */
@@ -203,7 +203,7 @@ static void cifs_server(CLI *c) {
         longjmp(c->err, 1);
     }
     read_blocking(c, c->local_rfd.fd, buffer+4, len);
-    if(buffer[0]!=0x81){ /* NB_SSN_REQUEST */
+    if(buffer[0]!=0x81) { /* NB_SSN_REQUEST */
         s_log(LOG_ERR, "Client did not send session setup");
         write_blocking(c, c->local_wfd.fd, response_access_denied, 5);
         longjmp(c->err, 1);
@@ -369,7 +369,7 @@ static void imap_client(CLI *c) {
 
 static void imap_server(CLI *c) {
     char *line, *id, *tail, *capa;
- 
+
     s_poll_init(c->fds);
     s_poll_add(c->fds, c->local_rfd.fd, 1, 0);
     switch(s_poll_wait(c->fds, 0, 200)) {
@@ -414,7 +414,7 @@ static void imap_server(CLI *c) {
             fd_putline(c, c->remote_fd.fd, line); /* send it to server */
             line=fd_getline(c, c->remote_fd.fd); /* get the capabilites */
             if(*line=='*') {
-                /* 
+                /*
                  * append STARTTLS
                  * should also add LOGINDISABLED, but can't because
                  * of Mozilla bug #324138/#312009
@@ -441,7 +441,7 @@ static void imap_server(CLI *c) {
             s_log(LOG_ERR, "Unexpected client command %s", tail);
             break;
         }
-    }    
+    }
     /* clean server shutdown */
     fd_putline(c, c->remote_fd.fd, "stunnel LOGOUT");
     line=fd_getline(c, c->remote_fd.fd);
@@ -474,6 +474,7 @@ static void nntp_client(CLI *c) {
 static void connect_server(CLI *c) {
     char *request, *proto, *header;
     int not_empty;
+    NAME_LIST host_list;
 
     request=fd_getline(c, c->local_rfd.fd);
     if(!isprefix(request, "CONNECT ")) {
@@ -495,7 +496,9 @@ static void connect_server(CLI *c) {
         not_empty=*header;
         str_free(header);
     } while(not_empty);
-    if(!name2addrlist(&c->connect_addr, request+8, DEFAULT_LOOPBACK)) {
+    host_list.name=request+8;
+    host_list.next=NULL;
+    if(!namelist2addrlist(&c->connect_addr, &host_list, DEFAULT_LOOPBACK)) {
         fd_putline(c, c->local_wfd.fd, "HTTP/1.0 404 Not Found");
         fd_putline(c, c->local_wfd.fd, "Server: stunnel/" STUNNEL_VERSION);
         fd_putline(c, c->local_wfd.fd, "");
@@ -557,7 +560,7 @@ static void connect_client(CLI *c) {
 
 #if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
 
-/* 
+/*
  * NTLM code is based on the following documentation:
  * http://davenport.sourceforge.net/ntlm.html
  * http://www.innovation.ch/personal/ronald/ntlm.html

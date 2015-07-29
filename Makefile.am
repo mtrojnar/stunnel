@@ -23,15 +23,17 @@ distclean-local:
 	rm -rf autom4te.cache
 	rm -f $(distdir)-installer.exe
 
-dist-hook:
-	makensis -NOCD -DVERSION=${VERSION} -DSRCDIR=$(srcdir) \
-		-DDLLS=/usr/src/openssl-0.9.8s-fips/out32dll \
-		 $(srcdir)/tools/stunnel.nsi
+#dist-hook:
+#	makensis -NOCD -DVERSION=${VERSION} -DSRCDIR=$(srcdir) \
+#		-DOPENSSL=/usr/src/openssl-0.9.8u-fips/out32dll \
+#		-DZLIB=/usr/src/zlib-1.2.6-i586 \
+#		$(srcdir)/tools/stunnel.nsi
+
+#	cp -f $(distdir)-installer.exe ../dist
+#	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir)-installer.exe
 
 sign: dist
 	cp -f $(distdir).tar.gz ../dist
-	cp -f $(distdir)-installer.exe ../dist
 	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir).tar.gz
-	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir)-installer.exe
 	sha256sum $(distdir).tar.gz | tee ../dist/$(distdir).tar.gz.sha256
 

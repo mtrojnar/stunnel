@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2012.01.14" "4.53" "stunnel"
+.TH STUNNEL.PL 8 "2012.09.20" "4.54" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -158,6 +158,18 @@ Opcja określa katalog, w którym uwięziony zostanie proces programu
 połączeń.  Ścieżki podane w opcjach \fICApath\fR, \fICRLpath\fR, \fIpid\fR
 oraz \fIexec\fR muszą być umieszczone wewnątrz katalogu podanego w opcji
 \&\fIchroot\fR i określone względem tego katalogu.
+.Sp
+Niektóre funkcje systemu operacyjnego mogą wymagać dodatkowych plików umieszczonych w katalogu podanego w parametrze chroot:
+.RS 4
+.IP "\(bu" 4
+opóźnione rozwinięcie adresów \s-1DNS\s0 typowo wymaga /etc/nsswitch.conf i /etc/resolv.conf
+.IP "\(bu" 4
+lokalizacja strefy czasowej w logach wymaga pliku /etc/timezone
+.IP "\(bu" 4
+niektóre inne pliki mogą potrzebować plików urządzeń, np. /dev/zero lub /dev/null
+.RE
+.RS 4
+.RE
 .IP "\fBcompression\fR = deflate | zlib | rle" 4
 .IX Item "compression = deflate | zlib | rle"
 wybór algorytmu kompresji przesyłanych danych
@@ -592,14 +604,50 @@ nazwa użytkownika do negocjacji protokołu
 .IP "\fBpty\fR = yes | no (tylko Unix)" 4
 .IX Item "pty = yes | no (tylko Unix)"
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
-.IP "\fBretry\fR = yes | no (tylko Unix)" 4
-.IX Item "retry = yes | no (tylko Unix)"
+.IP "\fBrenegotiation\fR = yes | no" 4
+.IX Item "renegotiation = yes | no"
+pozwalaj na renegocjację \s-1SSL\s0
+.Sp
+Wśród zastosowań renegocjacji \s-1SSL\s0 są niektóre scenariusze uwierzytelnienia,
+oraz renegocjacja kluczy dla długotrwałych połączeń.
+.Sp
+Z drugiej strony własność na może ułatwić trywialny atak DoS poprzez
+wygenerowanie obciążenia procesora:
+.Sp
+http://vincent.bernat.im/en/blog/2011\-ssl\-dos\-mitigation.html
+.Sp
+Warto zauważyć, że zablokowanie renegocjacji \s-1SSL\s0 nie zebezpiecza w pełni
+przed opisanym problemem.
+.Sp
+domyślnie: yes (o ile wspierane przez OpenSSL)
+.IP "\fBreset\fR = yes | no" 4
+.IX Item "reset = yes | no"
+sygnalizuj wystąpienie błędu przy pomocy flagi \s-1TCP\s0 \s-1RST\s0
+.Sp
+Ta opcja nie jest wspierana na niektórych platformach.
+.Sp
+domyślnie: yes
+.IP "\fBretry\fR = yes | no" 4
+.IX Item "retry = yes | no"
 połącz ponownie sekcję connect+exec po rozłączeniu
 .Sp
 domyślnie: no
-.IP "\fBsession\fR = przeterminowanie_pamięci_podręcznej_sesji" 4
-.IX Item "session = przeterminowanie_pamięci_podręcznej_sesji"
-czas w sekundach, po którym sesja \s-1SSL\s0 zostanie usunięta z pamięci podręcznej
+.IP "\fBsessionCacheSize\fR = rozmiar" 4
+.IX Item "sessionCacheSize = rozmiar"
+rozmiar pamięci podręcznej sesji \s-1SSL\s0
+.Sp
+Parametr określa maksymalną liczbę pozycji wewnętrznej pamięci podręcznej
+sesji.
+.Sp
+Wartość 0 oznacza brak ograniczenia rozmiaru.  Nie jest to zalecane dla
+systemów produkcyjnych z uwagi na ryzyko ataku DoS przez wyczerpanie pamięci
+\&\s-1RAM\s0.
+.IP "\fBsessionCacheTimeout\fR = czas" 4
+.IX Item "sessionCacheTimeout = czas"
+przeterminowanie pamięci podręcznej sesji \s-1SSL\s0
+.Sp
+Parametr określa czas w sekundach, po którym sesja \s-1SSL\s0 zostanie usunięta z
+pamięci podręcznej.
 .IP "\fBsessiond\fR = adres:port" 4
 .IX Item "sessiond = adres:port"
 adres sessiond \- servera cache sesji \s-1SSL\s0
@@ -607,7 +655,7 @@ adres sessiond \- servera cache sesji \s-1SSL\s0
 .IX Item "sslVersion = wersja"
 wersja protokołu \s-1SSL\s0
 .Sp
-Dozwolone opcje: all, SSLv2, SSLv3, TLSv1
+Dozwolone opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 .IP "\fBstack\fR = liczba_bajtów (z wyjątkiem modelu \s-1FORK\s0)" 4
 .IX Item "stack = liczba_bajtów (z wyjątkiem modelu FORK)"
 rozmiar stosu procesora wątku
@@ -717,23 +765,27 @@ Opcja została przemianowana na \fInone\fR.
 .IX Item "verify = poziom"
 weryfikuj certyfikat drugiej strony połączenia
 .RS 4
-.IP "\fIpoziom 0\fR \- zarządaj certyfikatu i zignoruj go" 4
-.IX Item "poziom 0 - zarządaj certyfikatu i zignoruj go"
-.PD 0
-.IP "\fIpoziom 1\fR \- weryfikuj, jeżeli został przedstawiony" 4
-.IX Item "poziom 1 - weryfikuj, jeżeli został przedstawiony"
-.IP "\fIpoziom 2\fR \- weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji" 4
-.IX Item "poziom 2 - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji"
-.IP "\fIpoziom 3\fR \- weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony" 4
-.IX Item "poziom 3 - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony"
-.IP "\fIpoziom 4\fR \- weryfikuj z certyfikatem drugiej strony ignorując łańcuch \s-1CA\s0" 4
-.IX Item "poziom 4 - weryfikuj z certyfikatem drugiej strony ignorując łańcuch CA"
-.IP "\fIdomyślnie\fR \- nie weryfikuj" 4
-.IX Item "domyślnie - nie weryfikuj"
+.IP "\fIpoziom 0\fR" 4
+.IX Item "poziom 0"
+zarządaj certyfikatu i zignoruj go
+.IP "\fIpoziom 1\fR" 4
+.IX Item "poziom 1"
+weryfikuj, jeżeli został przedstawiony
+.IP "\fIpoziom 2\fR" 4
+.IX Item "poziom 2"
+weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji
+.IP "\fIpoziom 3\fR" 4
+.IX Item "poziom 3"
+weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony
+.IP "\fIpoziom 4\fR" 4
+.IX Item "poziom 4"
+weryfikuj z certyfikatem drugiej strony ignorując łańcuch \s-1CA\s0
+.IP "\fIdomyślnie\fR" 4
+.IX Item "domyślnie"
+nie weryfikuj
 .RE
 .RS 4
 .RE
-.PD
 .SH "ZWRACANA WARTOŚĆ"
 .IX Header "ZWRACANA WARTOŚĆ"
 \&\fBstunnel\fR zwraca zero w przypadku sukcesu, lub wartość niezerową
@@ -945,7 +997,7 @@ Wygenerowanie parametrów \s-1DH\s0 może zająć nawet wiele minut.
 plik konfiguracyjny programu
 .SH "BŁĘDY"
 .IX Header "BŁĘDY"
-Opcja \fIexecargs\fR nie obsługuje cytowania.
+Opcja \fIexecargs\fR oraz linia komend Win32 nie obsługuje cytowania.
 .SH "ZOBACZ RÓWNIEŻ"
 .IX Header "ZOBACZ RÓWNIEŻ"
 .IP "\fItcpd\fR\|(8)" 4

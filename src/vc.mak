@@ -11,13 +11,20 @@
 # modify this to point to your OpenSSL directory
 # either install a precompiled version (*not* the "Light" one) from
 # http://www.slproweb.com/products/Win32OpenSSL.html
-SSLDIR=C:\OpenSSL-Win32
-INCDIR=$(SSLDIR)\include
-LIBDIR=$(SSLDIR)\lib
+#SSLDIR=C:\OpenSSL-Win32
+#INCDIR=$(SSLDIR)\include
+#FIPSDIR=$(SSLDIR)\include
+#LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-#SSLDIR=..\..\openssl-1.0.0f
+#SSLDIR=..\..\openssl-1.0.1c
 #INCDIR=$(SSLDIR)\inc32
+#FIPSDIR=$(SSLDIR)\inc32
 #LIBDIR=$(SSLDIR)\out32dll
+# or simply install with "nmake -f ms\ntdll.mak install"
+SSLDIR=\usr\local\ssl
+INCDIR=$(SSLDIR)\include
+FIPSDIR=$(SSLDIR)\fips-2.0\include
+LIBDIR=$(SSLDIR)\lib
 
 TARGETCPU=W32
 SRC=..\src
@@ -35,7 +42,7 @@ OBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj \
 CC=cl
 LINK=link
 
-CFLAGS=/MD /W3 /O2 /nologo /I"$(INCDIR)"
+CFLAGS=/MD /W3 /O2 /nologo /I"$(INCDIR)" /I"$(FIPSDIR)"
 LDFLAGS=/NOLOGO
 
 LIBS=advapi32.lib comdlg32.lib crypt32.lib gdi32.lib \

@@ -95,13 +95,21 @@ Each line of the configuration file can be either:
 
 =over 4
 
-=item * an empty line (ignored)
+=item *
 
-=item * a comment starting with ';' (ignored)
+An empty line (ignored).
 
-=item * an 'option_name = option_value' pair
+=item *
 
-=item * '[service_name]' indicating a start of a service definition
+A comment starting with ';' (ignored).
+
+=item *
+
+An 'option_name = option_value' pair.
+
+=item *
+
+'[service_name]' indicating a start of a service definition.
 
 =back
 
@@ -109,11 +117,17 @@ An address parameter of an option may be either:
 
 =over 4
 
-=item * a port number
+=item *
 
-=item * a colon-separated pair of IP address (either IPv4, IPv6, or domain name) and port number
+A port number.
 
-=item * a Unix socket path (Unix only)
+=item *
+
+A colon-separated pair of IP address (either IPv4, IPv6, or domain name) and port number.
+
+=item *
+
+A Unix socket path (Unix only).
 
 =back
 
@@ -128,6 +142,24 @@ directory to chroot B<stunnel> process
 B<chroot> keeps B<stunnel> in chrooted jail.  I<CApath>, I<CRLpath>, I<pid>
 and I<exec> are located inside the jail and the patches have to be relative
 to the directory specified with B<chroot>.
+
+Several functions of the operating system also need their files to be located within chroot jail, e.g.:
+
+=over 4
+
+=item *
+
+Delayed resolver typically needs /etc/nsswitch.conf and /etc/resolv.conf.
+
+=item *
+
+Local time in log files needs /etc/timezone.
+
+=item *
+
+Some other functions may need devices, e.g. /dev/zero or /dev/null.
+
+=back
 
 =item B<compression> = deflate | zlib | rle
 
@@ -591,15 +623,52 @@ username for protocol negotiations
 
 allocate pseudo terminal for 'exec' option
 
-=item B<retry> = yes | no (Unix only)
+=item B<renegotiation> = yes | no
+
+support SSL renegotiation
+
+Applications of the SSL renegotiation include some authentication scenarios,
+or re-keying long lasting connections.
+
+On the other hand this feature can facilitate a trivial CPU-exhaustion
+DoS attack:
+
+http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html
+
+Please note that disabling SSL renegotiation does not fully mitigate
+this issue.
+
+default: yes (if supported by OpenSSL)
+
+=item B<reset> = yes | no
+
+attempt to use TCP RST flag to indicate an error
+
+This option is not supported on some platforms.
+
+default: yes
+
+=item B<retry> = yes | no
 
 reconnect a connect+exec section after it's disconnected
 
 default: no
 
-=item B<session> = timeout
+=item B<sessionCacheSize> = size
+
+session cache size
+
+The parameter specifies the maximum number of the internal session cache
+entries.
+
+The value of 0 can be used for unlimited size.  It is not recommended
+for production use due to the risk of memory exhaustion DoS attack.
+
+=item B<sessionCacheTimeout> = timeout
 
 session cache timeout
+
+This is the number of seconds to keep cached SSL sessions.
 
 =item B<sessiond> = host:port
 
@@ -609,7 +678,7 @@ address of sessiond SSL cache server
 
 select version of SSL protocol
 
-Allowed options: all, SSLv2, SSLv3, TLSv1
+Allowed options: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 
 =item B<stack> = bytes (except for FORK model)
 
@@ -737,17 +806,29 @@ verify peer certificate
 
 =over 4
 
-=item I<level 0> - request and ignore peer certificate
+=item level 0
 
-=item I<level 1> - verify peer certificate if present
+Request and ignore peer certificate.
 
-=item I<level 2> - verify peer certificate
+=item level 1
 
-=item I<level 3> - verify peer with locally installed certificate
+Verify peer certificate if present.
 
-=item I<level 4> - ignore CA chain and only verify peer certificate
+=item level 2
 
-=item I<default> - no verify
+Verify peer certificate.
+
+=item level 3
+
+Verify peer with locally installed certificate.
+
+=item level 4
+
+Ignore CA chain and only verify peer certificate.
+
+=item default
+
+No verify.
 
 =back
 
@@ -779,15 +860,25 @@ Some global options will not be reloaded:
 
 =over 4
 
-=item * chroot
+=item *
 
-=item * foreground
+chroot
 
-=item * pid
+=item *
 
-=item * setgid
+foreground
 
-=item * setuid
+=item *
+
+pid
+
+=item *
+
+setgid
+
+=item *
+
+setuid
 
 =back
 
@@ -901,21 +992,36 @@ in order until sufficient random data has been gathered:
 
 =over 4
 
-=item * The file specified with the I<RNDfile> flag.
+=item *
 
-=item * The file specified by the RANDFILE environment variable, if set.
+The file specified with the I<RNDfile> flag.
 
-=item * The file .rnd in your home directory, if RANDFILE not set.
+=item *
+The file specified by the RANDFILE environment variable, if set.
 
-=item * The file specified with '--with-random' at compile time.
+=item *
 
-=item * The contents of the screen if running on Windows.
+The file .rnd in your home directory, if RANDFILE not set.
 
-=item * The egd socket specified with the I<EGD> flag.
+=item *
 
-=item * The egd socket specified with '--with-egd-sock' at compile time.
+The file specified with '--with-random' at compile time.
 
-=item * The /dev/urandom device.
+=item *
+
+The contents of the screen if running on Windows.
+
+=item *
+
+The egd socket specified with the I<EGD> flag.
+
+=item *
+
+The egd socket specified with '--with-egd-sock' at compile time.
+
+=item *
+
+The /dev/urandom device.
 
 =back
 
@@ -966,7 +1072,7 @@ B<stunnel> configuration file
 
 =head1 BUGS
 
-Option I<execargs> does not support quoting.
+Option I<execargs> and Win32 command line does not support quoting.
 
 
 =head1 SEE ALSO
