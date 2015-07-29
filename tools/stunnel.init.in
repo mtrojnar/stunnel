@@ -31,7 +31,7 @@ get_pids() {
   local file=$1
   if [ -f $file ]; then
     CHROOT=`get_opt $file chroot`
-    PIDFILE=`get_opt $file pid"`
+    PIDFILE=`get_opt $file pid`
     if [ "$PIDFILE" = "" ]; then
       PIDFILE=$DEFAULTPIDFILE
     fi

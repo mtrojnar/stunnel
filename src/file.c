@@ -42,33 +42,36 @@
 
 DISK_FILE *file_open(char *name, FILE_MODE mode) {
     DISK_FILE *df;
-    LPTSTR tstr;
+    LPTSTR tname;
     HANDLE fh;
     DWORD desired_access, creation_disposition;
 
     /* open file */
     switch(mode) {
     case FILE_MODE_READ:
-        desired_access=FILE_READ_DATA;
+        desired_access=GENERIC_READ;
         creation_disposition=OPEN_EXISTING;
         break;
     case FILE_MODE_APPEND:
-        desired_access=FILE_APPEND_DATA;
-        creation_disposition=OPEN_ALWAYS;
+            /* reportedly more compatible than FILE_APPEND_DATA */
+        desired_access=GENERIC_WRITE;
+        creation_disposition=OPEN_ALWAYS; /* keep the data */
         break;
     case FILE_MODE_OVERWRITE:
-        desired_access=FILE_WRITE_DATA;
-        creation_disposition=CREATE_ALWAYS;
+        desired_access=GENERIC_WRITE;
+        creation_disposition=CREATE_ALWAYS; /* remove the data */
         break;
     default: /* invalid mode */
         return NULL;
     }
-    tstr=str2tstr(name);
-    fh=CreateFile(tstr, desired_access, FILE_SHARE_READ, NULL,
+    tname=str2tstr(name);
+    fh=CreateFile(tname, desired_access, FILE_SHARE_READ, NULL,
         creation_disposition, FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
-    str_free(tstr); /* str_free() overwrites GetLastError() value */
+    str_free(tname); /* str_free() overwrites GetLastError() value */
     if(fh==INVALID_HANDLE_VALUE)
         return NULL;
+    if(mode==FILE_MODE_APPEND) /* workaround for FILE_APPEND_DATA */
+        SetFilePointer(fh, 0, NULL, FILE_END);
 
     /* setup df structure */
     df=str_alloc(sizeof df);
@@ -197,18 +200,20 @@ int file_putline(DISK_FILE *df, char *line) {
 
 #ifdef USE_WIN32
 
-LPTSTR str2tstr(const LPSTR in) {
+LPTSTR str2tstr(LPCSTR in) {
     LPTSTR out;
     int len;
 
 #ifdef UNICODE
-    len=MultiByteToWideChar(CP_ACP, 0, in, -1, NULL, 0);
+    len=MultiByteToWideChar(CP_UTF8, 0, in, -1, NULL, 0);
     if(!len)
-        return NULL;
+        return str_tprintf(TEXT("MultiByteToWideChar() failed"));
     out=str_alloc((len+1)*sizeof(WCHAR));
-    len=MultiByteToWideChar(CP_ACP, 0, in, -1, out, len);
-    if(!len)
-        return NULL;
+    len=MultiByteToWideChar(CP_UTF8, 0, in, -1, out, len);
+    if(!len) {
+        str_free(out);
+        return str_tprintf(TEXT("MultiByteToWideChar() failed"));
+    }
 #else
     len=strlen(in);
     out=str_alloc(len+1);
@@ -217,18 +222,20 @@ LPTSTR str2tstr(const LPSTR in) {
     return out;
 }
 
-LPSTR tstr2str(const LPTSTR in) {
+LPSTR tstr2str(LPCTSTR in) {
     LPSTR out;
     int len;
 
 #ifdef UNICODE
-    len=WideCharToMultiByte(CP_ACP, 0, in, -1, NULL, 0, NULL, NULL);
+    len=WideCharToMultiByte(CP_UTF8, 0, in, -1, NULL, 0, NULL, NULL);
     if(!len)
-        return NULL;
+        return str_printf("WideCharToMultiByte() failed");
     out=str_alloc(len+1);
-    len=WideCharToMultiByte(CP_ACP, 0, in, -1, out, len, NULL, NULL);
-    if(!len)
-        return NULL;
+    len=WideCharToMultiByte(CP_UTF8, 0, in, -1, out, len, NULL, NULL);
+    if(!len) {
+        str_free(out);
+        return str_printf("WideCharToMultiByte() failed");
+    }
 #else
     len=strlen(in);
     out=str_alloc(len+1);

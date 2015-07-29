@@ -535,6 +535,7 @@ NOEXPORT char *imap_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     }
     str_free(line);
     longjmp(c->err, 2); /* don't reset */
+    return NULL; /* some C compilers require a return value */
 }
 
 /**************************************** nntp */

@@ -219,8 +219,7 @@ typedef struct service_options_struct {
 
         /* service-specific data for ui_*.c */
 #ifdef USE_WIN32
-    LPTSTR file;
-    char *help;
+    LPTSTR file, help;
 #endif
     int section_number;
     char *chain;
@@ -328,7 +327,7 @@ extern int max_clients;
 extern volatile int num_clients;
 #endif
 
-void main_initialize(void);
+void main_init(void);
 int main_configure(char *, char *);
 void main_cleanup(void);
 int drop_privileges(int);
@@ -389,9 +388,10 @@ int ssl_configure(GLOBAL_OPTIONS *);
 
 extern char *configuration_file;
 
-int parse_commandline(char *, char *);
-int parse_conf(CONF_TYPE);
-void apply_conf(void);
+int options_cmdline(char *, char *);
+int options_parse(CONF_TYPE);
+void options_defaults(void);
+void options_apply(void);
 
 /**************************************** prototypes for ctx.c */
 
@@ -406,6 +406,7 @@ void sslerror(char *);
 /**************************************** prototypes for verify.c */
 
 int verify_init(SERVICE_OPTIONS *);
+char *X509_NAME2text(X509_NAME *);
 
 /**************************************** prototypes for network.c */
 
@@ -430,6 +431,7 @@ int s_poll_wait(s_poll_set *, int, int);
 #endif
 
 int set_socket_options(int, int);
+void safestring(char *);
 int make_sockets(int [2]);
 
 /**************************************** prototypes for client.c */
@@ -589,8 +591,8 @@ int file_getline(DISK_FILE *, char *, int);
 int file_putline(DISK_FILE *, char *);
 
 #ifdef USE_WIN32
-LPTSTR str2tstr(const LPSTR);
-LPSTR tstr2str(const LPTSTR);
+LPTSTR str2tstr(LPCSTR);
+LPSTR tstr2str(LPCTSTR);
 #endif
 
 /**************************************** prototypes for libwrap.c */
@@ -621,17 +623,21 @@ char *str_printf(const char *, ...)
 #else
     ;
 #endif
+#ifdef USE_WIN32
+LPTSTR str_vtprintf(LPCTSTR, va_list);
+LPTSTR str_tprintf(LPCTSTR, ...);
+#endif
 int safe_memcmp(const void *, const void *, size_t);
 
 /**************************************** prototypes for ui_*.c */
 
-void ui_new_config(void);
+void ui_config_reloaded(void);
 void ui_new_chain(const int);
 void ui_clients(const int);
 
 void ui_new_log(const char *);
 #ifdef USE_WIN32
-void message_box(const LPSTR, const UINT);
+void message_box(LPCTSTR, const UINT);
 #endif /* USE_WIN32 */
 
 int passwd_cb(char *, int, int, void *);

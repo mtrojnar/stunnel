@@ -98,10 +98,9 @@ int verify_init(SERVICE_OPTIONS *section) {
                 section->ca_file);
             ca_dn=SSL_load_client_CA_file(section->ca_file);
             for (i=0; i<sk_X509_NAME_num(ca_dn); ++i) {
-                ca_name=X509_NAME_oneline(sk_X509_NAME_value(ca_dn, i),
-                    NULL, 0);
+                ca_name=X509_NAME2text(sk_X509_NAME_value(ca_dn, i));
                 s_log(LOG_INFO, "Client CA: %s", ca_name);
-                OPENSSL_free(ca_name);
+                str_free(ca_name);
             }
             SSL_CTX_set_client_CA_list(section->ctx, ca_dn);
         }
@@ -211,35 +210,31 @@ NOEXPORT int verify_checks(int preverify_ok, X509_STORE_CTX *callback_ctx) {
 
     cert=X509_STORE_CTX_get_current_cert(callback_ctx);
     depth=X509_STORE_CTX_get_error_depth(callback_ctx);
-    subject=X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0);
+    subject=X509_NAME2text(X509_get_subject_name(cert));
 
-    s_log(LOG_DEBUG, "Starting certificate verification: depth=%d, subject=%s",
-        depth, subject);
+    s_log(LOG_DEBUG, "Verification started at depth=%d: %s", depth, subject);
 
     if(!cert_check(callback_ctx, preverify_ok)) {
-        s_log(LOG_WARNING, "Certificate check failed: depth=%d, subject=%s",
-            depth, subject);
-        OPENSSL_free(subject);
+        s_log(LOG_WARNING, "Rejected by CERT at depth=%d: %s", depth, subject);
+        str_free(subject);
         return 0; /* fail */
     }
     if(!crl_check(callback_ctx)) {
-        s_log(LOG_WARNING, "CRL check failed: depth=%d, subject=%s",
-            depth, subject);
-        OPENSSL_free(subject);
+        s_log(LOG_WARNING, "Rejected by CRL at depth=%d: %s", depth, subject);
+        str_free(subject);
         return 0; /* fail */
     }
 #ifdef HAVE_OSSL_OCSP_H
     if(!ocsp_check(callback_ctx)) {
-        s_log(LOG_WARNING, "OCSP check failed: depth=%d, subject=%s",
-            depth, subject);
-        OPENSSL_free(subject);
+        s_log(LOG_WARNING, "Rejected by OCSP at depth=%d: %s", depth, subject);
+        str_free(subject);
         return 0; /* fail */
     }
 #endif /* HAVE_OSSL_OCSP_H */
 
     s_log(depth ? LOG_INFO : LOG_NOTICE,
-        "Certificate accepted: depth=%d, subject=%s", depth, subject);
-    OPENSSL_free(subject);
+        "Certificate accepted at depth=%d: %s", depth, subject);
+    str_free(subject);
     return 1; /* success */
 }
 
@@ -345,9 +340,9 @@ NOEXPORT int crl_check(X509_STORE_CTX *callback_ctx) {
     X509_STORE_CTX_cleanup(&store_ctx);
     crl=obj.data.crl;
     if(rc>0 && crl) {
-        cp=X509_NAME_oneline(subject, NULL, 0);
+        cp=X509_NAME2text(subject);
         s_log(LOG_INFO, "CRL: issuer: %s", cp);
-        OPENSSL_free(cp);
+        str_free(cp);
         last_update=X509_CRL_get_lastUpdate(crl);
         next_update=X509_CRL_get_nextUpdate(crl);
         log_time(LOG_INFO, "CRL: last update", last_update);
@@ -397,12 +392,12 @@ NOEXPORT int crl_check(X509_STORE_CTX *callback_ctx) {
         for(i=0; i<n; i++) {
             revoked=sk_X509_REVOKED_value(X509_CRL_get_REVOKED(crl), i);
             if(ASN1_INTEGER_cmp(revoked->serialNumber,
-                    X509_get_serialNumber(cert)) == 0) {
+                    X509_get_serialNumber(cert))==0) {
                 serial=ASN1_INTEGER_get(revoked->serialNumber);
-                cp=X509_NAME_oneline(issuer, NULL, 0);
+                cp=X509_NAME2text(issuer);
                 s_log(LOG_WARNING, "CRL: Certificate with serial %ld (0x%lX) "
                     "revoked per CRL from issuer %s", serial, serial, cp);
-                OPENSSL_free(cp);
+                str_free(cp);
                 X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REVOKED);
                 X509_OBJECT_free_contents(&obj);
                 return 0; /* fail */
@@ -583,6 +578,30 @@ cleanup:
 }
 
 #endif /* HAVE_OSSL_OCSP_H */
+
+char *X509_NAME2text(X509_NAME *name) {
+    char *text;
+    BIO *bio;
+    int n;
+
+    bio=BIO_new(BIO_s_mem());
+    if(!bio)
+        return str_dup("BIO_new() failed");
+    X509_NAME_print_ex(bio, name, 0,
+        XN_FLAG_ONELINE & ~ASN1_STRFLGS_ESC_MSB & ~XN_FLAG_SPC_EQ);
+    n=BIO_pending(bio);
+    text=str_alloc(n+1);
+    n=BIO_read(bio, text, n);
+    if(n<0) {
+        BIO_free(bio);
+        str_free(text);
+        return str_dup("BIO_read() failed");
+    }
+    text[n]='\0';
+    BIO_free(bio);
+    safestring(text);
+    return text;
+}
 
 NOEXPORT void log_time(const int level, const char *txt, ASN1_TIME *t) {
     char *cp;

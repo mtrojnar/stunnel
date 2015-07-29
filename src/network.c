@@ -318,11 +318,11 @@ void s_poll_free(s_poll_set *fds) {
         if(fds->ixfds)
             str_free(fds->ixfds);
         if(fds->orfds)
-            str_free(fds->irfds);
+            str_free(fds->orfds);
         if(fds->owfds)
-            str_free(fds->iwfds);
+            str_free(fds->owfds);
         if(fds->oxfds)
-            str_free(fds->ixfds);
+            str_free(fds->oxfds);
         str_free(fds);
     }
 }
@@ -684,6 +684,13 @@ void fd_printf(CLI *c, int fd, const char *format, ...) {
     }
     fd_putline(c, fd, line);
     str_free(line);
+}
+
+    /* replace non-UTF-8 and non-printable control characters with '.' */
+void safestring(char *c) {
+    for(; *c; ++c)
+        if(!(*c&0x80 || isprint(*c)))
+            *c='.';
 }
 
 #define INET_SOCKET_PAIR

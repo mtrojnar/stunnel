@@ -84,9 +84,10 @@ typedef int socklen_t;
 #define USE_IPv6
 #define _CRT_SECURE_NO_DEPRECATE
 #define _CRT_NONSTDC_NO_DEPRECATE
+#define _CRT_NON_CONFORMING_SWPRINTFS
 #define HAVE_OSSL_ENGINE_H
 #define HAVE_OSSL_OCSP_H
-/* prevent including wincrypt.h, as it defines it's own OCSP_RESPONSE */
+/* prevent including wincrypt.h, as it defines its own OCSP_RESPONSE */
 #define __WINCRYPT_H__
 #endif
 
@@ -454,15 +455,6 @@ STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #endif /* OPENSSL_NO_COMP */
 
 /**************************************** other defines */
-
-/* change all non-printable characters to '.' */
-#define safestring(s) \
-    do {unsigned char *p; for(p=(unsigned char *)(s); *p; p++) \
-        if(!isprint((int)*p)) *p='.';} while(0)
-/* change all unsafe characters to '.' */
-#define safename(s) \
-    do {unsigned char *p; for(p=(s); *p; p++) \
-        if(!isalnum((int)*p)) *p='.';} while(0)
 
 /* always use IPv4 defaults! */
 #define DEFAULT_LOOPBACK "127.0.0.1"

@@ -523,6 +523,8 @@ startup any of the <em>connect</em> targets for a service.</p>
 <dd>
 <p>execute local inetd-type program</p>
 <p><em>exec</em> path is relative to <em>chroot</em> directory if specified.</p>
+<p>The following environmental variables are set on Unix platform:
+REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.</p>
 </dd>
 <dt><strong><a name="execargs_0_1_2" class="item"><strong>execargs</strong> = $0 $1 $2 ...</a></strong></dt>
 

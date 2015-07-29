@@ -21,17 +21,14 @@ TARGET=win64
 # http://www.slproweb.com/products/Win32OpenSSL.html
 #SSLDIR=C:\OpenSSL-Win32
 #INCDIR=$(SSLDIR)\include
-#FIPSDIR=$(SSLDIR)\include
 #LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
 SSLDIR=..\..\openssl-1.0.1i-$(TARGET)
 INCDIR=$(SSLDIR)\inc32
-FIPSDIR=$(SSLDIR)\inc32
 LIBDIR=$(SSLDIR)\out32dll
 # or simply install with "nmake -f ms\ntdll.mak install"
 #SSLDIR=\usr\local\ssl
 #INCDIR=$(SSLDIR)\include
-#FIPSDIR=$(SSLDIR)\fips-2.0\include
 #LIBDIR=$(SSLDIR)\lib
 
 SRC=..\src
@@ -44,14 +41,15 @@ SHAREDOBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj \
 	$(OBJ)\verify.obj $(OBJ)\file.obj $(OBJ)\client.obj \
 	$(OBJ)\protocol.obj $(OBJ)\sthreads.obj $(OBJ)\log.obj \
 	$(OBJ)\options.obj $(OBJ)\network.obj $(OBJ)\resolver.obj \
- 	$(OBJ)\str.obj $(OBJ)/fd.obj
+ 	$(OBJ)\str.obj $(OBJ)\fd.obj
 GUIOBJS=$(OBJ)\ui_win_gui.obj $(OBJ)\resources.res
 NOGUIOBJS=$(OBJ)\ui_win_cli.obj
-	
+
 CC=cl
 LINK=link
 
-CFLAGS=/MD /W3 /O2 /nologo /I"$(INCDIR)" /I"$(FIPSDIR)"
+UNICODEFLAGS=/DUNICODE /D_UNICODE
+CFLAGS=/MD /W3 /O2 /nologo /I"$(INCDIR)" $(UNICODEFLAGS)
 LDFLAGS=/NOLOGO
 
 SHAREDLIBS=ws2_32.lib user32.lib shell32.lib
@@ -66,15 +64,15 @@ SSLLIBS=/LIBPATH:"$(LIBDIR)" libeay32.lib ssleay32.lib
 
 {$(SRC)\}.rc{$(OBJ)\}.res:
 	$(RC) -fo$@ -r $<
-	
+
 all: build
 
 build: makedirs $(BIN)\stunnel.exe $(BIN)\tstunnel.exe
 
 clean:
 	-@ del $(SHAREDOBJS) >NUL 2>&1
-	-@ del $(GUIBJS) >NUL 2>&1
-	-@ del $(NOGUIBJS) >NUL 2>&1
+	-@ del $(GUIOBJS) >NUL 2>&1
+	-@ del $(NOGUIOBJS) >NUL 2>&1
 #	-@ del *.manifest >NUL 2>&1
 	-@ del $(BIN)\stunnel.exe >NUL 2>&1
 	-@ del $(BIN)\stunnel.exe.manifest >NUL 2>&1
@@ -83,7 +81,7 @@ clean:
 	-@ rmdir $(OBJ) >NUL 2>&1
 	-@ rmdir $(BIN) >NUL 2>&1
 
-makedirs: 
+makedirs:
 	-@ IF NOT EXIST $(OBJROOT) mkdir $(OBJROOT) >NUL 2>&1
 	-@ IF NOT EXIST $(OBJ) mkdir $(OBJ) >NUL 2>&1
 	-@ IF NOT EXIST $(BINROOT) mkdir $(BINROOT) >NUL 2>&1

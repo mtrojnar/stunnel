@@ -518,6 +518,9 @@ wykonaj lokalny program przystosowany do pracy z superdemonem inetd
 Jeżeli zdefiniowano katalog I<chroot>, to ścieżka do I<exec> jest określona
 względem tego katalogu.
 
+Na platformach Unix ustawiane są następujące zmienne środowiskowe:
+REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.
+
 =item B<execargs> = $0 $1 $2 ...
 
 argumenty do opcji I<exec> włącznie z nazwą programu ($0)

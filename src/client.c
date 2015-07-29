@@ -926,9 +926,18 @@ NOEXPORT int parse_socket_error(CLI *c, const char *text) {
             "%s: Temporary lack of resources: retrying", text);
         return 1;
 #endif
+#ifdef USE_WIN32
+    case S_ECONNRESET:
+        /* dying "exec" processes on Win32 cause reset instead of close */
+        if(c->opt->option.program) {
+            s_log(LOG_INFO, "%s: Socket is closed (exec)", text);
+            return 0;
+        }
+#endif
     default:
         sockerror(text);
         longjmp(c->err, 1);
+        return -1; /* some C compilers require a return value */
     }
 }
 
@@ -1046,22 +1055,22 @@ NOEXPORT int connect_local(CLI *c) { /* spawn local process */
     int fd[2];
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
-    LPTSTR execname_l, execargs_l;
+    LPTSTR name, args;
 
     if(make_sockets(fd))
         longjmp(c->err, 1);
     memset(&si, 0, sizeof si);
     si.cb=sizeof si;
-    si.wShowWindow=SW_HIDE;
     si.dwFlags=STARTF_USESHOWWINDOW|STARTF_USESTDHANDLES;
+    si.wShowWindow=SW_HIDE;
     si.hStdInput=si.hStdOutput=si.hStdError=(HANDLE)fd[1];
     memset(&pi, 0, sizeof pi);
 
-    execname_l=str2tstr(c->opt->execname);
-    execargs_l=str2tstr(c->opt->execargs);
-    CreateProcess(execname_l, execargs_l, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
-    str_free(execname_l);
-    str_free(execargs_l);
+    name=str2tstr(c->opt->execname);
+    args=str2tstr(c->opt->execargs);
+    CreateProcess(name, args, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    str_free(name);
+    str_free(args);
 
     closesocket(fd[1]);
     CloseHandle(pi.hProcess);
@@ -1072,7 +1081,7 @@ NOEXPORT int connect_local(CLI *c) { /* spawn local process */
 #else /* standard Unix version */
 
 NOEXPORT int connect_local(CLI *c) { /* spawn local process */
-    char *name, host[40];
+    char *name, host[40], port[6];
     int fd[2], pid;
     X509 *peer;
 #ifdef HAVE_PTHREAD_SIGMASK
@@ -1108,9 +1117,10 @@ NOEXPORT int connect_local(CLI *c) { /* spawn local process */
         closesocket(fd[1]); /* not really needed due to FD_CLOEXEC */
 
         if(!getnameinfo(&c->peer_addr.sa, c->peer_addr_len,
-                host, 40, NULL, 0, NI_NUMERICHOST)) {
+                host, 40, port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
             /* just don't set these variables if getnameinfo() fails */
             putenv(str_printf("REMOTE_HOST=%s", host));
+            putenv(str_printf("REMOTE_PORT=%s", port));
             if(c->opt->option.transparent_src) {
 #ifndef LIBDIR
 #define LIBDIR "."
@@ -1129,11 +1139,9 @@ NOEXPORT int connect_local(CLI *c) { /* spawn local process */
         if(c->ssl) {
             peer=SSL_get_peer_certificate(c->ssl);
             if(peer) {
-                name=X509_NAME_oneline(X509_get_subject_name(peer), NULL, 0);
-                safestring(name);
+                name=X509_NAME2text(X509_get_subject_name(peer));
                 putenv(str_printf("SSL_CLIENT_DN=%s", name));
-                name=X509_NAME_oneline(X509_get_issuer_name(peer), NULL, 0);
-                safestring(name);
+                name=X509_NAME2text(X509_get_issuer_name(peer));
                 putenv(str_printf("SSL_CLIENT_I_DN=%s", name));
                 X509_free(peer);
             }

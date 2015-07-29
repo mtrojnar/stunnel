@@ -149,6 +149,7 @@ void s_log(int level, const char *format, ...) {
     libc_error=get_last_error();
     socket_error=get_last_socket_error();
 
+    /* format the id to be logged */
     time(&gmt);
 #if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
     timeptr=localtime_r(&gmt, &timestruct);
@@ -162,9 +163,12 @@ void s_log(int level, const char *format, ...) {
     if(!tid) /* currently USE_FORK */
         tid=stunnel_process_id();
     id=str_printf("LOG%d[%lu]", level, tid);
+
+    /* format the text to be logged */
     va_start(ap, format);
     text=str_vprintf(format, ap);
     va_end(ap);
+    safestring(text);
 
     if(mode==LOG_MODE_NONE) { /* save the text to log it later */
         enter_critical_section(CRIT_LOG);
@@ -234,41 +238,49 @@ NOEXPORT void log_raw(const int level, const char *stamp,
 }
 
 /* critical problem - str.c functions are not safe to use */
-void fatal_debug(char *error, char *file, int line) {
-    char text[80];
+void fatal_debug(char *txt, char *file, int line) {
+    char msg[80];
 #ifdef USE_WIN32
     DWORD num;
+#ifdef UNICODE
+    TCHAR tmsg[80];
+#endif
 #endif /* USE_WIN32 */
 
-    snprintf(text, sizeof text, /* with newline */
-        "INTERNAL ERROR: %s at %s, line %d\n", error, file, line);
+    snprintf(msg, sizeof msg, /* with newline */
+        "INTERNAL ERROR: %s at %s, line %d\n", txt, file, line);
 
     if(outfile) {
 #ifdef USE_WIN32
-        WriteFile(outfile->fh, text, strlen(text), &num, NULL);
+        WriteFile(outfile->fh, msg, strlen(msg), &num, NULL);
 #else /* USE_WIN32 */
         /* no file -> write to stderr */
-        (void)write(outfile ? outfile->fd : 2, text, strlen(text));
+        (void)write(outfile ? outfile->fd : 2, msg, strlen(msg));
 #endif /* USE_WIN32 */
     }
 
 #ifndef USE_WIN32
     if(mode!=LOG_MODE_CONFIGURED || global_options.option.foreground) {
-        fputs(text, stderr);
+        fputs(msg, stderr);
         fflush(stderr);
     }
 #endif /* !USE_WIN32 */
 
-    snprintf(text, sizeof text, /* without newline */
-        "INTERNAL ERROR: %s at %s, line %d", error, file, line);
+    snprintf(msg, sizeof msg, /* without newline */
+        "INTERNAL ERROR: %s at %s, line %d", txt, file, line);
 
 #if !defined(USE_WIN32) && !defined(__vms)
     if(global_options.option.syslog)
-        syslog(LOG_CRIT, "%s", text);
+        syslog(LOG_CRIT, "%s", msg);
 #endif /* USE_WIN32, __vms */
 
 #ifdef USE_WIN32
-    message_box(text, MB_ICONERROR);
+#ifdef UNICODE
+    if(MultiByteToWideChar(CP_UTF8, 0, msg, -1, tmsg, 80))
+        message_box(tmsg, MB_ICONERROR);
+#else
+    message_box(msg, MB_ICONERROR);
+#endif
 #endif /* USE_WIN32 */
 
     abort();

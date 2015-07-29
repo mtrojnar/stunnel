@@ -68,7 +68,7 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
     if(fd<0)
         fatal("Could not open /dev/null");
 #endif
-    main_initialize();
+    main_init();
     if(main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL)) {
         close(fd);
         return 1;
@@ -205,7 +205,7 @@ NOEXPORT void delete_pid(void) {
 
 /**************************************** options callbacks */
 
-void ui_new_config(void) {
+void ui_config_reloaded(void) {
     /* no action */
 }
 

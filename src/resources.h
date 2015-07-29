@@ -31,3 +31,6 @@
 #define IDM_HOMEPAGE        52
 
 #define IDM_PEER_MENU       60
+
+#define IDS_SERVICE_DESC    70
+

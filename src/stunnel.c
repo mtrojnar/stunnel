@@ -80,19 +80,22 @@ static int signal_pipe[2]={-1, -1};
 
 #ifndef USE_FORK
 int max_clients=0;
-volatile int num_clients=0; /* current number of clients */
+/* -1 before a valid config is loaded, then the current number of clients */
+volatile int num_clients=-1;
 #endif
 s_poll_set *fds; /* file descriptors of listening sockets */
 
 /**************************************** startup */
 
-void main_initialize() { /* one-time initialization */
+void main_init() { /* one-time initialization */
     /* basic initialization contains essential functions required for logging
      * subsystem to function properly, thus all errors here are fatal */
     if(ssl_init()) /* initialize SSL library */
         fatal("SSL initialization failed");
     if(sthreads_init()) /* initialize critical sections & SSL callbacks */
         fatal("Threads initialization failed");
+    options_defaults();
+    options_apply();
 #ifndef USE_FORK
     get_limits(); /* required by setup_fd() */
 #endif
@@ -105,9 +108,10 @@ void main_initialize() { /* one-time initialization */
 
     /* configuration-dependent initialization */
 int main_configure(char *arg1, char *arg2) {
-    if(parse_commandline(arg1, arg2))
+    if(options_cmdline(arg1, arg2))
         return 1;
-    str_canary_init(); /* needs prng initialization from parse_commandline */
+    options_apply();
+    str_canary_init(); /* needs prng initialization from options_cmdline */
 #if !defined(USE_WIN32) && !defined(__vms)
     /* syslog_open() must be called before change_root()
      * to be able to access /dev/log socket */
@@ -132,9 +136,9 @@ int main_configure(char *arg1, char *arg2) {
      * since daemonize() invalidates stderr */
     if(log_open())
         return 1;
+    num_clients=0; /* the first valid config */
     return 0;
 }
-
 
 int drop_privileges(int critical) {
 #if defined(USE_WIN32) || defined(__vms) || defined(USE_OS2)
@@ -376,7 +380,7 @@ int bind_ports(void) {
     char *local_address;
 
 #ifdef USE_LIBWRAP
-    /* execute after parse_commandline() to know service_options.next,
+    /* execute after options_cmdline() to know service_options.next,
      * but as early as possible to avoid leaking file descriptors */
     /* retry on each bind_ports() in case stunnel.conf was reloaded
        without "libwrap = no" */
@@ -499,7 +503,7 @@ void signal_post(int sig) {
 }
 
 NOEXPORT int signal_pipe_dispatch(void) {
-    int sig, err;
+    int sig;
 
     s_log(LOG_DEBUG, "Dispatching signals from the signal pipe");
     while(readsocket(signal_pipe[0], (char *)&sig, sizeof sig)==sizeof sig) {
@@ -516,14 +520,14 @@ NOEXPORT int signal_pipe_dispatch(void) {
 #endif /* !defind USE_WIN32 */
         case SIGNAL_RELOAD_CONFIG:
             s_log(LOG_DEBUG, "Processing SIGNAL_RELOAD_CONFIG");
-            err=parse_conf(CONF_RELOAD);
-            if(err) {
+            if(options_parse(CONF_RELOAD)) {
                 s_log(LOG_ERR, "Failed to reload the configuration file");
             } else {
                 unbind_ports();
                 log_close();
-                apply_conf();
+                options_apply();
                 log_open();
+                ui_config_reloaded();
                 if(bind_ports()) {
                     /* FIXME: handle the error */
                 }

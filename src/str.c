@@ -96,7 +96,7 @@ char *str_printf(const char *format, ...) {
 
 char *str_vprintf(const char *format, va_list start_ap) {
     int n, size=32;
-    char *p, *np;
+    char *p;
     va_list ap;
 
     p=str_alloc(size);
@@ -109,10 +109,39 @@ char *str_vprintf(const char *format, va_list start_ap) {
             size=n+1; /* precisely what is needed */
         else          /* glibc 2.0, WIN32, etc. */
             size*=2;  /* twice the old size */
-        np=str_realloc(p, size);
-        p=np; /* LOL */
+        p=str_realloc(p, size);
     }
 }
+
+#ifdef USE_WIN32
+
+LPTSTR str_tprintf(LPCTSTR format, ...) {
+    LPTSTR txt;
+    va_list arglist;
+
+    va_start(arglist, format);
+    txt=str_vtprintf(format, arglist);
+    va_end(arglist);
+    return txt;
+}
+
+LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
+    int n, size=32;
+    LPTSTR p;
+    va_list ap;
+
+    p=str_alloc(size*sizeof(TCHAR));
+    for(;;) {
+        va_copy(ap, start_ap);
+        n=_vsntprintf(p, size, format, ap);
+        if(n>-1 && n<size)
+            return p;
+        size*=2;
+        p=str_realloc(p, size*sizeof(TCHAR));
+    }
+}
+
+#endif
 
 #ifdef USE_UCONTEXT
 
@@ -297,9 +326,6 @@ void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
     ptr=alloc_list+1;
     if(size>alloc_list->size) /* growing the allocation */
         memset((u8 *)ptr+alloc_list->size, 0, size-alloc_list->size);
-    alloc_list->size=size;
-    alloc_list->file=file;
-    alloc_list->line=line;
     if(alloc_list->tls) { /* not detached */
         /* refresh possibly invalidated linked list pointers */
         if(alloc_list->tls->head==prev_alloc_list)
@@ -308,9 +334,12 @@ void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
             alloc_list->next->prev=alloc_list;
         if(alloc_list->prev)
             alloc_list->prev->next=alloc_list;
-        /* update statistics */
+        /* update statistics while the old size is still available */
         alloc_list->tls->bytes+=size-alloc_list->size;
     }
+    alloc_list->size=size;
+    alloc_list->file=file;
+    alloc_list->line=line;
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
     memcpy((u8 *)ptr+size, canary, sizeof canary);
     return ptr;

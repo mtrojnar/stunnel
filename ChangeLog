@@ -1,5 +1,34 @@
 stunnel change log
 
+Version 5.04, 2014.09.21, urgency: LOW:
+* New features
+  - Support for local mode ("exec" option) on Win32.
+  - Support for UTF-8 config file and log file.
+  - Win32 UTF-16 build (thx to Pierre Delaage for support).
+  - Support for Unicode file names on Win32.
+  - A more explicit service description provided for the
+    Windows SCM (thx to Pierre Delaage).
+  - TCP/IP dependency added for NT service in order to prevent
+    initialization failure at boot time.
+  - FIPS canister updated to version 2.0.8 in the Win32 binary
+    build.
+* Bugfixes
+  - load_icon_default() modified to return copies of default icons
+    instead of the original resources to prevent the resources
+    from being destroyed.
+  - Partially merged Windows CE patches (thx to Pierre Delaage).
+  - Fixed typos in stunnel.init.in and vc.mak.
+  - Fixed incorrect memory allocation statistics update in
+    str_realloc().
+  - Missing REMOTE_PORT environmental variable is provided to
+    processes spawned with "exec" on Unix platforms.
+  - Taskbar icon is no longer disabled for NT service.
+  - Fixed taskbar icon initialization when commandline options are
+    specified.
+  - Reportedly more compatible values used for the dwDesiredAccess
+    parameter of the CreateFile() function (thx to Pierre Delaage).
+  - A number of minor Win32 GUI bugfixes and improvements.
+
 Version 5.03, 2014.08.07, urgency: HIGH:
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.1i.

@@ -102,12 +102,21 @@ void get_limits(void) { /* set max_fds and max_clients */
 /**************************************** file descriptor validation */
 
 int s_socket(int domain, int type, int protocol, int nonblock, char *msg) {
+    int fd;
+
 #ifdef USE_NEW_LINUX_API
     if(nonblock)
         type|=SOCK_NONBLOCK;
     type|=SOCK_CLOEXEC;
 #endif
-    return setup_fd(socket(domain, type, protocol), nonblock, msg);
+#ifdef USE_WIN32
+    /* http://stackoverflow.com/questions/4993119 */
+    /* CreateProcess() needs a non-overlapped handle */
+    fd=WSASocket(domain, type, protocol, NULL, 0, 0);
+#else /* USE_WIN32 */
+    fd=socket(domain, type, protocol);
+#endif /* USE_WIN32 */
+    return setup_fd(fd, nonblock, msg);
 }
 
 int s_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen,

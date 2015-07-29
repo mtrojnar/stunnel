@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2014.05.08" "5.02" "stunnel"
+.TH STUNNEL.PL 8 "2014.09.16" "5.04" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -491,6 +491,9 @@ wykonaj lokalny program przystosowany do pracy z superdemonem inetd
 .Sp
 Jeżeli zdefiniowano katalog \fIchroot\fR, to ścieżka do \fIexec\fR jest określona
 względem tego katalogu.
+.Sp
+Na platformach Unix ustawiane są następujące zmienne środowiskowe:
+\&\s-1REMOTE_HOST\s0, \s-1REMOTE_PORT\s0, \s-1SSL_CLIENT_DN\s0, \s-1SSL_CLIENT_I_DN\s0.
 .ie n .IP "\fBexecargs\fR = $0 $1 $2 ..." 4
 .el .IP "\fBexecargs\fR = \f(CW$0\fR \f(CW$1\fR \f(CW$2\fR ..." 4
 .IX Item "execargs = $0 $1 $2 ..."

@@ -55,6 +55,18 @@
 
 #define CONFLINELEN (16*1024)
 
+typedef enum {
+    CMD_BEGIN,      /* initialize defaults */
+    CMD_EXEC,       /* process command */
+    CMD_END,        /* end of section */
+    CMD_FREE,       /* TODO: deallocate memory */
+    CMD_DEFAULT,    /* print default value */
+    CMD_HELP        /* print help */
+} CMD;
+
+NOEXPORT char *parse_global_option(CMD, char *, char *);
+NOEXPORT char *parse_service_option(CMD, SERVICE_OPTIONS *, char *, char *);
+
 #ifndef OPENSSL_NO_TLSEXT
 NOEXPORT char *init_sni(SERVICE_OPTIONS *);
 #endif
@@ -89,7 +101,16 @@ NOEXPORT void print_syntax(void);
 NOEXPORT char **argalloc(char *);
 #endif
 
-char *configuration_file;
+char *configuration_file=
+#ifdef CONFDIR
+            CONFDIR
+#ifdef USE_WIN32
+            "\\"
+#else
+            "/"
+#endif
+#endif
+            "stunnel.conf";
 
 GLOBAL_OPTIONS global_options;
 SERVICE_OPTIONS service_options;
@@ -97,20 +118,185 @@ SERVICE_OPTIONS service_options;
 static GLOBAL_OPTIONS new_global_options;
 static SERVICE_OPTIONS new_service_options;
 
-typedef enum {
-    CMD_BEGIN,      /* initialize defaults */
-    CMD_EXEC,       /* process command */
-    CMD_END,        /* end of section */
-    CMD_FREE,       /* TODO: deallocate memory */
-    CMD_DEFAULT,    /* print default value */
-    CMD_HELP        /* print help */
-} CMD;
-
 static char *option_not_found=
     "Specified option name is not valid here";
 
 static char *stunnel_cipher_list=
     "HIGH:MEDIUM:+3DES:+DH:!aNULL:!SSLv2";
+
+/**************************************** parse commandline parameters */
+
+int options_cmdline(char *name, char *parameter) {
+    CONF_TYPE type=CONF_FILE;
+
+#ifdef USE_WIN32
+    (void)parameter; /* skip warning about unused parameter */
+#endif
+    if(!name) {
+        /* leave the previous value of configuration_file */
+    } else if(!strcasecmp(name, "-help")) {
+        parse_global_option(CMD_HELP, NULL, NULL);
+        parse_service_option(CMD_HELP, NULL, NULL, NULL);
+        log_flush(LOG_MODE_INFO);
+        return 1;
+    } else if(!strcasecmp(name, "-version")) {
+        parse_global_option(CMD_DEFAULT, NULL, NULL);
+        parse_service_option(CMD_DEFAULT, NULL, NULL, NULL);
+        log_flush(LOG_MODE_INFO);
+        return 1;
+    } else if(!strcasecmp(name, "-sockets")) {
+        print_socket_options();
+        log_flush(LOG_MODE_INFO);
+        return 1;
+    } else
+#ifndef USE_WIN32
+    if(!strcasecmp(name, "-fd")) {
+        if(!parameter) {
+            s_log(LOG_ERR, "No file descriptor specified");
+            print_syntax();
+            return 1;
+        }
+        configuration_file=parameter;
+        type=CONF_FD;
+    } else
+#endif
+        configuration_file=name;
+    configuration_file=str_dup(configuration_file);
+    str_detach(configuration_file); /* do not track this allocation */
+
+    return options_parse(type);
+}
+
+/**************************************** parse configuration file */
+
+int options_parse(CONF_TYPE type) {
+    DISK_FILE *df;
+    char line_text[CONFLINELEN], *errstr;
+    char config_line[CONFLINELEN], *config_opt, *config_arg;
+    int line_number, i;
+    SERVICE_OPTIONS *section, *new_section;
+#ifndef USE_WIN32
+    int fd;
+    char *tmpstr;
+#endif
+
+    s_log(LOG_NOTICE, "Reading configuration from %s %s",
+        type==CONF_FD ? "descriptor" : "file", configuration_file);
+#ifndef USE_WIN32
+    if(type==CONF_FD) { /* file descriptor */
+        fd=strtol(configuration_file, &tmpstr, 10);
+        if(tmpstr==configuration_file || *tmpstr) { /* not a number */
+            s_log(LOG_ERR, "Invalid file descriptor number");
+            print_syntax();
+            return 1;
+        }
+        df=file_fdopen(fd);
+    } else
+#endif
+        df=file_open(configuration_file, FILE_MODE_READ);
+    if(!df) {
+        s_log(LOG_ERR, "Cannot open configuration file");
+        if(type!=CONF_RELOAD)
+            print_syntax();
+        return 1;
+    }
+
+    options_defaults();
+    section=&new_service_options;
+    line_number=0;
+    while(file_getline(df, line_text, CONFLINELEN)>=0) {
+        memcpy(config_line, line_text, CONFLINELEN);
+        ++line_number;
+        config_opt=config_line;
+        while(isspace((unsigned char)*config_opt))
+            ++config_opt; /* remove initial whitespaces */
+        for(i=strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
+            config_opt[i]='\0'; /* remove trailing whitespaces */
+        if(config_opt[0]=='\0' || config_opt[0]=='#' || config_opt[0]==';') /* empty or comment */
+            continue;
+        if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
+            if(!new_service_options.next) {
+                errstr=parse_global_option(CMD_END, NULL, NULL);
+                if(errstr) {
+                    s_log(LOG_ERR, "Line %d: \"%s\": %s", line_number, line_text, errstr);
+                    file_close(df);
+                    return 1;
+                }
+            }
+            ++config_opt;
+            config_opt[strlen(config_opt)-1]='\0';
+            new_section=str_alloc(sizeof(SERVICE_OPTIONS));
+            memcpy(new_section, &new_service_options, sizeof(SERVICE_OPTIONS));
+            new_section->servname=str_dup(config_opt);
+            new_section->session=NULL;
+            new_section->next=NULL;
+            section->next=new_section;
+            section=new_section;
+            continue;
+        }
+        config_arg=strchr(config_line, '=');
+        if(!config_arg) {
+            s_log(LOG_ERR, "Line %d: \"%s\": No '=' found", line_number, line_text);
+            file_close(df);
+            return 1;
+        }
+        *config_arg++='\0'; /* split into option name and argument value */
+        for(i=strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
+            config_opt[i]='\0'; /* remove trailing whitespaces */
+        while(isspace((unsigned char)*config_arg))
+            ++config_arg; /* remove initial whitespaces */
+        errstr=parse_service_option(CMD_EXEC, section, config_opt, config_arg);
+        if(!new_service_options.next && errstr==option_not_found)
+            errstr=parse_global_option(CMD_EXEC, config_opt, config_arg);
+        if(errstr) {
+            s_log(LOG_ERR, "Line %d: \"%s\": %s", line_number, line_text, errstr);
+            file_close(df);
+            return 1;
+        }
+    }
+    file_close(df);
+
+    if(new_service_options.next) { /* daemon mode: initialize sections */
+        for(section=new_service_options.next; section; section=section->next) {
+            s_log(LOG_INFO, "Initializing service [%s]", section->servname);
+            errstr=parse_service_option(CMD_END, section, NULL, NULL);
+            if(errstr)
+                break;
+        }
+    } else { /* inetd mode: need to initialize global options */
+        errstr=parse_global_option(CMD_END, NULL, NULL);
+        if(errstr) {
+            s_log(LOG_ERR, "Global options: %s", errstr);
+            return 1;
+        }
+        s_log(LOG_INFO, "Initializing inetd mode configuration");
+        section=&new_service_options;
+        errstr=parse_service_option(CMD_END, section, NULL, NULL);
+    }
+    if(errstr) {
+        s_log(LOG_ERR, "Service [%s]: %s", section->servname, errstr);
+        return 1;
+    }
+
+    s_log(LOG_NOTICE, "Configuration successful");
+    return 0;
+}
+
+void options_defaults() {
+    /* initialize globals *before* opening the config file */
+    memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
+    memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS)); /* reset local options */
+    new_service_options.next=NULL;
+    parse_global_option(CMD_BEGIN, NULL, NULL);
+    parse_service_option(CMD_BEGIN, &new_service_options, NULL, NULL);
+}
+
+void options_apply() { /* apply default/validated configuration */
+    /* FIXME: this operation may be unsafe, as client() threads use it */
+    memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
+    /* service_options are used for inetd mode and to enumerate services */
+    memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
+}
 
 /**************************************** global options */
 
@@ -2131,194 +2317,6 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     }
 
     return NULL; /* OK */
-}
-
-/**************************************** parse commandline parameters */
-
-int parse_commandline(char *name, char *parameter) {
-    CONF_TYPE type=CONF_FILE;
-
-#ifdef USE_WIN32
-    (void)parameter; /* skip warning about unused parameter */
-#endif
-    if(!name) {
-        configuration_file=
-#ifdef CONFDIR
-            CONFDIR
-#ifdef USE_WIN32
-            "\\"
-#else
-            "/"
-#endif
-#endif
-            "stunnel.conf";
-    } else if(!strcasecmp(name, "-help")) {
-        parse_global_option(CMD_HELP, NULL, NULL);
-        parse_service_option(CMD_HELP, NULL, NULL, NULL);
-        log_flush(LOG_MODE_INFO);
-        return 1;
-    } else if(!strcasecmp(name, "-version")) {
-        parse_global_option(CMD_DEFAULT, NULL, NULL);
-        parse_service_option(CMD_DEFAULT, NULL, NULL, NULL);
-        log_flush(LOG_MODE_INFO);
-        return 1;
-    } else if(!strcasecmp(name, "-sockets")) {
-        print_socket_options();
-        log_flush(LOG_MODE_INFO);
-        return 1;
-    } else
-#ifndef USE_WIN32
-    if(!strcasecmp(name, "-fd")) {
-        if(!parameter) {
-            s_log(LOG_ERR, "No file descriptor specified");
-            print_syntax();
-            return 1;
-        }
-        configuration_file=parameter;
-        type=CONF_FD;
-    } else
-#endif
-        configuration_file=name;
-    configuration_file=str_dup(configuration_file);
-    str_detach(configuration_file); /* do not track this allocation */
-
-    if(parse_conf(type))
-        return 1;
-    apply_conf();
-    return 0;
-}
-
-/**************************************** parse configuration file */
-
-int parse_conf(CONF_TYPE type) {
-    DISK_FILE *df;
-    char line_text[CONFLINELEN], *errstr;
-    char config_line[CONFLINELEN], *config_opt, *config_arg;
-    int line_number, i;
-    SERVICE_OPTIONS *section, *new_section;
-#ifndef USE_WIN32
-    int fd;
-    char *tmpstr;
-#endif
-
-    /* initialize globals *before* opening the config file */
-    memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
-    memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS)); /* reset local options */
-    new_service_options.next=NULL;
-    section=&new_service_options;
-    parse_global_option(CMD_BEGIN, NULL, NULL);
-    parse_service_option(CMD_BEGIN, section, NULL, NULL);
-    if(type!=CONF_RELOAD) { /* provide defaults for ui module */
-        memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
-        memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
-    }
-
-    s_log(LOG_NOTICE, "Reading configuration from %s %s",
-        type==CONF_FD ? "descriptor" : "file", configuration_file);
-#ifndef USE_WIN32
-    if(type==CONF_FD) { /* file descriptor */
-        fd=strtol(configuration_file, &tmpstr, 10);
-        if(tmpstr==configuration_file || *tmpstr) { /* not a number */
-            s_log(LOG_ERR, "Invalid file descriptor number");
-            print_syntax();
-            return 1;
-        }
-        df=file_fdopen(fd);
-    } else
-#endif
-        df=file_open(configuration_file, FILE_MODE_READ);
-    if(!df) {
-        s_log(LOG_ERR, "Cannot open configuration file");
-        if(type!=CONF_RELOAD)
-            print_syntax();
-        return 1;
-    }
-
-    line_number=0;
-    while(file_getline(df, line_text, CONFLINELEN)>=0) {
-        memcpy(config_line, line_text, CONFLINELEN);
-        ++line_number;
-        config_opt=config_line;
-        while(isspace((unsigned char)*config_opt))
-            ++config_opt; /* remove initial whitespaces */
-        for(i=strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
-            config_opt[i]='\0'; /* remove trailing whitespaces */
-        if(config_opt[0]=='\0' || config_opt[0]=='#' || config_opt[0]==';') /* empty or comment */
-            continue;
-        if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
-            if(!new_service_options.next) {
-                errstr=parse_global_option(CMD_END, NULL, NULL);
-                if(errstr) {
-                    s_log(LOG_ERR, "Line %d: \"%s\": %s", line_number, line_text, errstr);
-                    file_close(df);
-                    return 1;
-                }
-            }
-            ++config_opt;
-            config_opt[strlen(config_opt)-1]='\0';
-            new_section=str_alloc(sizeof(SERVICE_OPTIONS));
-            memcpy(new_section, &new_service_options, sizeof(SERVICE_OPTIONS));
-            new_section->servname=str_dup(config_opt);
-            new_section->session=NULL;
-            new_section->next=NULL;
-            section->next=new_section;
-            section=new_section;
-            continue;
-        }
-        config_arg=strchr(config_line, '=');
-        if(!config_arg) {
-            s_log(LOG_ERR, "Line %d: \"%s\": No '=' found", line_number, line_text);
-            file_close(df);
-            return 1;
-        }
-        *config_arg++='\0'; /* split into option name and argument value */
-        for(i=strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
-            config_opt[i]='\0'; /* remove trailing whitespaces */
-        while(isspace((unsigned char)*config_arg))
-            ++config_arg; /* remove initial whitespaces */
-        errstr=parse_service_option(CMD_EXEC, section, config_opt, config_arg);
-        if(!new_service_options.next && errstr==option_not_found)
-            errstr=parse_global_option(CMD_EXEC, config_opt, config_arg);
-        if(errstr) {
-            s_log(LOG_ERR, "Line %d: \"%s\": %s", line_number, line_text, errstr);
-            file_close(df);
-            return 1;
-        }
-    }
-    file_close(df);
-
-    if(new_service_options.next) { /* daemon mode: initialize sections */
-        for(section=new_service_options.next; section; section=section->next) {
-            s_log(LOG_INFO, "Initializing service [%s]", section->servname);
-            errstr=parse_service_option(CMD_END, section, NULL, NULL);
-            if(errstr)
-                break;
-        }
-    } else { /* inetd mode: need to initialize global options */
-        errstr=parse_global_option(CMD_END, NULL, NULL);
-        if(errstr) {
-            s_log(LOG_ERR, "Global options: %s", errstr);
-            return 1;
-        }
-        s_log(LOG_INFO, "Initializing inetd mode configuration");
-        section=&new_service_options;
-        errstr=parse_service_option(CMD_END, section, NULL, NULL);
-    }
-    if(errstr) {
-        s_log(LOG_ERR, "Service [%s]: %s", section->servname, errstr);
-        return 1;
-    }
-
-    s_log(LOG_NOTICE, "Configuration successful");
-    return 0;
-}
-
-void apply_conf() { /* can be used once the configuration was validated */
-    /* FIXME: this operation may be unsafe, as client() threads use it */
-    memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
-    /* service_options are used for inetd mode and to enumerate services */
-    memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
-    ui_new_config();
 }
 
 /**************************************** validate and initialize configuration */
