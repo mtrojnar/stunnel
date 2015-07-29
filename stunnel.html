@@ -18,7 +18,7 @@
 <H1><A NAME="NAME">1. NAME</A></H1>
 <P>stunnel - universal SSL tunnel</P>
 <H1><A NAME="SYNOPSIS">2. SYNOPSIS</A></H1>
-<P><B>stunnel</B> [-c&nbsp;|&nbsp;-T] [-D&nbsp;[facility.]level] [-o&nbsp;file] [-C&nbsp;cipherlist] [-p&nbsp;pemfile] [-v&nbsp;level] [-A&nbsp;certfile] [-S&nbsp;sources] [-a&nbsp;directory] [-t&nbsp;timeout] [-u&nbsp;ident_username] [-s&nbsp;setuid_user] [-g&nbsp;setgid_group] [-n&nbsp;protocol] [-P&nbsp;{&nbsp;dir/&nbsp;|&nbsp;filename&nbsp;|&nbsp;none&nbsp;}&nbsp;] [-B&nbsp;bytes] [-R&nbsp;randfile] [-W] [-E&nbsp;socket] [-d&nbsp;[host:]port&nbsp;[-f]&nbsp;] [&nbsp;-r&nbsp;[host:]port&nbsp;|&nbsp;{&nbsp;-l&nbsp;|&nbsp;-L&nbsp;}&nbsp;program&nbsp;[--&nbsp;progname&nbsp;args]&nbsp;]</P>
+<P><B>stunnel</B> [-c&nbsp;|&nbsp;-T] [-D&nbsp;[facility.]level] [-o&nbsp;file] [-C&nbsp;cipherlist] [-p&nbsp;pemfile] [-v&nbsp;level] [-A&nbsp;certfile] [-S&nbsp;sources] [-a&nbsp;directory] [-t&nbsp;timeout] [-u&nbsp;ident_username] [-s&nbsp;setuid_user] [-g&nbsp;setgid_group] [-n&nbsp;protocol] [-P&nbsp;{&nbsp;dir/&nbsp;|&nbsp;filename&nbsp;|&nbsp;none&nbsp;}&nbsp;] [-B&nbsp;bytes] [-R&nbsp;randfile] [-W] [-E&nbsp;socket] [-I&nbsp;host] [-d&nbsp;[host:]port&nbsp;[-f]&nbsp;] [&nbsp;-r&nbsp;[host:]port&nbsp;|&nbsp;{&nbsp;-l&nbsp;|&nbsp;-L&nbsp;}&nbsp;program&nbsp;[--&nbsp;progname&nbsp;args]&nbsp;]</P>
 <H1><A NAME="DESCRIPTION">3. DESCRIPTION</A></H1>
 <P>The <B>stunnel</B> program is designed to work as <I>SSL</I> encryption wrapper between remote clients and local (<I>inetd</I>-startable) or remote servers. The concept is that having non-SSL aware daemons running on your system you can easily set them up to communicate with clients over secure SSL channels.</P>
 <P><B>stunnel</B> can be used to add SSL functionality to commonly used <I>inetd</I> daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without changes to the source code.</P>
@@ -128,6 +128,9 @@ Do not overwrite the random seed files with new random data.</UL>
 <P STYLE="font-weight: bold"><B><B>-B</B> bytes</B></P>
 <UL>
 Number of bytes of data read from random seed files.  With SSL versions less than 0.9.5a, also determines how many bytes of data are considered sufficient to seed the PRNG.  More recent OpenSSL versions have a builtin function to determine when sufficient randomness is available.</UL>
+<P STYLE="font-weight: bold"><B><B>-I</B> host</B></P>
+<UL>
+IP of the outgoing interface is used as source for remote connections. Use this option to bind a static local IP address, instead.</UL>
 <P STYLE="font-weight: bold"><B><B>-d</B> [host:]port</B></P>
 <UL>
 daemon mode

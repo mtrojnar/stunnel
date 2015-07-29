@@ -53,7 +53,7 @@ dist: distclean ../dist/$(VERSION).exe
 	cp -rp . ../dist/$(VERSION)
 	tar -cf - -C ../dist $(VERSION) | gzip > ../dist/$(VERSION).tar.gz
 	rm -rf ../dist/$(VERSION)
-	gpg --yes --armor --detach-sign ../dist/$(VERSION).tar.gz
+	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(VERSION).tar.gz
 
 installdirs: mkinstalldirs
 	./mkinstalldirs $(sbindir) $(libdir) $(man8dir) $(PEM_DIR) $(piddir)
@@ -116,5 +116,5 @@ $(PEM_DIR)/stunnel.pem: stunnel.pem
 ../dist/$(VERSION).exe: stunnel.exe
 	./mkinstalldirs ../dist
 	cp -f stunnel.exe ../dist/$(VERSION).exe
-	gpg --yes --armor --detach-sign ../dist/$(VERSION).exe
+	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(VERSION).exe
 

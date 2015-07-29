@@ -26,6 +26,7 @@ B<stunnel>
 	S<[-R randfile]>
 	S<[-W]>
 	S<[-E socket]>
+	S<[-I host]>
 	S<[-d [host:]port [-f] ]>
 	S<[ -r [host:]port | { -l | -L } program [-- progname args] ]>
 
@@ -220,6 +221,11 @@ Number of bytes of data read from random seed files.  With SSL versions
 less than 0.9.5a, also determines how many bytes of data are considered
 sufficient to seed the PRNG.  More recent OpenSSL versions have a builtin
 function to determine when sufficient randomness is available.
+
+=item B<-I> host
+
+IP of the outgoing interface is used as source for remote connections.
+Use this option to bind a static local IP address, instead.
 
 =item B<-d> [host:]port
 

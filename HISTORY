@@ -1,5 +1,11 @@
 stunnel         Universal SSL tunnel
 
+Version 3.18, 2001.07.31, urgency: MEDIUM:
+* MAX_CLIENTS is calculated based on FD_SETSIZE, now.
+* Problems with closing SSL in transfer() fixed.
+* -I option to bind a static local IP address added.
+* Debug output of info_callback redesigned.
+
 Version 3.17, 2001.07.29, urgency: MEDIUM:
 * Problem with coredump on exit with active threads fixed.
 * Timeout for transfer() function added:

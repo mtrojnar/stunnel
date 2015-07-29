@@ -56,7 +56,7 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.17"
+#define VERSION "3.18"
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else
@@ -205,6 +205,7 @@ typedef struct {
     char *pid_dir;
     int cert_defaults;
     char *output_file;
+    u32 *local_ip;
 } server_options;
 
 /* Prototypes for stunnel.c */

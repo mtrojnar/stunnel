@@ -93,7 +93,7 @@
 .nr % 0
 .rr F
 .\}
-.TH STUNNEL.OUT 1 " " "22/Jul/2001" " "
+.TH STUNNEL.OUT 1 " " "31/Jul/2001" " "
 .UC
 .if n .hy 0
 .if n .na
@@ -195,8 +195,8 @@ cipherlist] [\-p\ pemfile] [\-v\ level] [\-A\ certfile] [\-S
 sources] [\-a\ directory] [\-t\ timeout] [\-u\ ident_username]
 [\-s\ setuid_user] [\-g\ setgid_group] [\-n\ protocol] [\-P\ {\ dir/
 |\ filename\ |\ none\ }\ ] [\-B\ bytes] [\-R\ randfile] [\-W] [\-E
-socket] [\-d\ [host:]port\ [\-f]\ ] [\ \-r\ [host:]port\ |\ {\ \-l\ |\ \-L\ }
-program\ [--\ progname\ args]\ ]
+socket] [\-I\ host] [\-d\ [host:]port\ [\-f]\ ] [\ \-r\ [host:]port\ |\ {
+\-l\ |\ \-L\ }\ program\ [--\ progname\ args]\ ]
 .SH "DESCRIPTION"
 The \fBstunnel\fR program is designed to work as \fISSL\fR encryption
 wrapper between remote clients and local (\fIinetd\fR\-startable) or
@@ -334,6 +334,9 @@ versions less than 0.9.5a, also determines how many bytes of data are
 considered sufficient to seed the \s-1PRNG\s0.  More recent OpenSSL versions
 have a builtin function to determine when sufficient randomness is
 available.
+.Ip "\fB\-I\fR host" 4
+\s-1IP\s0 of the outgoing interface is used as source for remote connections.
+Use this option to bind a static local \s-1IP\s0 address, instead.
 .Ip "\fB\-d\fR [host:]port" 4
 daemon mode
 .Sp
@@ -533,6 +536,8 @@ OpenSSL project website
 .IX Item "\fB\-W\fR"
 
 .IX Item "\fB\-B\fR bytes"
+
+.IX Item "\fB\-I\fR host"
 
 .IX Item "\fB\-d\fR [host:]port"
 

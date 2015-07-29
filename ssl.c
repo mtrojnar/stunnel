@@ -505,7 +505,12 @@ void client(int local)
     }
 
     /* create connection to host/service */
-    ip=options.option&OPT_TRANSPARENT ? addr.sin_addr.s_addr : 0;
+    if(options.local_ip)
+        ip=*options.local_ip;
+    else if(options.option&OPT_TRANSPARENT)
+        ip=addr.sin_addr.s_addr;
+    else
+        ip=0;
     if(options.option&OPT_REMOTE) { /* remote host */
         if((remote=connect_remote(ip))<0)
             goto cleanup_local; /* Failed to connect remote server */
@@ -699,10 +704,10 @@ static int transfer(int sock_rfd, int sock_wfd,
                     check_SSL_pending = 1;
                 ssl_ptr-=num;
                 sock_bytes+=num;
-                if(!ssl_rd && !ssl_ptr) { /* Nothing to write to the socket */
-                    /* Close write side of the socket */
+                if(!ssl_rd && !ssl_ptr && sock_wr) {
                     shutdown(sock_wfd, SHUT_WR);
-                    log(LOG_DEBUG, "Socket write shutdown");
+                    log(LOG_DEBUG,
+                        "Socket write shutdown (no more data to send)");
                     sock_wr=0;
                 }
             }
@@ -722,6 +727,12 @@ static int transfer(int sock_rfd, int sock_wfd,
                 memcpy(sock_buff, sock_buff+num, sock_ptr-num);
                 sock_ptr-=num;
                 ssl_bytes+=num;
+                if(!sock_rd && !sock_ptr && ssl_wr) {
+                    SSL_shutdown(ssl);
+                    log(LOG_DEBUG,
+                        "SSL write shutdown (no more data to send)");
+                    ssl_wr=0;
+                }
                 break;
             case SSL_ERROR_WANT_WRITE:
             case SSL_ERROR_WANT_READ:
@@ -733,15 +744,14 @@ static int transfer(int sock_rfd, int sock_wfd,
                     sockerror("SSL_write (socket)");
                     goto error;
                 }
-            case SSL_ERROR_ZERO_RETURN:
+            case SSL_ERROR_ZERO_RETURN: /* Is it possible? */
                 log(LOG_DEBUG, "SSL closed on write");
                 ssl_wr=0;
-                log(LOG_DEBUG, "SSL read shutdown");
-                ssl_rd=0;
-                /* Close read side of the socket */
-                shutdown(sock_rfd, SHUT_RD);
-                log(LOG_DEBUG, "Socket read shutdown");
-                sock_rd=0;
+                if(sock_rd) {
+                    shutdown(sock_rfd, SHUT_RD);
+                    log(LOG_DEBUG, "Socket read shutdown");
+                    sock_rd=0;
+                }
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_write");
@@ -763,7 +773,13 @@ static int transfer(int sock_rfd, int sock_wfd,
                 sock_ptr += num;
             } else { /* close */
                 log(LOG_DEBUG, "Socket closed on read");
-                sock_rd = 0;
+                sock_rd=0;
+                if(!sock_ptr && ssl_wr) {
+                    SSL_shutdown(ssl);
+                    log(LOG_DEBUG,
+                        "SSL write shutdown (output buffer empty)");
+                    ssl_wr=0;
+                }
             }
         }
 
@@ -795,14 +811,16 @@ static int transfer(int sock_rfd, int sock_wfd,
             case SSL_ERROR_ZERO_RETURN:
                 log(LOG_DEBUG, "SSL closed on read");
                 ssl_rd=0;
-                if(!sock_ptr) { /* Nothing to write to the SSL */
-                    log(LOG_DEBUG, "SSL write shutdown");
+                if(!sock_ptr && ssl_wr) {
+                    SSL_shutdown(ssl);
+                    log(LOG_DEBUG,
+                        "SSL write shutdown (output buffer empty)");
                     ssl_wr=0;
                 }
-                if(!ssl_ptr) { /* Nothing to write to the socket */
-                    /* Close write side of the socket */
+                if(!ssl_ptr && sock_wr) {
                     shutdown(sock_wfd, SHUT_WR);
-                    log(LOG_DEBUG, "Socket write shutdown");
+                    log(LOG_DEBUG,
+                        "Socket write shutdown (output buffer empty)");
                     sock_wr=0;
                 }
                 break;
@@ -930,15 +948,22 @@ static int verify_callback(int state, X509_STORE_CTX *ctx)
     return 1; /* Accept connection */
 }
 
-static void info_callback(SSL *s, int where, int ret)
-{
-    log(LOG_DEBUG, "%s", SSL_state_string_long(s));
-    if(where==SSL_CB_HANDSHAKE_DONE)
+static void info_callback(SSL *s, int where, int ret) {
+    if(where & SSL_CB_LOOP)
+        log(LOG_DEBUG, "SSL state (%s): %s",
+        where & SSL_ST_CONNECT ? "connect" :
+        where & SSL_ST_ACCEPT ? "accept" :
+        "undefined", SSL_state_string_long(s));
+    else if(where & SSL_CB_ALERT)
+        log(LOG_DEBUG, "SSL alert (%s): %s: %s",
+            where & SSL_CB_READ ? "read" : "write",
+            SSL_alert_type_string_long(ret),
+            SSL_alert_desc_string_long(ret));
+    else if(where==SSL_CB_HANDSHAKE_DONE)
         print_stats();
 }
 
-static void print_stats() /* print statistics */
-{
+static void print_stats() { /* print statistics */
     log(LOG_DEBUG, "%4ld items in the session cache",
         SSL_CTX_sess_number(ctx));
     log(LOG_DEBUG, "%4d client connects (SSL_connect())",

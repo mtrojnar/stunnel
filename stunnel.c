@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.17                  (stunnel.c)
- *   Date:         2001.07.29
+ *   Version:      3.18                  (stunnel.c)
+ *   Date:         2001.07.31
  *   
  *   Author:               Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -26,8 +26,12 @@
 /* Undefine if you have problems with make_sockets() */
 #define INET_SOCKET_PAIR
 
-/* Max number of children */
-#define MAX_CLIENTS    100
+/* Max number of children is limited by FD_SETSIZE */
+#ifdef FD_SETSIZE
+#define MAX_CLIENTS    ((FD_SETSIZE-24)/2)
+#else
+#define MAX_CLIENTS    500
+#endif
 
 #include "common.h"
 
@@ -239,8 +243,9 @@ static void get_options(int argc, char *argv[]) {
     options.rand_write=1;
     options.random_bytes=RANDOM_BYTES;
     options.output_file=NULL;
+    options.local_ip=NULL;
     opterr=0;
-    while ((c = getopt(argc, argv, "A:a:cp:v:d:fTl:L:r:s:g:t:u:n:N:hC:D:E:R:WB:VP:S:o:")) != EOF)
+    while ((c = getopt(argc, argv, "A:a:cp:v:d:fTl:L:r:s:g:t:u:n:N:hC:D:E:R:WB:VP:S:o:I:")) != EOF)
         switch (c) {
             case 'A':
                     safecopy(options.cert_file,optarg);
@@ -380,6 +385,9 @@ static void get_options(int argc, char *argv[]) {
                 break;
             case 'o':
                     options.output_file=optarg;
+                break;
+            case 'I':
+                    host2num(&options.local_ip, optarg);
                 break;
             case '?':
                 log(LOG_ERR, "Illegal option: '%c'", optopt);
@@ -1109,14 +1117,15 @@ static void print_help()
         "\n  -d [host:]port   daemon mode (host defaults to INADDR_ANY)"
         "\n  -r [host:]port   connect to remote service (host defaults to INADDR_LOOPBACK)"
 #ifndef USE_WIN32
-        "\n  -l program\t   execute local inetd-type program"
-        "\n  -L program\t   open local pty and execute program"
+        "\n  -l program\texecute local inetd-type program"
+        "\n  -L program\topen local pty and execute program"
 #endif
         "\n"
         "\n  -c\t\tclient mode (remote service uses SSL)"
 #ifndef USE_WIN32
         "\n  -f\t\tforeground mode (don't fork, log to stderr)"
 #endif
+        "\n  -I host\tlocal IP address to be used as source for remote connections"
         "\n  -T\t\ttransparent proxy mode on hosts that support it"
         "\n  -p pemfile\tprivate key/certificate PEM filename"
         "\n  -v level\tverify peer certificate"
