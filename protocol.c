@@ -175,7 +175,7 @@ static int pop3_client(int local_rd, int local_wr, int remote)
     char line[STRLEN];
 
     fdscanf(remote, "%[^\n]", line);
-    if(!strncmp(line,"+OK ",4)) {
+    if(strncmp(line,"+OK ",4)) {
         log(LOG_ERR, "Unknown server welcome");
         return -1;
     }
@@ -184,7 +184,7 @@ static int pop3_client(int local_rd, int local_wr, int remote)
     if(fdprintf(remote, "STLS")<0)
         return -1;
     fdscanf(remote, "%[^\n]", line);
-    if(!strncmp(line,"+OK ",4)) {
+    if(strncmp(line,"+OK ",4)) {
         log(LOG_ERR, "Server does not support TLS");
         return -1;
     }
@@ -202,7 +202,7 @@ static int nntp_client(int local_rd, int local_wr, int remote)
     char line[STRLEN];
 
     fdscanf(remote, "%[^\n]", line);
-    if(!strncmp(line,"200 ",4) && !strncmp(line,"201 ",4)) {
+    if(strncmp(line,"200 ",4) && strncmp(line,"201 ",4)) {
         log(LOG_ERR, "Unknown server welcome");
         return -1;
     }
@@ -211,7 +211,7 @@ static int nntp_client(int local_rd, int local_wr, int remote)
     if(fdprintf(remote, "STARTTLS")<0)
         return -1;
     fdscanf(remote, "%[^\n]", line);
-    if(!strncmp(line,"382 ",4)) {
+    if(strncmp(line,"382 ",4)) {
         log(LOG_ERR, "Server does not support TLS");
         return -1;
     }

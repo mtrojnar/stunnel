@@ -9,6 +9,7 @@ stunnel - universal SSL tunnel
 B<stunnel>
 	S<[-c | -T]>
 	S<[-D [facility.]level]>
+        S<[-o file]>
 	S<[-C cipherlist]>
 	S<[-p pemfile]>
 	S<[-v level]>
@@ -71,6 +72,10 @@ unless a facility name is supplied.  (Facilities are not supported
 on windows.)
 
 Case is ignored for both facilities and levels.
+
+=item B<-o> file
+
+Append log messages to a file.
 
 =item B<-C> cipherlist
 
@@ -230,7 +235,7 @@ default: inetd mode
 foreground mode
 
 Stay in foreground (don't fork) and log to stderr
-instead of via syslog.
+instead of via syslog (unless -o is specified).
 
 default: background in daemon mode
 
@@ -407,25 +412,13 @@ OpenSSL project website
 
 =back
 
-=head1 AUTHORS
+=head1 AUTHOR
 
 =over 4
 
 =item Michal Trojnara
 
 <F<Michal.Trojnara@mirt.net>>
-
-=item Adam Hernik
-
-<F<adas@infocentrum.com>>
-
-=item Pawel Krawczyk
-
-<F<kravietz@ceti.com.pl>>
-
-=item PTY support by Dirk O. Siebnich
-
-<F<dok@vossnet.de>>
 
 =back
 

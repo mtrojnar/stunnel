@@ -1,5 +1,13 @@
 stunnel         Universal SSL tunnel
 
+Version 3.16, 2001.07.22, urgency: MEDIUM:
+* Some transfer() bugfixes/improvements.
+* STDIN/STDOUT are no logner assumed to be non-socket decriptors.
+* Problem with --with-tcp-wrappers patch fixed.
+* pop3 and nntp support bug fixed by Martin Germann.
+* -o option to append log messages to a file added.
+* Changed error message for SSL error 0.
+
 Version 3.15, 2001.07.15, urgency: MEDIUM:
 * Serious bug resulting in random transfer() hangs fixed.
 * Separate file descriptors are used for inetd mode.

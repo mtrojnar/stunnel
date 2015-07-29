@@ -99,10 +99,11 @@ A: Install 'Critical Updates' for Win2K.  8-)
 
 Q: I have a strange error message:
      SSL_accept: error:00000000::lib(0) :func(0) :reason(0)
+   or
+     SSL_accept: Peer suddenly disconnected
    What does it mean?
-A: The error means that your client has closed connection before SSL
-   negotiation.
-   You're probably trying to connect SSL service with non-SSL client.
+A: The error means that your SSL peer has closed connection before SSL
+   negotiation completed.  Your peer probably does not support SSL.
 
 Q: I have strange timeouts with my Outlook Express 4.  What to do?
 A: Do *NOT* use SSL of Outlook Express 4.

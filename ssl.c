@@ -114,6 +114,16 @@ int deny_severity=LOG_WARNING;
 
 #endif /* defined USE_WIN32 */
 
+#ifndef SHUT_RD
+#define SHUT_RD 0
+#endif
+#ifndef SHUT_WR
+#define SHUT_WR 1
+#endif
+#ifndef SHUT_RDWR
+#define SHUT_RDWR 2
+#endif
+
 extern server_options options;
 
 int auth_user(struct sockaddr_in *);
@@ -452,11 +462,14 @@ void client(int local)
     l.l_linger=0;
     addrlen=sizeof(addr);
 
-    local_rd=local_wr=local;
     if(local==STDIO_FILENO) { /* Read from STDIN, write to STDOUT */
         local_rd=0;
         local_wr=1;
-    } else if(getpeername(local, (struct sockaddr *)&addr, &addrlen)<0) {
+        local=0; /* Use stdin for libwrap and setting socket options */
+    } else
+        local_rd=local_wr=local;
+
+    if(getpeername(local, (struct sockaddr *)&addr, &addrlen)<0) {
         if(options.option&OPT_TRANSPARENT || errno!=ENOTSOCK) {
             sockerror("getpeerbyname");
             goto cleanup_local;
@@ -599,12 +612,11 @@ static int transfer(int sock_rfd, int sock_wfd,
     fd_set rd_set, wr_set;
     int num, fdno, ssl_bytes, sock_bytes, retval;
     char sock_buff[BUFFSIZE], ssl_buff[BUFFSIZE];
-    int sock_ptr, ssl_ptr, sock_open, ssl_open;
+    int sock_ptr, ssl_ptr, sock_rd, sock_wr, ssl_rd, ssl_wr;
+    int check_SSL_pending;
 #if defined FIONBIO && defined USE_NBIO
     unsigned long l;
 #endif
-
-    int check_SSL_pending;
 
     fdno=sock_rfd;
     if(sock_wfd>fdno) fdno=sock_wfd;
@@ -612,12 +624,9 @@ static int transfer(int sock_rfd, int sock_wfd,
     if(ssl_wfd>fdno) fdno=ssl_wfd;
     fdno+=1;
 
-    sock_ptr=0;
-    ssl_ptr=0;
-    sock_open=1;
-    ssl_open=1;
-    sock_bytes=0;
-    ssl_bytes=0;
+    sock_ptr=ssl_ptr=0;
+    sock_rd=sock_wr=ssl_rd=ssl_wr=1;
+    sock_bytes=ssl_bytes=0;
 
 #if defined FIONBIO && defined USE_NBIO
     log(LOG_DEBUG, "Seting sockets to non-blocking mode");
@@ -633,12 +642,12 @@ static int transfer(int sock_rfd, int sock_wfd,
     log(LOG_DEBUG, "Sockets set to non-blocking mode");
 #endif
 
-    while((sock_open||sock_ptr) && (ssl_open||ssl_ptr)) {
+    while(((sock_rd||sock_ptr)&&ssl_wr)||((ssl_rd||ssl_ptr)&&sock_wr)) {
 
         FD_ZERO(&rd_set); /* Setup rd_set */
-        if(sock_open && sock_ptr<BUFFSIZE) /* socket buffer not full*/
+        if(sock_rd && sock_ptr<BUFFSIZE) /* socket input buffer not full*/
             FD_SET(sock_rfd, &rd_set);
-        if(ssl_open && (ssl_ptr<BUFFSIZE || /* SSL buffer not fullL */
+        if(ssl_rd && (ssl_ptr<BUFFSIZE || /* SSL input buffer not full */
                 (sock_ptr && SSL_want_read(ssl))
                 /* I want to SSL_write but read from the underlying */
                 /* socket needed for the SSL protocol */
@@ -647,9 +656,9 @@ static int transfer(int sock_rfd, int sock_wfd,
         }
 
         FD_ZERO(&wr_set); /* Setup wr_set */
-        if(sock_open && ssl_ptr) /* socket buffer not empty */
+        if(sock_wr && ssl_ptr) /* SSL input buffer not empty */
             FD_SET(sock_wfd, &wr_set);
-        if (ssl_open && (sock_ptr || /* SSL buffer not empty */
+        if (ssl_wr && (sock_ptr || /* socket input buffer not empty */
                 (ssl_ptr<BUFFSIZE && SSL_want_write(ssl))
                 /* I want to SSL_read but write to the underlying */
                 /* socket needed for the SSL protocol */
@@ -666,7 +675,7 @@ static int transfer(int sock_rfd, int sock_wfd,
         /* room in the buffer by writing to the socket */
         check_SSL_pending = 0;
 
-        if(sock_open && FD_ISSET(sock_wfd, &wr_set)) {
+        if(sock_wr && FD_ISSET(sock_wfd, &wr_set)) {
             num=writesocket(sock_wfd, ssl_buff, ssl_ptr);
             if(num<0) {
                 sockerror("write");
@@ -678,13 +687,19 @@ static int transfer(int sock_rfd, int sock_wfd,
                     check_SSL_pending = 1;
                 ssl_ptr-=num;
                 sock_bytes+=num;
+                if(!ssl_rd && !ssl_ptr) { /* Nothing to write to the socket */
+                    /* Close write side of the socket */
+                    shutdown(sock_wfd, SHUT_WR);
+                    log(LOG_DEBUG, "Socket write shutdown");
+                    sock_wr=0;
+                }
             } else { /* close */
                 log(LOG_DEBUG, "Socket closed on write");
-                sock_open=0;
+                sock_wr=0;
             }
         }
 
-        if(ssl_open && ( /* SSL sockets are still open */
+        if(ssl_wr && ( /* SSL sockets are still open */
                 (sock_ptr && FD_ISSET(ssl_wfd, &wr_set)) ||
                 /* See if application data can be written */
                 (SSL_want_read(ssl) && FD_ISSET(ssl_rfd, &rd_set))
@@ -711,7 +726,13 @@ static int transfer(int sock_rfd, int sock_wfd,
                 }
             case SSL_ERROR_ZERO_RETURN:
                 log(LOG_DEBUG, "SSL closed on write");
-                ssl_open=0;
+                ssl_wr=0;
+                log(LOG_DEBUG, "SSL read shutdown");
+                ssl_rd=0;
+                /* Close read side of the socket */
+                shutdown(sock_rfd, SHUT_RD);
+                log(LOG_DEBUG, "Socket read shutdown");
+                sock_rd=0;
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_write");
@@ -719,7 +740,7 @@ static int transfer(int sock_rfd, int sock_wfd,
             }
         }
 
-        if(sock_open && FD_ISSET(sock_rfd, &rd_set)) {
+        if(sock_rd && FD_ISSET(sock_rfd, &rd_set)) {
             num=readsocket(sock_rfd, sock_buff+sock_ptr, BUFFSIZE-sock_ptr);
 
             if(num<0 && errno==ECONNRESET) {
@@ -733,11 +754,11 @@ static int transfer(int sock_rfd, int sock_wfd,
                 sock_ptr += num;
             } else { /* close */
                 log(LOG_DEBUG, "Socket closed on read");
-                sock_open = 0;
+                sock_rd = 0;
             }
         }
 
-        if(ssl_open && ( /* SSL sockets are still open */
+        if(ssl_rd && ( /* SSL sockets are still open */
                 (ssl_ptr<BUFFSIZE && FD_ISSET(ssl_rfd, &rd_set)) ||
                 /* See if there's any application data coming in */
                 (SSL_want_write(ssl) && FD_ISSET(ssl_wfd, &wr_set)) ||
@@ -764,7 +785,17 @@ static int transfer(int sock_rfd, int sock_wfd,
                 }
             case SSL_ERROR_ZERO_RETURN:
                 log(LOG_DEBUG, "SSL closed on read");
-                ssl_open=0;
+                ssl_rd=0;
+                if(!sock_ptr) { /* Nothing to write to the SSL */
+                    log(LOG_DEBUG, "SSL write shutdown");
+                    ssl_wr=0;
+                }
+                if(!ssl_ptr) { /* Nothing to write to the socket */
+                    /* Close write side of the socket */
+                    shutdown(sock_wfd, SHUT_WR);
+                    log(LOG_DEBUG, "Socket write shutdown");
+                    sock_wr=0;
+                }
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_read");
@@ -781,13 +812,13 @@ done:
 #if defined FIONBIO && defined USE_NBIO
     log(LOG_DEBUG, "Seting sockets to blocking mode");
     l=0; /* OFF */
-    if(ioctlsocket(sock_rfd, FIONBIO, &l)<0)
+    if(sock_rd && ioctlsocket(sock_rfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (sock_rfd)"); /* non-critical */
-    if(sock_wfd!=sock_rfd && sock_ioctlsocket(sock_wfd, FIONBIO, &l)<0)
+    if(sock_wr && sock_wfd!=sock_rfd && sock_ioctlsocket(sock_wfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (sock_wfd)"); /* non-critical */
-    if(ioctlsocket(ssl_rfd, FIONBIO, &l)<0)
+    if(ssl_rd && ioctlsocket(ssl_rfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (ssl_rfd)"); /* non-critical */
-    if(ssl_wfd!=ssl_rfd && ioctlsocket(ssl_wfd, FIONBIO, &l)<0)
+    if(ssl_wr && ssl_wfd!=ssl_rfd && ioctlsocket(ssl_wfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (ssl_wfd)"); /* non-critical */
     log(LOG_DEBUG, "Sockets back in blocking mode");
 #endif
@@ -953,10 +984,15 @@ static void print_cipher(SSL *ssl) /* print negotiated cipher */
 
 static void sslerror(char *txt) /* SSL Error handler */
 {
+    unsigned long err;
     char string[120];
 
-    ERR_error_string(ERR_get_error(), string);
-    log(LOG_ERR, "%s: %s", txt, string);
+    err=ERR_get_error();
+    if(err) {
+        ERR_error_string(err, string);
+        log(LOG_ERR, "%s: %s", txt, string);
+    } else
+        log(LOG_ERR, "%s: Peer suddenly disconnected", txt);
 }
 
 /* End of ssl.c */

@@ -3,13 +3,13 @@
  *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.15                  (stunnel.c)
- *   Date:         2001.07.15
+ *   Version:      3.16                  (stunnel.c)
+ *   Date:         2001.07.22
  *   
- *   Author:   		Michal Trojnara  <Michal.Trojnara@mirt.net>
- *   SSL support:  	Adam Hernik      <adas@infocentrum.com>
- *                 	Pawel Krawczyk   <kravietz@ceti.com.pl>
- *   PTY support:  	Dirk O. Siebnich <dok@vossnet.de>
+ *   Author:                   Michal Trojnara  <Michal.Trojnara@mirt.net>
+ *   SSL support:          Adam Hernik      <adas@infocentrum.com>
+ *                         Pawel Krawczyk   <kravietz@ceti.com.pl>
+ *   PTY support:          Dirk O. Siebnich <dok@vossnet.de>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -165,10 +165,9 @@ int main(int argc, char* argv[])
     safeconcat(options.pem, "stunnel.pem");
 
     get_options(argc, argv);
-    if(!(options.option&OPT_FOREGROUND)) {
+    if(!(options.option&OPT_FOREGROUND))
         options.foreground=0;
-        log_open();
-    }
+    log_open();
     log(LOG_NOTICE, "Using '%s' as tcpwrapper service name", options.servname);
 
     /* check if certificate exists */
@@ -242,23 +241,24 @@ static void get_options(int argc, char *argv[]) {
     options.rand_file=NULL;
     options.rand_write=1;
     options.random_bytes=RANDOM_BYTES;
+    options.output_file=NULL;
     opterr=0;
-    while ((c = getopt(argc, argv, "A:a:cp:v:d:fTl:L:r:s:g:t:u:n:N:hC:D:E:R:WB:VP:S:")) != EOF)
+    while ((c = getopt(argc, argv, "A:a:cp:v:d:fTl:L:r:s:g:t:u:n:N:hC:D:E:R:WB:VP:S:o:")) != EOF)
         switch (c) {
-	    case 'A':
-	    	safecopy(options.cert_file,optarg);
-		break;
+            case 'A':
+                    safecopy(options.cert_file,optarg);
+                break;
             case 'a':
                 safecopy(options.cert_dir, optarg);
                 break;
-	    case 'S':
-		options.cert_defaults = atoi(optarg);
-		if ( options.cert_defaults < 0 ||
-		     options.cert_defaults > 3 ) {
-		     log(LOG_ERR, "Bad -S value '%d'", options.cert_defaults);
-		     print_help();
-		}
-		break;
+            case 'S':
+                options.cert_defaults = atoi(optarg);
+                if ( options.cert_defaults < 0 ||
+                     options.cert_defaults > 3 ) {
+                     log(LOG_ERR, "Bad -S value '%d'", options.cert_defaults);
+                     print_help();
+                }
+                break;
             case 'c':
                 options.option|=OPT_CLIENT;
                 break;
@@ -301,23 +301,23 @@ static void get_options(int argc, char *argv[]) {
             case 'T':
                 options.option|=OPT_TRANSPARENT;
                 break;
-	    case 'R':
-	    	options.rand_file=optarg;
-		break;
-	    case 'W':
-	        options.rand_write=0;
-		break;
-	    case 'B':
-	    	options.random_bytes=atoi(optarg);
-		break;
-	    case 'E':
+            case 'R':
+                    options.rand_file=optarg;
+                break;
+            case 'W':
+                options.rand_write=0;
+                break;
+            case 'B':
+                    options.random_bytes=atoi(optarg);
+                break;
+            case 'E':
 #if SSLEAY_VERSION_NUMBER >= 0x0090581fL
-	    	options.egd_sock=optarg;
+                    options.egd_sock=optarg;
 #else
-		log(LOG_ERR, "-E is only supported when compiled with OpenSSL 0.9.5a or later");
-		/* exit(1) ??? */
+                log(LOG_ERR, "-E is only supported when compiled with OpenSSL 0.9.5a or later");
+                /* exit(1) ??? */
 #endif
-		break;
+                break;
             case 'L':
                 options.option |= OPT_PTY;
             case 'l':
@@ -362,14 +362,14 @@ static void get_options(int argc, char *argv[]) {
             case 'n':
                 options.protocol=optarg;
                 break;
-	    case 'N':
-	    	servname_selected=optarg;
-		break;
+            case 'N':
+                    servname_selected=optarg;
+                break;
             case 'C':
                 options.cipher_list=optarg;
                 break;
             case 'D':
-	    	if ( ! parse_debug_level(optarg) ) {
+                    if ( ! parse_debug_level(optarg) ) {
                     log(LOG_ERR, "Illegal debug argument: %s", optarg);
                     fprintf(stderr, "Illegal debug argument: %s\n", optarg);
                     print_help();
@@ -378,9 +378,12 @@ static void get_options(int argc, char *argv[]) {
             case 'V':
                 print_version();
                 exit(0);
-	    case 'P':
-	    	options.pid_dir=optarg;
-		break;
+            case 'P':
+                    options.pid_dir=optarg;
+                break;
+            case 'o':
+                    options.output_file=optarg;
+                break;
             case '?':
                 log(LOG_ERR, "Illegal option: '%c'", optopt);
             case 'h':
@@ -391,8 +394,8 @@ static void get_options(int argc, char *argv[]) {
         }
 #ifdef USE_WIN32
     if (! (options.option & OPT_DAEMON) ) {
-    	log(LOG_ERR, "You must use daemon mode (-d) in Windows");
-	print_help();
+            log(LOG_ERR, "You must use daemon mode (-d) in Windows");
+        print_help();
     }
 #endif
     if (options.option & OPT_CLIENT) {
@@ -431,7 +434,7 @@ static void get_options(int argc, char *argv[]) {
         safecopy(options.servname, options.execargs[0]);
     }
     if ( servname_selected ) {
-    	safecopy(options.servname, servname_selected);
+            safecopy(options.servname, servname_selected);
     }
 }
 
@@ -486,7 +489,7 @@ static void daemonize() /* go to background */
 {
 #ifdef HAVE_DAEMON
     if ( daemon(0,0) == -1 ) {
-	ioerror("daemon");
+        ioerror("daemon");
         exit(1);
     }
 #else
@@ -1067,52 +1070,52 @@ static void print_help()
 {
     fprintf(stderr,
 /* Server execution */
-	"\nstunnel\t"
-	"[-h] "
-	"[-V] "
-	"[-c | -T] "
-	"[-D level] "
-	"[-C cipherlist] "
-	"[-p pemfile] "
-	"\n\t"
-	"[-v level] "
-	"[-A certfile] "
-	"[-a directory] "
-	"[-S sources] "
-	"[-t timeout] "
-	"\n\t"
-	"[-u ident_username] "
-	"[-s setuid_user] "
-	"[-g setgid_group] "
-	"[-n protocol]"
-	"\n\t"
-	"[-R randfile] "
+        "\nstunnel\t"
+        "[-h] "
+        "[-V] "
+        "[-c | -T] "
+        "[-D level] "
+        "[-C cipherlist] "
+        "[-p pemfile] "
+        "\n\t"
+        "[-v level] "
+        "[-A certfile] "
+        "[-a directory] "
+        "[-S sources] "
+        "[-t timeout] "
+        "\n\t"
+        "[-u ident_username] "
+        "[-s setuid_user] "
+        "[-g setgid_group] "
+        "[-n protocol]"
+        "\n\t"
+        "[-R randfile] "
 #if SSLEAY_VERSION_NUMBER >= 0x0090581fL
-	"[-E egdsock] "
+        "[-E egdsock] "
 #endif
-	"[-B bytes] "
+        "[-B bytes] "
 
 #ifndef USE_WIN32
-	"[-P { dir/ | filename | none } ] "
-	"\n\t[-d [host:]port [-f] ] "
-	"\n\t[-r [host:]port | { -l | -L }  program [-- args] ] "
+        "[-P { dir/ | filename | none } ] "
+        "\n\t[-d [host:]port [-f] ] "
+        "\n\t[-r [host:]port | { -l | -L }  program [-- args] ] "
 #else
-	"\n\t-d [host:]port -r [host:]port"
+        "\n\t-d [host:]port -r [host:]port"
 #endif
 
 
-	/* Argument notes */
+        /* Argument notes */
 
-	"\n\n  -h\t\tprint this help screen"
+        "\n\n  -h\t\tprint this help screen"
         "\n  -V\t\tprint stunnel version and compile-time defaults"
-	"\n"
+        "\n"
         "\n  -d [host:]port   daemon mode (host defaults to INADDR_ANY)"
         "\n  -r [host:]port   connect to remote service (host defaults to INADDR_LOOPBACK)"
 #ifndef USE_WIN32
         "\n  -l program\t   execute local inetd-type program"
         "\n  -L program\t   open local pty and execute program"
 #endif
-	"\n"
+        "\n"
         "\n  -c\t\tclient mode (remote service uses SSL)"
 #ifndef USE_WIN32
         "\n  -f\t\tforeground mode (don't fork, log to stderr)"
@@ -1124,42 +1127,43 @@ static void print_help()
         "\n\t\t   level 2 - require valid peer certificate always"
         "\n\t\t   level 3 - verify peer with locally installed certificate"
         "\n  -a directory\tclient certificate directory for -v options"
-	"\n  -A certfile\tCA certificate for -v options"
-	"\n  -S sources\twhich certificate source defaults to use"
-	"\n\t\t   0 = ignore all defaults sources"
-	"\n\t\t   1 = use ssl library defaults"
-	"\n\t\t   2 = use stunnel defaults"
-	"\n\t\t   3 = use both ssl library and stunnel defaults"
+        "\n  -A certfile\tCA certificate for -v options"
+        "\n  -S sources\twhich certificate source defaults to use"
+        "\n\t\t   0 = ignore all defaults sources"
+        "\n\t\t   1 = use ssl library defaults"
+        "\n\t\t   2 = use stunnel defaults"
+        "\n\t\t   3 = use both ssl library and stunnel defaults"
         "\n  -t timeout\tsession cache timeout"
-        "\n  -u user\tUse IDENT (RFC 1413) username checking"
-        "\n  -n proto\tNegotiate SSL with specified protocol"
+        "\n  -u user\tuse IDENT (RFC 1413) username checking"
+        "\n  -n proto\tnegotiate SSL with specified protocol"
         "\n\t\tcurrenty supported: smtp, pop3, nntp"
-	"\n  -N name\tService name to use for tcp wrapper checking"
+        "\n  -N name\tservice name to use for tcp wrapper checking"
 #ifndef USE_WIN32
         "\n  -s username\tsetuid() to username in daemon mode"
         "\n  -g groupname\tsetgid() to groupname in daemon mode"
-        "\n  -P arg\tSpecify pid file.    { dir/ | filename | none }"
+        "\n  -P arg\tspecify pid file { dir/ | filename | none }"
 #endif
         "\n  -C list\tset permitted SSL ciphers"
 #if SSLEAY_VERSION_NUMBER >= 0x0090581fL
         "\n  -E socket\tpath to Entropy Gathering Daemon socket"
 #ifdef EGD_SOCKET
-	"\n\t\t" EGD_SOCKET " is used when this option is not specified"
+        "\n\t\t" EGD_SOCKET " is used when this option is not specified"
 #endif
         "\n  -B bytes\thow many bytes to read from random seed files"
 #else
         "\n  -B bytes\tnum bytes of random data considered 'sufficient' for PRNG"
-	"\n\t\tand maximum number of bytes to read from random seed files"
+        "\n\t\tand maximum number of bytes to read from random seed files"
 #endif
         "\n  -R file\tpath to file with random seed data"
 #ifdef RANDOM_FILE
-	"\n\t\t" RANDOM_FILE " is used when this option is not specified"
+        "\n\t\t" RANDOM_FILE " is used when this option is not specified"
 #endif
-	"\n  -W\t\tDo not overwrite random seed datafiles with new random data"
+        "\n  -W\t\tdo not overwrite random seed datafiles with new random data"
         "\n  -D [fac.]lev\tdebug level (e.g. daemon.info)"
-	"\n"
-	"\nSee stunnel -V output for default values\n"
-	"\n");
+        "\n  -o file\tappend log messages to a file"
+        "\n"
+        "\nSee stunnel -V output for default values\n"
+        "\n");
     exit(1);
 }
 

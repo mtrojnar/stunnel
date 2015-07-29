@@ -1,8 +1,12 @@
 stunnel         Universal SSL tunnel
 
-- Add CRL support.
+* Add CRL support.
 
-- Add Win32 GUI.
+* Add Win32 GUI.
 
-- Log to file on Win32, log to EventLog on NT.
+* Log to file on Win32, log to EventLog on NT.
+
+* Long options (--option).
+
+* Configuration file.
 

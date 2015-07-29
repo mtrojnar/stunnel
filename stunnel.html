@@ -18,7 +18,7 @@
 <H1><A NAME="NAME">1. NAME</A></H1>
 <P>stunnel - universal SSL tunnel</P>
 <H1><A NAME="SYNOPSIS">2. SYNOPSIS</A></H1>
-<P><B>stunnel</B> [-c&nbsp;|&nbsp;-T] [-D&nbsp;[facility.]level] [-C&nbsp;cipherlist] [-p&nbsp;pemfile] [-v&nbsp;level] [-A&nbsp;certfile] [-S&nbsp;sources] [-a&nbsp;directory] [-t&nbsp;timeout] [-u&nbsp;ident_username] [-s&nbsp;setuid_user] [-g&nbsp;setgid_group] [-n&nbsp;protocol] [-P&nbsp;{&nbsp;dir/&nbsp;|&nbsp;filename&nbsp;|&nbsp;none&nbsp;}&nbsp;] [-B&nbsp;bytes] [-R&nbsp;randfile] [-W] [-E&nbsp;socket] [-d&nbsp;[host:]port&nbsp;[-f]&nbsp;] [&nbsp;-r&nbsp;[host:]port&nbsp;|&nbsp;{&nbsp;-l&nbsp;|&nbsp;-L&nbsp;}&nbsp;program&nbsp;[--&nbsp;progname&nbsp;args]&nbsp;]</P>
+<P><B>stunnel</B> [-c&nbsp;|&nbsp;-T] [-D&nbsp;[facility.]level] [-o&nbsp;file] [-C&nbsp;cipherlist] [-p&nbsp;pemfile] [-v&nbsp;level] [-A&nbsp;certfile] [-S&nbsp;sources] [-a&nbsp;directory] [-t&nbsp;timeout] [-u&nbsp;ident_username] [-s&nbsp;setuid_user] [-g&nbsp;setgid_group] [-n&nbsp;protocol] [-P&nbsp;{&nbsp;dir/&nbsp;|&nbsp;filename&nbsp;|&nbsp;none&nbsp;}&nbsp;] [-B&nbsp;bytes] [-R&nbsp;randfile] [-W] [-E&nbsp;socket] [-d&nbsp;[host:]port&nbsp;[-f]&nbsp;] [&nbsp;-r&nbsp;[host:]port&nbsp;|&nbsp;{&nbsp;-l&nbsp;|&nbsp;-L&nbsp;}&nbsp;program&nbsp;[--&nbsp;progname&nbsp;args]&nbsp;]</P>
 <H1><A NAME="DESCRIPTION">3. DESCRIPTION</A></H1>
 <P>The <B>stunnel</B> program is designed to work as <I>SSL</I> encryption wrapper between remote clients and local (<I>inetd</I>-startable) or remote servers. The concept is that having non-SSL aware daemons running on your system you can easily set them up to communicate with clients over secure SSL channels.</P>
 <P><B>stunnel</B> can be used to add SSL functionality to commonly used <I>inetd</I> daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without changes to the source code.</P>
@@ -39,6 +39,9 @@ Level is a one of the syslog level names or numbers emerg (0), alert (1), crit (
 The syslog facility 'daemon' will be used unless a facility name is supplied.  (Facilities are not supported on windows.)
 <BR>
 Case is ignored for both facilities and levels.</UL>
+<P STYLE="font-weight: bold"><B><B>-o</B> file</B></P>
+<UL>
+Append log messages to a file.</UL>
 <P STYLE="font-weight: bold"><B><B>-C</B> cipherlist</B></P>
 <UL>
 Select permitted SSL ciphers
@@ -136,7 +139,7 @@ default: inetd mode</UL>
 <UL>
 foreground mode
 <BR>
-Stay in foreground (don't fork) and log to stderr instead of via syslog.
+Stay in foreground (don't fork) and log to stderr instead of via syslog (unless -o is specified).
 <BR>
 default: background in daemon mode</UL>
 <P STYLE="font-weight: bold"><B><B>-l</B> program [-- programname [arg1 arg2 arg3...]  ]</B></P>
@@ -217,19 +220,10 @@ Stunnel Frequently Asked Questions</UL>
 <P STYLE="font-weight: bold"><B><A HREF="http://www.openssl.org/">http://www.openssl.org/</A></B></P>
 <UL>
 OpenSSL project website</UL>
-<H1><A NAME="AUTHORS">10. AUTHORS</A></H1>
+<H1><A NAME="AUTHOR">10. AUTHOR</A></H1>
 <P STYLE="font-weight: bold"><B>Michal Trojnara</B></P>
 <UL>
 &lt;<TT>Michal.Trojnara@mirt.net</TT>&gt;</UL>
-<P STYLE="font-weight: bold"><B>Adam Hernik</B></P>
-<UL>
-&lt;<TT>adas@infocentrum.com</TT>&gt;</UL>
-<P STYLE="font-weight: bold"><B>Pawel Krawczyk</B></P>
-<UL>
-&lt;<TT>kravietz@ceti.com.pl</TT>&gt;</UL>
-<P STYLE="font-weight: bold"><B>PTY support by Dirk O. Siebnich</B></P>
-<UL>
-&lt;<TT>dok@vossnet.de</TT>&gt;</UL>
 </DIV>
 <DIV CLASS="footer">
 <DIV CLASS="navigate">

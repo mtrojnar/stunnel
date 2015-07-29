@@ -93,7 +93,7 @@
 .nr % 0
 .rr F
 .\}
-.TH STUNNEL.OUT 1 " " "15/Jul/2001" " "
+.TH STUNNEL.OUT 1 " " "22/Jul/2001" " "
 .UC
 .if n .hy 0
 .if n .na
@@ -190,13 +190,13 @@
 .SH "NAME"
 stunnel \- universal SSL tunnel
 .SH "SYNOPSIS"
-\fBstunnel\fR [\-c\ |\ \-T] [\-D\ [facility.]level] [\-C\ cipherlist]
-[\-p\ pemfile] [\-v\ level] [\-A\ certfile] [\-S\ sources] [\-a
-directory] [\-t\ timeout] [\-u\ ident_username] [\-s\ setuid_user]
-[\-g\ setgid_group] [\-n\ protocol] [\-P\ {\ dir/\ |\ filename\ |\ none\ }
-] [\-B\ bytes] [\-R\ randfile] [\-W] [\-E\ socket] [\-d
-[host:]port\ [\-f]\ ] [\ \-r\ [host:]port\ |\ {\ \-l\ |\ \-L\ }\ program\ [--
-progname\ args]\ ]
+\fBstunnel\fR [\-c\ |\ \-T] [\-D\ [facility.]level] [\-o\ file] [\-C
+cipherlist] [\-p\ pemfile] [\-v\ level] [\-A\ certfile] [\-S
+sources] [\-a\ directory] [\-t\ timeout] [\-u\ ident_username]
+[\-s\ setuid_user] [\-g\ setgid_group] [\-n\ protocol] [\-P\ {\ dir/
+|\ filename\ |\ none\ }\ ] [\-B\ bytes] [\-R\ randfile] [\-W] [\-E
+socket] [\-d\ [host:]port\ [\-f]\ ] [\ \-r\ [host:]port\ |\ {\ \-l\ |\ \-L\ }
+program\ [--\ progname\ args]\ ]
 .SH "DESCRIPTION"
 The \fBstunnel\fR program is designed to work as \fISSL\fR encryption
 wrapper between remote clients and local (\fIinetd\fR\-startable) or
@@ -229,6 +229,8 @@ The syslog facility \*(L'daemon\*(R' will be used unless a facility name is
 supplied.  (Facilities are not supported on windows.)
 .Sp
 Case is ignored for both facilities and levels.
+.Ip "\fB\-o\fR file" 4
+Append log messages to a file.
 .Ip "\fB\-C\fR cipherlist" 4
 Select permitted \s-1SSL\s0 ciphers
 .Sp
@@ -343,7 +345,7 @@ default: inetd mode
 foreground mode
 .Sp
 Stay in foreground (don't fork) and log to stderr instead of via
-syslog.
+syslog (unless \-o is specified).
 .Sp
 default: background in daemon mode
 .Ip "\fB\-l\fR program [-- programname [arg1 arg2 arg3...]  ]" 4
@@ -468,15 +470,9 @@ Stunnel homepage
 Stunnel Frequently Asked Questions
 .Ip "\fIhttp://www.openssl.org/\fR" 4
 OpenSSL project website
-.SH "AUTHORS"
+.SH "AUTHOR"
 .Ip "Michal Trojnara" 4
 <\fIMichal.Trojnara@mirt.net\fR>
-.Ip "Adam Hernik" 4
-<\fIadas@infocentrum.com\fR>
-.Ip "Pawel Krawczyk" 4
-<\fIkravietz@ceti.com.pl\fR>
-.Ip "\s-1PTY\s0 support by Dirk O. Siebnich" 4
-<\fIdok@vossnet.de\fR>
 
 .rn }` ''
 .IX Title "STUNNEL.OUT 1"
@@ -495,6 +491,8 @@ OpenSSL project website
 .IX Item "\fB\-V\fR"
 
 .IX Item "\fB\-D\fR level"
+
+.IX Item "\fB\-o\fR file"
 
 .IX Item "\fB\-C\fR cipherlist"
 
@@ -588,13 +586,7 @@ OpenSSL project website
 
 .IX Item "\fIhttp://www.openssl.org/\fR"
 
-.IX Header "AUTHORS"
+.IX Header "AUTHOR"
 
 .IX Item "Michal Trojnara"
-
-.IX Item "Adam Hernik"
-
-.IX Item "Pawel Krawczyk"
-
-.IX Item "\s-1PTY\s0 support by Dirk O. Siebnich"
 
