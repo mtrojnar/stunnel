@@ -238,6 +238,10 @@ NOEXPORT void log_raw(const int level, const char *stamp,
 }
 
 /* critical problem - str.c functions are not safe to use */
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif /* __GNUC__ */
 void fatal_debug(char *txt, char *file, int line) {
     char msg[80];
 #ifdef USE_WIN32
@@ -255,7 +259,8 @@ void fatal_debug(char *txt, char *file, int line) {
         WriteFile(outfile->fh, msg, strlen(msg), &num, NULL);
 #else /* USE_WIN32 */
         /* no file -> write to stderr */
-        (void)write(outfile ? outfile->fd : 2, msg, strlen(msg));
+        /* no meaningful way here to handle the result */
+        write(outfile ? outfile->fd : 2, msg, strlen(msg));
 #endif /* USE_WIN32 */
     }
 
@@ -285,6 +290,9 @@ void fatal_debug(char *txt, char *file, int line) {
 
     abort();
 }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 
 void ioerror(const char *txt) { /* input/output error */
     log_error(LOG_ERR, get_last_error(), txt);

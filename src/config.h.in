@@ -138,6 +138,9 @@
 /* Define to 1 if you have the `sysconf' function. */
 #undef HAVE_SYSCONF
 
+/* Define to 1 if you have the <systemd/sd-daemon.h> header file. */
+#undef HAVE_SYSTEMD_SD_DAEMON_H
+
 /* Define to 1 if you have the <sys/filio.h> header file. */
 #undef HAVE_SYS_FILIO_H
 

@@ -597,35 +597,6 @@ NOEXPORT void transfer(CLI *c) {
             }
         }
 
-        /****************************** check for hangup conditions */
-        if(s_poll_hup(c->fds, c->sock_rfd->fd)) {
-            s_log(LOG_INFO, "Read socket closed (hangup)");
-            sock_open_rd=0;
-        }
-        if(s_poll_hup(c->fds, c->sock_wfd->fd)) {
-            if(c->ssl_ptr) {
-                s_log(LOG_ERR,
-                    "Write socket closed (hangup) with %d unsent byte(s)",
-                    c->ssl_ptr);
-                longjmp(c->err, 1); /* reset the socket */
-            }
-            s_log(LOG_INFO, "Write socket closed (hangup)");
-            sock_open_wr=0;
-        }
-        if(s_poll_hup(c->fds, c->ssl_rfd->fd) ||
-                s_poll_hup(c->fds, c->ssl_wfd->fd)) {
-            /* hangup -> buggy (e.g. Microsoft) peer:
-             * SSL socket closed without close_notify alert */
-            if(c->sock_ptr || write_wants_write) {
-                s_log(LOG_ERR,
-                    "SSL socket closed (hangup) with %d unsent byte(s)",
-                    c->sock_ptr);
-                longjmp(c->err, 1); /* reset the socket */
-            }
-            s_log(LOG_INFO, "SSL socket closed (hangup)");
-            SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-        }
-
         /****************************** retrieve results from c->fds */
         sock_can_rd=s_poll_canread(c->fds, c->sock_rfd->fd);
         sock_can_wr=s_poll_canwrite(c->fds, c->sock_wfd->fd);
@@ -836,6 +807,35 @@ NOEXPORT void transfer(CLI *c) {
                 s_log(LOG_ERR, "SSL_write/SSL_get_error returned %d", err);
                 longjmp(c->err, 1);
             }
+        }
+
+        /****************************** check for hangup conditions */
+        if(s_poll_rdhup(c->fds, c->sock_rfd->fd)) {
+            s_log(LOG_INFO, "Read socket closed (hangup)");
+            sock_open_rd=0;
+        }
+        if(s_poll_hup(c->fds, c->sock_wfd->fd)) {
+            if(c->ssl_ptr) {
+                s_log(LOG_ERR,
+                    "Write socket closed (hangup) with %d unsent byte(s)",
+                    c->ssl_ptr);
+                longjmp(c->err, 1); /* reset the socket */
+            }
+            s_log(LOG_INFO, "Write socket closed (hangup)");
+            sock_open_wr=0;
+        }
+        if(s_poll_hup(c->fds, c->ssl_rfd->fd) ||
+                s_poll_hup(c->fds, c->ssl_wfd->fd)) {
+            /* hangup -> buggy (e.g. Microsoft) peer:
+             * SSL socket closed without close_notify alert */
+            if(c->sock_ptr || write_wants_write) {
+                s_log(LOG_ERR,
+                    "SSL socket closed (hangup) with %d unsent byte(s)",
+                    c->sock_ptr);
+                longjmp(c->err, 1); /* reset the socket */
+            }
+            s_log(LOG_INFO, "SSL socket closed (hangup)");
+            SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         }
 
         /****************************** check write shutdown conditions */
@@ -1225,6 +1225,8 @@ NOEXPORT void setup_connect_addr(CLI *c) {
             sockerror("setsockopt SO_ORIGINAL_DST");
             longjmp(c->err, 1);
         }
+        c->connect_addr.rr_val=0;
+        c->connect_addr.rr_ptr=&c->connect_addr.rr_val;
         return;
     }
 #endif /* SO_ORIGINAL_DST */

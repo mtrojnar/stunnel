@@ -3,6 +3,7 @@ stunnel TODO
 
 High priority features.  They will likely be supported some day.
 A sponsor could allocate my time to get them faster.
+* Add an Apparmor profile.
 * Optional line-buffering of the log file.
 * Configuration file option to limit the number of concurrent connections.
 * SOCKS 4 protocol support.

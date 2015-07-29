@@ -1,8 +1,24 @@
 # wce.mak for stunnel.exe by Michal Trojnara 2006-2012
 # with help of Pierre Delaage <delaage.pierre@free.fr>
+# pdelaage 20140610 : added UNICODE optional FLAG, always ACTIVE on WCE because of poor ANSI support
+# pdelaage 20140610 : added _WIN32_WCE flag for RC compilation, to preprocess out "HELP" unsupported menu flag on WCE
+# pdelaage 20140610 : ws2 lib is required to get WSAGetLastError routine (absent from winsock lib)
+# pdelaage 20140610 : /Dx86 flag required for X86/Emulator targets, to get proper definition for InterlockedExchange
+# pdelaage 20140610 : /MT flag is NON-SENSE for X86-WCE platforms, it is only meaningful for X86-W32-Desktop.
+#                     for X86-WCE targets, although compiler "cl.exe" is REALLY the same as desktop W32 VS6 C++ compiler,
+#                     the MT flags relating to LIBCMT is useless BECAUSE LIBCMT does NOT exist on WCE. No msvcrt on WCE either...
+
+# pdelaage 20140610 :  Note on /MC flag 
+# For other targets than X86/Emulator, /MC flag is redundant with "/nodefaultlib coredll.lib corelibc.lib" LD lib list.
+# For << X86 / Emulator >> target, as the cl.exe compiler IS the SAME as the standard VS6.0 C++ compiler for Desktop Pentium processor, 
+# /MC flag is in fact NOT existing, thus requiring an explicit linking with core libs by using : 
+# /NODEFAULTLIB coredll.lib corelibc.lib,
+# something that is correct for any WCE target, X86 and other, and leading /MC flag to be useless ALSO for other target than X86.
+
+
 #
 # DEFAULTLIB management: only 2 are necessary
-# defaultlibS as given for CLxxx in the MS doc ARE WRONG
+# defaultlibS, as given for CLxxx in the MS doc, ARE WRONG
 
 # !!!!!!!!!!!!!!
 # CUSTOMIZE THIS according to your wcecompat and openssl directories
@@ -10,10 +26,10 @@
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=C:\Users\standard\Documents\Dvts\Contrib\openssl\v1.0.0a\patched3
+SSLDIR=C:\Users\pdelaage\Dvts\Contrib\openssl\v1.0.2-stable-SNAP-20121213\patch3
 
 # Note that we currently use a multi-target customized version of legacy Essemer/wcecompat lib
-COMPATDIR=C:\Users\standard\Documents\Dvts\Contrib\wcecompat\v12\patchedX86
+COMPATDIR=C:\Users\pdelaage\Dvts\Contrib\wcecompat\v12\patched3emu
 
 WCEVER=420
 
@@ -24,7 +40,8 @@ WCEVER=420
 !IF "$(TARGETCPU)"=="X86"
 WCETARGETCPU=_X86_
 LDTARGETCPU=X86
-MORECFLAGS=/MT
+#pdelaage 20140621 /Dx86 for inline defs of InterlockedExchange inline in winbase.h; no more /MT
+MORECFLAGS=/Dx86
 
 # TODO: continue list for other targets : see wcecompat/wcedefs.mak for a good ref.
 # see also openssl/util/pl/vc-32.pl, also link /?
@@ -34,17 +51,20 @@ MORECFLAGS=/MT
 !ELSEIF "$(TARGETCPU)"=="emulator"
 WCETARGETCPU=_X86_
 LDTARGETCPU=X86
-MORECFLAGS=/MT
+#pdelaage 20140621 /Dx86 for inline defs of InterlockedExchange inline in winbase.h; no more /MT
+MORECFLAGS=/Dx86
 
 !ELSEIF "$(TARGETCPU)"=="MIPS16" || "$(TARGETCPU)"=="MIPSII" || "$(TARGETCPU)"=="MIPSII_FP" || "$(TARGETCPU)"=="MIPSIV" || "$(TARGETCPU)"=="MIPSIV_FP"
 WCETARGETCPU=_MIPS_
 LDTARGETCPU=MIPS
-MORECFLAGS=/DMIPS /MC
+#pdelaage 20140621  no more /MC required
+MORECFLAGS=/DMIPS
 
 !ELSEIF "$(TARGETCPU)"=="SH3" || "$(TARGETCPU)"=="SH4"
 WCETARGETCPU=SHx
 LDTARGETCPU=$(TARGETCPU)
-MORECFLAGS=/MC
+#pdelaage 20140621  no more /MC required
+MORECFLAGS=
 
 !ELSE
 # default is ARM !
@@ -52,8 +72,8 @@ MORECFLAGS=/MC
 # the following flag is required by (eg) winnt.h, and is different from targetcpu (armV4)
 WCETARGETCPU=ARM
 LDTARGETCPU=ARM
-MORECFLAGS=/MC
-
+#pdelaage 20140621  no more /MC required
+MORECFLAGS=
 !ENDIF
 
 # ceutilsdir probably useless (nb : were tools from essemer; but ms delivers a cecopy anyway, see ms dld site)
@@ -65,12 +85,17 @@ SDKDIR=$(SDKROOT)\$(OSVERSION)\$(PLATFORM)
 INCLUDES=-I$(SSLDIR)\inc32 -I$(COMPATDIR)\include -I"$(SDKDIR)\include\$(TARGETCPU)"
 # for X86 and other it appears that /MC or /ML flags are absurd,
 # we always have to override runtime lib list to coredll and corelibc
-LIBS=/NODEFAULTLIB winsock.lib wcecompatex.lib libeay32.lib ssleay32.lib coredll.lib corelibc.lib
+#LIBS=/NODEFAULTLIB winsock.lib wcecompatex.lib libeay32.lib ssleay32.lib coredll.lib corelibc.lib
+LIBS=/NODEFAULTLIB ws2.lib      wcecompatex.lib libeay32.lib ssleay32.lib coredll.lib corelibc.lib
 
 DEFINES=/DHOST=\"$(TARGETCPU)-WCE-eVC-$(WCEVER)\"
+# pdelaage 20140610 added unicode flag : ALWAYS ACTIVE on WCE, because of poor ANSI support by the MS SDK
+UNICODEFLAGS=/DUNICODE -D_UNICODE
 # /O1 /Oi more correct vs MS doc
-CFLAGS=/nologo $(MORECFLAGS) /O1 /Oi /W3 /WX /GF /Gy $(DEFINES) /D$(WCETARGETCPU) /D$(TARGETCPU) /DUNDER_CE=$(WCEVER) /D_WIN32_WCE=$(WCEVER) /DUNICODE -D_UNICODE $(INCLUDES)
-RFLAGS=$(DEFINES) $(INCLUDES)
+CFLAGS=/nologo $(MORECFLAGS) /O1 /Oi /W3 /WX /GF /Gy $(DEFINES) /D$(WCETARGETCPU) /D$(TARGETCPU) /DUNDER_CE=$(WCEVER) /D_WIN32_WCE=$(WCEVER) $(UNICODEFLAGS) $(INCLUDES)
+# pdelaage 20140610 : RC compilation requires D_WIN32_WCE flag to comment out unsupported "HELP" flag in menu definition, in resources.rc file
+RFLAGS=$(DEFINES) /D_WIN32_WCE=$(WCEVER) $(INCLUDES)
+
 # LDFLAGS: since openssl >> 098a (eg 098h) out32dll is out32dll_targetCPU for WCE
 # delaage added $(TARGETCPU) in legacy Essemer/wcecompat libpath
 # to ease multitarget compilation without recompiling everything

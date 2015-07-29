@@ -843,11 +843,20 @@ A service section for transparent destination may look like this:
     accept=<stunnel_port>
     transparent=destination
 
-This configuration requires the following setup for iptables
-(possibly in /etc/rc.local or equivalent file):
+This configuration requires iptables setup to work,
+possibly in /etc/rc.local or equivalent file.
+
+For a connect target installed on the same host:
+
+    /sbin/iptables -t nat -I OUTPUT -p tcp --dport <redirected_port> \
+        -m ! --uid-owner <stunnel_user_id> \
+        -j DNAT --to-destination <local_ip>:<stunnel_port>
+
+For a connect target installed on a remote host:
 
     /sbin/iptables -I INPUT -i eth0 -p tcp --dport <stunnel_port> -j ACCEPT
-    /sbin/iptables -t nat -I PREROUTING -i eth0 -p tcp --dport <redirected_port> -j DNAT --to-destination <local_ip>:<stunnel_port>
+    /sbin/iptables -t nat -I PREROUTING -p tcp --dport <redirected_port> \
+        -i eth0 -j DNAT --to-destination <local_ip>:<stunnel_port>
 
 Transparent destination option is currently only supported on Linux.
 

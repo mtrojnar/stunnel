@@ -133,7 +133,8 @@ void file_close(DISK_FILE *df) {
 #ifdef USE_WIN32
     CloseHandle(df->fh);
 #else /* USE_WIN32 */
-    close(df->fd);
+    if(df->fd>2) /* never close stdin/stdout/stder */
+        close(df->fd);
 #endif /* USE_WIN32 */
     str_free(df);
 }

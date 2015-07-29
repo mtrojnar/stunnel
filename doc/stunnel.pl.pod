@@ -861,11 +861,20 @@ Przykładowana konfiguracja przezroczystego adresu docelowego:
     accept=<port_stunnela>
     transparent=destination
 
-Konfiguracja wymaga następujących ustawień iptables
-(na przykład w pliku /etc/rc.local lub analogicznym):
+Konfiguracja wymaga ustawień iptables, na przykład w pliku
+/etc/rc.local lub analogicznym.
+
+W przypadku docelowej usługi umieszczonej na tej samej maszynie:
+
+    /sbin/iptables -t nat -I OUTPUT -p tcp --dport <port_przekierowany> \
+        -m ! --uid-owner <identyfikator_użytkownika_stunnela> \
+        -j DNAT --to-destination <lokalne_ip>:<lokalny_port>
+
+W przypadku docelowej usługi umieszczonej na zdalnej maszynie:
 
     /sbin/iptables -I INPUT -i eth0 -p tcp --dport <port_stunnela> -j ACCEPT
-    /sbin/iptables -t nat -I PREROUTING -i eth0 -p tcp --dport <port_przekierowany> -j DNAT --to-destination <lokalne_ip>:<port_stunnela>
+    /sbin/iptables -t nat -I PREROUTING -p tcp --dport <port_przekierowany> \
+        -i eth0 -j DNAT --to-destination <lokalne_ip>:<port_stunnela>
 
 Przezroczysty adres docelowy jest aktualnie wspierany wyłącznie w systemie Linux.
 

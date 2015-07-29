@@ -177,7 +177,7 @@ typedef struct service_options_struct {
     char *cert;                                             /* cert filename */
     char *key;                               /* pem (priv key/cert) filename */
     long session_size, session_timeout;
-    long ssl_options;
+    long ssl_options_set, ssl_options_clear;
     SSL_METHOD *client_method, *server_method;
     SOCKADDR_UNION sessiond_addr;
 #ifndef OPENSSL_NO_TLSEXT
@@ -417,6 +417,7 @@ void s_poll_add(s_poll_set *, int, int, int);
 int s_poll_canread(s_poll_set *, int);
 int s_poll_canwrite(s_poll_set *, int);
 int s_poll_hup(s_poll_set *, int);
+int s_poll_rdhup(s_poll_set *, int);
 int s_poll_error(s_poll_set *, int);
 int s_poll_wait(s_poll_set *, int, int);
 

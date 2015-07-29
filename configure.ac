@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.04])
+AC_INIT([stunnel],[5.05])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 5.04)
+AM_INIT_AUTOMAKE(stunnel, 5.05)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -168,6 +168,7 @@ AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([malloc.h ucontext.h pthread.h poll.h tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h])
 AC_CHECK_HEADERS([sys/types.h sys/select.h sys/poll.h sys/socket.h sys/un.h sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h sys/syscall.h])
+AC_CHECK_HEADERS([systemd/sd-daemon.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
     [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1],
     [Define to 1 if you have 'msghdr.msg_control' structure.])], [], [
@@ -192,6 +193,8 @@ AC_SEARCH_LIBS([openpty], [util])
 AC_SEARCH_LIBS([dlopen], [dl])
 AC_SEARCH_LIBS([shl_load], [dld])
 AC_SEARCH_LIBS([inflateEnd], [z])
+AC_SEARCH_LIBS([sd_listen_fds], [systemd-daemon])
+
 
 # Add BeOS libraries
 if test "$host_os" = "beos"; then

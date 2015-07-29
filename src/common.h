@@ -171,6 +171,11 @@ typedef int socklen_t;
 #define USE_LIBWRAP 1
 #endif
 
+/* systemd */
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+#include <systemd/sd-daemon.h>
+#endif
+
 /* must be included before sys/stat.h for Ultrix */
 /* must be included before sys/socket.h for OpenBSD */
 #include <sys/types.h>   /* u_short, u_long */

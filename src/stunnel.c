@@ -84,10 +84,21 @@ int max_clients=0;
 volatile int num_clients=-1;
 #endif
 s_poll_set *fds; /* file descriptors of listening sockets */
+int systemd_fds; /* number of file descriptors passed by systemd */
+int listen_fds_start; /* base for systemd-provided file descriptors */
 
 /**************************************** startup */
 
 void main_init() { /* one-time initialization */
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+    systemd_fds=sd_listen_fds(1);
+    if(systemd_fds<0)
+        fatal("systemd initialization failed");
+    listen_fds_start=SD_LISTEN_FDS_START;
+#else
+    systemd_fds=0; /* no descriptors received */
+    listen_fds_start=3; /* the value is not really important */
+#endif
     /* basic initialization contains essential functions required for logging
      * subsystem to function properly, thus all errors here are fatal */
     if(ssl_init()) /* initialize SSL library */
@@ -338,7 +349,9 @@ void unbind_ports(void) {
     for(opt=service_options.next; opt; opt=opt->next) {
         s_log(LOG_DEBUG, "Closing service [%s]", opt->servname);
         if(opt->option.accept && opt->fd>=0) {
-            closesocket(opt->fd);
+            if(opt->fd<listen_fds_start ||
+                    opt->fd>=listen_fds_start+systemd_fds)
+                closesocket(opt->fd);
             s_log(LOG_DEBUG, "Service [%s] closed (FD=%d)",
                 opt->servname, opt->fd);
             opt->fd=-1;
@@ -357,19 +370,17 @@ void unbind_ports(void) {
             }
 #endif
         } else if(opt->option.program && opt->option.remote) {
-            /* create exec+connect services */
-            /* FIXME: this is just a crude workaround */
+            /* create exec+connect services             */
+            /* FIXME: this is just a crude workaround   */
             /*        is it better to kill the service? */
             opt->option.retry=0;
         }
-        if(opt->ctx) {
-            s_log(LOG_DEBUG, "Sessions cached before flush: %ld",
-                SSL_CTX_sess_number(opt->ctx));
+        /* purge session cache of the old SSL_CTX object */
+        /* this workaround won't be needed anymore after */
+        /* delayed deallocation calls SSL_CTX_free()     */
+        if(opt->ctx)
             SSL_CTX_flush_sessions(opt->ctx,
                 (long)time(NULL)+opt->session_timeout+1);
-            s_log(LOG_DEBUG, "Sessions cached after flush: %ld",
-                SSL_CTX_sess_number(opt->ctx));
-        }
         s_log(LOG_DEBUG, "Service [%s] closed", opt->servname);
     }
 }
@@ -378,6 +389,7 @@ void unbind_ports(void) {
 int bind_ports(void) {
     SERVICE_OPTIONS *opt;
     char *local_address;
+    int listening_section;
 
 #ifdef USE_LIBWRAP
     /* execute after options_cmdline() to know service_options.next,
@@ -396,12 +408,22 @@ int bind_ports(void) {
         if(opt->option.accept)
             opt->fd=-1;
 
+    listening_section=0;
     for(opt=service_options.next; opt; opt=opt->next) {
         if(opt->option.accept) {
-            opt->fd=s_socket(opt->local_addr.sa.sa_family,
-                SOCK_STREAM, 0, 1, "accept socket");
-            if(opt->fd<0)
-                return 1;
+            if(listening_section<systemd_fds) {
+                opt->fd=listen_fds_start+listening_section;
+                s_log(LOG_DEBUG,
+                    "Listening file descriptor received from systemd (FD=%d)",
+                    opt->fd);
+            } else {
+                opt->fd=s_socket(opt->local_addr.sa.sa_family,
+                    SOCK_STREAM, 0, 1, "accept socket");
+                if(opt->fd<0)
+                    return 1;
+                s_log(LOG_DEBUG, "Listening file descriptor created (FD=%d)",
+                    opt->fd);
+            }
             if(set_socket_options(opt->fd, 0)<0) {
                 closesocket(opt->fd);
                 opt->fd=-1;
@@ -409,32 +431,42 @@ int bind_ports(void) {
             }
             /* local socket can't be unnamed */
             local_address=s_ntop(&opt->local_addr, addr_len(&opt->local_addr));
-            if(bind(opt->fd, &opt->local_addr.sa, addr_len(&opt->local_addr))) {
-                s_log(LOG_ERR, "Error binding service [%s] to %s",
-                    opt->servname, local_address);
-                sockerror("bind");
-                closesocket(opt->fd);
-                opt->fd=-1;
-                str_free(local_address);
-                return 1;
-            }
-            if(listen(opt->fd, SOMAXCONN)) {
-                sockerror("listen");
-                closesocket(opt->fd);
-                opt->fd=-1;
-                str_free(local_address);
-                return 1;
+            /* we don't bind or listen on a socket inherited from systemd */
+            if(listening_section>=systemd_fds) {
+                if(bind(opt->fd, &opt->local_addr.sa, addr_len(&opt->local_addr))) {
+                    s_log(LOG_ERR, "Error binding service [%s] to %s",
+                        opt->servname, local_address);
+                    sockerror("bind");
+                    closesocket(opt->fd);
+                    opt->fd=-1;
+                    str_free(local_address);
+                    return 1;
+                }
+                if(listen(opt->fd, SOMAXCONN)) {
+                    sockerror("listen");
+                    closesocket(opt->fd);
+                    opt->fd=-1;
+                    str_free(local_address);
+                    return 1;
+                }
             }
             s_poll_add(fds, opt->fd, 1, 0);
             s_log(LOG_DEBUG, "Service [%s] (FD=%d) bound to %s",
                 opt->servname, opt->fd, local_address);
             str_free(local_address);
+            ++listening_section;
         } else if(opt->option.program && opt->option.remote) {
             /* create exec+connect services */
             /* FIXME: needs to be delayed on reload with opt->option.retry set */
             create_client(-1, -1,
                 alloc_client_session(opt, -1, -1), client_thread);
         }
+    }
+    if(listening_section<systemd_fds) {
+        s_log(LOG_ERR,
+            "Too many listening file descriptors received from systemd, got %d",
+            systemd_fds);
+        return 1;
     }
     return 0; /* OK */
 }
@@ -497,10 +529,17 @@ NOEXPORT int signal_pipe_init(void) {
     return 0;
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif /* __GNUC__ */
 void signal_post(int sig) {
     /* no meaningful way here to handle the result */
-    (void)writesocket(signal_pipe[1], (char *)&sig, sizeof sig);
+    writesocket(signal_pipe[1], (char *)&sig, sizeof sig);
 }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 
 NOEXPORT int signal_pipe_dispatch(void) {
     int sig;
@@ -586,6 +625,9 @@ void stunnel_info(int level) {
         "SELECT"
 #endif /* defined(USE_POLL) */
         ",IPv%c"
+#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+        ",SYSTEMD"
+#endif /* HAVE_SYSTEMD_SD_DAEMON_H */
 
 #if defined HAVE_OSSL_ENGINE_H || defined HAVE_OSSL_OCSP_H || defined USE_FIPS
         " SSL:"

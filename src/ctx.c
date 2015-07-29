@@ -158,8 +158,11 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
             sslerror("SSL_CTX_set_cipher_list");
             return 1; /* FAILED */
         }
-    s_log(LOG_DEBUG, "SSL options set: 0x%08lX",
-        SSL_CTX_set_options(section->ctx, section->ssl_options));
+    SSL_CTX_set_options(section->ctx, section->ssl_options_set);
+    SSL_CTX_clear_options(section->ctx, section->ssl_options_clear);
+    s_log(LOG_DEBUG, "SSL options: 0x%08lX (+0x%08lX, -0x%08lX)",
+        SSL_CTX_get_options(section->ctx),
+        section->ssl_options_set, section->ssl_options_clear);
 #ifdef SSL_MODE_RELEASE_BUFFERS
     SSL_CTX_set_mode(section->ctx,
         SSL_MODE_ENABLE_PARTIAL_WRITE |

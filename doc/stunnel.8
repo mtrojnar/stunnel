@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2014.09.16" "5.04" "stunnel"
+.TH STUNNEL 8 "2014.10.06" "5.05" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -779,12 +779,23 @@ A service section for transparent destination may look like this:
 \&    transparent=destination
 .Ve
 .Sp
-This configuration requires the following setup for iptables
-(possibly in /etc/rc.local or equivalent file):
+This configuration requires iptables setup to work,
+possibly in /etc/rc.local or equivalent file.
 .Sp
-.Vb 2
+For a connect target installed on the same host:
+.Sp
+.Vb 3
+\&    /sbin/iptables \-t nat \-I OUTPUT \-p tcp \-\-dport <redirected_port> \e
+\&        \-m ! \-\-uid\-owner <stunnel_user_id> \e
+\&        \-j DNAT \-\-to\-destination <local_ip>:<stunnel_port>
+.Ve
+.Sp
+For a connect target installed on a remote host:
+.Sp
+.Vb 3
 \&    /sbin/iptables \-I INPUT \-i eth0 \-p tcp \-\-dport <stunnel_port> \-j ACCEPT
-\&    /sbin/iptables \-t nat \-I PREROUTING \-i eth0 \-p tcp \-\-dport <redirected_port> \-j DNAT \-\-to\-destination <local_ip>:<stunnel_port>
+\&    /sbin/iptables \-t nat \-I PREROUTING \-p tcp \-\-dport <redirected_port> \e
+\&        \-i eth0 \-j DNAT \-\-to\-destination <local_ip>:<stunnel_port>
 .Ve
 .Sp
 Transparent destination option is currently only supported on Linux.

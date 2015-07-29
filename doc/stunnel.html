@@ -858,11 +858,18 @@ other platforms.</p>
     client=yes
     accept=&lt;stunnel_port&gt;
     transparent=destination</pre>
-<p>This configuration requires the following setup for iptables
-(possibly in /etc/rc.local or equivalent file):</p>
+<p>This configuration requires iptables setup to work,
+possibly in /etc/rc.local or equivalent file.</p>
+<p>For a connect target installed on the same host:</p>
+<pre>
+    /sbin/iptables -t nat -I OUTPUT -p tcp --dport &lt;redirected_port&gt; \
+        -m ! --uid-owner &lt;stunnel_user_id&gt; \
+        -j DNAT --to-destination &lt;local_ip&gt;:&lt;stunnel_port&gt;</pre>
+<p>For a connect target installed on a remote host:</p>
 <pre>
     /sbin/iptables -I INPUT -i eth0 -p tcp --dport &lt;stunnel_port&gt; -j ACCEPT
-    /sbin/iptables -t nat -I PREROUTING -i eth0 -p tcp --dport &lt;redirected_port&gt; -j DNAT --to-destination &lt;local_ip&gt;:&lt;stunnel_port&gt;</pre>
+    /sbin/iptables -t nat -I PREROUTING -p tcp --dport &lt;redirected_port&gt; \
+        -i eth0 -j DNAT --to-destination &lt;local_ip&gt;:&lt;stunnel_port&gt;</pre>
 <p>Transparent destination option is currently only supported on Linux.</p>
 </dd>
 <dt><strong><em>both</em></strong></dt>

@@ -218,7 +218,8 @@ int options_parse(CONF_TYPE type) {
             if(!new_service_options.next) {
                 errstr=parse_global_option(CMD_END, NULL, NULL);
                 if(errstr) {
-                    s_log(LOG_ERR, "Line %d: \"%s\": %s", line_number, line_text, errstr);
+                    s_log(LOG_ERR, "Line %d: \"%s\": %s",
+                        line_number, line_text, errstr);
                     file_close(df);
                     return 1;
                 }
@@ -1613,15 +1614,23 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* options */
     switch(cmd) {
     case CMD_BEGIN:
-        section->ssl_options=0;
+        section->ssl_options_set=0;
+        section->ssl_options_clear=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "options"))
             break;
-        tmpnum=parse_ssl_option(arg);
-        if(!tmpnum)
-            return "Illegal SSL option";
-        section->ssl_options|=tmpnum;
+        if(*arg=='-') {
+            tmpnum=parse_ssl_option(arg+1);
+            if(!tmpnum)
+                return "Illegal SSL option";
+            section->ssl_options_clear|=tmpnum;
+        } else {
+            tmpnum=parse_ssl_option(arg);
+            if(!tmpnum)
+                return "Illegal SSL option";
+            section->ssl_options_set|=tmpnum;
+        }
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1956,7 +1965,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #ifdef SSL_OP_NO_TICKET
         /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
         /* this prevents session callbacks from beeing executed */
-        section->ssl_options|=SSL_OP_NO_TICKET;
+        section->ssl_options_set|=SSL_OP_NO_TICKET;
 #endif
         if(!name2addr(&section->sessiond_addr, arg, DEFAULT_LOOPBACK))
             return "Failed to resolve sessiond server address";
@@ -2346,7 +2355,8 @@ NOEXPORT char *init_sni(SERVICE_OPTIONS *section) {
             tmpsrv->servername_list_head=
                 tmpsrv->servername_list_tail=
                 str_alloc(sizeof(SERVERNAME_LIST));
-            tmpsrv->ssl_options|=SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
+            tmpsrv->ssl_options_set|=
+                SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
         }
         tmpsrv->servername_list_tail->servername=str_dup(tmpstr);
         tmpsrv->servername_list_tail->opt=section;
@@ -2354,7 +2364,8 @@ NOEXPORT char *init_sni(SERVICE_OPTIONS *section) {
         section->option.sni=1;
         /* always negotiate a new session on renegotiation, as the SSL
          * context settings (including access control) may be different */
-        section->ssl_options|=SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
+        section->ssl_options_set|=
+            SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
     }
 
     /* client mode: setup SNI default based on 'protocolHost' and 'connect' options */

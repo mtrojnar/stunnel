@@ -246,8 +246,10 @@ NOEXPORT int cert_check(X509_STORE_CTX *callback_ctx, int preverify_ok) {
     CLI *c=SSL_get_ex_data(ssl, cli_index);
     int depth=X509_STORE_CTX_get_error_depth(callback_ctx);
 
-    if(!preverify_ok) {
-        /* remote site specified a certificate, but it's not correct */
+    if(preverify_ok) {
+        s_log(LOG_DEBUG, "CERT: preverify ok");
+    } else {
+        /* remote site sent an invalid certificate */
         if(c->opt->verify_level>=4 && depth>0) {
             s_log(LOG_INFO, "CERT: Invalid CA certificate ignored");
             return 1; /* success */
@@ -298,7 +300,7 @@ NOEXPORT int compare_pubkeys(X509 *c1, X509 *c2) {
     ASN1_BIT_STRING *k2=X509_get0_pubkey_bitstr(c2);
     if(!k1 || !k2 || k1->length!=k2->length ||
             safe_memcmp(k1->data, k2->data, k1->length)) {
-        s_log(LOG_INFO, "CERT: Public keys do not match");
+        s_log(LOG_DEBUG, "CERT: Public keys do not match");
         return 0; /* fail */
     }
 #endif

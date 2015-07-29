@@ -85,8 +85,12 @@ void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
         fds->ufds[i].events=0;
         fds->nfds++;
     }
-    if(rd)
+    if(rd) {
         fds->ufds[i].events|=POLLIN;
+#ifdef POLLRDHUP
+        fds->ufds[i].events|=POLLRDHUP;
+#endif
+    }
     if(wr)
         fds->ufds[i].events|=POLLOUT;
 }
@@ -109,12 +113,27 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
     return 0; /* not listed in fds */
 }
 
+/* best doc: http://lxr.free-electrons.com/source/net/ipv4/tcp.c#L456 */
+
 int s_poll_hup(s_poll_set *fds, int fd) {
     unsigned int i;
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&POLLHUP;
+            return fds->ufds[i].revents&POLLHUP; /* read and write closed */
+    return 0; /* not listed in fds */
+}
+
+int s_poll_rdhup(s_poll_set *fds, int fd) {
+    unsigned int i;
+
+    for(i=0; i<fds->nfds; i++)
+        if(fds->ufds[i].fd==fd)
+#ifdef POLLRDHUP
+            return fds->ufds[i].revents&POLLRDHUP; /* read closed */
+#else
+            return fds->ufds[i].revents&POLLHUP; /* read and write closed */
+#endif
     return 0; /* not listed in fds */
 }
 
@@ -368,6 +387,12 @@ int s_poll_hup(s_poll_set *fds, int fd) {
     (void)fds; /* skip warning about unused parameter */
     (void)fd; /* skip warning about unused parameter */
     return 0; /* FIXME: how to detect HUP condition with select()? */
+}
+
+int s_poll_rdhup(s_poll_set *fds, int fd) {
+    (void)fds; /* skip warning about unused parameter */
+    (void)fd; /* skip warning about unused parameter */
+    return 0; /* FIXME: how to detect RDHUP condition with select()? */
 }
 
 int s_poll_error(s_poll_set *fds, int fd) {

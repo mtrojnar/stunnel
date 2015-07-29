@@ -42,11 +42,16 @@
 
 #include <tcpd.h>
 
+#if defined(USE_PTHREAD) && !defined(__CYGWIN__)
+/* http://wiki.osdev.org/Cygwin_Issues#Passing_file_descriptors */
+#define USE_LIBWRAP_POOL
+#endif /* USE_PTHREAD && !__CYGWIN__ */
+
 NOEXPORT int check(char *, int);
 
 int allow_severity=LOG_NOTICE, deny_severity=LOG_WARNING;
 
-#ifdef USE_PTHREAD
+#ifdef USE_LIBWRAP_POOL
 #define SERVNAME_LEN 256
 
 NOEXPORT ssize_t read_fd(int, void *, size_t, int *);
@@ -54,10 +59,10 @@ NOEXPORT ssize_t write_fd(int, void *, size_t, int);
 
 int num_processes=0;
 static int *ipc_socket, *busy;
-#endif /* USE_PTHREAD */
+#endif /* USE_LIBWRAP_POOL */
 
 int libwrap_init() {
-#ifdef USE_PTHREAD
+#ifdef USE_LIBWRAP_POOL
     int i, j, rfd, result;
     char servname[SERVNAME_LEN];
     static int initialized=0;
@@ -102,18 +107,18 @@ int libwrap_init() {
         }
     }
     initialized=1;
-#endif /* USE_PTHREAD */
+#endif /* USE_LIBWRAP_POOL */
     return 0;
 }
 
 void libwrap_auth(CLI *c, char *accepted_address) {
     int result=0; /* deny by default */
-#ifdef USE_PTHREAD
+#ifdef USE_LIBWRAP_POOL
     static volatile int num_busy=0, roundrobin=0;
     int retval, my_process;
     static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
     static pthread_cond_t cond=PTHREAD_COND_INITIALIZER;
-#endif /* USE_PTHREAD */
+#endif /* USE_LIBWRAP_POOL */
 
     if(!c->opt->option.libwrap) /* libwrap is disabled for this service */
         return; /* allow connection */
@@ -123,7 +128,7 @@ void libwrap_auth(CLI *c, char *accepted_address) {
         return;
     }
 #endif
-#ifdef USE_PTHREAD
+#ifdef USE_LIBWRAP_POOL
     if(num_processes) {
         s_log(LOG_DEBUG, "Waiting for a libwrap process");
 
@@ -183,7 +188,7 @@ void libwrap_auth(CLI *c, char *accepted_address) {
 
         s_log(LOG_DEBUG, "Released libwrap process #%d", my_process);
     } else
-#endif /* USE_PTHREAD */
+#endif /* USE_LIBWRAP_POOL */
     { /* use original, synchronous libwrap calls */
         enter_critical_section(CRIT_LIBWRAP);
         result=check(c->opt->servname, c->local_rfd.fd);
@@ -207,7 +212,7 @@ NOEXPORT int check(char *name, int fd) {
     return hosts_access(&request);
 }
 
-#ifdef USE_PTHREAD
+#ifdef USE_LIBWRAP_POOL
 
 NOEXPORT ssize_t read_fd(int fd, void *ptr, size_t nbytes, int *recvfd) {
     struct msghdr msg;
@@ -299,7 +304,7 @@ NOEXPORT ssize_t write_fd(int fd, void *ptr, size_t nbytes, int sendfd) {
     return sendmsg(fd, &msg, 0);
 }
 
-#endif /* USE_PTHREAD */
+#endif /* USE_LIBWRAP_POOL */
 
 #endif /* USE_LIBWRAP */
 

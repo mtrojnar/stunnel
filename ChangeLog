@@ -1,5 +1,32 @@
 stunnel change log
 
+
+Version 5.05, 2014.10.10, urgency: MEDIUM:
+* New features
+  - Asynchronous communication with the GUI thread for faster
+    logging on Win32.
+  - systemd socket activation (thx to Mark Theunissen).
+  - The parameter of "options" can now be prefixed with "-"
+    to clear an SSL option, for example:
+    "options = -LEGACY_SERVER_CONNECT".
+  - Improved "transparent = destination" manual page (thx to
+    Vadim Penzin).
+* Bugfixes
+  - Fixed POLLIN|POLLHUP condition handling error resulting
+    in prematurely closed (truncated) connection.
+  - Fixed a null pointer dereference regression bug in the
+    "transparent = destination" functionality (thx to
+    Vadim Penzin). This bug was introduced in stunnel 5.00.
+  - Fixed startup thread synchronization with Win32 GUI.
+  - Fixed erroneously closed stdin/stdout/stderr if specified
+    as the -fd commandline option parameter.
+  - A number of minor Win32 GUI bugfixes and improvements.
+  - Merged most of the Windows CE patches (thx to Pierre Delaage).
+  - Fixed incorrect CreateService() error message on Win32.
+  - Implemented a workaround for defective Cygwin file
+    descriptor passing breaking the libwrap support:
+    http://wiki.osdev.org/Cygwin_Issues#Passing_file_descriptors
+
 Version 5.04, 2014.09.21, urgency: LOW:
 * New features
   - Support for local mode ("exec" option) on Win32.
