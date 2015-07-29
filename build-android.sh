@@ -1,6 +1,6 @@
 #!/bin/sh
 set -ev
-VERSION=5.06
+VERSION=5.07
 DST=stunnel-$VERSION-android
 
 # to build Zlib:

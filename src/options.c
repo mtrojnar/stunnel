@@ -287,6 +287,16 @@ int options_parse(CONF_TYPE type) {
         memcpy(config_line, line_text, CONFLINELEN);
         ++line_number;
         config_opt=config_line;
+        if(line_number==1) {
+            if(config_opt[0]==(char)0xef &&
+                    config_opt[1]==(char)0xbb &&
+                    config_opt[2]==(char)0xbf) {
+                s_log(LOG_NOTICE, "UTF-8 byte order mark detected");
+                config_opt+=3;
+            } else {
+                s_log(LOG_NOTICE, "UTF-8 byte order mark not detected");
+            }
+        }
         while(isspace((unsigned char)*config_opt))
             ++config_opt; /* remove initial whitespaces */
         for(i=strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
@@ -1690,6 +1700,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
+        s_log(LOG_NOTICE, "%-22s = %s", "options", "NO_SSLv2");
+        s_log(LOG_NOTICE, "%-22s = %s", "options", "NO_SSLv3");
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-22s = SSL option", "options");
@@ -2119,15 +2131,18 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_END:
 #ifdef USE_FIPS
         if(new_global_options.option.fips) {
-            if(section->option.client) {
-                if(section->client_method==(SSL_METHOD *)SSLv2_client_method() ||
-                        section->client_method==(SSL_METHOD *)SSLv3_client_method())
-                    return "FIPS mode requires sslVersion to be TLSv1 or later";
-            } else {
-                if(section->server_method==(SSL_METHOD *)SSLv2_server_method() ||
-                        section->server_method==(SSL_METHOD *)SSLv3_server_method())
-                    return "FIPS mode requires sslVersion to be TLSv1 or later";
-            }
+#ifndef OPENSSL_NO_SSL2
+            if(section->option.client ?
+                    section->client_method==(SSL_METHOD *)SSLv2_client_method() :
+                    section->server_method==(SSL_METHOD *)SSLv2_server_method())
+                return "\"sslVersion = SSLv2\" not supported in FIPS mode";
+#endif
+#ifndef OPENSSL_NO_SSL3
+            if(section->option.client ?
+                    section->client_method==(SSL_METHOD *)SSLv3_client_method() :
+                    section->server_method==(SSL_METHOD *)SSLv3_server_method())
+                return "\"sslVersion = SSLv3\" not supported in FIPS mode";
+#endif
         }
 #endif /* USE_FIPS */
         break;

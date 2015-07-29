@@ -31,7 +31,6 @@ cert:
 		$(OPENSSL) req -new -x509 -days 365 $$RND \
 			-config $(srcdir)/stunnel.cnf \
 			-out stunnel.pem -keyout stunnel.pem; \
-		$(OPENSSL) gendh $$RND 1024 >> stunnel.pem; \
 		$(OPENSSL) x509 -subject -dates -fingerprint -noout -in stunnel.pem; \
 		${INSTALL} -m 600 stunnel.pem $(DESTDIR)$(confdir)/stunnel.pem; \
 		rm stunnel.pem; \

@@ -61,6 +61,10 @@ int num_processes=0;
 static int *ipc_socket, *busy;
 #endif /* USE_LIBWRAP_POOL */
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif /* __GNUC__ */
 int libwrap_init() {
 #ifdef USE_LIBWRAP_POOL
     int i, j, rfd, result;
@@ -110,6 +114,9 @@ int libwrap_init() {
 #endif /* USE_LIBWRAP_POOL */
     return 0;
 }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 
 void libwrap_auth(CLI *c, char *accepted_address) {
     int result=0; /* deny by default */

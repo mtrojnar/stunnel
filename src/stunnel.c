@@ -90,11 +90,16 @@ int listen_fds_start; /* base for systemd-provided file descriptors */
 /**************************************** startup */
 
 void main_init() { /* one-time initialization */
-#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+#ifdef USE_SYSTEMD
+    int i;
+
     systemd_fds=sd_listen_fds(1);
     if(systemd_fds<0)
         fatal("systemd initialization failed");
     listen_fds_start=SD_LISTEN_FDS_START;
+    /* set non-blocking mode on systemd file descriptors */
+    for(i=0; i<systemd_fds; ++i)
+        set_nonblock(listen_fds_start+i, 1);
 #else
     systemd_fds=0; /* no descriptors received */
     listen_fds_start=3; /* the value is not really important */
@@ -627,9 +632,9 @@ void stunnel_info(int level) {
         "SELECT"
 #endif /* defined(USE_POLL) */
         ",IPv%c"
-#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+#ifdef USE_SYSTEMD
         ",SYSTEMD"
-#endif /* HAVE_SYSTEMD_SD_DAEMON_H */
+#endif /* USE_SYSTEMD */
 
 #if defined HAVE_OSSL_ENGINE_H || defined HAVE_OSSL_OCSP_H || defined USE_FIPS
         " SSL:"

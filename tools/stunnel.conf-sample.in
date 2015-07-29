@@ -1,4 +1,4 @@
-; Sample stunnel configuration file for Unix by Michal Trojnara 2002-2014
+﻿; Sample stunnel configuration file for Unix by Michal Trojnara 2002-2014
 ; Some options used here may be inadequate for your particular configuration
 ; This sample file does *not* represent stunnel.conf defaults
 ; Please consult the manual for detailed description of available options
@@ -9,10 +9,11 @@
 
 ; A copy of some devices and system files is needed within the chroot jail
 ; Chroot conflicts with configuration file reload and many other features
+; Remember also to update the logrotate configuration.
 ;chroot = @prefix@/var/lib/stunnel/
 ; Chroot jail can be escaped if setuid option is not used
-setuid = nobody
-setgid = @DEFAULT_GROUP@
+;setuid = nobody
+;setgid = @DEFAULT_GROUP@
 
 ; PID file is created inside the chroot jail (if enabled)
 ;pid = @prefix@/var/run/stunnel.pid

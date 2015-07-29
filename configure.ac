@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.06])
+AC_INIT([stunnel],[5.07])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 5.06)
+AM_INIT_AUTOMAKE(stunnel, 5.07)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -168,7 +168,6 @@ AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([malloc.h ucontext.h pthread.h poll.h tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h])
 AC_CHECK_HEADERS([sys/types.h sys/select.h sys/poll.h sys/socket.h sys/un.h sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h sys/syscall.h])
-AC_CHECK_HEADERS([systemd/sd-daemon.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
     [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1],
     [Define to 1 if you have 'msghdr.msg_control' structure.])], [], [
@@ -193,8 +192,6 @@ AC_SEARCH_LIBS([openpty], [util])
 AC_SEARCH_LIBS([dlopen], [dl])
 AC_SEARCH_LIBS([shl_load], [dld])
 AC_SEARCH_LIBS([inflateEnd], [z])
-AC_SEARCH_LIBS([sd_listen_fds], [systemd-daemon])
-
 
 # Add BeOS libraries
 if test "$host_os" = "beos"; then
@@ -337,11 +334,12 @@ AC_MSG_NOTICE([**************************************** optional features])
 # Use IPv6?
 AC_MSG_CHECKING([whether to enable IPv6 support])
 AC_ARG_ENABLE(ipv6,
-[  --enable-ipv6           Enable IPv6 support],
+[  --disable-ipv6          disable IPv6 support],
     [
         case "$enableval" in
             yes) AC_MSG_RESULT([yes])
-                 AC_DEFINE([USE_IPv6], [1], [Define to 1 to enable IPv6 support])
+                 AC_DEFINE([USE_IPv6], [1],
+                    [Define to 1 to enable IPv6 support])
                  ;;
             no)  AC_MSG_RESULT([no])
                  ;;
@@ -349,23 +347,86 @@ AC_ARG_ENABLE(ipv6,
                  AC_MSG_ERROR([bad value \"${enableval}\"])
                  ;;
         esac
+    ], [
+        AC_MSG_RESULT([yes (default)])
+        AC_DEFINE([USE_IPv6], [1], [Define to 1 to enable IPv6 support])
+    ], [
+        AC_MSG_RESULT([no])
+    ]
+)
+
+# FIPS Mode
+AC_MSG_CHECKING([whether to enable FIPS support])
+AC_ARG_ENABLE(fips,
+[  --disable-fips          disable OpenSSL FIPS support],
+    [
+        case "$enableval" in
+            yes) AC_MSG_RESULT([no])
+                 use_fips="yes"
+                 AC_DEFINE([USE_FIPS], [1],
+                    [Define to 1 to enable OpenSSL FIPS support])
+                 ;;
+            no)  AC_MSG_RESULT([no])
+                 use_fips="no"
+                 ;;
+            *)   AC_MSG_RESULT([error])
+                 AC_MSG_ERROR([bad value \"${enableval}\"])
+                 ;;
+        esac
     ],
-    [AC_MSG_RESULT([yes]); AC_DEFINE([USE_IPv6], [1], [Define to 1 to enable IPv6 support])],
-    [AC_MSG_RESULT([no])]
+    [
+        use_fips="auto"
+        AC_MSG_RESULT([autodetecting])
+    ]
+)
+
+# Disable systemd socket activation support
+AC_MSG_CHECKING([whether to enable systemd socket activation support])
+AC_ARG_ENABLE(systemd,
+[  --disable-systemd       disable systemd socket activation support],
+    [
+        case "$enableval" in
+            yes) AC_MSG_RESULT([yes])
+                 AC_SEARCH_LIBS([sd_listen_fds], [systemd systemd-daemon])
+                 AC_DEFINE([USE_SYSTEMD], [1],
+                     [Define to 1 to enable systemd socket activation])
+                 ;;
+            no)  AC_MSG_RESULT([no])
+                 ;;
+            *)   AC_MSG_RESULT([error])
+                 AC_MSG_ERROR([Bad value \"${enableval}\"])
+                 ;;
+        esac
+    ],
+    [
+        AC_MSG_RESULT([autodetecting])
+        # the library name has changed to -lsystemd in systemd 209
+        AC_SEARCH_LIBS([sd_listen_fds], [systemd systemd-daemon],
+            AC_CHECK_HEADERS([systemd/sd-daemon.h], [
+                AC_DEFINE([USE_SYSTEMD], [1],
+                    [Define to 1 to enable systemd socket activation])
+                AC_MSG_NOTICE([systemd support enabled])
+            ], [
+                AC_MSG_NOTICE([systemd header not found])
+            ]), [
+                AC_MSG_NOTICE([systemd library not found])
+            ])
+    ]
 )
 
 # Disable use of libwrap (TCP wrappers)
 # it should be the last check!
-AC_MSG_CHECKING([whether to disable TCP wrappers library support])
+AC_MSG_CHECKING([whether to enable TCP wrappers support])
 AC_ARG_ENABLE(libwrap,
-[  --disable-libwrap       Disable TCP wrappers library support],
+[  --disable-libwrap       disable TCP wrappers support],
     [
         case "$enableval" in
-            yes) AC_MSG_RESULT([no])
-                 AC_DEFINE([HAVE_LIBWRAP], [1], [Define to 1 if you have 'libwrap' library.])
+            yes) AC_MSG_RESULT([yes])
+                 AC_DEFINE([USE_LIBWRAP], [1],
+                     [Define to 1 to enable TCP wrappers support])
                  LIBS="$LIBS -lwrap"
                  ;;
-            no)  AC_MSG_RESULT([yes])
+            no)  AC_MSG_RESULT([no])
                  ;;
             *)   AC_MSG_RESULT([error])
                  AC_MSG_ERROR([Bad value \"${enableval}\"])
@@ -378,43 +439,21 @@ AC_ARG_ENABLE(libwrap,
         valid_LIBS="$LIBS"
         LIBS="$valid_LIBS -lwrap"
         AC_LINK_IFELSE(
-            [AC_LANG_PROGRAM(
-                [
-int hosts_access(); int allow_severity, deny_severity;
-                ],
-                [
-hosts_access()
-                ]
-            )],
-            [AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_LIBWRAP], [1],
-                [Define to 1 if you have 'libwrap' library.])],
-            [AC_MSG_RESULT([no]); LIBS="$valid_LIBS"]
+            [
+                AC_LANG_PROGRAM(
+                    [int hosts_access(); int allow_severity, deny_severity;],
+                    [hosts_access()])
+            ], [
+                AC_MSG_RESULT([yes]);
+                AC_DEFINE([USE_LIBWRAP], [1],
+                    [Define to 1 to enable TCP wrappers support])
+                AC_MSG_NOTICE([libwrap support enabled])
+            ], [
+                AC_MSG_RESULT([no])
+                LIBS="$valid_LIBS"
+                AC_MSG_NOTICE([libwrap library not found])
+            ]
         )
-    ]
-)
-
-# FIPS Mode
-AC_MSG_CHECKING([whether to enable FIPS mode support])
-AC_ARG_ENABLE(fips,
-[  --enable-fips           Enable OpenSSL FIPS mode],
-    [
-        case "$enableval" in
-            yes) AC_MSG_RESULT([yes])
-                 fips="yes"
-                 AC_DEFINE([USE_FIPS], [1],
-                    [Define to 1 to enable OpenSSL FIPS mode])
-                 ;;
-            no)  AC_MSG_RESULT([no])
-                 fips="no"
-                 ;;
-            *)   AC_MSG_RESULT([error])
-                 AC_MSG_ERROR([bad value \"${enableval}\"])
-                 ;;
-        esac
-    ],
-    [
-        fips="auto"
-        AC_MSG_RESULT([autodetecting])
     ]
 )
 
@@ -466,12 +505,12 @@ AC_CHECK_HEADER([$SSLDIR/include/openssl/ocsp.h],
     [Define to 1 if you have <ocsp.h> header file.])],
     [AC_MSG_WARN([OpenSSL ocsp header not found])])
 
-if test "$fips" = "auto"; then
+if test "$use_fips" = "auto"; then
     AC_CHECK_FUNCS(FIPS_mode_set, [
-        AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS mode.])
-        AC_MSG_NOTICE([FIPS mode detected])
+        AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS support])
+        AC_MSG_NOTICE([FIPS support enabled])
     ], [
-        AC_MSG_NOTICE([FIPS mode not detected])
+        AC_MSG_NOTICE([FIPS support not found])
     ])
 fi
 

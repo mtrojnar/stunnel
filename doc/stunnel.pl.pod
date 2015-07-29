@@ -621,12 +621,21 @@ opcje biblioteki B<OpenSSL>
 
 Parametrem jest nazwa opcji zgodnie z opisem w I<SSL_CTX_set_options(3ssl)>,
 ale bez przedrostka I<SSL_OP_>.
-Aby wyspecyfikować kilka opcji należy użyć I<options> wielokrotnie.
+I<stunnel -options> wyświetla opcje dozwolone w aktualnej kombinacji
+programu I<stunnel> i biblioteki I<OpenSSL>.
 
-Na przykład dla zachowania kompatybilności z błędami implementacji SSL
-w programie Eudora można użyć opcji:
+Aby wyspecyfikować kilka opcji należy użyć I<options> wielokrotnie.
+Nazwa opcji może być poprzedzona myślnikiem ("-") celem wyłączenia opcji.
+
+Na przykład, dla zachowania kompatybilności z błędami implementacji SSL
+w programie Eudora, można użyć opcji:
 
     options = DONT_INSERT_EMPTY_FRAGMENTS
+
+domyślnie:
+
+    options = NO_SSLv2
+    options = NO_SSLv3
 
 =item B<protocol> = PROTOKÓŁ
 

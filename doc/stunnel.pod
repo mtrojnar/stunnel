@@ -419,11 +419,10 @@ This file contains multiple CA certificates, used with the I<verify>.
 
 certificate chain PEM file name
 
-A PEM is always needed in server mode.
-Specifying this flag in client mode will use this certificate chain
-as a client side certificate chain.  Using client side certs is optional.
-The certificates must be in PEM format and must be sorted starting with the
-certificate to the highest level (root CA).
+The certificates must be in PEM format, and must be from the
+actual server/client certificate to the self-signed root CA certificate.
+
+A certificate is required in server mode, and optional in client mode.
 
 =item B<ciphers> = CIPHER_LIST
 
@@ -604,12 +603,22 @@ B<OpenSSL> library options
 
 The parameter is the B<OpenSSL> option name as described in the
 I<SSL_CTX_set_options(3ssl)> manual, but without I<SSL_OP_> prefix.
-Several I<options> can be used to specify multiple options.
+I<stunnel -options> lists the options found to be allowed in the
+current combination of I<stunnel> and the I<OpenSSL> library used
+to build it.
 
-For example for compatibility with erroneous Eudora SSL implementation
-the following option can be used:
+Several I<options> can be used to specify multiple options.
+An option name can be prepended with a dash ("-") to disable the option.
+
+For example, for compatibility with the erroneous Eudora SSL
+implementation, the following option can be used:
 
     options = DONT_INSERT_EMPTY_FRAGMENTS
+
+default:
+
+    options = NO_SSLv2
+    options = NO_SSLv3
 
 =item B<protocol> = PROTO
 
@@ -751,9 +760,9 @@ address of sessiond SSL cache server
 
 =item B<sslVersion> = SSL_VERSION
 
-select version of SSL protocol
+select the SSL protocol version
 
-Allowed options: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+Allowed values: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 
 =item B<stack> = BYTES (except for FORK model)
 

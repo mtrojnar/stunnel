@@ -57,9 +57,6 @@
 /* Define to 1 if you have the <libutil.h> header file. */
 #undef HAVE_LIBUTIL_H
 
-/* Define to 1 if you have 'libwrap' library. */
-#undef HAVE_LIBWRAP
-
 /* Define to 1 if you have the <linux/netfilter_ipv4.h> header file. */
 #undef HAVE_LINUX_NETFILTER_IPV4_H
 
@@ -253,7 +250,7 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
-/* Define to 1 to enable OpenSSL FIPS mode. */
+/* Define to 1 to enable OpenSSL FIPS support */
 #undef USE_FIPS
 
 /* Define to 1 to select FORK mode */
@@ -262,8 +259,14 @@
 /* Define to 1 to enable IPv6 support */
 #undef USE_IPv6
 
+/* Define to 1 to enable TCP wrappers support */
+#undef USE_LIBWRAP
+
 /* Define to 1 to select PTHREAD mode */
 #undef USE_PTHREAD
+
+/* Define to 1 to enable systemd socket activation */
+#undef USE_SYSTEMD
 
 /* Define to 1 to select UCONTEXT mode */
 #undef USE_UCONTEXT

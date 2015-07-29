@@ -166,13 +166,8 @@ typedef int socklen_t;
 #include <pthread.h>
 #endif
 
-/* TCP wrapper */
-#if defined HAVE_TCPD_H && defined HAVE_LIBWRAP
-#define USE_LIBWRAP 1
-#endif
-
 /* systemd */
-#ifdef HAVE_SYSTEMD_SD_DAEMON_H
+#ifdef USE_SYSTEMD
 #include <systemd/sd-daemon.h>
 #endif
 
@@ -228,7 +223,7 @@ typedef unsigned long u32;
 #include <windows.h>
 
 #include <process.h>     /* _beginthread */
-#include <shfolder.h>    /* SHGetFolderPath */
+#include <shlobj.h>      /* SHGetFolderPath */
 #include <tchar.h>
 
 #include "resources.h"

@@ -302,13 +302,15 @@ NOEXPORT char *smtp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 }
 
 NOEXPORT char *smtp_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    char *line;
+    char *line, *domain, *greeting;
 
     (void)opt; /* skip warning about unused parameter */
     if(phase==PROTOCOL_CHECK)
         opt->option.connect_before_ssl=1; /* c->remote_fd needed */
     if(phase!=PROTOCOL_MIDDLE)
         return NULL;
+
+    /* detect RFC 2487 */
     s_poll_init(c->fds);
     s_poll_add(c->fds, c->local_rfd.fd, 1, 0);
     switch(s_poll_wait(c->fds, 0, 200)) { /* wait up to 200ms */
@@ -323,23 +325,44 @@ NOEXPORT char *smtp_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         longjmp(c->err, 1);
     }
 
+    /* process server's greeting */
     line=fd_getline(c, c->remote_fd.fd);
-    if(!is_prefix(line, "220")) {
+    if(!(is_prefix(line, "220 ") || is_prefix(line, "220-"))) {
         s_log(LOG_ERR, "Unknown server welcome");
         str_free(line);
         longjmp(c->err, 1);
     }
-    fd_printf(c, c->local_wfd.fd, "%s + stunnel", line);
+    domain=str_dup(line+4); /* skip "220" and the separator */
+    line[4]='\0';     /* only leave "220" and the separator */
+    greeting=strchr(domain, ' ');
+    if(greeting) {
+        *greeting++='\0'; /* truncate anything after the domain name */
+        fd_printf(c, c->local_wfd.fd, "%s%s stunnel for %s",
+            line, domain, greeting);
+    } else {
+        fd_printf(c, c->local_wfd.fd, "%s%s stunnel", line, domain);
+    }
+    while(is_prefix(line, "220-")) { /* copy multiline greeting */
+        str_free(line);
+        line=fd_getline(c, c->remote_fd.fd);
+        fd_putline(c, c->local_wfd.fd, line);
+    }
     str_free(line);
+
+    /* process client's EHLO */
     line=fd_getline(c, c->local_rfd.fd);
     if(!is_prefix(line, "EHLO ")) {
         s_log(LOG_ERR, "Unknown client EHLO");
         str_free(line);
+        str_free(domain);
         longjmp(c->err, 1);
     }
-    fd_printf(c, c->local_wfd.fd, "250-%s Welcome", line);
-    fd_putline(c, c->local_wfd.fd, "250 STARTTLS");
     str_free(line);
+    fd_printf(c, c->local_wfd.fd, "250-%s", domain);
+    str_free(domain);
+    fd_putline(c, c->local_wfd.fd, "250 STARTTLS");
+
+    /* process client's STARTTLS */
     line=fd_getline(c, c->local_rfd.fd);
     if(!is_prefix(line, "STARTTLS")) {
         s_log(LOG_ERR, "STARTTLS expected");
@@ -348,6 +371,7 @@ NOEXPORT char *smtp_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     }
     fd_putline(c, c->local_wfd.fd, "220 Go ahead");
     str_free(line);
+
     return NULL;
 }
 

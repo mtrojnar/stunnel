@@ -108,6 +108,8 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         signal(SIGCHLD, SIG_IGN); /* ignore dead children */
         signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
 #endif
+        set_nonblock(0, 1); /* stdin */
+        set_nonblock(1, 1); /* stdout */
         client_main(alloc_client_session(&service_options, 0, 1));
     }
     return 0;
