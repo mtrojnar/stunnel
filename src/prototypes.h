@@ -400,17 +400,18 @@ typedef struct {
 } CLI;
 
 CLI *alloc_client_session(SERVICE_OPTIONS *, int, int);
-void *client(void *);
+void *client_thread(void *);
+void client_main(CLI *);
 
 /**************************************** prototypes for network.c */
 
 int connect_blocking(CLI *, SOCKADDR_UNION *, socklen_t);
 void write_blocking(CLI *, int fd, void *, int);
 void read_blocking(CLI *, int fd, void *, int);
-void fdputline(CLI *, int, const char *);
-char *fdgetline(CLI *, int);
+void fd_putline(CLI *, int, const char *);
+char *fd_getline(CLI *, int);
 /* descriptor versions of fprintf/fscanf */
-void fdprintf(CLI *, int, const char *, ...)
+void fd_printf(CLI *, int, const char *, ...)
 #ifdef __GNUC__
        __attribute__ ((format (printf, 3, 4)));
 #else

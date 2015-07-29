@@ -1,45 +1,23 @@
 stunnel FIPS install notes
 
 
-FIPS support status:
-- Unix platforms are currently supported.
-- Win32 platform is currently unsupported due to some problems with
-  building and linking FIPS-enabled OpenSSL DLLs.
-
 Unix HOWTO:
 FIPS mode is autodetected if possible.  You can force it with:
   ./configure --enable-fips
 or disable with:
   ./configure --disable-fips
 
-Preliminary WIN32 HOWTO (does NOT work, now):
-- Download and install ActivePerl:
-    http://www.activestate.com/Products/activeperl/
-- Download and install MinGW-5.1.3.exe:
-    http://www.mingw.org/download.shtml#hdr2
-  Also select "g++ compiler" for installation
-- Download and install MSYS-1.0.10.exe:
-    http://www.mingw.org/download.shtml#hdr2
-- Download OpenSSL FIPS:
-    http://www.openssl.org/source/openssl-fips-1.1.2.tar.gz
-- Execute MSYS and unpack OpenSSL:
-    tar -xzf /c/downloads/openssl-fips-1.1.2.tar.gz
-- Build the OpenSSL:
-    cd openssl-fips-1.1.2
-    ./config fips
-    make
-    make install
-    cd /usr/local/ssl/lib
-    ar xv `gcc -print-libgcc-file-name` _chkstk.o _udivdi3.o _umoddi3.o
-    mkdir /c/fipscanister/
-    cp _* fips* /c/fipscanister/
-    exit
-- Download and unpack OpenSSL 0.9.7m:
-  http://www.openssl.org/source/openssl-0.9.7m.tar.gz
-- Download and install Visual C++ 2008 Express Edition:
-  http://www.microsoft.com/express/vc/
-- Execute "Open Visual Studio 2008 Command Prompt" and build OpenSSL:
-  perl Configure VC-WIN32 fips --with-fipslibdir=c:\fipscanister
-  ms\do_ms
-  nmake -f ms\ntdll.mak
+WIN32 HOWTO:
+* On 32-bit Windows install one of the following compilers:
+  - MSVC 8.0 (VS 2005) Standard or Professional Edition
+  - MSVC 9.0 (VS 2008) any edition including Express Edition
+* On 64-bit Windows install one of the following compilers:
+  - MSVC 8.0 (VS 2005) Standard or Professional Edition
+  - MSVC 9.0 (VS 2008) Standard or Professional Edition
+* Build FIPS-compliant OpenSSL DLLS according to:
+  http://www.openssl.org/docs/fips/UserGuide-1.2.pdf
+* Build stunnel normally with MSVC or Mingw.
+  Mingw build requires DLL stubs.  Stubs can be built with:
+  dlltool --def ms/libeay32.def --output-lib libcrypto.a
+  dlltool --def ms/ssleay32.def --output-lib libssl.a
 

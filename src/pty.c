@@ -195,7 +195,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf) {
         if(*ptyfd<0)
             continue;
 #ifdef HAVE_SNPRINTF
-        snprintf(namebuf, STRLEN,
+        snprintf(namebuf, 64,
 #else
         sprintf(namebuf,
 #endif

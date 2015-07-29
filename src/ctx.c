@@ -443,8 +443,6 @@ static int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
 
     val_len=i2d_SSL_SESSION(sess, NULL);
     val_tmp=val=str_alloc(val_len);
-    if(!val)
-        return 1;
     i2d_SSL_SESSION(sess, &val_tmp);
 
     cache_transfer(ssl->ctx, CACHE_CMD_NEW, SSL_SESSION_get_timeout(sess),
@@ -526,10 +524,6 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
         return;
     }
     packet=str_alloc(sizeof(CACHE_PACKET));
-    if(!packet) {
-        s_log(LOG_ERR, "cache_transfer: packet buffer allocation failed");
-        return;
-    }
 
     /* setup packet */
     packet->version=1;
@@ -599,11 +593,6 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     }
     *ret_len=len-(sizeof(CACHE_PACKET)-MAX_VAL_LEN);
     *ret=str_alloc(*ret_len);
-    if(!*ret) {
-        s_log(LOG_ERR, "cache_transfer: return value allocation failed");
-        str_free(packet);
-        return;
-    }
     s_log(LOG_INFO, "cache_transfer: session found");
     memcpy(*ret, packet->val, *ret_len);
     str_free(packet);

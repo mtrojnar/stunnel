@@ -93,10 +93,6 @@ static CONTEXT *new_context(void) {
 
     /* allocate and fill the CONTEXT structure */
     context=str_alloc(sizeof(CONTEXT));
-    if(!context) {
-        s_log(LOG_ERR, "Unable to allocate CONTEXT structure");
-        return NULL;
-    }
     str_detach(context);
     context->id=next_id++;
     context->fds=NULL;
@@ -153,15 +149,6 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 
     /* create stack */
     context->stack=str_alloc(arg->opt->stack_size);
-    if(!context->stack) {
-        str_free(context);
-        if(arg)
-            str_free(arg);
-        if(s>=0)
-            closesocket(s);
-        s_log(LOG_ERR, "Unable to allocate stack");
-        return -1;
-    }
     str_detach(context->stack);
 #if defined(__sgi) || ARGC==2 /* obsolete ss_sp semantics */
     context->context.uc_stack.ss_sp=context->stack+arg->opt->stack_size-8;
@@ -255,8 +242,6 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     value=str_alloc(sizeof(struct CRYPTO_dynlock_value));
-    if(!value)
-        return NULL;
     str_detach(value);
     pthread_mutex_init(&value->mutex, NULL);
     return value;
@@ -384,8 +369,6 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     value=str_alloc(sizeof(struct CRYPTO_dynlock_value));
-    if(!value)
-        return NULL;
     str_detach(value);
     InitializeCriticalSection(&value->mutex);
     return value;

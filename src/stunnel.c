@@ -127,7 +127,7 @@ static int main_unix(int argc, char* argv[]) {
         signal(SIGCHLD, SIG_IGN); /* ignore dead children */
         signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
         num_clients=1;
-        client(alloc_client_session(&service_options, 0, 1));
+        client_main(alloc_client_session(&service_options, 0, 1));
         log_close();
     }
     return 0;
@@ -254,7 +254,8 @@ static int accept_connection(SERVICE_OPTIONS *opt) {
      * resulting in logging "Service xxx finished (-1 left)" */
     ++num_clients;
     leave_critical_section(CRIT_CLIENTS);
-    if(create_client(opt->fd, s, alloc_client_session(opt, s, s), client)) {
+    if(create_client(opt->fd, s,
+            alloc_client_session(opt, s, s), client_thread)) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
         enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
         --num_clients;
@@ -358,7 +359,8 @@ int bind_ports(void) {
             enter_critical_section(CRIT_CLIENTS);
             ++num_clients;
             leave_critical_section(CRIT_CLIENTS);
-            create_client(-1, -1, alloc_client_session(opt, -1, -1), client);
+            create_client(-1, -1,
+                alloc_client_session(opt, -1, -1), client_thread);
         }
     }
     return 0; /* OK */
@@ -799,8 +801,10 @@ static int setup_fd(int fd, int nonblock, char *msg) {
         sockerror("fcntl SETFD"); /* non-critical */
 #endif /* FD_CLOEXEC */
 #endif /* USE_NEW_LINUX_API */
+#ifdef DEBUG_FD_ALLOC
     s_log(LOG_DEBUG, "%s: FD=%d allocated (%sblocking mode)",
         msg, fd, nonblock?"non-":"");
+#endif /* DEBUG_FD_ALLOC */
     return fd;
 }
 

@@ -820,8 +820,6 @@ static LPTSTR log_txt(void) {
     for(curr=head; curr; curr=curr->next)
         len+=curr->len+2; /* +2 for trailing '\r\n' */
     buff=str_alloc((len+1)*sizeof(TCHAR)); /* +1 for trailing '\0' */
-    if(!buff)
-        return NULL;
     for(curr=head; curr; curr=curr->next) {
         memcpy(buff+ptr, curr->txt, curr->len*sizeof(TCHAR));
         ptr+=curr->len;

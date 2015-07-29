@@ -51,8 +51,8 @@
 static char *sid_ctx="stunnel SID";
     /* const allowed here */
 
-static void do_client(CLI *);
-static void run_client(CLI *);
+static void client_try(CLI *);
+static void client_run(CLI *);
 static void init_local(CLI *);
 static void init_remote(CLI *);
 static void init_ssl(CLI *);
@@ -83,27 +83,13 @@ CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
     return c;
 }
 
-void *client(void *arg) {
+void *client_thread(void *arg) {
     CLI *c=arg;
 
 #ifdef DEBUG_STACK_SIZE
     stack_info(1); /* initialize */
 #endif
-    s_log(LOG_DEBUG, "Service %s started", c->opt->servname);
-    if(c->opt->option.remote && c->opt->option.program) {
-            /* connect and exec options specified together */
-            /* -> spawn a local program instead of stdio */
-        while((c->local_rfd.fd=c->local_wfd.fd=connect_local(c))>=0) {
-            run_client(c);
-            if(!c->opt->option.retry)
-                break;
-            sleep(1); /* FIXME: not a good idea in ucontext threading */
-            str_stats();
-            str_cleanup();
-        }
-    } else
-        run_client(c);
-    str_free(c);
+    client_main(c);
 #ifdef DEBUG_STACK_SIZE
     stack_info(0); /* display computed value */
 #endif
@@ -119,7 +105,26 @@ void *client(void *arg) {
     return NULL;
 }
 
-static void run_client(CLI *c) {
+void client_main(CLI *c) {
+    s_log(LOG_DEBUG, "Service %s started", c->opt->servname);
+    if(c->opt->option.remote && c->opt->option.program) {
+            /* connect and exec options specified together */
+            /* -> spawn a local program instead of stdio */
+        while((c->local_rfd.fd=c->local_wfd.fd=connect_local(c))>=0) {
+            client_run(c);
+            if(!c->opt->option.retry)
+                break;
+            sleep(1); /* FIXME: not a good idea in ucontext threading */
+            str_stats();
+            if(service_options.next)
+                str_cleanup();
+        }
+    } else
+        client_run(c);
+    str_free(c);
+}
+
+static void client_run(CLI *c) {
     int error;
 
     c->remote_fd.fd=-1;
@@ -132,7 +137,7 @@ static void run_client(CLI *c) {
 
     error=setjmp(c->err);
     if(!error)
-        do_client(c);
+        client_try(c);
 
     s_log(LOG_NOTICE,
         "Connection %s: %d bytes sent to SSL, %d bytes sent to socket",
@@ -187,7 +192,7 @@ static void run_client(CLI *c) {
 #endif
 }
 
-static void do_client(CLI *c) {
+static void client_try(CLI *c) {
     init_local(c);
     if(!c->opt->option.client && c->opt->protocol<0) {
         /* server mode and no protocol negotiation needed */
@@ -249,10 +254,9 @@ static void init_remote(CLI *c) {
         c->bind_addr=NULL; /* don't bind */
 
     /* setup c->remote_fd, now */
-    if(c->opt->option.program)
-        c->remote_fd.fd=connect_local(c);
-    else /* NOT in local mode */
-        c->remote_fd.fd=connect_remote(c);
+    c->remote_fd.fd=c->opt->option.program ?
+        connect_local(c) :
+        connect_remote(c);
     c->remote_fd.is_socket=1; /* always! */
     s_log(LOG_DEBUG, "Remote FD=%d initialized", c->remote_fd.fd);
     if(set_socket_options(c->remote_fd.fd, 2)<0)
@@ -890,10 +894,10 @@ static void auth_user(CLI *c, char *accepted_address) {
     if(connect_blocking(c, &ident, addr_len(&ident)))
         longjmp(c->err, 1);
     s_log(LOG_DEBUG, "IDENT server connected");
-    fdprintf(c, c->fd, "%u , %u",
+    fd_printf(c, c->fd, "%u , %u",
         ntohs(c->peer_addr.in.sin_port),
         ntohs(c->opt->local_addr.in.sin_port));
-    line=fdgetline(c, c->fd);
+    line=fd_getline(c, c->fd);
     closesocket(c->fd);
     c->fd=-1; /* avoid double close on cleanup */
     type=strchr(line, ':');
@@ -1090,7 +1094,15 @@ static int connect_remote(CLI *c) {
 static SOCKADDR_LIST *dynamic_remote_addr(CLI *c) {
 #ifdef SO_ORIGINAL_DST
     socklen_t addrlen=sizeof(SOCKADDR_UNION);
+#endif /* SO_ORIGINAL_DST */
 
+    /* check if the address was already set by a dynamic protocol
+     * implemented protocols: CONNECT
+     * protocols to be implemented: SOCKS4 */
+    if(c->connect_addr.num)
+        return &c->connect_addr;
+
+#ifdef SO_ORIGINAL_DST
     if(c->opt->option.transparent_dst) {
         c->connect_addr.num=1;
         c->connect_addr.addr=str_alloc(sizeof(SOCKADDR_UNION));
@@ -1102,8 +1114,6 @@ static SOCKADDR_LIST *dynamic_remote_addr(CLI *c) {
         return &c->connect_addr;
     }
 #endif /* SO_ORIGINAL_DST */
-
-    /* TODO: add dynamic protocol server (e.g. SOCKS4, CONNECT) support here */
 
     if(c->opt->option.delayed_lookup) {
         if(!name2addrlist(&c->connect_addr,

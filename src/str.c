@@ -72,8 +72,7 @@ char *str_dup(const char *str) {
     char *retval;
 
     retval=str_alloc(strlen(str)+1);
-    if(retval)
-        strcpy(retval, str);
+    strcpy(retval, str);
     return retval;
 }
 
@@ -93,8 +92,6 @@ char *str_vprintf(const char *format, va_list start_ap) {
     va_list ap;
 
     p=str_alloc(size);
-    if(!p)
-        return NULL;
     for(;;) {
         va_copy(ap, start_ap);
         n=vsnprintf(p, size, format, ap);
@@ -105,10 +102,6 @@ char *str_vprintf(const char *format, va_list start_ap) {
         else          /* glibc 2.0, WIN32, etc. */
             size*=2;  /* twice the old size */
         np=str_realloc(p, size);
-        if(!np) {
-            str_free(p);
-            return NULL;
-        }
         p=np; /* LOL */
     }
 }

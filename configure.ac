@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.49])
+AC_INIT([stunnel],[4.50])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.49)
+AM_INIT_AUTOMAKE(stunnel, 4.50)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -165,14 +165,14 @@ AC_CHECK_HEADERS([linux/netfilter_ipv4.h], , ,
 
 AC_MSG_NOTICE([**************************************** libraries])
 # Checks for standard libraries
-AC_SEARCH_LIBS(gethostbyname, nsl)
-AC_SEARCH_LIBS(yp_get_default_domain, nsl)
-AC_CHECK_LIB(socket, socket)
-AC_CHECK_LIB(util, openpty)
+AC_SEARCH_LIBS([gethostbyname], [nsl])
+AC_SEARCH_LIBS([yp_get_default_domain], [nsl])
+AC_SEARCH_LIBS([socket], [socket])
+AC_SEARCH_LIBS([openpty], [util])
 # Checks for dynamic loader and zlib needed by OpenSSL
-AC_CHECK_LIB(dl, dlopen)
-AC_CHECK_LIB(dld, shl_load)
-AC_CHECK_LIB(z, inflateEnd)
+AC_SEARCH_LIBS([dlopen], [dl])
+AC_SEARCH_LIBS([shl_load], [dld])
+AC_SEARCH_LIBS([inflateEnd], [z])
 
 # Add BeOS libraries
 if test "$host_os" = "beos"; then
@@ -182,8 +182,8 @@ fi
 AC_MSG_NOTICE([**************************************** thread model])
 
 checkpthreadlib() { :
-    # BSD hack -> use alternative libc implementation
-    AC_CHECK_LIB(c_r, pthread_create,
+    # 1. BSD hack: attempt to use alternative libc implementation if available
+    AC_CHECK_LIB([c_r], [pthread_create],
         [
             LIBS="$LIBS -pthread"
             HAVE_LIBPTHREAD="yes"
@@ -191,7 +191,15 @@ checkpthreadlib() { :
         ]
     )
 
-    # OSF hack instead of simple AC_CHECK_LIB here
+    # 2. try to use from standard libc (required by Android and possibly other platforms)
+    AC_CHECK_LIB([c], [pthread_create],
+        [
+            HAVE_LIBPTHREAD="yes"
+            AC_DEFINE([HAVE_LIBPTHREAD], [1], [Define to 1 if you have 'libpthread' library.])
+        ]
+    )
+
+    # 3. try libpthread: OSF hack instead of simple AC_CHECK_LIB here
     AC_MSG_CHECKING([for pthread_create in -lpthread])
     valid_LIBS="$LIBS"
     LIBS="$valid_LIBS -lpthread"

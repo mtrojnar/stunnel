@@ -60,10 +60,6 @@ DISK_FILE *file_open(char *name, int wr) {
 
     /* setup df structure */
     df=str_alloc(sizeof df);
-    if(!df) {
-        CloseHandle(df->fh);
-        return NULL;
-    }
     df->fh=fh;
     return df;
 }
@@ -74,8 +70,6 @@ DISK_FILE *file_fdopen(int fd) {
     DISK_FILE *df;
 
     df=str_alloc(sizeof(DISK_FILE));
-    if(!df)
-        return NULL;
     df->fd=fd;
     return df;
 }
@@ -106,10 +100,6 @@ DISK_FILE *file_open(char *name, int wr) {
 
     /* setup df structure */
     df=str_alloc(sizeof df);
-    if(!df) {
-        close(df->fd);
-        return NULL;
-    }
     df->fd=fd;
     return df;
 }
@@ -172,8 +162,6 @@ int file_putline(DISK_FILE *df, char *line) {
 
     len=strlen(line);
     buff=str_alloc(len+2); /* +2 for CR+LF */
-    if(!buff)
-        return 0;
     strcpy(buff, line);
 #ifdef USE_WIN32
     buff[len++]='\r'; /* CR */
@@ -200,16 +188,12 @@ LPTSTR str2tstr(const LPSTR in) {
     if(!len)
         return NULL;
     out=str_alloc((len+1)*sizeof(WCHAR));
-    if(!out)
-        return NULL;
     len=MultiByteToWideChar(CP_ACP, 0, in, -1, out, len);
     if(!len)
         return NULL;
 #else
     len=strlen(in);
     out=str_alloc(len+1);
-    if(!out)
-        return NULL;
     strcpy(out, in);
 #endif
     return out;
@@ -224,16 +208,12 @@ LPSTR tstr2str(const LPTSTR in) {
     if(!len)
         return NULL;
     out=str_alloc(len+1);
-    if(!out)
-        return NULL;
     len=WideCharToMultiByte(CP_ACP, 0, in, -1, out, len, NULL, NULL);
     if(!len)
         return NULL;
 #else
     len=strlen(in);
     out=str_alloc(len+1);
-    if(!out)
-        return NULL;
     strcpy(out, in);
 #endif
     return out;

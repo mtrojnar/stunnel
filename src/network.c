@@ -525,7 +525,7 @@ void read_blocking(CLI *c, int fd, void *ptr, int len) {
     }
 }
 
-void fdputline(CLI *c, int fd, const char *line) {
+void fd_putline(CLI *c, int fd, const char *line) {
     char *tmpline;
     const char crlf[]="\r\n";
     int len;
@@ -539,7 +539,7 @@ void fdputline(CLI *c, int fd, const char *line) {
     str_free(tmpline);
 }
 
-char *fdgetline(CLI *c, int fd) {
+char *fd_getline(CLI *c, int fd) {
     char *line=NULL, *tmpline;
     int ptr=0;
 
@@ -548,29 +548,29 @@ char *fdgetline(CLI *c, int fd) {
         s_poll_add(c->fds, fd, 1, 0); /* read */
         switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
-            sockerror("fdgetline: s_poll_wait");
+            sockerror("fd_getline: s_poll_wait");
             str_free(line);
             longjmp(c->err, 1); /* error */
         case 0:
-            s_log(LOG_INFO, "fdgetline: s_poll_wait:"
+            s_log(LOG_INFO, "fd_getline: s_poll_wait:"
                 " TIMEOUTbusy exceeded: sending reset");
             str_free(line);
             longjmp(c->err, 1); /* timeout */
         case 1:
             break; /* OK */
         default:
-            s_log(LOG_ERR, "fdgetline: s_poll_wait: Unknown result");
+            s_log(LOG_ERR, "fd_getline: s_poll_wait: Unknown result");
             str_free(line);
             longjmp(c->err, 1); /* error */
         }
         line=str_realloc(line, ptr+1);
         switch(readsocket(fd, line+ptr, 1)) {
         case -1: /* error */
-            sockerror("fdgetline: readsocket");
+            sockerror("fd_getline: readsocket");
             str_free(line);
             longjmp(c->err, 1);
         case 0: /* EOF */
-            s_log(LOG_ERR, "fdgetline: Unexpected socket close");
+            s_log(LOG_ERR, "fd_getline: Unexpected socket close");
             str_free(line);
             longjmp(c->err, 1);
         }
@@ -581,7 +581,7 @@ char *fdgetline(CLI *c, int fd) {
         if(line[ptr]=='\0')
             break;
         if(++ptr>65536) { /* >64KB --> DoS protection */
-            s_log(LOG_ERR, "fdgetline: Line too long");
+            s_log(LOG_ERR, "fd_getline: Line too long");
             str_free(line);
             longjmp(c->err, 1);
         }
@@ -594,7 +594,7 @@ char *fdgetline(CLI *c, int fd) {
     return line;
 }
 
-void fdprintf(CLI *c, int fd, const char *format, ...) {
+void fd_printf(CLI *c, int fd, const char *format, ...) {
     va_list ap;
     char *line;
 
@@ -602,10 +602,10 @@ void fdprintf(CLI *c, int fd, const char *format, ...) {
     line=str_vprintf(format, ap);
     va_end(ap);
     if(!line) {
-        s_log(LOG_ERR, "fdprintf: str_vprintf failed");
+        s_log(LOG_ERR, "fd_printf: str_vprintf failed");
         longjmp(c->err, 1);
     }
-    fdputline(c, fd, line);
+    fd_putline(c, fd, line);
     str_free(line);
 }
 

@@ -182,7 +182,7 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
 
     /* copy the list of addresses */
     for(cur=res; cur; cur=cur->ai_next) {
-        if(cur->ai_addrlen>sizeof(SOCKADDR_UNION)) {
+        if(cur->ai_addrlen>(int)sizeof(SOCKADDR_UNION)) {
             s_log(LOG_ERR, "INTERNAL ERROR: ai_addrlen value too big");
             freeaddrinfo(res);
             return 0; /* no results */
@@ -266,8 +266,6 @@ static int getaddrinfo(const char *node, const char *service,
 
     /* allocate addrlist structure */
     ai=str_alloc(sizeof(struct addrinfo));
-    if(!ai)
-        return EAI_MEMORY;
     if(hints)
         memcpy(ai, hints, sizeof(struct addrinfo));
 
@@ -276,10 +274,6 @@ static int getaddrinfo(const char *node, const char *service,
     ai->ai_family=AF_INET6;
     ai->ai_addrlen=sizeof(struct sockaddr_in6);
     ai->ai_addr=str_alloc(ai->ai_addrlen);
-    if(!ai->ai_addr) {
-        str_free(ai);
-        return EAI_MEMORY;
-    }
     ai->ai_addr->sa_family=AF_INET6;
     if(inet_pton(AF_INET6, node,
             &((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr)>0) {
@@ -287,10 +281,6 @@ static int getaddrinfo(const char *node, const char *service,
     ai->ai_family=AF_INET;
     ai->ai_addrlen=sizeof(struct sockaddr_in);
     ai->ai_addr=str_alloc(ai->ai_addrlen);
-    if(!ai->ai_addr) {
-        str_free(ai);
-        return EAI_MEMORY;
-    }
     ai->ai_addr->sa_family=AF_INET;
     ((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr=inet_addr(node);
     if(((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr+1) {
@@ -340,8 +330,6 @@ static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
     /* copy addresses */
     for(i=0; h->h_addr_list[i]; i++) {
         ai=str_alloc(sizeof(struct addrinfo));
-        if(!ai)
-            return EAI_MEMORY;
         if(hints)
             memcpy(ai, hints, sizeof(struct addrinfo));
         ai->ai_next=NULL; /* just in case */
@@ -357,8 +345,6 @@ static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
         if(h->h_addrtype==AF_INET6) {
             ai->ai_addrlen=sizeof(struct sockaddr_in6);
             ai->ai_addr=str_alloc(ai->ai_addrlen);
-            if(!ai->ai_addr)
-                return EAI_MEMORY;
             memcpy(&((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr,
                 h->h_addr_list[i], h->h_length);
         } else
@@ -366,8 +352,6 @@ static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
         {
             ai->ai_addrlen=sizeof(struct sockaddr_in);
             ai->ai_addr=str_alloc(ai->ai_addrlen);
-            if(!ai->ai_addr)
-                return EAI_MEMORY;
             memcpy(&((struct sockaddr_in *)ai->ai_addr)->sin_addr,
                 h->h_addr_list[i], h->h_length);
         }

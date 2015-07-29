@@ -1,6 +1,20 @@
 stunnel change log
 
 
+Version 4.50, 2011.12.03, urgency: MEDIUM:
+* New features
+  - Added Android port.
+  - Updated INSTALL.FIPS.
+* Bugfixes
+  - Fixed internal memory allocation problem in inetd mode.
+  - Fixed FIPS mode on Microsoft Vista, Server 2008, and Windows 7.
+    This fix required to compile OpenSSL FIPS-compliant DLLs with MSVC 9.0,
+    instead of MSVC 10.0.  msvcr100.dll was replaced with msvcr90.dll.
+    GPL compatibility issues are explained in the GPL FAQ:
+    http://www.gnu.org/licenses/gpl-faq.html#WindowsRuntimeAndGPL
+  - POP3 server-side protocol negotiation updated to report STLS
+    capability (thx to Anthony Morgan).
+
 Version 4.49, 2011.11.28, urgency: MEDIUM:
 * Bugfixes
   - Missing Microsoft Visual C++ Redistributable (msvcr100.dll) required
@@ -796,7 +810,7 @@ Version 3.21, 2001.10.31, urgency: MEDIUM:
 Version 3.20, 2001.08.15, urgency: LOW:
 * setsockopt() optlen set according to the optval for Solaris.
 * Minor NetBSD compatibility fixes by Martti Kuparinen.
-* Minor MSVC6 compatibility fixes by Patrick Mayweg.
+* Minor MSVC 6.0 compatibility fixes by Patrick Mayweg.
 * SSL close_notify timeout reduced to 10 seconds of inactivity.
 * Socket close instead of reset on close_notify timeout.
 * Some source arrangement and minor bugfixes.

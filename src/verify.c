@@ -479,10 +479,6 @@ static void log_time(const int level, const char *txt, ASN1_TIME *t) {
     ASN1_TIME_print(bio, t);
     n=BIO_pending(bio);
     cp=str_alloc(n+1);
-    if(!cp) {
-        BIO_free(bio);
-        return;
-    }
     n=BIO_read(bio, cp, n);
     if(n<0) {
         BIO_free(bio);
