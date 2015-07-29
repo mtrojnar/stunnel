@@ -90,8 +90,10 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     struct passwd *pw;
 #endif
 
-    if(cmd==CMD_DEFAULT || cmd==CMD_HELP)
-        s_log(LOG_NOTICE, "Global option defaults");
+    if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
+        s_log(LOG_NOTICE, " ");
+        s_log(LOG_NOTICE, "Global options:");
+    }
 
     /* chroot */
 #ifdef HAVE_CHROOT
@@ -530,7 +532,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
-        s_log(LOG_NOTICE, "Service-level option defaults");
+        s_log(LOG_NOTICE, "Service-level options:");
     }
 
     /* accept */
@@ -1532,19 +1534,20 @@ void parse_commandline(char *name, char *parameter) {
     if(!strcasecmp(name, "-help")) {
         parse_global_option(CMD_HELP, NULL, NULL);
         parse_service_option(CMD_HELP, NULL, NULL, NULL);
+        log_flush(LOG_MODE_INFO);
         die(1);
     }
 
     if(!strcasecmp(name, "-version")) {
-        stunnel_info(LOG_NOTICE);
-        s_log(LOG_NOTICE, " ");
         parse_global_option(CMD_DEFAULT, NULL, NULL);
         parse_service_option(CMD_DEFAULT, NULL, NULL, NULL);
+        log_flush(LOG_MODE_INFO);
         die(1);
     }
 
     if(!strcasecmp(name, "-sockets")) {
         print_socket_options();
+        log_flush(LOG_MODE_INFO);
         die(1);
     }
 
@@ -1961,6 +1964,7 @@ static int print_socket_options(void) {
 
     fd=socket(AF_INET, SOCK_STREAM, 0);
 
+    s_log(LOG_NOTICE, " ");
     s_log(LOG_NOTICE, "Socket option defaults:");
     s_log(LOG_NOTICE,
         "    Option Name     |  Accept  |   Local  |  Remote  |OS default");

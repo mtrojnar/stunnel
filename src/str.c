@@ -62,7 +62,7 @@ struct alloc_list {
 
 static void set_alloc_tls(ALLOC_TLS *);
 static ALLOC_TLS *get_alloc_tls();
-static ALLOC_LIST *get_alloc_list_ptr(void *);
+static ALLOC_LIST *get_alloc_list_ptr(void *, char *, int);
 
 char *str_dup(const char *str) {
     char *retval;
@@ -111,40 +111,42 @@ char *str_vprintf(const char *format, va_list start_ap) {
 
 #ifdef USE_UCONTEXT
 
-static ALLOC_TLS *alloc_tls=NULL;
+static ALLOC_TLS *global_tls=NULL;
 
 void str_init() {
 }
 
-static void set_alloc_tls(ALLOC_TLS *alloc_tls) {
+static void set_alloc_tls(ALLOC_TLS *tls) {
     if(ready_head)
-        ready_head->tls=alloc_tls;
+        ready_head->tls=tls;
     else /* ucontext threads not initialized */
-        alloc_tls=alloc_tls;
+        global_tls=tls;
 }
 
 static ALLOC_TLS *get_alloc_tls() {
     if(ready_head)
         return ready_head->tls;
     else /* ucontext threads not initialized */
-        return alloc_tls;
+        return global_tls;
 }
 
 #endif /* USE_UCONTEXT */
 
 #ifdef USE_FORK
 
-static ALLOC_TLS *alloc_tls=NULL;
+static ALLOC_TLS *global_tls;
+static pid_t previous_pid=0;
 
 void str_init() {
 }
 
-static void set_alloc_tls(ALLOC_TLS *alloc_tls) {
-    alloc_tls=alloc_tls;
+static void set_alloc_tls(ALLOC_TLS *tls) {
+    global_tls=tls;
+    previous_pid=getpid();
 }
 
 static ALLOC_TLS *get_alloc_tls() {
-    return alloc_tls;
+    return previous_pid==getpid() ? global_tls : NULL;
 }
 
 #endif /* USE_FORK */
@@ -157,8 +159,8 @@ void str_init() {
     pthread_key_create(&pthread_key, NULL);
 }
 
-static void set_alloc_tls(ALLOC_TLS *alloc_tls) {
-    pthread_setspecific(pthread_key, alloc_tls);
+static void set_alloc_tls(ALLOC_TLS *tls) {
+    pthread_setspecific(pthread_key, tls);
 }
 
 static ALLOC_TLS *get_alloc_tls() {
@@ -203,18 +205,23 @@ void str_cleanup() {
     ALLOC_TLS *alloc_tls;
 
     alloc_tls=get_alloc_tls();
-    while(alloc_tls->head)
-        str_free(alloc_tls->head+1);
-    set_alloc_tls(NULL);
-    free(alloc_tls);
+    if(alloc_tls) {
+        while(alloc_tls->head)
+            str_free(alloc_tls->head+1);
+        set_alloc_tls(NULL);
+        free(alloc_tls);
+    }
 }
 
 void str_stats() {
     ALLOC_TLS *alloc_tls;
 
     alloc_tls=get_alloc_tls();
-    s_log(LOG_DEBUG, "str_stats: %d block(s), %d byte(s)",
-        alloc_tls->blocks, alloc_tls->bytes);
+    if(alloc_tls)
+        s_log(LOG_DEBUG, "str_stats: %d block(s), %d byte(s)",
+            alloc_tls->blocks, alloc_tls->bytes);
+    else
+        s_log(LOG_DEBUG, "str_stats: alloc_tls not initialized");
 }
 
 void *str_alloc(size_t size) {
@@ -248,14 +255,14 @@ void *str_alloc(size_t size) {
     return alloc_list+1;
 }
 
-void *str_realloc(void *ptr, size_t size) {
+void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
     ALLOC_LIST *previous_alloc_list, *alloc_list;
 
     if(!ptr)
         return str_alloc(size);
     if(size>=1024*1024) /* huge allocations are not allowed */
         return NULL;
-    previous_alloc_list=get_alloc_list_ptr(ptr);
+    previous_alloc_list=get_alloc_list_ptr(ptr, file, line);
     alloc_list=realloc(previous_alloc_list, sizeof(ALLOC_LIST)+size);
     if(!alloc_list)
         return NULL;
@@ -276,12 +283,12 @@ void *str_realloc(void *ptr, size_t size) {
 
 /* detach from thread automatic deallocation list */
 /* it has no effect if the allocation is already detached */
-void str_detach(void *ptr) {
+void str_detach_debug(void *ptr, char *file, int line) {
     ALLOC_LIST *alloc_list;
 
     if(!ptr) /* do not attempt to free null pointers */
         return;
-    alloc_list=get_alloc_list_ptr(ptr);
+    alloc_list=get_alloc_list_ptr(ptr, file, line);
     if(alloc_list->tls) { /* not detached */
         /* remove from linked list */
         if(alloc_list->tls->head==alloc_list)
@@ -300,27 +307,29 @@ void str_detach(void *ptr) {
     }
 }
 
-void str_free(void *ptr) {
+void str_free_debug(void *ptr, char *file, int line) {
     ALLOC_LIST *alloc_list;
 
     if(!ptr) /* do not attempt to free null pointers */
         return;
-    str_detach(ptr);
+    str_detach_debug(ptr, file, line);
     alloc_list=(ALLOC_LIST *)ptr-1;
     alloc_list->magic=0xdefec8ed; /* to detect double free */
     free(alloc_list);
 }
 
-static ALLOC_LIST *get_alloc_list_ptr(void *ptr) {
+static ALLOC_LIST *get_alloc_list_ptr(void *ptr, char *file, int line) {
     ALLOC_LIST *alloc_list;
 
     alloc_list=(ALLOC_LIST *)ptr-1;
     if(alloc_list->magic!=0xdeadbeef) { /* not allocated by str_alloc() */
-        s_log(LOG_CRIT, "INTERNAL ERROR: get_alloc_list_ptr: Bad magic");
+        s_log(LOG_CRIT, "INTERNAL ERROR: Bad magic at %s, line %d",
+            file, line);
         die(1);
     }
     if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls()) {
-        s_log(LOG_CRIT, "INTERNAL ERROR: get_alloc_list_ptr: Wrong thread");
+        s_log(LOG_CRIT, "INTERNAL ERROR: Wrong thread at %s, line %d",
+            file, line);
         die(1);
     }
     return alloc_list;

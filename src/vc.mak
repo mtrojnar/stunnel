@@ -4,7 +4,7 @@
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you?)
-#SSLDIR=..\..\openssl-1.0.0d
+#SSLDIR=..\..\openssl-1.0.0e
 SSLDIR=C:\Users\standard\Documents\Dvts\Contrib\openssl\v1.0.0c\patched3
 
 TARGETCPU=W32

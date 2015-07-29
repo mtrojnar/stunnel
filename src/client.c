@@ -271,7 +271,7 @@ static void init_ssl(CLI *c) {
     }
     SSL_set_ex_data(c->ssl, cli_index, c); /* for callbacks */
     SSL_set_session_id_context(c->ssl, (unsigned char *)sid_ctx,
-        strlen(sid_ctx));
+        strlen(sid_ctx) );
     if(c->opt->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
         if(c->opt->host_name) {
@@ -767,6 +767,8 @@ static void print_cipher(CLI *c) { /* print negotiated cipher */
     SSL_CIPHER *cipher;
     char *buf, *i, *j;
 
+    if(global_options.debug_level<LOG_INFO) /* performance optimization */
+        return;
     cipher=(SSL_CIPHER *)SSL_get_current_cipher(c->ssl);
     buf=SSL_CIPHER_description(cipher, NULL, 0);
     i=j=buf;
@@ -1115,14 +1117,16 @@ static void print_bound_address(CLI *c) {
     SOCKADDR_UNION addr;
     socklen_t addrlen=sizeof addr;
 
+    if(global_options.debug_level<LOG_NOTICE) /* performance optimization */
+        return;
     memset(&addr, 0, addrlen);
     if(getsockname(c->fd, (struct sockaddr *)&addr, &addrlen)) {
         sockerror("getsockname");
-    } else {
-        s_ntop(txt, &addr);
-        s_log(LOG_NOTICE,"Service %s connected remote server from %s",
-            c->opt->servname, txt);
+        return;
     }
+    s_ntop(txt, &addr);
+    s_log(LOG_NOTICE,"Service %s connected remote server from %s",
+        c->opt->servname, txt);
 }
 
 static void reset(int fd, char *txt) {

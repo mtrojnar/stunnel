@@ -35,7 +35,7 @@ EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak makew32.ba
 EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES =  $(common_headers) $(common_sources) $(win32_sources)
 
-OPENSSLDIR=/usr/src/openssl-1.0.0d-i586
+OPENSSLDIR=/usr/src/openssl-1.0.0e-i586
 WINCFLAGS=-mthreads -O2 -Wall -Wextra -pedantic -Wno-long-long -I$(OPENSSLDIR)/include -DUSE_WIN32=1
 WINLIBS=-L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lpsapi -lws2_32 -lgdi32 -mwindows
 

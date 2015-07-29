@@ -70,7 +70,6 @@ static void cache_transfer(SSL_CTX *, const unsigned int, const unsigned,
 
 /* info callbacks */
 static void info_callback(const SSL *, int, int);
-static void print_stats(SSL_CTX *);
 
 static void sslerror_queue(void);
 static void sslerror_log(unsigned long, char *);
@@ -118,7 +117,8 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     }
 
     /* set info callback */
-    SSL_CTX_set_info_callback(section->ctx, info_callback);
+    if(global_options.debug_level==LOG_DEBUG) /* performance optimization */
+        SSL_CTX_set_info_callback(section->ctx, info_callback);
 
     /* ciphers, options, mode */
     if(section->cipher_list)
@@ -583,43 +583,40 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
 /**************************************** informational callback */
 
 static void info_callback(const SSL *ssl, int where, int ret) {
-    if(where & SSL_CB_LOOP)
+    if(where & SSL_CB_LOOP) {
         s_log(LOG_DEBUG, "SSL state (%s): %s",
-        where & SSL_ST_CONNECT ? "connect" :
-        where & SSL_ST_ACCEPT ? "accept" :
-        "undefined", SSL_state_string_long(ssl));
-    else if(where & SSL_CB_ALERT)
+            where & SSL_ST_CONNECT ? "connect" :
+            where & SSL_ST_ACCEPT ? "accept" :
+            "undefined", SSL_state_string_long(ssl));
+    } else if(where & SSL_CB_ALERT) {
         s_log(LOG_DEBUG, "SSL alert (%s): %s: %s",
             where & SSL_CB_READ ? "read" : "write",
             SSL_alert_type_string_long(ret),
             SSL_alert_desc_string_long(ret));
-    else if(where==SSL_CB_HANDSHAKE_DONE)
-        print_stats(ssl->ctx);
-}
-
-static void print_stats(SSL_CTX *ctx) { /* print statistics */
-    s_log(LOG_DEBUG, "%4ld items in the session cache",
-        SSL_CTX_sess_number(ctx));
-    s_log(LOG_DEBUG, "%4ld client connects (SSL_connect())",
-        SSL_CTX_sess_connect(ctx));
-    s_log(LOG_DEBUG, "%4ld client connects that finished",
-        SSL_CTX_sess_connect_good(ctx));
-    s_log(LOG_DEBUG, "%4ld client renegotiations requested",
-        SSL_CTX_sess_connect_renegotiate(ctx));
-    s_log(LOG_DEBUG, "%4ld server connects (SSL_accept())",
-        SSL_CTX_sess_accept(ctx));
-    s_log(LOG_DEBUG, "%4ld server connects that finished",
-        SSL_CTX_sess_accept_good(ctx));
-    s_log(LOG_DEBUG, "%4ld server renegotiations requested",
-        SSL_CTX_sess_accept_renegotiate(ctx));
-    s_log(LOG_DEBUG, "%4ld session cache hits",
-        SSL_CTX_sess_hits(ctx));
-    s_log(LOG_DEBUG, "%4ld external session cache hits",
-        SSL_CTX_sess_cb_hits(ctx));
-    s_log(LOG_DEBUG, "%4ld session cache misses",
-        SSL_CTX_sess_misses(ctx));
-    s_log(LOG_DEBUG, "%4ld session cache timeouts",
-        SSL_CTX_sess_timeouts(ctx));
+    } else if(where==SSL_CB_HANDSHAKE_DONE) {
+        s_log(LOG_DEBUG, "%4ld items in the session cache",
+            SSL_CTX_sess_number(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld client connects (SSL_connect())",
+            SSL_CTX_sess_connect(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld client connects that finished",
+            SSL_CTX_sess_connect_good(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld client renegotiations requested",
+            SSL_CTX_sess_connect_renegotiate(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld server connects (SSL_accept())",
+            SSL_CTX_sess_accept(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld server connects that finished",
+            SSL_CTX_sess_accept_good(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld server renegotiations requested",
+            SSL_CTX_sess_accept_renegotiate(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld session cache hits",
+            SSL_CTX_sess_hits(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld external session cache hits",
+            SSL_CTX_sess_cb_hits(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld session cache misses",
+            SSL_CTX_sess_misses(ssl->ctx));
+        s_log(LOG_DEBUG, "%4ld session cache timeouts",
+            SSL_CTX_sess_timeouts(ssl->ctx));
+    }
 }
 
 /**************************************** SSL error reporting */

@@ -92,7 +92,7 @@ static struct LIST {
 static struct PEER_CERT_TABLE {
     LPTSTR file, help;
     char *chain;
-} *peer_cert_table;
+} *peer_cert_table=NULL;
 static unsigned int number_of_sections=0;
 
 static HINSTANCE ghInst;
@@ -1009,7 +1009,6 @@ void win_newcert(SSL *ssl, SERVICE_OPTIONS *section) {
     if(peer_cert_table[section->section_number].chain)
         return; /* a peer certificate was already cached */
 
-    s_log(LOG_DEBUG, "A new certificate was received");
     bio=BIO_new(BIO_s_mem());
     if(!bio)
         return;
@@ -1026,21 +1025,29 @@ void win_newcert(SSL *ssl, SERVICE_OPTIONS *section) {
         }
     }
     len=BIO_pending(bio);
+    if(len<=0) {
+        s_log(LOG_INFO, "No peer certificate received");
+        BIO_free(bio);
+        return;
+    }
     peer_cert_table[section->section_number].chain=str_alloc(len+1);
     if(!peer_cert_table[section->section_number].chain) {
+        s_log(LOG_CRIT, "Out of memory");
         BIO_free(bio);
         return;
     }
     str_detach(peer_cert_table[section->section_number].chain);
     len=BIO_read(bio, peer_cert_table[section->section_number].chain, len);
     if(len<0) {
+        s_log(LOG_ERR, "BIO_read failed");
         BIO_free(bio);
         str_free(peer_cert_table[section->section_number].chain);
+        peer_cert_table[section->section_number].chain=NULL;
         return;
     }
     peer_cert_table[section->section_number].chain[len]='\0';
     BIO_free(bio);
-    s_log(LOG_DEBUG, "A new certificate was cached (%d bytes)", len);
+    s_log(LOG_DEBUG, "Peer certificate was cached (%d bytes)", len);
 
 #ifndef _WIN32_WCE
     if(main_menu_handle)

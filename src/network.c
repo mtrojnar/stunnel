@@ -230,8 +230,8 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     /* it's illegal to deallocate the stack of the current context */
     if(to_free) { /* a delayed deallocation is scheduled */
         s_log(LOG_DEBUG, "Releasing context %ld", to_free->id);
-        free(to_free->stack);
-        free(to_free);
+        str_free(to_free->stack);
+        str_free(to_free);
         to_free=NULL;
     }
 

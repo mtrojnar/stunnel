@@ -21,18 +21,23 @@ Building stunnel from source (optional):
         make -f win32/Makefile.gcc install
 
  3) Download the recent OpenSSL in unpack it to /usr/src/ directory.
-      cd /usr/src && tar zvxf ~/openssl-(version).tar.gz
+      cd /usr/src
+      tar zvxf ~/openssl-(version).tar.gz
+      mv openssl-(version) openssl-(version)-i586
 
- 4) Build OpenSSL with cross_mingw32.sh script.
-      ftp://ftp.stunnel.org/stunnel/openssl/cross_mingw32.sh
+ 4) Build OpenSSL.
+      ./Configure --cross-compile-prefix=i586-mingw32msvc- mingw shared zlib-dynamic
+      make
 
  5) Download and unpack stunnel-(version).tar.gz.
 
  6) Configure stunnel.
-      cd stunnel-(version) && ./configure --with-ssl=/path/to/openssl-(version)
+      cd stunnel-(version)
+      ./configure --with-ssl=/path/to/openssl-(version)
 
  7) Build windows executable.
-      cd src && make stunnel.exe
+      cd src
+      make stunnel.exe
 
 
 Installing stunnel:

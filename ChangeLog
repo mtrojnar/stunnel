@@ -1,6 +1,16 @@
 stunnel change log
 
 
+Version 4.43, 2011.09.07, urgency: MEDIUM:
+* New features
+  - Updated Win32 DLLs for OpenSSL 1.0.0e.
+  - Major optimization of the logging subsystem.
+    Benchmarks indicate up to 15% performance improvement.
+* Bugfixes
+  - Fixed WIN32 configuration file reload.
+  - Fixed FORK and UCONTEXT threading models.
+  - Corrected INSTALL.W32 file.
+
 Version 4.42, 2011.08.18, urgency: HIGH:
 * New features
   - New verify level 0 to request and ignore peer certificate.  This

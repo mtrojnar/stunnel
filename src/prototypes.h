@@ -44,7 +44,12 @@
 
 #define MAX_HOSTS 16
 
-typedef enum {LOG_MODE_NONE, LOG_MODE_ERROR, LOG_MODE_FULL} LOG_MODE;
+typedef enum {
+    LOG_MODE_NONE,
+    LOG_MODE_ERROR,
+    LOG_MODE_INFO,
+    LOG_MODE_CONFIGURED
+} LOG_MODE;
 
 typedef union sockaddr_union {
     struct sockaddr sa;
@@ -509,9 +514,12 @@ void str_init();
 void str_cleanup();
 void str_stats();
 void *str_alloc(size_t);
-void *str_realloc(void *, size_t);
-void str_detach(void *);
-void str_free(void *);
+void *str_realloc_debug(void *, size_t, char *, int);
+#define str_realloc(a, b) str_realloc_debug((a), (b), __FILE__, __LINE__)
+void str_detach_debug(void *, char *, int);
+#define str_detach(a) str_detach_debug((a), __FILE__, __LINE__)
+void str_free_debug(void *, char *, int);
+#define str_free(a) str_free_debug((a), __FILE__, __LINE__)
 char *str_dup(const char *);
 char *str_vprintf(const char *, va_list);
 char *str_printf(const char *, ...)
