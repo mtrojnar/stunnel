@@ -193,11 +193,12 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 and <em>exec</em> are located inside the jail and the patches have to be relative
 to the directory specified with <strong>chroot</strong>.</p>
 </dd>
-<dt><strong><a name="compression_zlib_rle" class="item"><strong>compression</strong> = zlib | rle</a></strong></dt>
+<dt><strong><a name="compression_deflate_zlib_rle" class="item"><strong>compression</strong> = deflate | zlib | rle</a></strong></dt>
 
 <dd>
 <p>select data compression algorithm</p>
 <p>default: no compression</p>
+<p>deflate is the standard compression method as described in <a href="http://www.ietf.org/rfc/rfc1951.txt" class="rfc">RFC 1951</a>.</p>
 <p>zlib compression of OpenSSL 0.9.8 or above is not backward compatible with
 OpenSSL 0.9.7.</p>
 <p>rle compression is currently not implemented by the OpenSSL library.</p>
@@ -783,6 +784,8 @@ other platforms.</p>
 <dt><strong><a name="level_2_verify_peer_certificate" class="item"><em>level 2</em> - verify peer certificate</a></strong></dt>
 
 <dt><strong><a name="level_3_verify_peer_with_locally_installed_certificate" class="item"><em>level 3</em> - verify peer with locally installed certificate</a></strong></dt>
+
+<dt><strong><a name="level_4_ignore_ca_chain_and_only_verify_peer_certificate" class="item"><em>level 4</em> - ignore CA chain and only verify peer certificate</a></strong></dt>
 
 <dt><strong><a name="default_no_verify" class="item"><em>default</em> - no verify</a></strong></dt>
 

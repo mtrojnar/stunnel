@@ -765,7 +765,7 @@ distclean-local:
 
 dist-hook:
 	makensis -NOCD -DVERSION=${VERSION} -DSRCDIR=$(srcdir) \
-		-DDLLS=/usr/src/openssl-0.9.8r-fips/out32dll \
+		-DDLLS=/usr/src/openssl-0.9.8s-fips/out32dll \
 		 $(srcdir)/tools/stunnel.nsi
 
 sign: dist

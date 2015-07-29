@@ -19,7 +19,7 @@ BEGIN
             VALUE "FileDescription",    "stunnel - multiplatform SSL tunneling proxy"
             VALUE "FileVersion",        STUNNEL_VERSION
             VALUE "InternalName",       "stunnel"
-            VALUE "LegalCopyright",     "© by Michal Trojnara, 1998-2011"
+            VALUE "LegalCopyright",     "© by Michal Trojnara, 1998-2012"
             VALUE "OriginalFilename",   "stunnel.exe"
             VALUE "ProductName",        STUNNEL_PRODUCTNAME
             VALUE "ProductVersion",     STUNNEL_VERSION
@@ -90,7 +90,7 @@ BEGIN
     ICON            IDI_MYICON, -1,                              9,  8,  18, 20
     LTEXT           "stunnel version", -1,                      30,  4,  52,  8
     LTEXT           STUNNEL_VERSION, -1,                        82,  4,  54,  8
-    LTEXT           "© by Michal Trojnara, 1998-2011", -1,      30, 12, 106,  8
+    LTEXT           "© by Michal Trojnara, 1998-2012", -1,      30, 12, 106,  8
     LTEXT           "All Rights Reserved", -1,                  30, 20, 106,  8
     LTEXT           "Licensed under the GNU GPL version 2", -1,  4, 28, 132,  8
     LTEXT           "with a special exception for OpenSSL", -1,  4, 36, 132,  8

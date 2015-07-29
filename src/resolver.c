@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -52,11 +52,11 @@
 #define EAI_SERVICE 8
 #endif
 
-#ifdef USE_WIN32
-/* rename some locally shadowed declarations */
+/* rename some potentially locally shadowed declarations */
 #define getaddrinfo     local_getaddrinfo
 #define freeaddrinfo    local_freeaddrinfo
-#else /* defined USE_WIN32 */
+
+#ifndef HAVE_STRUCT_ADDRINFO
 struct addrinfo {
     int ai_flags;
     int ai_family;
@@ -67,7 +67,7 @@ struct addrinfo {
     char *ai_canonname;
     struct addrinfo *ai_next;
 };
-#endif /* defined USE_WIN32 */
+#endif
 
 static int getaddrinfo(const char *, const char *,
     const struct addrinfo *, struct addrinfo **);
@@ -297,7 +297,7 @@ static int getaddrinfo(const char *node, const char *service,
     *res=NULL;
     ai=NULL;
     enter_critical_section(CRIT_INET);
-#if defined(USE_IPv6) && !defined(USE_WIN32)
+#ifdef HAVE_GETHOSTBYNAME2
     h=gethostbyname2(node, AF_INET6);
     if(h) /* some IPv6 addresses found */
         alloc_addresses(h, hints, port, res, &ai); /* ignore the error */

@@ -1,6 +1,21 @@
 stunnel change log
 
 
+Version 4.51, 2012.01.09, urgency: MEDIUM:
+* New features
+  - Updated Win32 binary distribution OpenSSL DLLs to version 0.9.8s-fips.
+  - Updated Android binary OpenSSL to version 1.0.0f.
+  - Zlib support added to Win32 and Android binary builds.
+  - New "compression = deflate" global option to enable RFC 2246 compresion.
+    For compatibility with previous versions "compression = zlib" and
+    "compression = rle" also enable the deflate (RFC 2246) compression.
+  - Separate default ciphers and sslVersion for "fips = yes" and "fips = no".
+  - UAC support for editing configuration file with Windows GUI.
+* Bugfixes
+  - Fixed exec+connect sections.
+  - Added a workaround for broken Android getaddrinfo():
+    http://stackoverflow.com/questions/7818246/segmentation-fault-in-getaddrinfo
+
 Version 4.50, 2011.12.03, urgency: MEDIUM:
 * New features
   - Added Android port.
@@ -405,7 +420,7 @@ Version 4.19, 2006.11.11, urgency: LOW/EXPERIMENTAL:
   - imap protocol negotiation support added.
   - Passphrase cache was added so the user does not need to reenter
     the same passphrase for each defined service any more.
-  - New service-level option to retry connect+exec section:
+  - New service-level option to retry exec+connect section:
     retry = yes|no
   - Local IP and port is logged for each established connection.
   - Win32 DLLs for OpenSSL 0.9.8d.

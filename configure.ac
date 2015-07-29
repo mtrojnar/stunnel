@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.50])
+AC_INIT([stunnel],[4.51])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.50)
+AM_INIT_AUTOMAKE(stunnel, 4.51)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -98,11 +98,14 @@ AC_EGREP_HEADER(socklen_t, sys/socket.h,
     AC_DEFINE([socklen_t], [int], [Type of socklen_t]))
 
 AC_CHECK_TYPES([struct sockaddr_un], [], [], [#include <sys/un.h>])
+AC_CHECK_TYPES([struct addrinfo], [], [], [#include <netdb.h>])
 
 AC_MSG_NOTICE([**************************************** PTY device files])
 if test "$cross_compiling" = "no"; then
-    AC_CHECK_FILE("/dev/ptmx", AC_DEFINE([HAVE_DEV_PTMX], [1], [Define to 1 if you have '/dev/ptmx' device.]))
-    AC_CHECK_FILE("/dev/ptc", AC_DEFINE([HAVE_DEV_PTS_AND_PTC], [1], [Define to 1 if you have '/dev/ptc' device.]))
+    AC_CHECK_FILE("/dev/ptmx", AC_DEFINE([HAVE_DEV_PTMX], [1],
+        [Define to 1 if you have '/dev/ptmx' device.]))
+    AC_CHECK_FILE("/dev/ptc", AC_DEFINE([HAVE_DEV_PTS_AND_PTC], [1],
+        [Define to 1 if you have '/dev/ptc' device.]))
 else
     AC_MSG_WARN([cross-compilation: assuming /dev/ptmx and /dev/ptc are not available])
 fi
@@ -268,20 +271,28 @@ AC_CHECK_FUNCS(pthread_sigmask localtime_r)
 # threads
 AC_CHECK_FUNCS(getcontext __makecontext_v2)
 # sockets
-AC_CHECK_FUNCS(poll endhostent getnameinfo)
-# Tru64 UNIX has getaddrinfo() but has it renamed in libc as
-# something else so we must include <netdb.h> to get the
-# redefinition.
+AC_CHECK_FUNCS(poll gethostbyname2 endhostent getnameinfo)
 AC_MSG_CHECKING([for getaddrinfo])
-AC_LINK_IFELSE(
-    [AC_LANG_PROGRAM(
-        [[#include <stdio.h>
+case "$host_os" in
+*androideabi*)
+    # http://stackoverflow.com/questions/7818246/segmentation-fault-in-getaddrinfo
+    AC_MSG_RESULT([no (buggy Android implementation)])
+    ;;
+*)
+    # Tru64 UNIX has getaddrinfo() but has it renamed in libc as
+    # something else so we must include <netdb.h> to get the
+    # redefinition.
+    AC_LINK_IFELSE(
+        [AC_LANG_PROGRAM(
+            [[#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>]],
-        [[getaddrinfo(NULL, NULL, NULL, NULL);]],)],
-    [AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_GETADDRINFO], [1], [Define to 1 if you have 'getaddrinfo' function.])],
-    [AC_MSG_RESULT([no])])
+            [[getaddrinfo(NULL, NULL, NULL, NULL);]],)],
+        [AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_GETADDRINFO], [1], [Define to 1 if you have 'getaddrinfo' function.])],
+        [AC_MSG_RESULT([no])])
+    ;;
+esac
 # poll() is not recommended on Mac OS X <=10.3 and broken on Mac OS X >=10.4
 AC_MSG_CHECKING([for broken poll() implementation])
 case "$host_os" in

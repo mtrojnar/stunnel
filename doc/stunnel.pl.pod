@@ -130,11 +130,13 @@ połączeń.  Ścieżki podane w opcjach I<CApath>, I<CRLpath>, I<pid>
 oraz I<exec> muszą być umieszczone wewnątrz katalogu podanego w opcji
 I<chroot> i określone względem tego katalogu.
 
-=item B<compression> = zlib | rle
+=item B<compression> = deflate | zlib | rle
 
 wybór algorytmu kompresji przesyłanych danych
 
 domyślnie: bez kompresji
+
+Algorytm deflate jest standardową metodą kompresji zgodnie z RFC 1951.
 
 Kompresja zlib zaimplementowana w OpenSSL 0.9.8 i nowszych nie jest
 kompatybilna implementacją OpenSSL 0.9.7.
@@ -752,6 +754,8 @@ weryfikuj certyfikat drugiej strony połączenia
 =item I<poziom 2> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji
 
 =item I<poziom 3> - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony
+
+=item I<poziom 4> - weryfikuj z certyfikatem drugiej strony ignorując łańcuch CA
 
 =item I<domyślnie> - nie weryfikuj
 

@@ -22,8 +22,8 @@
  
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-#SSLDIR=../openssl-1.0.0e
-SSLDIR=C:/Users/standard/Documents/Dvts/Contrib/openssl/v1.0.0c/patched3
+SSLDIR=../openssl-1.0.0f
+#SSLDIR=C:/Users/standard/Documents/Dvts/Contrib/openssl/v1.0.0c/patched3
 
 # c:\, backslash is not correctly recognized by mingw32-make, produces some
 # "missing separator" issue.

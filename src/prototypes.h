@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -66,13 +66,17 @@ typedef struct sockaddr_list {                          /* list of addresses */
     u16 num;                                  /* how many addresses are used */
 } SOCKADDR_LIST;
 
+#ifndef OPENSSL_NO_COMP
 typedef enum {
-    COMP_NONE, COMP_ZLIB, COMP_RLE
+    COMP_NONE, COMP_DEFLATE, COMP_ZLIB, COMP_RLE
 } COMP_TYPE;
+#endif /* OPENSSL_NO_COMP */
 
 typedef struct {
         /* some data for SSL initialization in ssl.c */
+#ifndef OPENSSL_NO_COMP
     COMP_TYPE compression;                               /* compression type */
+#endif /* OPENSSL_NO_COMP */
     char *egd_sock;                       /* entropy gathering daemon socket */
     char *rand_file;                                /* file with random data */
     int random_bytes;                       /* how many random bytes to read */
@@ -553,7 +557,7 @@ void *str_realloc_debug(void *, size_t, char *, int);
 void str_detach_debug(void *, char *, int);
 #define str_detach(a) str_detach_debug((a), __FILE__, __LINE__)
 void str_free_debug(void *, char *, int);
-#define str_free(a) str_free_debug((a), __FILE__, __LINE__)
+#define str_free(a) str_free_debug((a), __FILE__, __LINE__), (a)=NULL
 char *str_dup(const char *);
 char *str_vprintf(const char *, va_list);
 char *str_printf(const char *, ...)

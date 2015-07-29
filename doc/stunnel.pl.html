@@ -195,11 +195,12 @@ połączeń.  Ścieżki podane w opcjach <em>CApath</em>, <em>CRLpath</em>, <em>
 oraz <em>exec</em> muszą być umieszczone wewnątrz katalogu podanego w opcji
 <em>chroot</em> i określone względem tego katalogu.</p>
 </dd>
-<dt><strong><a name="compression_zlib_rle" class="item"><strong>compression</strong> = zlib | rle</a></strong></dt>
+<dt><strong><a name="compression_deflate_zlib_rle" class="item"><strong>compression</strong> = deflate | zlib | rle</a></strong></dt>
 
 <dd>
 <p>wybór algorytmu kompresji przesyłanych danych</p>
 <p>domyślnie: bez kompresji</p>
+<p>Algorytm deflate jest standardową metodą kompresji zgodnie z <a href="http://www.ietf.org/rfc/rfc1951.txt" class="rfc">RFC 1951</a>.</p>
 <p>Kompresja zlib zaimplementowana w OpenSSL 0.9.8 i nowszych nie jest
 kompatybilna implementacją OpenSSL 0.9.7.</p>
 <p>Kompresja rle nie jest zaimplementowana w aktualnych wersjach OpenSSL.</p>
@@ -804,6 +805,8 @@ dodatkowe opcje:</p>
 <dt><strong><a name="poziom_2_weryfikuj_z_zainstalowanym_certyfikatem_centrum_certyfikacji" class="item"><em>poziom 2</em> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji</a></strong></dt>
 
 <dt><strong><a name="poziom_3_weryfikuj_z_lokalnie_zainstalowanym_certyfikatem_drugiej_strony" class="item"><em>poziom 3</em> - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony</a></strong></dt>
+
+<dt><strong><a name="poziom_4_weryfikuj_z_certyfikatem_drugiej_strony_ignoruj_c_a_cuch_ca" class="item"><em>poziom 4</em> - weryfikuj z certyfikatem drugiej strony ignorując łańcuch CA</a></strong></dt>
 
 <dt><strong><a name="domy_lnie_nie_weryfikuj" class="item"><em>domyślnie</em> - nie weryfikuj</a></strong></dt>
 

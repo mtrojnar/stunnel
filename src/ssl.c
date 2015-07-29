@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -64,9 +64,9 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global SSL settings */
             sslerror("FIPS_mode_set");
             return 1;
         }
-        s_log(LOG_NOTICE, "FIPS mode %s",
-            global->option.fips ? "enabled" : "disabled");
     }
+    s_log(LOG_NOTICE, "FIPS mode is %s",
+        global->option.fips ? "enabled" : "disabled");
 #endif /* USE_FIPS */
     if(init_compression(global))
         return 1;
@@ -77,36 +77,74 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global SSL settings */
 }
 
 static int init_compression(GLOBAL_OPTIONS *global) {
-    int id=0;
-    COMP_METHOD *cm=NULL;
-    char *name="unknown";
+#ifndef OPENSSL_NO_COMP
+    SSL_COMP *comp;
+    STACK_OF(SSL_COMP) *ssl_comp_methods;
 
-    switch(global->compression) {
-    case COMP_NONE:
+    ssl_comp_methods=SSL_COMP_get_compression_methods();
+    if(!ssl_comp_methods) {
+        s_log(LOG_ERR, "Failed to get compression methods");
+        return 1;
+    }
+
+    /* delete OpenSSL defaults (empty the SSL_COMP stack) */
+    /* cannot use sk_SSL_COMP_pop_free, as it also destroys the stack itself */
+    while(sk_SSL_COMP_num(ssl_comp_methods))
+        OPENSSL_free(sk_SSL_COMP_pop(ssl_comp_methods));
+
+    if(global->compression==COMP_NONE) {
+        s_log(LOG_DEBUG, "Compression not enabled");
         return 0; /* success */
-    case COMP_ZLIB:
-        id=0xe0;
-        cm=COMP_zlib();
-        name="zlib";
-        break;
-    case COMP_RLE:
-        id=0xe1;
-        cm=COMP_rle();
-        name="rle";
-        break;
-    default:
-        s_log(LOG_ERR, "INTERNAL ERROR: Bad compression method");
+    }
+
+    /* insert RFC 1951 (DEFLATE) algoritm */
+    if(SSLeay()>=0x00908051L) { /* 0.9.8e-beta1 */
+        /* only allow DEFLATE with OpenSSL 0.9.8 or later
+           with openssl #1468 zlib memory leak fixed */
+        comp=(SSL_COMP *)OPENSSL_malloc(sizeof(SSL_COMP));
+        if(!comp) {
+            s_log(LOG_ERR, "OPENSSL_malloc filed");
+            return 1;
+        }
+        comp->id=1; /* RFC 1951 */
+        comp->method=COMP_zlib();
+        if(!comp->method || comp->method->type==NID_undef) {
+            OPENSSL_free(comp);
+            s_log(LOG_ERR, "Failed to initialize compression method");
+            return 1;
+        }
+        comp->name=comp->method->name;
+        sk_SSL_COMP_push(ssl_comp_methods, comp);
+    }
+
+    /* also insert one of obsolete (ZLIB/RLE) algoritms */
+    comp=(SSL_COMP *)OPENSSL_malloc(sizeof(SSL_COMP));
+    if(!comp) {
+        s_log(LOG_ERR, "OPENSSL_malloc filed");
         return 1;
     }
-    if(!cm || cm->type==NID_undef) {
-        s_log(LOG_ERR, "Failed to initialize %s compression method", name);
+    if(global->compression==COMP_ZLIB) {
+        comp->id=0xe0; /* 224 - within private range (193 to 255) */
+        comp->method=COMP_zlib();
+    } else if(global->compression==COMP_RLE) {
+        comp->id=0xe1; /* 225 - within private range (193 to 255) */
+        comp->method=COMP_rle();
+    } else {
+        s_log(LOG_INFO, "Compression enabled: %d algorithm(s)",
+            sk_SSL_COMP_num(ssl_comp_methods));
+        OPENSSL_free(comp);
+        return 0;
+    }
+    if(!comp->method || comp->method->type==NID_undef) {
+        OPENSSL_free(comp);
+        s_log(LOG_ERR, "Failed to initialize compression method");
         return 1;
     }
-    if(SSL_COMP_add_compression_method(id, cm)) {
-        s_log(LOG_ERR, "Failed to add %s compression method", name);
-        return 1;
-    }
-    s_log(LOG_INFO, "Compression enabled using %s method", name);
+    comp->name=comp->method->name;
+    sk_SSL_COMP_push(ssl_comp_methods, comp);
+    s_log(LOG_INFO, "Compression enabled: %d algorithm(s)",
+        sk_SSL_COMP_num(ssl_comp_methods));
+#endif /* OPENSSL_NO_COMP */
     return 0; /* success */
 }
 

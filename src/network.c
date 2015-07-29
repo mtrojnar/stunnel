@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -350,6 +350,7 @@ int set_socket_options(int s, int type) {
     extern SOCK_OPT sock_opts[];
     static char *type_str[3]={"accept", "local", "remote"};
     int opt_size;
+    int retval=0; /* no error found */
 
     for(ptr=sock_opts;ptr->opt_str;ptr++) {
         if(!ptr->opt_val[type])
@@ -376,14 +377,17 @@ int set_socket_options(int s, int type) {
                     ptr->opt_str, type_str[type]);
             } else {
                 sockerror(ptr->opt_str);
-                return -1; /* FAILED */
+                retval=-1; /* failed to set this option */
             }
-        } else {
+        }
+#ifdef DEBUG_FD_ALLOC
+        else {
             s_log(LOG_DEBUG, "Option %s set on %s socket",
                 ptr->opt_str, type_str[type]);
         }
+#endif /* DEBUG_FD_ALLOC */
     }
-    return 0; /* OK */
+    return retval; /* returns 0 when all options succeeded */
 }
 
 int get_socket_error(const int fd) {

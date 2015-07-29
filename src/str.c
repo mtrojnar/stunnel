@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -194,8 +194,8 @@ void str_cleanup() {
 
     alloc_tls=get_alloc_tls();
     if(alloc_tls) {
-        while(alloc_tls->head)
-            str_free(alloc_tls->head+1);
+        while(alloc_tls->head) /* str_free macro requires lvalue parameter */
+            str_free_debug(alloc_tls->head+1, __FILE__, __LINE__);
         set_alloc_tls(NULL);
         free(alloc_tls);
     }
@@ -205,15 +205,18 @@ void str_stats() {
     ALLOC_TLS *alloc_tls;
 
     alloc_tls=get_alloc_tls();
-    if(alloc_tls)
-        s_log(LOG_DEBUG,
-            "str_stats: %lu block(s), %lu data byte(s), %lu control byte(s)",
-            (unsigned long int)alloc_tls->blocks,
-            (unsigned long int)alloc_tls->bytes,
-            (unsigned long int)(alloc_tls->blocks*
-                (sizeof(ALLOC_LIST)+sizeof canary)));
-    else
+    if(!alloc_tls) {
         s_log(LOG_DEBUG, "str_stats: alloc_tls not initialized");
+        return;
+    }
+    if(!alloc_tls->blocks && !alloc_tls->bytes)
+        return; /* skip if no data is allocated */
+    s_log(LOG_DEBUG, "str_stats: %lu block(s), "
+            "%lu data byte(s), %lu control byte(s)",
+        (unsigned long int)alloc_tls->blocks,
+        (unsigned long int)alloc_tls->bytes,
+        (unsigned long int)(alloc_tls->blocks*
+            (sizeof(ALLOC_LIST)+sizeof canary)));
 }
 
 void *str_alloc_debug(size_t size, char *file, int line) {
@@ -310,7 +313,7 @@ void str_free_debug(void *ptr, char *file, int line) {
         return;
     str_detach_debug(ptr, file, line);
     alloc_list=(ALLOC_LIST *)ptr-1;
-    alloc_list->magic=0xdefec8ed; /* to detect double free */
+    alloc_list->magic=0xdefec8ed; /* to detect double free attempts */
     free(alloc_list);
 }
 
@@ -318,13 +321,17 @@ static ALLOC_LIST *get_alloc_list_ptr(void *ptr, char *file, int line) {
     ALLOC_LIST *alloc_list;
 
     alloc_list=(ALLOC_LIST *)ptr-1;
-    if(alloc_list->magic!=0xdeadbeef) /* not allocated by str_alloc() */
-        fatal("Bad magic", file, line);
+    if(alloc_list->magic!=0xdeadbeef) { /* not allocated by str_alloc() */
+        if(alloc_list->magic==0xdefec8ed)
+            fatal("Double free attempt", file, line);
+        else
+            fatal("Bad magic", file, line); /* LOL */
+    }
     if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls())
-        fatal("Wrong thread", file, line);
+        fatal("Memory allocated in a different thread", file, line);
     if(alloc_list->valid_canary &&
             memcmp((u8 *)ptr+alloc_list->size, canary, sizeof canary))
-        fatal("Dead canary", file, line);
+        fatal("Dead canary", file, line); /* LOL */
     return alloc_list;
 }
 

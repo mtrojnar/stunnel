@@ -129,11 +129,13 @@ B<chroot> keeps B<stunnel> in chrooted jail.  I<CApath>, I<CRLpath>, I<pid>
 and I<exec> are located inside the jail and the patches have to be relative
 to the directory specified with B<chroot>.
 
-=item B<compression> = zlib | rle
+=item B<compression> = deflate | zlib | rle
 
 select data compression algorithm
 
 default: no compression
+
+deflate is the standard compression method as described in RFC 1951.
 
 zlib compression of OpenSSL 0.9.8 or above is not backward compatible with
 OpenSSL 0.9.7.
@@ -735,6 +737,8 @@ verify peer certificate
 =item I<level 2> - verify peer certificate
 
 =item I<level 3> - verify peer with locally installed certificate
+
+=item I<level 4> - ignore CA chain and only verify peer certificate
 
 =item I<default> - no verify
 

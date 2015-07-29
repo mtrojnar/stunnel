@@ -1,30 +1,33 @@
 stunnel TODO
 
 
-High priority features I'm going to support (sponsorship appreciated)
-* Provide 64-bit Windows builds (besides 32-bit builds).
+High priority features.  They will likely be supported some day.
+A sponsor could allocate my time to get them faster.
 * Request elevated UAC privileges before editing stunnel.conf
   on Microsoft's Windows Vista, Windows Server 2008, and later.
-* Indirect CRL support (RFC 3280, section 5).
+* Support for CryptoAPI certificates and private keys with OpenSSL CAPI engine.
 * Separate GUI process running as current user on Windows.
 * Separate control process running as root user on Unix.
-* Features depending on using MSVC for OpenSSL build:
-  - Support for CryptoAPI certificates and private keys with CAPI engine.
+* Indirect CRL support (RFC 3280, section 5).
 * Service-level logging configuration (separate verbosity and destination).
-
-Low priority features I'm going to support (sponsorship appreciated)
+* Configuration file option to limit the number of concurrent connections.
 * SOCKS 4 protocol support.
   http://archive.socks.permeo.com/protocol/socks4.protocol
+
+Low priority features.  They will unlikely ever be supported.
+* Provide 64-bit Windows builds (besides 32-bit builds).
+  This requires either Microsoft Visual Studio Standard Edition or Microsoft
+  Visual Studio Professional Edition in order to retain FIPS compliance.
 * Key renegotiation (re-handshake) for long connections.
 * Logging to NT EventLog on Windows.
 * Internationalization of logged messages (i18n).
 * Generic scripting engine instead or static protocol.c.
 
-Features I prefer *not* to support (waiting for a wealthy sponsor)
+Features I won't support, unless convinced otherwise by a wealthy sponsor.
 * Protocol support *after* SSL is negotiated:
   - Support for adding X-Forwarded-For to HTTP request headers.
   - Support for adding X-Forwarded-For to SMTP email headers.
-* Additional certificate checks (including wildcard comparison) based on
-  CN and X509v3 Subject Alternative Name.
+* Additional certificate checks (including wildcard comparison) based on CN
+  and X509v3 Subject Alternative Name.
 * Set processes title that appear on the ps(1) and top(1) commands.
 

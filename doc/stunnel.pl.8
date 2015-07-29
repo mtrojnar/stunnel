@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2011.11.28" "4.50" "stunnel"
+.TH STUNNEL.PL 8 "2012.01.01" "4.51" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -158,11 +158,13 @@ Opcja określa katalog, w którym uwięziony zostanie proces programu
 połączeń.  Ścieżki podane w opcjach \fICApath\fR, \fICRLpath\fR, \fIpid\fR
 oraz \fIexec\fR muszą być umieszczone wewnątrz katalogu podanego w opcji
 \&\fIchroot\fR i określone względem tego katalogu.
-.IP "\fBcompression\fR = zlib | rle" 4
-.IX Item "compression = zlib | rle"
+.IP "\fBcompression\fR = deflate | zlib | rle" 4
+.IX Item "compression = deflate | zlib | rle"
 wybór algorytmu kompresji przesyłanych danych
 .Sp
 domyślnie: bez kompresji
+.Sp
+Algorytm deflate jest standardową metodą kompresji zgodnie z \s-1RFC\s0 1951.
 .Sp
 Kompresja zlib zaimplementowana w OpenSSL 0.9.8 i nowszych nie jest
 kompatybilna implementacją OpenSSL 0.9.7.
@@ -718,6 +720,8 @@ weryfikuj certyfikat drugiej strony połączenia
 .IX Item "poziom 2 - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji"
 .IP "\fIpoziom 3\fR \- weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony" 4
 .IX Item "poziom 3 - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony"
+.IP "\fIpoziom 4\fR \- weryfikuj z certyfikatem drugiej strony ignorując łańcuch \s-1CA\s0" 4
+.IX Item "poziom 4 - weryfikuj z certyfikatem drugiej strony ignorując łańcuch CA"
 .IP "\fIdomyślnie\fR \- nie weryfikuj" 4
 .IX Item "domyślnie - nie weryfikuj"
 .RE

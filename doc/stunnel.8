@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2011.11.28" "4.50" "stunnel"
+.TH STUNNEL 8 "2012.01.01" "4.51" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -156,11 +156,13 @@ directory to chroot \fBstunnel\fR process
 \&\fBchroot\fR keeps \fBstunnel\fR in chrooted jail.  \fICApath\fR, \fICRLpath\fR, \fIpid\fR
 and \fIexec\fR are located inside the jail and the patches have to be relative
 to the directory specified with \fBchroot\fR.
-.IP "\fBcompression\fR = zlib | rle" 4
-.IX Item "compression = zlib | rle"
+.IP "\fBcompression\fR = deflate | zlib | rle" 4
+.IX Item "compression = deflate | zlib | rle"
 select data compression algorithm
 .Sp
 default: no compression
+.Sp
+deflate is the standard compression method as described in \s-1RFC\s0 1951.
 .Sp
 zlib compression of OpenSSL 0.9.8 or above is not backward compatible with
 OpenSSL 0.9.7.
@@ -698,6 +700,8 @@ verify peer certificate
 .IX Item "level 2 - verify peer certificate"
 .IP "\fIlevel 3\fR \- verify peer with locally installed certificate" 4
 .IX Item "level 3 - verify peer with locally installed certificate"
+.IP "\fIlevel 4\fR \- ignore \s-1CA\s0 chain and only verify peer certificate" 4
+.IX Item "level 4 - ignore CA chain and only verify peer certificate"
 .IP "\fIdefault\fR \- no verify" 4
 .IX Item "default - no verify"
 .RE

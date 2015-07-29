@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -107,16 +107,16 @@ void *client_thread(void *arg) {
 
 void client_main(CLI *c) {
     s_log(LOG_DEBUG, "Service %s started", c->opt->servname);
-    if(c->opt->option.remote && c->opt->option.program) {
-            /* connect and exec options specified together */
-            /* -> spawn a local program instead of stdio */
+    if(c->opt->option.program && c->opt->option.remote) {
+            /* exec and connect options specified together
+             * -> spawn a local program instead of stdio */
         while((c->local_rfd.fd=c->local_wfd.fd=connect_local(c))>=0) {
             client_run(c);
             if(!c->opt->option.retry)
                 break;
             sleep(1); /* FIXME: not a good idea in ucontext threading */
             str_stats();
-            if(service_options.next)
+            if(service_options.next) /* don't str_cleanup in inetd mode */
                 str_cleanup();
         }
     } else
@@ -126,6 +126,12 @@ void client_main(CLI *c) {
 
 static void client_run(CLI *c) {
     int error;
+
+#ifndef USE_FORK
+    enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
+    ++num_clients;
+    leave_critical_section(CRIT_CLIENTS);
+#endif
 
     c->remote_fd.fd=-1;
     c->fd=-1;
@@ -184,6 +190,7 @@ static void client_run(CLI *c) {
     /* otherwise it will be retrieved by the init process and ignored */
     if(c->opt->option.program) /* 'exec' specified */
         child_status(); /* null SIGCHLD handler was used */
+    s_log(LOG_DEBUG, "Service %s finished", c->opt->servname);
 #else
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
     s_log(LOG_DEBUG, "Service %s finished (%d left)", c->opt->servname,
@@ -231,8 +238,8 @@ static void init_local(CLI *c) {
     c->local_rfd.is_socket=1;
     c->local_wfd.is_socket=1; /* TODO: It's not always true */
     /* it's a socket: lets setup options */
-    if(set_socket_options(c->local_rfd.fd, 1)<0)
-        longjmp(c->err, 1);
+    if(set_socket_options(c->local_rfd.fd, 1))
+        s_log(LOG_WARNING, "Failed to set local socket options");
 #ifdef USE_LIBWRAP
     libwrap_auth(c, accepted_address);
 #endif /* USE_LIBWRAP */
@@ -254,13 +261,19 @@ static void init_remote(CLI *c) {
         c->bind_addr=NULL; /* don't bind */
 
     /* setup c->remote_fd, now */
-    c->remote_fd.fd=c->opt->option.program ?
-        connect_local(c) :
-        connect_remote(c);
+    if(c->opt->option.remote) { /* try remote first for exec+connect targets */
+        c->remote_fd.fd=connect_remote(c);
+    } else if(c->opt->option.program) { /* exec+connect uses local fd */
+        c->remote_fd.fd=connect_local(c);
+    } else {
+        s_log(LOG_ERR, "INTERNAL ERROR: No target for remote socket");
+        longjmp(c->err, 1);
+    }
+
     c->remote_fd.is_socket=1; /* always! */
     s_log(LOG_DEBUG, "Remote FD=%d initialized", c->remote_fd.fd);
-    if(set_socket_options(c->remote_fd.fd, 2)<0)
-        longjmp(c->err, 1);
+    if(set_socket_options(c->remote_fd.fd, 2))
+        s_log(LOG_WARNING, "Failed to set remote socket options");
 }
 
 static void init_ssl(CLI *c) {
@@ -838,6 +851,9 @@ static int parse_socket_error(CLI *c, const char *text) {
 static void print_cipher(CLI *c) { /* print negotiated cipher */
     SSL_CIPHER *cipher;
     char *buf, *i, *j;
+#if !defined(OPENSSL_NO_COMP) && OPENSSL_VERSION_NUMBER>=0x0090800fL
+    const COMP_METHOD *compression, *expansion;
+#endif
 
     if(global_options.debug_level<LOG_INFO) /* performance optimization */
         return;
@@ -859,6 +875,14 @@ static void print_cipher(CLI *c) { /* print negotiated cipher */
     } while(*i++);
     s_log(LOG_INFO, "Negotiated ciphers: %s", buf);
     OPENSSL_free(buf);
+
+#if !defined(OPENSSL_NO_COMP) && OPENSSL_VERSION_NUMBER>=0x0090800fL
+    compression=SSL_get_current_compression(c->ssl);
+    expansion=SSL_get_current_expansion(c->ssl);
+    s_log(LOG_INFO, "Compression: %s, expansion: %s",
+        compression ? SSL_COMP_get_name(compression) : "null",
+        expansion ? SSL_COMP_get_name(expansion) : "null");
+#endif
 }
 
 static void auth_user(CLI *c, char *accepted_address) {

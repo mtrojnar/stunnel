@@ -1,7 +1,10 @@
-# create a server certificate
+# OpenSSL configuration file to create a server certificate
+# by Michal Trojnara 1998-2012
 
 [ req ]
+# the default key length is secure and quite fast - do not change it
 default_bits                    = 2048
+# comment out the next line to protect the private key with a passphrase
 encrypt_key                     = no
 distinguished_name              = req_dn
 x509_extensions                 = cert_type

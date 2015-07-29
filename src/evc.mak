@@ -1,4 +1,4 @@
-# wce.mak for stunnel.exe by Michal Trojnara 2006-2011
+# wce.mak for stunnel.exe by Michal Trojnara 2006-2012
 # with help of Pierre Delaage <delaage.pierre@free.fr>
 #
 # DEFAULTLIB management: only 2 are necessary

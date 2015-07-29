@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -52,7 +52,9 @@ struct sockaddr_un {
 static int main_unix(int, char*[]);
 #endif
 static int accept_connection(SERVICE_OPTIONS *);
+#ifndef USE_FORK
 static void get_limits(void); /* setup global max_clients and max_fds */
+#endif
 #ifdef HAVE_CHROOT
 static int change_root(void);
 #endif
@@ -73,11 +75,13 @@ static void client_status(void); /* dead children detected */
 
 /**************************************** global variables */
 
-static int max_fds;
-static int max_clients=0;
 static int signal_pipe[2]={-1, -1};
 
+#ifndef USE_FORK
+static int max_fds;
+static int max_clients=0;
 volatile int num_clients=0; /* current number of clients */
+#endif
 s_poll_set *fds; /* file descriptors of listening sockets */
 
 /**************************************** startup */
@@ -121,12 +125,10 @@ static int main_unix(int argc, char* argv[]) {
             signal(SIGQUIT, signal_handler); /* fatal */
         if(signal(SIGINT, SIG_IGN)!=SIG_IGN)
             signal(SIGINT, signal_handler); /* fatal */
-        num_clients=0;
         daemon_loop();
     } else { /* inetd mode */
         signal(SIGCHLD, SIG_IGN); /* ignore dead children */
         signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
-        num_clients=1;
         client_main(alloc_client_session(&service_options, 0, 1));
         log_close();
     }
@@ -138,7 +140,9 @@ static int main_unix(int argc, char* argv[]) {
 int main_initialize() {
     ssl_init(); /* initialize SSL library */
     sthreads_init(); /* initialize critical sections & SSL callbacks */
+#ifndef USE_FORK
     get_limits(); /* required by setup_fd() */
+#endif
 
     fds=s_poll_alloc();
     if(signal_pipe_init())
@@ -243,23 +247,17 @@ static int accept_connection(SERVICE_OPTIONS *opt) {
     s_log(LOG_DEBUG, "Service %s accepted FD=%d from %s",
         opt->servname, s, from_address);
     str_free(from_address);
+#ifndef USE_FORK
     if(max_clients && num_clients>=max_clients) {
         s_log(LOG_WARNING, "Connection rejected: too many clients (>=%d)",
             max_clients);
         closesocket(s);
         return 0;
     }
-    enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
-    /* increment before create_client() to prevent race condition
-     * resulting in logging "Service xxx finished (-1 left)" */
-    ++num_clients;
-    leave_critical_section(CRIT_CLIENTS);
+#endif
     if(create_client(opt->fd, s,
             alloc_client_session(opt, s, s), client_thread)) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
-        enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
-        --num_clients;
-        leave_critical_section(CRIT_CLIENTS);
         closesocket(s);
         return 0;
     }
@@ -343,22 +341,18 @@ int bind_ports(void) {
                 str_free(local_address);
                 return 1;
             }
-            s_log(LOG_DEBUG, "Service %s bound to %s",
-                opt->servname, local_address);
-            str_free(local_address);
             if(listen(opt->fd, SOMAXCONN)) {
                 sockerror("listen");
                 closesocket(opt->fd);
+                str_free(local_address);
                 return 1;
             }
             s_poll_add(fds, opt->fd, 1, 0);
-            s_log(LOG_DEBUG, "Service %s opened FD=%d",
-                opt->servname, opt->fd);
+            s_log(LOG_DEBUG, "Service %s bound FD=%d to %s",
+                opt->servname, opt->fd, local_address);
+            str_free(local_address);
         } else if(opt->option.program && opt->option.remote) {
             /* create exec+connect services */
-            enter_critical_section(CRIT_CLIENTS);
-            ++num_clients;
-            leave_critical_section(CRIT_CLIENTS);
             create_client(-1, -1,
                 alloc_client_session(opt, -1, -1), client_thread);
         }
@@ -366,6 +360,7 @@ int bind_ports(void) {
     return 0; /* OK */
 }
 
+#ifndef USE_FORK
 static void get_limits(void) {
     /* start with current ulimit */
 #if defined(HAVE_SYSCONF)
@@ -405,6 +400,7 @@ static void get_limits(void) {
         s_log(LOG_DEBUG, "No limit detected for the number of clients");
     }
 }
+#endif
 
 #ifdef HAVE_CHROOT
 static int change_root(void) {
@@ -629,23 +625,21 @@ static void client_status(void) { /* dead children detected */
 
 #ifdef HAVE_WAIT_FOR_PID
     while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
-        --num_clients; /* one client less */
 #else
     if((pid=wait(&status))>0) {
-        --num_clients; /* one client less */
 #endif
 #ifdef WIFSIGNALED
         if(WIFSIGNALED(status)) {
-            s_log(LOG_DEBUG, "Process %d terminated on signal %d (%d left)",
-                pid, WTERMSIG(status), num_clients);
+            s_log(LOG_DEBUG, "Process %d terminated on signal %d",
+                pid, WTERMSIG(status));
         } else {
-            s_log(LOG_DEBUG, "Process %d finished with code %d (%d left)",
-                pid, WEXITSTATUS(status), num_clients);
+            s_log(LOG_DEBUG, "Process %d finished with code %d",
+                pid, WEXITSTATUS(status));
         }
     }
 #else
-        s_log(LOG_DEBUG, "Process %d finished with code %d (%d left)",
-            pid, status, num_clients);
+        s_log(LOG_DEBUG, "Process %d finished with code %d",
+            pid, status);
     }
 #endif
 }
@@ -785,12 +779,14 @@ static int setup_fd(int fd, int nonblock, char *msg) {
         sockerror(msg);
         return -1;
     }
+#ifndef USE_FORK
     if(max_fds && fd>=max_fds) {
         s_log(LOG_ERR,
             "%s: FD=%d out of range (max %d)", msg, fd, max_fds);
         closesocket(fd);
         return -1;
     }
+#endif
 #ifndef USE_NEW_LINUX_API
     set_nonblock(fd, nonblock);
 #ifdef FD_CLOEXEC

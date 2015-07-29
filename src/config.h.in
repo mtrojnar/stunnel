@@ -33,6 +33,9 @@
 /* Define to 1 if you have the `getcontext' function. */
 #undef HAVE_GETCONTEXT
 
+/* Define to 1 if you have the `gethostbyname2' function. */
+#undef HAVE_GETHOSTBYNAME2
+
 /* Define to 1 if you have the `getnameinfo' function. */
 #undef HAVE_GETNAMEINFO
 
@@ -116,6 +119,9 @@
 
 /* Define to 1 if you have the <stropts.h> header file. */
 #undef HAVE_STROPTS_H
+
+/* Define to 1 if the system has the type `struct addrinfo'. */
+#undef HAVE_STRUCT_ADDRINFO
 
 /* Define to 1 if `msg_control' is a member of `struct msghdr'. */
 #undef HAVE_STRUCT_MSGHDR_MSG_CONTROL

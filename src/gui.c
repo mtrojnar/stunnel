@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -53,6 +53,9 @@
 #define SERVICE_NAME "stunnel"
 #endif
 
+/* mingw-Patches-1825044 is missing in Debian Squeeze */
+WINBASEAPI BOOL WINAPI CheckTokenMembership(HANDLE, PSID, PBOOL);
+
 /* prototypes */
 static BOOL CALLBACK enum_windows(HWND, LPARAM);
 static void parse_cmdline(LPSTR);
@@ -77,6 +80,7 @@ static void update_peer_menu(void);
 static void update_tray_icon(void);
 static void error_box(const LPSTR);
 static void message_box(const LPSTR, const UINT);
+static BOOL is_admin(void);
 
 /* NT Service related function */
 #ifndef _WIN32_WCE
@@ -390,6 +394,7 @@ static LRESULT CALLBACK window_proc(HWND main_window_handle,
     RECT rect;
     SERVICE_OPTIONS *section;
     unsigned int section_number;
+    char cwd[MAX_PATH], *conf_path;
 
 #if 0
     if(message!=WM_CTLCOLORSTATIC && message!=WM_TIMER)
@@ -523,10 +528,20 @@ static LRESULT CALLBACK window_proc(HWND main_window_handle,
             break;
         case IDM_EDIT_CONFIG:
 #ifndef _WIN32_WCE
-            if(!cmdline.service) /* security */
-                /* ShellExecute would need ".conf" extension associated */
-                _spawnlp(_P_NOWAIT, "notepad.exe", "notepad.exe",
-                    "stunnel.conf", NULL);
+            if(!cmdline.service) { /* security */
+                if(is_admin()) {
+                    ShellExecute(main_window_handle, TEXT("open"),
+                        TEXT("notepad.exe"), TEXT("stunnel.conf"),
+                        NULL, SW_SHOWNORMAL);
+                } else { /* UAC workaround */
+                    GetCurrentDirectory(MAX_PATH, cwd);
+                    conf_path=str_printf("%s\\stunnel.conf", cwd);
+                    ShellExecute(main_window_handle, TEXT("runas"),
+                        TEXT("notepad.exe"), conf_path,
+                        NULL, SW_SHOWNORMAL);
+                    str_free(conf_path);
+                }
+            }
 #endif
             break;
         case IDM_RELOAD_CONFIG:
@@ -541,15 +556,15 @@ static LRESULT CALLBACK window_proc(HWND main_window_handle,
         case IDM_MANPAGE:
 #ifndef _WIN32_WCE
             if(!cmdline.service) /* security */
-                ShellExecute(main_window_handle, "open",
-                    "stunnel.html", NULL, NULL, SW_SHOWNORMAL);
+                ShellExecute(main_window_handle, TEXT("open"),
+                    TEXT("stunnel.html"), NULL, NULL, SW_SHOWNORMAL);
 #endif
             break;
         case IDM_HOMEPAGE:
 #ifndef _WIN32_WCE
             if(!cmdline.service) /* security */
-                ShellExecute(main_window_handle, "open",
-                    "http://www.stunnel.org/", NULL, NULL, SW_SHOWNORMAL);
+                ShellExecute(main_window_handle, TEXT("open"),
+                    TEXT("http://www.stunnel.org/"), NULL, NULL, SW_SHOWNORMAL);
 #endif
             break;
         }
@@ -1026,6 +1041,22 @@ static void message_box(const LPSTR text, const UINT type) {
     tstr=str2tstr(text);
     MessageBox(hwnd, tstr, win32_name, type);
     str_free(tstr);
+}
+
+static BOOL is_admin(void) {
+    SID_IDENTIFIER_AUTHORITY NtAuthority={SECURITY_NT_AUTHORITY};
+    PSID admin_group;
+    BOOL retval;
+
+    retval=AllocateAndInitializeSid(&NtAuthority, 2,
+        SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS,
+        0, 0, 0, 0, 0, 0, &admin_group);
+    if(retval) {
+        if(!CheckTokenMembership(NULL, admin_group, &retval))
+            retval=FALSE;
+        FreeSid(admin_group);
+    }
+    return retval;
 }
 
 /**************************************** windows service */

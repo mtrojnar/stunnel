@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -72,7 +72,6 @@ typedef int socklen_t;
 
 #ifdef USE_WIN32
 #define USE_IPv6
-/* #define USE_FIPS */
 #define _CRT_SECURE_NO_DEPRECATE
 #define _CRT_NONSTDC_NO_DEPRECATE
 #define HAVE_OSSL_ENGINE_H
@@ -176,6 +175,7 @@ typedef int socklen_t;
 #include <time.h>
 #include <sys/stat.h>    /* stat */
 #include <setjmp.h>
+#include <fcntl.h>
 
 /**************************************** WIN32 headers */
 
@@ -185,6 +185,7 @@ typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned long u32;
 
+#define HAVE_STRUCT_ADDRINFO
 #define HAVE_SNPRINTF
 #define snprintf                    _snprintf
 #define HAVE_VSNPRINTF
@@ -313,7 +314,6 @@ typedef unsigned long u32;
 #ifdef __BEOS__
 #include <posix/grp.h>
 #endif
-#include <fcntl.h>
 
 #include <netinet/in.h>  /* struct sockaddr_in */
 #include <sys/socket.h>  /* getpeername */
@@ -422,6 +422,11 @@ extern char *sys_errlist[];
 #define OPENSSL_NO_TLSEXT
 #endif /* OpenSSL version < 1.0.0 */
 
+#ifndef OPENSSL_NO_COMP
+/* not defined in public headers before OpenSSL 0.9.8 */
+STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
+#endif /* OPENSSL_NO_COMP */
+
 /**************************************** other defines */
 
 /* change all non-printable characters to '.' */
@@ -451,6 +456,10 @@ extern char *sys_errlist[];
 #define LOG_INFO        6
 #define LOG_DEBUG       7
 #endif /* defined (USE_WIN32) || defined (__vms) */
+
+#ifndef offsetof
+#define offsetof(T, F) ((unsigned int)((char *)&((T *)0L)->F - (char *)0L))
+#endif
 
 #endif /* defined COMMON_H */
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -37,6 +37,17 @@
 
 #include "common.h"
 #include "prototypes.h"
+
+#if !defined(OPENSSL_NO_TLS1)
+#define DEFAULT_SSLVER_CLIENT "TLSv1"
+#elif !defined(OPENSSL_NO_SSL3)
+#define DEFAULT_SSLVER_CLIENT "SSLv3"
+#elif !defined(OPENSSL_NO_SSL2)
+#define DEFAULT_SSLVER_CLIENT "SSLv2"
+#else /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
+#error No supported SSL methods found
+#endif /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
+#define DEFAULT_SSLVER_SERVER "all"
 
 #if defined(_WIN32_WCE) && !defined(CONFDIR)
 #define CONFDIR "\\stunnel"
@@ -96,6 +107,9 @@ typedef enum {
 static char *option_not_found=
     "Specified option name is not valid here";
 
+static char *stunnel_cipher_list=
+    "ALL:!SSLv2:!aNULL:!EXP:!LOW:-MEDIUM:RC4:+HIGH";
+
 /**************************************** global options */
 
 static char *parse_global_option(CMD cmd, char *opt, char *arg) {
@@ -130,6 +144,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
 #endif /* HAVE_CHROOT */
 
     /* compression */
+#ifndef OPENSSL_NO_COMP
     switch(cmd) {
     case CMD_INIT:
         new_global_options.compression=COMP_NONE;
@@ -137,20 +152,23 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "compression"))
             break;
-        if(!strcasecmp(arg, "zlib"))
+        if(SSLeay()>=0x00908051L && !strcasecmp(arg, "deflate"))
+            new_global_options.compression=COMP_DEFLATE;
+        else if(!strcasecmp(arg, "zlib"))
             new_global_options.compression=COMP_ZLIB;
         else if(!strcasecmp(arg, "rle"))
             new_global_options.compression=COMP_RLE;
         else
-            return "Compression type should be either 'zlib' or 'rle'";
+            return "Specified compression type is not available";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-15s = zlib|rle compression type",
+        s_log(LOG_NOTICE, "%-15s = compression type",
             "compression");
         break;
     }
+#endif /* OPENSSL_NO_COMP */
 
     /* debug */
     switch(cmd) {
@@ -649,14 +667,9 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     }
 
     /* ciphers */
-#ifdef USE_FIPS
-#define STUNNEL_CIPHER_LIST "FIPS"
-#else
-#define STUNNEL_CIPHER_LIST "ALL:!SSLv2:!aNULL:!EXP:!LOW:-MEDIUM:RC4:+HIGH"
-#endif /* USE_FIPS */
     switch(cmd) {
     case CMD_INIT:
-        section->cipher_list=STUNNEL_CIPHER_LIST;
+        section->cipher_list=stunnel_cipher_list;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "ciphers"))
@@ -664,7 +677,14 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->cipher_list=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_NOTICE, "%-15s = %s", "ciphers", STUNNEL_CIPHER_LIST);
+#ifdef USE_FIPS
+        s_log(LOG_NOTICE, "%-15s = %s %s", "ciphers",
+            "FIPS", "(with \"fips = yes\")");
+        s_log(LOG_NOTICE, "%-15s = %s %s", "ciphers",
+            stunnel_cipher_list, "(with \"fips = no\")");
+#else
+        s_log(LOG_NOTICE, "%-15s = %s", "ciphers", stunnel_cipher_list);
+#endif /* USE_FIPS */
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-15s = list of permitted SSL ciphers", "ciphers");
@@ -1289,39 +1309,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* sslVersion */
     switch(cmd) {
     case CMD_INIT:
-
-#if defined(USE_FIPS)
-
-#if !defined(OPENSSL_NO_TLS)
-#define DEFAULT_SSLVER_CLIENT "TLSv1"
-#define DEFAULT_SSLVER_SERVER "TLSv1"
-        section->client_method=(SSL_METHOD *)TLSv1_client_method();
-        section->server_method=(SSL_METHOD *)TLSv1_server_method();
-#else /* OPENSSL_NO_TLS */
-#error Need TLSv1 for FIPS mode
-#endif /* OPENSSL_NO_TLS */
-
-#else /* USE_FIPS */
-
-#if !defined(OPENSSL_NO_TLS1)
-#define DEFAULT_SSLVER_CLIENT "TLSv1"
-        section->client_method=(SSL_METHOD *)TLSv1_client_method();
-#elif !defined(OPENSSL_NO_SSL3)
-#define DEFAULT_SSLVER_CLIENT "SSLv3"
-        section->client_method=(SSL_METHOD *)SSLv3_client_method();
-#elif !defined(OPENSSL_NO_SSL2)
-#define DEFAULT_SSLVER_CLIENT "SSLv2"
-        section->client_method=(SSL_METHOD *)SSLv2_client_method();
-#else /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
-#error No supported SSL methods found
-#endif /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
-
-        /* SSLv23_server_method() is an always available catch-all */
-        section->server_method=(SSL_METHOD *)SSLv23_server_method();
-#define DEFAULT_SSLVER_SERVER "all"
-
-#endif /* USE_FIPS */
-
+        section->client_method=NULL;
+        section->server_method=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "sslVersion"))
@@ -1354,8 +1343,16 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "Incorrect version of SSL protocol";
         return NULL; /* OK */
     case CMD_DEFAULT:
+#ifdef USE_FIPS
+        s_log(LOG_NOTICE, "%-15s = TLSv1 (with \"fips = yes\")",
+                "sslVersion");
+        s_log(LOG_NOTICE, "%-15s = " DEFAULT_SSLVER_CLIENT " for client, "
+                DEFAULT_SSLVER_SERVER " for server (with \"fips = no\")",
+                "sslVersion");
+#else
         s_log(LOG_NOTICE, "%-15s = " DEFAULT_SSLVER_CLIENT " for client, "
                 DEFAULT_SSLVER_SERVER " for server", "sslVersion");
+#endif
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-15s = all|SSLv2|SSLv3|TLSv1 SSL method", "sslVersion");
@@ -1740,6 +1737,31 @@ static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
     }
 
     if(section==&new_service_options) { /* global options just configured */
+#ifdef USE_FIPS
+        if(new_global_options.option.fips) {
+            if(section->cipher_list==stunnel_cipher_list)
+                section->cipher_list="FIPS";
+        if(!section->client_method)
+            section->client_method=(SSL_METHOD *)TLSv1_client_method();
+        if(!section->server_method)
+            section->server_method=(SSL_METHOD *)TLSv1_server_method();
+    } else
+#endif /* USE_FIPS */
+    {
+        if(!section->client_method)
+#if !defined(OPENSSL_NO_TLS1)
+            section->client_method=(SSL_METHOD *)TLSv1_client_method();
+#elif !defined(OPENSSL_NO_SSL3)
+            section->client_method=(SSL_METHOD *)SSLv3_client_method();
+#elif !defined(OPENSSL_NO_SSL2)
+            section->client_method=(SSL_METHOD *)SSLv2_client_method();
+#else /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
+#error No supported SSL methods found
+#endif /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
+        /* SSLv23_server_method() is an always available catch-all */
+        if(!section->server_method)
+            section->server_method=(SSL_METHOD *)SSLv23_server_method();
+    }
 #ifdef HAVE_OSSL_ENGINE_H
         close_engine();
 #endif

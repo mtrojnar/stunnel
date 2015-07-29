@@ -1,4 +1,4 @@
-# NSIS stunnel installer by Michal Trojnara 2011
+# NSIS stunnel installer by Michal Trojnara 1998-2012
 
 !include "Sections.nsh"
 
@@ -40,11 +40,11 @@ skip_process_exit:
   SetOverwrite off
   File "${SRCDIR}/tools/stunnel.conf"
   SetOverwrite on
+  #File "${DLLS}/*eay32.dll"
   File "${DLLS}/libeay32.dll"
   File "${DLLS}/ssleay32.dll"
+  File "${DLLS}/zlib1.dll"
   File "${DLLS}/msvcr90.dll"
-  #File "${DLLS}/*eay32.dll"
-  #File "${DLLS}/zlib1.dll"
   File "src/stunnel.exe"
   File "${SRCDIR}/doc/stunnel.html"
   WriteUninstaller "uninstall.exe"
@@ -110,6 +110,10 @@ skip_service_links:
   CreateShortCut "$SMPROGRAMS\stunnel\Edit stunnel.conf.lnk" \
     "notepad.exe" "stunnel.conf" "notepad.exe" 0
 
+  # OpenSSL shell
+  CreateShortCut "$SMPROGRAMS\stunnel\OpenSSL Shell.lnk" \
+    "$INSTDIR\openssl.exe" "" "$INSTDIR\openssl.exe" 0
+
   # make stunnel.pem
   SectionGetFlags sectionCA $0
   IntOp $0 $0 & SF_SELECTED
@@ -151,11 +155,11 @@ skip_service_uninstall:
   Delete "$INSTDIR\stunnel.exe"
   Delete "$INSTDIR\stunnel.cnf"
   Delete "$INSTDIR\openssl.exe"
+  #Delete "$INSTDIR\*eay32.dll"
   Delete "$INSTDIR\libeay32.dll"
   Delete "$INSTDIR\ssleay32.dll"
+  Delete "$INSTDIR\zlib1.dll"
   Delete "$INSTDIR\msvcr90.dll"
-  #Delete "$INSTDIR\*eay32.dll"
-  #Delete "$INSTDIR\zlib1.dll"
   Delete "$INSTDIR\stunnel.html"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
