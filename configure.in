@@ -8,7 +8,7 @@ if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.18"
+VERSION="3.19"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
@@ -124,31 +124,42 @@ dnl Checks for standard libraries.
 AC_CHECK_LIB(dl, dlopen)
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
-AC_CHECK_LIB(pthread, pthread_create)
+
+# OSF hack instead of simple AC_CHECK_LIB here
+AC_MSG_CHECKING([for pthread_create in -lpthread])
+    saved_LIBS="$LIBS"
+    LIBS="-lpthread $saved_LIBS"
+    AC_TRY_LINK([#include <pthread.h>],
+      [pthread_create((void *)0, (void *)0, (void *)0, (void *)0)],
+      [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBPTHREAD)],
+      [AC_MSG_RESULT(no); LIBS="$saved_LIBS"])
+
 # BSD hack
 AC_CHECK_LIB(c_r, pthread_create,
         [ LIBS="$LIBS -pthread"
 	AC_DEFINE(HAVE_LIBPTHREAD) ]
 )
-AC_CHECK_LIB(util, openpty)
 
+AC_CHECK_LIB(util, openpty)
 
 dnl Check for libwrap library.
 AC_MSG_CHECKING(whether to use the libwrap (TCP wrappers) library)
 AC_ARG_WITH(tcp-wrappers,
 [  --with-tcp-wrappers     Use the libwrap (TCP wrappers) library],
   [
+    saved_LIBS="$LIBS"
     if test "$withval" = "yes"; then
       AC_MSG_RESULT(yes)
       AC_MSG_CHECKING([for hosts_access in -lwrap])
       LIBS="-lwrap $LIBS"
       AC_TRY_LINK([int hosts_access(); int allow_severity, deny_severity;],
         [hosts_access()],
-        [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBWRAP)],
+        [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBWRAP) wrap_LIB="-lwrap"],
 	[AC_MSG_RESULT(not found); exit 1])
     else
       AC_MSG_RESULT(no)
     fi
+    LIBS="$saved_LIBS"
   ],
   [
     AC_MSG_RESULT((default))
@@ -171,7 +182,7 @@ LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
 dnl Check for RSAref library.
 AC_MSG_CHECKING([for RSAref library])
 saved_LIBS="$LIBS"
-LIBS="$saved_LIBS -lRSAglue -lrsaref"
+LIBS="$saved_LIBS -lRSAglue -L$prefix/lib -lrsaref"
 AC_TRY_LINK([], [],
 [AC_MSG_RESULT(yes); ],
 [AC_MSG_RESULT(no)]; LIBS="$saved_LIBS")
@@ -203,5 +214,8 @@ AC_CHECK_SIZEOF(unsigned int)
 AC_CHECK_SIZEOF(unsigned long)
 AC_CHECK_SIZEOF(unsigned long long)
 
+LIBS="$LIBS $wrap_LIB"
+
 AC_OUTPUT(Makefile)
 
+# End of configure.in

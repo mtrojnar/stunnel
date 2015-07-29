@@ -20,21 +20,6 @@
 
 #include "common.h"
 
-#ifdef USE_WIN32
-#define Win32_Winsock
-#include <windows.h>
-#endif
-
-#include <stdio.h>
-#include <stdarg.h>    /* for va_* */
-#include <unistd.h>    /* for read(), write() */
-#include <string.h>
-#include <sys/time.h>  /* for select() */
-#include <sys/types.h> /* Ultrix needs it for fd_set */
-#ifdef HAVE_SYS_SELECT_H
-#include <sys/select.h>  /* for aix */
-#endif
-
 /* protocol-specific function prototypes */
 static int smb_client(int, int, int);
 static int smb_server(int, int, int);
@@ -52,8 +37,7 @@ static int RFC2487(int);
 static int fdprintf(int, char *, ...);
 static int fdscanf(int, char *, char *);
 
-int negotiate(char *protocol, int client, int local_rd, int local_wr, int remote)
-{
+int negotiate(char *protocol, int client, int local_rd, int local_wr, int remote) {
     if(!protocol)
         return 0; /* No protocol negotiations */
     log(LOG_DEBUG, "Negotiations for %s(%s side) started", protocol,
@@ -93,20 +77,17 @@ int negotiate(char *protocol, int client, int local_rd, int local_wr, int remote
     return -1;
 }
 
-static int smb_client(int local_rd, int local_wr, int remote)
-{
+static int smb_client(int local_rd, int local_wr, int remote) {
     log(LOG_ERR, "Protocol not supported");
     return -1;
 }
 
-static int smb_server(int local_rd, int local_wr, int remote)
-{
+static int smb_server(int local_rd, int local_wr, int remote) {
     log(LOG_ERR, "Protocol not supported");
     return -1;
 }
 
-static int smtp_client(int local_rd, int local_wr, int remote)
-{
+static int smtp_client(int local_rd, int local_wr, int remote) {
     char line[STRLEN];
     
     do { /* Copy multiline greeting */
@@ -140,8 +121,7 @@ static int smtp_client(int local_rd, int local_wr, int remote)
     return 0;
 }
 
-static int smtp_server(int local_rd, int local_wr, int remote)
-{
+static int smtp_server(int local_rd, int local_wr, int remote) {
     char line[STRLEN];
 
     if(RFC2487(local_rd)==0)
@@ -170,8 +150,7 @@ static int smtp_server(int local_rd, int local_wr, int remote)
     return 0;
 }
 
-static int pop3_client(int local_rd, int local_wr, int remote)
-{
+static int pop3_client(int local_rd, int local_wr, int remote) {
     char line[STRLEN];
 
     fdscanf(remote, "%[^\n]", line);
@@ -191,14 +170,12 @@ static int pop3_client(int local_rd, int local_wr, int remote)
     return 0;
 }
 
-static int pop3_server(int local_rd, int local_wr, int remote)
-{
+static int pop3_server(int local_rd, int local_wr, int remote) {
     log(LOG_ERR, "Protocol not supported in server mode");
     return -1;
 }
 
-static int nntp_client(int local_rd, int local_wr, int remote)
-{
+static int nntp_client(int local_rd, int local_wr, int remote) {
     char line[STRLEN];
 
     fdscanf(remote, "%[^\n]", line);
@@ -218,26 +195,22 @@ static int nntp_client(int local_rd, int local_wr, int remote)
     return 0;
 }
 
-static int nntp_server(int local_rd, int local_wr, int remote)
-{
+static int nntp_server(int local_rd, int local_wr, int remote) {
     log(LOG_ERR, "Protocol not supported in server mode");
     return -1;
 }
 
-static int telnet_client(int local_rd, int local_wr, int remote)
-{
+static int telnet_client(int local_rd, int local_wr, int remote) {
     log(LOG_ERR, "Protocol not supported");
     return -1;
 }
 
-static int telnet_server(int local_rd, int local_wr, int remote)
-{
+static int telnet_server(int local_rd, int local_wr, int remote) {
     log(LOG_ERR, "Protocol not supported");
     return -1;
 }
 
-static int fdprintf(int fd, char *format, ...)
-{
+static int fdprintf(int fd, char *format, ...) {
     va_list arglist;
     char line[STRLEN], *crlf="\r\n";
     int len;
@@ -261,8 +234,7 @@ static int fdprintf(int fd, char *format, ...)
     return len;
 }
 
-static int fdscanf(int fd, char *format, char *buffer)
-{
+static int fdscanf(int fd, char *format, char *buffer) {
     char line[STRLEN];
     int ptr;
 
@@ -299,8 +271,7 @@ static int fdscanf(int fd, char *format, char *buffer)
 *
 */
 
-static int RFC2487(int fd)
-{
+static int RFC2487(int fd) {
     fd_set         fdsRead;
     struct timeval timeout;
 
@@ -320,3 +291,4 @@ static int RFC2487(int fd)
     return -1;
 }
 
+/* End of protocol.c */

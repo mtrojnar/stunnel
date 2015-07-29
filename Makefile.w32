@@ -34,7 +34,7 @@ LDFLAGS=-s
 # LIBS=-L$(SSLDIR)/out -lssl -lcrypto -lwsock32 -lgdi32
 
 LIBS=-L$(SSLDIR)/out -leay32 -lssl32 -lwsock32 -lgdi32
-OBJS=stunnel.o ssl.o protocol.o sthreads.o log.o
+OBJS=stunnel.o ssl.o protocol.o sthreads.o log.o options.o
 
 stunnel.exe: $(OBJS)
 	$(CC) $(LDFLAGS) -o stunnel.exe $(OBJS) $(LIBS)

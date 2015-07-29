@@ -19,7 +19,6 @@
  */
 
 #include "common.h"
-#include <stdio.h>
 
 #ifdef HAVE_OPENSSL
 #include <openssl/crypto.h> /* for CRYPTO_* */
@@ -27,15 +26,13 @@
 #include <crypto.h> /* for CRYPTO_* */
 #endif
 
-#define MAX_CRIT_SECTIONS 3
+#define CRIT_SECTIONS 5
 
 #ifdef USE_PTHREAD
 
 #include <pthread.h>
-#include <unistd.h> /* for getpid() */
-#include <signal.h> /* for sigemptyset(), sigaddset() */
 
-pthread_mutex_t stunnel_cs[MAX_CRIT_SECTIONS];
+pthread_mutex_t stunnel_cs[CRIT_SECTIONS];
 
 pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
 pthread_attr_t pth_attr;
@@ -52,8 +49,7 @@ static void locking_callback(int mode, int type,
 #ifdef HAVE_OPENSSL
     const /* Callback definition has been changed in openssl 0.9.3 */
 #endif
-    char *file, int line)
-{
+    char *file, int line) {
     if(mode&CRYPTO_LOCK)
         pthread_mutex_lock(lock_cs+type);
     else
@@ -64,7 +60,7 @@ void sthreads_init() {
     int i;
 
     /* Initialize stunnel critical sections */
-    for(i=0; i<MAX_CRIT_SECTIONS; i++)
+    for(i=0; i<CRIT_SECTIONS; i++)
         pthread_mutex_init(stunnel_cs+i, NULL);
 
     /* Initialize OpenSSL locking callback */
@@ -109,9 +105,7 @@ int create_client(int ls, int s, void (*cli)(int)) {
 
 #ifdef USE_WIN32
 
-#include <windows.h>
-
-CRITICAL_SECTION stunnel_cs[MAX_CRIT_SECTIONS];
+CRITICAL_SECTION stunnel_cs[CRIT_SECTIONS];
 
 void enter_critical_section(int i) {
     EnterCriticalSection(stunnel_cs+i);
@@ -125,7 +119,7 @@ void sthreads_init() {
     int i;
 
     /* Initialize stunnel critical sections */
-    for(i=0; i<MAX_CRIT_SECTIONS; i++)
+    for(i=0; i<CRIT_SECTIONS; i++)
         InitializeCriticalSection(stunnel_cs+i);
 }
 
@@ -148,9 +142,6 @@ int create_client(int ls, int s, void (*cli)(int)) {
 #endif
 
 #ifdef USE_FORK
-
-#include <unistd.h> /* for getpid() */
-#include <signal.h> /* for signal() */
 
 void enter_critical_section(int i) {
     /* empty */
@@ -189,3 +180,5 @@ int create_client(int ls, int s, void (*cli)(int)) {
 }
 
 #endif
+
+/* End of sthreads.c */

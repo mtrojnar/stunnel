@@ -48,8 +48,6 @@
 
 #include "common.h"
 
-#include <stdio.h>
-
 #ifdef HAVE_OPENSSL
 #include <openssl/lhash.h>
 #include <openssl/ssl.h>
@@ -61,58 +59,12 @@
 #include <err.h>
 #endif
 
-#ifdef USE_WIN32
-
-#define Win32_Winsock
-#include <windows.h>
-#include <io.h>
-#include <stdlib.h>
-#include <process.h>
-#include <malloc.h>
-#include <string.h>
-#include <sys/stat.h>
-#define ECONNRESET WSAECONNRESET
-#define ENOTSOCK WSAENOTSOCK
-
-#else /* defined USE_WIN32 */
-
-/* Must be included before sys/stat.h for Ultrix */
-#include <sys/types.h>   /* u_short, u32 */
-
-/* General headers */
-#include <errno.h>       /* errno */
-#include <sys/stat.h>    /* stat */
-#include <signal.h>      /* signal */
-#include <sys/wait.h>    /* wait */
-#include <string.h>      /* strerror */
-#include <ctype.h>
-#include <stdlib.h>
-#include <netdb.h>
-#ifdef HAVE_GETOPT_H
-#include <getopt.h>      /* getopt */
-#endif
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>      /* getpid, fork, execv, exit */
-#endif
-
-/* Networking headers */
-#include <netinet/in.h>  /* struct sockaddr_in */
-#include <sys/socket.h>  /* getpeername */
-#include <arpa/inet.h>   /* inet_ntoa */
-#include <sys/time.h>    /* select */
-#include <sys/ioctl.h>   /* ioctl */
-#ifdef HAVE_SYS_SELECT_H
-#include <sys/select.h>  /* for aix */
-#endif
-
     /* TCP wrapper */
 #ifdef USE_LIBWRAP
 #include <tcpd.h>
 int allow_severity=LOG_NOTICE;
 int deny_severity=LOG_WARNING;
 #endif
-
-#endif /* defined USE_WIN32 */
 
 #ifndef SHUT_RD
 #define SHUT_RD 0
@@ -294,8 +246,7 @@ void verify_info() {
 	*/
 }
 
-void context_init() /* init SSL */
-{
+void context_init() { /* init SSL */
 #ifndef NO_DH
     static DH *dh=NULL;
     BIO *bio=NULL;
@@ -315,7 +266,7 @@ void context_init() /* init SSL */
 #ifndef NO_DH
         if(!(bio=BIO_new_file(options.pem, "r"))) {
             log(LOG_ERR, "DH: Could not read %s: %s", options.pem,
-                strerror(errno));
+                strerror(get_last_error()));
             goto dh_failed;
         }
         if(!(dh=PEM_read_bio_DHparams(bio, NULL, NULL
@@ -438,13 +389,11 @@ dh_done:
 }
 
 
-void context_free() /* free SSL */
-{
+void context_free() { /* free SSL */
     SSL_CTX_free(ctx);
 }
 
-void client(int local)
-{
+void client(int local) {
     int local_rd, local_wr;
     struct sockaddr_in addr;
     int addrlen;
@@ -452,9 +401,9 @@ void client(int local)
     int remote;
     struct linger l;
     u32 ip;
-    int on;
 #ifdef USE_LIBWRAP
     struct request_info request;
+    int result;
 #endif
 
     log(LOG_DEBUG, "%s started", options.servname);
@@ -470,38 +419,42 @@ void client(int local)
         local_rd=local_wr=local;
 
     if(getpeername(local, (struct sockaddr *)&addr, &addrlen)<0) {
-        if(options.option&OPT_TRANSPARENT || errno!=ENOTSOCK) {
+        if(options.option&OPT_TRANSPARENT || get_last_socket_error()!=ENOTSOCK) {
             sockerror("getpeerbyname");
             goto cleanup_local;
         }
         /* Ignore ENOTSOCK error so 'local' doesn't have to be a socket */
     } else {
         /* It's a socket - lets setup options */
-#ifdef SO_OOBINLINE
-        on= 1;
-        if(setsockopt(local, SOL_SOCKET, SO_OOBINLINE, (void *)&on, sizeof(on))<0) {
-            sockerror("setsockopt (SO_OOBINLINE)");
+        if(set_socket_options(local, 1)<0)
             goto cleanup_local;
-        }
-#endif
 
 #ifdef USE_LIBWRAP
+        enter_critical_section(3);
         request_init(&request, RQ_DAEMON, options.servname, RQ_FILE, local, 0);
         fromhost(&request);
-        if (!hosts_access(&request)) {
+        result=hosts_access(&request);
+        leave_critical_section(3);
+        if (!result) {
+            enter_critical_section(4); /* inet_ntoa is not mt-safe */
             log(LOG_WARNING, "Connection from %s:%d REFUSED by libwrap",
                 inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+            leave_critical_section(4);
             log(LOG_DEBUG, "See hosts_access(5) for details");
             goto cleanup_local;
         }
 #endif
         if(auth_user(&addr)<0) {
+            enter_critical_section(4); /* inet_ntoa is not mt-safe */
             log(LOG_WARNING, "Connection from %s:%d REFUSED by IDENT",
                 inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+            leave_critical_section(4);
             goto cleanup_local;
         }
+        enter_critical_section(4); /* inet_ntoa is not mt-safe */
         log(LOG_NOTICE, "%s connected from %s:%d", options.servname,
             inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+        leave_critical_section(4);
     }
 
     /* create connection to host/service */
@@ -515,13 +468,8 @@ void client(int local)
         if((remote=connect_remote(ip))<0)
             goto cleanup_local; /* Failed to connect remote server */
         log(LOG_DEBUG, "Remote host connected");
-#ifdef SO_OOBINLINE
-        on= 1;
-        if(setsockopt(remote, SOL_SOCKET, SO_OOBINLINE, (void *)&on, sizeof(on))<0) {
-            sockerror("setsockopt (SO_OOBINLINE)");
+        if(set_socket_options(remote, 2)<0)
             goto cleanup_remote;
-        }
-#endif
 
     } else { /* local service */
         if((remote=connect_local(ip))<0)
@@ -589,7 +537,7 @@ cleanup_ssl: /* close SSL and reset sockets */
 cleanup_remote: /* reset remote and local socket */
     if ((options.option & OPT_REMOTE) &&
             setsockopt(remote, SOL_SOCKET, SO_LINGER,
-            (char *)&l, sizeof(l)) < 0 && errno != ENOTSOCK)
+            (char *)&l, sizeof(l)) < 0 && get_last_socket_error()!=ENOTSOCK)
         sockerror("linger (remote)");
     closesocket(remote);
 cleanup_local: /* reset local socket */
@@ -597,7 +545,7 @@ cleanup_local: /* reset local socket */
         if(!((options.option & OPT_CLIENT) &&
                 (options.option & OPT_PROGRAM)) &&
                 setsockopt(local, SOL_SOCKET, SO_LINGER,
-                (char *)&l, sizeof(l)) < 0 && errno != ENOTSOCK)
+                (char *)&l, sizeof(l)) < 0 && get_last_socket_error()!=ENOTSOCK)
             sockerror("linger (local)");
         closesocket(local);
     }
@@ -612,8 +560,8 @@ done:
 }
 
 static int transfer(int sock_rfd, int sock_wfd,
-    SSL *ssl, int ssl_rfd, int ssl_wfd) /* transfer data */
-{
+    SSL *ssl, int ssl_rfd, int ssl_wfd) { /* transfer data */
+
     fd_set rd_set, wr_set;
     int num, fdno, ssl_bytes, sock_bytes, retval;
     char sock_buff[BUFFSIZE], ssl_buff[BUFFSIZE];
@@ -640,7 +588,7 @@ static int transfer(int sock_rfd, int sock_wfd,
     l=1; /* ON */
     if(ioctlsocket(sock_rfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (sock_rfd)"); /* non-critical */
-    if(sock_wfd!=sock_rfd && sock_ioctlsocket(sock_wfd, FIONBIO, &l)<0)
+    if(sock_wfd!=sock_rfd && ioctlsocket(sock_wfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (sock_wfd)"); /* non-critical */
     if(ioctlsocket(ssl_rfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (ssl_rfd)"); /* non-critical */
@@ -678,13 +626,15 @@ static int transfer(int sock_rfd, int sock_wfd,
         tv.tv_sec=sock_rd ? 3600 : 60;
         tv.tv_usec=0;
 
-        ready=select(fdno, &rd_set, &wr_set, NULL, &tv);
-        if(!ready) {
-            log(LOG_DEBUG, "select timeout");
-            break; /* Exit the while() loop */
-        }
-        if(ready<0) {
+        do { /* Skip "Interrupted system call" errors */
+            ready=select(fdno, &rd_set, &wr_set, NULL, &tv);
+        } while(ready<0 && get_last_socket_error()==EINTR);
+        if(ready<0) { /* Break the connection for others */
             sockerror("select");
+            goto error;
+        }
+        if(!ready) { /* Break the connection on timeout */
+            log(LOG_DEBUG, "select timeout");
             goto error;
         }
 
@@ -762,11 +712,11 @@ static int transfer(int sock_rfd, int sock_wfd,
         if(sock_rd && FD_ISSET(sock_rfd, &rd_set)) {
             num=readsocket(sock_rfd, sock_buff+sock_ptr, BUFFSIZE-sock_ptr);
 
-            if(num<0 && errno==ECONNRESET) {
+            if(num<0 && get_last_socket_error()==ECONNRESET) {
                 log(LOG_NOTICE, "IPC reset (child died)");
                 break; /* close connection */
             }
-            if (num<0 && errno!=EIO) {
+            if (num<0 && get_last_socket_error()!=EIO) {
                 sockerror("read");
                 goto error;
             } else if (num>0) {
@@ -841,7 +791,7 @@ done:
     l=0; /* OFF */
     if(sock_rd && ioctlsocket(sock_rfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (sock_rfd)"); /* non-critical */
-    if(sock_wr && sock_wfd!=sock_rfd && sock_ioctlsocket(sock_wfd, FIONBIO, &l)<0)
+    if(sock_wr && sock_wfd!=sock_rfd && ioctlsocket(sock_wfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (sock_wfd)"); /* non-critical */
     if(ssl_rd && ioctlsocket(ssl_rfd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (ssl_rfd)"); /* non-critical */
@@ -895,7 +845,6 @@ static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
         initialized=1;
     }
 
-    /* TODO: make it fully mt-safe */
     time(&now);
     if(keylen<KEY_CACHE_LENGTH) {
         enter_critical_section(0);
@@ -924,8 +873,8 @@ static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
 }
 #endif /* NO_RSA */
 
-static int verify_callback(int state, X509_STORE_CTX *ctx)
-{ /* our verify callback function */
+static int verify_callback(int state, X509_STORE_CTX *ctx) {
+        /* our verify callback function */
     char txt[256];
     X509_OBJECT ret;
 
@@ -987,8 +936,7 @@ static void print_stats() { /* print statistics */
     log(LOG_DEBUG, "%4d session cache timeouts", SSL_CTX_sess_timeouts(ctx));
 }
 
-static void print_cipher(SSL *ssl) /* print negotiated cipher */
-{
+static void print_cipher(SSL *ssl) { /* print negotiated cipher */
 #if SSLEAY_VERSION_NUMBER > 0x0800
     SSL_CIPHER *c;
     char *ver;
@@ -1016,8 +964,7 @@ static void print_cipher(SSL *ssl) /* print negotiated cipher */
 #endif
 }
 
-static void sslerror(char *txt) /* SSL Error handler */
-{
+static void sslerror(char *txt) { /* SSL Error handler */
     unsigned long err;
     char string[120];
 
@@ -1030,4 +977,3 @@ static void sslerror(char *txt) /* SSL Error handler */
 }
 
 /* End of ssl.c */
-

@@ -22,18 +22,6 @@
 
 #include "common.h"
 
-#include <stdio.h>       /* sprintf, snprintf */
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-#include <stdlib.h>
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>      /* getpid, fork, execvp, exit */
-#endif
-
 #ifdef HAVE_UTIL_H
 #include <util.h>
 #endif /* HAVE_UTIL_H */
@@ -45,10 +33,6 @@
 
 #ifdef HAVE_PTY_H
 #include <pty.h>
-#endif
-
-#if defined(HAVE_DEV_PTMX) && defined(HAVE_STROPTS_H)
-#include <stropts.h>
 #endif
 
 #ifndef O_NOCTTY
@@ -212,9 +196,11 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
 
 void pty_release(char *ttyname) {
     if (chown(ttyname, (uid_t) 0, (gid_t) 0) < 0)
-        log(LOG_DEBUG, "chown %.100s 0 0 failed: %.100s", ttyname, strerror(errno));
+        log(LOG_DEBUG, "chown %.100s 0 0 failed: %.100s", ttyname,
+            strerror(get_last_socket_error()));
     if (chmod(ttyname, (mode_t) 0666) < 0)
-        log(LOG_DEBUG, "chmod %.100s 0666 failed: %.100s", ttyname, strerror(errno));
+        log(LOG_DEBUG, "chmod %.100s 0666 failed: %.100s", ttyname,
+            strerror(get_last_socket_error()));
 }
 
 /* Makes the tty the processes controlling tty and sets it to sane modes. */
@@ -267,5 +253,4 @@ void pty_make_controlling_tty(int *ttyfd, char *ttyname) {
     }
 }
 
-/* End of stunnel.c */
-
+/* End of pty.c */

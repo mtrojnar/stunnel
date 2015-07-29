@@ -9,6 +9,7 @@ stunnel - universal SSL tunnel
 B<stunnel>
 	S<[-c | -T]>
 	S<[-D [facility.]level]>
+        S<[-O a|l|r:option=value[:value]]>
         S<[-o file]>
 	S<[-C cipherlist]>
 	S<[-p pemfile]>
@@ -73,6 +74,28 @@ unless a facility name is supplied.  (Facilities are not supported
 on windows.)
 
 Case is ignored for both facilities and levels.
+
+=item B<-O> a|l|r:option=value[:value]
+
+Set an opion on accept/local/remote socket
+
+The values for linger option are l_onof:l_linger.
+The values for time are tv_sec:tv_usec.
+
+B<Examples:>
+
+B<-O l:SO_LINGER=1:60> - set one minute timeout for closing local socket
+
+B<-O r:TCP_NODELAY=1> - turn off the Nagle algorithm for remote sockets
+
+B<-O r:SO_OOBINLINE=1> - place out-of-band data directly into the receive data
+stream for remote sockets
+
+B<-O a:SO_REUSEADDR=0> - disable address reuse (enabled by default)
+
+B<-O a:SO_BINDTODEVICE=lo> - only accept connections on loopback interface
+
+See 'stunnel -V' for options supported on your system and their default values.
 
 =item B<-o> file
 

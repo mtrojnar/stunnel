@@ -27,8 +27,12 @@ organizationalUnitName          = Organizational Unit Name (eg, section)
 
 0.commonName                    = Common Name (FQDN of your server)
 
-1.commonName                    = Common Name (default)
-1.commonName_value              = localhost
+# To create a certificate for more than one name uncomment:
+# 1.commonName                  = DNS alias of your server
+# 2.commonName                  = DNS alias of your server
+# ...
+# See http://home.netscape.com/eng/security/ssl_2.0_certificate.html
+# too see how Netscape understands commonName.
 
 [ cert_type ]
 nsCertType = server

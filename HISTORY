@@ -1,5 +1,15 @@
 stunnel         Universal SSL tunnel
 
+Version 3.19, 2001.08.10, urgency: MEDIUM:
+* Critical section added around non MT-safe TCP Wrappers code.
+* Problem with "select: Interrupted system call" error fixed.
+* errno replaced with get_last_socket_error() for Win32.
+* Some FreeBSD/NetBSD patches to ./configure from Martti Kuparinen.
+* Local mode process pid logged.
+* Default FQDN (localhost) removed from stunnel.cnf
+* ./configure changed to recognize POSIX threads library on OSF.
+* New -O option to set socket options.
+
 Version 3.18, 2001.07.31, urgency: MEDIUM:
 * MAX_CLIENTS is calculated based on FD_SETSIZE, now.
 * Problems with closing SSL in transfer() fixed.

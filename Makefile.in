@@ -19,12 +19,12 @@ CC=@CC@
 INSTALL=@INSTALL@
 CFLAGS=@CFLAGS@ @DEFS@ -Dlibdir=\"$(libdir)\" -DPIDDIR=\"$(piddir)\"
 LIBS=@LIBS@
-OBJS=stunnel.o ssl.o protocol.o sthreads.o pty.o log.o
+OBJS=stunnel.o ssl.o protocol.o sthreads.o pty.o log.o options.o
 DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(man8dir)/stunnel.8  $(PEM_DIR)/stunnel.pem
 
 WINGCC=i386-mingw32msvc-gcc 
 WINCFLAGS=-O2 -Wall -DUSE_WIN32 -DHAVE_OPENSSL -I../openssl-0.9.6/outinc
-WINSRC=stunnel.c ssl.c protocol.c sthreads.c log.c
+WINSRC=stunnel.c ssl.c protocol.c sthreads.c log.c options.c
 WINLIBS=-L../openssl-0.9.6/out -leay32 -lssl32 -lwsock32 -lgdi32
 
 # standard external rules
@@ -118,3 +118,4 @@ $(PEM_DIR)/stunnel.pem: stunnel.pem
 	cp -f stunnel.exe ../dist/$(VERSION).exe
 	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(VERSION).exe
 
+# End of Makefile (.in)

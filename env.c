@@ -18,7 +18,7 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-/* getpeername can't be declarated in a normal way */
+/* getpeername() can't be declarated in the following includes */
 #define getpeername no_getpeername
 #include <sys/types.h>
 #include <sys/socket.h> /* for AF_INET */
@@ -41,3 +41,4 @@ int getpeername(int s, struct sockaddr_in *name, int *len) {
     return 0;
 }
 
+/* End of env.c */

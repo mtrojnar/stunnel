@@ -93,7 +93,7 @@
 .nr % 0
 .rr F
 .\}
-.TH STUNNEL.OUT 1 " " "31/Jul/2001" " "
+.TH STUNNEL.OUT 1 " " "10/Aug/2001" " "
 .UC
 .if n .hy 0
 .if n .na
@@ -190,13 +190,14 @@
 .SH "NAME"
 stunnel \- universal SSL tunnel
 .SH "SYNOPSIS"
-\fBstunnel\fR [\-c\ |\ \-T] [\-D\ [facility.]level] [\-o\ file] [\-C
-cipherlist] [\-p\ pemfile] [\-v\ level] [\-A\ certfile] [\-S
-sources] [\-a\ directory] [\-t\ timeout] [\-u\ ident_username]
-[\-s\ setuid_user] [\-g\ setgid_group] [\-n\ protocol] [\-P\ {\ dir/
-|\ filename\ |\ none\ }\ ] [\-B\ bytes] [\-R\ randfile] [\-W] [\-E
-socket] [\-I\ host] [\-d\ [host:]port\ [\-f]\ ] [\ \-r\ [host:]port\ |\ {
-\-l\ |\ \-L\ }\ program\ [--\ progname\ args]\ ]
+\fBstunnel\fR [\-c\ |\ \-T] [\-D\ [facility.]level] [\-O
+a|l|r:option=value[:value]] [\-o\ file] [\-C\ cipherlist] [\-p
+pemfile] [\-v\ level] [\-A\ certfile] [\-S\ sources] [\-a
+directory] [\-t\ timeout] [\-u\ ident_username] [\-s\ setuid_user]
+[\-g\ setgid_group] [\-n\ protocol] [\-P\ {\ dir/\ |\ filename\ |\ none\ }
+] [\-B\ bytes] [\-R\ randfile] [\-W] [\-E\ socket] [\-I\ host]
+[\-d\ [host:]port\ [\-f]\ ] [\ \-r\ [host:]port\ |\ {\ \-l\ |\ \-L\ }\ program\ [--
+progname\ args]\ ]
 .SH "DESCRIPTION"
 The \fBstunnel\fR program is designed to work as \fISSL\fR encryption
 wrapper between remote clients and local (\fIinetd\fR\-startable) or
@@ -229,6 +230,30 @@ The syslog facility \*(L'daemon\*(R' will be used unless a facility name is
 supplied.  (Facilities are not supported on windows.)
 .Sp
 Case is ignored for both facilities and levels.
+.Ip "\fB\-O\fR a|l|r:option=value[:value]" 4
+Set an opion on accept/local/remote socket
+.Sp
+The values for linger option are l_onof:l_linger. The values for time
+are tv_sec:tv_usec.
+.Sp
+\fBExamples:\fR
+.Sp
+\fB\-O l:\s-1SO_LINGER\s0=1:60\fR \- set one minute timeout for closing local
+socket
+.Sp
+\fB\-O r:\s-1TCP_NODELAY\s0=1\fR \- turn off the Nagle algorithm for remote
+sockets
+.Sp
+\fB\-O r:\s-1SO_OOBINLINE\s0=1\fR \- place out-of-band data directly into the
+receive data stream for remote sockets
+.Sp
+\fB\-O a:\s-1SO_REUSEADDR\s0=0\fR \- disable address reuse (enabled by default)
+.Sp
+\fB\-O a:\s-1SO_BINDTODEVICE\s0=lo\fR \- only accept connections on loopback
+interface
+.Sp
+See \*(L'stunnel \-V\*(R' for options supported on your system and their
+default values.
 .Ip "\fB\-o\fR file" 4
 Append log messages to a file.
 .Ip "\fB\-C\fR cipherlist" 4
@@ -494,6 +519,8 @@ OpenSSL project website
 .IX Item "\fB\-V\fR"
 
 .IX Item "\fB\-D\fR level"
+
+.IX Item "\fB\-O\fR a|l|r:option=value[:value]"
 
 .IX Item "\fB\-o\fR file"
 

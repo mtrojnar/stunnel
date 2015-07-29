@@ -53,10 +53,22 @@
 #define PEM_DIR	""
 #endif
 
+    /* Must be included before sys/stat.h for Ultrix */
+#include <sys/types.h>   /* u_short, u_long */
+
+/* General headers */
+#include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <stdarg.h>      /* va_ */
+#include <string.h>
+#include <ctype.h>       /* isalnum */
+#include <time.h>
+#include <sys/stat.h>    /* stat */
 
 #ifdef USE_WIN32
 
-#define VERSION "3.18"
+#define VERSION "3.19"
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else
@@ -87,6 +99,12 @@ int _vsnprintf(char *, int, char *, ...);
 #define LOG_NOTICE      5
 #define LOG_INFO        6
 #define LOG_DEBUG       7
+
+#define Win32_Winsock
+#include <windows.h>
+#define ECONNRESET WSAECONNRESET
+#define ENOTSOCK WSAENOTSOCK
+#define ENOPROTOOPT WSAENOPROTOOPT
 
 #else /* USE_WIN32 */
 
@@ -134,8 +152,40 @@ typedef unsigned long long u64;
 #define USE_LIBWRAP
 #endif
 
+    /* Unix-specific headers */
 #include <syslog.h>
-#include <sys/types.h>
+#include <signal.h>      /* signal */
+#include <sys/wait.h>    /* wait */
+#ifdef HAVE_GETOPT_H
+#include <getopt.h>      /* getopt */
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>      /* getpid, fork, execvp, exit */
+#endif
+#ifdef HAVE_STROPTS_H
+#include <stropts.h>
+#endif
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>  /* for aix */
+#endif
+#include <pwd.h>
+#include <grp.h>
+#include <fcntl.h>
+
+    /* Networking headers */
+#include <netinet/in.h>  /* struct sockaddr_in */
+#include <sys/socket.h>  /* getpeername */
+#include <arpa/inet.h>   /* inet_ntoa */
+#include <sys/time.h>    /* select */
+#include <sys/ioctl.h>   /* ioctl */
+#include <netinet/tcp.h>
+#include <netdb.h>
+#ifndef INADDR_ANY
+#define INADDR_ANY       (u32)0x00000000
+#endif
+#ifndef INADDR_LOOPBACK
+#define INADDR_LOOPBACK  (u32)0x7F000001
+#endif
 
 #endif /* USE_WIN32 */
 
@@ -175,6 +225,46 @@ extern char *sys_errlist[];
 #define safeconcat(dst, src) \
     (dst[STRLEN-1]='\0', strncat((dst), (src), STRLEN-strlen(dst)-1))
 
+/* Prototypes for stunnel.c */
+
+void sockerror(char *);
+int connect_local(u32);
+int connect_remote(u32);
+int set_socket_options(int, int);
+
+/* Prototypes for ssl.c */
+
+void context_init();
+void context_free();
+void client(int);
+
+/* Prototypes for protocol.c */
+
+int negotiate(char *, int, int, int, int);
+
+/* Prototypes for log.c */
+
+void log_open();
+void log_close();
+void log(int, char *, ...);
+
+/* Prototypes for sthreads.c */
+
+void enter_critical_section(int);
+void leave_critical_section(int);
+void sthreads_init(void);
+unsigned long process_id(void);
+unsigned long thread_id(void);
+int create_client(int, int, void (*)(int));
+
+/* Prototypes for pty.c */
+/* Based on Public Domain code by Tatu Ylonen <ylo@cs.hut.fi> */
+
+int pty_allocate(int *ptyfd, int *ttyfd, char *ttyname, int ttynamelen);
+void pty_release(char *ttyname);
+void pty_make_controlling_tty(int *ttyfd, char *ttyname);
+
+/* Prototypes for options.c */
 typedef struct {
     char pem[STRLEN];  		/* pem (priv key/cert) filename */
     char cert_dir[STRLEN];	/* directory for hashed certs */
@@ -208,53 +298,37 @@ typedef struct {
     u32 *local_ip;
 } server_options;
 
-/* Prototypes for stunnel.c */
+typedef enum {
+    TYPE_NONE, TYPE_FLAG, TYPE_INT, TYPE_LINGER, TYPE_TIMEVAL, TYPE_STRING
+} val_type;
 
-void sockerror(char *);
-int connect_local(u32);
-int connect_remote(u32);
+typedef union {
+    int            i_val;
+    long           l_val;
+    char           c_val[16];
+    struct linger  linger_val;
+    struct timeval timeval_val;
+} opt_union;
 
-/* Prototypes for ssl.c */
+typedef struct {
+    char *opt_str;
+    int  opt_level;
+    int  opt_name;
+    val_type opt_type;
+    opt_union *opt_val[3];
+} sock_opt;
 
-void context_init();
-void context_free();
-void client(int);
+void parse_options(int argc, char *argv[]);
 
-/* Prototypes for protocol.c */
-
-int negotiate(char *, int, int, int, int);
-
-/* Prototypes for log.c */
-
-void log_open();
-void log_close();
-void log(int, char *, ...);
-int  parse_debug_level(char *);
-
-/* Prototypes for sthreads.c */
-
-void enter_critical_section(int);
-void leave_critical_section(int);
-void sthreads_init(void);
-unsigned long process_id(void);
-unsigned long thread_id(void);
-int create_client(int, int, void (*)(int));
-
-/* Prototypes for pty.c */
-/* Based on Public Domain code by Tatu Ylonen <ylo@cs.hut.fi> */
-
-int pty_allocate(int *ptyfd, int *ttyfd, char *ttyname, int ttynamelen);
-void pty_release(char *ttyname);
-void pty_make_controlling_tty(int *ttyfd, char *ttyname);
 
 /* define for windows, although ignored */
 #ifndef PIDDIR
 #define PIDDIR ""
 #endif
 
+#if 0
 #define STRINGIFY_H(x) #x
 #define STRINGIFY(x) STRINGIFY_H(x)
-
+#endif
 
 /* End of common.h */
-
