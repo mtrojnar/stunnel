@@ -1,0 +1,190 @@
+<!-- saved from url=(0022)http://internet.e-mail -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="StarOffice/5.2 (Win32)">
+	<META NAME="CREATED" CONTENT="20010220;7501784">
+	<META NAME="CHANGED" CONTENT="16010101;0">
+	<STYLE>
+	<!--
+		@page { margin: 2cm }
+	-->
+	</STYLE>
+</HEAD>
+<BODY>
+<P ALIGN=CENTER STYLE="margin-bottom: 0cm"><FONT SIZE=4 STYLE="font-size: 16pt"><U><B>VNC
+over STUNNEL with a Linux server and Windows 2000 client HOWTO</B></U></FONT></P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm">19 February 2001</P>
+<P STYLE="margin-bottom: 0cm">ver 1.0</P>
+<P STYLE="margin-bottom: 0cm">by Craig Furter and Arno van der Walt</P>
+<P STYLE="margin-bottom: 0cm">contact us at <A HREF="mailto:cfurter@vexen.co.za">cfurter@vexen.co.za</A>
+and <A HREF="mailto:arnovdw@mycomax.com">arnovdw@mycomax.com</A></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm">We assume that you have already
+downloaded VNCServer and VNCViewer.</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm">First of all there is a step by step
+HOWTO and then we'll look at the theory behind all this.</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<OL>
+	<LI><P STYLE="margin-bottom: 0cm">Download and install openSSL,
+	SSLEay, and Stunnel on the Linux/Unix box. Download the modules.</P>
+</OL>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">a)
+[root@anthrax$]gunzip openssl-x.xx.tar.gz (repeat for all 3 the
+modules)</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">b)
+[root@anthrax$]tar &#150; xvf openssl-x.xx.tar (repeat for all 3 the
+modules)</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm"><BR>
+</P>
+<OL>
+	<LI><P STYLE="margin-bottom: 0cm">Copy the following to Notepad and
+	save the file as VNCRegEdit.REG on the Windows 2000 box</P>
+</OL>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">--cut here and copy
+to VNCRegEdit.REG the double click file to
+import--<BR>REGEDIT4<BR><BR>[HKEY_LOCAL_MACHINE\Software\ORL\WinVNC3]<BR>AllowLoopback=dword:00000001<BR><BR>[HKEY_LOCAL_MACHINE\Software\ORL\WinVNC3\Default]<BR>AllowLoopback=dword:00000001<BR>--stop
+here--<BR><BR>
+</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm"><BR>
+</P>
+<OL>
+	<LI><P STYLE="margin-bottom: 0cm">Install Stunnel on the Windows
+	2000 machine by copying the following files to your \WINNT\SYSTEM32\
+	directory</P>
+</OL>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">a)libeay32.dll</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">b)libssl.dll</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">c)stunnel.pem</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm"><BR>
+</P>
+<OL>
+	<LI><P STYLE="margin-bottom: 0cm">On the Linux box execute the
+	following command as root and let it run in its own terminal.</P>
+</OL>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">./stunnel -d 5900
+-r 5901</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm"><BR>
+</P>
+<OL>
+	<LI><P STYLE="margin-bottom: 0cm">Execute vncserver (it should run
+	as display:1 when you execute the ps aux |grep vnc command)</P>
+</OL>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm"><BR>
+</P>
+<OL>
+	<LI><P STYLE="margin-bottom: 0cm">Now on the Windows 2000 machine
+	execute the following command and let it run in its own terminal.</P>
+</OL>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">stunnel -d 5900 -r
+unix.ip.adress:5900 -c</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">.</P>
+<OL>
+	<LI><P STYLE="margin-bottom: 0cm">And on the Windows 2000 machine
+	open VNCviewer and connect to localhost specifying no display</P>
+</OL>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">ie. 10.10.1.53 in
+the window</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm"><BR>
+</P>
+<OL>
+	<LI><P STYLE="margin-bottom: 0cm">For each additional display repeat
+	steps 4 &#150; 6 and increment the specified ports with 2  ie. The
+	Linux command will look as follows:</P>
+</OL>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm"> ./stunnel -d 5902
+-r 5903 
+</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">and the Windows
+2000 command as follows: 
+</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">stunnel -d 5902 -r
+unix.ip.adress:5902</P>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">and remember to
+start another vncserver on the Linux box for each VNC display</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<OL>
+	<LI><P STYLE="margin-bottom: 0cm">The display number on the
+	vncviewer must also be incremented with two ie:</P>
+</OL>
+<P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">10.10.1.53:2 etc.</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><FONT SIZE=4><U>The THEORY</U></FONT></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><U>Tunneling:</U></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm">What this means is that software
+(daemon)  runs on the client and server machine. In this case, the
+Windows 2000 machine is the client and the server is the *NIX
+machine. Stunnel will then run as client on Windows 2000 and server
+mode on the UNIX box.<BR><BR>eg:<BR>Windows:<BR>stunnel -d 5900 -r
+unix.ip.address:5900 -c<BR><BR>UNIX<BR>stunnel -d 5900 -r 5901<BR><BR>This
+means that connecting to VNC display 0 in the localhost will transfer
+all the calls to the *NIX machine on display 1. So the VNC server on
+the *NIX machine must be running on display 1. Not display 0. If you
+run stunnel before VNC, VNC will automatically move to display 1
+noticing that port 5900 (&quot;display&quot; 0) is already in
+use).<BR><BR>What happens now is that when you connect to port 5900
+on the Windows machine via an &quot;unsecured&quot; connection, a
+secure &quot;tunnel&quot; is opened from Windows 2000 to the *NIX
+machine on port 5900. The *NIX machine then opens a &quot;unsecured&quot;
+connection to itself on port 5901. We now have a secure tunnel
+available.</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><U>A bit about VNC and displays</U></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm">The -d is the listening IPaddress:port
+and the -r is the remote IPaddress:port. VNC uses port 5900 for
+display 0. That means that display 1 will be 5901. If you want VNC
+server to listen for a connection on port 80 then the display number
+will be 80 - 5900 = -5820. If you want VNC server to<BR>listen on
+port 14000 then the display number is 14000 - 5900 = 8100.<BR><BR>So
+all you have to do is run stunnel on the UNIX machine and VNC on the
+desired &quot;display&quot; number.</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><U>VNC on the Windows 2000 machine</U></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm">To connect from the client machine you
+need to enter the client machines IP address and the &quot;display&quot;
+(from the port conversion). But VNC will think that you are trying to
+connect to the local machine and does not allow this. To override
+this add the following to you registry.<BR><BR>--cut here and copy to
+anything.reg. the double click file to
+import--<BR>REGEDIT4<BR><BR>[HKEY_LOCAL_MACHINE\Software\ORL\WinVNC3]<BR>AllowLoopback=dword:00000001<BR><BR>[HKEY_LOCAL_MACHINE\Software\ORL\WinVNC3\Default]<BR>AllowLoopback=dword:00000001<BR>--stop
+here--<BR><BR>Now VNC will not complain. So you need to always run
+stunnel in client mode on the Windows machine and then connect with
+VNCViewer to the localhost on the correct &quot;display&quot;. By the
+way, *NIX doesn't complain about this. There is no setting needed if
+*NIX to *NIX.</P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm"><U>VNC's Java client</U></P>
+<P STYLE="margin-bottom: 0cm"><BR>
+</P>
+<P STYLE="margin-bottom: 0cm">Unfortunately this will not work well
+with the build in web version. If you did not known about it, try
+http'ing into a machine running VNC server on it, to port 58XX (where
+XX is the display number), and the Java client will be loaded.<BR><BR>
+</P>
+</BODY>
+</HTML>

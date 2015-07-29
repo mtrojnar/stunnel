@@ -122,7 +122,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     }
     pts = ptsname(ptm);
     if (pts == NULL)
-        log(LOG_ERR, "Slave pty side name could not be obtained.");
+        log(LOG_ERR, "Slave pty side name could not be obtained");
     safecopy(namebuf, pts);
     *ptyfd = ptm;
 
@@ -153,7 +153,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     }
     name = ttyname(*ptyfd);
     if (!name) {
-        log(LOG_ERR, "Open of /dev/ptc returns device for which ttyname fails.");
+        log(LOG_ERR, "Open of /dev/ptc returns device for which ttyname fails");
         return -1;
     }
     safecopy(namebuf, name);
@@ -239,12 +239,12 @@ void pty_make_controlling_tty(int *ttyfd, char *ttyname) {
      */
     fd = open("/dev/tty", O_RDWR | O_NOCTTY);
     if (fd >= 0) {
-        log(LOG_ERR, "Failed to disconnect from controlling tty.");
+        log(LOG_ERR, "Failed to disconnect from controlling tty");
         close(fd);
     }
     /* Make it our controlling tty. */
 #ifdef TIOCSCTTY
-    log(LOG_DEBUG, "Setting controlling tty using TIOCSCTTY.");
+    log(LOG_DEBUG, "Setting controlling tty using TIOCSCTTY");
     /*
      * We ignore errors from this, because HPSUX defines TIOCSCTTY, but
      * returns EINVAL with these arguments, and there is absolutely no

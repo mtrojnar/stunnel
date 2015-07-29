@@ -192,7 +192,7 @@ Use IDENT (RFC 1413) username checking
 
 Negotiate SSL with specified protocol
 
-currenty supported: smtp
+currenty supported: smtp, pop3, nntp
 
 =item B<-E> socket
 

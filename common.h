@@ -27,6 +27,8 @@
 #define OPT_TRANSPARENT 0x40
 #define OPT_PTY         0x80
 
+#define STDIO_FILENO    (-2)
+
 /* Certificate defaults */
 
 /* let's not use openssl defaults unless told to at compile time. */
@@ -54,7 +56,7 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.14"
+#define VERSION "3.15"
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else
@@ -218,7 +220,7 @@ void client(int);
 
 /* Prototypes for protocol.c */
 
-int negotiate(char *, int, int, int);
+int negotiate(char *, int, int, int, int);
 
 /* Prototypes for log.c */
 

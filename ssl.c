@@ -125,7 +125,7 @@ void client(int);
 int  prng_seeded(int);
 int  add_rand_file(char *);
 void initialize_prng();
-static int transfer(SSL *, int);
+static int transfer(int, int, SSL *, int, int);
 #ifndef NO_RSA
 static RSA *tmp_rsa_cb(SSL *, int, int);
 #endif /* NO_RSA */
@@ -365,7 +365,7 @@ dh_done:
 	log(LOG_DEBUG, "cert_dir is %s", options.cert_dir);
 	log(LOG_DEBUG, "cert_file is %s", options.cert_file);
 	if ( options.cert_defaults & SSL_CERT_DEFAULTS ) {
-		log(LOG_DEBUG, "Initializing SSL library verify paths.");
+		log(LOG_DEBUG, "Initializing SSL library verify paths");
 		if ((!SSL_CTX_set_default_verify_paths(ctx))) { 
 		    sslerror("X509_set_default_verify_paths");
 		    exit(1);
@@ -435,6 +435,7 @@ void context_free() /* free SSL */
 
 void client(int local)
 {
+    int local_rd, local_wr;
     struct sockaddr_in addr;
     int addrlen;
     SSL *ssl;
@@ -450,7 +451,12 @@ void client(int local)
     l.l_onoff=1;
     l.l_linger=0;
     addrlen=sizeof(addr);
-    if(getpeername(local, (struct sockaddr *)&addr, &addrlen)<0) {
+
+    local_rd=local_wr=local;
+    if(local==STDIO_FILENO) { /* Read from STDIN, write to STDOUT */
+        local_rd=0;
+        local_wr=1;
+    } else if(getpeername(local, (struct sockaddr *)&addr, &addrlen)<0) {
         if(options.option&OPT_TRANSPARENT || errno!=ENOTSOCK) {
             sockerror("getpeerbyname");
             goto cleanup_local;
@@ -507,7 +513,7 @@ void client(int local)
 
     /* negotiate protocol */
     if(negotiate(options.protocol, options.option&OPT_CLIENT,
-            local, remote) <0) {
+            local_rd, local_wr, remote) <0) {
         log(LOG_ERR, "Protocol negotiations failed");
         goto cleanup_remote;
     }
@@ -532,17 +538,22 @@ void client(int local)
             goto cleanup_ssl;
         }
         print_cipher(ssl);
-        if(transfer(ssl, local)<0)
+        if(transfer(local_rd, local_wr, ssl, remote, remote)<0)
             goto cleanup_ssl;
     } else {
-        SSL_set_fd(ssl, local);
+        if(local==STDIO_FILENO) {
+           /* Does it make sence to have SSL on STDIN/STDOUT? */
+           SSL_set_rfd(ssl, 0);
+           SSL_set_wfd(ssl, 1);
+        } else
+            SSL_set_fd(ssl, local);
         SSL_set_accept_state(ssl);
         if(SSL_accept(ssl)<=0) {
             sslerror("SSL_accept");
             goto cleanup_ssl;
         }
         print_cipher(ssl);
-        if(transfer(ssl, remote)<0)
+        if(transfer(remote, remote, ssl, local_rd, local_wr)<0)
             goto cleanup_ssl;
     }
     /* No error - normal shutdown */
@@ -550,7 +561,8 @@ void client(int local)
     SSL_free(ssl);
     ERR_remove_state(0);
     closesocket(remote);
-    closesocket(local);
+    if(local!=STDIO_FILENO)
+        closesocket(local);
     goto done;
 cleanup_ssl: /* close SSL and reset sockets */
     SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
@@ -558,16 +570,19 @@ cleanup_ssl: /* close SSL and reset sockets */
     ERR_remove_state(0);
 cleanup_remote: /* reset remote and local socket */
     if ((options.option & OPT_REMOTE) &&
-        setsockopt(remote, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l)) < 0 &&
-        errno != ENOTSOCK)
+            setsockopt(remote, SOL_SOCKET, SO_LINGER,
+            (char *)&l, sizeof(l)) < 0 && errno != ENOTSOCK)
         sockerror("linger (remote)");
     closesocket(remote);
 cleanup_local: /* reset local socket */
-    if (!((options.option & OPT_CLIENT) && (options.option & OPT_PROGRAM)) &&
-        setsockopt(local, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l)) < 0 &&
-        errno != ENOTSOCK)
-        sockerror("linger (local)");
-    closesocket(local);
+    if(local!=STDIO_FILENO) {
+        if(!((options.option & OPT_CLIENT) &&
+                (options.option & OPT_PROGRAM)) &&
+                setsockopt(local, SOL_SOCKET, SO_LINGER,
+                (char *)&l, sizeof(l)) < 0 && errno != ENOTSOCK)
+            sockerror("linger (local)");
+        closesocket(local);
+    }
 done:
 #ifndef USE_FORK
     enter_critical_section(2); /* for multi-cpu machines */
@@ -578,10 +593,11 @@ done:
     ; /* ANSI C compiler needs it */
 }
 
-static int transfer(SSL *ssl, int sock_fd) /* transfer data */
+static int transfer(int sock_rfd, int sock_wfd,
+    SSL *ssl, int ssl_rfd, int ssl_wfd) /* transfer data */
 {
     fd_set rd_set, wr_set;
-    int num, fdno, ssl_fd, ssl_bytes, sock_bytes, retval;
+    int num, fdno, ssl_bytes, sock_bytes, retval;
     char sock_buff[BUFFSIZE], ssl_buff[BUFFSIZE];
     int sock_ptr, ssl_ptr, sock_open, ssl_open;
 #if defined FIONBIO && defined USE_NBIO
@@ -590,8 +606,12 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
 
     int check_SSL_pending;
 
-    ssl_fd=SSL_get_fd(ssl);
-    fdno=(ssl_fd>sock_fd ? ssl_fd : sock_fd)+1;
+    fdno=sock_rfd;
+    if(sock_wfd>fdno) fdno=sock_wfd;
+    if(ssl_rfd>fdno) fdno=ssl_rfd;
+    if(ssl_wfd>fdno) fdno=ssl_wfd;
+    fdno+=1;
+
     sock_ptr=0;
     ssl_ptr=0;
     sock_open=1;
@@ -600,44 +620,41 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
     ssl_bytes=0;
 
 #if defined FIONBIO && defined USE_NBIO
+    log(LOG_DEBUG, "Seting sockets to non-blocking mode");
     l=1; /* ON */
-    if(ioctlsocket(sock_fd, FIONBIO, &l)<0)
-        sockerror("ioctlsocket (sock)"); /* non-critical */
-    if(ioctlsocket(ssl_fd, FIONBIO, &l)<0)
-        sockerror("ioctlsocket (ssl)"); /* non-critical */
+    if(ioctlsocket(sock_rfd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (sock_rfd)"); /* non-critical */
+    if(sock_wfd!=sock_rfd && sock_ioctlsocket(sock_wfd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (sock_wfd)"); /* non-critical */
+    if(ioctlsocket(ssl_rfd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (ssl_rfd)"); /* non-critical */
+    if(ssl_wfd!=ssl_rfd && ioctlsocket(ssl_wfd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (ssl_wfd)"); /* non-critical */
     log(LOG_DEBUG, "Sockets set to non-blocking mode");
 #endif
 
     while((sock_open||sock_ptr) && (ssl_open||ssl_ptr)) {
 
-        FD_ZERO(&rd_set);
-
-        if(sock_open && sock_ptr<BUFFSIZE) /* can read from socket */
-            FD_SET(sock_fd, &rd_set);
-
-        if (   ssl_open
-            && (    (ssl_ptr<BUFFSIZE) /* I want to read from SSL */
-                || (sock_ptr && SSL_want_read(ssl) )
-                  /* I want to SSL_write but read from the underlying
-                   * socket needed for the SSL protocol. */
-               )
-           ) {
-          FD_SET(ssl_fd, &rd_set);
+        FD_ZERO(&rd_set); /* Setup rd_set */
+        if(sock_open && sock_ptr<BUFFSIZE) /* socket buffer not full*/
+            FD_SET(sock_rfd, &rd_set);
+        if(ssl_open && (ssl_ptr<BUFFSIZE || /* SSL buffer not fullL */
+                (sock_ptr && SSL_want_read(ssl))
+                /* I want to SSL_write but read from the underlying */
+                /* socket needed for the SSL protocol */
+                )) {
+            FD_SET(ssl_rfd, &rd_set);
         }
 
-        FD_ZERO(&wr_set);
-
-        if(sock_open && ssl_ptr) /* can write to socket */
-            FD_SET(sock_fd, &wr_set);
-
-        if (   ssl_open
-            && (   (sock_ptr) /* can write to SSL */
-                || ( (ssl_ptr<BUFFSIZE) && SSL_want_write( ssl ) )
-                   /* I want to SSL_read but write to the underlying
-                    * socket needed for the SSL protocol. */
-               )
-           ) {
-          FD_SET(ssl_fd, &wr_set);
+        FD_ZERO(&wr_set); /* Setup wr_set */
+        if(sock_open && ssl_ptr) /* socket buffer not empty */
+            FD_SET(sock_wfd, &wr_set);
+        if (ssl_open && (sock_ptr || /* SSL buffer not empty */
+                (ssl_ptr<BUFFSIZE && SSL_want_write(ssl))
+                /* I want to SSL_read but write to the underlying */
+                /* socket needed for the SSL protocol */
+                )) {
+            FD_SET(ssl_wfd, &wr_set);
         }
 
         if(select(fdno, &rd_set, &wr_set, NULL, NULL)<0) {
@@ -645,22 +662,20 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
             goto error;
         }
 
-        /* Set flag to try and read any buffered SSL data if we made
-         * room in the buffer by writing to the socket. */
-
+        /* Set flag to try and read any buffered SSL data if we made */
+        /* room in the buffer by writing to the socket */
         check_SSL_pending = 0;
 
-        if(sock_open && FD_ISSET(sock_fd, &wr_set)) {
-            num=writesocket(sock_fd, ssl_buff, ssl_ptr);
+        if(sock_open && FD_ISSET(sock_wfd, &wr_set)) {
+            num=writesocket(sock_wfd, ssl_buff, ssl_ptr);
             if(num<0) {
                 sockerror("write");
                 goto error;
             }
             if(num) {
                 memcpy(ssl_buff, ssl_buff+num, ssl_ptr-num);
-
-                if (ssl_ptr ==BUFFSIZE) check_SSL_pending = 1;
-
+                if(ssl_ptr==BUFFSIZE)
+                    check_SSL_pending = 1;
                 ssl_ptr-=num;
                 sock_bytes+=num;
             } else { /* close */
@@ -669,18 +684,13 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
             }
         }
 
-
-        if (   ssl_open
-            && sock_ptr
-            && (   FD_ISSET(ssl_fd, &wr_set)
-                  /* See if application data can be written. */
-
-                || ( SSL_want_read(ssl) && FD_ISSET(ssl_fd, &rd_set) )
-                   /* I want to SSL_write but read from the underlying
-                    * socket needed for the SSL protocol. */
-               )
-           ) {
-
+        if(ssl_open && ( /* SSL sockets are still open */
+                (sock_ptr && FD_ISSET(ssl_wfd, &wr_set)) ||
+                /* See if application data can be written */
+                (SSL_want_read(ssl) && FD_ISSET(ssl_rfd, &rd_set))
+                /* I want to SSL_write but read from the underlying */
+                /* socket needed for the SSL protocol */
+                )) {
             num=SSL_write(ssl, sock_buff, sock_ptr);
 
             switch(SSL_get_error(ssl, num)) {
@@ -709,8 +719,8 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
             }
         }
 
-        if(sock_open && FD_ISSET(sock_fd, &rd_set)) {
-            num=readsocket(sock_fd, sock_buff+sock_ptr, BUFFSIZE-sock_ptr);
+        if(sock_open && FD_ISSET(sock_rfd, &rd_set)) {
+            num=readsocket(sock_rfd, sock_buff+sock_ptr, BUFFSIZE-sock_ptr);
 
             if(num<0 && errno==ECONNRESET) {
                 log(LOG_NOTICE, "IPC reset (child died)");
@@ -727,22 +737,15 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
             }
         }
 
-        if(   ssl_open
-
-           && (ssl_ptr<BUFFSIZE)
-
-           && (   FD_ISSET(ssl_fd, &rd_set)
-                  /* See if there's any application data coming in. */
-
-               || ( SSL_want_write( ssl ) && FD_ISSET(ssl_fd, &wr_set) )
-                  /* I want to SSL_read but write to the underlying
-                   * socket needed for the SSL protocol. */
-
-               || ( check_SSL_pending && SSL_pending(ssl) )
-                  /* Write made space from full buffer. */
-              )
-          ) {
-
+        if(ssl_open && ( /* SSL sockets are still open */
+                (ssl_ptr<BUFFSIZE && FD_ISSET(ssl_rfd, &rd_set)) ||
+                /* See if there's any application data coming in */
+                (SSL_want_write(ssl) && FD_ISSET(ssl_wfd, &wr_set)) ||
+                /* I want to SSL_read but write to the underlying */
+                /* socket needed for the SSL protocol */
+                (check_SSL_pending && SSL_pending(ssl))
+                /* Write made space from full buffer */
+                )) {
             num=SSL_read(ssl, ssl_buff+ssl_ptr, BUFFSIZE-ssl_ptr);
 
             switch(SSL_get_error(ssl, num)) {
@@ -776,11 +779,17 @@ error:
 done:
 
 #if defined FIONBIO && defined USE_NBIO
+    log(LOG_DEBUG, "Seting sockets to blocking mode");
     l=0; /* OFF */
-    if(ioctlsocket(sock_fd, FIONBIO, &l)<0)
-        sockerror("ioctlsocket (sock)"); /* non-critical */
-    if(ioctlsocket(ssl_fd, FIONBIO, &l)<0)
-        sockerror("ioctlsocket (ssl)"); /* non-critical */
+    if(ioctlsocket(sock_rfd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (sock_rfd)"); /* non-critical */
+    if(sock_wfd!=sock_rfd && sock_ioctlsocket(sock_wfd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (sock_wfd)"); /* non-critical */
+    if(ioctlsocket(ssl_rfd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (ssl_rfd)"); /* non-critical */
+    if(ssl_wfd!=ssl_rfd && ioctlsocket(ssl_wfd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (ssl_wfd)"); /* non-critical */
+    log(LOG_DEBUG, "Sockets back in blocking mode");
 #endif
 
     log(LOG_NOTICE,

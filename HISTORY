@@ -1,5 +1,16 @@
 stunnel         Universal SSL tunnel
 
+Version 3.15, 2001.07.15, urgency: MEDIUM:
+* Serious bug resulting in random transfer() hangs fixed.
+* Separate file descriptors are used for inetd mode.
+* -f (foreground) logs are now stamped with time.
+* New ./configure option: --with-tcp-wrappers by Brian Hatch.
+* pop3 protocol client support (-n pop3) by Martin Germann.
+* nntp protocol client support (-n nntp) by Martin Germann.
+* RFC 2487 (smtp STARTTLS) client mode support.
+* Transparency support for Tru64 added.
+* Some #includes for AIX added.
+
 Version 3.14, 2001.02.21, urgency: LOW:
 * Pidfile creation algorithm has been changed.
 

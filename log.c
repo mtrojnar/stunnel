@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 
 extern server_options options;
 
@@ -159,8 +160,17 @@ void log(int level, char *format, ...)
         syslog(level, "%s", text);
     else
 #endif
-        fprintf(stderr, "LOG%d[%lu:%lu]: %s\n",
+    {
+        time_t gmt;
+        struct tm *timeptr;
+
+        time(&gmt);
+        timeptr=localtime(&gmt);
+        fprintf(stderr, "%04d.%02d.%02d %02d:%02d:%02d LOG%d[%lu:%lu]: %s\n",
+            timeptr->tm_year+1900, timeptr->tm_mon+1, timeptr->tm_mday,
+            timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec,
             level, process_id(), thread_id(), text);
+    }
     fflush(stderr);
 }
 

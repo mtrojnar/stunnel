@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.14                  (stunnel.c)
- *   Date:         2001.02.21
+ *   Version:      3.15                  (stunnel.c)
+ *   Date:         2001.07.15
  *   
  *   Author:   		Michal Trojnara  <Michal.Trojnara@mirt.net>
  *   SSL support:  	Adam Hernik      <adas@infocentrum.com>
@@ -207,7 +207,7 @@ int main(int argc, char* argv[])
     } else {
         /* client or server, inetd mode */
         options.clients = 1;
-        client(0); /* connection from fd 0 - stdin */
+        client(STDIO_FILENO); /* rd fd=0, wr fd=1 */
     }
     /* close SSL */
     context_free(); /* free global SSL context */
@@ -391,7 +391,7 @@ static void get_options(int argc, char *argv[]) {
         }
 #ifdef USE_WIN32
     if (! (options.option & OPT_DAEMON) ) {
-    	log(LOG_ERR, "You must use daemon mode (-d) in Windows.");
+    	log(LOG_ERR, "You must use daemon mode (-d) in Windows");
 	print_help();
     }
 #endif
@@ -521,12 +521,12 @@ static void create_pid()
     safecopy(tmpdir, options.pid_dir);
 
     if(strcmp(tmpdir, "none") == 0) {
-        log(LOG_DEBUG, "No pid file being created.");
+        log(LOG_DEBUG, "No pid file being created");
         options.pidfile[0]='\0';
         return;
     }
     if(!strchr(tmpdir, '/')) {
-        log(LOG_ERR, "Argument to -P (%s) must be full path name.",
+        log(LOG_ERR, "Argument to -P (%s) must be full path name",
             tmpdir);
         /* Why?  Because we don't want to confuse by
            allowing '.', which would be '/' after
@@ -555,7 +555,7 @@ static void create_pid()
 #endif
     } else { /* file */
         if(force_dir) {
-            log(LOG_ERR, "Argument to -P (%s/) is not valid a directory name.",
+            log(LOG_ERR, "Argument to -P (%s/) is not valid a directory name",
                 tmpdir);
             exit(1);
         }
@@ -703,6 +703,8 @@ int connect_local(u32 ip) /* spawn local process */
         closesocket(fd[1]);
         if (ip) {
             putenv("LD_PRELOAD=" libdir "/stunnel.so");
+            /* For Tru64 _RLD_LIST is used instead */
+            putenv("_RLD_LIST=" libdir "/stunnel.so:DEFAULT");
             addr.s_addr = ip;
             safecopy(text, "REMOTE_HOST=");
             safeconcat(text, inet_ntoa(addr));
@@ -978,7 +980,7 @@ static void local_handler(int sig) { /* sigchld handler for -l processes */
 }
 
 static void signal_handler(int sig) { /* Signal handler */
-    log(LOG_ERR, "Received signal %d; terminating.", sig);
+    log(LOG_ERR, "Received signal %d; terminating", sig);
     exit(3);
 }
 
@@ -1115,7 +1117,7 @@ static void print_help()
 #ifndef USE_WIN32
         "\n  -f\t\tforeground mode (don't fork, log to stderr)"
 #endif
-        "\n  -T\t\ttransparent proxy mode on hosts that support it."
+        "\n  -T\t\ttransparent proxy mode on hosts that support it"
         "\n  -p pemfile\tprivate key/certificate PEM filename"
         "\n  -v level\tverify peer certificate"
         "\n\t\t   level 1 - verify peer certificate if present"
@@ -1131,7 +1133,7 @@ static void print_help()
         "\n  -t timeout\tsession cache timeout"
         "\n  -u user\tUse IDENT (RFC 1413) username checking"
         "\n  -n proto\tNegotiate SSL with specified protocol"
-        "\n\t\tcurrenty supported: smtp"
+        "\n\t\tcurrenty supported: smtp, pop3, nntp"
 	"\n  -N name\tService name to use for tcp wrapper checking"
 #ifndef USE_WIN32
         "\n  -s username\tsetuid() to username in daemon mode"
@@ -1142,16 +1144,16 @@ static void print_help()
 #if SSLEAY_VERSION_NUMBER >= 0x0090581fL
         "\n  -E socket\tpath to Entropy Gathering Daemon socket"
 #ifdef EGD_SOCKET
-	"\n\t\t" EGD_SOCKET " is used when this option is not specified."
+	"\n\t\t" EGD_SOCKET " is used when this option is not specified"
 #endif
         "\n  -B bytes\thow many bytes to read from random seed files"
 #else
         "\n  -B bytes\tnum bytes of random data considered 'sufficient' for PRNG"
-	"\n\t\tand maximum number of bytes to read from random seed files."
+	"\n\t\tand maximum number of bytes to read from random seed files"
 #endif
         "\n  -R file\tpath to file with random seed data"
 #ifdef RANDOM_FILE
-	"\n\t\t" RANDOM_FILE " is used when this option is not specified."
+	"\n\t\t" RANDOM_FILE " is used when this option is not specified"
 #endif
 	"\n  -W\t\tDo not overwrite random seed datafiles with new random data"
         "\n  -D [fac.]lev\tdebug level (e.g. daemon.info)"
