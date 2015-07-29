@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -95,9 +95,9 @@ void context_init(LOCAL_OPTIONS *section) { /* init SSL context */
     }
     /* create SSL context */
     if(section->option.client) {
-        section->ctx=SSL_CTX_new(section->client_method());
+        section->ctx=SSL_CTX_new(section->client_method);
     } else { /* Server mode */
-        section->ctx=SSL_CTX_new(section->server_method());
+        section->ctx=SSL_CTX_new(section->server_method);
 #ifndef NO_RSA
         SSL_CTX_set_tmp_rsa_callback(section->ctx, tmp_rsa_cb);
 #endif /* NO_RSA */

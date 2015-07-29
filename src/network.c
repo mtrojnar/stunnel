@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -550,6 +550,63 @@ int set_socket_options(int s, int type) {
 }
 
 /**************************************** simulate blocking I/O */
+
+int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
+    int error;
+    socklen_t optlen;
+    char dst[IPLEN];
+
+    s_ntop(dst, addr);
+    s_log(LOG_INFO, "connect_blocking: connecting %s", dst);
+
+    if(!connect(c->fd, &addr->sa, addrlen)) {
+        s_log(LOG_NOTICE, "connect_blocking: connected %s", dst);
+        return 0; /* no error -> success (on some OSes over the loopback) */
+    }
+    error=get_last_socket_error();
+    if(error!=EINPROGRESS && error!=EWOULDBLOCK) {
+        s_log(LOG_ERR, "connect_blocking: connect %s: %s (%d)",
+            dst, my_strerror(error), error);
+        return -1;
+    }
+
+    s_log(LOG_DEBUG, "connect_blocking: s_poll_wait %s: waiting %d seconds",
+        dst, c->opt->timeout_connect);
+    s_poll_zero(&c->fds);
+    s_poll_add(&c->fds, c->fd, 1, 1);
+    switch(s_poll_wait(&c->fds, c->opt->timeout_connect, 0)) {
+    case -1:
+        error=get_last_socket_error();
+        s_log(LOG_ERR, "connect_blocking: s_poll_wait %s: %s (%d)",
+            dst, my_strerror(error), error);
+        return -1;
+    case 0:
+        s_log(LOG_ERR, "connect_blocking: s_poll_wait %s: timeout", dst);
+        return -1;
+    default:
+        if(s_poll_canread(&c->fds, c->fd)) {
+            /* newly connected socket should not be ready for read */
+            /* get the resulting error code, now */
+            optlen=sizeof(error);
+            if(getsockopt(c->fd, SOL_SOCKET, SO_ERROR,
+                    (void *)&error, &optlen))
+                error=get_last_socket_error(); /* failed -> ask why */
+            if(error) { /* really an error? */
+                s_log(LOG_ERR, "connect_blocking: getsockopt %s: %s (%d)",
+                    dst, my_strerror(error), error);
+                return -1;
+            }
+        }
+        if(s_poll_canwrite(&c->fds, c->fd)) {
+            s_log(LOG_NOTICE, "connect_blocking: connected %s", dst);
+            return 0; /* success */
+        }
+        s_log(LOG_ERR, "connect_blocking: s_poll_wait %s: internal error",
+            dst);
+        return -1;
+    }
+    return -1; /* should not be possible */
+}
 
 void write_blocking(CLI *c, int fd, void *ptr, int len) {
         /* simulate a blocking write */

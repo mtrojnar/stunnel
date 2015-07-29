@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.26])
+AC_INIT([stunnel],[4.27])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.26)
+AM_INIT_AUTOMAKE(stunnel, 4.27)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -242,8 +242,9 @@ AC_ARG_WITH(ssl,
     ],
     [
         # Search default localtions of SSL library
-        for maindir in /usr/local /usr/lib /usr/pkg /usr /var/ssl /opt; do
-            for dir in $maindir $maindir/openssl $maindir/ssl; do
+        for maindir in /usr/local /usr/lib /usr/pkg /opt /usr; do
+            for dir in $maindir/ssl/fips $maindir/ssl/fips-1.0 \
+                    $maindir/ssl $maindir/openssl $maindir; do
                 checkssldir $dir && break 2
             done
         done
@@ -377,11 +378,9 @@ AC_ARG_ENABLE(fips,
     [
         case "$enableval" in
             yes) AC_MSG_RESULT([yes])
-                CCLD="FIPSLD_CC=$CC $ssldir/bin/fipsld"
                 AC_DEFINE(USE_FIPS)
                 ;;
             no) AC_MSG_RESULT([no])
-                CCLD="$CC"
                 ;;
             *) AC_MSG_ERROR([bad value ${enableval}])
                 ;;
@@ -397,16 +396,13 @@ AC_ARG_ENABLE(fips,
                 [[FIPS_mode_set(1);]],
             )],
             [AC_MSG_RESULT([yes])
-                CCLD="FIPSLD_CC=$CC $ssldir/bin/fipsld"
                 AC_DEFINE(USE_FIPS)
             ], [
                 AC_MSG_RESULT([no])
-                CCLD="$CC"
             ]
         )
     ]
 )
-AC_SUBST(CCLD)
 
 AC_MSG_NOTICE([**************************************** write the results])
 AC_CONFIG_FILES([Makefile src/Makefile src/stunnel3 doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init])

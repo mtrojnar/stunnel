@@ -1,6 +1,6 @@
-; Sample stunnel configuration file by Michal Trojnara 2002-2006
+; Sample stunnel configuration file by Michal Trojnara 2002-2009
 ; Some options used here may not be adequate for your particular configuration
-; Please make sure you understand them (especially the effect of chroot jail)
+; Please make sure you understand them (especially the effect of the chroot jail)
 
 ; Certificate/key is needed in server mode and optional in client mode
 cert = @prefix@/etc/stunnel/mail.pem
@@ -13,7 +13,7 @@ sslVersion = SSLv3
 chroot = @prefix@/var/lib/stunnel/
 setuid = nobody
 setgid = @DEFAULT_GROUP@
-; PID is created inside chroot jail
+; PID is created inside the chroot jail
 pid = /stunnel.pid
 
 ; Some performance tunings

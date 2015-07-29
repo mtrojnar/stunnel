@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -200,7 +200,7 @@ typedef struct local_options {
     char *ocsp_path;
     unsigned long ocsp_flags;
 #endif /* OpenSSL-0.9.7 */
-    SSL_METHOD *(*client_method)(void), *(*server_method)(void);
+    SSL_METHOD *client_method, *server_method;
 
         /* service-specific data for client.c */
     int fd;        /* file descriptor accepting connections for this service */
@@ -209,10 +209,11 @@ typedef struct local_options {
     SOCKADDR_LIST source_addr;
     char *username;
     char *remote_address;
-    int timeout_busy; /* Maximum waiting for data time */
-    int timeout_close; /* Maximum close_notify time */
-    int timeout_connect; /* Maximum connect() time */
-    int timeout_idle; /* Maximum idle connection time */
+    int timeout_busy; /* maximum waiting for data time */
+    int timeout_close; /* maximum close_notify time */
+    int timeout_connect; /* maximum connect() time */
+    int timeout_idle; /* maximum idle connection time */
+    enum {FAILOVER_RR, FAILOVER_PRIO} failover; /* failover strategy */
 
         /* protocol name for protocol.c */
     char *protocol;
@@ -341,10 +342,10 @@ extern int max_fds;
 
 CLI *alloc_client_session(LOCAL_OPTIONS *, int, int);
 void *client(void *);
-int connect_wait(CLI *);
 
 /**************************************** Prototypes for network.c */
 
+int connect_blocking(CLI *, SOCKADDR_UNION *, socklen_t);
 void write_blocking(CLI *, int fd, void *, int);
 void read_blocking(CLI *, int fd, void *, int);
 void fdputline(CLI *, int, const char *);

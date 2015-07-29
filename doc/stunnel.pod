@@ -377,6 +377,15 @@ arguments for I<exec> including program name ($0)
 Quoting is currently not supported.
 Arguments are separated with arbitrary number of whitespaces.
 
+=item B<failover> = rr | prio
+
+Failover strategy for multiple "connect" targets.
+
+    rr (round robin) - fair load distribution
+    prio (priority) - use the order specified in config file
+
+default: rr
+
 =item B<ident> = username
 
 use IDENT (RFC 1413) username checking
@@ -428,7 +437,7 @@ the following option can be used:
 
 application protocol to negotiate SSL
 
-currently supported: cifs, connect, imap, nntp, pop3, smtp
+currently supported: cifs, connect, imap, nntp, pop3, smtp, pgsql
 
 =item B<protocolAuthentication> = auth_type
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -47,6 +47,9 @@
 #endif
 #ifndef EAI_NONAME
 #define EAI_NONAME 2
+#endif
+#ifndef EAI_SERVICE
+#define EAI_SERVICE 8
 #endif
 
 #if defined(USE_WIN32) && defined(USE_IPv6)

@@ -395,6 +395,15 @@ argumenty do opcji I<exec> w³±cznie z nazw± programu ($0)
 Cytowanie nie jest wspierane w obecnej wersji programu.
 Argumenty s± rozdzielone dowoln± liczb± bia³ych znaków.
 
+=item B<failover> = rr | prio
+
+Strategia wybierania serwerów wyspecyfikowanych parametrami "connect".
+
+    rr (round robin) - sprawiedliwe roz³o¿enie obci±¿enia
+    prio (priority) - u¿yj kolejno¶ci opcji w pliku konfiguracyjnym
+
+domy¶lnie: rr
+
 =item B<ident> = nazwa_u¿ytkownika
 
 weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z protoko³u IDENT (RFC 1413)
@@ -449,7 +458,7 @@ w programie Eudora mo¿na u¿yæ opcji:
 
 negocjuj SSL podanym protoko³em aplikacyjnym
 
-aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp
+aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp, pgsql
 
 =item B<protocolAuthentication> = uwierzytelnienie
 

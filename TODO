@@ -19,6 +19,7 @@ stunnel         Universal SSL tunnel
   - SOCKS 4 protocol support.
     http://archive.socks.permeo.com/protocol/socks4.protocol
   - Modify ./configure to support cross-compilation.
+  - Add support for Server Name Indication SSL extension.
 
 * Features I'd prefer NOT to support (waiting for a wealthy sponsor):
   - HTTP protocol support (adding X-Forwarded-For header to each request,

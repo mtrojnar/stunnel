@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -320,10 +320,10 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     hwnd=CreateWindow(classname, win32_name, WS_TILEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
         NULL, hmainmenu, hInstance, NULL);
-#endif
 
     if(cmdline.service) /* do not allow to save file in the service mode */
         EnableMenuItem(hmainmenu, IDM_SAVEAS, MF_GRAYED);
+#endif
 
     if(error_mode) /* log window is hidden by default */
         set_visible(1);
@@ -523,24 +523,29 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
         WPARAM wParam, LPARAM lParam) {
     TCHAR titlebar[STRLEN];
     WORD cchPassword;
+    LPTSTR keyFileName;
+    TCHAR sPassword[PEM_BUFSIZE];
+    char* cPassword;
 
     switch (message) {
     case WM_INITDIALOG:
-        /* Set the default push button to "Cancel." */
+        /* set the default push button to "Cancel." */
         SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDCANCEL, (LPARAM) 0);
 
+        keyFileName = str2tstr(ui_data->section->key);
         _sntprintf(titlebar, STRLEN, TEXT("Private key: %s"),
-            ui_data->section->key);
+            keyFileName);
+        free(keyFileName);    
         SetWindowText(hDlg, titlebar);
         return TRUE;
 
     case WM_COMMAND:
-        /* Set the default push button to "OK" when the user enters text. */
+        /* set the default push button to "OK" when the user enters text */
         if(HIWORD (wParam) == EN_CHANGE && LOWORD(wParam) == IDE_PASSEDIT)
             SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDOK, (LPARAM) 0);
         switch(wParam) {
         case IDOK:
-            /* Get number of characters. */
+            /* get number of characters */
             cchPassword=(WORD)SendDlgItemMessage(hDlg,
                 IDE_PASSEDIT, EM_LINELENGTH, (WPARAM) 0, (LPARAM) 0);
             if(!cchPassword || cchPassword>=PEM_BUFSIZE) {
@@ -548,14 +553,19 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
                 return FALSE;
             }
 
-            /* Put the number of characters into first word of buffer. */
-            *((LPWORD)ui_data->pass) = cchPassword;
+            /* put the number of characters into first word of buffer */
+            *((LPWORD) sPassword)=cchPassword;
 
-            /* Get the characters. */
+            /* get the characters */
             SendDlgItemMessage(hDlg, IDE_PASSEDIT, EM_GETLINE,
-                (WPARAM) 0, /* line 0 */ (LPARAM) ui_data->pass);
+                (WPARAM) 0, /* line 0 */ (LPARAM)sPassword);
+            sPassword[cchPassword]='\0'; /* null-terminate the string */
+            
+            /* convert input password to ANSI string (as ui_data->pass) */
+            cPassword = tstr2str(sPassword);
+            strcpy(ui_data->pass, cPassword);
+            free(cPassword);
 
-            ui_data->pass[cchPassword] = 0; /* Null-terminate the string. */
             EndDialog(hDlg, TRUE);
             return TRUE;
 

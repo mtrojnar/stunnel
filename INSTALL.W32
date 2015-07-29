@@ -3,25 +3,32 @@ stunnel         Universal SSL tunnel
 
 Building stunnel from source (optional):
 
-  1) install mingw32 cross-compiler o a Unix/Linux machine
-     (native compilation on a Windows machine is possible,
-     but not supported)
+ 1) Install mingw32 cross-compiler o a Unix/Linux machine.
+    In Debian all you need is:
+    apt-get install mingw32
+    Native compilation on a Windows machine is possible, but not supported.
 
-  2) compile openssl
+ 2) Download the recent OpenSSL in unpack it to /usr/src/ directory.
+    cd /usr/src && tar zvxf ~/openssl-(version).tar.gz
 
-  3) download and unpack stunnel-(version).tar.gz
+ 3) Build OpenSSL with cross_mingw32.sh script.
+    ftp://stunnel.mirt.net/stunnel/openssl/cross_mingw32.sh
 
-  4) enter "src" subdirectory
+ 4) Download and unpack stunnel-(version).tar.gz.
 
-  5) type "make stunnel.exe"
+ 5) Configure stunnel.
+    cd stunnel-(version) && ./configure --with-ssl=/path/to/openssl-(version)
+
+ 6) Build windows executable.
+    cd src && make stunnel.exe
 
 
 Installing stunnel:
 
-  1) run installer to install precompiled binaries or
-     copy stunnel.exe and OpenSSL DLLs into a directory
+ 1) run installer to install precompiled binaries or copy stunnel.exe and
+    OpenSSL DLLs into a directory
 
-  2) read the manual (stunnel.html)
+ 2) read the manual (stunnel.html)
 
-  3) create/edit stunnel.conf configuration file
+ 3) create/edit stunnel.conf configuration file
 

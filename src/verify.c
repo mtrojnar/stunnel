@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -347,15 +347,8 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx,
     if(alloc_fd(c->fd))
         goto cleanup;
     memcpy(&addr, &c->opt->ocsp_addr.addr[0], sizeof(SOCKADDR_UNION));
-    if(connect(c->fd, &addr.sa, addr_len(addr))) {
-        error=get_last_socket_error();
-        if(error!=EINPROGRESS && error!=EWOULDBLOCK) {
-            sockerror("OCSP server connect");
-            goto cleanup;
-        }
-        if(connect_wait(c))
-            goto cleanup;
-    }
+    if(connect_blocking(c, &addr, addr_len(addr)))
+        goto cleanup;
     s_log(LOG_DEBUG, "OCSP: server connected");
 
     /* get current certificate ID */

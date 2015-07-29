@@ -10,8 +10,10 @@
 
 <body style="background-color: white">
 
-<p><a name="__index__"></a></p>
+
 <!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
 
 <ul>
 
@@ -42,9 +44,11 @@
 	<li><a href="#zobacz_r_wnie_">ZOBACZ RÓWNIE¯</a></li>
 	<li><a href="#autor">AUTOR</a></li>
 </ul>
+
+<hr name="index" />
+</div>
 <!-- INDEX END -->
 
-<hr />
 <p>
 </p>
 <h1><a name="nazwa">NAZWA</a></h1>
@@ -54,19 +58,17 @@
 <hr />
 <h1><a name="sk_adnia">SK£ADNIA</a></h1>
 <dl>
-<dt><strong><a name="item_unix_3a"><strong>Unix:</strong></a></strong>
+<dt><strong><a name="unix" class="item"><strong>Unix:</strong></a></strong></dt>
 
 <dd>
 <p><strong>stunnel</strong> [&lt;plik&gt;] | -fd&nbsp;n | -help | -version | -sockets</p>
 </dd>
-</li>
-<dt><strong><a name="item_win32_3a"><strong>WIN32:</strong></a></strong>
+<dt><strong><a name="win32" class="item"><strong>WIN32:</strong></a></strong></dt>
 
 <dd>
 <p><strong>stunnel</strong> [ [-install | -uninstall | -start | -stop ]
     [-quiet] [&lt;plik&gt;] ] | -help | -version | -sockets</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -87,67 +89,57 @@ bez zmian w kodzie ¼ród³owym.</p>
 <hr />
 <h1><a name="opcje">OPCJE</a></h1>
 <dl>
-<dt><strong><a name="item__3cplik_3e">&lt;<strong>plik</strong>&gt;</a></strong>
+<dt><strong><a name="plik" class="item">&lt;<strong>plik</strong>&gt;</a></strong></dt>
 
 <dd>
 <p>u¿yj podanego pliku konfiguracyjnego</p>
 </dd>
-</li>
-<dt><strong><a name="item_n"><strong>-fd n</strong> (tylko Unix)</a></strong>
+<dt><strong><a name="n" class="item"><strong>-fd n</strong> (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>wczytaj konfiguracjê z podanego deskryptora pliku</p>
 </dd>
-</li>
-<dt><strong><a name="item__2dhelp"><strong>-help</strong></a></strong>
+<dt><strong><a name="help" class="item"><strong>-help</strong></a></strong></dt>
 
 <dd>
 <p>drukuj listê wspieranych opcji</p>
 </dd>
-</li>
-<dt><strong><a name="item__2dversion"><strong>-version</strong></a></strong>
+<dt><strong><a name="version" class="item"><strong>-version</strong></a></strong></dt>
 
 <dd>
 <p>drukuj wersjê programu i domy¶lne warto¶ci parametrów</p>
 </dd>
-</li>
-<dt><strong><a name="item__2dsockets"><strong>-sockets</strong></a></strong>
+<dt><strong><a name="sockets" class="item"><strong>-sockets</strong></a></strong></dt>
 
 <dd>
 <p>drukuj domy¶lne opcje gniazd</p>
 </dd>
-</li>
-<dt><strong><a name="item_install"><strong>-install</strong> (tylko NT/2000/XP)</a></strong>
+<dt><strong><a name="install" class="item"><strong>-install</strong> (tylko NT/2000/XP)</a></strong></dt>
 
 <dd>
 <p>instaluj serwis NT</p>
 </dd>
-</li>
-<dt><strong><a name="item_uninstall"><strong>-uninstall</strong> (tylko NT/2000/XP)</a></strong>
+<dt><strong><a name="uninstall" class="item"><strong>-uninstall</strong> (tylko NT/2000/XP)</a></strong></dt>
 
 <dd>
 <p>odinstaluj serwis NT</p>
 </dd>
-</li>
-<dt><strong><a name="item_start"><strong>-start</strong> (tylko NT/2000/XP)</a></strong>
+<dt><strong><a name="start" class="item"><strong>-start</strong> (tylko NT/2000/XP)</a></strong></dt>
 
 <dd>
 <p>uruchom serwis NT</p>
 </dd>
-</li>
-<dt><strong><a name="item_stop"><strong>-stop</strong> (tylko NT/2000/XP)</a></strong>
+<dt><strong><a name="stop" class="item"><strong>-stop</strong> (tylko NT/2000/XP)</a></strong></dt>
 
 <dd>
 <p>zatrzymaj serwis NT</p>
 </dd>
-</li>
-<dt><strong><a name="item_quiet"><strong>-quiet</strong> (tylko NT/2000/XP)</a></strong>
+<dt><strong><a name="quiet" class="item"><strong>-quiet</strong> (tylko NT/2000/XP)</a></strong></dt>
 
 <dd>
 <p>nie wy¶wietlaj okienka informuj±cego o pomy¶lnym zainstalowaniu lub
 odinstalowaniu</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -172,198 +164,135 @@ odinstalowaniu</p>
 </p>
 <h2><a name="opcje_globalne">OPCJE GLOBALNE</a></h2>
 <dl>
-<dt><strong><a name="item_katalog"><strong>chroot</strong> = katalog (tylko Unix)</a></strong>
+<dt><strong><a name="katalog" class="item"><strong>chroot</strong> = katalog (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>katalog roboczego korzenia systemu plików</p>
-</dd>
-<dd>
 <p>Opcja okre¶la katalog, w którym uwiêziony zostanie proces programu
 <strong>stunnel</strong> tu¿ po jego inicjalizacji, a przed rozpoczêciem odbierania
 po³±czeñ.  ¦cie¿ki podane w opcjach <em>CApath</em>, <em>CRLpath</em>, <em>pid</em>
 oraz <em>exec</em> musz± byæ umieszczone wewn±trz katalogu podanego w opcji
 <em>chroot</em> i okre¶lone wzglêdem tego katalogu.</p>
-</dd>
-<dd>
 <p>W przypadku wykorzystania kontroli dostêpu przy pomocy biblioteki
 libwrap (TCP wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
 /etc/hosts.deny) musz± zostaæ skopiowane do podkatalogu etc/
 umieszczonego wewn±trz katalogu podanego w opcji <em>chroot</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_compression__3d_zlib__7c_rle"><strong>compression</strong> = zlib | rle</a></strong>
+<dt><strong><a name="compression_zlib_rle" class="item"><strong>compression</strong> = zlib | rle</a></strong></dt>
 
 <dd>
 <p>wybór algorytmu kompresji przesy³anych danych</p>
-</dd>
-<dd>
 <p>domy¶lnie: bez kompresji</p>
 </dd>
-</li>
-<dt><strong><a name="item_debug__3d_poziom_5b_2epodsystem_5d"><strong>debug</strong> = poziom[.podsystem]</a></strong>
+<dt><strong><a name="debug_poziom_podsystem" class="item"><strong>debug</strong> = poziom[.podsystem]</a></strong></dt>
 
 <dd>
 <p>szczegó³owo¶æ logowania</p>
-</dd>
-<dd>
 <p>Poziom logowania mo¿na okre¶liæ przy pomocy jednej z nazw lub liczb:
 emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6) lub debug (7).
 Zapisywane s± komunikaty o poziomie ni¿szym (numerycznie) lub równym podanemu.
 Do uzyskania najwy¿szego poziomu szczegó³owo¶ci mo¿na u¿yæ opcji
 <strong>debug = debug</strong> lub <strong>debug = 7</strong>.  Domy¶lnym poziomem jest notice (5).</p>
-</dd>
-<dd>
 <p>O ile nie wyspecyfikowano podsystemu u¿yty bêdzie domy¶lny: daemon.
 Podsystemy nie s± wspierane przez platformê Win32.</p>
-</dd>
-<dd>
 <p>Wielko¶æ liter jest ignorowana zarówno dla poziomu jak podsystemu.</p>
 </dd>
-</li>
-<dt><strong><a name="item_ka_do_egd"><strong>EGD</strong> = ¶cie¿ka_do_EGD (tylko Unix)</a></strong>
+<dt><strong><a name="ka_do_egd" class="item"><strong>EGD</strong> = ¶cie¿ka_do_EGD (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>¶cie¿ka do gniazda programu Entropy Gathering Daemon</p>
-</dd>
-<dd>
 <p>Opcja pozwala okre¶liæ ¶cie¿kê do gniazda programu Entropy Gathering Daemon
 u¿ywanego do zainicjalizowania generatora ci±gów pseudolosowych biblioteki
 OpenSSL.  Opcja jest dostêpna z bibliotek± OpenSSL 0.9.5a lub nowsz±.</p>
 </dd>
-</li>
-<dt><strong><a name="item_engine__3d_auto__7c__3cidentyfikator_urz_b1dzenia_"><strong>engine</strong> = auto | &lt;identyfikator urz±dzenia&gt;</a></strong>
+<dt><strong><a name="engine_auto_identyfikator_urz_dzenia" class="item"><strong>engine</strong> = auto | &lt;identyfikator urz±dzenia&gt;</a></strong></dt>
 
 <dd>
 <p>wybór sprzêtowego urz±dzenia kryptograficznego</p>
-</dd>
-<dd>
 <p>domy¶lnie: bez wykorzystania urz±dzeñ kryptograficznych</p>
-</dd>
-<dd>
 <p>Przyk³ad wykorzystania w sekcji 'PRZYK£ADY'.</p>
 </dd>
-</li>
-<dt><strong><a name="item_enginectrl__3d__3ccommand_3e_5b_3a_3cparameter_3e_"><strong>engineCtrl</strong> = &lt;command&gt;[:&lt;parameter&gt;]</a></strong>
+<dt><strong><a name="enginectrl_command_parameter" class="item"><strong>engineCtrl</strong> = &lt;command&gt;[:&lt;parameter&gt;]</a></strong></dt>
 
 <dd>
 <p>konfiguracja urz±dzenia kryptograficznego</p>
-</dd>
-<dd>
-<p>Specjalne komendy ``LOAD'' i ``INIT'' pozwalaj± na za³adowanie i inicjalizacjê
+<p>Specjalne komendy &quot;LOAD&quot; i &quot;INIT&quot; pozwalaj± na za³adowanie i inicjalizacjê
 modu³u kryptograficznego urz±dzenia.</p>
 </dd>
-</li>
-<dt><strong><a name="item_no"><strong>foreground</strong> = yes | no (tylko Unix)</a></strong>
+<dt><strong><a name="no" class="item"><strong>foreground</strong> = yes | no (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>tryb pierwszoplanowy</p>
-</dd>
-<dd>
 <p>U¿ycie tej opcji powoduje, ¿e <em>stunnel</em> nie przechodzi w t³o loguj±c
 swoje komunikaty na konsolê zamiast przez <em>syslog</em> (o ile nie u¿yto
 opcji <em>output</em>).</p>
 </dd>
-</li>
-<dt><strong><a name="item_output__3d_plik"><strong>output</strong> = plik</a></strong>
+<dt><strong><a name="output_plik" class="item"><strong>output</strong> = plik</a></strong></dt>
 
 <dd>
 <p>plik, do którego dopisane zostan± logi</p>
-</dd>
-<dd>
 <p>U¿ycie tej opcji zmienia domy¶lne zachowanie programu polegaj±ce
 na logowaniu swoich komunikatów poprzez syslog.</p>
-</dd>
-<dd>
 <p>Do przekierowania komunikatów na standardowe wyj¶cie (na przyk³ad po to,
 ¿eby zalogowaæ je programem splogger z pakietu daemontools) mo¿na podaæ
 jako parametr urz±dzenie /dev/stdout.</p>
 </dd>
-</li>
-<dt><strong><a name="item_plik"><strong>pid</strong> = plik (tylko Unix)</a></strong>
+<dt><strong><strong>pid</strong> = plik (tylko Unix)</strong></dt>
 
 <dd>
 <p>po³o¿enie pliku z numerem procesu</p>
-</dd>
-<dd>
 <p>Je¿eli argument jest pusty plik nie zostanie stworzony.</p>
-</dd>
-<dd>
 <p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>pid</em> jest okre¶lona
 wzglêdem tego katalogu.</p>
 </dd>
-</li>
-<dt><strong><a name="item_rndbytes__3d_liczba_bajt_f3w"><strong>RNDbytes</strong> = liczba_bajtów</a></strong>
+<dt><strong><a name="rndbytes_liczba_bajt_w" class="item"><strong>RNDbytes</strong> = liczba_bajtów</a></strong></dt>
 
 <dd>
 <p>liczba bajtów do zainicjowania generatora pseudolosowego</p>
-</dd>
-<dd>
 <p>W wersjach biblioteki OpenSSL starszych ni¿ 0.9.5a opcja ta okre¶la
 równie¿ liczbê bajtów wystarczaj±cych do zainicjowania PRNG.
 Nowsze wersje biblioteki maj± wbudowan± funkcjê okre¶laj±c±, czy
 dostarczona ilo¶æ losowo¶ci jest wystarczaj±ca do zainicjowania generatora.</p>
 </dd>
-</li>
-<dt><strong><a name="item_rndfile__3d_plik"><strong>RNDfile</strong> = plik</a></strong>
+<dt><strong><a name="rndfile_plik" class="item"><strong>RNDfile</strong> = plik</a></strong></dt>
 
 <dd>
 <p>¶cie¿ka do pliku zawieraj±cego losowe dane</p>
-</dd>
-<dd>
 <p>Biblioteka OpenSSL u¿yje danych z tego pliku do zainicjowania
 generatora pseudolosowego.</p>
 </dd>
-</li>
-<dt><strong><a name="item_rndoverwrite__3d_yes__7c_no"><strong>RNDoverwrite</strong> = yes | no</a></strong>
+<dt><strong><a name="rndoverwrite_yes_no" class="item"><strong>RNDoverwrite</strong> = yes | no</a></strong></dt>
 
 <dd>
 <p>nadpisz plik nowymi warto¶ciami pseudolosowymi</p>
-</dd>
-<dd>
 <p>domy¶lnie: yes (nadpisz)</p>
 </dd>
-</li>
-<dt><strong><a name="item_service__3d_nazwa_serwisu"><strong>service</strong> = nazwa_serwisu</a></strong>
+<dt><strong><a name="service_nazwa_serwisu" class="item"><strong>service</strong> = nazwa_serwisu</a></strong></dt>
 
 <dd>
 <p>u¿yj parametru jako nazwy serwisu</p>
-</dd>
-<dd>
 <p><strong>Unix:</strong> nazwa serwisu dla biblioteki TCP Wrapper w trybie <em>inetd</em>.</p>
-</dd>
-<dd>
 <p><strong>NT/2000/XP:</strong> nazwa serwisu NT w Panelu Sterowania.</p>
-</dd>
-<dd>
 <p>domy¶lnie: stunnel</p>
 </dd>
-</li>
-<dt><strong><a name="item_identyfikator_grupy"><strong>setgid</strong> = identyfikator_grupy (tylko Unix)</a></strong>
+<dt><strong><a name="identyfikator_grupy" class="item"><strong>setgid</strong> = identyfikator_grupy (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>grupa z której prawami pracowa³ bêdzie <em>stunnel</em></p>
 </dd>
-</li>
-<dt><strong><a name="item_ytkownika"><strong>setuid</strong> = identyfikator_u¿ytkownika (tylko Unix)</a></strong>
+<dt><strong><a name="ytkownika" class="item"><strong>setuid</strong> = identyfikator_u¿ytkownika (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>u¿ytkownik, z którego prawami pracowa³ bêdzie <em>stunnel</em></p>
 </dd>
-</li>
-<dt><strong><a name="item_socket__3d_a_7cl_7cr_3aoption_3dvalue_5b_3avalue_5"><strong>socket</strong> = a|l|r:option=value[:value]</a></strong>
+<dt><strong><a name="socket_a_l_r_option_value_value" class="item"><strong>socket</strong> = a|l|r:option=value[:value]</a></strong></dt>
 
 <dd>
 <p>ustaw opcjê na akceptuj±cym/lokalnym/zdalnym gnie¼dzie</p>
-</dd>
-<dd>
 <p>Dla opcji linger warto¶ci maj± postaæ l_onof:l_linger.
 Dla opcji time warto¶ci maj± postaæ tv_sec:tv_usec.</p>
-</dd>
-<dd>
 <p>Przyk³ady:</p>
-</dd>
-<dd>
 <pre>
     socket = l:SO_LINGER=1:60
         ustaw jednominutowe przeterminowanie
@@ -382,25 +311,18 @@ Dla opcji time warto¶ci maj± postaæ tv_sec:tv_usec.</p>
         przyjmuj po³±czenia wy³±cznie na
         interfejsie zwrotnym (ang. loopback)</pre>
 </dd>
-</li>
-<dt><strong><strong>syslog</strong> = yes | no (tylko Unix)</strong>
+<dt><strong><strong>syslog</strong> = yes | no (tylko Unix)</strong></dt>
 
 <dd>
 <p>w³±cz logowanie poprzez mechanizm syslog</p>
-</dd>
-<dd>
 <p>domy¶lnie: yes (w³±cz)</p>
 </dd>
-</li>
-<dt><strong><strong>taskbar</strong> = yes | no (tylko WIN32)</strong>
+<dt><strong><strong>taskbar</strong> = yes | no (tylko WIN32)</strong></dt>
 
 <dd>
 <p>w³±cz ikonkê w prawym dolnym rogu ekranu</p>
-</dd>
-<dd>
 <p>domy¶lnie: yes (w³±cz)</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -413,344 +335,255 @@ us³ugi w logach.</p>
 po³±czenia odpowiada osobny program (zwykle <em>inetd</em>, <em>xinetd</em>
 lub <em>tcpserver</em>), nale¿y przeczytaæ sekcjê <strong>TRYB INETD</strong> poni¿ej.</p>
 <dl>
-<dt><strong><a name="item_accept__3d__5badres_3a_5dport"><strong>accept</strong> = [adres:]port</a></strong>
+<dt><strong><a name="accept_adres_port" class="item"><strong>accept</strong> = [adres:]port</a></strong></dt>
 
 <dd>
 <p>nas³uchuje na po³±czenia na podanym adresie i porcie</p>
-</dd>
-<dd>
 <p>Je¿eli nie zosta³ podany adres, <em>stunnel</em> domy¶lnie nas³uchuje
 na wszystkich adresach IP lokalnych interfejsów.</p>
 </dd>
-</li>
-<dt><strong><a name="item_capath__3d_katalog_ca"><strong>CApath</strong> = katalog_CA</a></strong>
+<dt><strong><a name="capath_katalog_ca" class="item"><strong>CApath</strong> = katalog_CA</a></strong></dt>
 
 <dd>
 <p>katalog Centrum Certyfikacji</p>
-</dd>
-<dd>
 <p>Opcja okre¶la katalog, w którym <strong>stunnel</strong> bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja <em>verify</em>.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu
 (4 pierwsze bajty skrótu MD5 pocz±wszy od najmniej znaczacego).</p>
-</dd>
-<dd>
 <p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>CApath</em> jest okre¶lona
 wzglêdem tego katalogu.</p>
 </dd>
-</li>
-<dt><strong><a name="item_cafile__3d_plik_ca"><strong>CAfile</strong> = plik_CA</a></strong>
+<dt><strong><a name="cafile_plik_ca" class="item"><strong>CAfile</strong> = plik_CA</a></strong></dt>
 
 <dd>
 <p>plik Centrum Certyfikacji</p>
-</dd>
-<dd>
 <p>Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
 przez opcjê <em>verify</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_cert__3d_plik_pem"><strong>cert</strong> = plik_pem</a></strong>
+<dt><strong><a name="cert_plik_pem" class="item"><strong>cert</strong> = plik_pem</a></strong></dt>
 
 <dd>
 <p>plik z ³añcuchem certyfikatów</p>
-</dd>
-<dd>
 <p>Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
 program <strong>stunnel</strong> do uwierzytelnienia siê przed drug± stron± po³±czenia.
 Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.</p>
 </dd>
-</li>
-<dt><strong><a name="item_ciphers__3d_lista_szyfr_f3w"><strong>ciphers</strong> = lista_szyfrów</a></strong>
+<dt><strong><a name="ciphers_lista_szyfr_w" class="item"><strong>ciphers</strong> = lista_szyfrów</a></strong></dt>
 
 <dd>
 <p>lista dozwolonych szyfrów SSL</p>
-</dd>
-<dd>
 <p>Parametrem tej opcji jest lista szyfrów, które bêd± u¿yte przy
 otwieraniu nowych po³±czeñ SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5</p>
 </dd>
-</li>
-<dt><strong><a name="item_client__3d_yes__7c_no"><strong>client</strong> = yes | no</a></strong>
+<dt><strong><a name="client_yes_no" class="item"><strong>client</strong> = yes | no</a></strong></dt>
 
 <dd>
 <p>tryb kliencki (zdalna us³uga u¿ywa SSL)</p>
-</dd>
-<dd>
 <p>domy¶lnie: no (tryb serwerowy)</p>
 </dd>
-</li>
-<dt><strong><a name="item_connect__3d__5badres_3a_5dport"><strong>connect</strong> = [adres:]port</a></strong>
+<dt><strong><a name="connect_adres_port" class="item"><strong>connect</strong> = [adres:]port</a></strong></dt>
 
 <dd>
 <p>po³±cz siê ze zdalnym serwerem na podany port</p>
-</dd>
-<dd>
 <p>Je¿eli nie zosta³ podany adres, <em>stunnel</em> domy¶lnie ³±czy siê
 z lokalnym serwerem.</p>
-</dd>
-<dd>
 <p>Komenda mo¿e byc u¿yta wielokrotnie w pojedynczej sekcji
 celem zapewnienia wysokiej niezawodno¶ci lub roz³o¿enia
 ruchu pomiêdzy wiele serwerów.</p>
 </dd>
-</li>
-<dt><strong><a name="item_crlpath__3d_katalog_crl"><strong>CRLpath</strong> = katalog_CRL</a></strong>
+<dt><strong><a name="crlpath_katalog_crl" class="item"><strong>CRLpath</strong> = katalog_CRL</a></strong></dt>
 
 <dd>
 <p>katalog List Odwo³anych Certyfikatów (CRL)</p>
-</dd>
-<dd>
 <p>Opcja okre¶la katalog, w którym <strong>stunnel</strong> bêdzie szuka³ list CRL,
 je¿eli u¿yta zosta³a opcja <em>verify</em>.  Pliki z listami CRL musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 listy CRL.</p>
-</dd>
-<dd>
 <p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>CRLpath</em> jest okre¶lona
 wzglêdem tego katalogu.</p>
 </dd>
-</li>
-<dt><strong><a name="item_crlfile__3d_plik_crl"><strong>CRLfile</strong> = plik_CRL</a></strong>
+<dt><strong><a name="crlfile_plik_crl" class="item"><strong>CRLfile</strong> = plik_CRL</a></strong></dt>
 
 <dd>
 <p>plik List Odwo³anych Certyfikatów (CRL)</p>
-</dd>
-<dd>
 <p>Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy CRL u¿ywane
 przez opcjê <em>verify</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_delay__3d_yes__7c_no"><strong>delay</strong> = yes | no</a></strong>
+<dt><strong><a name="delay_yes_no" class="item"><strong>delay</strong> = yes | no</a></strong></dt>
 
 <dd>
 <p>opó¼nij rozwiniêcie adresu DNS podanego w opcji <em>connect</em></p>
 </dd>
-</li>
-<dt><strong><a name="item_enginenum__3d__3cnumer_urz_b1dzenia_3e"><strong>engineNum</strong> = &lt;numer urz±dzenia&gt;</a></strong>
+<dt><strong><a name="enginenum_numer_urz_dzenia" class="item"><strong>engineNum</strong> = &lt;numer urz±dzenia&gt;</a></strong></dt>
 
 <dd>
 <p>wybierz urz±dzenie do odczyta klucza prywatnego</p>
-</dd>
-<dd>
 <p>Urz±dzenia s± numerowane od 1 w górê.</p>
 </dd>
-</li>
-<dt><strong><a name="item_ka_do_programu"><strong>exec</strong> = ¶cie¿ka_do_programu (tylko Unix)</a></strong>
+<dt><strong><a name="ka_do_programu" class="item"><strong>exec</strong> = ¶cie¿ka_do_programu (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>wykonaj lokalny program przystosowany do pracy z superdemonem inetd</p>
-</dd>
-<dd>
 <p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>exec</em> jest okre¶lona
 wzglêdem tego katalogu.</p>
 </dd>
-</li>
-<dt><strong><a name="item_execargs__3d__240__241__242__2e_2e_2e__28tylko_uni"><strong>execargs</strong> = $0 $1 $2 ... (tylko Unix)</a></strong>
+<dt><strong><a name="execargs_0_1_2_tylko_unix" class="item"><strong>execargs</strong> = $0 $1 $2 ... (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>argumenty do opcji <em>exec</em> w³±cznie z nazw± programu ($0)</p>
-</dd>
-<dd>
 <p>Cytowanie nie jest wspierane w obecnej wersji programu.
 Argumenty s± rozdzielone dowoln± liczb± bia³ych znaków.</p>
 </dd>
-</li>
-<dt><strong><a name="item_ident__3d_nazwa_u_bfytkownika"><strong>ident</strong> = nazwa_u¿ytkownika</a></strong>
+<dt><strong><a name="failover_rr_prio" class="item"><strong>failover</strong> = rr | prio</a></strong></dt>
 
 <dd>
-<p>weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z protoko³u IDENT (RFC 1413)</p>
+<p>Strategia wybierania serwerów wyspecyfikowanych parametrami &quot;connect&quot;.</p>
+<pre>
+    rr (round robin) - sprawiedliwe roz³o¿enie obci±¿enia
+    prio (priority) - u¿yj kolejno¶ci opcji w pliku konfiguracyjnym</pre>
+<p>domy¶lnie: rr</p>
 </dd>
-</li>
-<dt><strong><a name="item_key__3d_plik_klucza"><strong>key</strong> = plik_klucza</a></strong>
+<dt><strong><a name="ident_nazwa_u_ytkownika" class="item"><strong>ident</strong> = nazwa_u¿ytkownika</a></strong></dt>
+
+<dd>
+<p>weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z protoko³u IDENT (<a href="http://www.ietf.org/rfc/rfc1413.txt" class="rfc">RFC 1413</a>)</p>
+</dd>
+<dt><strong><a name="key_plik_klucza" class="item"><strong>key</strong> = plik_klucza</a></strong></dt>
 
 <dd>
 <p>klucz prywatny do certyfikatu podanego w opcji <em>cert</em></p>
-</dd>
-<dd>
 <p>Klucz prywatny jest potrzebny do uwierzytelnienia w³a¶ciciela certyfikatu.
 Poniewa¿ powinien on byæ zachowany w tajemnicy, prawa do jego odczytu
 powinien mieæ wy³±cznie w³a¶ciciel pliku.  W systemie Unix mo¿na to osi±gn±æ
 komend±:</p>
-</dd>
-<dd>
 <pre>
     chmod 600 keyfile</pre>
-</dd>
-<dd>
 <p>domy¶lnie: warto¶æ opcji <em>cert</em></p>
 </dd>
-</li>
-<dt><strong><a name="item_local__3d_serwer"><strong>local</strong> = serwer</a></strong>
+<dt><strong><a name="local_serwer" class="item"><strong>local</strong> = serwer</a></strong></dt>
 
 <dd>
 <p>IP ¼ród³a do nawi±zywania zdalnych po³±czeñ</p>
-</dd>
-<dd>
 <p>Domy¶lnie u¿ywane jest IP najbardziej zewnêtrznego interfejsu w stronê
 serwera, do którego nawi±zywane jest po³±czenie.</p>
 </dd>
-</li>
-<dt><strong><a name="item_ocsp__3d_url"><strong>OCSP</strong> = URL</a></strong>
+<dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = URL</a></strong></dt>
 
 <dd>
 <p>serwer OCSP do weryfikacji certyfikatów</p>
 </dd>
-</li>
-<dt><strong><a name="item_ocspflag__3d_flaga"><strong>OCSPflag</strong> = flaga</a></strong>
+<dt><strong><a name="ocspflag_flaga" class="item"><strong>OCSPflag</strong> = flaga</a></strong></dt>
 
 <dd>
 <p>flaga serwera OCSP</p>
-</dd>
-<dd>
 <p>aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
-</dd>
-<dd>
 <p>Aby wyspecyfikowaæ kilka flag nale¿y u¿yæ <em>OCSPflag</em> wielokrotnie.</p>
 </dd>
-</li>
-<dt><strong><a name="item_options__3d_opcje_ssl"><strong>options</strong> = opcje_SSL</a></strong>
+<dt><strong><a name="options_opcje_ssl" class="item"><strong>options</strong> = opcje_SSL</a></strong></dt>
 
 <dd>
 <p>opcje biblioteki OpenSSL</p>
-</dd>
-<dd>
 <p>Parametrem jest nazwa opcji zgodnie z opisem w <em>SSL_CTX_set_options(3ssl)</em>,
 ale bez przedrostka <em>SSL_OP_</em>.
 Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ <em>options</em> wielokrotnie.</p>
-</dd>
-<dd>
 <p>Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji SSL
 w programie Eudora mo¿na u¿yæ opcji:</p>
-</dd>
-<dd>
 <pre>
     options = DONT_INSERT_EMPTY_FRAGMENTS</pre>
 </dd>
-</li>
-<dt><strong><a name="item_protocol__3d_protok_f3_b3"><strong>protocol</strong> = protokó³</a></strong>
+<dt><strong><a name="protocol_protok" class="item"><strong>protocol</strong> = protokó³</a></strong></dt>
 
 <dd>
 <p>negocjuj SSL podanym protoko³em aplikacyjnym</p>
+<p>aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp, pgsql</p>
 </dd>
-<dd>
-<p>aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp</p>
-</dd>
-</li>
-<dt><strong><a name="item_protocolauthentication__3d_uwierzytelnienie"><strong>protocolAuthentication</strong> = uwierzytelnienie</a></strong>
+<dt><strong><a name="protocolauthentication_uwierzytelnienie" class="item"><strong>protocolAuthentication</strong> = uwierzytelnienie</a></strong></dt>
 
 <dd>
 <p>rodzaj uwierzytelnienia do negocjacji protoko³u</p>
-</dd>
-<dd>
 <p>aktualnie wspierane: basic, NTLM</p>
-</dd>
-<dd>
 <p>Obecnie typ uwierzytelnienia ma zastosowanie wy³±cznie w protokole 'connect'.</p>
-</dd>
-<dd>
 <p>domy¶lnie: basic</p>
 </dd>
-</li>
-<dt><strong><a name="item_protocolhost__3d_adres_3aport"><strong>protocolHost</strong> = adres:port</a></strong>
+<dt><strong><a name="protocolhost_adres_port" class="item"><strong>protocolHost</strong> = adres:port</a></strong></dt>
 
 <dd>
 <p>adres docelowy do negocjacji protoko³u</p>
 </dd>
-</li>
-<dt><strong><a name="item_protocolpassword__3d_has_b3o"><strong>protocolPassword</strong> = has³o</a></strong>
+<dt><strong><a name="protocolpassword_has_o" class="item"><strong>protocolPassword</strong> = has³o</a></strong></dt>
 
 <dd>
 <p>has³o do negocjacji protoko³u</p>
 </dd>
-</li>
-<dt><strong><a name="item_protocolusername__3d_u_bfytkownik"><strong>protocolUsername</strong> = u¿ytkownik</a></strong>
+<dt><strong><a name="protocolusername_u_ytkownik" class="item"><strong>protocolUsername</strong> = u¿ytkownik</a></strong></dt>
 
 <dd>
 <p>nazwa u¿ytkownika do negocjacji protoko³u</p>
 </dd>
-</li>
-<dt><strong><strong>pty</strong> = yes | no (tylko Unix)</strong>
+<dt><strong><strong>pty</strong> = yes | no (tylko Unix)</strong></dt>
 
 <dd>
 <p>alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'</p>
 </dd>
-</li>
-<dt><strong><strong>retry</strong> = yes | no (tylko Unix)</strong>
+<dt><strong><strong>retry</strong> = yes | no (tylko Unix)</strong></dt>
 
 <dd>
 <p>po³±cz ponownie sekcjê connect+exec po roz³±czeniu</p>
-</dd>
-<dd>
 <p>domy¶lnie: no</p>
 </dd>
-</li>
-<dt><strong><a name="item_session__3d_przeterminowanie_pami_eaci_podr_eaczne"><strong>session</strong> = przeterminowanie_pamiêci_podrêcznej_sesji</a></strong>
+<dt><strong><a name="session_przeterminowanie_pami_ci_podr_cznej_sesji" class="item"><strong>session</strong> = przeterminowanie_pamiêci_podrêcznej_sesji</a></strong></dt>
 
 <dd>
 <p>czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej</p>
 </dd>
-</li>
-<dt><strong><a name="item_sslversion__3d_wersja"><strong>sslVersion</strong> = wersja</a></strong>
+<dt><strong><a name="sslversion_wersja" class="item"><strong>sslVersion</strong> = wersja</a></strong></dt>
 
 <dd>
 <p>wersja protoko³u SSL</p>
-</dd>
-<dd>
 <p>Dozwolone opcje: all, SSLv2, SSLv3, TLSv1</p>
 </dd>
-</li>
-<dt><strong><a name="item_w"><strong>stack</strong> = liczba_bajtów (z wyj±tkiem modelu FORK)</a></strong>
+<dt><strong><a name="w" class="item"><strong>stack</strong> = liczba_bajtów (z wyj±tkiem modelu FORK)</a></strong></dt>
 
 <dd>
 <p>rozmiar stosu procesora w±tku</p>
 </dd>
-</li>
-<dt><strong><a name="item_timeoutbusy__3d_liczba_sekund"><strong>TIMEOUTbusy</strong> = liczba_sekund</a></strong>
+<dt><strong><a name="timeoutbusy_liczba_sekund" class="item"><strong>TIMEOUTbusy</strong> = liczba_sekund</a></strong></dt>
 
 <dd>
 <p>czas oczekiwania na spodziewane dane</p>
 </dd>
-</li>
-<dt><strong><a name="item_timeoutclose__3d_liczba_sekund"><strong>TIMEOUTclose</strong> = liczba_sekund</a></strong>
+<dt><strong><a name="timeoutclose_liczba_sekund" class="item"><strong>TIMEOUTclose</strong> = liczba_sekund</a></strong></dt>
 
 <dd>
 <p>czas oczekiwania na close_notify (ustaw na 0, je¿eli klientem jest MSIE)</p>
 </dd>
-</li>
-<dt><strong><a name="item_timeoutconnect__3d_liczba_sekund"><strong>TIMEOUTconnect</strong> = liczba_sekund</a></strong>
+<dt><strong><a name="timeoutconnect_liczba_sekund" class="item"><strong>TIMEOUTconnect</strong> = liczba_sekund</a></strong></dt>
 
 <dd>
 <p>czas oczekiwania na nawi±zanie po³±czenia</p>
 </dd>
-</li>
-<dt><strong><a name="item_timeoutidle__3d_liczba_sekund"><strong>TIMEOUTidle</strong> = liczba_sekund</a></strong>
+<dt><strong><a name="timeoutidle_liczba_sekund" class="item"><strong>TIMEOUTidle</strong> = liczba_sekund</a></strong></dt>
 
 <dd>
 <p>maksymalny czas utrzymywania bezczynnego po³±czenia</p>
 </dd>
-</li>
-<dt><strong><strong>transparent</strong> = yes | no (tylko Unix)</strong>
+<dt><strong><strong>transparent</strong> = yes | no (tylko Unix)</strong></dt>
 
 <dd>
 <p>tryb przezroczystego proxy</p>
-</dd>
-<dd>
 <p>Przepisz adres, aby nawi±zywane po³±czenie wydawa³o siê pochodziæ
 bezpo¶rednio od klienta, a nie od programu <em>stunnel</em>.
 Opcja dzia³a tylko w trybie lokalnym (opcja <em>exec</em>) przez za³adowanie
 przy pomocy LD_PRELOAD biblioteki env.so, albo w trybie zdalnym (opcja
 <em>connect</em>) na systemie Linux 2.2 z w³±czon± opcj± <em>transparent proxy</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_verify__3d_poziom"><strong>verify</strong> = poziom</a></strong>
+<dt><strong><a name="verify_poziom" class="item"><strong>verify</strong> = poziom</a></strong></dt>
 
 <dd>
 <p>weryfikuj certyfikat drugiej strony po³±czenia</p>
-</dd>
-<dd>
 <pre>
     poziom 1 - weryfikuj, je¿eli zosta³
         przedstawiony
@@ -760,7 +593,6 @@ przy pomocy LD_PRELOAD biblioteki env.so, albo w trybie zdalnym (opcja
         zainstalowanym certyfikatem drugiej strony
     domy¶lnie - nie weryfikuj</pre>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -817,18 +649,16 @@ urz±dzenia zgodnego z OpenSC</p>
 <hr />
 <h1><a name="pliki">PLIKI</a></h1>
 <dl>
-<dt><strong><a name="item_stunnel_2econf"><em>stunnel.conf</em></a></strong>
+<dt><strong><a name="stunnel_conf" class="item"><em class="file">stunnel.conf</em></a></strong></dt>
 
 <dd>
 <p>plik konfiguracyjny programu</p>
 </dd>
-</li>
-<dt><strong><a name="item_stunnel_2epem"><em>stunnel.pem</em></a></strong>
+<dt><strong><a name="stunnel_pem" class="item"><em class="file">stunnel.pem</em></a></strong></dt>
 
 <dd>
 <p>certyfikat i klucz prywatny</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -956,48 +786,42 @@ powy¿szej listy.  Jest to w³a¶ciwo¶æ biblioteki <em>OpenSSL</em>, a nie programu
 <hr />
 <h1><a name="zobacz_r_wnie_">ZOBACZ RÓWNIE¯</a></h1>
 <dl>
-<dt><strong><a name="item_tcpd"><a href="#item_tcpd">tcpd(8)</a></a></strong>
+<dt><strong><a name="tcpd" class="item"><a href="#tcpd">tcpd(8)</a></a></strong></dt>
 
 <dd>
 <p>biblioteka kontroli dostêpu do us³ug internetowych</p>
 </dd>
-</li>
-<dt><strong><a name="item_inetd"><a href="#item_inetd">inetd(8)</a></a></strong>
+<dt><strong><a name="inetd" class="item"><a href="#inetd">inetd(8)</a></a></strong></dt>
 
 <dd>
 <p>'super-serwer' internetowy</p>
 </dd>
-</li>
-<dt><strong><a name="item_http_3a_2f_2fstunnel_2emirt_2enet_2f"><em><a href="http://stunnel.mirt.net/">http://stunnel.mirt.net/</a></em></a></strong>
+<dt><strong><a name="http_stunnel_mirt_net" class="item"><em class="file"><a href="http://stunnel.mirt.net/">http://stunnel.mirt.net/</a></em></a></strong></dt>
 
 <dd>
 <p>strona domowa programu <em>stunnel</em></p>
 </dd>
-</li>
-<dt><strong><a name="item_http_3a_2f_2fwww_2estunnel_2eorg_2f"><em><a href="http://www.stunnel.org/">http://www.stunnel.org/</a></em></a></strong>
+<dt><strong><a name="http_www_stunnel_org" class="item"><em class="file"><a href="http://www.stunnel.org/">http://www.stunnel.org/</a></em></a></strong></dt>
 
 <dd>
 <p>najczê¶ciej zadawane pytania na temat programu <em>stunnel</em></p>
 </dd>
-</li>
-<dt><strong><a name="item_http_3a_2f_2fwww_2eopenssl_2eorg_2f"><em><a href="http://www.openssl.org/">http://www.openssl.org/</a></em></a></strong>
+<dt><strong><a name="http_www_openssl_org" class="item"><em class="file"><a href="http://www.openssl.org/">http://www.openssl.org/</a></em></a></strong></dt>
 
 <dd>
 <p>strona projektu <em>OpenSSL</em></p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
 <hr />
 <h1><a name="autor">AUTOR</a></h1>
 <dl>
-<dt><strong><a name="item_micha_b3_trojnara">Micha³ Trojnara</a></strong>
+<dt><strong><a name="micha_trojnara" class="item">Micha³ Trojnara</a></strong></dt>
 
 <dd>
-<p>&lt;<em><a href="mailto:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net</a></em>&gt;</p>
+<p>&lt;<em class="file"><a href="mailto:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net</a></em>&gt;</p>
 </dd>
-</li>
 </dl>
 
 </body>

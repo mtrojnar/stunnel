@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -113,7 +113,7 @@ void main_execute(void) {
     if(local_options.next) { /* there are service sections -> daemon mode */
         daemon_loop();
     } else { /* inetd mode */
-#if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
+#if !defined (USE_WIN32) && !defined (__vms)
         max_fds=FD_SETSIZE; /* just in case */
 #ifdef HAVE_CHROOT
         change_root();

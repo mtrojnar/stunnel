@@ -1,10 +1,10 @@
-# vc.mak by Michal Trojnara 1998-2008
+# vc.mak by Michal Trojnara 1998-2009
 # with help of David Gillingham <dgillingham@gmail.com>
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you?)
-SSLDIR=..\..\openssl-0.9.8i
-VERSION=4.26
+SSLDIR=..\..\openssl-0.9.8k
+VERSION=4.27
 
 OBJS=stunnel.obj ssl.obj ctx.obj verify.obj file.obj client.obj \
 	protocol.obj sthreads.obj log.obj options.obj network.obj \

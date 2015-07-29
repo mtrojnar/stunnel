@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -46,6 +46,8 @@
 /* protocol-specific function prototypes */
 static void cifs_client(CLI *);
 static void cifs_server(CLI *);
+static void pgsql_client(CLI *);
+static void pgsql_server(CLI *);
 static void smtp_client(CLI *);
 static void smtp_server(CLI *);
 static void pop3_client(CLI *);
@@ -79,6 +81,8 @@ void negotiate(CLI *c) {
             nntp_client(c);
         else if(!strcmp(c->opt->protocol, "connect"))
             connect_client(c);
+        else if(!strcmp(c->opt->protocol, "pgsql"))
+            pgsql_client(c);
         else {
             s_log(LOG_ERR, "Protocol %s not supported in client mode",
                 c->opt->protocol);
@@ -93,6 +97,8 @@ void negotiate(CLI *c) {
             pop3_server(c);
         else if(!strcmp(c->opt->protocol, "imap"))
             imap_server(c);
+        else if(!strcmp(c->opt->protocol, "pgsql"))
+            pgsql_server(c);
         else {
             s_log(LOG_ERR, "Protocol %s not supported in server mode",
                 c->opt->protocol);
@@ -142,6 +148,34 @@ static void cifs_server(CLI *c) {
         longjmp(c->err, 1);
     }
     write_blocking(c, c->local_wfd.fd, response_use_ssl, 5);
+}
+
+/* http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73013 */
+u8 ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
+
+static void pgsql_client(CLI *c) {
+    u8 buffer[1];
+
+    write_blocking(c, c->remote_fd.fd, ssl_request, sizeof(ssl_request));
+    read_blocking(c, c->remote_fd.fd, buffer, 1);
+    /* S - accepted, N - rejected, non-SSL preferred */
+    if(buffer[0]!='S') {
+        s_log(LOG_ERR, "PostgreSQL server rejected SSL");
+        longjmp(c->err, 1);
+    }
+}
+
+static void pgsql_server(CLI *c) {
+    u8 buffer[8], ssl_ok[1]={'S'};
+
+    memset(buffer, 0, sizeof(buffer));
+    read_blocking(c, c->local_rfd.fd, buffer, sizeof(buffer));
+    if(memcmp(buffer, ssl_request, sizeof(ssl_request))) {
+        s_log(LOG_ERR, "PostgreSQL client did not request SSL, rejecting");
+        /* no way to send error on startup, so just drop the client */
+        longjmp(c->err, 1);
+    }
+    write_blocking(c, c->local_wfd.fd, ssl_ok, sizeof(ssl_ok));
 }
 
 static void smtp_client(CLI *c) {

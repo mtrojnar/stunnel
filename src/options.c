@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -823,6 +823,29 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     }
 #endif
 
+    /* failover */
+    switch(cmd) {
+    case CMD_INIT:
+        section->failover=FAILOVER_RR;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "failover"))
+            break;
+        if(!strcasecmp(arg, "rr"))
+            section->failover=FAILOVER_RR;
+        else if(!strcasecmp(arg, "prio"))
+            section->failover=FAILOVER_PRIO;
+        else
+            return "Argument should be either 'rr' or 'prio'";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_RAW, "%-15s = rr|prio chose failover strategy",
+            "failover");
+        break;
+    }
+
     /* ident */
     switch(cmd) {
     case CMD_INIT:
@@ -1129,28 +1152,28 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     switch(cmd) {
     case CMD_INIT:
 #ifdef USE_FIPS
-        section->client_method=TLSv1_client_method;
-        section->server_method=TLSv1_server_method;
+        section->client_method=(SSL_METHOD *)TLSv1_client_method();
+        section->server_method=(SSL_METHOD *)TLSv1_server_method();
 #else
-        section->client_method=SSLv3_client_method;
-        section->server_method=SSLv23_server_method;
+        section->client_method=(SSL_METHOD *)SSLv3_client_method();
+        section->server_method=(SSL_METHOD *)SSLv23_server_method();
 #endif
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "sslVersion"))
             break;
         if(!strcasecmp(arg, "all")) {
-            section->client_method=SSLv23_client_method;
-            section->server_method=SSLv23_server_method;
+            section->client_method=(SSL_METHOD *)SSLv23_client_method();
+            section->server_method=(SSL_METHOD *)SSLv23_server_method();
         } else if(!strcasecmp(arg, "SSLv2")) {
-            section->client_method=SSLv2_client_method;
-            section->server_method=SSLv2_server_method;
+            section->client_method=(SSL_METHOD *)SSLv2_client_method();
+            section->server_method=(SSL_METHOD *)SSLv2_server_method();
         } else if(!strcasecmp(arg, "SSLv3")) {
-            section->client_method=SSLv3_client_method;
-            section->server_method=SSLv3_server_method;
+            section->client_method=(SSL_METHOD *)SSLv3_client_method();
+            section->server_method=(SSL_METHOD *)SSLv3_server_method();
         } else if(!strcasecmp(arg, "TLSv1")) {
-            section->client_method=TLSv1_client_method;
-            section->server_method=TLSv1_server_method;
+            section->client_method=(SSL_METHOD *)TLSv1_client_method();
+            section->server_method=(SSL_METHOD *)TLSv1_server_method();
         } else
             return "Incorrect version of SSL protocol";
         return NULL; /* OK */

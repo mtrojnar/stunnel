@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -72,7 +72,6 @@ static void make_sockets(CLI *, int [2]);
 #endif
 static int connect_remote(CLI *);
 static void print_bound_address(CLI *);
-int connect_wait(CLI *);
 static void reset(int, char *);
 
 int max_clients;
@@ -279,9 +278,6 @@ static void init_remote(CLI *c) {
 static void init_ssl(CLI *c) {
     int i, err;
     SSL_SESSION *old_session;
-#ifdef USE_FIPS
-    const unsigned char key[8]={0, 0, 0, 0, 0, 0, 0, 0};
-#endif /* USE_FIPS */
 
     if(!(c->ssl=SSL_new(c->opt->ctx))) {
         sslerror("SSL_new");
@@ -323,16 +319,9 @@ static void init_ssl(CLI *c) {
     }
 
     while(1) {
-        /* There are two reasons for a critical section here:
-         * 1. SSL_accept session negotiation has some MT-safety problems
-         * 2. openssl-fips-1.1.1 has a nasty bug in PRNG initialization
-         *    and the workaround must be inside a critical section */
+        /* crude workaround for random MT-safety problems in OpenSSL */
+        /* performance penalty is not huge, as it's a non-blocking code */
         enter_critical_section(CRIT_SSL);
-#ifdef USE_FIPS
-        /* workaround for openssl-fips-1.1.1 bug */
-        FIPS_set_prng_key(key, key); /* doesn't it break PRNG security? */
-        FIPS_rand_seed(NULL, 0);
-#endif /* USE_FIPS */
         if(c->opt->option.client)
             i=SSL_connect(c->ssl);
         else
@@ -714,7 +703,7 @@ static void print_cipher(CLI *c) { /* print negotiated cipher */
     SSL_CIPHER *cipher;
     char buf[STRLEN], *i, *j;
 
-    cipher=SSL_get_current_cipher(c->ssl);
+    cipher=(SSL_CIPHER *)SSL_get_current_cipher(c->ssl);
     SSL_CIPHER_description(cipher, buf, STRLEN);
     i=j=buf;
     do {
@@ -740,7 +729,6 @@ static void auth_user(CLI *c) {
 #endif
     SOCKADDR_UNION ident;     /* IDENT socket name */
     char name[STRLEN];
-    int error;
 
     if(!c->opt->username)
         return; /* -u option not specified */
@@ -762,15 +750,8 @@ static void auth_user(CLI *c) {
         s_log(LOG_WARNING, "Unknown service 'auth': using default 113");
         ident.in.sin_port=htons(113);
     }
-    if(connect(c->fd, &ident.sa, addr_len(ident))) {
-        error=get_last_socket_error();
-        if(error!=EINPROGRESS && error!=EWOULDBLOCK) {
-            sockerror("ident connect (auth_user)");
-            longjmp(c->err, 1);
-        }
-        if(connect_wait(c))
-            longjmp(c->err, 1);
-    }
+    if(connect_blocking(c, &ident, addr_len(ident)))
+        longjmp(c->err, 1);
     s_log(LOG_DEBUG, "IDENT server connected");
     fdprintf(c, c->fd, "%u , %u",
         ntohs(c->peer_addr.addr[0].in.sin_port),
@@ -927,15 +908,13 @@ static void make_sockets(CLI *c, int fd[2]) { /* make a pair of connected socket
 static int connect_remote(CLI *c) { /* connect to remote host */
     SOCKADDR_UNION bind_addr, addr;
     SOCKADDR_LIST resolved_list, *address_list;
-    int error, fd;
-    u16 i;
-    char connecting_address[IPLEN];
+    int fd, ind_try, ind_cur;
 
     /* setup address_list */
     if(c->opt->option.delayed_lookup) {
         resolved_list.num=0;
         if(!name2addrlist(&resolved_list,
-                c->opt->remote_address, DEFAULT_LOOPBACK)){
+                c->opt->remote_address, DEFAULT_LOOPBACK)) {
             s_log(LOG_ERR, "No host resolved");
             longjmp(c->err, 1);
         }
@@ -944,11 +923,15 @@ static int connect_remote(CLI *c) { /* connect to remote host */
         address_list=&c->opt->remote_addr;
 
     /* try to connect each host from the list */
-    for(i=0; i<address_list->num; i++) {
-        memcpy(&addr, address_list->addr + address_list->cur,
-            sizeof(SOCKADDR_UNION));
-        address_list->cur=(address_list->cur+1)%address_list->num;
-        /* a race condition is possible here, but harmless in this case */
+    for(ind_try=0; ind_try<address_list->num; ind_try++) {
+        if(c->opt->failover==FAILOVER_RR) {
+            ind_cur=address_list->cur;
+            /* the race condition here can be safely ignored */
+            address_list->cur=(ind_cur+1)%address_list->num;
+        } else { /* FAILOVER_PRIO */
+            ind_cur=ind_try; /* ignore address_list->cur */
+        }
+        memcpy(&addr, address_list->addr+ind_cur, sizeof(SOCKADDR_UNION));
 
         if((c->fd=socket(addr.sa.sa_family, SOCK_STREAM, 0))<0) {
             sockerror("remote socket");
@@ -965,26 +948,11 @@ static int connect_remote(CLI *c) { /* connect to remote host */
             }
         }
 
-        /* try to connect for the 1st time */
-        s_ntop(connecting_address, &addr);
-        s_log(LOG_DEBUG, "%s connecting %s",
-            c->opt->servname, connecting_address);
-        if(!connect(c->fd, &addr.sa, addr_len(addr))) {
-            print_bound_address(c);
-            fd=c->fd;
-            c->fd=-1;
-            return fd; /* no error -> success (should not be possible) */
-        }
-        error=get_last_socket_error();
-        if(error!=EINPROGRESS && error!=EWOULDBLOCK) {
-            s_log(LOG_ERR, "remote connect (%s): %s (%d)",
-                connecting_address, my_strerror(error), error);
+        if(connect_blocking(c, &addr, addr_len(addr))) {
             closesocket(c->fd);
             c->fd=-1;
             continue; /* next IP */
         }
-        if(connect_wait(c))
-            longjmp(c->err, 1);
         print_bound_address(c);
         fd=c->fd;
         c->fd=-1;
@@ -1007,46 +975,6 @@ static void print_bound_address(CLI *c) {
         s_log(LOG_NOTICE,"%s connected remote server from %s",
             c->opt->servname, txt);
     }
-}
-
-    /* wait for the result of a non-blocking connect */
-    /* file descriptor : c->fd                       */
-    /* timeout         : c->opt->timeout_connect     */
-int connect_wait(CLI *c) {
-    int error;
-    socklen_t optlen;
-
-    s_log(LOG_DEBUG, "connect_wait: waiting %d seconds",
-        c->opt->timeout_connect);
-    s_poll_zero(&c->fds);
-    s_poll_add(&c->fds, c->fd, 1, 1);
-    switch(s_poll_wait(&c->fds, c->opt->timeout_connect, 0)) {
-    case -1:
-        sockerror("connect_wait: s_poll_wait");
-        return -1;
-    case 0:
-        s_log(LOG_INFO, "connect_wait: s_poll_wait timeout");
-        return -1;
-    default:
-        if(s_poll_canread(&c->fds, c->fd)) {
-            /* just connected socket should not be ready for read */
-            /* get the resulting error code, now */
-            optlen=sizeof(error);
-            if(!getsockopt(c->fd, SOL_SOCKET, SO_ERROR, (void *)&error, &optlen))
-                errno=error;
-            if(errno) { /* really an error? */
-                sockerror("connect_wait: getsockopt");
-                return -1;
-            }
-        }
-        if(s_poll_canwrite(&c->fds, c->fd)) {
-            s_log(LOG_DEBUG, "connect_wait: connected");
-            return 0; /* success */
-        }
-        s_log(LOG_ERR, "connect_wait: unexpected s_poll_wait result");
-        return -1;
-    }
-    return -1; /* should not be possible */
 }
 
 static void reset(int fd, char *txt) {

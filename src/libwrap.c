@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -80,8 +80,11 @@ void libwrap_init(int num) {
             die(1);
         case  0:    /* child */
             drop_privileges(); /* libwrap processes are not chrooted */
-            /* FIXME: other file descriptors are not closed */
-            close(ipc_socket[2*i]); /* server-side socket */
+            close(0); /* stdin */
+            close(1); /* stdout */
+            if(!options.option.foreground) /* for logging in read_fd */
+                close(2); /* stderr */
+            close(ipc_socket[2*i]); /* close server-side socket */
             for(j=0; j<i; ++j) /* previously created client-side sockets */
                 close(ipc_socket[2*j+1]);
             while(1) { /* main libwrap client loop */
