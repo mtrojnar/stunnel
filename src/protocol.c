@@ -121,20 +121,27 @@ void protocol(CLI *c, const int phase) {
  * stunnel-users mailing list if you disagree
  */
 
+/* IP address textual representation length */
+/* 1234:6789:1234:6789:1234:6789:1234:6789 -> 40 chars with '\0' */
+#define IP_LEN 40
+#define PORT_LEN 6
+
 static void proxy_server(CLI *c) {
     SOCKADDR_UNION addr;
     socklen_t addrlen;
-    char src_host[IPLEN-5], dst_host[IPLEN-5];
-    char src_port[6], dst_port[6], *proto;
+    char src_host[IP_LEN], dst_host[IP_LEN];
+    char src_port[PORT_LEN], dst_port[PORT_LEN], *proto;
+    int err;
 
     addrlen=sizeof addr;
     if(getpeername(c->local_rfd.fd, &addr.sa, &addrlen)) {
         sockerror("getpeername");
         longjmp(c->err, 1);
     }
-    if(getnameinfo(&addr.sa, addr_len(addr), src_host, IPLEN-5,
-            src_port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
-        sockerror("getnameinfo");
+    err=getnameinfo(&addr.sa, addr_len(&addr), src_host, IP_LEN,
+        src_port, PORT_LEN, NI_NUMERICHOST|NI_NUMERICSERV);
+    if(err) {
+        s_log(LOG_ERR, "getnameinfo: %s", s_gai_strerror(err));
         longjmp(c->err, 1);
     }
 
@@ -143,9 +150,10 @@ static void proxy_server(CLI *c) {
         sockerror("getsockname");
         longjmp(c->err, 1);
     }
-    if(getnameinfo(&addr.sa, addr_len(addr), dst_host, IPLEN-5,
-            dst_port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
-        sockerror("getnameinfo");
+    err=getnameinfo(&addr.sa, addr_len(&addr), dst_host, IP_LEN,
+        dst_port, PORT_LEN, NI_NUMERICHOST|NI_NUMERICSERV);
+    if(err) {
+        s_log(LOG_ERR, "getnameinfo: %s", s_gai_strerror(err));
         longjmp(c->err, 1);
     }
 
@@ -156,7 +164,7 @@ static void proxy_server(CLI *c) {
     case AF_INET6:
         proto="TCP6";
         break;
-    default:
+    default: /* AF_UNIX */
         proto="UNKNOWN";
     }
     fdprintf(c, c->remote_fd.fd, "PROXY %s %s %s %s %s",
@@ -269,9 +277,9 @@ static void smtp_client(CLI *c) {
 static void smtp_server(CLI *c) {
     char *line;
 
-    s_poll_init(&c->fds);
-    s_poll_add(&c->fds, c->local_rfd.fd, 1, 0);
-    switch(s_poll_wait(&c->fds, 0, 200)) { /* wait up to 200ms */
+    s_poll_init(c->fds);
+    s_poll_add(c->fds, c->local_rfd.fd, 1, 0);
+    switch(s_poll_wait(c->fds, 0, 200)) { /* wait up to 200ms */
     case 0: /* fd not ready to read */
         s_log(LOG_DEBUG, "RFC 2487 detected");
         break;
@@ -364,9 +372,9 @@ static void imap_client(CLI *c) {
 static void imap_server(CLI *c) {
     char *line, *id, *tail, *capa;
  
-    s_poll_init(&c->fds);
-    s_poll_add(&c->fds, c->local_rfd.fd, 1, 0);
-    switch(s_poll_wait(&c->fds, 0, 200)) {
+    s_poll_init(c->fds);
+    s_poll_add(c->fds, c->local_rfd.fd, 1, 0);
+    switch(s_poll_wait(c->fds, 0, 200)) {
     case 0: /* fd not ready to read */
         s_log(LOG_DEBUG, "RFC 2595 detected");
         break;

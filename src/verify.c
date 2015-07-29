@@ -214,9 +214,14 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
     }
     if(!preverify_ok) {
         /* remote site specified a certificate, but it's not correct */
-        s_log(LOG_WARNING, "CERT: Verification error: %s",
-            X509_verify_cert_error_string(callback_ctx->error));
-        return 0; /* reject connection */
+        if(c->opt->verify_level>=4 && callback_ctx->error_depth>0) {
+            s_log(LOG_INFO, "CERT: Invalid CA certificate ignored");
+            return 1; /* accept connection */
+        } else {    
+            s_log(LOG_WARNING, "CERT: Verification error: %s",
+                X509_verify_cert_error_string(callback_ctx->error));
+            return 0; /* reject connection */
+        }
     }
     if(c->opt->verify_level>=3 && callback_ctx->error_depth==0) {
         if(X509_STORE_get_by_subject(callback_ctx, X509_LU_X509,
@@ -343,7 +348,6 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx) {
 
 static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     int error, retval=0;
-    SOCKADDR_UNION addr;
     X509 *cert;
     X509 *issuer=NULL;
     OCSP_CERTID *certID;
@@ -356,12 +360,11 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     int status, reason;
 
     /* connect specified OCSP server (responder) */
-    c->fd=s_socket(c->opt->ocsp_addr.addr[0].sa.sa_family, SOCK_STREAM, 0,
+    c->fd=s_socket(c->opt->ocsp_addr.sa.sa_family, SOCK_STREAM, 0,
         0, "OCSP: socket (auth_user)");
     if(c->fd<0)
         return 0; /* reject connection */
-    memcpy(&addr, &c->opt->ocsp_addr.addr[0], sizeof addr);
-    if(connect_blocking(c, &addr, addr_len(addr)))
+    if(connect_blocking(c, &c->opt->ocsp_addr, addr_len(&c->opt->ocsp_addr)))
         goto cleanup;
     s_log(LOG_DEBUG, "OCSP: server connected");
 

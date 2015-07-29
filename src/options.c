@@ -554,15 +554,15 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     switch(cmd) {
     case CMD_INIT:
         section->option.accept=0;
-        memset(&section->local_addr, 0, sizeof(SOCKADDR_LIST));
-        section->local_addr.addr[0].in.sin_family=AF_INET;
+        memset(&section->local_addr, 0, sizeof(SOCKADDR_UNION));
+        section->local_addr.in.sin_family=AF_INET;
         section->fd=-1;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "accept"))
             break;
         section->option.accept=1;
-        if(!name2addrlist(&section->local_addr, arg, DEFAULT_ANY))
+        if(!name2addr(&section->local_addr, arg, DEFAULT_ANY))
             return "Failed to resolve accepting address";
         return NULL; /* OK */
     case CMD_DEFAULT:
@@ -965,13 +965,15 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* local */
     switch(cmd) {
     case CMD_INIT:
-        memset(&section->source_addr, 0, sizeof(SOCKADDR_LIST));
-        section->source_addr.addr[0].in.sin_family=AF_INET;
+        section->option.local=0;
+        memset(&section->source_addr, 0, sizeof(SOCKADDR_UNION));
+        section->source_addr.in.sin_family=AF_INET;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "local"))
             break;
-        if(!hostport2addrlist(&section->source_addr, arg, "0"))
+        section->option.local=1;
+        if(!hostport2addr(&section->source_addr, arg, "0"))
             return "Failed to resolve local address";
         return NULL; /* OK */
     case CMD_DEFAULT:
@@ -988,8 +990,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     switch(cmd) {
     case CMD_INIT:
         section->option.ocsp=0;
-        memset(&section->ocsp_addr, 0, sizeof(SOCKADDR_LIST));
-        section->ocsp_addr.addr[0].in.sin_family=AF_INET;
+        memset(&section->ocsp_addr, 0, sizeof(SOCKADDR_UNION));
+        section->ocsp_addr.in.sin_family=AF_INET;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "ocsp"))
@@ -1211,8 +1213,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     switch(cmd) {
     case CMD_INIT:
         section->option.sessiond=0;
-        memset(&section->sessiond_addr, 0, sizeof(SOCKADDR_LIST));
-        section->sessiond_addr.addr[0].in.sin_family=AF_INET;
+        memset(&section->sessiond_addr, 0, sizeof(SOCKADDR_UNION));
+        section->sessiond_addr.in.sin_family=AF_INET;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "sessiond"))
@@ -1223,7 +1225,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         /* this prevents session callbacks from beeing executed */
         section->ssl_options|=SSL_OP_NO_TICKET;
 #endif
-        if(!name2addrlist(&section->sessiond_addr, arg, DEFAULT_LOOPBACK))
+        if(!name2addr(&section->sessiond_addr, arg, DEFAULT_LOOPBACK))
             return "Failed to resolve sessiond server address";
         return NULL; /* OK */
     case CMD_DEFAULT:
@@ -1509,7 +1511,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->verify_level=strtol(arg, &tmpstr, 10);
         if(tmpstr==arg || *tmpstr) /* not a number */
             return "Bad verify level";
-        if(section->verify_level<0 || section->verify_level>3)
+        if(section->verify_level<0 || section->verify_level>4)
             return "Bad verify level";
         return NULL; /* OK */
     case CMD_DEFAULT:
@@ -1526,6 +1528,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             "%18slevel 2 - always require a valid peer certificate", "");
         s_log(LOG_NOTICE,
             "%18slevel 3 - verify peer with locally installed certificate", "");
+        s_log(LOG_NOTICE,
+            "%18slevel 4 - ignore CA chain and only verify peer certificate", "");
         break;
     }
 
@@ -1591,9 +1595,6 @@ int parse_conf(char *name, CONF_TYPE type) {
     int line_number, i;
     SERVICE_OPTIONS *section, *new_section;
     static char *filename=NULL; /* a copy of config file name for reloading */
-#ifdef MAX_FD
-    int sections=0;
-#endif
 #ifndef USE_WIN32
     int fd;
     char *tmpstr;
@@ -1662,13 +1663,6 @@ int parse_conf(char *name, CONF_TYPE type) {
             new_section->next=NULL;
             section->next=new_section;
             section=new_section;
-#ifdef MAX_FD
-            if(++sections>MAX_FD) {
-                config_error(line_number, line_text, "Too many sections");
-                file_close(df);
-                return 1;
-            }
-#endif
             continue;
         }
         config_arg=strchr(config_line, '=');
@@ -2169,7 +2163,7 @@ static char *parse_ocsp_url(SERVICE_OPTIONS *section, char *arg) {
     if(ssl)
         return "SSL not supported for OCSP"
             " - additional stunnel service needs to be defined";
-    if(!hostport2addrlist(&section->ocsp_addr, host, port))
+    if(!hostport2addr(&section->ocsp_addr, host, port))
         return "Failed to resolve OCSP server address";
     section->ocsp_path=str_dup(path);
     if(host)

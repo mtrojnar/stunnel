@@ -40,25 +40,27 @@
 
 /* #define DEBUG_UCONTEXT */
 
-static int signal_pipe[2]={-1, -1};
-#ifdef __INNOTEK_LIBC__
-struct sockaddr_un {
-    u_char  sun_len;             /* sockaddr len including null */
-    u_char  sun_family;          /* AF_OS2 or AF_UNIX */
-    char    sun_path[108];       /* path name */
-};
-#endif
-static void signal_pipe_empty(void);
-#ifdef USE_FORK
-static void client_status(void); /* dead children detected */
-#endif
-
 /**************************************** s_poll functions */
 
 #ifdef USE_POLL
 
+s_poll_set *s_poll_alloc() {
+    /* it needs to be filled with zeros */
+    return str_alloc(sizeof(s_poll_set));
+}
+
+void s_poll_free(s_poll_set *fds) {
+    if(fds) {
+        if(fds->ufds)
+            str_free(fds->ufds);
+        str_free(fds);
+    }
+}
+
 void s_poll_init(s_poll_set *fds) {
     fds->nfds=0;
+    fds->allocated=4; /* prealloc 4 file desciptors */
+    fds->ufds=str_realloc(fds->ufds, fds->allocated*sizeof(struct pollfd));
 }
 
 void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
@@ -66,12 +68,11 @@ void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
 
     for(i=0; i<fds->nfds && fds->ufds[i].fd!=fd; i++)
         ;
-    if(i>=MAX_FD) {
-        s_log(LOG_ERR,
-            "s_poll_add failed for FD=%d: too many file descriptors", fd);
-        return;
-    }
     if(i==fds->nfds) {
+        if(i==fds->allocated) {
+            fds->allocated=i+1;
+            fds->ufds=str_realloc(fds->ufds, fds->allocated*sizeof(struct pollfd));
+        }
         fds->ufds[i].fd=fd;
         fds->ufds[i].events=0;
         fds->nfds++;
@@ -114,12 +115,11 @@ int s_poll_error(s_poll_set *fds, int fd) {
 
 /* move ready contexts from waiting queue to ready queue */
 static void scan_waiting_queue(void) {
-    int retval, retry;
+    int retval;
     CONTEXT *context, *prev;
     int min_timeout;
     unsigned int nfds, i;
     time_t now;
-    short *signal_revents;
     static unsigned int max_nfds=0;
     static struct pollfd *ufds=NULL;
 
@@ -139,13 +139,10 @@ static void scan_waiting_queue(void) {
         max_nfds=nfds;
     }
     nfds=0;
-    signal_revents=NULL;
     for(context=waiting_head; context; context=context->next)
         for(i=0; i<context->fds->nfds; i++) {
             ufds[nfds].fd=context->fds->ufds[i].fd;
             ufds[nfds].events=context->fds->ufds[i].events;
-            if(ufds[nfds].fd==signal_pipe[0])
-                signal_revents=&ufds[nfds].revents;
             nfds++;
         }
 
@@ -154,13 +151,8 @@ static void scan_waiting_queue(void) {
         min_timeout, nfds);
 #endif
     do { /* skip "Interrupted system call" errors */
-        retry=0;
         retval=poll(ufds, nfds, min_timeout<0 ? -1 : 1000*min_timeout);
-        if(retval>0 && signal_revents && (*signal_revents & POLLIN)) {
-            signal_pipe_empty(); /* no timeout -> main loop */
-            retry=1;
-        }
-    } while(retry || (retval<0 && get_last_socket_error()==S_EINTR));
+    } while(retval<0 && get_last_socket_error()==S_EINTR);
     time(&now);
     /* process the returned data */
     nfds=0;
@@ -271,22 +263,27 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
 #else /* USE_UCONTEXT */
 
 int s_poll_wait(s_poll_set *fds, int sec, int msec) {
-    int retval, retry;
+    int retval;
 
     do { /* skip "Interrupted system call" errors */
-        retry=0;
         retval=poll(fds->ufds, fds->nfds, sec<0 ? -1 : 1000*sec+msec);
-        if(sec<0 && retval>0 && s_poll_canread(fds, signal_pipe[0])) {
-            signal_pipe_empty(); /* no timeout -> main loop */
-            retry=1;
-        }
-    } while(retry || (retval<0 && get_last_socket_error()==S_EINTR));
+    } while(retval<0 && get_last_socket_error()==S_EINTR);
     return retval;
 }
 
 #endif /* USE_UCONTEXT */
 
 #else /* select */
+
+s_poll_set *s_poll_alloc() {
+    /* it needs to be filled with zeros */
+    return str_alloc(sizeof(s_poll_set));
+}
+
+void s_poll_free(s_poll_set *fds) {
+    if(fds)
+        str_free(fds);
+}
 
 void s_poll_init(s_poll_set *fds) {
     FD_ZERO(&fds->irfds);
@@ -318,11 +315,10 @@ int s_poll_error(s_poll_set *fds, int fd) {
 }
 
 int s_poll_wait(s_poll_set *fds, int sec, int msec) {
-    int retval, retry;
+    int retval;
     struct timeval tv, *tv_ptr;
 
     do { /* skip "Interrupted system call" errors */
-        retry=0;
         memcpy(&fds->orfds, &fds->irfds, sizeof(fd_set));
         memcpy(&fds->owfds, &fds->iwfds, sizeof(fd_set));
         if(sec<0) { /* infinite timeout */
@@ -333,191 +329,11 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
             tv_ptr=&tv;
         }
         retval=select(fds->max+1, &fds->orfds, &fds->owfds, NULL, tv_ptr);
-        if(sec<0 && retval>0 && s_poll_canread(fds, signal_pipe[0])) {
-            signal_pipe_empty(); /* no timeout -> main loop */
-            retry=1;
-        }
-    } while(retry || (retval<0 && get_last_socket_error()==S_EINTR));
+    } while(retval<0 && get_last_socket_error()==S_EINTR);
     return retval;
 }
 
 #endif /* USE_POLL */
-
-/**************************************** signal pipe handling */
-
-int signal_pipe_init(void) {
-#ifdef USE_WIN32
-    if(make_sockets(signal_pipe))
-        die(1);
-#else
-#if defined(__INNOTEK_LIBC__)
-    /* Innotek port of GCC can not use select on a pipe
-     * use local socket instead */
-    struct sockaddr_un un;
-    fd_set set_pipe;
-    int pipe_in;
-
-    FD_ZERO(&set_pipe);
-    signal_pipe[0]=s_socket(PF_OS2, SOCK_STREAM, 0, 0, "socket#1");
-    signal_pipe[1]=s_socket(PF_OS2, SOCK_STREAM, 0, 0, "socket#2");
-
-    /* connect the two endpoints */
-    memset(&un, 0, sizeof un);
-    un.sun_len=sizeof un;
-    un.sun_family=AF_OS2;
-    sprintf(un.sun_path, "\\socket\\stunnel-%u", getpid());
-    /* make the first endpoint listen */
-    bind(signal_pipe[0], (struct sockaddr *)&un, sizeof un);
-    listen(signal_pipe[0], 1);
-    connect(signal_pipe[1], (struct sockaddr *)&un, sizeof un);
-    FD_SET(signal_pipe[0], &set_pipe);
-    if(select(signal_pipe[0]+1, &set_pipe, NULL, NULL, NULL)>0) {
-        pipe_in=signal_pipe[0];
-        signal_pipe[0]=s_accept(signal_pipe[0], NULL, 0, 0, "accept");
-        closesocket(pipe_in);
-    } else {
-        sockerror("select");
-        die(1);
-    }
-#else /* __INNOTEK_LIBC__ */
-    if(s_pipe(signal_pipe, 1, "signal_pipe"))
-        die(1);
-#endif /* __INNOTEK_LIBC__ */
-
-    signal(SIGCHLD, signal_handler); /* a child has died */
-    signal(SIGHUP, signal_handler); /* configuration reload */
-    signal(SIGUSR1, signal_handler); /* log reopen */
-    signal(SIGPIPE, SIG_IGN); /* ignore "broken pipe" */
-    if(signal(SIGTERM, SIG_IGN)!=SIG_IGN)
-        signal(SIGTERM, signal_handler); /* fatal */
-    if(signal(SIGQUIT, SIG_IGN)!=SIG_IGN)
-        signal(SIGQUIT, signal_handler); /* fatal */
-    if(signal(SIGINT, SIG_IGN)!=SIG_IGN)
-        signal(SIGINT, signal_handler); /* fatal */
-    /* signal(SIGSEGV, signal_handler); */
-#endif /* USE_WIN32 */
-    return signal_pipe[0];
-}
-
-void signal_post(int sig) {
-    writesocket(signal_pipe[1], (char *)&sig, sizeof sig);
-}
-
-static void signal_pipe_empty(void) {
-    int sig, err;
-
-    s_log(LOG_DEBUG, "Dispatching signals from the signal pipe");
-    while(readsocket(signal_pipe[0], (char *)&sig, sizeof sig)==sizeof sig) {
-        switch(sig) {
-#ifndef USE_WIN32
-        case SIGCHLD:
-            s_log(LOG_DEBUG, "Processing SIGCHLD");
-#ifdef USE_FORK
-            client_status(); /* report status of client process */
-#else /* USE_UCONTEXT || USE_PTHREAD */
-            child_status();  /* report status of libwrap or 'exec' process */
-#endif /* defined USE_FORK */
-            break;
-#endif /* !defind USE_WIN32 */
-        case SIGNAL_RELOAD_CONFIG:
-            s_log(LOG_DEBUG, "Processing SIGNAL_RELOAD_CONFIG");
-            err=parse_conf(NULL, CONF_RELOAD);
-            if(err) {
-                s_log(LOG_ERR, "Failed to reload the configuration file");
-            } else {
-                unbind_ports();
-                log_close();
-                apply_conf();
-                log_open();
-                if(bind_ports()) {
-                    /* FIXME: handle the error */
-                }
-            }
-#ifdef USE_WIN32
-            win_newconfig();
-#endif
-            break;
-        case SIGNAL_REOPEN_LOG:
-            s_log(LOG_DEBUG, "Processing SIGNAL_REOPEN_LOG");
-            log_close();
-            log_open();
-            s_log(LOG_NOTICE, "Log file reopened");
-            break;
-        case SIGNAL_TERMINATE:
-            s_log(LOG_DEBUG, "Processing SIGNAL_TERMINATE");
-            s_log(LOG_NOTICE, "Terminated");
-            die(2);
-        default:
-            s_log(LOG_ERR, "Received signal %d; terminating", sig);
-            die(1);
-        }
-    }
-    s_log(LOG_DEBUG, "Signal pipe is empty");
-}
-
-#ifdef USE_FORK
-static void client_status(void) { /* dead children detected */
-    int pid, status;
-
-#ifdef HAVE_WAIT_FOR_PID
-    while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
-        --num_clients; /* one client less */
-#else
-    if((pid=wait(&status))>0) {
-        --num_clients; /* one client less */
-#endif
-#ifdef WIFSIGNALED
-        if(WIFSIGNALED(status)) {
-            s_log(LOG_DEBUG, "Process %d terminated on signal %d (%d left)",
-                pid, WTERMSIG(status), num_clients);
-        } else {
-            s_log(LOG_DEBUG, "Process %d finished with code %d (%d left)",
-                pid, WEXITSTATUS(status), num_clients);
-        }
-    }
-#else
-        s_log(LOG_DEBUG, "Process %d finished with code %d (%d left)",
-            pid, status, num_clients);
-    }
-#endif
-}
-#endif /* defined USE_FORK */
-
-#if !defined(USE_WIN32) && !defined(USE_OS2)
-
-void child_status(void) { /* dead libwrap or 'exec' process detected */
-    int pid, status;
-
-#ifdef HAVE_WAIT_FOR_PID
-    while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
-#else
-    if((pid=wait(&status))>0) {
-#endif
-#ifdef WIFSIGNALED
-        if(WIFSIGNALED(status)) {
-            s_log(LOG_INFO, "Child process %d terminated on signal %d",
-                pid, WTERMSIG(status));
-        } else {
-            s_log(LOG_INFO, "Child process %d finished with code %d",
-                pid, WEXITSTATUS(status));
-        }
-#else
-        s_log(LOG_INFO, "Child process %d finished with status %d",
-            pid, status);
-#endif
-    }
-}
-
-void signal_handler(int sig) {
-    int saved_errno;
-
-    saved_errno=errno;
-    signal_post(sig);
-    signal(sig, signal_handler);
-    errno=saved_errno;
-}
-
-#endif /* !defined(USE_WIN32) && !defined(USE_OS2) */
 
 /**************************************** fd management */
 
@@ -546,8 +362,9 @@ int set_socket_options(int s, int type) {
         if(setsockopt(s, ptr->opt_level, ptr->opt_name,
                 (void *)ptr->opt_val[type], opt_size)) {
             if(get_last_socket_error()==S_EOPNOTSUPP) {
-                s_log(LOG_NOTICE,
-                    "Failed to set option %s set on %s socket (not a socket?)",
+                /* most likely stdin/stdout or AF_UNIX socket */
+                s_log(LOG_DEBUG,
+                    "Option %s not supported on %s socket",
                     ptr->opt_str, type_str[type]);
             } else {
                 sockerror(ptr->opt_str);
@@ -574,53 +391,60 @@ int get_socket_error(const int fd) {
 
 int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     int error;
-    char dst[IPLEN];
+    char *dst;
 
-    s_ntop(dst, addr);
+    dst=s_ntop(addr, addrlen);
     s_log(LOG_INFO, "connect_blocking: connecting %s", dst);
 
     if(!connect(c->fd, &addr->sa, addrlen)) {
         s_log(LOG_NOTICE, "connect_blocking: connected %s", dst);
+        str_free(dst);
         return 0; /* no error -> success (on some OSes over the loopback) */
     }
     error=get_last_socket_error();
     if(error!=S_EINPROGRESS && error!=S_EWOULDBLOCK) {
         s_log(LOG_ERR, "connect_blocking: connect %s: %s (%d)",
             dst, s_strerror(error), error);
+        str_free(dst);
         return -1;
     }
 
     s_log(LOG_DEBUG, "connect_blocking: s_poll_wait %s: waiting %d seconds",
         dst, c->opt->timeout_connect);
-    s_poll_init(&c->fds);
-    s_poll_add(&c->fds, c->fd, 1, 1);
-    switch(s_poll_wait(&c->fds, c->opt->timeout_connect, 0)) {
+    s_poll_init(c->fds);
+    s_poll_add(c->fds, c->fd, 1, 1);
+    switch(s_poll_wait(c->fds, c->opt->timeout_connect, 0)) {
     case -1:
         error=get_last_socket_error();
         s_log(LOG_ERR, "connect_blocking: s_poll_wait %s: %s (%d)",
             dst, s_strerror(error), error);
+        str_free(dst);
         return -1;
     case 0:
         s_log(LOG_ERR, "connect_blocking: s_poll_wait %s:"
             " TIMEOUTconnect exceeded", dst);
+        str_free(dst);
         return -1;
     default:
-        if(s_poll_canread(&c->fds, c->fd) || s_poll_error(&c->fds, c->fd)) {
+        if(s_poll_canread(c->fds, c->fd) || s_poll_error(c->fds, c->fd)) {
             /* newly connected socket should not be ready for read */
             /* get the resulting error code, now */
             error=get_socket_error(c->fd);
             if(error) { /* really an error? */
                 s_log(LOG_ERR, "connect_blocking: getsockopt %s: %s (%d)",
                     dst, s_strerror(error), error);
+                str_free(dst);
                 return -1;
             }
         }
-        if(s_poll_canwrite(&c->fds, c->fd)) {
+        if(s_poll_canwrite(c->fds, c->fd)) {
             s_log(LOG_NOTICE, "connect_blocking: connected %s", dst);
+            str_free(dst);
             return 0; /* success */
         }
         s_log(LOG_ERR, "connect_blocking: s_poll_wait %s: internal error",
             dst);
+        str_free(dst);
         return -1;
     }
     return -1; /* should not be possible */
@@ -628,13 +452,12 @@ int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
 
 void write_blocking(CLI *c, int fd, void *ptr, int len) {
         /* simulate a blocking write */
-    s_poll_set fds;
     int num;
 
     while(len>0) {
-        s_poll_init(&fds);
-        s_poll_add(&fds, fd, 0, 1); /* write */
-        switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
+        s_poll_init(c->fds);
+        s_poll_add(c->fds, fd, 0, 1); /* write */
+        switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
             sockerror("write_blocking: s_poll_wait");
             longjmp(c->err, 1); /* error */
@@ -661,13 +484,12 @@ void write_blocking(CLI *c, int fd, void *ptr, int len) {
 
 void read_blocking(CLI *c, int fd, void *ptr, int len) {
         /* simulate a blocking read */
-    s_poll_set fds;
     int num;
 
     while(len>0) {
-        s_poll_init(&fds);
-        s_poll_add(&fds, fd, 1, 0); /* read */
-        switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
+        s_poll_init(c->fds);
+        s_poll_add(c->fds, fd, 1, 0); /* read */
+        switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
             sockerror("read_blocking: s_poll_wait");
             longjmp(c->err, 1); /* error */
@@ -711,13 +533,12 @@ void fdputline(CLI *c, int fd, const char *line) {
 
 char *fdgetline(CLI *c, int fd) {
     char *line=NULL, *tmpline;
-    s_poll_set fds;
     int ptr=0;
 
     for(;;) {
-        s_poll_init(&fds);
-        s_poll_add(&fds, fd, 1, 0); /* read */
-        switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
+        s_poll_init(c->fds);
+        s_poll_add(c->fds, fd, 1, 0); /* read */
+        switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
             sockerror("fdgetline: s_poll_wait");
             str_free(line);

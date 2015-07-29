@@ -135,6 +135,9 @@
 /* Define to 1 if `msg_control' is a member of `struct msghdr'. */
 #undef HAVE_STRUCT_MSGHDR_MSG_CONTROL
 
+/* Define to 1 if the system has the type `struct sockaddr_un'. */
+#undef HAVE_STRUCT_SOCKADDR_UN
+
 /* Define to 1 if you have the `sysconf' function. */
 #undef HAVE_SYSCONF
 
@@ -161,6 +164,9 @@
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/un.h> header file. */
+#undef HAVE_SYS_UN_H
 
 /* Define to 1 if you have the <tcpd.h> header file. */
 #undef HAVE_TCPD_H

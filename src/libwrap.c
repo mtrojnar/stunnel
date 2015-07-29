@@ -105,7 +105,7 @@ void libwrap_init() {
 #endif /* USE_PTHREAD */
 }
 
-void libwrap_auth(CLI *c) {
+void libwrap_auth(CLI *c, char *accepted_address) {
     int result=0; /* deny by default */
 #ifdef USE_PTHREAD
     static volatile int num_busy=0, roundrobin=0;
@@ -116,6 +116,12 @@ void libwrap_auth(CLI *c) {
 
     if(!c->opt->option.libwrap) /* libwrap is disabled for this service */
         return; /* allow connection */
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+    if(c->peer_addr.sa.sa_family==AF_UNIX) {
+        s_log(LOG_INFO, "Libwrap is not supported on Unix sockets");
+        return;
+    }
+#endif
 #ifdef USE_PTHREAD
     if(num_processes) {
         s_log(LOG_DEBUG, "Waiting for a libwrap process");
@@ -186,12 +192,12 @@ void libwrap_auth(CLI *c) {
     }
     if(!result) {
         s_log(LOG_WARNING, "Service %s REFUSED by libwrap from %s",
-            c->opt->servname, c->accepted_address);
+            c->opt->servname, accepted_address);
         s_log(LOG_DEBUG, "See hosts_access(5) manual for details");
         longjmp(c->err, 1);
     }
     s_log(LOG_DEBUG, "Service %s permitted by libwrap from %s",
-        c->opt->servname, c->accepted_address);
+        c->opt->servname, accepted_address);
 }
 
 static int check(char *name, int fd) {

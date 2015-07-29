@@ -275,8 +275,8 @@ stunnel_CPPFLAGS = -I/usr/kerberos/include -I$(SSLDIR)/include \
 	-DPIDFILE='"$(localstatedir)/run/stunnel/stunnel.pid"'
 
 # Win32 executable
-EXTRA_DIST = stunnel.exe nogui.c make.bat makece.bat makew32.bat \
-	mingw.mak evc.mak vc.mak os2.mak
+EXTRA_DIST = nogui.c make.bat makece.bat makew32.bat mingw.mak evc.mak \
+	vc.mak os2.mak
 stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_sources)
 OPENSSLDIR = /usr/src/openssl-1.0.0e-i586
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
@@ -815,6 +815,9 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
+	$(MAKE) $(AM_MAKEFLAGS) \
+	  top_distdir="$(top_distdir)" distdir="$(distdir)" \
+	  dist-hook
 check-am: all-am
 check: check-am
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) config.h
@@ -856,7 +859,7 @@ distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
-	distclean-hdr distclean-tags
+	distclean-hdr distclean-local distclean-tags
 
 dvi: dvi-am
 
@@ -924,21 +927,26 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-binPROGRAMS \
 	clean-generic clean-libtool clean-pkglibLTLIBRARIES ctags \
-	distclean distclean-compile distclean-generic distclean-hdr \
-	distclean-libtool distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-binPROGRAMS \
-	install-binSCRIPTS install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-pkglibLTLIBRARIES \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool mostlyclean-local pdf \
-	pdf-am ps ps-am tags uninstall uninstall-am \
-	uninstall-binPROGRAMS uninstall-binSCRIPTS \
+	dist-hook distclean distclean-compile distclean-generic \
+	distclean-hdr distclean-libtool distclean-local distclean-tags \
+	distdir dvi dvi-am html html-am info info-am install \
+	install-am install-binPROGRAMS install-binSCRIPTS install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-pkglibLTLIBRARIES install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	mostlyclean-local pdf pdf-am ps ps-am tags uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-binSCRIPTS \
 	uninstall-pkglibLTLIBRARIES
 
+
+dist-hook: stunnel.exe
+
+distclean-local:
+	rm -f stunnel.exe
 
 # SUFFIXES = .c .rc .obj
 

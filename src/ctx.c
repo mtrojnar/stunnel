@@ -157,6 +157,9 @@ static int servername_cb(SSL *ssl, int *ad, void *arg) {
     const char *servername=SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     SERVERNAME_LIST *list;
     CLI *c;
+#ifdef USE_LIBWRAP
+    char *accepted_address;
+#endif /* USE_LIBWRAP */
 
     /* leave the alert type at SSL_AD_UNRECOGNIZED_NAME */
     (void)ad; /* skip warning about unused parameter */
@@ -175,7 +178,9 @@ static int servername_cb(SSL *ssl, int *ad, void *arg) {
             s_log(LOG_NOTICE, "SNI: switched to section %s",
                 c->opt->servname);
 #ifdef USE_LIBWRAP
-            libwrap_auth(c); /* retry on a service switch */
+            accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
+            libwrap_auth(c, accepted_address); /* retry on a service switch */
+            str_free(accepted_address);
 #endif /* USE_LIBWRAP */
             return SSL_TLSEXT_ERR_OK;
         }
@@ -492,7 +497,6 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     const char *type_description[]={"new", "get", "remove"};
     unsigned int i;
     int s, len;
-    SOCKADDR_UNION addr;
     struct timeval t;
     CACHE_PACKET *packet;
     SERVICE_OPTIONS *section;
@@ -543,9 +547,8 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
 
     /* retrieve pointer to the section structure of this ctx */
     section=SSL_CTX_get_ex_data(ctx, opt_index);
-    memcpy(&addr, &section->sessiond_addr.addr[0], sizeof addr);
     if(sendto(s, (void *)packet, sizeof(CACHE_PACKET)-MAX_VAL_LEN+val_len, 0,
-            &addr.sa, addr_len(addr))<0) {
+            &section->sessiond_addr.sa, addr_len(&section->sessiond_addr))<0) {
         sockerror("cache_transfer: sendto");
         closesocket(s);
         str_free(packet);

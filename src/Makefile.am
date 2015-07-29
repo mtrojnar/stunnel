@@ -31,7 +31,7 @@ stunnel_CPPFLAGS += -DPIDFILE='"$(localstatedir)/run/stunnel/stunnel.pid"'
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 
 # Win32 executable
-EXTRA_DIST = stunnel.exe nogui.c make.bat makece.bat makew32.bat
+EXTRA_DIST = nogui.c make.bat makece.bat makew32.bat
 EXTRA_DIST += mingw.mak evc.mak vc.mak os2.mak
 EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_sources)
@@ -49,6 +49,11 @@ WINOBJ += stunnel.obj gui.obj resources.obj
 WINPREFIX = i586-mingw32msvc-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
+
+dist-hook: stunnel.exe
+
+distclean-local:
+	rm -f stunnel.exe
 
 # SUFFIXES = .c .rc .obj
 

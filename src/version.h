@@ -58,7 +58,7 @@
 
 /* START CUSTOMIZE */
 #define VERSION_MAJOR 4
-#define VERSION_MINOR 45
+#define VERSION_MINOR 46
 /* END CUSTOMIZE */
 
 /* all the following macros are ABSOLUTELY NECESSARY to have proper string

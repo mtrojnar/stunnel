@@ -42,8 +42,6 @@
 
 /**************************************** data structures */
 
-#define MAX_HOSTS 16
-
 typedef enum {
     LOG_MODE_NONE,
     LOG_MODE_ERROR,
@@ -54,15 +52,18 @@ typedef enum {
 typedef union sockaddr_union {
     struct sockaddr sa;
     struct sockaddr_in in;
-#if defined(USE_IPv6)
+#ifdef USE_IPv6
     struct sockaddr_in6 in6;
+#endif
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+    struct sockaddr_un un;
 #endif
 } SOCKADDR_UNION;
 
-typedef struct sockaddr_list {      /* list of addresses */
-    SOCKADDR_UNION addr[MAX_HOSTS]; /* the list of addresses */
-    u16 cur;                        /* current address for round-robin */
-    u16 num;                        /* how many addresses are used */
+typedef struct sockaddr_list {                          /* list of addresses */
+    SOCKADDR_UNION *addr;                           /* the list of addresses */
+    u16 cur;                              /* current address for round-robin */
+    u16 num;                                  /* how many addresses are used */
 } SOCKADDR_LIST;
 
 typedef enum {
@@ -130,7 +131,7 @@ typedef struct service_options_struct {
     int verify_level;
     X509_STORE *revocation_store;             /* cert store for CRL checking */
 #ifdef HAVE_OSSL_OCSP_H
-    SOCKADDR_LIST ocsp_addr;
+    SOCKADDR_UNION ocsp_addr;
     char *ocsp_path;
     unsigned long ocsp_flags;
 #endif
@@ -142,7 +143,7 @@ typedef struct service_options_struct {
     long session_timeout;
     long ssl_options;
     SSL_METHOD *client_method, *server_method;
-    SOCKADDR_LIST sessiond_addr;
+    SOCKADDR_UNION sessiond_addr;
     SERVERNAME_LIST *servername_list_head, *servername_list_tail;
 #ifndef OPENSSL_NO_ECDH
     int curve;
@@ -160,7 +161,8 @@ typedef struct service_options_struct {
 #else
     char **execargs;                     /* program arguments for local mode */
 #endif
-    SOCKADDR_LIST local_addr, remote_addr, source_addr;
+    SOCKADDR_UNION local_addr, source_addr;
+    SOCKADDR_LIST remote_addr;
     char *username;
     char *remote_address;
     char *host_name;
@@ -190,6 +192,7 @@ typedef struct service_options_struct {
 #ifdef USE_LIBWRAP
         unsigned int libwrap:1;
 #endif
+        unsigned int local:1;           /* outgoing interface specified */
         unsigned int remote:1;          /* endpoint: connect */
         unsigned int retry:1;           /* loop remote+program */
         unsigned int sessiond:1;
@@ -242,14 +245,11 @@ typedef enum {
 
         /* s_poll_set definition for network.c */
 
-#ifdef USE_POLL
-#define MAX_FD 256
-#endif
-
 typedef struct {
 #ifdef USE_POLL
-    struct pollfd ufds[MAX_FD];
+    struct pollfd *ufds;
     unsigned int nfds;
+    unsigned int allocated;
 #else
     fd_set irfds, iwfds, orfds, owfds;
     int max;
@@ -280,9 +280,13 @@ int s_socket(int, int, int, int, char *);
 int s_pipe(int [2], int, char *);
 int s_socketpair(int, int, int, int [2], int, char *);
 int s_accept(int, struct sockaddr *, socklen_t *, int, char *);
-void stunnel_info(int);
-void die(int);
 void set_nonblock(int, unsigned long);
+void stunnel_info(int);
+void signal_post(int);
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+void child_status(void);  /* dead libwrap or 'exec' process detected */
+#endif
+void die(int);
 
 /**************************************** prototypes for log.c */
 
@@ -299,7 +303,7 @@ void s_log(int, const char *, ...)
 #else
     ;
 #endif
-void out_of_memory(char *, int);
+void fatal(char *, char *, int);
 void ioerror(const char *);
 void sockerror(const char *);
 void log_error(int, int, const char *);
@@ -333,6 +337,8 @@ int verify_init(SERVICE_OPTIONS *);
 
 /**************************************** prototypes for network.c */
 
+s_poll_set *s_poll_alloc(void);
+void s_poll_free(s_poll_set *);
 void s_poll_init(s_poll_set *);
 void s_poll_add(s_poll_set *, int, int, int);
 int s_poll_canread(s_poll_set *, int);
@@ -348,12 +354,6 @@ int s_poll_wait(s_poll_set *, int, int);
 #define SIGNAL_RELOAD_CONFIG    SIGHUP
 #define SIGNAL_REOPEN_LOG       SIGUSR1
 #define SIGNAL_TERMINATE        SIGTERM
-#endif
-void signal_handler(int);
-int signal_pipe_init(void);
-void signal_post(int);
-#if !defined(USE_WIN32) && !defined(USE_OS2)
-void child_status(void);  /* dead libwrap or 'exec' process detected */
 #endif
 
 int set_socket_options(int, int);
@@ -372,11 +372,10 @@ typedef struct {
     SERVICE_OPTIONS *opt;
     jmp_buf err; /* exception handler */
 
-    char accepted_address[IPLEN]; /* IP address as text for logging */
-    SOCKADDR_LIST peer_addr; /* peer address */
+    SOCKADDR_UNION peer_addr; /* peer address */
+    socklen_t peer_addr_len;
     FD local_rfd, local_wfd; /* read and write local descriptors */
     FD remote_fd; /* remote file descriptor */
-    SOCKADDR_LIST bind_addr;
         /* IP for explicit local bind or transparent proxy */
     unsigned long pid; /* PID of the local process */
     int fd; /* temporary file descriptor */
@@ -388,7 +387,7 @@ typedef struct {
     FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
     FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
     int sock_bytes, ssl_bytes; /* bytes written to socket and SSL */
-    s_poll_set fds; /* file descriptors */
+    s_poll_set *fds; /* file descriptors */
 } CLI;
 
 CLI *alloc_client_session(SERVICE_OPTIONS *, int, int);
@@ -416,26 +415,31 @@ void protocol(CLI *c, const int);
 
 /**************************************** prototypes for resolver.c */
 
+int name2addr(SOCKADDR_UNION *, char *, char *);
+int hostport2addr(SOCKADDR_UNION *, char *, char *);
 int name2addrlist(SOCKADDR_LIST *, char *, char *);
 int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
-char *s_ntop(char *, SOCKADDR_UNION *);
-
-#if defined(USE_WIN32) && defined(USE_IPv6)
-/* rename some locally shadowed declarations */
-#define getaddrinfo     local_getaddrinfo
-#define freeaddrinfo    local_freeaddrinfo
-#define getnameinfo     local_getnameinfo
-#endif
+char *s_ntop(SOCKADDR_UNION *, socklen_t);
+socklen_t addr_len(const SOCKADDR_UNION *);
+const char *s_gai_strerror(int);
 
 #ifndef HAVE_GETNAMEINFO
+
 #ifndef NI_NUMERICHOST
 #define NI_NUMERICHOST  2
 #endif
 #ifndef NI_NUMERICSERV
 #define NI_NUMERICSERV  8
 #endif
+
+#ifdef USE_WIN32
+/* rename some locally shadowed declarations */
+#define getnameinfo     local_getnameinfo
+#endif /* defined USE_WIN32 */
+
 int getnameinfo(const struct sockaddr *, int, char *, int, char *, int, int);
-#endif
+
+#endif /* !defined HAVE_GETNAMEINFO */
 
 /**************************************** prototypes for sthreads.c */
 
@@ -528,7 +532,7 @@ LPSTR tstr2str(const LPTSTR);
 /**************************************** prototypes for libwrap.c */
 
 void libwrap_init();
-void libwrap_auth(CLI *);
+void libwrap_auth(CLI *, char *);
 
 /**************************************** prototypes for str.c */
 

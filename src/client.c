@@ -60,13 +60,13 @@ static void transfer(CLI *);
 static void parse_socket_error(CLI *, const char *);
 
 static void print_cipher(CLI *);
-static void auth_user(CLI *);
+static void auth_user(CLI *, char *);
 static int connect_local(CLI *);
-static int connect_remote(CLI *);
+static int connect_remote(CLI *, SOCKADDR_UNION *);
 #ifdef SO_ORIGINAL_DST
-static int connect_transparent(CLI *);
+static int connect_transparent(CLI *, SOCKADDR_UNION *);
 #endif /* SO_ORIGINAL_DST */
-static void local_bind(CLI *c);
+static void local_bind(CLI *c, SOCKADDR_UNION *);
 static void print_bound_address(CLI *);
 static void reset(int, char *);
 
@@ -89,6 +89,7 @@ void *client(void *arg) {
     stack_info(1); /* initialize */
 #endif
     s_log(LOG_DEBUG, "Service %s started", c->opt->servname);
+    c->fds=s_poll_alloc();
     if(c->opt->option.remote && c->opt->option.program) {
             /* connect and exec options specified together */
             /* -> spawn a local program instead of stdio */
@@ -102,6 +103,7 @@ void *client(void *arg) {
         }
     } else
         run_client(c);
+    s_poll_free(c->fds);
     str_free(c);
 #ifdef DEBUG_STACK_SIZE
     stack_info(0); /* display computed value */
@@ -195,12 +197,10 @@ static void do_client(CLI *c) {
 }
 
 static void init_local(CLI *c) {
-    SOCKADDR_UNION addr;
-    socklen_t addrlen;
+    char *accepted_address;
 
-    addrlen=sizeof addr;
-    if(getpeername(c->local_rfd.fd, &addr.sa, &addrlen)<0) {
-        strcpy(c->accepted_address, "NOT A SOCKET");
+    c->peer_addr_len=sizeof(SOCKADDR_UNION);
+    if(getpeername(c->local_rfd.fd, &c->peer_addr.sa, &c->peer_addr_len)<0) {
         c->local_rfd.is_socket=0;
         c->local_wfd.is_socket=0; /* TODO: It's not always true */
 #ifdef USE_WIN32
@@ -212,43 +212,43 @@ static void init_local(CLI *c) {
             longjmp(c->err, 1);
         }
         /* ignore S_ENOTSOCK error so 'local' doesn't have to be a socket */
-    } else { /* success */
-        /* copy addr to c->peer_addr */
-        memcpy(&c->peer_addr.addr[0], &addr, sizeof addr);
-        c->peer_addr.num=1;
-        s_ntop(c->accepted_address, &c->peer_addr.addr[0]);
-        c->local_rfd.is_socket=1;
-        c->local_wfd.is_socket=1; /* TODO: It's not always true */
-        /* it's a socket: lets setup options */
-        if(set_socket_options(c->local_rfd.fd, 1)<0)
-            longjmp(c->err, 1);
-#ifdef USE_LIBWRAP
-        libwrap_auth(c);
-#endif /* USE_LIBWRAP */
-        auth_user(c);
-        s_log(LOG_NOTICE, "Service %s accepted connection from %s",
-            c->opt->servname, c->accepted_address);
+        s_log(LOG_NOTICE, "Service %s accepted connection", c->opt->servname);
+        return;
     }
+    accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
+    c->local_rfd.is_socket=1;
+    c->local_wfd.is_socket=1; /* TODO: It's not always true */
+    /* it's a socket: lets setup options */
+    if(set_socket_options(c->local_rfd.fd, 1)<0)
+        longjmp(c->err, 1);
+#ifdef USE_LIBWRAP
+    libwrap_auth(c, accepted_address);
+#endif /* USE_LIBWRAP */
+    auth_user(c, accepted_address);
+    s_log(LOG_NOTICE, "Service %s accepted connection from %s",
+        c->opt->servname, accepted_address);
+    str_free(accepted_address);
 }
 
 static void init_remote(CLI *c) {
-    /* create connection to host/service */
-    if(c->opt->source_addr.num)
-        memcpy(&c->bind_addr, &c->opt->source_addr, sizeof(SOCKADDR_LIST));
+    SOCKADDR_UNION *bind_addr;
+
+    /* where to bind connecting socket */
+    if(c->opt->option.local) /* outgoing interface */
+        bind_addr=&c->opt->source_addr;
 #ifndef USE_WIN32
     else if(c->opt->option.transparent_src)
-        memcpy(&c->bind_addr, &c->peer_addr, sizeof(SOCKADDR_LIST));
+        bind_addr=&c->peer_addr;
 #endif
-    else {
-        c->bind_addr.num=0; /* don't bind connecting socket */
-    }
+    else
+        bind_addr=NULL; /* don't bind */
 
     /* setup c->remote_fd, now */
     if(c->opt->option.remote)
-        c->remote_fd.fd=connect_remote(c);
+        c->remote_fd.fd=connect_remote(c, bind_addr);
 #ifdef SO_ORIGINAL_DST
     else if(c->opt->option.transparent_dst)
-        c->remote_fd.fd=connect_transparent(c);
+        c->remote_fd.fd=connect_transparent(c, bind_addr);
 #endif /* SO_ORIGINAL_DST */
     else /* NOT in remote mode */
         c->remote_fd.fd=connect_local(c);
@@ -326,11 +326,11 @@ static void init_ssl(CLI *c) {
         if(err==SSL_ERROR_NONE)
             break; /* ok -> done */
         if(err==SSL_ERROR_WANT_READ || err==SSL_ERROR_WANT_WRITE) {
-            s_poll_init(&c->fds);
-            s_poll_add(&c->fds, c->ssl_rfd->fd,
+            s_poll_init(c->fds);
+            s_poll_add(c->fds, c->ssl_rfd->fd,
                 err==SSL_ERROR_WANT_READ,
                 err==SSL_ERROR_WANT_WRITE);
-            switch(s_poll_wait(&c->fds, c->opt->timeout_busy, 0)) {
+            switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
             case -1:
                 sockerror("init_ssl: s_poll_wait");
                 longjmp(c->err, 1);
@@ -406,21 +406,21 @@ static void transfer(CLI *c) {
             ssl_open_wr && c->sock_ptr && !write_wants_read;
 
         /****************************** setup c->fds structure */
-        s_poll_init(&c->fds); /* initialize the structure */
+        s_poll_init(c->fds); /* initialize the structure */
         /* for plain socket open data strem = open file descriptor */
         /* make sure to add each open socket to receive exceptions! */
         if(sock_open_rd)
-            s_poll_add(&c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
+            s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
         if(sock_open_wr)
-            s_poll_add(&c->fds, c->sock_wfd->fd, 0, c->ssl_ptr);
+            s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr);
         /* for SSL assume that sockets are open if there any pending requests */
         if(read_wants_read || write_wants_read || shutdown_wants_read)
-            s_poll_add(&c->fds, c->ssl_rfd->fd, 1, 0);
+            s_poll_add(c->fds, c->ssl_rfd->fd, 1, 0);
         if(read_wants_write || write_wants_write || shutdown_wants_write)
-            s_poll_add(&c->fds, c->ssl_wfd->fd, 0, 1);
+            s_poll_add(c->fds, c->ssl_wfd->fd, 0, 1);
 
         /****************************** wait for an event */
-        err=s_poll_wait(&c->fds,
+        err=s_poll_wait(c->fds,
             (sock_open_rd && ssl_open_rd) /* both peers open */ ||
             c->ssl_ptr /* data buffered to write to socket */ ||
             c->sock_ptr /* data buffered to write to SSL */ ?
@@ -442,7 +442,7 @@ static void transfer(CLI *c) {
         }
 
         /****************************** check for errors on sockets */
-        err=s_poll_error(&c->fds, c->sock_rfd->fd);
+        err=s_poll_error(c->fds, c->sock_rfd->fd);
         if(err) {
             s_log(LOG_NOTICE,
                 "Error detected on socket (read) file descriptor: %s (%d)",
@@ -450,7 +450,7 @@ static void transfer(CLI *c) {
             longjmp(c->err, 1);
         }
         if(c->sock_wfd->fd != c->sock_rfd->fd) { /* performance optimization */
-            err=s_poll_error(&c->fds, c->sock_wfd->fd);
+            err=s_poll_error(c->fds, c->sock_wfd->fd);
             if(err) {
                 s_log(LOG_NOTICE,
                     "Error detected on socket write file descriptor: %s (%d)",
@@ -458,7 +458,7 @@ static void transfer(CLI *c) {
                 longjmp(c->err, 1);
             }
         }
-        err=s_poll_error(&c->fds, c->ssl_rfd->fd);
+        err=s_poll_error(c->fds, c->ssl_rfd->fd);
         if(err) {
             s_log(LOG_NOTICE,
                 "Error detected on SSL (read) file descriptor: %s (%d)",
@@ -466,7 +466,7 @@ static void transfer(CLI *c) {
             longjmp(c->err, 1);
         }
         if(c->ssl_wfd->fd != c->ssl_rfd->fd) { /* performance optimization */
-            err=s_poll_error(&c->fds, c->ssl_wfd->fd);
+            err=s_poll_error(c->fds, c->ssl_wfd->fd);
             if(err) {
                 s_log(LOG_NOTICE,
                     "Error detected on SSL write file descriptor: %s (%d)",
@@ -476,10 +476,10 @@ static void transfer(CLI *c) {
         }
 
         /****************************** retrieve results from c->fds */
-        sock_can_rd=s_poll_canread(&c->fds, c->sock_rfd->fd);
-        sock_can_wr=s_poll_canwrite(&c->fds, c->sock_wfd->fd);
-        ssl_can_rd=s_poll_canread(&c->fds, c->ssl_rfd->fd);
-        ssl_can_wr=s_poll_canwrite(&c->fds, c->ssl_wfd->fd);
+        sock_can_rd=s_poll_canread(c->fds, c->sock_rfd->fd);
+        sock_can_wr=s_poll_canwrite(c->fds, c->sock_wfd->fd);
+        ssl_can_rd=s_poll_canread(c->fds, c->ssl_rfd->fd);
+        ssl_can_wr=s_poll_canwrite(c->fds, c->ssl_wfd->fd);
 
         /****************************** checks for internal failures */
         /* please report any internal errors to stunnel-users mailing list */
@@ -789,7 +789,7 @@ static void print_cipher(CLI *c) { /* print negotiated cipher */
     OPENSSL_free(buf);
 }
 
-static void auth_user(CLI *c) {
+static void auth_user(CLI *c, char *accepted_address) {
 #ifndef _WIN32_WCE
     struct servent *s_ent;    /* structure for getservbyname */
 #endif
@@ -798,11 +798,17 @@ static void auth_user(CLI *c) {
 
     if(!c->opt->username)
         return; /* -u option not specified */
-    c->fd=s_socket(c->peer_addr.addr[0].sa.sa_family, SOCK_STREAM,
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+    if(c->peer_addr.sa.sa_family==AF_UNIX) {
+        s_log(LOG_INFO, "IDENT not supported on Unix sockets");
+        return;
+    }
+#endif
+    c->fd=s_socket(c->peer_addr.sa.sa_family, SOCK_STREAM,
         0, 1, "socket (auth_user)");
     if(c->fd<0)
         longjmp(c->err, 1);
-    memcpy(&ident, &c->peer_addr.addr[0], sizeof ident);
+    memcpy(&ident, &c->peer_addr, c->peer_addr_len);
 #ifndef _WIN32_WCE
     s_ent=getservbyname("auth", "tcp");
     if(s_ent) {
@@ -813,12 +819,12 @@ static void auth_user(CLI *c) {
         s_log(LOG_WARNING, "Unknown service 'auth': using default 113");
         ident.in.sin_port=htons(113);
     }
-    if(connect_blocking(c, &ident, addr_len(ident)))
+    if(connect_blocking(c, &ident, addr_len(&ident)))
         longjmp(c->err, 1);
     s_log(LOG_DEBUG, "IDENT server connected");
     fdprintf(c, c->fd, "%u , %u",
-        ntohs(c->peer_addr.addr[0].in.sin_port),
-        ntohs(c->opt->local_addr.addr[0].in.sin_port));
+        ntohs(c->peer_addr.in.sin_port),
+        ntohs(c->opt->local_addr.in.sin_port));
     line=fdgetline(c, c->fd);
     closesocket(c->fd);
     c->fd=-1; /* avoid double close on cleanup */
@@ -853,7 +859,7 @@ static void auth_user(CLI *c) {
     if(strcmp(user, c->opt->username)) {
         safestring(user);
         s_log(LOG_WARNING, "Connection from %s REFUSED by IDENT (user %s)",
-            c->accepted_address, user);
+            accepted_address, user);
         str_free(line);
         longjmp(c->err, 1);
     }
@@ -901,7 +907,7 @@ static int connect_local(CLI *c) { /* spawn local process */
 #else /* standard Unix version */
 
 static int connect_local(CLI *c) { /* spawn local process */
-    char *name, *portname;
+    char *name, host[40];
     int fd[2], pid;
     X509 *peer;
 #ifdef HAVE_PTHREAD_SIGMASK
@@ -935,16 +941,18 @@ static int connect_local(CLI *c) { /* spawn local process */
         if(!global_options.option.foreground)
             dup2(fd[1], 2);
         closesocket(fd[1]); /* not really needed due to FD_CLOEXEC */
-        name=str_dup(c->accepted_address);
-        portname=strrchr(name, ':');
-        if(portname) /* strip the port name */
-            *portname='\0';
-        putenv(str_printf("REMOTE_HOST=%s", name));
-        if(c->opt->option.transparent_src) {
-            putenv("LD_PRELOAD=" LIBDIR "/libstunnel.so");
-            /* for Tru64 _RLD_LIST is used instead */
-            putenv("_RLD_LIST=" LIBDIR "/libstunnel.so:DEFAULT");
+
+        if(!getnameinfo(&c->peer_addr.sa, c->peer_addr_len,
+                host, 40, NULL, 0, NI_NUMERICHOST)) {
+            /* just don't set these variables if getnameinfo() fails */
+            putenv(str_printf("REMOTE_HOST=%s", host));
+            if(c->opt->option.transparent_src) {
+                putenv("LD_PRELOAD=" LIBDIR "/libstunnel.so");
+                /* for Tru64 _RLD_LIST is used instead */
+                putenv("_RLD_LIST=" LIBDIR "/libstunnel.so:DEFAULT");
+            }
         }
+
         if(c->ssl) {
             peer=SSL_get_peer_certificate(c->ssl);
             if(peer) {
@@ -973,14 +981,15 @@ static int connect_local(CLI *c) { /* spawn local process */
 
 #endif /* not USE_WIN32 or __vms */
 
-static int connect_remote(CLI *c) { /* connect remote host */
-    SOCKADDR_UNION addr;
+/* connect remote host */
+static int connect_remote(CLI *c, SOCKADDR_UNION *bind_addr) {
     SOCKADDR_LIST resolved_list, *address_list;
     int fd, ind_try, ind_cur;
 
     /* setup address_list */
+    resolved_list.num=0;
+    resolved_list.addr=NULL;
     if(c->opt->option.delayed_lookup) {
-        resolved_list.num=0;
         if(!name2addrlist(&resolved_list,
                 c->opt->remote_address, DEFAULT_LOOPBACK)) {
             s_log(LOG_ERR, "No host resolved");
@@ -999,16 +1008,19 @@ static int connect_remote(CLI *c) { /* connect remote host */
         } else { /* FAILOVER_PRIO */
             ind_cur=ind_try; /* ignore address_list->cur */
         }
-        memcpy(&addr, address_list->addr+ind_cur, sizeof addr);
 
-        c->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "remote socket");
-        if(c->fd<0)
+        c->fd=s_socket(address_list->addr[ind_cur].sa.sa_family,
+            SOCK_STREAM, 0, 1, "remote socket");
+        if(c->fd<0) {
+            if(resolved_list.addr)
+                str_free(resolved_list.addr);
             longjmp(c->err, 1);
+        }
 
-        if(c->bind_addr.num) /* explicit local bind or transparent proxy */
-            local_bind(c);
+        local_bind(c, bind_addr); /* explicit local bind or transparent proxy */
 
-        if(connect_blocking(c, &addr, addr_len(addr))) {
+        if(connect_blocking(c, &address_list->addr[ind_cur],
+                addr_len(&address_list->addr[ind_cur]))) {
             closesocket(c->fd);
             c->fd=-1;
             continue; /* next IP */
@@ -1016,14 +1028,19 @@ static int connect_remote(CLI *c) { /* connect remote host */
         print_bound_address(c);
         fd=c->fd;
         c->fd=-1;
+        if(resolved_list.addr)
+            str_free(resolved_list.addr);
         return fd; /* success! */
     }
+    if(resolved_list.addr)
+        str_free(resolved_list.addr);
     longjmp(c->err, 1);
     return -1; /* some C compilers require a return value */
 }
 
 #ifdef SO_ORIGINAL_DST
-static int connect_transparent(CLI *c) { /* connect the original dst */
+/* connect the original dst */
+static int connect_transparent(CLI *c, SOCKADDR_UNION *bind_addr) {
     SOCKADDR_UNION addr;
     socklen_t addrlen=sizeof addr;
     int retval;
@@ -1036,9 +1053,8 @@ static int connect_transparent(CLI *c) { /* connect the original dst */
     c->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "remote socket");
     if(c->fd<0)
         longjmp(c->err, 1);
-    if(c->bind_addr.num) /* explicit local bind or transparent proxy */
-        local_bind(c);
-    if(connect_blocking(c, &addr, addr_len(addr)))
+    local_bind(c, bind_addr); /* explicit local bind or transparent proxy */
+    if(connect_blocking(c, &addr, addr_len(&addr)))
         longjmp(c->err, 1); /* socket closed on cleanup */
     print_bound_address(c);
     retval=c->fd;
@@ -1047,13 +1063,12 @@ static int connect_transparent(CLI *c) { /* connect the original dst */
 }
 #endif /* SO_ORIGINAL_DST */
 
-static void local_bind(CLI *c) {
-    SOCKADDR_UNION addr;
+static void local_bind(CLI *c, SOCKADDR_UNION *bind_addr) {
     int on;
 
     on=1;
-    memcpy(&addr, &c->bind_addr.addr[0], sizeof addr);
-
+    if(!bind_addr)
+        return;
 #if defined(USE_WIN32)
     /* do nothing */
 #elif defined(IP_TRANSPARENT)
@@ -1067,7 +1082,7 @@ static void local_bind(CLI *c) {
 #elif defined(IP_BINDANY) && defined(IPV6_BINDANY)
     /* non-local bind on FreeBSD */
     if(c->opt->option.transparent_src) {
-        if(addr.sa.sa_family==AF_INET) { /* IPv4 */
+        if(bind_addr->sa.sa_family==AF_INET) { /* IPv4 */
             if(setsockopt(c->fd, IPPROTO_IP, IP_BINDANY, &on, sizeof on)) {
                 sockerror("setsockopt IP_BINDANY");
                 longjmp(c->err, 1);
@@ -1088,8 +1103,8 @@ static void local_bind(CLI *c) {
     }
 #endif
 
-    if(ntohs(addr.in.sin_port)>=1024) { /* security check */
-        if(!bind(c->fd, &addr.sa, addr_len(addr))) {
+    if(ntohs(bind_addr->in.sin_port)>=1024) { /* security check */
+        if(!bind(c->fd, &bind_addr->sa, addr_len(bind_addr))) {
             s_log(LOG_INFO, "local_bind succeeded on the original port");
             return; /* success */
         }
@@ -1103,8 +1118,8 @@ static void local_bind(CLI *c) {
         }
     }
 
-    addr.in.sin_port=htons(0); /* retry with ephemeral port */
-    if(!bind(c->fd, &addr.sa, addr_len(addr))) {
+    bind_addr->in.sin_port=htons(0); /* retry with ephemeral port */
+    if(!bind(c->fd, &bind_addr->sa, addr_len(bind_addr))) {
         s_log(LOG_INFO, "local_bind succeeded on an ephemeral port");
         return; /* success */
     }
@@ -1113,7 +1128,7 @@ static void local_bind(CLI *c) {
 }
 
 static void print_bound_address(CLI *c) {
-    char txt[IPLEN];
+    char *txt;
     SOCKADDR_UNION addr;
     socklen_t addrlen=sizeof addr;
 
@@ -1124,9 +1139,10 @@ static void print_bound_address(CLI *c) {
         sockerror("getsockname");
         return;
     }
-    s_ntop(txt, &addr);
+    txt=s_ntop(&addr, addrlen);
     s_log(LOG_NOTICE,"Service %s connected remote server from %s",
         c->opt->servname, txt);
+    str_free(txt);
 }
 
 static void reset(int fd, char *txt) {

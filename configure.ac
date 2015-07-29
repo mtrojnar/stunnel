@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.45])
+AC_INIT([stunnel],[4.46])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.45)
+AM_INIT_AUTOMAKE(stunnel, 4.46)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -97,6 +97,8 @@ AC_EGREP_HEADER(socklen_t, sys/socket.h,
     AC_MSG_RESULT([no (defined as int)])
     AC_DEFINE([socklen_t], [int], [Type of socklen_t]))
 
+AC_CHECK_TYPES([struct sockaddr_un], [], [], [#include <sys/un.h>])
+
 AC_MSG_NOTICE([**************************************** PTY device files])
 if test "$cross_compiling" = "no"; then
     AC_CHECK_FILE("/dev/ptmx", AC_DEFINE([HAVE_DEV_PTMX], [1], [Define to 1 if you have '/dev/ptmx' device.]))
@@ -148,11 +150,8 @@ AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_DIRENT
 # AC_HEADER_STDC
 # AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(ucontext.h pthread.h)
-AC_CHECK_HEADERS(sys/select.h poll.h sys/poll.h tcpd.h)
-AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h stropts.h)
-AC_CHECK_HEADERS(grp.h unistd.h util.h libutil.h sys/resource.h pty.h)
-AC_CHECK_HEADERS([sys/socket.h])
+AC_CHECK_HEADERS([ucontext.h pthread.h poll.h tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h])
+AC_CHECK_HEADERS([sys/select.h sys/poll.h sys/socket.h sys/un.h sys/ioctl.h sys/filio.h sys/resource.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
   [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1], [Define to 1 if you have 'msghdr.msg_control' structure.])],
   [], [@%:@include <sys/socket.h>])

@@ -166,6 +166,18 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 
 </li>
 </ul>
+<p>An address parameter of an option may be either:</p>
+<ul>
+<li><strong><a name="a_port_number" class="item">a port number</a></strong>
+
+</li>
+<li><strong><a name="address" class="item">a colon-separated pair of IP address (either IPv4, IPv6, or domain name) and port number</a></strong>
+
+</li>
+<li><strong><a name="path" class="item">a Unix socket path (Unix only)</a></strong>
+
+</li>
+</ul>
 <p>
 </p>
 <h2><a name="global_options">GLOBAL OPTIONS</a></h2>
@@ -200,7 +212,7 @@ all levels numerically less than it will be shown.  Use <em>debug = debug</em> o
 (Facilities are not supported on Win32.)</p>
 <p>Case is ignored for both facilities and levels.</p>
 </dd>
-<dt><strong><a name="path" class="item"><strong>EGD</strong> = egd path (Unix only)</a></strong></dt>
+<dt><strong><strong>EGD</strong> = egd path (Unix only)</strong></dt>
 
 <dd>
 <p>path to Entropy Gathering Daemon socket</p>
@@ -345,10 +357,10 @@ is provided a network socket by a server such as <em>inetd</em>, <em>xinetd</em>
 or <em>tcpserver</em>) then you should read the section entitled <em>INETD MODE</em>
 below.</p>
 <dl>
-<dt><strong><a name="accept_host_port" class="item"><strong>accept</strong> = [host:]port</a></strong></dt>
+<dt><strong><a name="accept_address" class="item"><strong>accept</strong> = address</a></strong></dt>
 
 <dd>
-<p>accept connections on specified host:port</p>
+<p>accept connections on specified address</p>
 <p>If no host specified, defaults to all IPv4 addresses for the local host.</p>
 <p>To listen on all IPv6 addresses use:</p>
 <pre>
@@ -395,10 +407,10 @@ For example DES-CBC3-SHA:IDEA-CBC-MD5</p>
 <p>client mode (remote service uses SSL)</p>
 <p>default: no (server mode)</p>
 </dd>
-<dt><strong><a name="connect_host_port" class="item"><strong>connect</strong> = [host:]port</a></strong></dt>
+<dt><strong><a name="connect_address" class="item"><strong>connect</strong> = address</a></strong></dt>
 
 <dd>
-<p>connect to a remote host:port</p>
+<p>connect to a remote address</p>
 <p>If no host is specified, the host defaults to localhost.</p>
 <p>Multiple <strong>connect</strong> options are allowed in a single service section.</p>
 <p>If host resolves to multiple addresses and/or if multiple <em>connect</em>

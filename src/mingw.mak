@@ -57,7 +57,7 @@ BIN=$(BINROOT)/$(TARGETCPU)
 OBJS=$(OBJ)/stunnel.o $(OBJ)/ssl.o $(OBJ)/ctx.o $(OBJ)/verify.o \
 	$(OBJ)/file.o $(OBJ)/client.o $(OBJ)/protocol.o $(OBJ)/sthreads.o \
 	$(OBJ)/log.o $(OBJ)/options.o $(OBJ)/network.o $(OBJ)/resolver.o \
-	$(OBJ)/gui.o $(OBJ)/resources.o $(OBJ)/str.obj
+	$(OBJ)/gui.o $(OBJ)/resources.o $(OBJ)/str.o
 
 CC=gcc
 RC=windres

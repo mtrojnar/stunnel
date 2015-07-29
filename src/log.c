@@ -188,14 +188,14 @@ static void log_raw(const int level, const char *stamp,
 }
 
 /* memory allocation failed - it is not allowed to use any str.c functions */
-void out_of_memory(char *file, int line) {
+void fatal(char *error, char *file, int line) {
     char text[80];
 #ifdef USE_WIN32
     DWORD num;
 #endif /* USE_WIN32 */
 
     snprintf(text, sizeof text, /* with newline */
-        "INTERNAL ERROR: Out of memory at %s, line %d\n", file, line);
+        "INTERNAL ERROR: %s at %s, line %d\n", error, file, line);
 
     if(outfile) {
 #ifdef USE_WIN32

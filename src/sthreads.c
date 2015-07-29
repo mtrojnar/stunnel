@@ -192,6 +192,7 @@ unsigned long stunnel_thread_id(void) {
 }
 
 static void null_handler(int sig) {
+    (void)sig; /* skip warning about unused parameter */
     signal(SIGCHLD, null_handler);
 }
 

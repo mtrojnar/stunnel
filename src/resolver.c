@@ -38,7 +38,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-/**************************************** resolver functions */
+/**************************************** prototypes */
 
 #ifndef HAVE_GETADDRINFO
 
@@ -52,12 +52,11 @@
 #define EAI_SERVICE 8
 #endif
 
-#if defined(USE_WIN32) && defined(USE_IPv6)
+#ifdef USE_WIN32
 /* rename some locally shadowed declarations */
 #define getaddrinfo     local_getaddrinfo
 #define freeaddrinfo    local_freeaddrinfo
-#define getnameinfo     local_getnameinfo
-#else /* defined(USE_WIN32) && defined(USE_IPv6) */
+#else /* defined USE_WIN32 */
 struct addrinfo {
     int ai_flags;
     int ai_family;
@@ -68,7 +67,7 @@ struct addrinfo {
     char *ai_canonname;
     struct addrinfo *ai_next;
 };
-#endif /* defined(USE_WIN32) && defined(USE_IPv6) */
+#endif /* defined USE_WIN32 */
 
 static int getaddrinfo(const char *, const char *,
     const struct addrinfo *, struct addrinfo **);
@@ -78,11 +77,57 @@ static void freeaddrinfo(struct addrinfo *);
 
 #endif /* !defined HAVE_GETADDRINFO */
 
-static const char *s_gai_strerror(int);
+/**************************************** stunnel resolver API */
+
+int name2addr(SOCKADDR_UNION *addr, char *name, char *default_host) {
+    SOCKADDR_LIST addr_list;
+    int retval;
+
+    addr_list.num=0;
+    addr_list.addr=NULL;
+    retval=name2addrlist(&addr_list, name, default_host);
+    if(retval>0)
+        memcpy(addr, &addr_list.addr[0], sizeof *addr);
+    if(addr_list.addr)
+        str_free(addr_list.addr);
+    return retval;
+}
+
+int hostport2addr(SOCKADDR_UNION *addr, char *hostname, char *portname) {
+    SOCKADDR_LIST addr_list;
+    int retval;
+
+    addr_list.num=0;
+    addr_list.addr=NULL;
+    retval=hostport2addrlist(&addr_list, hostname, portname);
+    if(retval>0)
+        memcpy(addr, &addr_list.addr[0], sizeof *addr);
+    if(addr_list.addr)
+        str_free(addr_list.addr);
+    return retval;
+}
 
 int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
     char *tmp, *hostname, *portname;
     int retval;
+
+    addr_list->cur=0; /* reset round-robin counter */
+
+    /* first check if this is a UNIX socket */
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+    if(*name=='/') {
+        if(offsetof(struct sockaddr_un, sun_path)+strlen(name)+1
+                > sizeof(struct sockaddr_un)) {
+            s_log(LOG_ERR, "Unix socket path is too long");
+            return 0; /* no results */
+        }
+        addr_list->addr=str_realloc(addr_list->addr,
+            (addr_list->num+1)*sizeof(SOCKADDR_UNION));
+        addr_list->addr[addr_list->num].un.sun_family=AF_UNIX;
+        strcpy(addr_list->addr[addr_list->num].un.sun_path, name);
+        return ++(addr_list->num); /* ok - return the number of addresses */
+    }
+#endif
 
     /* set hostname and portname */
     tmp=str_dup(name);
@@ -105,8 +150,6 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
         char *hostname, char *portname) {
     struct addrinfo hints, *res=NULL, *cur;
     int err;
-
-    addr_list->cur=0; /* initialize round-robin counter */
 
     memset(&hints, 0, sizeof hints);
 #if defined(USE_IPv6) || defined(USE_WIN32)
@@ -138,37 +181,59 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
     }
 
     /* copy the list of addresses */
-    for(cur=res; cur && addr_list->num<MAX_HOSTS;
-            cur=cur->ai_next, addr_list->num++) {
+    for(cur=res; cur; cur=cur->ai_next) {
         if(cur->ai_addrlen>sizeof(SOCKADDR_UNION)) {
             s_log(LOG_ERR, "INTERNAL ERROR: ai_addrlen value too big");
             freeaddrinfo(res);
             return 0; /* no results */
         }
-        memcpy(&addr_list->addr[addr_list->num],
-            cur->ai_addr, cur->ai_addrlen);
+        addr_list->addr=str_realloc(addr_list->addr,
+            (addr_list->num+1)*sizeof(SOCKADDR_UNION));
+        memcpy(&addr_list->addr[addr_list->num], cur->ai_addr, cur->ai_addrlen);
+        ++(addr_list->num);
     }
     freeaddrinfo(res);
     return addr_list->num; /* ok - return the number of addresses */
 }
 
-char *s_ntop(char *text, SOCKADDR_UNION *addr) {
-    char host[IPLEN-5], port[6];
+char *s_ntop(SOCKADDR_UNION *addr, socklen_t addrlen) {
+    int err;
+    char *host, *port, *retval;
 
-    if(getnameinfo(&addr->sa, addr_len(*addr),
-            host, IPLEN-5, port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
-        sockerror("getnameinfo");
-        strcpy(text, "unresolvable IP");
-        return text;
-    }
-    strcpy(text, host);
-    strcat(text, ":");
-    strcat(text, port);
-    return text;
+    if(addrlen==sizeof(u_short)) /* see UNIX(7) manual for details */
+        return str_dup("unnamed socket");
+    host=str_alloc(256);
+    port=str_alloc(256); /* needs to be long enough for AF_UNIX path */
+    err=getnameinfo(&addr->sa, addrlen,
+        host, 256, port, 256, NI_NUMERICHOST|NI_NUMERICSERV);
+    if(err) {
+        s_log(LOG_ERR, "getnameinfo: %s", s_gai_strerror(err));
+        retval=str_dup("unresolvable address");
+    } else
+        retval=str_printf("%s:%s", host, port);
+    str_free(host);
+    str_free(port);
+    return retval;
 }
 
-/**************************************** My getaddrinfo() and getnameinfo() */
-/* implementations are limited to functionality needed by stunnel */
+socklen_t addr_len(const SOCKADDR_UNION *addr) {
+    if(addr->sa.sa_family==AF_INET)
+        return sizeof(struct sockaddr_in);
+#ifdef USE_IPv6
+    if(addr->sa.sa_family==AF_INET6)
+        return sizeof(struct sockaddr_in6);
+#endif
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+    if(addr->sa.sa_family==AF_UNIX)
+        return sizeof(struct sockaddr_un);
+#endif
+    s_log(LOG_ERR, "INTERNAL ERROR: Unknown sa_family: %d",
+        addr->sa.sa_family);
+    return sizeof(SOCKADDR_UNION);
+}
+
+/**************************************** my getaddrinfo() */
+/* implementation is limited to functionality needed by stunnel */
 
 #ifndef HAVE_GETADDRINFO
 static int getaddrinfo(const char *node, const char *service,
@@ -332,11 +397,10 @@ static void freeaddrinfo(struct addrinfo *current) {
         current=next;
     }
 }
-
 #endif /* !defined HAVE_GETADDRINFO */
 
 /* due to a problem with Mingw32 I decided to define my own gai_strerror() */
-static const char *s_gai_strerror(int err) {
+const char *s_gai_strerror(int err) {
     switch(err) {
 #ifdef EAI_BADFLAGS
         case EAI_BADFLAGS:
@@ -384,6 +448,9 @@ static const char *s_gai_strerror(int err) {
             return "Unknown error";
     }
 }
+
+/**************************************** my getnameinfo() */
+/* implementation is limited to functionality needed by stunnel */
 
 #ifndef HAVE_GETNAMEINFO
 int getnameinfo(const struct sockaddr *sa, int salen,

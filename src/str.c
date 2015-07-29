@@ -251,14 +251,14 @@ void *str_alloc_debug(size_t size, char *file, int line) {
     if(!alloc_tls) { /* first allocation in this thread */
         alloc_tls=calloc(1, sizeof(ALLOC_TLS));
         if(!alloc_tls)
-            out_of_memory(file, line);
+            fatal("Out of memory", file, line);
         alloc_tls->head=NULL;
         alloc_tls->bytes=alloc_tls->blocks=0;
         set_alloc_tls(alloc_tls);
     }
     alloc_list=calloc(1, sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
-        out_of_memory(file, line);
+        fatal("Out of memory", file, line);
     memcpy((u8 *)(alloc_list+1)+size, canary, sizeof canary);
     alloc_list->prev=NULL;
     alloc_list->next=alloc_tls->head;
@@ -282,7 +282,7 @@ void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
     alloc_list=realloc(previous_alloc_list,
         sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
-        out_of_memory(file, line);
+        fatal("Out of memory", file, line);
     memcpy((u8 *)(alloc_list+1)+size, canary, sizeof canary);
     if(alloc_list->tls) { /* not detached */
         /* refresh possibly invalidated linked list pointers */
@@ -340,21 +340,12 @@ static ALLOC_LIST *get_alloc_list_ptr(void *ptr, char *file, int line) {
     ALLOC_LIST *alloc_list;
 
     alloc_list=(ALLOC_LIST *)ptr-1;
-    if(alloc_list->magic!=0xdeadbeef) { /* not allocated by str_alloc() */
-        s_log(LOG_CRIT, "INTERNAL ERROR: Bad magic at %s, line %d",
-            file, line);
-        die(1);
-    }
-    if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls()) {
-        s_log(LOG_CRIT, "INTERNAL ERROR: Wrong thread at %s, line %d",
-            file, line);
-        die(1);
-    }
-    if(memcmp((u8 *)ptr+alloc_list->size, canary, sizeof canary)) {
-        s_log(LOG_CRIT, "INTERNAL ERROR: Dead canary at %s, line %d",
-            file, line);
-        die(1);
-    }
+    if(alloc_list->magic!=0xdeadbeef) /* not allocated by str_alloc() */
+        fatal("Bad magic", file, line);
+    if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls())
+        fatal("Wrong thread", file, line);
+    if(memcmp((u8 *)ptr+alloc_list->size, canary, sizeof canary))
+        fatal("Dead canary", file, line);
     return alloc_list;
 }
 

@@ -104,6 +104,18 @@ Linia w pliku konfiguracyjnym mo¿e byæ:
 
 =back
 
+Parametr adres mo¿e byæ:
+
+=over 4
+
+=item * numerem portu
+
+=item * oddzielon± ¶rednikiem par± adresu (IPv4, IPv6, lub nazw± domenow±) i numeru portu
+
+=item * ¶cie¿k± do gniazda Unix (tylko Unix)
+
+=back
+
 =head2 OPCJE GLOBALNE
 
 =over 4

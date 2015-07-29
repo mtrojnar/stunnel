@@ -21,9 +21,6 @@ distclean-local:
 	rm -rf autom4te.cache
 	rm -f $(distdir)-installer.exe
 
-cert:
-	(cd tools; rm -f stunnel.pem; $(MAKE) stunnel.pem)
-
 dist-hook:
 	makensis -NOCD -DSRCDIR=$(srcdir)/ $(srcdir)/tools/stunnel.nsi
 

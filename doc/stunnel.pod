@@ -103,6 +103,18 @@ Each line of the configuration file can be either:
 
 =back
 
+An address parameter of an option may be either:
+
+=over 4
+
+=item * a port number
+
+=item * a colon-separated pair of IP address (either IPv4, IPv6, or domain name) and port number
+
+=item * a Unix socket path (Unix only)
+
+=back
+
 =head2 GLOBAL OPTIONS
 
 =over 4
@@ -295,9 +307,9 @@ below.
 
 =over 4
 
-=item B<accept> = [host:]port
+=item B<accept> = address
 
-accept connections on specified host:port
+accept connections on specified address
 
 If no host specified, defaults to all IPv4 addresses for the local host.
 
@@ -348,9 +360,9 @@ client mode (remote service uses SSL)
 
 default: no (server mode)
 
-=item B<connect> = [host:]port
+=item B<connect> = address
 
-connect to a remote host:port
+connect to a remote address
 
 If no host is specified, the host defaults to localhost.
 

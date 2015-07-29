@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2011.10.22" "4.45" "stunnel"
+.TH STUNNEL 8 "2011.11.02" "4.46" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -139,6 +139,14 @@ a comment starting with ';' (ignored)
 an 'option_name = option_value' pair
 .IP "\(bu" 4
 \&'[service_name]' indicating a start of a service definition
+.PP
+An address parameter of an option may be either:
+.IP "\(bu" 4
+a port number
+.IP "\(bu" 4
+a colon-separated pair of \s-1IP\s0 address (either IPv4, IPv6, or domain name) and port number
+.IP "\(bu" 4
+a Unix socket path (Unix only)
 .SS "\s-1GLOBAL\s0 \s-1OPTIONS\s0"
 .IX Subsection "GLOBAL OPTIONS"
 .IP "\fBchroot\fR = directory (Unix only)" 4
@@ -307,9 +315,9 @@ Note that if you wish to run \fBstunnel\fR in \fIinetd\fR mode (where it
 is provided a network socket by a server such as \fIinetd\fR, \fIxinetd\fR,
 or \fItcpserver\fR) then you should read the section entitled \fI\s-1INETD\s0 \s-1MODE\s0\fR
 below.
-.IP "\fBaccept\fR = [host:]port" 4
-.IX Item "accept = [host:]port"
-accept connections on specified host:port
+.IP "\fBaccept\fR = address" 4
+.IX Item "accept = address"
+accept connections on specified address
 .Sp
 If no host specified, defaults to all IPv4 addresses for the local host.
 .Sp
@@ -356,9 +364,9 @@ For example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
 client mode (remote service uses \s-1SSL\s0)
 .Sp
 default: no (server mode)
-.IP "\fBconnect\fR = [host:]port" 4
-.IX Item "connect = [host:]port"
-connect to a remote host:port
+.IP "\fBconnect\fR = address" 4
+.IX Item "connect = address"
+connect to a remote address
 .Sp
 If no host is specified, the host defaults to localhost.
 .Sp

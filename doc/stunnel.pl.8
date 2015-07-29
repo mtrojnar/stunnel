@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2011.10.22" "4.45" "stunnel"
+.TH STUNNEL.PL 8 "2011.11.02" "4.46" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -139,6 +139,14 @@ komentarzem rozpoczynającym się znakiem ';' (ignorowana)
 parą 'nazwa_opcji = wartość_opcji'
 .IP "\(bu" 4
 tekstem '[nazwa_usługi]' wskazującym początek definicji usługi
+.PP
+Parametr adres może być:
+.IP "\(bu" 4
+numerem portu
+.IP "\(bu" 4
+oddzieloną średnikiem parą adresu (IPv4, IPv6, lub nazwą domenową) i numeru portu
+.IP "\(bu" 4
+ścieżką do gniazda Unix (tylko Unix)
 .SS "\s-1OPCJE\s0 \s-1GLOBALNE\s0"
 .IX Subsection "OPCJE GLOBALNE"
 .IP "\fBchroot\fR = katalog (tylko Unix)" 4

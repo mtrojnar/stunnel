@@ -1,6 +1,6 @@
 # NSIS stunnel installer by Michal Trojnara 2011
 
-!define VERSION "4.45"
+!define VERSION "4.46"
 !define DLLS "/home/ftp/openssl/openssl-1.0.0e-i586/"
 !include "Sections.nsh"
 

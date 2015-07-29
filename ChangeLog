@@ -1,6 +1,23 @@
 stunnel change log
 
 
+Version 4.46, 2011.11.04, urgency: LOW:
+* New features
+  - Added Unix socket support (e.g. "connect = /var/run/stunnel/socket").
+  - Added "verify = 4" mode to ignore CA chain and only verify peer certificate.
+  - Removed the limit of 16 IP addresses for a single 'connect' option.
+  - Removed the limit of 256 stunnel.conf sections in PTHREAD threading model.
+    It is still not possible have more than 63 sections on WIN32 platform.
+    http://msdn.microsoft.com/en-us/library/windows/desktop/ms740141(v=vs.85).aspx
+* Optimizations
+  - Reduced per-connection memory usage.
+  - Performed a major refactoring of internal data structures.  Extensive
+    internal testing was performed, but some regression bugs are expected.
+* Bugfixes
+  - Fixed WIN32 compilation with Mingw32.
+  - Fixed non-blocking API emulation layer in UCONTEXT threading model.
+  - Fixed signal handling in UCONTEXT threading model.
+
 Version 4.45, 2011.10.24, urgency: LOW:
 * New features
   - "protocol = proxy" support to send original client IP address to haproxy:
@@ -40,7 +57,7 @@ Version 4.43, 2011.09.07, urgency: MEDIUM:
 * New features
   - Updated Win32 DLLs for OpenSSL 1.0.0e.
   - Major optimization of the logging subsystem.
-    Benchmarks indicate up to 15% performance improvement.
+    Benchmarks indicate up to 15% stunnel performance improvement.
 * Bugfixes
   - Fixed WIN32 configuration file reload.
   - Fixed FORK and UCONTEXT threading models.

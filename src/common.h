@@ -50,11 +50,7 @@
 /* #define DEBUG_STACK_SIZE */
 
 /* I/O buffer size */
-#define BUFFSIZE 16384
-
-/* IP address and TCP port textual representation length */
-/* 1234:6789:1234:6789:1234:6789:1234:6789:12345 -> 46 chars with '\0' */
-#define IPLEN 50
+#define BUFFSIZE 8192
 
 /* how many bytes of random input to read from files for PRNG */
 /* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
@@ -149,6 +145,7 @@ typedef int socklen_t;
 #define THREADS
 #endif
 #ifndef _REENTRANT
+/* _REENTRANT is required for thread-safe errno on Solaris */
 #define _REENTRANT
 #endif
 #ifndef _THREAD_SAFE
@@ -312,6 +309,9 @@ typedef unsigned long u32;
 #include <arpa/inet.h>   /* inet_ntoa */
 #include <sys/time.h>    /* select */
 #include <sys/ioctl.h>   /* ioctl */
+#ifdef HAVE_SYS_UN_H
+#include <sys/un.h>
+#endif
 #include <netinet/tcp.h>
 #include <netdb.h>
 #ifndef INADDR_ANY
@@ -417,14 +417,6 @@ extern char *sys_errlist[];
 #define safename(s) \
     do {unsigned char *p; for(p=(s); *p; p++) \
         if(!isalnum((int)*p)) *p='.';} while(0)
-
-/* some definitions for IPv6 support */
-#if defined(USE_IPv6)
-#define addr_len(x) ((x).sa.sa_family==AF_INET ? \
-    sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
-#else
-#define addr_len(x) (sizeof(struct sockaddr_in))
-#endif
 
 /* always use IPv4 defaults! */
 #define DEFAULT_LOOPBACK "127.0.0.1"
