@@ -444,6 +444,7 @@ void client(int local)
     int remote;
     struct linger l;
     u32 ip;
+    int on;
 #ifdef USE_LIBWRAP
     struct request_info request;
 #endif
@@ -459,6 +460,15 @@ void client(int local)
         }
         /* Ignore ENOTSOCK error so 'local' doesn't have to be a socket */
     } else {
+        /* It's a socket - lets setup options */
+#ifdef SO_OOBINLINE
+        on= 1;
+        if(setsockopt(local, SOL_SOCKET, SO_OOBINLINE, (void *)&on, sizeof(on))<0) {
+            sockerror("setsockopt (SO_OOBINLINE)");
+            goto cleanup_local;
+        }
+#endif
+
 #ifdef USE_LIBWRAP
         request_init(&request, RQ_DAEMON, options.servname, RQ_FILE, local, 0);
         fromhost(&request);
@@ -484,6 +494,14 @@ void client(int local)
         if((remote=connect_remote(ip))<0)
             goto cleanup_local; /* Failed to connect remote server */
         log(LOG_DEBUG, "Remote host connected");
+#ifdef SO_OOBINLINE
+        on= 1;
+        if(setsockopt(remote, SOL_SOCKET, SO_OOBINLINE, (void *)&on, sizeof(on))<0) {
+            sockerror("setsockopt (SO_OOBINLINE)");
+            goto cleanup_remote;
+        }
+#endif
+
     } else { /* local service */
         if((remote=connect_local(ip))<0)
             goto cleanup_local; /* Failed to spawn local service */

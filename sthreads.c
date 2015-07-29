@@ -97,7 +97,7 @@ int create_client(int ls, int s, void (*cli)(int)) {
          closesocket(s);
          return -1;
      }
-     pthread_sigmask(SIG_UNBLOCK, &oldmask, NULL); /* unblock SIGCHLD */
+     pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
      return 0;
 }
 
