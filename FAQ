@@ -62,8 +62,8 @@ A: There are some simple rules to check this:
    1. The protocol needs to be based on TCP (not UDP).
    2. The protocol can't use multiple connections (like ftp).
    3. The protocol can't depend on OOB data (like telnet).
-   4. Remote site can't use an application-specific protocol (like SMTP
-      from Netscape 4.5 or ssltelnet, where SSL is a negotiated option).
+   4. Remote site can't use an application-specific protocol
+      (like ssltelnet, where SSL is a negotiated option).
 
 Q: Can you give ma a list of officially assigned SSL ports numbers?
 A: Here it is (from Internet Assigned Numbers Authority):
@@ -84,12 +84,17 @@ A: Here it is (from Internet Assigned Numbers Authority):
    Please notice, that not every protocol on that list will work
    with stunnel.
 
-Q: SMTP with SSL doesn't work with Netscape 4.5.  What should I do?
+Q: SMTP with SSL doesn't work with Netscape 4.5 (or better).
+   What should I do?
 A: Netscape uses specific protocol for SMTP - it's not just tunneling.
-   There's no way to use a general-purpose wrapper for this protocol.
-   IMAP works fine, anyway.
-   Workaround: Install stunnel in client mode on your Windows, instead
-               of enabling SSL via SMTP in Netscape client.
+   You need to use '-n smtp' option.
+
+Q: I have a strange error message:
+     SSL_accept: error:00000000::lib(0) :func(0) :reason(0)
+   What does it mean?
+A: The error means that your client has closed connection before SSL
+   negotiation.
+   You're probably trying to connect SSL service with non-SSL client.
 
 Q: I have strange timeouts with my Outlook Express 4.  What to do?
 A: Do *NOT* use SSL of Outlook Express 4.

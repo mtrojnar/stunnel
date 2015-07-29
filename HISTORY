@@ -1,5 +1,20 @@
 stunnel         Universal SSL tunnel
 
+Version 3.7, 2000.02.10:
+* /usr/pkg added to list of possible SSL directories for pkgsrc installs
+  of OpenSSL under NetBSD.
+* Added the -s option, which setuid()s to the specified user when running
+  in daemon mode. Useful for cyrus imapd.
+  (both based on patch by George Coulouris)
+* PTY code ported to Solaris.  The port needs some more testing.
+* Added handler for SIGINT.
+* Added --with-random option to ./configure script.
+* Fixed some problems with autoconfiguration on Solaris and others.
+  It doesn't use config.h any more.
+* /var/run changed to @localstatedir@/stunnel for better portability.
+  The directory is chmoded a=rwx,+t.
+* FAQ has been updated.
+
 3.6 2000.02.03	Automatic RFC 2487 detection based on patch by
 		Pascual Perez and Borja Perez.
 		Non-blocking sockets not used by default.

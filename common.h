@@ -29,7 +29,31 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.6"
+/* default certificate */
+#define DEFAULT_CERT "stunnel.pem"
+
+/* additional directory (hashed!) with trusted CA client certs */
+#define CA_DIR "trusted"
+
+/* certificate used for sign our client certs */
+#define CLIENT_CA "cacert.pem"
+
+#else /* USE_WIN32 */
+
+/* default certificate */
+#define DEFAULT_CERT certdir "/stunnel.pem"
+
+/* additional directory (hashed!) with trusted CA client certs */
+#define CA_DIR certdir "/trusted"
+
+/* certificate used for signing our client certs */
+#define CLIENT_CA sslcnf "/localCA/cacert.pem"
+
+#endif /* USE_WIN32 */
+
+#ifdef USE_WIN32
+
+#define VERSION "3.7"
 #define HOST "i586-pc-mingw32-gnu"
 
 #define HAVE_VSNPRINTF
@@ -52,8 +76,6 @@ int _vsnprintf(char *, int, char *, ...);
 
 #else /* USE_WIN32 */
 
-#include "config.h"
-
 #define get_last_socket_error() errno
 #define get_last_error()        errno
 #define readsocket(s,b,n)       read((s),(b),(n))
@@ -67,11 +89,6 @@ int _vsnprintf(char *, int, char *, ...);
 #define THREADS
 #else
 #define USE_FORK
-#endif
-
-/* Pseudoterminals */
-#if HAVE_PTY_H && HAVE_LIBUTIL
-#define USE_PTY
 #endif
 
 /* TCP wrapper */
@@ -120,6 +137,7 @@ typedef struct {
     char *cipher_list;
     char *username;
     char *protocol;
+    char *setuid_user;
 } server_options;
 
 /* Prototypes for stunnel.c */

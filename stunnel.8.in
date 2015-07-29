@@ -12,7 +12,6 @@ stunnel \- universal SSL tunnel
 [-t timeout] [-u username] [-n protocol]
 -r [ip:]port [ -d [ip:]port [-f] | -l program | -L program [-- args] ]
 .SH DESCRIPTION
-.PP
 The \fBstunnel\fR program is designed to work as \fISSL\fR encryption wrapper 
 between remote clients and local (\fIinetd\fR-startable) or remote
 servers. The concept is that having non-SSL aware daemons running on
@@ -28,23 +27,22 @@ changes to the source code.
 This product includes cryptographic software written by
 Eric Young (eay@cryptsoft.com)
 .SH OPTIONS
-.TP
 .B -c
 client mode (remote service uses SSL)
 .RS
 default: server mode
 .RE
-.TP
+.PP
 .B -T
 transparent proxy mode (on hosts that support it)
-.TP
+.PP
 .B -p pemfile
 certificate (*.pem) file name
 .RS
 default: @sslcnf@/certs/stunnel.pem for server mode,
 none for client mode
 .RE
-.TP
+.PP
 .B -v level
 verify peer certificate
 .RS
@@ -53,48 +51,55 @@ level 2 - verify peer certificate
 level 3 - verify peer with locally installed certificate
 default: no verify
 .RE
-.TP
+.PP
 .B -a directory
 client certificate directory for -v 3 option
 .RS
 default: @sslcnf@/certs/trusted
 .RE
-.TP
+.PP
 .B -t timeout
 session cache timeout
 .RS
 default: 300 s.
 .RE
-.TP
+.PP
 .B -u user
 Use IDENT (RFC 1413) username checking
-.TP
+.PP
 .B -n proto
 Negotiate SSL with specified protocol
 .RS
 currenty supported: smtp
 .RE
-.TP
+.PP
 .B -d [ip:]port
 daemon mode (ip defaults to INADDR_ANY)
 .RS
 default: inetd mode
 .RE
-.TP
+.PP
 .B -f
 foreground mode (don't fork, log to stderr)
 .RS
 default: background in daemon mode
 .RE
-.TP
+.PP
 .B -l program [-- args]
 .RS
 execute local inetd-type program
 .RE
-.TP
+.PP
 .B -L program [-- args]
+.RS
 open local pty and execute program
-.TP
+.RE
+.PP
+.B -s username
+.RS
+setuid() to username in daemon mode
+.RE
+.PP
 .B -r [ip:]port
 connect to remote service
 .RS
@@ -157,14 +162,17 @@ There are available SSL enabled versions of FTP and telnet daemons, however.
 .SH SEE ALSO
 .BR tcpd (8),
 .BR inetd (8)
-.TP
+.PP
 .BI http://mike.daewoo.com.pl/computer/stunnel
 Stunnel homepage
-.TP
+.PP
 .BI http://www.openssl.org
 OpenSSL project website
 .SH AUTHORS
 Michal Trojnara <Michal.Trojnara@centertel.pl>
+.PP
 Adam Hernik <adas@infocentrum.com>
+.PP
 Pawel Krawczyk <kravietz@ceti.com.pl>
+.PP
 PTY support by Dirk O. Siebnich <dok@vossnet.de>

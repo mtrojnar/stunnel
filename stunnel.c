@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
- *   Version:      3.6              (stunnel.c)
- *   Date:         2000.02.03
+ *   Version:      3.7              (stunnel.c)
+ *   Date:         2000.02.10
  *   Author:       Michal Trojnara  <Michal.Trojnara@centertel.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
@@ -30,27 +30,6 @@
 
 /* Max number of children */
 #define MAX_CLIENTS    100
-
-#ifdef USE_WIN32
-
-/* default certificate */
-#define DEFAULT_CERT "stunnel.pem"
-
-/* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR "trusted"
-
-#else /* USE_WIN32 */
-
-/* directory for certificate */
-#define CERT_DIR sslcnf "/certs"
-
-/* default certificate */
-#define DEFAULT_CERT CERT_DIR "/stunnel.pem"
-
-/* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR CERT_DIR "/trusted"
-
-#endif /* USE_WIN32 */
 
 #include "common.h"
 
@@ -84,6 +63,12 @@ static struct WSAData wsa_state;
 #ifdef HAVE_PTY_H
 #include <pty.h>
 #endif
+#ifdef HAVE_STROPTS_H
+#include <stropts.h>
+#endif
+
+#include <pwd.h>
+
 #include <fcntl.h>
 
     /* Networking headers */
@@ -162,6 +147,7 @@ int main(int argc, char* argv[])
     signal(SIGPIPE, SIG_IGN); /* avoid 'broken pipe' signal */
     signal(SIGTERM, signal_handler);
     signal(SIGQUIT, signal_handler);
+    signal(SIGINT, signal_handler);
     /* signal(SIGSEGV, signal_handler); */
 #endif
 
@@ -235,8 +221,9 @@ static void get_options(int argc, char *argv[]) {
     options.cipher_list=NULL;
     options.username=NULL;
     options.protocol=NULL;
+    options.setuid_user=NULL;
     opterr=0;
-    while ((c = getopt(argc, argv, "a:cp:v:d:fTl:L:r:t:u:n:hC:D:V")) != EOF)
+    while ((c = getopt(argc, argv, "a:cp:v:d:fTl:L:r:s:t:u:n:hC:D:V")) != EOF)
         switch (c) {
             case 'a':
                 safecopy(options.clientdir, optarg);
@@ -283,10 +270,8 @@ static void get_options(int argc, char *argv[]) {
             case 'T':
                 options.option|=OPT_TRANSPARENT;
                 break;
-#ifdef USE_PTY
             case 'L':
                 options.option |= OPT_PTY;
-#endif
             case 'l':
                 options.option |= OPT_PROGRAM;
                 options.execname = optarg;
@@ -310,6 +295,9 @@ static void get_options(int argc, char *argv[]) {
                     alloc(&options.remotenames, 1);
                     options.remotenames[0] = htonl(INADDR_LOOPBACK);
                 }
+                break;
+            case 's':
+                options.setuid_user=optarg;
                 break;
             case 't':
                 if(!(options.session_timeout=atoi(optarg))) {
@@ -337,11 +325,11 @@ static void get_options(int argc, char *argv[]) {
                 fprintf(stderr, "\n" STUNNEL_INFO "\n\n");
                 exit(0);
             case '?':
-                log(LOG_ERR, "Illegal option '%c'", optopt);
+                log(LOG_ERR, "Illegal option: '%c'", optopt);
             case 'h':
                 print_help();
             default:
-                log(LOG_ERR, "Internal error in get_options");
+                log(LOG_ERR, "INTERNAL ERROR: Illegal option: '%c'", c);
                 print_help();
         }
     if (options.option & OPT_CLIENT) {
@@ -448,6 +436,7 @@ static void daemonize() /* go to background */
 static void create_pid()
 {
     FILE *pf;
+    int oldumask;
 
     options.dpid=(unsigned long)getpid();
 #ifdef HAVE_SNPRINTF
@@ -455,9 +444,10 @@ static void create_pid()
 #else
     sprintf(options.pidfile,
 #endif
-        "/var/run/stunnel.%s.pid", options.servname);
-    umask(022);
+        "%s/stunnel.%s.pid", piddir, options.servname);
+    oldumask=umask(022);
     pf=fopen(options.pidfile, "w");
+    umask(oldumask);
     if(!pf) {
         ioerror(options.pidfile);
         return; /* not critical */
@@ -503,6 +493,23 @@ static int listen_local() /* bind and listen on local interface */
         sockerror("listen");
         exit(1);
     }
+
+#ifndef USE_WIN32
+    if(options.setuid_user) {
+        struct passwd *pw;
+
+        pw=getpwnam(options.setuid_user);
+        if (!pw) {
+            log(LOG_ERR, "Failed to get UID for user %s", options.setuid_user);
+            exit(1);
+        }
+        if(setuid(pw->pw_uid)) {
+            sockerror("setuid");
+            exit(1);
+        }
+    }
+#endif /* USE_WIN32 */
+
     return ls;
 }
 
@@ -512,54 +519,95 @@ int connect_local(u_long ip) /* connect to local host */
     log(LOG_ERR, "LOCAL MODE NOT SUPPORTED ON WIN32 PLATFORM");
     return -1;
 #else
-    {
-        struct in_addr addr;
-        char text[STRLEN];
-        int fd[2];
+    struct in_addr addr;
+    char text[STRLEN];
+    int fd[2];
 
-#ifdef USE_PTY
+#ifdef HAVE_LIBUTIL
+    if (options.option & OPT_PTY) {
         char tty[STRLEN];
 
-        if (options.option & OPT_PTY) {
-            if(openpty(fd, fd+1, tty, NULL, NULL)<0) {
-                ioerror("openpty");
-                return -1;
-            }
-            log(LOG_DEBUG, "%s allocated", tty);
-        } else
-#endif /* USE_PTY */
-        {
-            if(make_sockets(fd))
-                return -1;
-        }
-        switch (fork()) {
-        case -1:    /* error */
-            closesocket(fd[0]);
-            closesocket(fd[1]);
-            ioerror("fork");
+        if(openpty(fd, fd+1, tty, NULL, NULL)<0) {
+            ioerror("openpty");
             return -1;
-        case  0:    /* child */
-            closesocket(fd[0]);
-            dup2(fd[1], 0);
-            dup2(fd[1], 1);
-            if (!options.foreground)
-                dup2(fd[1], 2);
-            closesocket(fd[1]);
-            if (ip) {
-                putenv("LD_PRELOAD=" libdir "/stunnel.so");
-                addr.s_addr = ip;
-                safecopy(text, "REMOTE_HOST=");
-                safeconcat(text, inet_ntoa(addr));
-                putenv(text);
-            }
-            execvp(options.execname, options.execargs);
-            ioerror("execvp"); /* execv failed */
-            exit(1);
         }
-        /* parent */
-        closesocket(fd[1]);
-        return fd[0];
+        log(LOG_DEBUG, "%s allocated", tty);
+    } else
+#else
+#ifdef I_PUSH
+    if (options.option & OPT_PTY) {
+        extern char *ptsname();
+        char *tty;
+
+        if((fd[0]=open("/dev/ptmx", O_RDWR | O_NOCTTY))<0) { /* open master */
+            ioerror("master tty open");
+            return -1;
+        }
+        if(grantpt(fd[0])<0) {      /* change permission of  slave */
+            ioerror("grantpt");
+#if 0
+            return -1;
+#endif
+        }
+        if(unlockpt(fd[0])<0) {     /* unlock slave */
+            ioerror("unlockpt");
+            return -1;
+        }
+        if(!(tty=ptsname(fd[0]))) { /* get name of slave */
+            log(LOG_ERR, "Slave pty side name could not be obtained.");
+            return -1;
+        }
+        if((fd[1]=open(tty, O_RDWR | O_NOCTTY))<0) { /* open slave */
+            ioerror("slave tty open");
+            return -1;
+        }
+        if(ioctl(fd[1], I_PUSH, "ptem")<0) {
+            ioerror("push ptem");
+            return -1;
+        }
+        if(ioctl(fd[1], I_PUSH, "ldterm")<0) {
+            ioerror("push ldterm");
+            return -1;
+        }
+        if(ioctl(fd[1], I_PUSH, "ttcompat")<0) {
+            ioerror("push ttcompat");
+            return -1;
+        }
+        log(LOG_DEBUG, "%s allocated", tty);
+    } else
+#endif /* I_PUSH */
+#endif /* HAVE_LIBUTIL */
+    {
+        if(make_sockets(fd))
+            return -1;
     }
+    switch (fork()) {
+    case -1:    /* error */
+        closesocket(fd[0]);
+        closesocket(fd[1]);
+        ioerror("fork");
+        return -1;
+    case  0:    /* child */
+        closesocket(fd[0]);
+        dup2(fd[1], 0);
+        dup2(fd[1], 1);
+        if (!options.foreground)
+            dup2(fd[1], 2);
+        closesocket(fd[1]);
+        if (ip) {
+            putenv("LD_PRELOAD=" libdir "/stunnel.so");
+            addr.s_addr = ip;
+            safecopy(text, "REMOTE_HOST=");
+            safeconcat(text, inet_ntoa(addr));
+            putenv(text);
+        }
+        execvp(options.execname, options.execargs);
+        ioerror("execvp"); /* execv failed */
+        exit(1);
+    }
+    /* parent */
+    closesocket(fd[1]);
+    return fd[0];
 #endif /* USE_WIN32 */
 }
 
@@ -894,6 +942,7 @@ static void print_help()
         "\n\t\tdefault: background in daemon mode"
         "\n  -l program\texecute local inetd-type program"
         "\n  -L program\topen local pty and execute program"
+        "\n  -s username\tsetuid() to username in daemon mode"
 #endif
         "\n  -r [ip:]port\tconnect to remote service"
         " (ip defaults to INADDR_LOOPBACK)"

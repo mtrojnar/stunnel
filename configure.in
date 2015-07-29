@@ -1,7 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_INIT(stunnel.c)
-AC_CONFIG_HEADER(config.h)
 
 AC_CANONICAL_HOST
 AC_PROG_CC
@@ -9,20 +8,39 @@ if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.6"
+VERSION="3.7"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
 AC_MSG_CHECKING([for SSL config directory])
-for dir in /usr/local/openssl /usr/lib/openssl /var/openssl; do
-    sslcnf="$dir"
+# The next line specifies default
+sslcnf="/usr/local/stunnel"
+for dir in /usr/local/openssl /usr/local/ssl /usr/lib/openssl /var/openssl /usr/pkg; do
     if test -d "$dir/certs"; then
+        sslcnf="$dir"
         break
     fi
 done
 AC_MSG_RESULT($sslcnf)
 AC_SUBST(sslcnf)
 AC_DEFINE_UNQUOTED(sslcnf, "$sslcnf")
+
+dnl Check for user-specified random device
+AC_ARG_WITH(random,
+  [  --with-random=FILE      read randomness from FILE (default=/dev/urandom)],
+  [
+    RANDOM_OPT="-rand $withval";
+  ],
+  [
+    dnl Check for random device
+    AC_CHECK_FILE("/dev/urandom",
+      [
+        RANDOM_OPT="-rand /dev/urandom";
+        AC_SUBST(RANDOM_OPT)
+      ]
+    )
+  ]
+)
 
 AC_SUBST(host)
 AC_DEFINE_UNQUOTED(HOST, "$host")
@@ -72,7 +90,7 @@ dnl Checks for header files.
 # AC_HEADER_DIRENT
 # AC_HEADER_STDC
 # AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(getopt.h unistd.h sys/select.h tcpd.h pthread.h pty.h)
+AC_CHECK_HEADERS(getopt.h unistd.h sys/select.h tcpd.h pthread.h pty.h stropts.h)
 
 # dnl Checks for typedefs, structures, and compiler characteristics.
 # AC_C_CONST

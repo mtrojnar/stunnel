@@ -6,19 +6,20 @@ prefix=@prefix@
 exec_prefix=@exec_prefix@
 sbindir=@sbindir@
 libdir=@libdir@
-mandir=@mandir@/man8
+man8dir=@mandir@/man8
+piddir=@localstatedir@/stunnel
 ssldir=@ssldir@
 sslcnf=@sslcnf@
 certdir=$(sslcnf)/certs
 @SET_MAKE@
 VERSION=stunnel-@VERSION@
+RANDOM_OPT=@RANDOM_OPT@
 CC=@CC@
 INSTALL=@INSTALL@
-CFLAGS=@CFLAGS@ -Dlibdir=\"@libdir@\"
+CFLAGS=@CFLAGS@ @DEFS@ -Dcertdir=\"$(certdir)\" -Dlibdir=\"$(libdir)\" -Dpiddir=\"$(piddir)\"
 LIBS=@LIBS@
 OBJS=stunnel.o ssl.o protocol.o sthreads.o log.o
-DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(mandir)/stunnel.8 \
-    $(certdir)/stunnel.pem
+DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(man8dir)/stunnel.8 $(certdir)/stunnel.pem
 
 # standard external rules
 
@@ -36,7 +37,7 @@ clean:
 	rm -f stunnel stunnel.so $(OBJS) core config.log
 
 distclean: clean
-	rm -f stunnel.8 config.cache config.status Makefile config.h
+	rm -f stunnel.8 config.cache config.status Makefile
 
 mostlyclean: distclean
 
@@ -50,7 +51,8 @@ dist: distclean
 	rm -rf ../dist/$(VERSION)
 
 installdirs: mkinstalldirs
-	./mkinstalldirs $(sbindir) $(libdir) $(mandir) $(certdir)
+	./mkinstalldirs $(sbindir) $(libdir) $(man8dir) $(certdir) $(piddir)
+	chmod a=rwx,+t $(piddir)
 
 # non-standard external rules
 
@@ -80,15 +82,13 @@ Makefile: configure Makefile.in
 
 configure: configure.in
 	autoconf
-	autoheader configure.in > config.h.in
 
 $(OBJS): Makefile common.h
 
 stunnel.pem: stunnel.cnf
 	$(ssldir)/bin/openssl req -new -x509 -days 365 -nodes \
 		-config stunnel.cnf -out stunnel.pem -keyout stunnel.pem
-	$(ssldir)/bin/openssl gendh -rand \
-		`test -c /dev/random && echo /dev/random` 512 >> stunnel.pem
+	$(ssldir)/bin/openssl gendh $(RANDOM_OPT) 512 >> stunnel.pem
 	$(ssldir)/bin/openssl x509 -subject -dates -fingerprint -noout \
 		-in stunnel.pem
 
@@ -98,8 +98,8 @@ $(sbindir)/stunnel: stunnel
 $(libdir)/stunnel.so: stunnel.so
 	test -s stunnel.so && $(INSTALL) -m 755 stunnel.so $(libdir)
 
-$(mandir)/stunnel.8: stunnel.8
-	$(INSTALL) -m 644 stunnel.8 $(mandir)
+$(man8dir)/stunnel.8: stunnel.8
+	$(INSTALL) -m 644 stunnel.8 $(man8dir)
 
 $(certdir)/stunnel.pem: stunnel.pem
 	$(INSTALL) -m 600 stunnel.pem $(certdir)

@@ -44,33 +44,6 @@
 /* I/O buffer size */
 #define BUFFSIZE       8192
 
-#ifdef USE_WIN32
-
-/* default certificate */
-#define DEFAULT_CERT "stunnel.pem"
-
-/* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR "trusted"
-
-/* certificate used for sign our client certs */
-#define CLIENT_CA "cacert.pem"
-
-#else /* USE_WIN32 */
-
-/* directory for certificate */
-#define CERT_DIR sslcnf "/certs"
-
-/* default certificate */
-#define DEFAULT_CERT CERT_DIR "/stunnel.pem"
-
-/* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR CERT_DIR "/trusted"
-
-/* certificate used for signing our client certs */
-#define CLIENT_CA sslcnf "/localCA/cacert.pem"
-
-#endif /* USE_WIN32 */
-
 #include "common.h"
 
 #include <stdio.h>
@@ -230,12 +203,13 @@ dh_done:
     SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_BOTH);
     SSL_CTX_set_timeout(ctx, options.session_timeout);
     if(options.option&OPT_CERT) {
-        log(LOG_DEBUG, "Certificate: %s", options.certfile);
         if(!SSL_CTX_use_certificate_file(ctx, options.certfile,
                 SSL_FILETYPE_PEM)) {
+            log(LOG_ERR, "Error reading certificate file: %s", options.certfile);
             sslerror("SSL_CTX_use_certificate_file");
             exit(1);
         }
+        log(LOG_DEBUG, "Certificate: %s", options.certfile);
 #ifdef NO_RSA
         if(!SSL_CTX_use_PrivateKey_file(ctx, options.certfile,
                 SSL_FILETYPE_PEM)) {
