@@ -9,6 +9,8 @@ stunnel         Universal SSL tunnel
         make
         make install
 
+   (see potential options for 'configure' at the end of this file)
+
    If you have problems with Internet Domain implementation of
    make_sockets() change line:
 
@@ -33,3 +35,41 @@ stunnel         Universal SSL tunnel
 
    See stunnel manual for details.
 
+5. There are a variety of compile-time options you may supply when
+   running configure:
+
+	--with-ssl=DIR		where are your SSL libraries/include files
+				are installed
+
+	--with-random=FILE	read randomness from FILE for PRNG seeding
+
+	--with-egd-socket=FILE	location of Entropy Gathering Daemon socket,
+				if running EGD (for example on a machine
+				that lacks a /dev/urandom device)
+
+	--with-cert-dir=DIR	directory in which stunnel will look for
+				certificate files for the '-v' options.
+				This is the default used when the '-a' flag
+				is not specified.
+
+	--with-cert-file=FILE	file with multiple certificates used with
+				the '-v' options.  This is the default
+				used when the '-A' flag is not specified.
+
+	--enable-ssllib-cs	Have stunnel use the default certificate
+				sources specified by your SSL library.
+
+				This is no longer enabled by default, because
+				it has been causing far too much confusion
+				to most users.  To be fully compatible with
+				previous versions of stunnel, specify this
+				option when running configure.
+				The '-S' flag can always be used to allow
+				the ssl certificate defaults when desired.
+
+	--with-pem-dir=DIR	default directory for your stunnel.pem
+				server key/certificate.  No default
+				exists unless specified, which means
+				stunnel will expect your stunnel.pem to
+				be in the directory from which you run
+				stunnel.

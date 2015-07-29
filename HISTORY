@@ -1,5 +1,56 @@
 stunnel         Universal SSL tunnel
 
+Version 3.9, 2000.12.13:
+* Updated temporary key generation:
+   - stunnel is now honoring requested key-lengths correctly,
+   - temporary key is changed every hour.
+* transfer() no longer hangs on some platforms.
+  Special thanks to Peter Wagemans for the patch.
+* Potential security problem with syslog() call fixed.
+
+Version 3.8p4, 2000.06.25  bri@stunnel.org:
+* fixes for Windows platform
+
+Version 3.8p3, 2000.06.24  bri@stunnel.org:
+* Compile time definitions for the following:
+	--with-cert-dir
+	--with-cert-file
+	--with-pem-dir
+	--enable-ssllib-cs
+* use daemon() function instead of daemonize, if available
+* fixed FreeBSD threads checking (patch from robertw@wojo.com)
+* added -S flag, allowing you to choose which default verify
+  sources to use
+* relocated service name output logging until after log_open.
+  (no longer outputs log info to inetd socket, causing bad SSL)
+* -V flag now outputs the default values used by stunnel
+* Removed DH param generation in Makefile.in
+* Moved stunnel.pem to sample.pem to keep people from blindly using it
+* Removed confusing stunnel.pem check from Makefile.
+
+* UPGRADE NOTE: this version seriously changes several previous stunnel
+  default behaviours.  There are no longer any default cert file/dirs
+  compilied into stunnel, you must use the --with-cert-dir and
+  --with-cert-file configure arguments to set these manually, if desired.
+  Stunnel does not use the underlying ssl library defaults by default
+  unless configured with --enable-ssllib-cs.  Note that these can always
+  be enabled at run time with the -A,-a, and -S flags.
+  Additionally, unless --with-pem-dir is specified at compile time,
+  stunnel will default to looking for stunnel.pem in the current directory.
+
+Version 3.8p2, 2000.06.13  bri@stunnel.org:
+* Fixes for Win32 platform
+* Minor output formatting changes
+* Fixed version number in files
+
+Version 3.8p1, 2000.06.11  bri@stunnel.org:
+* Added rigerous PRNG seeding
+* PID changes (and related security-fix)
+* Man page fixes
+* Client SSL Session-IDs now used
+* -N flag to specify tcpwrapper service name
+
+
 Version 3.8, 2000.02.24:
 * Checking for threads in c_r library for FreeBSD.
 * Some compatibility fixes for Ultrix.

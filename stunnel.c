@@ -1,14 +1,16 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
+ *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.8              (stunnel.c)
- *   Date:         2000.02.24
- *   Author:       Michal Trojnara  <Michal.Trojnara@centertel.pl>
- *   SSL support:  Adam Hernik      <adas@infocentrum.com>
- *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
- *   PTY support:  Dirk O. Siebnich <dok@vossnet.de>
+ *   Version:      3.9                   (stunnel.c)
+ *   Date:         2000.12.13
+ *   
+ *   Author:   		Michal Trojnara  <Michal.Trojnara@mirt.net>
+ *   SSL support:  	Adam Hernik      <adas@infocentrum.com>
+ *                 	Pawel Krawczyk   <kravietz@ceti.com.pl>
+ *   PTY support:  	Dirk O. Siebnich <dok@vossnet.de>
+ *   This Revision by:	Brian Hatch	 <bri@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -36,6 +38,13 @@
     /* Must be included before sys/stat.h for Ultrix */
 #include <sys/types.h>   /* u_short, u_long */
 
+/* Needed so we know which version of OpenSSL we're using */
+#ifdef HAVE_OPENSSL
+#include <openssl/crypto.h>
+#else
+#include <crypto.h>
+#endif
+
     /* General headers */
 #include <stdio.h>
 #include <errno.h>       /* errno */
@@ -48,6 +57,7 @@
 
 #define Win32_Winsock
 #include <windows.h>
+
 
 static struct WSAData wsa_state;
 
@@ -123,6 +133,7 @@ static int getopt(int, char **, char *);
 static void safestring(char *);
 static void alloc(u_long **, int);
 static void print_help();
+static void print_version();
 
 server_options options;
 
@@ -146,23 +157,28 @@ int main(int argc, char* argv[])
 
     /* process options */
     options.foreground=1;
-    safecopy(options.certfile, DEFAULT_CERT);
-    safecopy(options.clientdir, CA_DIR);
+    options.cert_defaults = CERT_DEFAULTS;
+    
+    safecopy(options.pem, PEM_DIR);
+    if ( options.pem[0] ) { safeconcat(options.pem, "/"); }
+    safeconcat(options.pem, "stunnel.pem");
+
     get_options(argc, argv);
     if(!(options.option&OPT_FOREGROUND)) {
         options.foreground=0;
         log_open();
     }
+    log(LOG_NOTICE, "Using '%s' as tcpwrapper service name", options.servname);
 
     /* check if certificate exists */
     if(options.option&OPT_CERT) {
-        if(stat(options.certfile, &st)) {
-            ioerror(options.certfile);
+        if(stat(options.pem, &st)) {
+            ioerror(options.pem);
             exit(1);
         }
 #ifndef USE_WIN32
         if(st.st_mode & 7)
-            log(LOG_WARNING, "Wrong permissions on %s", options.certfile);
+            log(LOG_WARNING, "Wrong permissions on %s", options.pem);
 #endif /* defined USE_WIN32 */
     }
 
@@ -205,29 +221,46 @@ static void get_options(int argc, char *argv[]) {
     extern int optind, opterr, optopt;
     char *tmpstr;
     static char *default_args[2];
+    char *servname_selected=NULL;
 
     options.option=0;
     options.verify_level=0x00; /* SSL_VERIFY_NONE */
     options.verify_use_only_my=0;
     options.debug_level=5;
-    options.session_timeout=0;
+    options.session_timeout=300;
     options.cipher_list=NULL;
     options.username=NULL;
     options.protocol=NULL;
     options.setuid_user=NULL;
     options.setgid_group=NULL;
+    options.pid_dir=PIDDIR;
+    options.egd_sock=NULL;
+    options.rand_file=NULL;
+    options.rand_write=1;
+    options.random_bytes=RANDOM_BYTES;
     opterr=0;
-    while ((c = getopt(argc, argv, "a:cp:v:d:fTl:L:r:s:g:t:u:n:hC:D:V")) != EOF)
+    while ((c = getopt(argc, argv, "A:a:cp:v:d:fTl:L:r:s:g:t:u:n:N:hC:D:E:R:WB:VP:S:")) != EOF)
         switch (c) {
+	    case 'A':
+	    	safecopy(options.cert_file,optarg);
+		break;
             case 'a':
-                safecopy(options.clientdir, optarg);
+                safecopy(options.cert_dir, optarg);
                 break;
+	    case 'S':
+		options.cert_defaults = atoi(optarg);
+		if ( options.cert_defaults < 0 ||
+		     options.cert_defaults > 3 ) {
+		     log(LOG_ERR, "Bad -S value '%d'", options.cert_defaults);
+		     print_help();
+		}
+		break;
             case 'c':
                 options.option|=OPT_CLIENT;
                 break;
             case 'p':
                 options.option|=OPT_CERT;
-                safecopy(options.certfile, optarg);
+                safecopy(options.pem, optarg);
                 break;
             case 'v':
                 switch(atoi(optarg)) {
@@ -264,6 +297,23 @@ static void get_options(int argc, char *argv[]) {
             case 'T':
                 options.option|=OPT_TRANSPARENT;
                 break;
+	    case 'R':
+	    	options.rand_file=optarg;
+		break;
+	    case 'W':
+	        options.rand_write=0;
+		break;
+	    case 'B':
+	    	options.random_bytes=atoi(optarg);
+		break;
+	    case 'E':
+#if SSLEAY_VERSION_NUMBER >= 0x0090581fL
+	    	options.egd_sock=optarg;
+#else
+		log(LOG_ERR, "-E is only supported when compiled with OpenSSL 0.9.5a or later");
+		/* exit(1) ??? */
+#endif
+		break;
             case 'L':
                 options.option |= OPT_PTY;
             case 'l':
@@ -308,6 +358,9 @@ static void get_options(int argc, char *argv[]) {
             case 'n':
                 options.protocol=optarg;
                 break;
+	    case 'N':
+	    	servname_selected=optarg;
+		break;
             case 'C':
                 options.cipher_list=optarg;
                 break;
@@ -319,8 +372,11 @@ static void get_options(int argc, char *argv[]) {
                 options.debug_level=optarg[0]-'0';
                 break;
             case 'V':
-                fprintf(stderr, "\n" STUNNEL_INFO "\n\n");
+                print_version();
                 exit(0);
+	    case 'P':
+	    	options.pid_dir=optarg;
+		break;
             case '?':
                 log(LOG_ERR, "Illegal option: '%c'", optopt);
             case 'h':
@@ -329,6 +385,12 @@ static void get_options(int argc, char *argv[]) {
                 log(LOG_ERR, "INTERNAL ERROR: Illegal option: '%c'", c);
                 print_help();
         }
+#ifdef USE_WIN32
+    if (! (options.option & OPT_DAEMON) ) {
+    	log(LOG_ERR, "You must use daemon mode (-d) in Windows.");
+	print_help();
+    }
+#endif
     if (options.option & OPT_CLIENT) {
         if (!(options.option & OPT_REMOTE)) {
             log(LOG_ERR, "Remote service must be specified");
@@ -364,7 +426,9 @@ static void get_options(int argc, char *argv[]) {
         options.execargs = argv + optind;
         safecopy(options.servname, options.execargs[0]);
     }
-    log(LOG_DEBUG, "Service name to be used: %s", options.servname);
+    if ( servname_selected ) {
+    	safecopy(options.servname, servname_selected);
+    }
 }
 
 static void daemon_loop()
@@ -411,6 +475,13 @@ static void daemon_loop()
 #ifndef USE_WIN32
 static void daemonize() /* go to background */
 {
+#ifdef HAVE_DAEMON
+    if ( daemon(0,0) == -1 ) {
+	ioerror("daemon");
+	exit(1);
+    }
+#else
+    chdir("/");
     switch (fork()) {
     case -1:    /* fork failed */
         ioerror("fork");
@@ -424,38 +495,63 @@ static void daemonize() /* go to background */
         ioerror("setsid");
         exit(1);
     }
-    chdir("/");
     close(0);
     close(1);
     close(2);
+#endif
 }
 
 static void create_pid()
 {
-    FILE *pf;
-    int oldumask;
+    int pf;
+    char pid[STRLEN];
 
-    options.dpid=(unsigned long)getpid();
-#ifdef HAVE_SNPRINTF
-    snprintf(options.pidfile, STRLEN,
-#else
-    sprintf(options.pidfile,
-#endif
-        "%s/stunnel.%s.pid", piddir, options.servname);
-    oldumask=umask(022);
-    pf=fopen(options.pidfile, "w");
-    umask(oldumask);
-    if(!pf) {
-        ioerror(options.pidfile);
-        return; /* not critical */
+    if ( strcmp(options.pid_dir, "none") == 0 ) {
+    	log(LOG_DEBUG, "No pid file being created.");
+	options.pidfile[0]='\0';
+    	return;
     }
-    fprintf(pf, "%lu", options.dpid);
-    fclose(pf);
+    if ( ! strchr(options.pid_dir, '/') ) {
+    	log(LOG_ERR, "Argument to -P (%s) must be full path name.",
+		options.pid_dir);
+    	/* Why?  Because we don't want to confuse by
+	   allowing '.', which would be '/' after
+	   daemonizing) */
+	exit(1);
+    }
+    options.dpid=(unsigned long)getpid();
+
+    /* determine if they specified a pid dir or pid file,
+       and set our options.pidfile appropriately */
+    if ( options.pid_dir[ strlen(options.pid_dir)-1 ] == '/' ) {
+#ifdef HAVE_SNPRINTF 
+    	snprintf(options.pidfile, STRLEN,
+        	"%sstunnel.%s.pid", options.pid_dir, options.servname);
+#else
+    	safecopy(options.pidfile, options.pid_dir);
+    	safeconcat(options.pidfile, "stunnel.");
+    	safeconcat(options.pidfile, options.servname);
+	safeconcat(options.pidfile, ".pid");
+#endif
+    } else {
+    	safecopy(options.pidfile, options.pid_dir);
+    }
+
+    if (-1==(pf=open(options.pidfile, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL,0644))) {
+        log(LOG_ERR, "Cannot create pid file %s", options.pidfile);
+	ioerror("Create");
+	exit(1);
+    }
+    sprintf(pid, "%lu", options.dpid);
+    write( pf, pid, strlen(pid) );
+    close(pf);
+    log(LOG_DEBUG, "Created pid file %s", options.pidfile);
     atexit(delete_pid);
 }
 
 static void delete_pid()
 {
+    log(LOG_DEBUG, "removing pid file %s", options.pidfile);
     if((unsigned long)getpid()!=options.dpid)
         return; /* Current process is not main deamon process */
     if(unlink(options.pidfile)<0)
@@ -522,6 +618,12 @@ static int listen_local() /* bind and listen on local interface */
                 options.setuid_user);
             exit(1);
         }
+#ifndef USE_WIN32
+	/* gotta chown that pid file, or we can't remove it. */
+	if ( options.pidfile[0] && chown( options.pidfile, pw->pw_uid, -1) ) {
+		log(LOG_ERR, "Failed to chown pidfile %s", options.pidfile);
+	}
+#endif
         if(setuid(pw->pw_uid)) {
             sockerror("setuid");
             exit(1);
@@ -870,59 +972,139 @@ static void alloc(u_long **ptr, int len)
     (*ptr)[len]=-1;
 }
 
+static void print_version()
+{
+	fprintf(stderr, "\n" STUNNEL_INFO "\n\n");
+        fprintf(stderr, "Default behaviour:\n"
+#ifdef USE_WIN32
+			"\trun in daemon mode\n"
+			"\trun in foreground\n"
+#else
+			"\trun in inetd mode (unless -d used)\n"
+			"\trun in background (unless -f used)\n"
+#endif
+			"\trun in ssl server mode (unless -c used)\n"
+			"\n");
+
+	fprintf(stderr, "Compile time defaults:\n");
+	fprintf(stderr, "\t-v level\tno verify\n");
+	fprintf(stderr, "\t-a directory\t%s\n",
+		strcmp("",CERT_DIR)? CERT_DIR : "(none)");
+	fprintf(stderr, "\t-A file\t\t%s\n",
+		strcmp("",CERT_FILE)? CERT_FILE : "(none)"
+	);
+	fprintf(stderr, "\t-S sources\t%d\n", CERT_DEFAULTS);
+	fprintf(stderr, "\t-t timeout\t%ld seconds\n", options.session_timeout);
+	fprintf(stderr, "\t-B bytes\t%d\n", RANDOM_BYTES);
+	fprintf(stderr, "\t-D level\t%d\n", options.debug_level);
+#ifndef USE_WIN32
+	fprintf(stderr, "\t-P pid dir\t%s\n", options.pid_dir);
+#endif
+	fprintf(stderr, "\t-p pemfile\t"
+			"in server mode: %s\n"
+			"\t\t\tin client mode: none\n", options.pem);
+	fprintf(stderr, "\n\n");
+
+}
+
+
 static void print_help()
 {
     fprintf(stderr,
-        "\nstunnel [-T] [-p pemfile] [-v level] [-a directory]"
-        "\n\t[-t timeout] [-u username] [-n protocol]"
-#ifndef USE_WIN32
-        "\n\t[-d [ip:]port [-f]]"
-        "\n\t[ -l program | -r [ip:]port | -L program [-- args] ]"
-#else
-        "\n\t-d [ip:]port -r [ip:]port"
+/* Server execution */
+	"\nstunnel\t"
+	"[-h] "
+	"[-V] "
+	"[-c | -T] "
+	"[-D level] "
+	"[-C cipherlist] "
+	"[-p pemfile] "
+	"\n\t"
+	"[-v level] "
+	"[-A certfile] "
+	"[-a directory] "
+	"[-S sources] "
+	"[-t timeout] "
+	"\n\t"
+	"[-u ident_username] "
+	"[-s setuid_user] "
+	"[-g setgid_group] "
+	"[-n protocol]"
+	"\n\t"
+	"[-R randfile] "
+#if SSLEAY_VERSION_NUMBER >= 0x0090581fL
+	"[-E egdsock] "
 #endif
-        "\nstunnel {-c} [-p pemfile] [-v level] [-a directory]"
-        "\n\t[-t timeout] [-u username] [-n protocol]"
+	"[-B bytes] "
+
 #ifndef USE_WIN32
-        "\n\t-r [ip:]port"
-        "\n\t[ -d [ip:]port [-f] | -l program | -L program [-- args] ]"
+	"[-P { dir/ | filename | none } ] "
+	"\n\t[-d [host:]port [-f] ] "
+	"\n\t[-r [host:]port | { -l | -L }  program [-- args] ] "
 #else
-        "\n\t-r [ip:]port -d [ip:]port"
+	"\n\t-d [host:]port -r [host:]port"
 #endif
-        "\n\n  -c\t\tclient mode (remote service uses SSL)"
-        "\n\t\tdefault: server mode"
-        "\n  -T\t\ttransparent proxy mode (on hosts that support it)"
-        "\n  -p pemfile\tcertificate (*.pem) file name"
-        "\n\t\tdefault: " DEFAULT_CERT " for server mode,"
-        "\n\t\t\t none for client mode"
+
+
+	/* Argument notes */
+
+	"\n\n  -h\t\tprint this help screen"
+        "\n  -V\t\tprint stunnel version and compile-time defaults"
+	"\n"
+        "\n  -d [host:]port   daemon mode (host defaults to INADDR_ANY)"
+        "\n  -r [host:]port   connect to remote service (host defaults to INADDR_LOOPBACK)"
+#ifndef USE_WIN32
+        "\n  -l program\t   execute local inetd-type program"
+        "\n  -L program\t   open local pty and execute program"
+#endif
+	"\n"
+        "\n  -c\t\tclient mode (remote service uses SSL)"
+#ifndef USE_WIN32
+        "\n  -f\t\tforeground mode (don't fork, log to stderr)"
+#endif
+        "\n  -T\t\ttransparent proxy mode on hosts that support it."
+        "\n  -p pemfile\tprivate key/certificate PEM filename"
         "\n  -v level\tverify peer certificate"
-        "\n\t\tlevel 1 - verify peer certificate if present"
-        "\n\t\tlevel 2 - verify peer certificate"
-        "\n\t\tlevel 3 - verify peer with locally installed certificate"
-        "\n\t\tdefault: no verify"
-        "\n  -a directory\tclient certificate directory for -v 3 option"
-        "\n\t\tdefault: " CA_DIR
+        "\n\t\t   level 1 - verify peer certificate if present"
+        "\n\t\t   level 2 - require valid peer certificate always"
+        "\n\t\t   level 3 - verify peer with locally installed certificate"
+        "\n  -a directory\tclient certificate directory for -v options"
+	"\n  -A certfile\tCA certificate for -v options"
+	"\n  -S sources\twhich certificate source defaults to use"
+	"\n\t\t   0 = ignore all defaults sources"
+	"\n\t\t   1 = use ssl library defaults"
+	"\n\t\t   2 = use stunnel defaults"
+	"\n\t\t   3 = use both ssl library and stunnel defaults"
         "\n  -t timeout\tsession cache timeout"
-        "\n\t\tdefault: 300 s."
         "\n  -u user\tUse IDENT (RFC 1413) username checking"
         "\n  -n proto\tNegotiate SSL with specified protocol"
         "\n\t\tcurrenty supported: smtp"
-        "\n  -d [ip:]port\tdaemon mode (ip defaults to INADDR_ANY)"
+	"\n  -N name\tService name to use for tcp wrapper checking"
 #ifndef USE_WIN32
-        "\n\t\tdefault: inetd mode"
-        "\n  -f\t\tforeground mode (don't fork, log to stderr)"
-        "\n\t\tdefault: background in daemon mode"
-        "\n  -l program\texecute local inetd-type program"
-        "\n  -L program\topen local pty and execute program"
         "\n  -s username\tsetuid() to username in daemon mode"
         "\n  -g groupname\tsetgid() to groupname in daemon mode"
+        "\n  -P arg\tSpecify pid file.    { dir/ | filename | none }"
 #endif
-        "\n  -r [ip:]port\tconnect to remote service"
-        " (ip defaults to INADDR_LOOPBACK)"
-        "\n  -h\t\tprint this help screen"
         "\n  -C list\tset permitted SSL ciphers"
-        "\n  -D level\tdebug level (0-7)  default: 5"
-        "\n  -V\t\tprint stunnel version\n");
+#if SSLEAY_VERSION_NUMBER >= 0x0090581fL
+        "\n  -E socket\tpath to Entropy Gathering Daemon socket"
+#ifdef EGD_SOCKET
+	"\n\t\t" EGD_SOCKET " is used when this option is not specified."
+#endif
+        "\n  -B bytes\thow many bytes to read from random seed files"
+#else
+        "\n  -B bytes\tnum bytes of random data considered 'sufficient' for PRNG"
+	"\n\t\tand maximum number of bytes to read from random seed files."
+#endif
+        "\n  -R file\tpath to file with random seed data"
+#ifdef RANDOM_FILE
+	"\n\t\t" RANDOM_FILE " is used when this option is not specified."
+#endif
+	"\n  -W\t\tDo not overwrite random seed datafiles with new random data"
+        "\n  -D level\tdebug level (0-7)"
+	"\n"
+	"\nSee stunnel -V output for default values\n"
+	"\n");
     exit(1);
 }
 

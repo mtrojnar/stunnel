@@ -6,5 +6,3 @@ stunnel         Universal SSL tunnel
 
 - Log to file on Win32, log to EventLog on NT.
 
-- Update manual, etc.
-

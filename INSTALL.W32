@@ -1,11 +1,30 @@
 stunnel         Universal SSL tunnel
 
-1. Download libssl32.dll and libeay32.dll into \windows\system directory.
+To install the precompiled binaries:
 
-2. Create a directory and download stunnel.exe and stunnel.pem
-   to the new directory.
+	1. Download libssl32.dll and libeay32.dll into
+	    \windows\system directory.
 
-3. Just use it.
+	2. Create a directory and download stunnel.exe and stunnel.pem
+	   to the new directory.
 
-   See stunnel -h for details.
+	3. Just use it.
 
+	7) read the stunnel.html man page.
+
+
+To compile stunnel natively:
+	1) grab yourself a copy of the mingw gcc compiler
+
+	2) compile openssl
+
+	3) copy your libssl32.dll and libeay32.dll to the
+		\windows\system directory
+
+	4) download the stunnel source code
+
+	5) edit the Makefile.w32 as necessary
+
+	6) run 'make' to compile stunnel
+
+	7) read the stunnel.html man page.

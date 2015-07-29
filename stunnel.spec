@@ -1,10 +1,10 @@
 Summary: Program that wraps normal socket connections with SSL/TLS
 Name: stunnel
-Version: 3.8
+Version: 3.9
 Release: 1
 Copyright: GPL
 Group: Applications/Networking
-Source: stunnel-%{version}.tar.gz
+Source: stunnel-%{version}.tgz
 Requires: openssl >= 0.9.3a
 Buildroot: /var/tmp/stunnel-root
 
@@ -22,9 +22,12 @@ changes to the source code.
 %prep
 %setup -n stunnel-%{version}
 
+
 %build
-autoconf
-autoheader
+if [ ! -x ./configure ]; then
+    autoconf
+    autoheader
+fi
 
 # !!! important settings !!!
 # '-DNO_RSA' in USA
@@ -38,7 +41,6 @@ rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
 mkdir -p $RPM_BUILD_ROOT/usr/lib
 mkdir -p $RPM_BUILD_ROOT/usr/man/man8
-mkdir -p $RPM_BUILD_ROOT/var/openssl/certs/trusted
 
 install -m755 -s stunnel $RPM_BUILD_ROOT/usr/sbin
 install -m755 -s stunnel.so $RPM_BUILD_ROOT/usr/lib
@@ -60,9 +62,11 @@ ldconfig
 /usr/sbin/stunnel
 /usr/lib/stunnel.so
 /usr/man/man8/stunnel.8
-%dir /var/openssl/certs/trusted
 
 %changelog
+* Sun Jun 24 2000 Brian Hatch <bri@stunnel.org>
+- updated for 3.8p3
+
 * Wed Jul 14 1999 Dirk O. Siebnich <dok@vossnet.de>
 - updated for 3.5.
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
+ *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -27,38 +27,47 @@
 #define OPT_TRANSPARENT 0x40
 #define OPT_PTY         0x80
 
+
+/* Certificate defaults */
+
+/* let's not use openssl defaults unless told to at compile time. */
+#ifndef SSLLIB_CS
+#define SSLLIB_CS	0
+#endif
+
+#define SSL_CERT_DEFAULTS	1
+#define STUNNEL_CERT_DEFAULTS	2
+
+#define CERT_DEFAULTS ( SSLLIB_CS | STUNNEL_CERT_DEFAULTS )
+
+
+/* Set some defaults if not set in makefiles */
+#ifndef CERT_DIR
+#define CERT_DIR	""
+#endif
+#ifndef CERT_FILE
+#define CERT_FILE	""
+#endif
+#ifndef PEM_DIR
+#define PEM_DIR	""
+#endif
+
+
 #ifdef USE_WIN32
 
-/* default certificate */
-#define DEFAULT_CERT "stunnel.pem"
+#define VERSION "3.9"
+#ifdef __MINGW32__
+#define HOST "x86-pc-mingw32-gnu"
+#else
+#define HOST "x86-pc-unknown"
+#endif
 
-/* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR "trusted"
-
-/* certificate used for sign our client certs */
-#define CLIENT_CA "cacert.pem"
-
-#else /* USE_WIN32 */
-
-/* default certificate */
-#define DEFAULT_CERT certdir "/stunnel.pem"
-
-/* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR certdir "/trusted"
-
-/* certificate used for signing our client certs */
-#define CLIENT_CA ssldir "/localCA/cacert.pem"
-
-#endif /* USE_WIN32 */
-
-#ifdef USE_WIN32
-
-#define VERSION "3.8"
-#define HOST "i586-pc-mingw32-gnu"
 
 #define HAVE_VSNPRINTF
 #define vsnprintf _vsnprintf
+/*  Already defined for mingw, perhaps others
 int _vsnprintf(char *, int, char *, ...);
+*/
 
 #define get_last_socket_error() WSAGetLastError()
 #define get_last_error()        GetLastError()
@@ -126,6 +135,10 @@ extern char *sys_errlist[];
 /* Length of strings (including the terminating '\0' character) */
 #define STRLEN         1024
 
+/* How many bytes of random input to read from files for PRNG */
+/* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
+#define RANDOM_BYTES		64
+
 /* Safe copy for strings declarated as char[STRLEN] */
 #define safecopy(dst, src) \
     (dst[STRLEN-1]='\0', strncpy((dst), (src), STRLEN-1))
@@ -133,8 +146,9 @@ extern char *sys_errlist[];
     (dst[STRLEN-1]='\0', strncat((dst), (src), STRLEN-strlen(dst)-1))
 
 typedef struct {
-    char certfile[STRLEN];  /* name of the certificate */
-    char clientdir[STRLEN];
+    char pem[STRLEN];  		/* pem (priv key/cert) filename */
+    char cert_dir[STRLEN];	/* directory for hashed certs */
+    char cert_file[STRLEN];	/* file containing bunches of certs */
     char pidfile[STRLEN];
     unsigned long dpid;
     int clients;
@@ -153,6 +167,12 @@ typedef struct {
     char *protocol;
     char *setuid_user;
     char *setgid_group;
+    char *egd_sock;	/* entropy gathering daemon socket */
+    char *rand_file;	/* file with random data */
+    int rand_write;	/* overwrite rand_file with new rand data when PRNG seeded */
+    int random_bytes;	/* how many random bytes to read */
+    char *pid_dir;
+    int cert_defaults;
 } server_options;
 
 /* Prototypes for stunnel.c */
@@ -190,6 +210,15 @@ int create_client(int, int, void (*)(int));
 int pty_allocate(int *ptyfd, int *ttyfd, char *ttyname, int ttynamelen);
 void pty_release(char *ttyname);
 void pty_make_controlling_tty(int *ttyfd, char *ttyname);
+
+/* define for windows, although ignored */
+#ifndef PIDDIR
+#define PIDDIR ""
+#endif
+
+#define STRINGIFY_H(x) #x
+#define STRINGIFY(x) STRINGIFY_H(x)
+
 
 /* End of common.h */
 

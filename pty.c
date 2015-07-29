@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
+ *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   Based on a Public Domain code by Tatu Ylonen <ylo@cs.hut.fi>

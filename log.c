@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
+ *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -68,7 +68,7 @@ void log(int level, char *format, ...)
     va_end(arglist);
 #ifndef USE_WIN32
     if(!options.foreground)
-        syslog(level, text);
+        syslog(level, "%s", text);
     else
 #endif
         fprintf(stderr, "LOG%d[%lu:%lu]: %s\n",

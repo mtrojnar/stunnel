@@ -1,16 +1,29 @@
-.TH STUNNEL 8 "10 June 1999"
+.TH STUNNEL 8 "24 June 2000"
 .SH NAME
 stunnel \- universal SSL tunnel
 .SH SYNOPSIS
 .B stunnel
-[-T] [-p pemfile] [-v level] [-a directory]
-[-t timeout] [-u username] [-n protocol]
-[-d [ip:]port [-f]] [ -l program | -r [ip:]port | -L program [-- args] ]
+[-c | -T]
+[-D level]
+[-C cipherlist]
+[-p pemfile]
+[-v level]
+[-A certfile]
+[-S sources]
+[-a directory]
+[-t timeout]
+[-u ident_username]
+[-s setuid_user]
+[-g setgid_group]
+[-n protocol] 
+[-P { dir/ | filename | none } ]
+[-B bytes]
+[-R randfile]
+[-W]
+[-E socket]
+[-d [host:]port [-f] ]
+[ -r [host:]port | { -l | -L }  program [-- progname args] ]
 .PP
-.B stunnel
-{-c} [-p pemfile] [-v level] [-a directory]
-[-t timeout] [-u username] [-n protocol]
--r [ip:]port [ -d [ip:]port [-f] | -l program | -L program [-- args] ]
 .SH DESCRIPTION
 The \fBstunnel\fR program is designed to work as \fISSL\fR encryption wrapper 
 between remote clients and local (\fIinetd\fR-startable) or remote
@@ -27,6 +40,26 @@ changes to the source code.
 This product includes cryptographic software written by
 Eric Young (eay@cryptsoft.com)
 .SH OPTIONS
+.B -h
+Print stunnel help menu
+.PP
+.B -V
+Print stunnel version and compile time defaults
+.PP
+.B -D level
+Debugging level
+.RS
+Level is a number between 0 (no logging at all) and 7 (show
+lots of debugging info)
+.RE
+.PP
+.B -C cipherlist
+Select permitted SSL ciphers
+.RS
+A colon delimited list of the ciphers to allow in the SSL connection.
+For example DES-CBC3-SHA:IDEA-CBC-MD5
+.RE
+.PP
 .B -c
 client mode (remote service uses SSL)
 .RS
@@ -34,28 +67,77 @@ default: server mode
 .RE
 .PP
 .B -T
-transparent proxy mode (on hosts that support it)
+transparent proxy mode
+.RS
+Available only in server mode, re-write address to appear
+as if connection is originating from actual SSL client machine.
+Only available on some OS versions.
+.RE
 .PP
 .B -p pemfile
-certificate (*.pem) file name
+key/certificate PEM file name
 .RS
-default: @ssldir@/certs/stunnel.pem for server mode,
-none for client mode
+A PEM is always needed in server mode (see \fIstunnel -V\fR output for default).
+Specifing this flag in client mode will use this  key/certificate as a
+client side certificate.  Using client side certs is optional.
 .RE
 .PP
 .B -v level
 verify peer certificate
 .RS
-level 1 - verify peer certificate if present
+.nf
+level 1 - verify peer certificate
+          if present
 level 2 - verify peer certificate
-level 3 - verify peer with locally installed certificate
+level 3 - verify peer with locally
+          installed certificate
 default: no verify
+.fi
 .RE
 .PP
 .B -a directory
-client certificate directory for -v 3 option
+client certificate directory
 .RS
-default: @ssldir@/certs/trusted
+This is the directory in which stunnel will look for certificates when
+using the \fI-v\fR options. Note that the certificates in this directory
+should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.
+This directory will override the stunnel compile-time default, if any.
+.br
+See \fIstunnel -V\fR output for default.
+.RE
+.PP
+.B -A certfile
+Certificate Authority file
+.RS
+This file contains multiple CA certificates, used with the \fI-v\fR options.
+This file will override the stunnel compile-time default, if any.
+.br
+See \fIstunnel -V\fR output for default.
+.RE
+.PP
+.B -S sources
+Certificate source defaults
+.RS
+Both stunnel and the SSL library used to compile stunnel have default
+locations to look for your certificate file (\fI-A\fR option) and certificate
+directories (\fI-a\fR option).  The \fI-S\fR flag allows you to control which of
+these default sources, if any, should be used.
+.nf
+  0 = ignore all default sources
+  1 = use ssl library defaults
+  2 = use stunnel defaults
+  3 = use both ssl library and stunnel defaults
+.fi
+(See \fIstunnel -V\fR output for the default.)
+.PP
+Note that the \fI-A\fR and \fI-a\fR flags overwrite, not supliment,
+the stunnel defaults, whereas the ssl library defaults, if enabled,
+are used in addition to the other sources.
+.PP
+In general, to avoid hurting one's brain, use \fI-S 0\fR and
+explicitly set \fI-A\fR and/or \fI-a\fR as desired.
+.br
+.br
 .RE
 .PP
 .B -t timeout
@@ -64,7 +146,7 @@ session cache timeout
 default: 300 s.
 .RE
 .PP
-.B -u user
+.B -u ident_username
 Use IDENT (RFC 1413) username checking
 .PP
 .B -n proto
@@ -73,26 +155,58 @@ Negotiate SSL with specified protocol
 currenty supported: smtp
 .RE
 .PP
-.B -d [ip:]port
-daemon mode (ip defaults to INADDR_ANY)
+.PP
+.B -E socket
 .RS
+Entropy Gathering Daemon socket to use to feed OpenSSL random number
+generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)
+.RE
+.PP
+.B -R filename
+.RS
+File containing random input.  The SSL library
+will use data from this file first to seed the
+random number generator.
+.RE
+.PP
+.B -W
+Do not overwrite the random seed files with new random data.
+.RE
+.PP
+.B -B bytes
+.RS
+Number of bytes of data read from random seed files.  With SSL versions
+less than 0.9.5a, also determines how many bytes of data are considered
+sufficient to seed the PRNG.  More recent OpenSSL versions have a builtin
+function to determine when sufficient randomness is available.
+.RE
+.PP
+.B -d [host:]port
+daemon mode 
+.RS
+Listen for connections on [host:]port.
+If no host specified, defaults to all IP addresses for the local host.
+.br
 default: inetd mode
 .RE
 .PP
 .B -f
-foreground mode (don't fork, log to stderr)
+foreground mode
 .RS
+Stay in foreground (don't fork) and log to stderr
+instead of via syslog.
+.br
 default: background in daemon mode
 .RE
 .PP
-.B -l program [-- args]
+.B -l program [-- programname [arg1 arg2 arg3...]  ]
 .RS
-execute local inetd-type program
+execute local inetd-type program. 
 .RE
 .PP
-.B -L program [-- args]
+.B -L program [-- programname [arg1 arg2 arg3...]  ]
 .RS
-open local pty and execute program
+open local pty and execute program.
 .RE
 .PP
 .B -s username
@@ -105,10 +219,21 @@ setuid() to username in daemon mode
 setgid() to groupname in daemon mode. Clears all other groups.
 .RE
 .PP
-.B -r [ip:]port
+.B -P { dir/ | file | none }
+Pid file location
+.RS
+If the argument is a pathname ending in a slash, then a pid file
+named "\fIstunnel.\fRservicename\fI.pid\fR" will be created in
+the specified directory.  If the argument is a filename (no
+trailing slash), then that filename will be used for the pid.
+If
+the argument is 'none', then no pid file will be created.
+.RE
+.PP
+.B -r [host:]port
 connect to remote service
 .RS
-(ip defaults to INADDR_LOOPBACK)
+If no host specified, defaults to localhost.
 .RE
 
 .SH EXAMPLES
@@ -160,6 +285,47 @@ should be discarded. So the file should look like this:
 [empty line]
 .fi
 .sp
+.SH RANDOMNESS
+\fIstunnel\fR needs to seed the PRNG (pseudo random number generator) in
+order for SSL to use good randomness.  The following sources are loaded
+in order until sufficient random data has been gathered:
+.sp
+.RS
+.nf
+The file specified with the \fI-R\fR flag.
+The file specified by the RANDFILE environment variable, if set.
+The file .rnd in your home directory, iff RANDFILE not set.
+The file specified with '--with-random' at compile time.
+The contents of the screen if running on Windows.
+The egd socket specified with the \fI-E\fR flag.
+The egd socket specified with '--with-egd-sock' at compile time.
+The /dev/urandom device.
+.fi
+.sp
+.RE
+With recent (>=OpenSSL 0.9.5a) version of SSL it will stop loading
+random data automatically when sufficient entropy has been gathered.
+With previous versions it will continue to gather from all the above
+sources since no SSL function exists to tell when enough data is available.
+.PP
+Note that on Windows machines that do not have console user interaction
+(mouse movements, creating windows, etc) the screen contents are not
+variable enough to be sufficient, and you should provide a random file
+for use with the \fI-R\fR flag.
+.PP
+Note that the file specified with the \fI-R\fR flag should contain
+random data -- that means it should contain different information
+each time \fIstunnel\fR is run.  This is handled automatically
+unless the \fI-W\fR flag is used.  If you wish to update this file
+manually, the \fIopenssl rand\fR command in recent versions of OpenSSL,
+would be useful.
+.PP
+One important note -- if /dev/urandom is available, OpenSSL has a habit of
+seeding the PRNG with it even when checking the random state, so on
+systems with /dev/urandom you're likely to use it even though it's listed
+at the very bottom of the list above.  This isn't stunnel's behaviour, it's
+OpenSSLs.
+.PP
 .SH LIMITATIONS
 \fIstunnel\fR cannot be used for the FTP daemon because of the nature
 of the FTP protocol which utilizes multiple ports for data transfers.
@@ -168,13 +334,13 @@ There are available SSL enabled versions of FTP and telnet daemons, however.
 .BR tcpd (8),
 .BR inetd (8)
 .PP
-.BI http://mike.daewoo.com.pl/computer/stunnel
+.BI http://stunnel.mirt.net/
 Stunnel homepage
 .PP
 .BI http://www.openssl.org
 OpenSSL project website
 .SH AUTHORS
-Michal Trojnara <Michal.Trojnara@centertel.pl>
+Michal Trojnara <Michal.Trojnara@mirt.net>
 .PP
 Adam Hernik <adas@infocentrum.com>
 .PP

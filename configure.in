@@ -8,36 +8,20 @@ if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.8"
+VERSION="3.9"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
-dnl Check for user-specified random device
-AC_ARG_WITH(random,
-    [  --with-random=FILE      read randomness from FILE (default=/dev/urandom)],
-    [ RANDOM_OPT="-rand $withval" ],
-    [
-        dnl Check for random device
-        AC_CHECK_FILE("/dev/urandom",
-            [
-                RANDOM_OPT="-rand /dev/urandom";
-                AC_SUBST(RANDOM_OPT)
-            ]
-        )
-    ]
-)
 
 checkssldir() { :
-    if test -d "$1/certs"; then
-        if test -f "$1/include/openssl/ssl.h"; then
-            AC_DEFINE(HAVE_OPENSSL)
-            ssldir="$1"
-            return 0
-        fi
-        if test -f "$1/include/ssl.h"; then
-            ssldir="$1"
-            return 0
-        fi
+    if test -f "$1/include/openssl/ssl.h"; then
+        AC_DEFINE(HAVE_OPENSSL)
+        ssldir="$1"
+        return 0
+    fi
+    if test -f "$1/include/ssl.h"; then
+        ssldir="$1"
+        return 0
     fi
     return 1
 }
@@ -52,7 +36,7 @@ AC_ARG_WITH(ssl,
     ],
     [
         dnl Search default localtions of SSL library
-        for maindir in /usr/local /usr/lib /usr/pkg /usr; do
+        for maindir in /usr/local /usr/lib /usr/pkg /usr /var/ssl /opt; do
             for dir in $maindir $maindir/openssl $maindir/ssl; do
                 checkssldir $dir && break 2
             done
@@ -71,6 +55,70 @@ AC_MSG_RESULT($ssldir)
 AC_SUBST(ssldir)
 AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
 
+
+dnl PEM dir
+AC_ARG_WITH(pem-dir,
+    [  --with-pem-dir=DIR      Default dir for stunnel.pem],
+    [ PEM_DIR="$withval" ]
+)
+if test -n "$PEM_DIR" ; then
+	AC_DEFINE_UNQUOTED(PEM_DIR, "$PEM_DIR")
+fi
+AC_SUBST(PEM_DIR)
+AC_DEFINE_UNQUOTED(PEM_DIR, "$PEM_DIR")
+
+
+AC_ARG_WITH(cert-file,
+    [  --with-cert-file=FILE   Default cert verify file],
+    [ CERT_FILE="$withval" ]
+)
+if test -n "$CERT_FILE" ; then
+	AC_DEFINE_UNQUOTED(CERT_FILE, "$CERT_FILE")
+fi
+
+AC_ARG_WITH(cert-dir,
+    [  --with-cert-dir=DIR     Default cert verify dir],
+    [ CERT_DIR="$withval" ]
+)
+if test -n "$CERT_DIR" ; then
+	AC_DEFINE_UNQUOTED(CERT_DIR, "$CERT_DIR")
+fi
+
+AC_ARG_WITH(egd-socket,
+    [  --with-egd-socket=FILE  Entropy Gathering Daemon socket pathname],
+    [ EGD_SOCKET="$withval" ]
+)
+if test -n "$EGD_SOCKET" ; then
+	AC_DEFINE_UNQUOTED(EGD_SOCKET, "$EGD_SOCKET")
+fi
+
+dnl Check for user-specified random device
+AC_ARG_WITH(random,
+    [  --with-random=FILE      read randomness from FILE (default=/dev/urandom)],
+    [ RANDOM_FILE="$withval" ],
+    [
+        dnl Check for random device
+        AC_CHECK_FILE("/dev/urandom",
+            [
+                RANDOM_FILE="/dev/urandom";
+            ]
+        )
+    ]
+)
+if test -n "$RANDOM_FILE" ; then
+	AC_SUBST(RANDOM_FILE)
+	AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE")
+fi
+
+dnl Use SSL certificate defaults?
+AC_ARG_ENABLE(ssllib-cs,
+[  --enable-ssllib-cs      Use the default SSL library cert verify sources],
+    [ SSLLIB_CS=1 ],
+    [ SSLLIB_CS=0 ]
+)
+AC_DEFINE_UNQUOTED(SSLLIB_CS, $SSLLIB_CS)
+
+
 dnl Substitute host.
 AC_SUBST(host)
 AC_DEFINE_UNQUOTED(HOST, "$host")
@@ -79,7 +127,12 @@ dnl Checks for standard libraries.
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(pthread, pthread_create)
-AC_CHECK_LIB(c_r, pthread_create)
+AC_CHECK_LIB(c_r, pthread_create,
+        [ LIBS="$LIBS -pthread"
+	AC_DEFINE(HAVE_LIBPTHREAD)
+	AC_DEFINE(_REENTRANT)
+	AC_DEFINE(_THREAD_SAFE)]
+)
 AC_CHECK_LIB(util, openpty)
 
 dnl Check for libwrap library.
@@ -121,7 +174,7 @@ AC_CHECK_HEADERS(getopt.h unistd.h sys/select.h tcpd.h pthread.h pty.h stropts.h
 # AC_HEADER_TIME
 
 dnl Checks for library functions.
-AC_CHECK_FUNCS(getopt snprintf vsnprintf openpty _getpty)
+AC_CHECK_FUNCS(getopt snprintf vsnprintf openpty _getpty daemon)
 
 AC_OUTPUT(Makefile stunnel.8)
 

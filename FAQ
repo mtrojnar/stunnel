@@ -1,10 +1,11 @@
 stunnel         Universal SSL tunnel
 
-See another FAQ at http://www.onsight.com/faq/stunnel/
+See the FAQ at http://www.stunnel.org/ which
+is updated more often than this file.
 
 Q: Is there a mailing list for stunnel?
 A: Sure.  You can subscribe the list in two simple steps:
-   1. Send an empty e-mail to stunnel-users-subscribe@mike.daewoo.com.pl
+   1. Send an empty e-mail to stunnel-users-subscribe@mirt.net
    2. Follow the instructions you'll receive.  8-)
 
 Q: What do I need to build stunnel on a UNIX machine?

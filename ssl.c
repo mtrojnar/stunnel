@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
+ *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -30,9 +30,14 @@
 /* It works on most systems so feel free to uncomment the next line */
 /* #define USE_NBIO */
 
-/* Length of temporary RSA key */
 #ifndef NO_RSA
-#define KEYLENGTH      512
+
+/* Cache temporary keys up to 2048 bits */
+#define KEY_CACHE_LENGTH 2049
+
+/* Cache temporary keys up to 1 hour */
+#define KEY_CACHE_TIME 3600
+
 #endif /* NO_RSA */
 
 /* Undefine if you have problems with make_sockets() */
@@ -52,6 +57,7 @@
 #include <openssl/lhash.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/rand.h>
 #else
 #include <lhash.h>
 #include <ssl.h>
@@ -119,6 +125,9 @@ int auth_user(struct sockaddr_in *);
 void context_init();
 void context_free();
 void client(int);
+int  prng_seeded(int);
+int  add_rand_file(char *);
+void initialize_prng();
 static int transfer(SSL *, int);
 #ifndef NO_RSA
 static RSA *tmp_rsa_cb(SSL *, int, int);
@@ -129,23 +138,154 @@ static void print_stats();
 static void print_cipher(SSL *);
 static void sslerror(char *);
 
-/* Correct callback definitions overriding ssl.h */
-#ifndef NO_RSA
-#ifdef SSL_CTX_set_tmp_rsa_callback
-    #undef SSL_CTX_set_tmp_rsa_callback
-#endif
-#define SSL_CTX_set_tmp_rsa_callback(ctx,cb) \
-    SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_RSA_CB,0,(char *)cb)
-#endif /* NO_RSA */
-
 SSL_CTX *ctx;           /* global SSL context */
-#ifndef NO_RSA
-RSA *rsa_tmp;           /* temporary RSA key */
-#endif /* NO_RSA */
 #if SSLEAY_VERSION_NUMBER >= 0x0922
 static unsigned char *sid_ctx=(unsigned char *)"stunnel SID";
     /* const allowed here */
 #endif
+
+
+/* shortcut to determine if sufficient entropy for PRNG is present */
+int prng_seeded( int bytes ) {
+
+#if SSLEAY_VERSION_NUMBER >= 0x0090581fL
+    if ( RAND_status() ) {
+    	log(LOG_DEBUG, "RAND_status claims sufficient entropy for the PRNG");
+	return(1);
+    }
+#else
+    if ( bytes >= options.random_bytes ) {
+    	log(LOG_INFO, "Sufficient entropy in PRNG assumed (>= %d)", options.random_bytes);
+	return(1);
+    }
+#endif
+
+    return(0);	/* assume we don't have enough */
+}
+
+int add_rand_file( char *filename ) {
+    int readbytes;
+    int writebytes;
+    struct stat sb;
+
+    if ( stat(filename, &sb) !=0 ) { return(0); }
+    
+    if ( (readbytes = RAND_load_file(filename, options.random_bytes )) ) {
+	log(LOG_DEBUG, "Snagged %d random bytes from %s", readbytes, filename);
+    } else {
+	log(LOG_INFO, "Unable to retrieve any random data from %s", filename);
+    }
+
+    /* Write new random data for future seeding if it's a regular file */
+    if ( options.rand_write && (sb.st_mode & S_IFREG) ) {
+	writebytes = RAND_write_file(filename);
+    	if ( -1 == writebytes ) {
+		log(LOG_WARNING, "Failed to write strong random data to %s.  May "
+			"be a permissions or seeding problem", filename); 
+	} else {
+		log(LOG_DEBUG, "Wrote %d new random bytes to %s", writebytes, filename);
+	}
+    }
+    return(readbytes);
+}
+
+
+
+void initialize_prng( void ) {
+    int totbytes=0;
+    char filename[STRLEN];
+    int bytes;
+    bytes=0; /* avoid warning if #ifdef'd out for windows */
+
+    filename[0]='\0';
+
+    /* If they specify a rand file on the command line we
+       assume that they really do want it, so try it first */
+    if ( options.rand_file ) {
+    	totbytes += add_rand_file(options.rand_file);
+	if ( prng_seeded(totbytes) ) { goto SEEDED; }
+    }
+    /* Yes.  goto.  Deal with it. */
+
+    /* try the $RANDFILE or $HOME/.rnd files */
+    RAND_file_name(filename, STRLEN);
+    if ( filename[0] ) {
+        filename[STRLEN-1]='\0';	/* just in case */
+    	totbytes += add_rand_file(filename);
+	if ( prng_seeded(totbytes) ) { goto SEEDED; }
+    }
+
+#ifdef RANDOM_FILE
+    totbytes += add_rand_file( RANDOM_FILE );
+    if ( prng_seeded(totbytes) ) { goto SEEDED; }
+#endif
+
+#ifdef USE_WIN32
+    RAND_screen();
+    if ( prng_seeded(totbytes) ) {
+        log(LOG_DEBUG, "Seeded PRNG with RAND_screen");
+	goto SEEDED;
+    } else {
+        log(LOG_DEBUG, "RAND_screen failed to sufficiently seed PRNG");
+    }
+#else
+
+#if SSLEAY_VERSION_NUMBER >= 0x0090581fL
+    if ( options.egd_sock ) {
+        if ( (bytes=RAND_egd(options.egd_sock)) == -1 ) {
+            log(LOG_WARNING, "EGD Socket %s failed", options.egd_sock);
+	    bytes=0;
+        } else {
+	    totbytes += bytes;
+            log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
+                bytes, options.egd_sock);
+	    goto SEEDED;  /* openssl always gets what it needs or fails,
+	    		     so no need to check if seeded sufficiently */
+        }
+    }
+#ifdef EGD_SOCKET
+    if ( (bytes=RAND_egd( EGD_SOCKET )) == -1 ) {
+        log(LOG_WARNING, "EGD Socket %s failed", EGD_SOCKET);
+    } else {
+	totbytes += bytes;
+        log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
+                bytes, EGD_SOCKET);
+	goto SEEDED; /* ditto */
+    }
+#endif /* EGD_SOCKET */
+
+#endif /* OpenSSL-0.9.5a */
+#endif /* USE_WIN32 */
+
+
+    /* Try the good-old default /dev/urandom, if available  */
+    totbytes += add_rand_file( "/dev/urandom" );
+    if ( prng_seeded(totbytes) ) { goto SEEDED; }
+
+    /* Random file specified during configure */
+
+    log(LOG_INFO, "PRNG seeded with %d bytes total", totbytes);
+    log(LOG_WARNING, "PRNG may not have been seeded with enough random bytes");
+    return;
+
+SEEDED:
+    log(LOG_INFO, "PRNG seeded successfully");
+    return;
+    
+}
+
+void verify_info() {
+	/*
+	STACK_OF(X509_NAME) *stack;
+	X509_STORE *store;
+
+	stack= SSL_CTX_get_client_CA_list(ctx);
+	log(LOG_DEBUG, "there are %d CA_list things", sk_X509_NAME_num(stack));
+
+	store=SSL_CTX_get_cert_store(ctx);
+	log(LOG_DEBUG, "it's a %p", store);
+	*/
+}
 
 void context_init() /* init SSL */
 {
@@ -154,6 +294,8 @@ void context_init() /* init SSL */
     BIO *bio=NULL;
 #endif /* NO_DH */
 
+    initialize_prng();
+
     SSLeay_add_ssl_algorithms();
     SSL_load_error_strings();
     if(options.option&OPT_CLIENT) {
@@ -161,22 +303,11 @@ void context_init() /* init SSL */
     } else { /* Server mode */
         ctx=SSL_CTX_new(SSLv23_server_method());
 #ifndef NO_RSA
-        log(LOG_DEBUG, "Generating %d bit temporary RSA key...", KEYLENGTH);
-#if SSLEAY_VERSION_NUMBER <= 0x0800
-        rsa_tmp=RSA_generate_key(KEYLENGTH, RSA_F4, NULL);
-#else
-        rsa_tmp=RSA_generate_key(KEYLENGTH, RSA_F4, NULL, NULL);
-#endif
-        if(!rsa_tmp) {
-            sslerror("tmp_rsa_cb");
-            exit(1);
-        }
-        log(LOG_DEBUG, "Temporary RSA key generated");
         SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb);
 #endif /* NO_RSA */
 #ifndef NO_DH
-        if(!(bio=BIO_new_file(options.certfile, "r"))) {
-            log(LOG_ERR, "DH: Could not read %s: %s", options.certfile,
+        if(!(bio=BIO_new_file(options.pem, "r"))) {
+            log(LOG_ERR, "DH: Could not read %s: %s", options.pem,
                 strerror(errno));
             goto dh_failed;
         }
@@ -186,7 +317,7 @@ void context_init() /* init SSL */
 #endif
                 ))) {
             log(LOG_ERR, "Could not load DH parameters from %s",
-                options.certfile);
+                options.pem);
             goto dh_failed;
         }
         SSL_CTX_set_tmp_dh(ctx, dh);
@@ -202,41 +333,93 @@ dh_done:
             DH_free(dh);
 #endif /* NO_DH */
     }
+
     SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_BOTH);
     SSL_CTX_set_timeout(ctx, options.session_timeout);
     if(options.option&OPT_CERT) {
-        if(!SSL_CTX_use_certificate_file(ctx, options.certfile,
+        if(!SSL_CTX_use_certificate_file(ctx, options.pem,
                 SSL_FILETYPE_PEM)) {
-            log(LOG_ERR, "Error reading certificate file: %s", options.certfile);
+            log(LOG_ERR, "Error reading certificate file: %s", options.pem);
             sslerror("SSL_CTX_use_certificate_file");
             exit(1);
         }
-        log(LOG_DEBUG, "Certificate: %s", options.certfile);
+        log(LOG_DEBUG, "Certificate: %s", options.pem);
 #ifdef NO_RSA
-        if(!SSL_CTX_use_PrivateKey_file(ctx, options.certfile,
+        if(!SSL_CTX_use_PrivateKey_file(ctx, options.pem,
                 SSL_FILETYPE_PEM)) {
             sslerror("SSL_CTX_use_PrivateKey_file");
             exit(1);
         }
 #else /* NO_RSA */
-        if(!SSL_CTX_use_RSAPrivateKey_file(ctx, options.certfile,
+        if(!SSL_CTX_use_RSAPrivateKey_file(ctx, options.pem,
                 SSL_FILETYPE_PEM)) {
             sslerror("SSL_CTX_use_RSAPrivateKey_file");
             exit(1);
         }
 #endif /* NO_RSA */
+	if(!SSL_CTX_check_private_key(ctx)) {
+	    sslerror("Private key does not match the certificate");
+	    exit(1);
+	}
     }
     if(options.verify_level!=SSL_VERIFY_NONE) {
-        if ((!SSL_CTX_set_default_verify_paths(ctx))
-                || (!SSL_CTX_load_verify_locations(ctx, CLIENT_CA,
-                options.clientdir))){
+
+	log(LOG_DEBUG, "cert_defaults is %d", options.cert_defaults);
+	log(LOG_DEBUG, "cert_dir is %s", options.cert_dir);
+	log(LOG_DEBUG, "cert_file is %s", options.cert_file);
+	if ( options.cert_defaults & SSL_CERT_DEFAULTS ) {
+		log(LOG_DEBUG, "Initializing SSL library verify paths.");
+		if ((!SSL_CTX_set_default_verify_paths(ctx))) { 
+		    sslerror("X509_set_default_verify_paths");
+		    exit(1);
+		}
+	}
+
+	/* put in defaults (if not set on cmd line) if -S says to */
+	if ( options.cert_defaults & STUNNEL_CERT_DEFAULTS ) {
+		log(LOG_DEBUG, "installing defaults where not set");
+		if ( ! options.cert_file[0] ) 
+			safecopy(options.cert_file, CERT_FILE);
+		if ( ! options.cert_dir[0] ) 
+			safecopy(options.cert_dir, CERT_DIR);
+	}
+	if ( options.cert_file[0] ) {
+	    if (!SSL_CTX_load_verify_locations(ctx, options.cert_file,NULL)) {
+		log(LOG_ERR, "Error loading verify certificates from %s",
+		    options.cert_file);
+		sslerror("SSL_CTX_load_verify_locations");
+		exit(1);
+	    }
+            SSL_CTX_set_client_CA_list(ctx, 
+		SSL_load_client_CA_file(options.cert_file));
+	    log(LOG_DEBUG, "Loaded verify certificates from %s",
+		options.cert_file);
+	}
+	if ( options.cert_dir[0] ) {
+	    if (!SSL_CTX_load_verify_locations(ctx,NULL ,options.cert_dir)) {
+		log(LOG_ERR, "Error setting verify directory to %s",
+		    options.cert_dir);
+		sslerror("SSL_CTX_load_verify_locations");
+		exit(1);
+	    }
+	    log(LOG_DEBUG, "Set verify directory to %s", options.cert_dir);
+	}
+
+        /*
+	if (!SSL_CTX_load_verify_locations(ctx, options.cert_file,
+		options.cert_dir)) {
             sslerror("X509_load_verify_locations");
             exit(1);
         }
+	*/
+
         SSL_CTX_set_verify(ctx, options.verify_level, verify_callback);
-        SSL_CTX_set_client_CA_list(ctx, SSL_load_client_CA_file(CLIENT_CA));
+
+
         if (options.verify_use_only_my)
-            log(LOG_NOTICE, "Peer certificate location %s", options.clientdir);
+            log(LOG_NOTICE, "Peer certificate location %s", options.cert_dir);
+
+
     }
     SSL_CTX_set_info_callback(ctx, info_callback);
     if(options.cipher_list) {
@@ -246,6 +429,7 @@ dh_done:
         }
     }
 }
+
 
 void context_free() /* free SSL */
 {
@@ -322,6 +506,10 @@ void client(int local)
     SSL_set_session_id_context(ssl, sid_ctx, strlen(sid_ctx));
 #endif
     if(options.option&OPT_CLIENT) {
+	/* Attempt to use the most recent id in the session cache */
+	if ( ctx->session_cache_head )
+	    if ( ! SSL_set_session(ssl, ctx->session_cache_head) )
+		log(LOG_WARNING, "Cannot set SSL session id to most recent used");
         SSL_set_fd(ssl, remote);
         SSL_set_connect_state(ssl);
         if(SSL_connect(ssl)<=0) {
@@ -383,6 +571,8 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
     unsigned long l;
 #endif
 
+    int check_SSL_pending;
+
     ssl_fd=SSL_get_fd(ssl);
     fdno=(ssl_fd>sock_fd ? ssl_fd : sock_fd)+1;
     sock_ptr=0;
@@ -402,61 +592,47 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
 #endif
 
     while((sock_open||sock_ptr) && (ssl_open||ssl_ptr)) {
+
         FD_ZERO(&rd_set);
+
         if(sock_open && sock_ptr<BUFFSIZE) /* can read from socket */
             FD_SET(sock_fd, &rd_set);
-        if(ssl_open && ssl_ptr<BUFFSIZE) /* can read from SSL */
-            FD_SET(ssl_fd, &rd_set);
+
+        if (   ssl_open
+            && (    (ssl_ptr<BUFFSIZE) /* I want to read from SSL */
+                || (sock_ptr && SSL_want_read(ssl) )
+                  /* I want to SSL_write but read from the underlying
+                   * socket needed for the SSL protocol. */
+               )
+           ) {
+          FD_SET(ssl_fd, &rd_set);
+        }
+
         FD_ZERO(&wr_set);
+
         if(sock_open && ssl_ptr) /* can write to socket */
             FD_SET(sock_fd, &wr_set);
-        if(ssl_open && sock_ptr) /* can write to SSL */
-            FD_SET(ssl_fd, &wr_set);
+
+        if (   ssl_open
+            && (   (sock_ptr) /* can write to SSL */
+                || ( (ssl_ptr<BUFFSIZE) && SSL_want_write( ssl ) )
+                   /* I want to SSL_read but write to the underlying
+                    * socket needed for the SSL protocol. */
+               )
+           ) {
+          FD_SET(ssl_fd, &wr_set);
+        }
+
         if(select(fdno, &rd_set, &wr_set, NULL, NULL)<0) {
             sockerror("select");
             goto error;
         }
-        if(sock_open && FD_ISSET(sock_fd, &rd_set)) {
-            num=readsocket(sock_fd, sock_buff+sock_ptr, BUFFSIZE-sock_ptr);
-            if(num<0 && errno==ECONNRESET) {
-                log(LOG_NOTICE, "IPC reset (child died)");
-                break; /* close connection */
-            }
-            if (num < 0 && errno != EIO) {
-                sockerror("read");
-                goto error;
-            } else if (num > 0) {
-                sock_ptr += num;
-            } else { /* close */
-                log(LOG_DEBUG, "Socket closed on read");
-                sock_open = 0;
-            }
-        }
-        if(ssl_open && FD_ISSET(ssl_fd, &rd_set)) {
-            num=SSL_read(ssl, ssl_buff+ssl_ptr, BUFFSIZE-ssl_ptr);
-            switch(SSL_get_error(ssl, num)) {
-            case SSL_ERROR_NONE:
-                ssl_ptr+=num;
-                break;
-            case SSL_ERROR_WANT_WRITE:
-            case SSL_ERROR_WANT_READ:
-            case SSL_ERROR_WANT_X509_LOOKUP:
-                log(LOG_DEBUG, "SSL_read returned WANT_ - retry");
-                break;
-            case SSL_ERROR_SYSCALL:
-                if(num) { /* not EOF */
-                    sockerror("SSL_read (socket)");
-                    goto error;
-                }
-            case SSL_ERROR_ZERO_RETURN:
-                log(LOG_DEBUG, "SSL closed on read");
-                ssl_open=0;
-                break;
-            case SSL_ERROR_SSL:
-                sslerror("SSL_read");
-                goto error;
-            }
-        }
+
+        /* Set flag to try and read any buffered SSL data if we made
+         * room in the buffer by writing to the socket. */
+
+        check_SSL_pending = 0;
+
         if(sock_open && FD_ISSET(sock_fd, &wr_set)) {
             num=writesocket(sock_fd, ssl_buff, ssl_ptr);
             if(num<0) {
@@ -465,6 +641,9 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
             }
             if(num) {
                 memcpy(ssl_buff, ssl_buff+num, ssl_ptr-num);
+
+                if (ssl_ptr ==BUFFSIZE) check_SSL_pending = 1;
+
                 ssl_ptr-=num;
                 sock_bytes+=num;
             } else { /* close */
@@ -472,8 +651,21 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
                 sock_open=0;
             }
         }
-        if(ssl_open && FD_ISSET(ssl_fd, &wr_set)) {
+
+
+        if (   ssl_open
+            && sock_ptr
+            && (   FD_ISSET(ssl_fd, &wr_set)
+                  /* See if application data can be written. */
+
+                || ( SSL_want_read(ssl) && FD_ISSET(ssl_fd, &rd_set) )
+                   /* I want to SSL_write but read from the underlying
+                    * socket needed for the SSL protocol. */
+               )
+           ) {
+
             num=SSL_write(ssl, sock_buff, sock_ptr);
+
             switch(SSL_get_error(ssl, num)) {
             case SSL_ERROR_NONE:
                 memcpy(sock_buff, sock_buff+num, sock_ptr-num);
@@ -499,6 +691,66 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
                 goto error;
             }
         }
+
+        if(sock_open && FD_ISSET(sock_fd, &rd_set)) {
+            num=readsocket(sock_fd, sock_buff+sock_ptr, BUFFSIZE-sock_ptr);
+
+            if(num<0 && errno==ECONNRESET) {
+                log(LOG_NOTICE, "IPC reset (child died)");
+                break; /* close connection */
+            }
+            if (num < 0 && errno != EIO) {
+                sockerror("read");
+                goto error;
+            } else if (num > 0) {
+                sock_ptr += num;
+            } else { /* close */
+                log(LOG_DEBUG, "Socket closed on read");
+                sock_open = 0;
+            }
+        }
+
+        if(   ssl_open
+
+           && (ssl_ptr<BUFFSIZE)
+
+           && (   FD_ISSET(ssl_fd, &rd_set)
+                  /* See if there's any application data coming in. */
+
+               || ( SSL_want_write( ssl ) && FD_ISSET(ssl_fd, &wr_set) )
+                  /* I want to SSL_read but write to the underlying
+                   * socket needed for the SSL protocol. */
+
+               || ( check_SSL_pending && SSL_pending(ssl) )
+                  /* Write made space from full buffer. */
+              )
+          ) {
+
+            num=SSL_read(ssl, ssl_buff+ssl_ptr, BUFFSIZE-ssl_ptr);
+
+            switch(SSL_get_error(ssl, num)) {
+            case SSL_ERROR_NONE:
+                ssl_ptr+=num;
+                break;
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_X509_LOOKUP:
+                log(LOG_DEBUG, "SSL_read returned WANT_ - retry");
+                break;
+            case SSL_ERROR_SYSCALL:
+                if(num) { /* not EOF */
+                    sockerror("SSL_read (socket)");
+                    goto error;
+                }
+            case SSL_ERROR_ZERO_RETURN:
+                log(LOG_DEBUG, "SSL closed on read");
+                ssl_open=0;
+                break;
+            case SSL_ERROR_SSL:
+                sslerror("SSL_read");
+                goto error;
+            }
+        }
     }
     retval=0;
     goto done;
@@ -521,10 +773,66 @@ done:
 }
 
 #ifndef NO_RSA
-static RSA *tmp_rsa_cb(SSL *s, int export, int keylength)
-{ /* temporary RSA key callback */
-    log(LOG_DEBUG, "Returned temporary RSA callback");
-    return rsa_tmp;
+
+static RSA *make_temp_key(int keylen) {
+    RSA *result;
+
+    log(LOG_DEBUG, "Generating %d bit temporary RSA key...", keylen);
+#if SSLEAY_VERSION_NUMBER >= 0x0900
+    result=RSA_generate_key(keylen, RSA_F4, NULL, NULL);
+# else
+    result=RSA_generate_key(keylen, RSA_F4, NULL);
+# endif
+    log(LOG_DEBUG, "Temporary RSA key created");
+    return result;
+}
+
+static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
+    static int initialized=0;
+    static struct keytabstruct {
+        RSA *key;
+        time_t timeout;
+    } keytable[KEY_CACHE_LENGTH];
+    static RSA *longkey;
+    static int longlen;
+    static time_t longtime;
+    RSA *oldkey;
+    time_t now;
+    int i;
+
+    if(!initialized) {
+        for(i=0; i<KEY_CACHE_LENGTH; i++) {
+            keytable[i].key=NULL;
+            keytable[i].timeout=0;
+        }
+        longkey=NULL;
+        longlen=0;
+        longtime=0;
+        initialized=1;
+    }
+
+    /* TODO: make it fully mt-safe */
+    time(&now);
+    if(keylen<KEY_CACHE_LENGTH) {
+        if(keytable[keylen].timeout<now) {
+            oldkey=keytable[keylen].key;
+            keytable[keylen].key=make_temp_key(keylen);
+            keytable[keylen].timeout=now+KEY_CACHE_TIME;
+            if(oldkey)
+                RSA_free(oldkey);
+        }
+        return keytable[keylen].key;
+    } else { /* Temp key > 2048 bits.  Is it possible? */
+        if(longtime<now || longlen!=keylen) {
+            oldkey=longkey;
+            longkey=make_temp_key(keylen);
+            longtime=now+KEY_CACHE_TIME;
+            longlen=keylen;
+            if(oldkey)
+                RSA_free(oldkey);
+        }
+        return longkey;
+    }
 }
 #endif /* NO_RSA */
 

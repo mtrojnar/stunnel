@@ -1,5 +1,7 @@
 #####################################################
 # Makefile for stunnel by Michal Trojnara 1998-2000 #
+#                                                   #
+# Modified by Brian Hatch <bri@stunnel.org>         #
 #####################################################
 
 prefix=@prefix@
@@ -7,18 +9,18 @@ exec_prefix=@exec_prefix@
 sbindir=@sbindir@
 libdir=@libdir@
 man8dir=@mandir@/man8
-piddir=@localstatedir@/stunnel
+piddir=@localstatedir@/stunnel/
 ssldir=@ssldir@
-certdir=$(ssldir)/certs
+PEM_DIR=@PEM_DIR@
 @SET_MAKE@
 VERSION=stunnel-@VERSION@
-RANDOM_OPT=@RANDOM_OPT@
+RANDOM_OPT="-rand @RANDOM_FILE@"
 CC=@CC@
 INSTALL=@INSTALL@
-CFLAGS=@CFLAGS@ @DEFS@ -Dcertdir=\"$(certdir)\" -Dlibdir=\"$(libdir)\" -Dpiddir=\"$(piddir)\"
+CFLAGS=@CFLAGS@ @DEFS@ -Dlibdir=\"$(libdir)\" -DPIDDIR=\"$(piddir)\"
 LIBS=@LIBS@
 OBJS=stunnel.o ssl.o protocol.o sthreads.o pty.o log.o
-DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(man8dir)/stunnel.8 $(certdir)/stunnel.pem
+DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(man8dir)/stunnel.8  $(PEM_DIR)/stunnel.pem
 
 # standard external rules
 
@@ -36,7 +38,7 @@ clean:
 	rm -f stunnel stunnel.so $(OBJS) core config.log
 
 distclean: clean
-	rm -f stunnel.8 config.cache config.status Makefile
+	rm -f stunnel.8 config.cache config.status Makefile stunnel.pem
 
 mostlyclean: distclean
 
@@ -49,7 +51,7 @@ dist: distclean ../dist/$(VERSION).exe
 	gpg --yes --armor --detach-sign ../dist/$(VERSION).tar.gz
 
 installdirs: mkinstalldirs
-	./mkinstalldirs $(sbindir) $(libdir) $(man8dir) $(certdir) $(piddir)
+	./mkinstalldirs $(sbindir) $(libdir) $(man8dir) $(PEM_DIR) $(piddir)
 	chmod a=rwx,+t $(piddir)
 
 # non-standard external rules
@@ -69,10 +71,6 @@ stunnel: $(OBJS)
 stunnel.so: Makefile env.c
 	$(CC) -fPIC -shared $(LDFLAGS) -o stunnel.so env.c $(LIBS) || \
 	touch stunnel.so
-	@test -s stunnel.pem || echo
-	@test -s stunnel.pem || echo "You can ignore this error"
-	@test -s stunnel.pem || echo "Shared library won't work on your system"
-	@test -s stunnel.pem || echo
 
 Makefile: configure Makefile.in
 	./configure
@@ -86,7 +84,6 @@ $(OBJS): Makefile common.h
 stunnel.pem: stunnel.cnf
 	$(ssldir)/bin/openssl req -new -x509 -days 365 -nodes \
 		-config stunnel.cnf -out stunnel.pem -keyout stunnel.pem
-	$(ssldir)/bin/openssl gendh $(RANDOM_OPT) 512 >> stunnel.pem
 	$(ssldir)/bin/openssl x509 -subject -dates -fingerprint -noout \
 		-in stunnel.pem
 
@@ -99,8 +96,10 @@ $(libdir)/stunnel.so: stunnel.so
 $(man8dir)/stunnel.8: stunnel.8
 	$(INSTALL) -m 644 stunnel.8 $(man8dir)
 
-$(certdir)/stunnel.pem: stunnel.pem
-	$(INSTALL) -m 600 stunnel.pem $(certdir)
+$(PEM_DIR)/stunnel.pem: stunnel.pem
+	if [ -n "$(PEM_DIR)" ] ; then \
+		$(INSTALL) -m 600 stunnel.pem $(PEM_DIR); \
+	fi
 
 ../dist/$(VERSION).exe: stunnel.exe
 	./mkinstalldirs ../dist
