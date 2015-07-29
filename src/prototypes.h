@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -23,29 +23,28 @@
 
 #include "common.h"
 
-/* Prototypes for stunnel.c */
+/**************************************** Prototypes for stunnel.c */
+
+extern int num_clients;
 
 void main_initialize(char *);
 void main_execute(void);
 void ioerror(char *);
 void sockerror(char *);
 void log_error(int, int, char *);
-void log_error_addr(int, int, struct sockaddr_in *, char *);
+char *my_strerror(int);
 int set_socket_options(int, int);
-#ifndef USE_WIN32
-void local_handler(int);
-#endif
 char *stunnel_info(void);
 int alloc_fd(int);
-void setnonblock(int, unsigned long);
+char *safe_ntoa(char *, struct in_addr);
 
-/* Prototypes for ssl.c */
+/**************************************** Prototypes for ssl.c */
 
 void context_init(void);
 void context_free(void);
 void sslerror(char *);
 
-/* Prototypes for log.c */
+/**************************************** Prototypes for log.c */
 
 void log_open(void);
 void log_close(void);
@@ -66,7 +65,7 @@ void log_raw(const char *, ...)
     ;
 #endif
     
-/* Prototypes for sthreads.c */
+/**************************************** Prototypes for sthreads.c */
 
 typedef enum {
     CRIT_KEYGEN, CRIT_LIBWRAP, CRIT_NTOA, CRIT_CLIENTS, CRIT_WIN_LOG,
@@ -76,18 +75,20 @@ typedef enum {
 void enter_critical_section(section_code);
 void leave_critical_section(section_code);
 void sthreads_init(void);
-unsigned long process_id(void);
-unsigned long thread_id(void);
+unsigned long stunnel_process_id(void);
+unsigned long stunnel_thread_id(void);
 int create_client(int, int, void *, void *(*)(void *));
 
-/* Prototypes for pty.c */
-/* Based on Public Domain code by Tatu Ylonen <ylo@cs.hut.fi> */
+/**************************************** Prototypes for pty.c */
+/* Based on Public Domain code by Tatu Ylonen <ylo@cs.hut.fi>  */
 
-int pty_allocate(int *ptyfd, int *ttyfd, char *ttyname, int ttynamelen);
-void pty_release(char *ttyname);
-void pty_make_controlling_tty(int *ttyfd, char *ttyname);
+int pty_allocate(int *, int *, char *, int);
+#if 0
+void pty_release(char *);
+void pty_make_controlling_tty(int *, char *);
+#endif
 
-/* Prototypes for options.c */
+/**************************************** Prototypes for options.c */
 
 typedef struct {
         /* some data for SSL initialization in ssl.c */
@@ -102,10 +103,13 @@ typedef struct {
     long session_timeout;
     int verify_level;
     int verify_use_only_my;
+    long ssl_options;
 
         /* some global data for stunnel.c */
 #ifndef USE_WIN32
+#ifdef HAVE_CHROOT
     char *chroot_dir;
+#endif
     unsigned long dpid;
     char *pidfile;
     char *setuid_user;
@@ -139,6 +143,8 @@ extern GLOBAL_OPTIONS options;
 
 typedef struct local_options {
     struct local_options *next;            /* next node in the services list */
+
+    char local_address[16]; /* Dotted-decimal address to bind */
 
         /* name of service */
     char *servname;         /* service name for loggin & permission checking */
@@ -196,14 +202,80 @@ typedef struct {
 void parse_config(char *);
 int name2nums(char *, char *, u32 **, u_short *);
 
-/* Prototypes for client.c */
+/**************************************** Prototypes for client.c */
+
+typedef struct {
+    int fd; /* File descriptor */
+    int rd; /* Open for read */
+    int wr; /* Open for write */
+    int is_socket; /* File descriptor is a socket */
+} FD;
+
+typedef struct {
+    LOCAL_OPTIONS *opt;
+    char accepting_address[16], connecting_address[16]; /* Dotted-decimal */
+    struct sockaddr_in addr; /* Local address */
+    FD local_rfd, local_wfd; /* Read and write local descriptors */
+    FD remote_fd; /* Remote descriptor */
+    SSL *ssl; /* SSL Connection */
+    int bind_ip; /* IP for explicit local bind or transparent proxy */
+    unsigned long pid; /* PID of local process */
+    u32 *resolved_addresses; /* List of IP addresses for delayed lookup */
+
+    char sock_buff[BUFFSIZE]; /* Socket read buffer */
+    char ssl_buff[BUFFSIZE]; /* SSL read buffer */
+    int sock_ptr, ssl_ptr; /* Index of first unused byte in buffer */
+    FD *sock_rfd, *sock_wfd; /* Read and write socket descriptors */
+    FD *ssl_rfd, *ssl_wfd; /* Read and write SSL descriptors */
+    int sock_bytes, ssl_bytes; /* Bytes written to socket and ssl */
+} CLI;
+
+extern int max_clients;
+#ifndef USE_WIN32
+extern int max_fds;
+#endif
+
+#define sock_rd (c->sock_rfd->rd)
+#define sock_wr (c->sock_wfd->wr)
+#define ssl_rd (c->ssl_rfd->rd)
+#define ssl_wr (c->ssl_wfd->wr)
+
 void *alloc_client_session(LOCAL_OPTIONS *, int, int);
 void *client(void *);
 
-/* Prototypes for gui.c */
+/**************************************** Prototype for protocol.c */
+
+int negotiate(CLI *c);
+
+/**************************************** Prototypes for select.c */
+
+int sselect(int, fd_set *, fd_set *, fd_set *, struct timeval *);
+int waitforsocket(int, int, int);
+#ifndef USE_WIN32
+void sselect_init(fd_set *, int *);
+void exec_status(void);
+#endif
+
+/* descriptor versions of fprintf/fscanf */
+int fdprintf(CLI *, int, const char *, ...)
+#ifdef __GNUC__
+       __attribute__ ((format (printf, 3, 4)));
+#else
+       ;
+#endif
+int fdscanf(CLI *, int, const char *, char *)
+#ifdef __GNUC__
+       __attribute__ ((format (scanf, 3, 0)));
+#else
+       ;
+#endif
+
+/**************************************** Prototypes for gui.c */
+
 #ifdef USE_WIN32
 void win_log(char *);
 void exit_stunnel(int);
+int pem_passwd_cb(char *, int, int, void *);
 #endif
 
 #endif /* defined PROTOTYPES_H */

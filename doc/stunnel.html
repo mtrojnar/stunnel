@@ -30,6 +30,7 @@
 	<LI><A HREF="#notes">NOTES</A></LI>
 	<UL>
 
+		<LI><A HREF="#inetd mode">INETD MODE</A></LI>
 		<LI><A HREF="#certificates">CERTIFICATES</A></LI>
 		<LI><A HREF="#randomness">RANDOMNESS</A></LI>
 	</UL>
@@ -55,7 +56,7 @@ between remote clients and local (<EM>inetd</EM>-startable) or remote
 servers. The concept is that having non-SSL aware daemons running on
 your system you can easily set them up to communicate with clients over
 secure SSL channels.</P>
-<P><STRONG>stunnel</STRONG> can be used to add SSL functionality to commonly used <EM>inetd</EM>
+<P><STRONG>stunnel</STRONG> can be used to add SSL functionality to commonly used <EM>Inetd</EM>
 daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
 NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
 changes to the source code.</P>
@@ -71,11 +72,11 @@ Use specified configuration file
 <P></P>
 <DT><STRONG><A NAME="item_%2Dhelp"><STRONG>-help</STRONG></A></STRONG><BR>
 <DD>
-Print stunnel help menu
+Print <STRONG>stunnel</STRONG> help menu
 <P></P>
 <DT><STRONG><A NAME="item_%2Dversion"><STRONG>-version</STRONG></A></STRONG><BR>
 <DD>
-Print stunnel version and compile time defaults
+Print <STRONG>stunnel</STRONG> version and compile time defaults
 <P></P>
 <DT><STRONG><A NAME="item_%2Dsockets"><STRONG>-sockets</STRONG></A></STRONG><BR>
 <DD>
@@ -112,7 +113,7 @@ an ``option_name = option_value'' pair
 <DT><STRONG><A NAME="item_CApath_%3D_directory"><STRONG>CApath</STRONG> = directory</A></STRONG><BR>
 <DD>
 Certificate Authority directory
-<P>This is the directory in which stunnel will look for certificates when
+<P>This is the directory in which <STRONG>stunnel</STRONG> will look for certificates when
 using the <EM>verify</EM>. Note that the certificates in this directory
 should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.</P>
 <P></P>
@@ -132,11 +133,11 @@ certificate to the highest level (root CA).</P>
 <P></P>
 <DT><STRONG><A NAME="item_directory"><STRONG>chroot</STRONG> = directory (Unix only)</A></STRONG><BR>
 <DD>
-directory to chroot stunnel process
-<P><STRONG>chroot</STRONG> keeps stunnel in chrooted jail.  <EM>CApath</EM>, <EM>pid</EM> and <EM>exec</EM>
+directory to chroot <STRONG>stunnel</STRONG> process
+<P><STRONG>chroot</STRONG> keeps <STRONG>stunnel</STRONG> in chrooted jail.  <EM>CApath</EM>, <EM>pid</EM> and <EM>exec</EM>
 are located inside the jail and the patches have to be relative to the
 directory specified with <STRONG>chroot</STRONG>.</P>
-<P>To have libwrap (TCP wrappers) control effective in a chrooted environment
+<P>To have libwrap (TCP Wrappers) control effective in a chrooted environment
 you also have to copy its configuration files (/etc/hosts.allow and
 /etc/hosts.deny) there.</P>
 <P></P>
@@ -151,7 +152,7 @@ For example DES-CBC3-SHA:IDEA-CBC-MD5</P>
 client mode (remote service uses SSL)
 <P>default: no (server mode)</P>
 <P></P>
-<DT><STRONG><A NAME="item_debug_%3D_level%5B%2Efacility%5D"><STRONG>debug</STRONG> = level[.facility]</A></STRONG><BR>
+<DT><STRONG><A NAME="item_debug_%3D_%5Bfacility%2E%5Dlevel"><STRONG>debug</STRONG> = [facility.]level</A></STRONG><BR>
 <DD>
 debugging level
 <P>Level is a one of the syslog level names or numbers
@@ -186,6 +187,17 @@ to its owner.  On Unix systems you can use the following command:</P>
     chmod 600 keyfile</PRE>
 <P>default: value of <EM>cert</EM> option</P>
 <P></P>
+<DT><STRONG><A NAME="item_options_%3D_SSL_options"><STRONG>options</STRONG> = SSL_options</A></STRONG><BR>
+<DD>
+OpenSSL library options
+<P>The parameter is the OpenSSL option name as described in the
+<EM>SSL_CTX_set_options(3ssl)</EM> manual, but without <EM>SSL_OP_</EM> prefix.
+Several <EM>options</EM> can be used to specify multiple options.</P>
+<P>For example for compatibility with erroneous Eudora SSL implementation
+the following option can be used:</P>
+<PRE>
+    options = DONT_INSERT_EMPTY_FRAGMENTS</PRE>
+<P></P>
 <DT><STRONG><A NAME="item_output_%3D_file"><STRONG>output</STRONG> = file</A></STRONG><BR>
 <DD>
 append log messages to a file instead of using syslog
@@ -214,9 +226,11 @@ number generator.</P>
 overwrite the random seed files with new random data
 <P>default: yes</P>
 <P></P>
-<DT><STRONG><A NAME="item_servicename"><STRONG>service</STRONG> = servicename (NT/2000/XP only)</A></STRONG><BR>
+<DT><STRONG><A NAME="item_service_%3D_servicename"><STRONG>service</STRONG> = servicename</A></STRONG><BR>
 <DD>
-use specified string as NT service name in control panel
+use specified string as the service name
+<P>On Unix: <EM>inetd</EM> mode service name for TCP Wrapper library.</P>
+<P>On NT/2000/XP: NT service name in the Control Panel.</P>
 <P>default: stunnel</P>
 <P></P>
 <DT><STRONG><A NAME="item_session_%3D_timeout"><STRONG>session</STRONG> = timeout</A></STRONG><BR>
@@ -262,8 +276,12 @@ verify peer certificate
 <P>
 <H2><A NAME="servicelevel options">SERVICE-LEVEL OPTIONS</A></H2>
 <P>Each configuration section begins with service name in square brackets.
-Service name is used for libwrap (TCP wrappers) access control and lets
-you distinguish stunnel services in your log files.</P>
+The service name is used for libwrap (TCP Wrappers) access control and lets
+you distinguish <STRONG>stunnel</STRONG> services in your log files.</P>
+<P>Note that if you wish to run <STRONG>stunnel</STRONG> in <EM>inetd</EM> mode (where it
+is provided a network socket by a server such as <EM>inetd</EM>, <EM>xinetd</EM>,
+or <EM>tcpserver</EM>) then you should read the section entitiled <EM>INETD MODE</EM>
+below.</P>
 <DL>
 <DT><STRONG><A NAME="item_accept_%3D_%5Bhost%3A%5Dport"><STRONG>accept</STRONG> = [host:]port</A></STRONG><BR>
 <DD>
@@ -323,13 +341,13 @@ time to keep an idle connection
 <DD>
 transparent proxy mode
 <P>Re-write address to appear as if wrapped daemon is connecting
-from the SSL client machine instead of the machine running stunnel.
+from the SSL client machine instead of the machine running <STRONG>stunnel</STRONG>.
 This option is only available in local mode (<EM>exec</EM> option)
 by LD_PRELOADing env.so shared library or in remote mode (<EM>connect</EM>
 option) on Linux 2.2 kernel compiled with <EM>transparent proxy</EM> option
 and then only in server mode. Note that this option will not combine
 with proxy mode (<EM>connect</EM>) unless the client's default route to the target
-machine lies through the host running stunnel, which cannot be localhost.</P>
+machine lies through the host running <STRONG>stunnel</STRONG>, which cannot be localhost.</P>
 <P></P></DL>
 <P>
 <HR>
@@ -352,17 +370,23 @@ use something like</P>
     exec = /usr/sbin/pppd
     execargs = pppd local
     pty = yes</PRE>
+<P>If you want to use <STRONG>stunnel</STRONG> in <EM>inetd</EM> mode to launch your imapd
+process, you'd use this <EM>stunnel.conf</EM>.
+Note there must be no <EM>[service_name]</EM> section.</P>
+<PRE>
+    exec = /usr/sbin/imapd
+    execargs = imapd</PRE>
 <P>
 <HR>
 <H1><A NAME="files">FILES</A></H1>
 <DL>
 <DT><STRONG><A NAME="item_stunnel%2Econf"><EM>stunnel.conf</EM></A></STRONG><BR>
 <DD>
-stunnel configuration file
+<STRONG>stunnel</STRONG> configuration file
 <P></P>
 <DT><STRONG><A NAME="item_stunnel%2Epem"><EM>stunnel.pem</EM></A></STRONG><BR>
 <DD>
-stunnel certificate and private key
+<STRONG>stunnel</STRONG> certificate and private key
 <P></P></DL>
 <P>
 <HR>
@@ -371,12 +395,32 @@ stunnel certificate and private key
 <P>
 <HR>
 <H1><A NAME="restrictions">RESTRICTIONS</A></H1>
-<P><EM>stunnel</EM> cannot be used for the FTP daemon because of the nature
+<P><STRONG>stunnel</STRONG> cannot be used for the FTP daemon because of the nature
 of the FTP protocol which utilizes multiple ports for data transfers.
 There are available SSL enabled versions of FTP and telnet daemons, however.</P>
 <P>
 <HR>
 <H1><A NAME="notes">NOTES</A></H1>
+<P>
+<H2><A NAME="inetd mode">INETD MODE</A></H2>
+<P>The most common use of <STRONG>stunnel</STRONG> is to listen on a network
+port and establish communication with either a new port
+via the connect option, or a new program via the <EM>exec</EM> option.
+However there is a special case when you wish to have
+some other program accept incoming connections and
+launch <STRONG>stunnel</STRONG>, for example with <EM>inetd</EM>, <EM>xinetd</EM>,
+or <EM>tcpserver</EM>.</P>
+<P>For example, if you have the following line in <EM>inetd.conf</EM>:</P>
+<PRE>
+    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf</PRE>
+<P>In these cases, the <EM>inetd</EM>-style program is responsible
+for binding a network socket (<EM>imaps</EM> above) and handing
+it to <STRONG>stunnel</STRONG> when a connection is received.
+Thus you do not want <STRONG>stunnel</STRONG> to have any <EM>accept</EM> option.
+All the <EM>Service Level Options</EM> should be placed in the
+global options section, and no <EM>[service_name]</EM> section
+will be present.  See the <EM>EXAMPLES</EM> section for example
+configurations.</P>
 <P>
 <H2><A NAME="certificates">CERTIFICATES</A></H2>
 <P>Each SSL enabled daemon needs to present a valid X.509 certificate
@@ -406,7 +450,7 @@ should be discarded. So the file should look like this:</P>
     [empty line]</PRE>
 <P>
 <H2><A NAME="randomness">RANDOMNESS</A></H2>
-<P><EM>stunnel</EM> needs to seed the PRNG (pseudo random number generator) in
+<P><STRONG>stunnel</STRONG> needs to seed the PRNG (pseudo random number generator) in
 order for SSL to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:</P>
 <UL>
@@ -444,14 +488,14 @@ variable enough to be sufficient, and you should provide a random file
 for use with the <EM>RNDfile</EM> flag.</P>
 <P>Note that the file specified with the <EM>RNDfile</EM> flag should contain
 random data -- that means it should contain different information
-each time <EM>stunnel</EM> is run.  This is handled automatically
+each time <STRONG>stunnel</STRONG> is run.  This is handled automatically
 unless the <EM>RNDoverwrite</EM> flag is used.  If you wish to update this file
 manually, the <EM>openssl rand</EM> command in recent versions of OpenSSL,
 would be useful.</P>
 <P>One important note -- if /dev/urandom is available, OpenSSL has a habit of
 seeding the PRNG with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
-at the very bottom of the list above.  This isn't stunnel's behaviour, it's
+at the very bottom of the list above.  This isn't <STRONG>stunnel's</STRONG> behaviour, it's
 OpenSSLs.</P>
 <P>
 <HR>
@@ -467,11 +511,11 @@ internet ``super-server''
 <P></P>
 <DT><STRONG><A NAME="item_http%3A%2F%2Fstunnel%2Emirt%2Enet%2F"><EM><A HREF="http://stunnel.mirt.net/">http://stunnel.mirt.net/</A></EM></A></STRONG><BR>
 <DD>
-Stunnel homepage
+<STRONG>stunnel</STRONG> homepage
 <P></P>
 <DT><STRONG><A NAME="item_http%3A%2F%2Fwww%2Estunnel%2Eorg%2F"><EM><A HREF="http://www.stunnel.org/">http://www.stunnel.org/</A></EM></A></STRONG><BR>
 <DD>
-Stunnel Frequently Asked Questions
+<STRONG>stunnel</STRONG> Frequently Asked Questions
 <P></P>
 <DT><STRONG><A NAME="item_http%3A%2F%2Fwww%2Eopenssl%2Eorg%2F"><EM><A HREF="http://www.openssl.org/">http://www.openssl.org/</A></EM></A></STRONG><BR>
 <DD>

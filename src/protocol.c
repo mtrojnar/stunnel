@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -30,7 +30,6 @@
 
 #include "common.h"
 #include "prototypes.h"
-#include "client.h"
 
 /* protocol-specific function prototypes */
 static int smb_client(CLI *);
@@ -250,16 +249,17 @@ static int RFC2487(int fd) {
     FD_SET(fd, &fdsRead);
     timeout.tv_sec=timeout.tv_usec=0; /* don't wait */
 
-    switch(select(fd+1, &fdsRead, NULL, NULL, &timeout)) {
+    switch(sselect(fd+1, &fdsRead, NULL, NULL, &timeout)) {
     case 0: /* fd not ready to read */
         log(LOG_DEBUG, "RFC 2487 detected");
         return 1;
     case 1: /* fd ready to read */
         log(LOG_DEBUG, "RFC 2487 not detected");
         return 0;
+    default: /* -1 */
+        sockerror("RFC2487 (select)");
+        return -1;
     }
-    sockerror("RFC2487 (select)");
-    return -1;
 }
 
 /* End of protocol.c */

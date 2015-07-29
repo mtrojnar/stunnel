@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   Based on a Public Domain code by Tatu Ylonen <ylo@cs.hut.fi>
@@ -69,7 +69,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
 
     i = openpty(ptyfd, ttyfd, buf, NULL, NULL);
     if (i < 0) {
-        sockerror("openpty");
+        ioerror("openpty");
         return -1;
     }
     safecopy(namebuf, buf); /* possible truncation */
@@ -84,14 +84,14 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
 
     slave = _getpty(ptyfd, O_RDWR, 0622, 0);
     if (slave == NULL) {
-        sockerror("_getpty");
+        ioerror("_getpty");
         return -1;
     }
     safecopy(namebuf, slave);
     /* Open the slave side. */
     *ttyfd = open(namebuf, O_RDWR | O_NOCTTY);
     if (*ttyfd < 0) {
-        sockerror(namebuf);
+        ioerror(namebuf);
         close(*ptyfd);
         return -1;
     }
@@ -107,16 +107,16 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
 
     ptm = open("/dev/ptmx", O_RDWR | O_NOCTTY);
     if (ptm < 0) {
-        sockerror("/dev/ptmx");
+        ioerror("/dev/ptmx");
         return -1;
     }
     if (grantpt(ptm) < 0) {
-        sockerror("grantpt");
+        ioerror("grantpt");
         /* return -1; */
         /* Can you tell me why it doesn't work? */
     }
     if (unlockpt(ptm) < 0) {
-        sockerror("unlockpt");
+        ioerror("unlockpt");
         return -1;
     }
     pts = ptsname(ptm);
@@ -128,17 +128,17 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     /* Open the slave side. */
     *ttyfd = open(namebuf, O_RDWR | O_NOCTTY);
     if (*ttyfd < 0) {
-        sockerror(namebuf);
+        ioerror(namebuf);
         close(*ptyfd);
         return -1;
     }
     /* Push the appropriate streams modules, as described in Solaris pts(7). */
     if (ioctl(*ttyfd, I_PUSH, "ptem") < 0)
-        sockerror("ioctl I_PUSH ptem");
+        ioerror("ioctl I_PUSH ptem");
     if (ioctl(*ttyfd, I_PUSH, "ldterm") < 0)
-        sockerror("ioctl I_PUSH ldterm");
+        ioerror("ioctl I_PUSH ldterm");
     if (ioctl(*ttyfd, I_PUSH, "ttcompat") < 0)
-        sockerror("ioctl I_PUSH ttcompat");
+        ioerror("ioctl I_PUSH ttcompat");
     return 0;
 #else /* HAVE_DEV_PTMX */
 #ifdef HAVE_DEV_PTS_AND_PTC
@@ -147,7 +147,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
 
     *ptyfd = open("/dev/ptc", O_RDWR | O_NOCTTY);
     if (*ptyfd < 0) {
-        sockerror("open(/dev/ptc)");
+        ioerror("open(/dev/ptc)");
         return -1;
     }
     name = ttyname(*ptyfd);
@@ -158,7 +158,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     safecopy(namebuf, name);
     *ttyfd = open(name, O_RDWR | O_NOCTTY);
     if (*ttyfd < 0) {
-        sockerror(name);
+        ioerror(name);
         close(*ptyfd);
         return -1;
     }
@@ -194,7 +194,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
         /* Open the slave side. */
         *ttyfd = open(namebuf, O_RDWR | O_NOCTTY);
         if (*ttyfd < 0) {
-            sockerror(namebuf);
+            ioerror(namebuf);
             close(*ptyfd);
             return -1;
         }
@@ -207,20 +207,23 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
 #endif /* HAVE_OPENPTY */
 }
 
+/* The code below is currently not used */
+#if 0
+
 /* Releases the tty.  Its ownership is returned to root, and permissions to 0666. */
 
-void pty_release(char *ttyname) {
-    if(chown(ttyname, (uid_t)0, (gid_t)0)<0)
-        log(LOG_DEBUG, "chown %.100s 0 0 failed: %.100s", ttyname,
+void pty_release(char *tty_name) {
+    if(chown(tty_name, (uid_t)0, (gid_t)0)<0)
+        log(LOG_DEBUG, "chown %.100s 0 0 failed: %.100s", tty_name,
             strerror(get_last_socket_error()));
-    if(chmod(ttyname, (mode_t)0666)<0)
-        log(LOG_DEBUG, "chmod %.100s 0666 failed: %.100s", ttyname,
+    if(chmod(tty_name, (mode_t)0666)<0)
+        log(LOG_DEBUG, "chmod %.100s 0666 failed: %.100s", tty_name,
             strerror(get_last_socket_error()));
 }
 
 /* Makes the tty the processes controlling tty and sets it to sane modes. */
 
-void pty_make_controlling_tty(int *ttyfd, char *ttyname) {
+void pty_make_controlling_tty(int *ttyfd, char *tty_name) {
     int fd;
 
     /* First disconnect from the old controlling tty. */
@@ -232,7 +235,7 @@ void pty_make_controlling_tty(int *ttyfd, char *ttyname) {
     }
 #endif /* TIOCNOTTY */
     if (setsid() < 0)
-        sockerror("setsid");
+        ioerror("setsid");
 
     /*
      * Verify that we are successfully disconnected from the controlling
@@ -253,19 +256,21 @@ void pty_make_controlling_tty(int *ttyfd, char *ttyname) {
      */
     ioctl(*ttyfd, TIOCSCTTY, NULL);
 #endif /* TIOCSCTTY */
-    fd = open(ttyname, O_RDWR);
+    fd = open(tty_name, O_RDWR);
     if (fd < 0)
-        sockerror(ttyname);
+        ioerror(tty_name);
     else
         close(fd);
 
     /* Verify that we now have a controlling tty. */
     fd = open("/dev/tty", O_WRONLY);
     if (fd < 0)
-        sockerror("open /dev/tty failed - could not set controlling tty");
+        ioerror("open /dev/tty failed - could not set controlling tty");
     else {
         close(fd);
     }
 }
+
+#endif
 
 /* End of pty.c */

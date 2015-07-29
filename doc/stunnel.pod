@@ -16,7 +16,7 @@ servers. The concept is that having non-SSL aware daemons running on
 your system you can easily set them up to communicate with clients over
 secure SSL channels.
 
-B<stunnel> can be used to add SSL functionality to commonly used I<inetd>
+B<stunnel> can be used to add SSL functionality to commonly used I<Inetd>
 daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
 NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
 changes to the source code.
@@ -35,11 +35,11 @@ Use specified configuration file
 
 =item B<-help>
 
-Print stunnel help menu
+Print B<stunnel> help menu
 
 =item B<-version>
 
-Print stunnel version and compile time defaults
+Print B<stunnel> version and compile time defaults
 
 =item B<-sockets>
 
@@ -88,7 +88,7 @@ an "option_name = option_value" pair
 
 Certificate Authority directory
 
-This is the directory in which stunnel will look for certificates when
+This is the directory in which B<stunnel> will look for certificates when
 using the I<verify>. Note that the certificates in this directory
 should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.
 
@@ -110,13 +110,13 @@ certificate to the highest level (root CA).
 
 =item B<chroot> = directory (Unix only)
 
-directory to chroot stunnel process
+directory to chroot B<stunnel> process
 
-B<chroot> keeps stunnel in chrooted jail.  I<CApath>, I<pid> and I<exec>
+B<chroot> keeps B<stunnel> in chrooted jail.  I<CApath>, I<pid> and I<exec>
 are located inside the jail and the patches have to be relative to the
 directory specified with B<chroot>.
 
-To have libwrap (TCP wrappers) control effective in a chrooted environment
+To have libwrap (TCP Wrappers) control effective in a chrooted environment
 you also have to copy its configuration files (/etc/hosts.allow and
 /etc/hosts.deny) there.
 
@@ -133,7 +133,7 @@ client mode (remote service uses SSL)
 
 default: no (server mode)
 
-=item B<debug> = level[.facility]
+=item B<debug> = [facility.]level
 
 debugging level
 
@@ -176,6 +176,19 @@ to its owner.  On Unix systems you can use the following command:
 
 default: value of I<cert> option
 
+=item B<options> = SSL_options
+
+OpenSSL library options
+
+The parameter is the OpenSSL option name as described in the
+I<SSL_CTX_set_options(3ssl)> manual, but without I<SSL_OP_> prefix.
+Several I<options> can be used to specify multiple options.
+
+For example for compatibility with erroneous Eudora SSL implementation
+the following option can be used:
+
+    options = DONT_INSERT_EMPTY_FRAGMENTS
+
 =item B<output> = file
 
 append log messages to a file instead of using syslog
@@ -208,9 +221,13 @@ overwrite the random seed files with new random data
 
 default: yes
 
-=item B<service> = servicename (NT/2000/XP only)
+=item B<service> = servicename
 
-use specified string as NT service name in control panel
+use specified string as the service name
+
+On Unix: I<inetd> mode service name for TCP Wrapper library.
+
+On NT/2000/XP: NT service name in the Control Panel.
 
 default: stunnel
 
@@ -262,8 +279,14 @@ verify peer certificate
 =head2 SERVICE-LEVEL OPTIONS
 
 Each configuration section begins with service name in square brackets.
-Service name is used for libwrap (TCP wrappers) access control and lets
-you distinguish stunnel services in your log files.
+The service name is used for libwrap (TCP Wrappers) access control and lets
+you distinguish B<stunnel> services in your log files.
+
+Note that if you wish to run B<stunnel> in I<inetd> mode (where it
+is provided a network socket by a server such as I<inetd>, I<xinetd>,
+or I<tcpserver>) then you should read the section entitiled I<INETD MODE>
+below.
+
 
 =over 4
 
@@ -330,13 +353,13 @@ time to keep an idle connection
 transparent proxy mode
 
 Re-write address to appear as if wrapped daemon is connecting
-from the SSL client machine instead of the machine running stunnel.
+from the SSL client machine instead of the machine running B<stunnel>.
 This option is only available in local mode (I<exec> option)
 by LD_PRELOADing env.so shared library or in remote mode (I<connect>
 option) on Linux 2.2 kernel compiled with I<transparent proxy> option
 and then only in server mode. Note that this option will not combine
 with proxy mode (I<connect>) unless the client's default route to the target
-machine lies through the host running stunnel, which cannot be localhost.
+machine lies through the host running B<stunnel>, which cannot be localhost.
 
 =back
 
@@ -364,6 +387,13 @@ use something like
     execargs = pppd local
     pty = yes
 
+If you want to use B<stunnel> in I<inetd> mode to launch your imapd
+process, you'd use this I<stunnel.conf>.
+Note there must be no I<[service_name]> section.
+
+    exec = /usr/sbin/imapd
+    execargs = imapd
+
 
 =head1 FILES
 
@@ -371,11 +401,11 @@ use something like
 
 =item F<stunnel.conf>
 
-stunnel configuration file
+B<stunnel> configuration file
 
 =item F<stunnel.pem>
 
-stunnel certificate and private key
+B<stunnel> certificate and private key
 
 =back
 
@@ -387,12 +417,35 @@ Option I<execargs> does not support quoting.
 
 =head1 RESTRICTIONS
 
-I<stunnel> cannot be used for the FTP daemon because of the nature
+B<stunnel> cannot be used for the FTP daemon because of the nature
 of the FTP protocol which utilizes multiple ports for data transfers.
 There are available SSL enabled versions of FTP and telnet daemons, however.
 
 
 =head1 NOTES
+
+=head2 INETD MODE
+
+The most common use of B<stunnel> is to listen on a network
+port and establish communication with either a new port
+via the connect option, or a new program via the I<exec> option.
+However there is a special case when you wish to have
+some other program accept incoming connections and
+launch B<stunnel>, for example with I<inetd>, I<xinetd>,
+or I<tcpserver>.
+
+For example, if you have the following line in I<inetd.conf>:
+
+    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf
+
+In these cases, the I<inetd>-style program is responsible
+for binding a network socket (I<imaps> above) and handing
+it to B<stunnel> when a connection is received.
+Thus you do not want B<stunnel> to have any I<accept> option.
+All the I<Service Level Options> should be placed in the
+global options section, and no I<[service_name]> section
+will be present.  See the I<EXAMPLES> section for example
+configurations.
 
 =head2 CERTIFICATES
 
@@ -426,7 +479,7 @@ should be discarded. So the file should look like this:
 
 =head2 RANDOMNESS
 
-I<stunnel> needs to seed the PRNG (pseudo random number generator) in
+B<stunnel> needs to seed the PRNG (pseudo random number generator) in
 order for SSL to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:
 
@@ -478,7 +531,7 @@ for use with the I<RNDfile> flag.
 
 Note that the file specified with the I<RNDfile> flag should contain
 random data -- that means it should contain different information
-each time I<stunnel> is run.  This is handled automatically
+each time B<stunnel> is run.  This is handled automatically
 unless the I<RNDoverwrite> flag is used.  If you wish to update this file
 manually, the I<openssl rand> command in recent versions of OpenSSL,
 would be useful.
@@ -486,7 +539,7 @@ would be useful.
 One important note -- if /dev/urandom is available, OpenSSL has a habit of
 seeding the PRNG with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
-at the very bottom of the list above.  This isn't stunnel's behaviour, it's
+at the very bottom of the list above.  This isn't B<stunnel's> behaviour, it's
 OpenSSLs.
 
 
@@ -504,11 +557,11 @@ internet ``super-server''
 
 =item F<http://stunnel.mirt.net/>
 
-Stunnel homepage
+B<stunnel> homepage
 
 =item F<http://www.stunnel.org/>
 
-Stunnel Frequently Asked Questions
+B<stunnel> Frequently Asked Questions
 
 =item F<http://www.openssl.org/>
 

@@ -31,13 +31,6 @@
 #include "common.h"
 #include "prototypes.h"
 
-#ifdef HAVE_OPENSSL
-#include <openssl/crypto.h> /* for CRYPTO_* */
-#else
-#include <crypto.h> /* for CRYPTO_* */
-#endif
-
-
 #ifdef USE_PTHREAD
 
 #include <pthread.h>
@@ -76,18 +69,18 @@ void sthreads_init(void) {
     /* Initialize OpenSSL locking callback */
     for(i=0; i<CRYPTO_NUM_LOCKS; i++)
         pthread_mutex_init(lock_cs+i, NULL);
-    CRYPTO_set_id_callback(thread_id);
+    CRYPTO_set_id_callback(stunnel_thread_id);
     CRYPTO_set_locking_callback(locking_callback);
 
     pthread_attr_init(&pth_attr);
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
 }
 
-unsigned long process_id(void) {
+unsigned long stunnel_process_id(void) {
     return (unsigned long)getpid();
 }
 
-unsigned long thread_id(void) {
+unsigned long stunnel_thread_id(void) {
     return (unsigned long)pthread_self();
 }
 
@@ -142,11 +135,11 @@ void sthreads_init(void) {
         InitializeCriticalSection(stunnel_cs+i);
 }
 
-unsigned long process_id(void) {
+unsigned long stunnel_process_id(void) {
     return GetCurrentProcessId() & 0x00ffffff;
 }
 
-unsigned long thread_id(void) {
+unsigned long stunnel_thread_id(void) {
     return GetCurrentThreadId() & 0x00ffffff;
 }
 
@@ -174,12 +167,16 @@ void sthreads_init(void) {
     /* empty */
 }
 
-unsigned long process_id(void) {
+unsigned long stunnel_process_id(void) {
     return (unsigned long)getpid();
 }
 
-unsigned long thread_id(void) {
+unsigned long stunnel_thread_id(void) {
     return 0L;
+}
+
+static void null_handler(int sig) {
+    signal(SIGCHLD, null_handler);
 }
 
 int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
@@ -193,7 +190,7 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
     case  0:    /* child */
         if(ls>=0)
             closesocket(ls);
-        signal(SIGCHLD, local_handler);
+        signal(SIGCHLD, null_handler);
         cli(arg);
         exit(0);
     default:    /* parent */

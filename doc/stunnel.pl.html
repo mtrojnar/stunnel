@@ -30,6 +30,7 @@
 	<LI><A HREF="#notki">NOTKI</A></LI>
 	<UL>
 
+		<LI><A HREF="#tryb inetd (tylko unix)">TRYB INETD (tylko Unix)</A></LI>
 		<LI><A HREF="#certyfikaty">CERTYFIKATY</A></LI>
 		<LI><A HREF="#losowo¶æ">LOSOWO¦Æ</A></LI>
 	</UL>
@@ -110,7 +111,7 @@ tekstem ``[nazwa_us³ugi]'' wskazuj±cym pocz±tek definicji us³ugi
 <DT><STRONG><A NAME="item_CApath_%3D_katalog_CA"><STRONG>CApath</STRONG> = katalog_CA</A></STRONG><BR>
 <DD>
 katalog Urzêdu d/s Certyfikatów
-<P>Opcja okre¶la katalog, w którym stunnel bêdzie szuka³ certyfikatów,
+<P>Opcja okre¶la katalog, w którym <STRONG>stunnel</STRONG> bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja <EM>verify</EM>.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 certyfikatu.</P>
@@ -125,7 +126,7 @@ przez opcjê <EM>verify</EM>.</P>
 <DD>
 plik z ³añcuchem certyfikatów
 <P>Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
-program stunnel do uwierzytelnienia siê przed drug± stron± po³±czenia.
+program <STRONG>stunnel</STRONG> do uwierzytelnienia siê przed drug± stron± po³±czenia.
 Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.</P>
 <P></P>
@@ -133,7 +134,7 @@ W trybie klienta certyfikat jest opcjonalny.</P>
 <DD>
 katalog roboczego korzenia systemu plików
 <P>Opcja okre¶la katalog, w którym uwiêziony zostanie proces programu
-stunnel tu¿ po jego inicjalizacji, a przed rozpoczêciem odbierania
+<STRONG>stunnel</STRONG> tu¿ po jego inicjalizacji, a przed rozpoczêciem odbierania
 po³±czeñ.  ¦cie¿ki podane w opcjach <EM>CApath</EM>, <EM>pid</EM> oraz <EM>exec</EM>
 musz± byæ umieszczone wewn±trz katalogu podanego w opcji <EM>chroot</EM>
 i okre¶lone wzlêdem tego katalogu.</P>
@@ -191,6 +192,17 @@ komend±:</P>
     chmod 600 keyfile</PRE>
 <P>domy¶lnie: warto¶æ opcji <EM>cert</EM></P>
 <P></P>
+<DT><STRONG><A NAME="item_options_%3D_opcje_SSL"><STRONG>options</STRONG> = opcje_SSL</A></STRONG><BR>
+<DD>
+opcje biblioteki OpenSSL
+<P>Paremetrem jest nazwa opcji zgodnie z opisem w <EM>SSL_CTX_set_options(3ssl)</EM>,
+ale bez przedrostka <EM>SSL_OP_</EM>.
+Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ <EM>options</EM> wielokrotnie.</P>
+<P>Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji SSL
+w programie Eudora mo¿na u¿yæ opcji:</P>
+<PRE>
+    options = DONT_INSERT_EMPTY_FRAGMENTS</PRE>
+<P></P>
 <DT><STRONG><A NAME="item_output_%3D_plik"><STRONG>output</STRONG> = plik</A></STRONG><BR>
 <DD>
 plik, do którego dopisane zostan± logi
@@ -223,7 +235,9 @@ nadpisz plik nowymi warto¶ciami pseudolosowymi
 <P></P>
 <DT><STRONG><A NAME="item_nazwa_serwisu"><STRONG>service</STRONG> = nazwa_serwisu (tylko NT/2000/XP)</A></STRONG><BR>
 <DD>
-nazwa serwisu NT, która pojawi siê w Panelu Sterowania
+u¿yj parametru jako nazwy serwisu
+<P>Unix: nazwa serwisu dla biblioteki TCP Wrapper w trybie <EM>inetd</EM>.</P>
+<P>NT/2000/XP: nazwa serwisu NT w Panelu Sterowania.</P>
 <P>domy¶lnie: stunnel</P>
 <P></P>
 <DT><STRONG><A NAME="item_session_%3D_przeterminowanie_pamiêci_podrêcznej_se"><STRONG>session</STRONG> = przeterminowanie_pamiêci_podrêcznej_sesji</A></STRONG><BR>
@@ -280,6 +294,9 @@ weryfikuj certyfikat drugiej strony po³±czenia
 kwadratowy.  Nazwa us³ugi u¿ywana jest do kontroli dostêpu przez
 bibliotekê libwrap (TCP wrappers) oraz pozwala rozró¿niæ poszczególne
 us³ugi w logach.</P>
+<P>Je¿eli <STRONG>stunnel</STRONG> ma zostaæ u¿yty w trybie <EM>inetd</EM>, gdzie za odebranie
+po³±czenia odpowiada osobny program (zwykle <EM>inetd</EM>, <EM>xinetd</EM>
+lub <EM>tcpserver</EM>), nale¿y przeczytaæ sekcjê <STRONG>TRYB INETD</STRONG> poni¿ej.</P>
 <DL>
 <DT><STRONG><A NAME="item_accept_%3D_%5Badres%3A%5Dport"><STRONG>accept</STRONG> = [adres:]port</A></STRONG><BR>
 <DD>
@@ -366,7 +383,7 @@ w przypadku b³êdu.</P>
     [imapd]
     accept = 993
     connect = 143</PRE>
-<P>W po³±czeniu z programem <EM>pppd</EM> stunnel pozwala zestawiæ prosty VPN.
+<P>W po³±czeniu z programem <EM>pppd</EM> <STRONG>stunnel</STRONG> pozwala zestawiæ prosty VPN.
 Po stronie sewera nas³uchuj±cego na porcie 2020 jego konfiguracja
 mo¿e wygl±daæ nastêpuj±co:</P>
 <PRE>
@@ -375,6 +392,12 @@ mo¿e wygl±daæ nastêpuj±co:</P>
     exec = /usr/sbin/pppd
     execargs = pppd local
     pty = yes</PRE>
+<P>Poni¿szy plik konfiguracyjny mo¿eby byæ wykorzystany do uruchomienia
+programu <STRONG>stunnel</STRONG> w trybie <EM>inetd</EM>.  Warto zauwa¿yæ, ¿e w pliku
+konfiguracyjnym nie ma sekcji <EM>[nazwa_us³ugi]</EM>.</P>
+<PRE>
+    exec = /usr/sbin/imapd
+    execargs = imapd</PRE>
 <P>
 <HR>
 <H1><A NAME="pliki">PLIKI</A></H1>
@@ -403,6 +426,25 @@ na szyfrowanie przesy³anych danych przy pomocy protoko³u <EM>SSL</EM>.</P>
 <HR>
 <H1><A NAME="notki">NOTKI</A></H1>
 <P>
+<H2><A NAME="tryb inetd (tylko unix)">TRYB INETD (tylko Unix)</A></H2>
+<P>W wiêkszo¶ci zastosowañ <STRONG>stunnel</STRONG> samodzielnie nas³uchuje na porcie
+podanym w pliku konfiguracyjnym i tworzy po³±czenie z innym portem
+podanym w opcji <EM>connect</EM> lub nowym programem podanym w opcji <EM>exec</EM>.
+Niektórzy wol± jednak wykorzystywaæ oddzielny program, który odbiera
+po³±czenia, po czym uruchamia program <STRONG>stunnel</STRONG>.  Przyk³adami takich
+programów s± inetd, xinetd i tcpserver.</P>
+<P>Przyk³adowa linia pliku /etc/inetd.conf mo¿e wygl±daæ tak:</P>
+<PRE>
+    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf</PRE>
+<P>Poniewa¿ w takich przypadkach po³±czenie na zdefiniowanym porcie
+(tutaj <EM>imaps</EM>) nawi±zuje osobny program (tutaj <EM>inetd</EM>), <STRONG>stunnel</STRONG>
+nie mo¿e mieæ u¿ywaæ opcji <EM>accept</EM>.  W pliku konfiguracyjnym nie mo¿e
+byæ równie¿ zdefiniowana ¿adna us³uga (<EM>[nazwa_us³ugi]</EM>), poniewa¿
+konfiguracja taka pozwala na nawi±zanie tylko jednego po³±czenia.
+Wszystkie <EM>OPCJE US£UG</EM> powinny byæ umieszczone razem z opcjami
+globalnymi.  Przyk³ad takiej konfiguracji znajduje siê w sekcji
+<EM>PRZYK£ADY</EM>.</P>
+<P>
 <H2><A NAME="certyfikaty">CERTYFIKATY</A></H2>
 <P>Protokó³ SSL wymaga, aby ka¿dy serwer przedstawia³ siê nawi±zuj±cemu
 po³±czenie klientowi prawid³owym certyfikatem X.509.  Do potwierdzenia
@@ -410,7 +452,7 @@ to¿samo¶ci w³a¶ciciela certyfikatu serwer musi mieæ odpowiadaj±cy mu
 klucz prywatny.  Najprostsz± metod± uzyskania certyfikatu jest wygenerowanie
 go przy pomocy wolnego pakietu <EM>OpenSSL</EM>.  Wiêcej informacji na temat
 generowania certyfikatów mo¿na znale¼æ na umieszczonych poni¿ej stronach.</P>
-<P>Przy generowaniu par certyfikat-klucz dla programu <EM>stunnel</EM> istotne
+<P>Przy generowaniu par certyfikat-klucz dla programu <STRONG>stunnel</STRONG> istotne
 s± dwie kwestie.  Po pierwsze klucz prywatny nie mo¿e byæ zaszyfrowany,
 poniewa¿ startuj±cy serwer nie ma w ogólnym przypadku mo¿liwo¶ci
 uzyskania has³a od u¿ytkownika.  Do wytworzenia niezaszyfrowanego
@@ -434,7 +476,7 @@ nastêpuj±c± postaæ:</P>
     [pusta linia]</PRE>
 <P>
 <H2><A NAME="losowo¶æ">LOSOWO¦Æ</A></H2>
-<P><EM>stunnel</EM> potrzebuje zainicjowaæ PRNG (generator liczb pseudolosowych),
+<P><STRONG>stunnel</STRONG> potrzebuje zainicjowaæ PRNG (generator liczb pseudolosowych),
 gdy¿ protokó³ SSL wymaga do bezpieczeñstwa kryptograficznego ¼ród³a
 dobrej dosowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
 uzyskania  wystarczaj±cej ilo¶ci entropii:</P>
@@ -475,7 +517,7 @@ konsoli nie pracuje u¿ytkownik, zawarto¶æ ekranu nie jest wystarczaj±co
 zmienna, aby zainicjowaæ PRNG.  W takim przypadku do zainicjowania
 generatora nale¿y u¿yæ opcji <EM>RNDfile</EM>.</P>
 <P>Plik <EM>RNDfile</EM> powinien zawieraæ dane losowe -- równie¿ w tym sensie,
-¿e powinny byæ one inne przy ka¿dym uruchomieniu programu <EM>stunnel</EM>.
+¿e powinny byæ one inne przy ka¿dym uruchomieniu programu <STRONG>stunnel</STRONG>.
 O ile nie u¿yta zosta³a opcja <EM>RNDoverwrite</EM> jest to robione
 automatycznie.  Do rêcznego uzyskania takiego pliku u¿yteczna
 mo¿e byæ komenda <EM>openssl rand</EM> dostarczana ze wspó³czesnymi

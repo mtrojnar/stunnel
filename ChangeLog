@@ -1,5 +1,32 @@
 stunnel         Universal SSL tunnel
 
+Version 4.04, 2003.01.12, urgency: MEDIUM:
+* New feature sponsored by SURFnet http://www.surfnet.nl/
+  - Encrypted private key can be used with Win32 GUI.
+* New features
+  - New 'options' configuration option to setup
+    OpenSSL library hacks with SSL_CTX_set_options().
+  - 'service' option also changes the name for
+    TCP Wrappers access control in inetd mode.
+  - Support for BeOS (thx to Mike I. Kozin <mik@sbor.net>)
+  - SSL is negotiated before connecting remote host
+    or spawning local process whenever possible.
+  - REMOTE_HOST variable is always placed in the
+    enrivonment of a process spawned with 'exec'.
+  - Whole SSL error stack is dumped on errors.
+  - 'make cert' rule is back (was missing since 4.00).
+  - Manual page updated (special thanks to Brian Hatch).
+  - TODO updated.
+* Bugfixes
+  - Major code cleanup (thx to Steve Grubb <linux_4ever@yahoo.com>).
+  - Unsafe functions are removed from SIGCHLD handler.
+  - Several bugs in auth_user() fixed.
+  - Incorrect port when using 'local' option fixed.
+  - OpenSSL tools '-rand' option is no longer directly
+    used with a device (like '/dev/urandom').
+    Temporary random file is created with 'dd' instead.
+* DLLs for OpenSSL 0.9.7.
+
 Version 4.03, 2002.10.27, urgency: HIGH:
 * NT Service (broken since 4.01) is operational again.
 * Memory leak in FORK environments fixed.

@@ -13,14 +13,18 @@ examples_DATA = ca.html ca.pl importCA.html importCA.sh \
 openssl=$(ssldir)/bin/openssl
 stunnel.pem: stunnel.cnf
 	if test -r "$(RANDOM_FILE)"; \
-		then RND="-rand $(RANDOM_FILE)"; \
+		then dd if="$(RANDOM_FILE)" of=stunnel.rnd bs=256 count=1; \
+			RND="-rand stunnel.rnd"; \
 		else RND=""; fi; \
-	$(openssl) req -new -x509 -days 365 -nodes -config $(srcdir)/stunnel.cnf \
-		-out stunnel.pem -keyout stunnel.pem; \
+	$(openssl) req -new -x509 -days 365 -nodes $$RND \
+		-config $(srcdir)/stunnel.cnf -out stunnel.pem -keyout stunnel.pem; \
 	test $(USE_DH) -eq 0 || $(openssl) gendh $$RND 512 >> stunnel.pem
 	$(openssl) x509 -subject -dates -fingerprint -noout \
 		-in stunnel.pem
 
 install-data-hook:
 	chmod 0600 $(confdir)/stunnel.pem
+
+clean-local:
+	-rm -f stunnel.rnd
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -35,6 +35,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>  /* for inet_addr() */
 #include <stdlib.h>     /* for getenv() */
+#ifdef __BEOS__
+#include <be/bone/arpa/inet.h> /* for AF_INET */
+#include <be/bone/sys/socket.h> /* for AF_INET */
+#else
+#include <sys/socket.h> /* for AF_INET */
+#endif
 #undef getpeername
 
 int getpeername(int s, struct sockaddr_in *name, int *len) {

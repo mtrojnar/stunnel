@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -143,7 +143,7 @@ void log(int level, const char *format, ...) {
         "%04d.%02d.%02d %02d:%02d:%02d LOG%d[%lu:%lu]: %s",
         timeptr->tm_year+1900, timeptr->tm_mon+1, timeptr->tm_mday,
         timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec,
-        level, process_id(), thread_id(), text);
+        level, stunnel_process_id(), stunnel_thread_id(), text);
 #ifdef USE_WIN32
     win_log(timestamped); /* Always log to the GUI window */
     if(outfile) /* to the file - only if it exists */

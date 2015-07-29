@@ -15,6 +15,9 @@ doc_DATA = AUTHORS BUGS ChangeLog COPYING COPYRIGHT.GPL CREDITS \
 distclean-local:
 	rm -rf autom4te.cache
 
+cert:
+	(cd tools; rm -f stunnel.pem; $(MAKE) stunnel.pem)
+
 sign: dist
 	mv -f $(distdir).tar.gz ../dist
 	cp -f src/stunnel.exe ../dist/$(distdir).exe

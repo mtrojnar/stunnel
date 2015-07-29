@@ -11,3 +11,5 @@
 #define IDM_CLOSE 41
 #define IDM_SETUP 42
 
+#define IDE_PASSWORDEDIT 50
+

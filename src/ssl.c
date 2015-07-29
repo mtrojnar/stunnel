@@ -44,17 +44,6 @@
 #include "common.h"
 #include "prototypes.h"
 
-#ifdef HAVE_OPENSSL
-#include <openssl/lhash.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#else
-#include <lhash.h>
-#include <ssl.h>
-#include <err.h>
-#endif
-
     /* SSL functions */
 static int init_dh(void);
 static int init_prng(void);
@@ -66,12 +55,18 @@ static RSA *make_temp_key(int);
 #endif /* NO_RSA */
 static void verify_init(void);
 static int verify_callback(int, X509_STORE_CTX *);
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+static void info_callback(const SSL *, int, int);
+#else
 static void info_callback(SSL *, int, int);
+#endif
 static void print_stats(void);
+static void sslerror_stack(void);
 
 SSL_CTX *ctx; /* global SSL context */
 
 void context_init(void) { /* init SSL */
+    int i;
 
     if(!init_prng())
         log(LOG_INFO, "PRNG seeded successfully");
@@ -87,7 +82,12 @@ void context_init(void) { /* init SSL */
         if(init_dh())
             log(LOG_WARNING, "Diffie-Hellman initialization failed");
     }
-
+    if(options.ssl_options) {
+        log(LOG_DEBUG, "Configuration SSL options: 0x%08lX",
+            options.ssl_options);
+        log(LOG_DEBUG, "SSL options set: 0x%08lX", 
+            SSL_CTX_set_options(ctx, options.ssl_options));
+    }
 #if SSLEAY_VERSION_NUMBER >= 0x00906000L
     SSL_CTX_set_mode(ctx,
         SSL_MODE_ENABLE_PARTIAL_WRITE|SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
@@ -103,19 +103,30 @@ void context_init(void) { /* init SSL */
         }
         log(LOG_DEBUG, "Certificate: %s", options.cert);
         log(LOG_DEBUG, "Key file: %s", options.key);
+#ifdef USE_WIN32
+        SSL_CTX_set_default_passwd_cb(ctx, pem_passwd_cb);
+#endif
+        for(i=0; i<3; i++) {
 #ifdef NO_RSA
-        if(!SSL_CTX_use_PrivateKey_file(ctx, options.key,
-                SSL_FILETYPE_PEM)) {
-            sslerror("SSL_CTX_use_PrivateKey_file");
-            exit(1);
-        }
+            if(SSL_CTX_use_PrivateKey_file(ctx, options.key,
+                    SSL_FILETYPE_PEM))
 #else /* NO_RSA */
-        if(!SSL_CTX_use_RSAPrivateKey_file(ctx, options.key,
-                SSL_FILETYPE_PEM)) {
+            if(SSL_CTX_use_RSAPrivateKey_file(ctx, options.key,
+                    SSL_FILETYPE_PEM))
+#endif /* NO_RSA */
+                break;
+            if(i<2 && ERR_GET_REASON(ERR_peek_error())==EVP_R_BAD_DECRYPT) {
+                sslerror_stack(); /* dump the error stack */
+                log(LOG_ERR, "Wrong pass phrase: retrying");
+                continue;
+            }
+#ifdef NO_RSA
+            sslerror("SSL_CTX_use_PrivateKey_file");
+#else /* NO_RSA */
             sslerror("SSL_CTX_use_RSAPrivateKey_file");
+#endif /* NO_RSA */
             exit(1);
         }
-#endif /* NO_RSA */
         if(!SSL_CTX_check_private_key(ctx)) {
             sslerror("Private key does not match the certificate");
             exit(1);
@@ -403,36 +414,41 @@ static void verify_init(void) {
         log(LOG_NOTICE, "Peer certificate location %s", options.ca_dir);
 }
 
-static int verify_callback(int preverify_ok, X509_STORE_CTX *ctx) {
+static int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         /* our verify callback function */
     char txt[STRLEN];
     X509_OBJECT ret;
 
-    X509_NAME_oneline(X509_get_subject_name(ctx->current_cert),
+    X509_NAME_oneline(X509_get_subject_name(callback_ctx->current_cert),
         txt, STRLEN);
     safestring(txt);
     if(options.verify_level==SSL_VERIFY_NONE) {
-        log(LOG_NOTICE, "VERIFY IGNORE: depth=%d, %s", ctx->error_depth, txt);
+        log(LOG_NOTICE, "VERIFY IGNORE: depth=%d, %s",
+            callback_ctx->error_depth, txt);
         return 1; /* Accept connection */
     }
     if(!preverify_ok) {
         /* Remote site specified a certificate, but it's not correct */
         log(LOG_WARNING, "VERIFY ERROR: depth=%d, error=%s: %s",
-            ctx->error_depth,
-            X509_verify_cert_error_string (ctx->error), txt);
+            callback_ctx->error_depth,
+            X509_verify_cert_error_string (callback_ctx->error), txt);
         return 0; /* Reject connection */
     }
-    if(options.verify_use_only_my && ctx->error_depth==0 &&
-            X509_STORE_get_by_subject(ctx, X509_LU_X509,
-                X509_get_subject_name(ctx->current_cert), &ret)!=1) {
+    if(options.verify_use_only_my && callback_ctx->error_depth==0 &&
+            X509_STORE_get_by_subject(callback_ctx, X509_LU_X509,
+                X509_get_subject_name(callback_ctx->current_cert), &ret)!=1) {
         log(LOG_WARNING, "VERIFY ERROR ONLY MY: no cert for %s", txt);
         return 0; /* Reject connection */
     }
-    log(LOG_NOTICE, "VERIFY OK: depth=%d, %s", ctx->error_depth, txt);
+    log(LOG_NOTICE, "VERIFY OK: depth=%d, %s", callback_ctx->error_depth, txt);
     return 1; /* Accept connection */
 }
 
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+static void info_callback(const SSL *s, int where, int ret) {
+#else
 static void info_callback(SSL *s, int where, int ret) {
+#endif
     if(where & SSL_CB_LOOP)
         log(LOG_DEBUG, "SSL state (%s): %s",
         where & SSL_ST_CONNECT ? "connect" :
@@ -476,11 +492,25 @@ void sslerror(char *txt) { /* SSL Error handler */
     char string[120];
 
     err=ERR_get_error();
-    if(err) {
-        ERR_error_string(err, string);
-        log(LOG_ERR, "%s: %s", txt, string);
-    } else
+    if(!err) {
         log(LOG_ERR, "%s: Peer suddenly disconnected", txt);
+        return;
+    }
+    sslerror_stack();
+    ERR_error_string(err, string);
+    log(LOG_ERR, "%s: %lX: %s", txt, err, string);
+}
+
+static void sslerror_stack(void) { /* recursive dump of the error stack */
+    unsigned long err;
+    char string[120];
+
+    err=ERR_get_error();
+    if(!err)
+        return;
+    sslerror_stack();
+    ERR_error_string(err, string);
+    log(LOG_ERR, "error stack: %lX : %s", err, string);
 }
 
 /* End of ssl.c */

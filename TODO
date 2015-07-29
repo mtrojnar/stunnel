@@ -1,6 +1,16 @@
 stunnel         Universal SSL tunnel
 
-* Drop the threads for non-blocking sockets.
+* Add service-level SSL contexts.
 
-* Build stunnel.so with libtool
+* Add service-level logging.
+
+* IPv6 support.
+
+* CRL support.
+
+* Graceful configuration reload on a signal in Unix and with GUI in Windows.
+
+* Optional use of syslog in foreground mode.
+
+* Support for multiple languages.
 

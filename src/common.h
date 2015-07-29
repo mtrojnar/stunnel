@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 /* #define __NO_FORMATGUARD_ */
 
 #ifndef VERSION
-#define VERSION "4.02"
+#define VERSION "4.04"
 #endif
 
 #ifndef USE_WIN32
@@ -113,6 +113,7 @@ int _vsnprintf(char *, int, char *, ...);
 #define EINVAL WSAEINVAL
 
 #define NO_IDEA
+#define OPENSSL_NO_IDEA
 
 #else /* USE_WIN32 */
 
@@ -176,6 +177,9 @@ typedef unsigned long u32;
 #ifdef HAVE_SETGROUPS
 #include <grp.h>
 #endif
+#ifdef __BEOS__
+#include <posix/grp.h>
+#endif
 #include <fcntl.h>
 
     /* Networking headers */
@@ -213,6 +217,23 @@ extern char *sys_errlist[];
 #endif /* SunOS 4 */
 
 #endif /* USE_WIN32 */
+
+/* OpenSSL headers */
+#ifdef HAVE_OPENSSL
+#include <openssl/lhash.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/crypto.h> /* for CRYPTO_* and SSLeay_version */
+#include <openssl/rand.h>
+#else
+#include <lhash.h>
+#include <ssl.h>
+#include <err.h>
+#include <crypto.h> /* for CRYPTO_* and SSLeay_version */
+#endif
+
+/* I/O buffer size */
+#define BUFFSIZE 16384
 
 /* Length of strings (including the terminating '\0' character) */
 #define STRLEN       1024

@@ -130,7 +130,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2002.10.27" "4.0" "stunnel"
+.TH STUNNEL.PL 8 "2002.12.26" "4.0" "stunnel"
 .UC
 .SH "NAZWA"
 .IX Header "NAZWA"
@@ -187,7 +187,7 @@ tekstem \*(L"[nazwa_us³ugi]\*(R" wskazuj±cym pocz±tek definicji us³ugi
 .IX Item "CApath = katalog_CA"
 katalog Urzêdu d/s Certyfikatów
 .Sp
-Opcja okre¶la katalog, w którym stunnel bêdzie szuka³ certyfikatów,
+Opcja okre¶la katalog, w którym \fBstunnel\fR bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja \fIverify\fR.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
 certyfikatu.
@@ -202,7 +202,7 @@ przez opcjê \fIverify\fR.
 plik z ³añcuchem certyfikatów
 .Sp
 Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
-program stunnel do uwierzytelnienia siê przed drug± stron± po³±czenia.
+program \fBstunnel\fR do uwierzytelnienia siê przed drug± stron± po³±czenia.
 Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
 .IP "\fBchroot\fR = katalog (tylko Unix)" 4
@@ -210,7 +210,7 @@ W trybie klienta certyfikat jest opcjonalny.
 katalog roboczego korzenia systemu plików
 .Sp
 Opcja okre¶la katalog, w którym uwiêziony zostanie proces programu
-stunnel tu¿ po jego inicjalizacji, a przed rozpoczêciem odbierania
+\&\fBstunnel\fR tu¿ po jego inicjalizacji, a przed rozpoczêciem odbierania
 po³±czeñ.  ¦cie¿ki podane w opcjach \fICApath\fR, \fIpid\fR oraz \fIexec\fR
 musz± byæ umieszczone wewn±trz katalogu podanego w opcji \fIchroot\fR
 i okre¶lone wzlêdem tego katalogu.
@@ -272,6 +272,20 @@ komend±:
 \&    chmod 600 keyfile
 .Ve
 domy¶lnie: warto¶æ opcji \fIcert\fR
+.IP "\fBoptions\fR = opcje_SSL" 4
+.IX Item "options = opcje_SSL"
+opcje biblioteki OpenSSL
+.Sp
+Paremetrem jest nazwa opcji zgodnie z opisem w \fI\fISSL_CTX_set_options\fI\|(3ssl)\fR,
+ale bez przedrostka \fI\s-1SSL_OP_\s0\fR.
+Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ \fIoptions\fR wielokrotnie.
+.Sp
+Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji \s-1SSL\s0
+w programie Eudora mo¿na u¿yæ opcji:
+.Sp
+.Vb 1
+\&    options = DONT_INSERT_EMPTY_FRAGMENTS
+.Ve
 .IP "\fBoutput\fR = plik" 4
 .IX Item "output = plik"
 plik, do którego dopisane zostan± logi
@@ -304,7 +318,11 @@ nadpisz plik nowymi warto¶ciami pseudolosowymi
 domy¶lnie: yes (nadpisz)
 .IP "\fBservice\fR = nazwa_serwisu (tylko \s-1NT/2000/XP\s0)" 4
 .IX Item "service = nazwa_serwisu (tylko NT/2000/XP)"
-nazwa serwisu \s-1NT\s0, która pojawi siê w Panelu Sterowania
+u¿yj parametru jako nazwy serwisu
+.Sp
+Unix: nazwa serwisu dla biblioteki \s-1TCP\s0 Wrapper w trybie \fIinetd\fR.
+.Sp
+\&\s-1NT/2000/XP:\s0 nazwa serwisu \s-1NT\s0 w Panelu Sterowania.
 .Sp
 domy¶lnie: stunnel
 .IP "\fBsession\fR = przeterminowanie_pamiêci_podrêcznej_sesji" 4
@@ -362,6 +380,10 @@ Ka¿da sekcja konfiguracji us³ugi zaczyna siê jej nazw± ujêt± w nawias
 kwadratowy.  Nazwa us³ugi u¿ywana jest do kontroli dostêpu przez
 bibliotekê libwrap (\s-1TCP\s0 wrappers) oraz pozwala rozró¿niæ poszczególne
 us³ugi w logach.
+.PP
+Je¿eli \fBstunnel\fR ma zostaæ u¿yty w trybie \fIinetd\fR, gdzie za odebranie
+po³±czenia odpowiada osobny program (zwykle \fIinetd\fR, \fIxinetd\fR
+lub \fItcpserver\fR), nale¿y przeczytaæ sekcjê \fB\s-1TRYB\s0 \s-1INETD\s0\fR poni¿ej.
 .IP "\fBaccept\fR = [adres:]port" 4
 .IX Item "accept = [adres:]port"
 nas³uchuje na po³±czenia na podanym adresie i porcie
@@ -443,7 +465,7 @@ albo w trybie zdalnym:
 \&    accept = 993
 \&    connect = 143
 .Ve
-W po³±czeniu z programem \fIpppd\fR stunnel pozwala zestawiæ prosty \s-1VPN\s0.
+W po³±czeniu z programem \fIpppd\fR \fBstunnel\fR pozwala zestawiæ prosty \s-1VPN\s0.
 Po stronie sewera nas³uchuj±cego na porcie 2020 jego konfiguracja
 mo¿e wygl±daæ nastêpuj±co:
 .PP
@@ -453,6 +475,14 @@ mo¿e wygl±daæ nastêpuj±co:
 \&    exec = /usr/sbin/pppd
 \&    execargs = pppd local
 \&    pty = yes
+.Ve
+Poni¿szy plik konfiguracyjny mo¿eby byæ wykorzystany do uruchomienia
+programu \fBstunnel\fR w trybie \fIinetd\fR.  Warto zauwa¿yæ, ¿e w pliku
+konfiguracyjnym nie ma sekcji \fI[nazwa_us³ugi]\fR.
+.PP
+.Vb 2
+\&    exec = /usr/sbin/imapd
+\&    execargs = imapd
 .Ve
 .SH "PLIKI"
 .IX Header "PLIKI"
@@ -474,6 +504,28 @@ Istniej± jednak specjalne wersje klientów i serwerów \s-1FTP\s0 pozwalaj±ce
 na szyfrowanie przesy³anych danych przy pomocy protoko³u \fI\s-1SSL\s0\fR.
 .SH "NOTKI"
 .IX Header "NOTKI"
+.Sh "\s-1TRYB\s0 \s-1INETD\s0 (tylko Unix)"
+.IX Subsection "TRYB INETD (tylko Unix)"
+W wiêkszo¶ci zastosowañ \fBstunnel\fR samodzielnie nas³uchuje na porcie
+podanym w pliku konfiguracyjnym i tworzy po³±czenie z innym portem
+podanym w opcji \fIconnect\fR lub nowym programem podanym w opcji \fIexec\fR.
+Niektórzy wol± jednak wykorzystywaæ oddzielny program, który odbiera
+po³±czenia, po czym uruchamia program \fBstunnel\fR.  Przyk³adami takich
+programów s± inetd, xinetd i tcpserver.
+.PP
+Przyk³adowa linia pliku /etc/inetd.conf mo¿e wygl±daæ tak:
+.PP
+.Vb 1
+\&    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf
+.Ve
+Poniewa¿ w takich przypadkach po³±czenie na zdefiniowanym porcie
+(tutaj \fIimaps\fR) nawi±zuje osobny program (tutaj \fIinetd\fR), \fBstunnel\fR
+nie mo¿e mieæ u¿ywaæ opcji \fIaccept\fR.  W pliku konfiguracyjnym nie mo¿e
+byæ równie¿ zdefiniowana ¿adna us³uga (\fI[nazwa_us³ugi]\fR), poniewa¿
+konfiguracja taka pozwala na nawi±zanie tylko jednego po³±czenia.
+Wszystkie \fI\s-1OPCJE\s0 US£UG\fR powinny byæ umieszczone razem z opcjami
+globalnymi.  Przyk³ad takiej konfiguracji znajduje siê w sekcji
+\&\fIPRZYK£ADY\fR.
 .Sh "\s-1CERTYFIKATY\s0"
 .IX Subsection "CERTYFIKATY"
 Protokó³ \s-1SSL\s0 wymaga, aby ka¿dy serwer przedstawia³ siê nawi±zuj±cemu
@@ -483,7 +535,7 @@ klucz prywatny.  Najprostsz± metod± uzyskania certyfikatu jest wygenerowanie
 go przy pomocy wolnego pakietu \fIOpenSSL\fR.  Wiêcej informacji na temat
 generowania certyfikatów mo¿na znale¼æ na umieszczonych poni¿ej stronach.
 .PP
-Przy generowaniu par certyfikat-klucz dla programu \fIstunnel\fR istotne
+Przy generowaniu par certyfikat-klucz dla programu \fBstunnel\fR istotne
 s± dwie kwestie.  Po pierwsze klucz prywatny nie mo¿e byæ zaszyfrowany,
 poniewa¿ startuj±cy serwer nie ma w ogólnym przypadku mo¿liwo¶ci
 uzyskania has³a od u¿ytkownika.  Do wytworzenia niezaszyfrowanego
@@ -510,7 +562,7 @@ nastêpuj±c± postaæ:
 .Ve
 .Sh "LOSOWO¦Æ"
 .IX Subsection "LOSOWO¦Æ"
-\&\fIstunnel\fR potrzebuje zainicjowaæ \s-1PRNG\s0 (generator liczb pseudolosowych),
+\&\fBstunnel\fR potrzebuje zainicjowaæ \s-1PRNG\s0 (generator liczb pseudolosowych),
 gdy¿ protokó³ \s-1SSL\s0 wymaga do bezpieczeñstwa kryptograficznego ¼ród³a
 dobrej dosowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
 uzyskania  wystarczaj±cej ilo¶ci entropii:
@@ -545,7 +597,7 @@ zmienna, aby zainicjowaæ \s-1PRNG\s0.  W takim przypadku do zainicjowania
 generatora nale¿y u¿yæ opcji \fIRNDfile\fR.
 .PP
 Plik \fIRNDfile\fR powinien zawieraæ dane losowe \*(-- równie¿ w tym sensie,
-¿e powinny byæ one inne przy ka¿dym uruchomieniu programu \fIstunnel\fR.
+¿e powinny byæ one inne przy ka¿dym uruchomieniu programu \fBstunnel\fR.
 O ile nie u¿yta zosta³a opcja \fIRNDoverwrite\fR jest to robione
 automatycznie.  Do rêcznego uzyskania takiego pliku u¿yteczna
 mo¿e byæ komenda \fIopenssl rand\fR dostarczana ze wspó³czesnymi

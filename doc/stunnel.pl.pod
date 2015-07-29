@@ -85,7 +85,7 @@ tekstem "[nazwa_us³ugi]" wskazuj±cym pocz±tek definicji us³ugi
 
 katalog Urzêdu d/s Certyfikatów
 
-Opcja okre¶la katalog, w którym stunnel bêdzie szuka³ certyfikatów,
+Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 certyfikatu.
@@ -102,7 +102,7 @@ przez opcjê I<verify>.
 plik z ³añcuchem certyfikatów
 
 Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
-program stunnel do uwierzytelnienia siê przed drug± stron± po³±czenia.
+program B<stunnel> do uwierzytelnienia siê przed drug± stron± po³±czenia.
 Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
 
@@ -111,7 +111,7 @@ W trybie klienta certyfikat jest opcjonalny.
 katalog roboczego korzenia systemu plików
 
 Opcja okre¶la katalog, w którym uwiêziony zostanie proces programu
-stunnel tu¿ po jego inicjalizacji, a przed rozpoczêciem odbierania
+B<stunnel> tu¿ po jego inicjalizacji, a przed rozpoczêciem odbierania
 po³±czeñ.  ¦cie¿ki podane w opcjach I<CApath>, I<pid> oraz I<exec>
 musz± byæ umieszczone wewn±trz katalogu podanego w opcji I<chroot>
 i okre¶lone wzlêdem tego katalogu.
@@ -179,6 +179,19 @@ komend±:
 
 domy¶lnie: warto¶æ opcji I<cert>
 
+=item B<options> = opcje_SSL
+
+opcje biblioteki OpenSSL
+
+Paremetrem jest nazwa opcji zgodnie z opisem w I<SSL_CTX_set_options(3ssl)>,
+ale bez przedrostka I<SSL_OP_>.
+Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ I<options> wielokrotnie.
+
+Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji SSL
+w programie Eudora mo¿na u¿yæ opcji:
+
+    options = DONT_INSERT_EMPTY_FRAGMENTS
+
 =item B<output> = plik
 
 plik, do którego dopisane zostan± logi
@@ -216,7 +229,11 @@ domy¶lnie: yes (nadpisz)
 
 =item B<service> = nazwa_serwisu (tylko NT/2000/XP)
 
-nazwa serwisu NT, która pojawi siê w Panelu Sterowania
+u¿yj parametru jako nazwy serwisu
+
+Unix: nazwa serwisu dla biblioteki TCP Wrapper w trybie I<inetd>.
+
+NT/2000/XP: nazwa serwisu NT w Panelu Sterowania.
 
 domy¶lnie: stunnel
 
@@ -279,6 +296,10 @@ Ka¿da sekcja konfiguracji us³ugi zaczyna siê jej nazw± ujêt± w nawias
 kwadratowy.  Nazwa us³ugi u¿ywana jest do kontroli dostêpu przez
 bibliotekê libwrap (TCP wrappers) oraz pozwala rozró¿niæ poszczególne
 us³ugi w logach.
+
+Je¿eli B<stunnel> ma zostaæ u¿yty w trybie I<inetd>, gdzie za odebranie
+po³±czenia odpowiada osobny program (zwykle I<inetd>, I<xinetd>
+lub I<tcpserver>), nale¿y przeczytaæ sekcjê B<TRYB INETD> poni¿ej.
 
 =over 4
 
@@ -378,7 +399,7 @@ albo w trybie zdalnym:
     accept = 993
     connect = 143
 
-W po³±czeniu z programem I<pppd> stunnel pozwala zestawiæ prosty VPN.
+W po³±czeniu z programem I<pppd> B<stunnel> pozwala zestawiæ prosty VPN.
 Po stronie sewera nas³uchuj±cego na porcie 2020 jego konfiguracja
 mo¿e wygl±daæ nastêpuj±co:
 
@@ -387,6 +408,13 @@ mo¿e wygl±daæ nastêpuj±co:
     exec = /usr/sbin/pppd
     execargs = pppd local
     pty = yes
+
+Poni¿szy plik konfiguracyjny mo¿eby byæ wykorzystany do uruchomienia
+programu B<stunnel> w trybie I<inetd>.  Warto zauwa¿yæ, ¿e w pliku
+konfiguracyjnym nie ma sekcji I<[nazwa_us³ugi]>.
+
+    exec = /usr/sbin/imapd
+    execargs = imapd
 
 
 =head1 PLIKI
@@ -420,6 +448,29 @@ na szyfrowanie przesy³anych danych przy pomocy protoko³u I<SSL>.
 
 =head1 NOTKI
 
+=head2 TRYB INETD (tylko Unix)
+
+W wiêkszo¶ci zastosowañ B<stunnel> samodzielnie nas³uchuje na porcie
+podanym w pliku konfiguracyjnym i tworzy po³±czenie z innym portem
+podanym w opcji I<connect> lub nowym programem podanym w opcji I<exec>.
+Niektórzy wol± jednak wykorzystywaæ oddzielny program, który odbiera
+po³±czenia, po czym uruchamia program B<stunnel>.  Przyk³adami takich
+programów s± inetd, xinetd i tcpserver.
+
+Przyk³adowa linia pliku /etc/inetd.conf mo¿e wygl±daæ tak:
+
+    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf
+
+Poniewa¿ w takich przypadkach po³±czenie na zdefiniowanym porcie
+(tutaj I<imaps>) nawi±zuje osobny program (tutaj I<inetd>), B<stunnel>
+nie mo¿e mieæ u¿ywaæ opcji I<accept>.  W pliku konfiguracyjnym nie mo¿e
+byæ równie¿ zdefiniowana ¿adna us³uga (I<[nazwa_us³ugi]>), poniewa¿
+konfiguracja taka pozwala na nawi±zanie tylko jednego po³±czenia.
+Wszystkie I<OPCJE US£UG> powinny byæ umieszczone razem z opcjami
+globalnymi.  Przyk³ad takiej konfiguracji znajduje siê w sekcji
+I<PRZYK£ADY>.
+
+
 =head2 CERTYFIKATY
 
 Protokó³ SSL wymaga, aby ka¿dy serwer przedstawia³ siê nawi±zuj±cemu
@@ -429,7 +480,7 @@ klucz prywatny.  Najprostsz± metod± uzyskania certyfikatu jest wygenerowanie
 go przy pomocy wolnego pakietu I<OpenSSL>.  Wiêcej informacji na temat
 generowania certyfikatów mo¿na znale¼æ na umieszczonych poni¿ej stronach.
 
-Przy generowaniu par certyfikat-klucz dla programu I<stunnel> istotne
+Przy generowaniu par certyfikat-klucz dla programu B<stunnel> istotne
 s± dwie kwestie.  Po pierwsze klucz prywatny nie mo¿e byæ zaszyfrowany,
 poniewa¿ startuj±cy serwer nie ma w ogólnym przypadku mo¿liwo¶ci
 uzyskania has³a od u¿ytkownika.  Do wytworzenia niezaszyfrowanego
@@ -455,7 +506,7 @@ nastêpuj±c± postaæ:
 
 =head2 LOSOWO¦Æ
 
-I<stunnel> potrzebuje zainicjowaæ PRNG (generator liczb pseudolosowych),
+B<stunnel> potrzebuje zainicjowaæ PRNG (generator liczb pseudolosowych),
 gdy¿ protokó³ SSL wymaga do bezpieczeñstwa kryptograficznego ¼ród³a
 dobrej dosowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
 uzyskania  wystarczaj±cej ilo¶ci entropii:
@@ -510,7 +561,7 @@ zmienna, aby zainicjowaæ PRNG.  W takim przypadku do zainicjowania
 generatora nale¿y u¿yæ opcji I<RNDfile>.
 
 Plik I<RNDfile> powinien zawieraæ dane losowe -- równie¿ w tym sensie,
-¿e powinny byæ one inne przy ka¿dym uruchomieniu programu I<stunnel>.
+¿e powinny byæ one inne przy ka¿dym uruchomieniu programu B<stunnel>.
 O ile nie u¿yta zosta³a opcja I<RNDoverwrite> jest to robione
 automatycznie.  Do rêcznego uzyskania takiego pliku u¿yteczna
 mo¿e byæ komenda I<openssl rand> dostarczana ze wspó³czesnymi

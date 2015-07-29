@@ -1,13 +1,15 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT(stunnel, 4.03)
+AC_INIT(stunnel, 4.04)
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.03)
+AM_INIT_AUTOMAKE(stunnel, 4.04)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
 AC_PROG_CC
-if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
+if test "$GCC" = "yes"; then
+CFLAGS="$CFLAGS -Wall -Wshadow -Wcast-align -Wpointer-arith"
+fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AC_DISABLE_STATIC
@@ -159,6 +161,11 @@ dnl Add SSL includes and libraries
 CFLAGS="$CFLAGS -I$ssldir/include"
 LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
 
+dnl Add BeOS libraries
+if test "$host_os" = "beos"; then
+LIBS="$LIBS -lbe -lroot -lbind"
+fi
+
 dnl Check for RSAref library.
 AC_MSG_CHECKING([for RSAref library])
 saved_LIBS="$LIBS"
@@ -185,7 +192,7 @@ AC_CHECK_HEADERS(unistd.h sys/select.h tcpd.h pthread.h sys/ioctl.h util.h pty.h
 # AC_HEADER_TIME
 
 dnl Checks for library functions.
-AC_CHECK_FUNCS(snprintf vsnprintf openpty _getpty daemon waitpid wait4 sysconf getrlimit pthread_sigmask setgroups localtime_r)
+AC_CHECK_FUNCS(snprintf vsnprintf openpty _getpty daemon waitpid wait4 sysconf getrlimit pthread_sigmask setgroups localtime_r chroot endhostent)
 
 dnl Checks for integer sizes
 AC_CHECK_SIZEOF(unsigned char)

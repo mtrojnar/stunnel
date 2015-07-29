@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,6 @@
 
 #include "common.h"
 #include "prototypes.h"
-#include "client.h"
 
 #ifndef SHUT_RD
 #define SHUT_RD 0
@@ -74,7 +73,6 @@ static int connect_local(CLI *c);
 static int make_sockets(int [2]);
 #endif
 static int connect_remote(CLI *c);
-static int waitforsocket(int, int, int);
 static void reset(int, char *);
 
 int max_clients;
@@ -99,9 +97,6 @@ void *alloc_client_session(LOCAL_OPTIONS *opt, int rfd, int wfd) {
 
 void *client(void *arg) {
     CLI *c=arg;
-#ifndef USE_FORK
-    extern int num_clients; /* defined in stunnel.c */
-#endif
 
     log(LOG_DEBUG, "%s started", c->opt->servname);
 #ifndef USE_WIN32
@@ -113,7 +108,10 @@ void *client(void *arg) {
     c->remote_fd.fd=-1;
     c->ssl=NULL;
     cleanup(c, do_client(c));
-#ifndef USE_FORK
+#ifdef USE_FORK
+    if(!c->opt->option.remote) /* 'exec' specified */
+        exec_status(); /* null SIGCHLD handler was used */
+#else
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
     log(LOG_DEBUG, "%s finished (%d left)", c->opt->servname,
         --num_clients);
@@ -128,10 +126,8 @@ static int do_client(CLI *c) {
 
     if(init_local(c))
         return -1;
-    if(!c->opt->option.remote && !options.option.client
-            && !c->opt->protocol) {
-        /* Local process will to be spawned on the plain socket */
-        /* No protocol negotiation needed */
+    if(!options.option.client && !c->opt->protocol) {
+        /* Server mode and no protocol negotiation needed */
         if(init_ssl(c))
             return -1;
         if(init_remote(c))
@@ -159,6 +155,7 @@ static int init_local(CLI *c) {
     addrlen=sizeof(c->addr);
 
     if(getpeername(c->local_rfd.fd, (struct sockaddr *)&c->addr, &addrlen)<0) {
+        strcpy(c->accepting_address, "NOT A SOCKET");
         c->local_rfd.is_socket=0;
         c->local_wfd.is_socket=0; /* TODO: It's not always true */
 #ifdef USE_WIN32
@@ -171,6 +168,7 @@ static int init_local(CLI *c) {
         }
         /* Ignore ENOTSOCK error so 'local' doesn't have to be a socket */
     } else {
+        safe_ntoa(c->accepting_address, c->addr.sin_addr);
         c->local_rfd.is_socket=1;
         c->local_wfd.is_socket=1; /* TODO: It's not always true */
         /* It's a socket: lets setup options */
@@ -179,16 +177,12 @@ static int init_local(CLI *c) {
         if(auth_libwrap(c)<0)
             return -1;
         if(auth_user(c)<0) {
-            enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
             log(LOG_WARNING, "Connection from %s:%d REFUSED by IDENT",
-                inet_ntoa(c->addr.sin_addr), ntohs(c->addr.sin_port));
-            leave_critical_section(CRIT_NTOA);
+                c->accepting_address, ntohs(c->addr.sin_port));
             return -1;
         }
-        enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
         log(LOG_NOTICE, "%s connected from %s:%d", c->opt->servname,
-            inet_ntoa(c->addr.sin_addr), ntohs(c->addr.sin_port));
-        leave_critical_section(CRIT_NTOA);
+            c->accepting_address, ntohs(c->addr.sin_port));
     }
     return 0; /* OK */
 }
@@ -198,13 +192,13 @@ static int init_remote(CLI *c) {
 
     /* create connection to host/service */
     if(c->opt->local_ip)
-        c->ip=*c->opt->local_ip;
+        c->bind_ip=*c->opt->local_ip;
 #ifndef USE_WIN32
     else if(c->opt->option.transparent)
-        c->ip=c->addr.sin_addr.s_addr;
+        c->bind_ip=c->addr.sin_addr.s_addr;
 #endif
     else
-        c->ip=0;
+        c->bind_ip=0;
     /* Setup c->remote_fd, now */
     if(c->opt->option.remote) {
         c->resolved_addresses=NULL;
@@ -309,7 +303,7 @@ static int init_ssl(CLI *c) {
 
 static int transfer(CLI *c) { /* transfer data */
     fd_set rd_set, wr_set;
-    int num, fdno;
+    int num, err, fdno;
     int check_SSL_pending;
     int ready;
     struct timeval tv;
@@ -348,13 +342,11 @@ static int transfer(CLI *c) { /* transfer data */
             FD_SET(c->ssl_wfd->fd, &wr_set);
         }
 
-        do { /* Skip "Interrupted system call" errors */
-            tv.tv_sec=sock_rd ||
-                (ssl_wr&&c->sock_ptr) || (sock_wr&&c->ssl_ptr) ?
-                c->opt->timeout_idle : c->opt->timeout_close;
-            tv.tv_usec=0;
-            ready=select(fdno, &rd_set, &wr_set, NULL, &tv);
-        } while(ready<0 && get_last_socket_error()==EINTR);
+        tv.tv_sec=sock_rd ||
+            (ssl_wr&&c->sock_ptr) || (sock_wr&&c->ssl_ptr) ?
+            c->opt->timeout_idle : c->opt->timeout_close;
+        tv.tv_usec=0;
+        ready=sselect(fdno, &rd_set, &wr_set, NULL, &tv);
         if(ready<0) { /* Break the connection for others */
             sockerror("select");
             return -1;
@@ -388,6 +380,7 @@ static int transfer(CLI *c) { /* transfer data */
                     sockerror("writesocket");
                     return -1;
                 }
+                break;
             case 0:
                 log(LOG_DEBUG, "No data written to the socket: retrying");
                 break;
@@ -415,7 +408,8 @@ static int transfer(CLI *c) { /* transfer data */
                 )) {
             num=SSL_write(c->ssl, c->sock_buff, c->sock_ptr);
 
-            switch(SSL_get_error(c->ssl, num)) {
+            err=SSL_get_error(c->ssl, num);
+            switch(err) {
             case SSL_ERROR_NONE:
                 memmove(c->sock_buff, c->sock_buff+num, c->sock_ptr-num);
                 c->sock_ptr-=num;
@@ -448,6 +442,9 @@ static int transfer(CLI *c) { /* transfer data */
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_write");
+                return -1;
+            default:
+                log(LOG_ERR, "SSL_write/SSL_get_error returned %d", err);
                 return -1;
             }
         }
@@ -494,7 +491,8 @@ static int transfer(CLI *c) { /* transfer data */
                 )) {
             num=SSL_read(c->ssl, c->ssl_buff+c->ssl_ptr, BUFFSIZE-c->ssl_ptr);
 
-            switch(SSL_get_error(c->ssl, num)) {
+            err=SSL_get_error(c->ssl, num);
+            switch(err) {
             case SSL_ERROR_NONE:
                 c->ssl_ptr+=num;
                 break;
@@ -533,6 +531,9 @@ static int transfer(CLI *c) { /* transfer data */
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_read");
+                return -1;
+            default:
+                log(LOG_ERR, "SSL_read/SSL_get_error returned %d", err);
                 return -1;
             }
         }
@@ -599,10 +600,8 @@ static int auth_libwrap(CLI *c) {
     leave_critical_section(CRIT_LIBWRAP);
 
     if (!result) {
-        enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
         log(LOG_WARNING, "Connection from %s:%d REFUSED by libwrap",
-            inet_ntoa(c->addr.sin_addr), ntohs(c->addr.sin_port));
-        leave_critical_section(CRIT_NTOA);
+            c->accepting_address, ntohs(c->addr.sin_port));
         log(LOG_DEBUG, "See hosts_access(5) for details");
         return -1; /* FAILED */
     }
@@ -633,22 +632,36 @@ static int auth_user(CLI *c) {
         ident.sin_port=s_ent->s_port;
     }
     if(connect(fd, (struct sockaddr *)&ident, sizeof(ident))<0) {
-        if(get_last_socket_error()==EINPROGRESS) {
-            if(waitforsocket(fd, 1 /* write */, c->opt->timeout_busy)<1)
-                return -1;
-            if(connect(fd, (struct sockaddr *)&ident, sizeof(ident))<0) {
-                sockerror("connect#2 (auth_user))");
-                closesocket(fd);
-                return -1;
-            }
-            log(LOG_DEBUG, "IDENT server connected (#2)");
-        } else {
-            sockerror("connect#1 (auth_user)");
+        switch(get_last_socket_error()) {
+        case EINPROGRESS: /* retry */
+            log(LOG_DEBUG, "connect #1 (auth_user): EINPROGRESS: retrying");
+            break;
+        case EWOULDBLOCK: /* retry */
+            log(LOG_DEBUG, "connect #1 (auth_user): EWOULDBLOCK: retrying");
+            break;
+        default:
+            sockerror("connect #1 (auth_user)");
             closesocket(fd);
             return -1;
         }
-    } else
-        log(LOG_DEBUG, "IDENT server connected (#1)");
+        if(waitforsocket(fd, 1 /* write */, c->opt->timeout_busy)<1) {
+            closesocket(fd);
+            return -1;
+        }
+        if(connect(fd, (struct sockaddr *)&ident, sizeof(ident))<0) {
+            switch(get_last_socket_error()) {
+            case EINVAL: /* WIN32 is strange... */
+                log(LOG_DEBUG, "connect #2 (auth_user): EINVAL: ok");
+            case EISCONN: /* ok */
+                break; /* success */
+            default:
+                sockerror("connect #2 (auth_user))");
+                closesocket(fd);
+                return -1;
+            }
+        }
+    }
+    log(LOG_DEBUG, "IDENT server connected");
     if(fdprintf(c, fd, "%u , %u",
             ntohs(c->addr.sin_port), ntohs(c->opt->localport))<0) {
         sockerror("fdprintf (auth_user)");
@@ -672,7 +685,6 @@ static int connect_local(CLI *c) { /* spawn local process */
     log(LOG_ERR, "LOCAL MODE NOT SUPPORTED ON WIN32 and OpenVMS PLATFORM");
     return -1;
 #else /* USE_WIN32, __vms */
-    struct in_addr addr;
     char env[3][STRLEN], name[STRLEN];
     int fd[2], pid;
     X509 *peer;
@@ -705,16 +717,13 @@ static int connect_local(CLI *c) { /* spawn local process */
         if(!options.option.foreground)
             dup2(fd[1], 2);
         closesocket(fd[1]);
-        if(c->ip) {
+        safecopy(env[0], "REMOTE_HOST=");
+        safeconcat(env[0], c->accepting_address);
+        putenv(env[0]);
+        if(c->opt->option.transparent) {
             putenv("LD_PRELOAD=" LIBDIR "/libstunnel.so");
             /* For Tru64 _RLD_LIST is used instead */
             putenv("_RLD_LIST=" LIBDIR "/libstunnel.so:DEFAULT");
-            addr.s_addr = c->ip;
-            safecopy(env[0], "REMOTE_HOST=");
-            enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
-            safeconcat(env[0], inet_ntoa(addr));
-            leave_critical_section(CRIT_NTOA);
-            putenv(env[0]);
         }
         if(c->ssl) {
             peer=SSL_get_peer_certificate(c->ssl);
@@ -739,6 +748,8 @@ static int connect_local(CLI *c) { /* spawn local process */
         execvp(c->opt->execname, c->opt->execargs);
         ioerror(c->opt->execname); /* execv failed */
         _exit(1);
+    default:
+        break;
     }
     /* parent */
     log(LOG_INFO, "Local mode child started (PID=%lu)", c->pid);
@@ -807,24 +818,25 @@ static int connect_remote(CLI *c) { /* connect to remote host */
     u32 *list;
     int error;
     int s; /* destination socket */
-
+    u16 dport;
+   
     memset(&addr, 0, sizeof(addr));
     addr.sin_family=AF_INET;
 
     if(c->opt->option.delayed_lookup) {
         if(name2nums(c->opt->remote_address, "127.0.0.1",
-                &c->resolved_addresses, &addr.sin_port)==0) {
+                &c->resolved_addresses, &dport)==0) {
             /* No host resolved */
             return -1;
         }
         list=c->resolved_addresses;
     } else { /* Use pre-resolved addresses */
         list=c->opt->remotenames;
-        addr.sin_port=c->opt->remoteport;
+        dport=c->opt->remoteport;
     }
 
     /* connect each host from the list */
-    for(; *list!=-1; list++) {
+    for(; *list+1; list++) { /* same as (signed)*list!=-1 */
         if((s=socket(AF_INET, SOCK_STREAM, 0))<0) {
             sockerror("remote socket");
             return -1;
@@ -832,8 +844,8 @@ static int connect_remote(CLI *c) { /* connect to remote host */
         if(alloc_fd(s))
             return -1;
 
-        if(c->ip) { /* transparent proxy */
-            addr.sin_addr.s_addr=c->ip;
+        if(c->bind_ip) { /* explicit local bind or transparent proxy */
+            addr.sin_addr.s_addr=c->bind_ip;
             addr.sin_port=htons(0);
             if(bind(s, (struct sockaddr *)&addr, sizeof(addr))<0) {
                 sockerror("bind transparent");
@@ -843,11 +855,11 @@ static int connect_remote(CLI *c) { /* connect to remote host */
         }
 
         /* try to connect for the 1st time */
+        addr.sin_port=dport;
         addr.sin_addr.s_addr=*list;
-        enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
+        safe_ntoa(c->connecting_address, addr.sin_addr);
         log(LOG_DEBUG, "%s connecting %s:%d", c->opt->servname,
-            inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-        leave_critical_section(CRIT_NTOA);
+            c->connecting_address, ntohs(addr.sin_port));
         if(!connect(s, (struct sockaddr *)&addr, sizeof(addr)))
             return s; /* no error -> success */
         error=get_last_socket_error();
@@ -859,7 +871,9 @@ static int connect_remote(CLI *c) { /* connect to remote host */
             log(LOG_DEBUG, "remote connect #1: EWOULDBLOCK: retrying");
             break;
         default:
-            log_error_addr(LOG_ERR, error, &addr, "remote connect #1");
+            log(LOG_ERR, "remote connect #1 (%s:%d): %s (%d)",
+                c->connecting_address, ntohs(addr.sin_port),
+                my_strerror(error), error);
             closesocket(s);
             continue; /* Next IP */
         }
@@ -880,99 +894,14 @@ static int connect_remote(CLI *c) { /* connect to remote host */
         case EISCONN: /* ok */
             return s; /* success */
         default:
-            log_error_addr(LOG_ERR, error, &addr, "remote connect #2");
+            log(LOG_ERR, "remote connect #2 (%s:%d): %s (%d)",
+                c->connecting_address, ntohs(addr.sin_port),
+                my_strerror(error), error);
             closesocket(s);
             continue; /* Next IP */
         }
     }
     return -1;
-}
-
-int fdprintf(CLI *c, int fd, const char *format, ...) {
-    va_list arglist;
-    char line[STRLEN], logline[STRLEN];
-    char crlf[]="\r\n";
-    int len, ptr, written, towrite;
-
-    va_start(arglist, format);
-#ifdef HAVE_VSNPRINTF
-    len=vsnprintf(line, STRLEN, format, arglist);
-#else
-    len=vsprintf(line, format, arglist);
-#endif
-    va_end(arglist);
-    safeconcat(line, crlf);
-    len+=2;
-    for(ptr=0, towrite=len; towrite>0; ptr+=written, towrite-=written) {
-        if(waitforsocket(fd, 1 /* write */, c->opt->timeout_busy)<1)
-            return -1;
-        written=writesocket(fd, line+ptr, towrite);
-        if(written<0) {
-            sockerror("writesocket (fdprintf)");
-            return -1;
-        }
-    }
-    safecopy(logline, line);
-    safestring(logline);
-    log(LOG_DEBUG, " -> %s", logline);
-    return len;
-}
-
-int fdscanf(CLI *c, int fd, const char *format, char *buffer) {
-    char line[STRLEN], logline[STRLEN];
-    int ptr;
-
-    for(ptr=0; ptr<STRLEN-1; ptr++) {
-        if(waitforsocket(fd, 0 /* read */, c->opt->timeout_busy)<1)
-            return -1;
-        switch(readsocket(fd, line+ptr, 1)) {
-        case -1: /* error */
-            sockerror("readsocket (fdscanf)");
-            return -1;
-        case 0: /* EOF */
-            log(LOG_ERR, "Unexpected socket close (fdscanf)");
-            return -1;
-        }
-        if(line[ptr]=='\r')
-            continue;
-        if(line[ptr]=='\n')
-            break;
-    }
-    line[ptr]='\0';
-    safecopy(logline, line);
-    safestring(logline);
-    log(LOG_DEBUG, " <- %s", logline);
-    return sscanf(line, format, buffer);
-}
-
-static int waitforsocket(int fd, int dir, int timeout) {
-    /* dir: 0 for read, 1 for write */
-    struct timeval tv;
-    fd_set set;
-    int ready;
-
-    log(LOG_DEBUG, "waitforsocket: FD=%d, DIR=%s", fd, dir ? "write" : "read");
-    FD_ZERO(&set);
-    FD_SET(fd, &set);
-    do { /* Skip "Interrupted system call" errors */
-        tv.tv_sec=timeout;
-        tv.tv_usec=0;
-        ready=select(fd+1, dir ? NULL : &set, dir ? &set : NULL, NULL, &tv);
-    } while(ready<0 && get_last_socket_error()==EINTR );
-    switch(ready) {
-    case -1:
-        sockerror("waitforsocket");
-        break;
-    case 0:
-        log(LOG_DEBUG, "waitforsocket: timeout");
-        break;
-    case 1:
-        log(LOG_DEBUG, "waitforsocket: ok");
-        break;
-    default:
-        log(LOG_INFO, "waitforsocket: unexpected result");
-    }
-    return ready;
 }
 
 static void reset(int fd, char *txt) {

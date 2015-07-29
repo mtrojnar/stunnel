@@ -130,7 +130,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2002.10.27" "4.0" "stunnel"
+.TH STUNNEL 8 "2002.12.26" "4.0" "stunnel"
 .UC
 .SH "NAME"
 stunnel \- universal \s-1SSL\s0 tunnel
@@ -145,7 +145,7 @@ servers. The concept is that having non-SSL aware daemons running on
 your system you can easily set them up to communicate with clients over
 secure \s-1SSL\s0 channels.
 .PP
-\&\fBstunnel\fR can be used to add \s-1SSL\s0 functionality to commonly used \fIinetd\fR
+\&\fBstunnel\fR can be used to add \s-1SSL\s0 functionality to commonly used \fIInetd\fR
 daemons like \s-1POP\-2\s0, \s-1POP\-3\s0, and \s-1IMAP\s0 servers, to standalone daemons like
 \&\s-1NNTP\s0, \s-1SMTP\s0 and \s-1HTTP\s0, and in tunneling \s-1PPP\s0 over network sockets without
 changes to the source code.
@@ -159,10 +159,10 @@ Eric Young (eay@cryptsoft.com)
 Use specified configuration file
 .IP "\fB\-help\fR" 4
 .IX Item "-help"
-Print stunnel help menu
+Print \fBstunnel\fR help menu
 .IP "\fB\-version\fR" 4
 .IX Item "-version"
-Print stunnel version and compile time defaults
+Print \fBstunnel\fR version and compile time defaults
 .IP "\fB\-sockets\fR" 4
 .IX Item "-sockets"
 Print default socket options
@@ -189,7 +189,7 @@ an \*(L"option_name = option_value\*(R" pair
 .IX Item "CApath = directory"
 Certificate Authority directory
 .Sp
-This is the directory in which stunnel will look for certificates when
+This is the directory in which \fBstunnel\fR will look for certificates when
 using the \fIverify\fR. Note that the certificates in this directory
 should be named \s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the cert.
 .IP "\fBCAfile\fR = certfile" 4
@@ -208,13 +208,13 @@ The certificates must be in \s-1PEM\s0 format and must be sorted starting with t
 certificate to the highest level (root \s-1CA\s0).
 .IP "\fBchroot\fR = directory (Unix only)" 4
 .IX Item "chroot = directory (Unix only)"
-directory to chroot stunnel process
+directory to chroot \fBstunnel\fR process
 .Sp
-\&\fBchroot\fR keeps stunnel in chrooted jail.  \fICApath\fR, \fIpid\fR and \fIexec\fR
+\&\fBchroot\fR keeps \fBstunnel\fR in chrooted jail.  \fICApath\fR, \fIpid\fR and \fIexec\fR
 are located inside the jail and the patches have to be relative to the
 directory specified with \fBchroot\fR.
 .Sp
-To have libwrap (\s-1TCP\s0 wrappers) control effective in a chrooted environment
+To have libwrap (\s-1TCP\s0 Wrappers) control effective in a chrooted environment
 you also have to copy its configuration files (/etc/hosts.allow and
 /etc/hosts.deny) there.
 .IP "\fBciphers\fR = cipherlist" 4
@@ -228,8 +228,8 @@ For example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
 client mode (remote service uses \s-1SSL\s0)
 .Sp
 default: no (server mode)
-.IP "\fBdebug\fR = level[.facility]" 4
-.IX Item "debug = level[.facility]"
+.IP "\fBdebug\fR = [facility.]level" 4
+.IX Item "debug = [facility.]level"
 debugging level
 .Sp
 Level is a one of the syslog level names or numbers
@@ -268,6 +268,20 @@ to its owner.  On Unix systems you can use the following command:
 \&    chmod 600 keyfile
 .Ve
 default: value of \fIcert\fR option
+.IP "\fBoptions\fR = SSL_options" 4
+.IX Item "options = SSL_options"
+OpenSSL library options
+.Sp
+The parameter is the OpenSSL option name as described in the
+\&\fI\fISSL_CTX_set_options\fI\|(3ssl)\fR manual, but without \fI\s-1SSL_OP_\s0\fR prefix.
+Several \fIoptions\fR can be used to specify multiple options.
+.Sp
+For example for compatibility with erroneous Eudora \s-1SSL\s0 implementation
+the following option can be used:
+.Sp
+.Vb 1
+\&    options = DONT_INSERT_EMPTY_FRAGMENTS
+.Ve
 .IP "\fBoutput\fR = file" 4
 .IX Item "output = file"
 append log messages to a file instead of using syslog
@@ -295,9 +309,13 @@ number generator.
 overwrite the random seed files with new random data
 .Sp
 default: yes
-.IP "\fBservice\fR = servicename (\s-1NT/2000/XP\s0 only)" 4
-.IX Item "service = servicename (NT/2000/XP only)"
-use specified string as \s-1NT\s0 service name in control panel
+.IP "\fBservice\fR = servicename" 4
+.IX Item "service = servicename"
+use specified string as the service name
+.Sp
+On Unix: \fIinetd\fR mode service name for \s-1TCP\s0 Wrapper library.
+.Sp
+On \s-1NT/2000/XP:\s0 \s-1NT\s0 service name in the Control Panel.
 .Sp
 default: stunnel
 .IP "\fBsession\fR = timeout" 4
@@ -344,8 +362,13 @@ verify peer certificate
 .Sh "SERVICE-LEVEL \s-1OPTIONS\s0"
 .IX Subsection "SERVICE-LEVEL OPTIONS"
 Each configuration section begins with service name in square brackets.
-Service name is used for libwrap (\s-1TCP\s0 wrappers) access control and lets
-you distinguish stunnel services in your log files.
+The service name is used for libwrap (\s-1TCP\s0 Wrappers) access control and lets
+you distinguish \fBstunnel\fR services in your log files.
+.PP
+Note that if you wish to run \fBstunnel\fR in \fIinetd\fR mode (where it
+is provided a network socket by a server such as \fIinetd\fR, \fIxinetd\fR,
+or \fItcpserver\fR) then you should read the section entitiled \fI\s-1INETD\s0 \s-1MODE\s0\fR
+below.
 .IP "\fBaccept\fR = [host:]port" 4
 .IX Item "accept = [host:]port"
 accept connections on specified host:port
@@ -398,13 +421,13 @@ time to keep an idle connection
 transparent proxy mode
 .Sp
 Re-write address to appear as if wrapped daemon is connecting
-from the \s-1SSL\s0 client machine instead of the machine running stunnel.
+from the \s-1SSL\s0 client machine instead of the machine running \fBstunnel\fR.
 This option is only available in local mode (\fIexec\fR option)
 by LD_PRELOADing env.so shared library or in remote mode (\fIconnect\fR
 option) on Linux 2.2 kernel compiled with \fItransparent proxy\fR option
 and then only in server mode. Note that this option will not combine
 with proxy mode (\fIconnect\fR) unless the client's default route to the target
-machine lies through the host running stunnel, which cannot be localhost.
+machine lies through the host running \fBstunnel\fR, which cannot be localhost.
 .SH "RETURN VALUE"
 .IX Header "RETURN VALUE"
 \&\fBstunnel\fR returns zero on success, non-zero on error.
@@ -428,24 +451,55 @@ use something like
 \&    execargs = pppd local
 \&    pty = yes
 .Ve
+If you want to use \fBstunnel\fR in \fIinetd\fR mode to launch your imapd
+process, you'd use this \fIstunnel.conf\fR.
+Note there must be no \fI[service_name]\fR section.
+.PP
+.Vb 2
+\&    exec = /usr/sbin/imapd
+\&    execargs = imapd
+.Ve
 .SH "FILES"
 .IX Header "FILES"
 .IP "\fIstunnel.conf\fR" 4
 .IX Item "stunnel.conf"
-stunnel configuration file
+\&\fBstunnel\fR configuration file
 .IP "\fIstunnel.pem\fR" 4
 .IX Item "stunnel.pem"
-stunnel certificate and private key
+\&\fBstunnel\fR certificate and private key
 .SH "BUGS"
 .IX Header "BUGS"
 Option \fIexecargs\fR does not support quoting.
 .SH "RESTRICTIONS"
 .IX Header "RESTRICTIONS"
-\&\fIstunnel\fR cannot be used for the \s-1FTP\s0 daemon because of the nature
+\&\fBstunnel\fR cannot be used for the \s-1FTP\s0 daemon because of the nature
 of the \s-1FTP\s0 protocol which utilizes multiple ports for data transfers.
 There are available \s-1SSL\s0 enabled versions of \s-1FTP\s0 and telnet daemons, however.
 .SH "NOTES"
 .IX Header "NOTES"
+.Sh "\s-1INETD\s0 \s-1MODE\s0"
+.IX Subsection "INETD MODE"
+The most common use of \fBstunnel\fR is to listen on a network
+port and establish communication with either a new port
+via the connect option, or a new program via the \fIexec\fR option.
+However there is a special case when you wish to have
+some other program accept incoming connections and
+launch \fBstunnel\fR, for example with \fIinetd\fR, \fIxinetd\fR,
+or \fItcpserver\fR.
+.PP
+For example, if you have the following line in \fIinetd.conf\fR:
+.PP
+.Vb 1
+\&    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf
+.Ve
+In these cases, the \fIinetd\fR\-style program is responsible
+for binding a network socket (\fIimaps\fR above) and handing
+it to \fBstunnel\fR when a connection is received.
+Thus you do not want \fBstunnel\fR to have any \fIaccept\fR option.
+All the \fIService Level Options\fR should be placed in the
+global options section, and no \fI[service_name]\fR section
+will be present.  See the \fI\s-1EXAMPLES\s0\fR section for example
+configurations.
 .Sh "\s-1CERTIFICATES\s0"
 .IX Subsection "CERTIFICATES"
 Each \s-1SSL\s0 enabled daemon needs to present a valid X.509 certificate
@@ -479,7 +533,7 @@ should be discarded. So the file should look like this:
 .Ve
 .Sh "\s-1RANDOMNESS\s0"
 .IX Subsection "RANDOMNESS"
-\&\fIstunnel\fR needs to seed the \s-1PRNG\s0 (pseudo random number generator) in
+\&\fBstunnel\fR needs to seed the \s-1PRNG\s0 (pseudo random number generator) in
 order for \s-1SSL\s0 to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:
 .IP "\(bu" 4
@@ -511,7 +565,7 @@ for use with the \fIRNDfile\fR flag.
 .PP
 Note that the file specified with the \fIRNDfile\fR flag should contain
 random data \*(-- that means it should contain different information
-each time \fIstunnel\fR is run.  This is handled automatically
+each time \fBstunnel\fR is run.  This is handled automatically
 unless the \fIRNDoverwrite\fR flag is used.  If you wish to update this file
 manually, the \fIopenssl rand\fR command in recent versions of OpenSSL,
 would be useful.
@@ -519,7 +573,7 @@ would be useful.
 One important note \*(-- if /dev/urandom is available, OpenSSL has a habit of
 seeding the \s-1PRNG\s0 with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
-at the very bottom of the list above.  This isn't stunnel's behaviour, it's
+at the very bottom of the list above.  This isn't \fBstunnel's\fR behaviour, it's
 OpenSSLs.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
@@ -531,10 +585,10 @@ access control facility for internet services
 internet ``super\-server''
 .IP "\fIhttp://stunnel.mirt.net/\fR" 4
 .IX Item "http://stunnel.mirt.net/"
-Stunnel homepage
+\&\fBstunnel\fR homepage
 .IP "\fIhttp://www.stunnel.org/\fR" 4
 .IX Item "http://www.stunnel.org/"
-Stunnel Frequently Asked Questions
+\&\fBstunnel\fR Frequently Asked Questions
 .IP "\fIhttp://www.openssl.org/\fR" 4
 .IX Item "http://www.openssl.org/"
 OpenSSL project website

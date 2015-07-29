@@ -9,6 +9,9 @@ pid = /stunnel.pid
 setuid = nobody
 setgid = nogroup
 
+# Workaround for Eudora bug
+#options = DONT_INSERT_EMPTY_FRAGMENTS
+
 # Authentication stuff
 #verify = 2
 # don't forget about c_rehash CApath

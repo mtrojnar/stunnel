@@ -31,15 +31,9 @@
 #include "common.h"
 #include "prototypes.h"
 
-/* Needed so we know which version of OpenSSL we're using */
-#ifdef HAVE_OPENSSL
-#include <openssl/ssl.h>
-#else
-#include <ssl.h>
-#endif
-
 static int host2nums(char *, u32 **);
 static int parse_debug_level(char *);
+static int parse_ssl_option(char *);
 static int print_socket_options(void);
 static void print_option(char *, int, OPT_UNION *);
 static int parse_socket_option(char *);
@@ -147,7 +141,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     }
 
     /* chroot */
-#ifndef USE_WIN32
+#ifdef HAVE_CHROOT
     switch(cmd) {
     case CMD_INIT:
         options.chroot_dir=NULL;
@@ -163,7 +157,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         log_raw("%-15s = directory to chroot stunnel process", "chroot");
         break;
     }
-#endif
+#endif /* HAVE_CHROOT */
 
     /* ciphers */
     switch(cmd) {
@@ -294,34 +288,24 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         break;
     }
 
-    /* service */
-#ifdef USE_WIN32
+    /* options */
     switch(cmd) {
     case CMD_INIT:
-        options.win32_service="stunnel";
-        options.win32_name="stunnel " VERSION " on Win32";
+        options.ssl_options=0;
         break;
     case CMD_EXEC:
-        if(strcasecmp(opt, "service"))
+        if(strcasecmp(opt, "options"))
             break;
-        options.win32_service=stralloc(arg);
-        {
-            char tmpstr[STRLEN];
-
-            safecopy(tmpstr, "stunnel " VERSION " on Win32 (");
-            safeconcat(tmpstr, arg);
-            safeconcat(tmpstr, ")");
-            options.win32_name=stralloc(tmpstr);
-        }
+        if(!parse_ssl_option(arg))
+            return "Illegal SSL option";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        log_raw("%-15s = %s", "service", options.win32_service);
         break;
     case CMD_HELP:
-        log_raw("%-15s = NT service name", "service");
+        log_raw("%-15s = SSL option", "options");
+        log_raw("%18sset an SSL option", "");
         break;
     }
-#endif
 
     /* output */
     switch(cmd) {
@@ -422,6 +406,41 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     case CMD_HELP:
         log_raw("%-15s = yes|no overwrite seed datafiles with new random data",
             "RNDoverwrite");
+        break;
+    }
+
+    /* service */
+    switch(cmd) {
+    case CMD_INIT:
+        local_options.servname=stralloc("stunnel");
+#ifdef USE_WIN32
+        options.win32_service="stunnel";
+        options.win32_name="stunnel " VERSION " on Win32";
+#endif
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "service"))
+            break;
+        local_options.servname=stralloc(arg);
+#ifdef USE_WIN32
+        options.win32_service=stralloc(arg);
+        {
+            char tmpstr[STRLEN];
+
+            safecopy(tmpstr, "stunnel " VERSION " on Win32 (");
+            safeconcat(tmpstr, arg);
+            safeconcat(tmpstr, ")");
+            options.win32_name=stralloc(tmpstr);
+        }
+#endif
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+#ifdef USE_WIN32
+        log_raw("%-15s = %s", "service", options.win32_service);
+#endif
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = service name", "service");
         break;
     }
 
@@ -850,7 +869,6 @@ void parse_config(char *name) {
     memset(&options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
 
     memset(&local_options, 0, sizeof(LOCAL_OPTIONS)); /* reset local options */
-    local_options.servname=stralloc("globals");
     local_options.next=NULL;
     section=&local_options;
 
@@ -967,8 +985,9 @@ static char *section_validate(LOCAL_OPTIONS *section) {
 #ifdef USE_WIN32
     if(!section->option.accept || !section->option.remote)
 #else
-    if(section->option.accept + section->option.program +
-            section->option.remote != 2)
+    if((unsigned int)section->option.accept +
+            (unsigned int)section->option.program +
+            (unsigned int)section->option.remote != 2)
 #endif
         return "Each service section must define exactly two endpoints";
     return NULL; /* All tests passed -- continue program execution */
@@ -1044,7 +1063,7 @@ static int host2nums(char *hostname, u32 **hostlist) {
     char **tab;
 
     ip=inet_addr(hostname);
-    if(ip!=-1) { /* dotted decimal */
+    if(ip+1) { /* (signed)ip!=-1 */
         *hostlist=calloc(2, sizeof(u32));
         if (!*hostlist) {
             log(LOG_ERR, "Memory allocation error");
@@ -1070,9 +1089,8 @@ static int host2nums(char *hostname, u32 **hostlist) {
     for(i=0; i<results; i++) /* copy addresses */
         (*hostlist)[i]=*(u32 *)(h->h_addr_list[i]);
     (*hostlist)[results]=-1;
-#if 0
-    log(LOG_DEBUG, "Host '%s' resolved into IP %d address(es)",
-        hostname, results);
+#ifdef HAVE_ENDHOSTENT
+    endhostent();
 #endif
     return results;
 }
@@ -1084,8 +1102,8 @@ typedef struct {
     int value;
 } facilitylevel;
 
-static int parse_debug_level(char *optarg) {
-    char optarg_copy[STRLEN];
+static int parse_debug_level(char *arg) {
+    char arg_copy[STRLEN];
     char *string;
     facilitylevel *fl;
 
@@ -1121,14 +1139,14 @@ static int parse_debug_level(char *optarg) {
         {NULL, -1}
     };
 
-    safecopy(optarg_copy, optarg);
-    string = optarg_copy;
+    safecopy(arg_copy, arg);
+    string = arg_copy;
 
 /* Facilities only make sense on unix */
 #if !defined (USE_WIN32) && !defined (__vms)
     if(strchr(string, '.')) { /* We have a facility specified */
         options.facility=-1;
-        string=strtok(optarg_copy, "."); /* break it up */
+        string=strtok(arg_copy, "."); /* break it up */
 
         for(fl=facilities; fl->name; fl++) {
             if(!strcasecmp(fl->name, string)) {
@@ -1143,7 +1161,7 @@ static int parse_debug_level(char *optarg) {
 #endif /* USE_WIN32, __vms */
 
     /* Time to check the syslog level */
-    if(strlen(string)==1 && *string>='0' && *string<='7') {
+    if(string && strlen(string)==1 && *string>='0' && *string<='7') {
         options.debug_level=*string-'0';
         return 1; /* OK */
     }
@@ -1157,6 +1175,52 @@ static int parse_debug_level(char *optarg) {
     if (options.debug_level==8)
         return 0; /* FAILED */
     return 1; /* OK */
+}
+
+/* Parse SSL options stuff */
+
+static int parse_ssl_option(char *arg) {
+    struct {
+        char *name;
+        long value;
+    } ssl_opts[] = {
+        {"MICROSOFT_SESS_ID_BUG", SSL_OP_MICROSOFT_SESS_ID_BUG},
+        {"NETSCAPE_CHALLENGE_BUG", SSL_OP_NETSCAPE_CHALLENGE_BUG},
+        {"NETSCAPE_REUSE_CIPHER_CHANGE_BUG",
+            SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG},
+        {"SSLREF2_REUSE_CERT_TYPE_BUG", SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG},
+        {"MICROSOFT_BIG_SSLV3_BUFFER", SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER},
+        {"MSIE_SSLV2_RSA_PADDING", SSL_OP_MSIE_SSLV2_RSA_PADDING},
+        {"SSLEAY_080_CLIENT_DH_BUG", SSL_OP_SSLEAY_080_CLIENT_DH_BUG},
+        {"TLS_D5_BUG", SSL_OP_TLS_D5_BUG},
+        {"TLS_BLOCK_PADDING_BUG", SSL_OP_TLS_BLOCK_PADDING_BUG},
+        {"TLS_ROLLBACK_BUG", SSL_OP_TLS_ROLLBACK_BUG},
+#ifdef SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+        {"DONT_INSERT_EMPTY_FRAGMENTS", SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS},
+#endif
+        {"ALL", SSL_OP_ALL},
+        {"SINGLE_DH_USE", SSL_OP_SINGLE_DH_USE},
+        {"EPHEMERAL_RSA", SSL_OP_EPHEMERAL_RSA},
+        {"NO_SSLv2", SSL_OP_NO_SSLv2},
+        {"NO_SSLv3", SSL_OP_NO_SSLv3},
+        {"NO_TLSv1", SSL_OP_NO_TLSv1},
+        {"PKCS1_CHECK_1", SSL_OP_PKCS1_CHECK_1},
+        {"PKCS1_CHECK_2", SSL_OP_PKCS1_CHECK_2},
+        {"NETSCAPE_CA_DN_BUG", SSL_OP_NETSCAPE_CA_DN_BUG},
+#ifdef SSL_OP_NON_EXPORT_FIRST
+        {"NON_EXPORT_FIRST", SSL_OP_NON_EXPORT_FIRST},
+#endif
+        {"NETSCAPE_DEMO_CIPHER_CHANGE_BUG",
+            SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG},
+        {NULL, 0}
+    }, *option;
+
+    for(option=ssl_opts; option->name; option++)
+        if(!strcasecmp(option->name, arg)) {
+            options.ssl_options|=option->value;
+            return 1; /* OK */
+        }
+    return 0; /* FAILED */
 }
 
 /* Parse out the socket options stuff */
@@ -1266,14 +1330,14 @@ static void print_option(char *line, int type, OPT_UNION *val) {
     safeconcat(line, text);
 }
 
-static int parse_socket_option(char *optarg) {
+static int parse_socket_option(char *arg) {
     int socket_type; /* 0-accept, 1-local, 2-remote */
     char *opt_val_str, *opt_val2_str;
     SOCK_OPT *ptr;
 
-    if(optarg[1]!=':')
+    if(arg[1]!=':')
         return 0; /* FAILED */
-    switch(optarg[0]) {
+    switch(arg[0]) {
     case 'a':
         socket_type=0; break;
     case 'l':
@@ -1283,8 +1347,8 @@ static int parse_socket_option(char *optarg) {
     default:
         return 0; /* FAILED */
     }
-    optarg+=2;
-    opt_val_str=strchr(optarg, '=');
+    arg+=2;
+    opt_val_str=strchr(arg, '=');
     if(!opt_val_str) /* No '='? */
         return 0; /* FAILED */
     *opt_val_str++='\0';
@@ -1292,7 +1356,7 @@ static int parse_socket_option(char *optarg) {
     for(;;) {
         if(!ptr->opt_str)
             return 0; /* FAILED */
-        if(!strcmp(optarg, ptr->opt_str))
+        if(!strcmp(arg, ptr->opt_str))
             break; /* option name found */
         ptr++;
     }

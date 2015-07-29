@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -49,6 +49,7 @@ static LRESULT CALLBACK wndProc(HWND, UINT, WPARAM, LPARAM);
 static int win_main(HINSTANCE, HINSTANCE, LPSTR, int);
 static void save_file(HWND);
 static LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
+static LRESULT CALLBACK pass_proc(HWND, UINT, WPARAM, LPARAM);
 static char *log_txt(void);
 static void set_visible(int);
 
@@ -78,6 +79,8 @@ static HANDLE stopServiceEvent=0;
 
 static int visible=0, error_mode=0;
 static jmp_buf jump_buf;
+
+static char passphrase[STRLEN];
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     LPSTR lpszCmdLine, int nCmdShow) {
@@ -189,7 +192,6 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 static void update_systray(void) { /* create the systray icon */
     NOTIFYICONDATA nid;
-    extern int num_clients; /* defined in stunnel.c */
 
     nid.cbSize=sizeof(NOTIFYICONDATA); /* size */
     nid.hWnd=hwnd; /* window to receive notifications */
@@ -310,7 +312,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
 
-static LRESULT CALLBACK about_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+static LRESULT CALLBACK about_proc(HWND hDlg, UINT message,
+        WPARAM wParam, LPARAM lParam) {
     switch(message) {
         case WM_INITDIALOG:
             return TRUE;
@@ -323,6 +326,114 @@ static LRESULT CALLBACK about_proc(HWND hDlg, UINT message, WPARAM wParam, LPARA
             }
     }
     return FALSE;
+}
+
+static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
+        WPARAM wParam, LPARAM lParam) {
+    char titlebar[STRLEN];
+    WORD cchPassword;
+
+    switch (message) {
+    case WM_INITDIALOG:
+        /* Set the default push button to "Cancel." */
+        SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDCANCEL, (LPARAM) 0);
+
+        safecopy(titlebar, "Private key: ");
+        safeconcat(titlebar, options.key);
+        SetWindowText(hDlg, titlebar);
+        return TRUE;
+
+    case WM_COMMAND:
+        /* Set the default push button to "OK" when the user enters text. */
+        if(HIWORD (wParam) == EN_CHANGE && LOWORD(wParam) == IDE_PASSWORDEDIT)
+            SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDOK, (LPARAM) 0);
+        switch(wParam) {
+        case IDOK:
+            /* Get number of characters. */
+            cchPassword = (WORD) SendDlgItemMessage(hDlg,
+                IDE_PASSWORDEDIT, EM_LINELENGTH, (WPARAM) 0, (LPARAM) 0);
+            if(cchPassword==0 || cchPassword>=STRLEN) {
+                EndDialog(hDlg, FALSE);
+                return FALSE;
+            }
+
+            /* Put the number of characters into first word of buffer. */
+            *((LPWORD)passphrase) = cchPassword;
+
+            /* Get the characters. */
+            SendDlgItemMessage(hDlg, IDE_PASSWORDEDIT, EM_GETLINE,
+                (WPARAM) 0, /* line 0 */ (LPARAM) passphrase);
+
+            passphrase[cchPassword] = 0; /* Null-terminate the string. */
+            EndDialog(hDlg, TRUE);
+            return TRUE;
+
+        case IDCANCEL:
+            EndDialog(hDlg, FALSE);
+            return TRUE;
+        }
+        return 0;
+    }
+    return FALSE;
+
+    UNREFERENCED_PARAMETER(lParam);
+}
+
+int pem_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
+    int result;
+#if 0
+    DWORD dwThreadId;
+    HWINSTA hwinstaSave;
+    HDESK hdeskSave;
+    HWINSTA hwinstaUser;
+    HDESK hdeskUser;
+
+    buf[0]='\0'; /* empty the buffer */
+
+    /* Save the window station and desktop */
+    hwinstaSave=GetProcessWindowStation();
+    if(!hwinstaSave)
+        ioerror("GetProcessWindowStation");
+    dwThreadId=GetCurrentThreadId();
+    if(!dwThreadId)
+        ioerror("GetCurrentThreadId");
+    hdeskSave=GetThreadDesktop(dwThreadId);
+    if(!hdeskSave)
+        ioerror("GetThreadDesktop");
+
+    /* Switch to WinSta0/Default */
+    hwinstaUser=OpenWindowStation("winsta0", FALSE, MAXIMUM_ALLOWED);
+    if(!hwinstaUser)
+        ioerror("OpenWindowStation");
+    if(!SetProcessWindowStation(hwinstaUser))
+        ioerror("SetProcessWindowStation");
+    hdeskUser=OpenDesktop("Default", 0, FALSE, MAXIMUM_ALLOWED); /* Winlogon */
+    if(!hdeskUser)
+        ioerror("OpenDesktop");
+    if(!SetThreadDesktop(hdeskUser))
+        ioerror("SetThreadDesktop");
+#endif
+
+    /* Display the dialog box */
+    result=DialogBox(ghInst, "PassBox", hwnd, (DLGPROC)pass_proc);
+
+#if 0
+    /* Restore window station and desktop */
+    if(!SetThreadDesktop(hdeskSave))
+        ioerror("SetThreadDesktop");
+    if(!SetProcessWindowStation(hwinstaSave))
+        ioerror("SetProcessWindowStation");
+    if(!CloseDesktop(hdeskUser))
+        ioerror("CloseDesktop");
+    if(!CloseWindowStation(hwinstaUser))
+        ioerror("CloseWindowStation");
+#endif
+
+    if(!result)
+        return 0;
+    strncpy(buf, passphrase, size);
+    buf[size - 1] = '\0';
+    return strlen(buf);
 }
 
 static void save_file(HWND hwnd) {
@@ -345,7 +456,7 @@ static void save_file(HWND hwnd) {
     ofn.lpstrInitialDir=".";
 
     ofn.lpstrTitle="Save Log";
-    ofn.Flags=OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | 
+    ofn.Flags=OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY |
         OFN_OVERWRITEPROMPT;
     if(!GetSaveFileName(&ofn))
         return;
@@ -354,7 +465,7 @@ static void save_file(HWND hwnd) {
             0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
             (HANDLE) NULL))==INVALID_HANDLE_VALUE) {
         MessageBox(hwnd, "File open failed", options.win32_name, MB_ICONERROR);
-        return; 
+        return;
     }
 
     txt=log_txt();
@@ -404,7 +515,7 @@ static char *log_txt(void) {
     char *buff;
     int ptr=0, len=0;
     struct LIST *curr;
- 
+
     enter_critical_section(CRIT_WIN_LOG);
     for(curr=head; curr; curr=curr->next)
         len+=curr->len+2; /* +2 for trailing '\r\n' */
@@ -441,7 +552,11 @@ static void set_visible(int i) {
 
 void exit_stunnel(int code) { /* used instead of exit() on Win32 */
     win_log("");
-    win_log("Server is down");
+    log(LOG_ERR, "Server is down");
+    MessageBox(hwnd, "Stunnel server is down due to an error.\n"
+        "You need to exit and correct the problem.\n"
+        "Click OK to see the error log window.",
+        options.win32_service, MB_ICONERROR);
     error_mode=1;
     longjmp(jump_buf, 1);
 }
@@ -462,7 +577,7 @@ static int start_service(void) {
 
 static int install_service(void) {
     SC_HANDLE scm, service;
-    
+
     scm=OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
     if(!scm) {
         MessageBox(hwnd, "Failed to open service control manager",
@@ -490,7 +605,7 @@ static int install_service(void) {
 static int uninstall_service(void) {
     SC_HANDLE scm, service;
     SERVICE_STATUS serviceStatus;
-    
+
     scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
     if(!scm) {
         MessageBox(hwnd, "Failed to open service control manager",
