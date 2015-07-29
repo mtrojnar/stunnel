@@ -39,7 +39,9 @@
 #include "prototypes.h"
 #include <commdlg.h>
 #include <commctrl.h>
+#ifndef _WIN32_WCE
 #include <psapi.h>
+#endif
 #include "resources.h"
 
 #define UWM_SYSTRAY (WM_USER + 1) /* sent to us by the taskbar */
@@ -64,7 +66,6 @@ static LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
 static LRESULT CALLBACK pass_proc(HWND, UINT, WPARAM, LPARAM);
 static void update_logs(void);
 static LPTSTR log_txt(void);
-static void update_peer_list(void);
 static void error_box(const LPTSTR);
 
 /* NT Service related function */
@@ -495,7 +496,8 @@ static LRESULT CALLBACK window_proc(HWND main_window_handle,
         return TRUE;
 
     case WM_COMMAND:
-        if(wParam>=IDM_PEER_MENU && wParam<IDM_PEER_MENU+number_of_sections) {
+        if(peer_cert_table && wParam>=IDM_PEER_MENU &&
+                wParam<IDM_PEER_MENU+number_of_sections) {
             if(save_text_file(peer_cert_table[wParam-IDM_PEER_MENU].file,
                     peer_cert_table[wParam-IDM_PEER_MENU].chain))
                 return TRUE;
@@ -837,8 +839,20 @@ static LPTSTR log_txt(void) {
 }
 
 /* called from start_gui() on first load, and from network.c on reload */
+/* NOTE: initialization has to be fully performed or win_newcert() will fail */
 void win_newconfig(int err) { /* 0 - successs, 1 - error */
+    SERVICE_OPTIONS *section;
+    MENUITEMINFO mii;
+#ifndef _WIN32_WCE
+    HMENU main_peer_list=NULL;
+#endif
+    HMENU tray_peer_list=NULL;
+    char *str;
+    unsigned int section_number;
+
     error_mode=err; /* only really used on reload */
+
+    /* set main window title */
     if(error_mode) {
         win32_name=TEXT("stunnel ") TEXT(STUNNEL_VERSION) TEXT(" on ")
             TEXT(STUNNEL_PLATFORM) TEXT(" (invalid stunnel.conf)");
@@ -859,13 +873,109 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
         }
     }
 
+    /* initialize taskbar */
     if(global_options.option.taskbar) { /* save menu resources */
         if(!tray_menu_handle)
             tray_menu_handle=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
         SetTimer(hwnd, 0x29a, 1000, NULL); /* 1-second timer */
         update_taskbar();
     }
-    update_peer_list();
+
+    /* purge menu peer lists */
+    if(peer_cert_table) {
+        for(section_number=0; section_number<number_of_sections;
+                ++section_number) {
+            if(peer_cert_table[section_number].file)
+                str_free(peer_cert_table[section_number].file);
+            if(peer_cert_table[section_number].help)
+                str_free(peer_cert_table[section_number].help);
+            if(peer_cert_table[section_number].chain)
+                str_free(peer_cert_table[section_number].chain);
+        }
+        str_free(peer_cert_table);
+    }
+#ifndef _WIN32_WCE
+    if(main_menu_handle)
+        main_peer_list=GetSubMenu(main_menu_handle, 2); /* 3rd submenu */
+    if(main_peer_list)
+        while(GetMenuItemCount(main_peer_list)) /* purge old menu */
+            DeleteMenu(main_peer_list, 0, MF_BYPOSITION); 
+#endif
+    if(tray_menu_handle)
+        tray_peer_list=GetSubMenu(GetSubMenu(tray_menu_handle, 0), 2);
+    if(tray_peer_list)
+        while(GetMenuItemCount(tray_peer_list)) /* purge old menu */
+            DeleteMenu(tray_peer_list, 0, MF_BYPOSITION);
+
+    /* initialize data structures */
+    number_of_sections=0;
+    for(section=service_options.next; section; section=section->next)
+        section->section_number=number_of_sections++;
+    peer_cert_table=
+        str_alloc(number_of_sections*sizeof(struct PEER_CERT_TABLE));
+    str_detach(peer_cert_table);
+
+    section_number=0;
+    for(section=service_options.next; section; section=section->next) {
+        /* setup peer_cert_table[section_number].file */
+        str=str_printf("peer-%s.pem", section->servname);
+        if(!str) {
+            s_log(LOG_CRIT, "Out of memory");
+            return;
+        }
+        peer_cert_table[section_number].file=str2tstr(str);
+        if(!peer_cert_table[section_number].file) {
+            s_log(LOG_CRIT, "Out of memory");
+            return;
+        }
+        str_free(str);
+        str_detach(peer_cert_table[section_number].file);
+        str=str_printf("peer-%s.pem", section->servname);
+        if(!str) {
+            s_log(LOG_CRIT, "Out of memory");
+            return;
+        }
+
+        /* setup peer_cert_table[section_number].help */
+        peer_cert_table[section_number].file=str2tstr(str);
+        str=str_printf(
+            "Peer certificate chain has been saved.\n"
+            "Add the following lines to section [%s]:\n"
+            "\tCAfile = peer-%s.pem\n"
+            "\tverify = 3\n"
+            "to enable cryptographic authentication.\n"
+            "Then reload stunnel configuration file.",
+            section->servname, section->servname);
+        peer_cert_table[section_number].help=str2tstr(str);
+        str_free(str);
+        str_detach(peer_cert_table[section_number].help);
+
+        /* setup peer_cert_table[section_number].chain */
+        /* the value is later cached value in win_newcert() */
+        peer_cert_table[section_number].chain=NULL;
+
+        /* insert new menu item */
+        mii.cbSize=sizeof mii;
+        mii.fMask=MIIM_STRING|MIIM_DATA|MIIM_ID|MIIM_STATE;
+        mii.fType=MFT_STRING;
+        mii.dwTypeData=peer_cert_table[section_number].file;
+        mii.cch=_tcslen(mii.dwTypeData);
+        mii.wID=IDM_PEER_MENU+section_number;
+        mii.fState=MFS_GRAYED;
+#ifndef _WIN32_WCE
+        if(main_peer_list)
+            if(!InsertMenuItem(main_peer_list, section_number, TRUE, &mii))
+                ioerror("InsertMenuItem");
+#endif
+        if(tray_peer_list)
+            if(!InsertMenuItem(tray_peer_list, section_number, TRUE, &mii))
+                ioerror("InsertMenuItem");
+        ++section_number;
+    }
+    if(hwnd)
+        DrawMenuBar(hwnd);
+
+    /* enable IDM_REOPEN_LOG menu if a log file is used, disable otherwise */
 #ifndef _WIN32_WCE
     if(main_menu_handle)
         EnableMenuItem(main_menu_handle, IDM_REOPEN_LOG,
@@ -875,6 +985,7 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
         EnableMenuItem(tray_menu_handle, IDM_REOPEN_LOG,
             global_options.output_file ? MF_ENABLED : MF_GRAYED);
 
+    /* a message box indicating error mode */
     if(error_mode) {
         win_log("");
         s_log(LOG_ERR, "Server is down");
@@ -885,143 +996,61 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
     }
 }
 
-static void update_peer_list(void) {
-    SERVICE_OPTIONS *tmp_opt;
-    MENUITEMINFO mii;
-    HMENU main_peer_list=NULL, tray_peer_list=NULL;
-    char *str;
-    unsigned int section;
-
-#ifndef _WIN32_WCE
-    if(main_menu_handle)
-        main_peer_list=GetSubMenu(main_menu_handle, 2); /* 3rd submenu */
-#endif
-    if(tray_menu_handle)
-        tray_peer_list=GetSubMenu(GetSubMenu(tray_menu_handle, 0), 2);
-    if(!main_peer_list || !tray_peer_list) {
-        s_log(LOG_ERR, "Failed to get peer list menu");
-        return;
-    }
-    while(GetMenuItemCount(main_peer_list)) /* purge old menu */
-        DeleteMenu(main_peer_list, 0, MF_BYPOSITION); 
-    while(GetMenuItemCount(tray_peer_list)) /* purge old menu */
-        DeleteMenu(tray_peer_list, 0, MF_BYPOSITION); 
-    number_of_sections=0;
-    for(tmp_opt=service_options.next; tmp_opt; tmp_opt=tmp_opt->next)
-        ++number_of_sections;
-    peer_cert_table= /* str_realloc() not used due to different threads */
-        str_alloc(number_of_sections*sizeof(struct PEER_CERT_TABLE));
-    section=0;
-    for(tmp_opt=service_options.next; tmp_opt; tmp_opt=tmp_opt->next) {
-        str=str_printf("peer-%s.pem", tmp_opt->servname);
-        if(!str) {
-            s_log(LOG_CRIT, "Out of memory");
-            return;
-        }
-        peer_cert_table[section].file=str2tstr(str);
-        if(!peer_cert_table[section].file) {
-            s_log(LOG_CRIT, "Out of memory");
-            return;
-        }
-        str_free(str);
-        str_detach(peer_cert_table[section].file);
-
-        str=str_printf(
-            "Peer certificate chain has been saved.\n"
-            "Add the following lines to section [%s]:\n"
-            "\tCAfile = peer-%s.pem\n"
-            "\tverify = 3\n"
-            "to enable cryptographic authentication.\n"
-            "Then reload stunnel configuration file.",
-            tmp_opt->servname, tmp_opt->servname);
-        peer_cert_table[section].help=str2tstr(str);
-        str_free(str);
-        str_detach(peer_cert_table[section].help);
-
-        peer_cert_table[section].chain=NULL;
-
-        mii.cbSize=sizeof mii;
-        mii.fMask=MIIM_STRING|MIIM_DATA|MIIM_ID|MIIM_STATE;
-        mii.fType=MFT_STRING;
-        mii.dwTypeData=peer_cert_table[section].file;
-        mii.cch=_tcslen(mii.dwTypeData);
-        mii.wID=IDM_PEER_MENU+section;
-        mii.fState=MFS_GRAYED;
-        if(main_peer_list)
-            if(!InsertMenuItem(main_peer_list, section, TRUE, &mii)) {
-                ioerror("InsertMenuItem");
-                str_free(mii.dwTypeData);
-                return;
-            }
-        if(tray_peer_list)
-            if(!InsertMenuItem(tray_peer_list, section, TRUE, &mii)) {
-             ioerror("InsertMenuItem");
-                str_free(mii.dwTypeData);
-                return;
-            }
-        ++section;
-    }
-    DrawMenuBar(hwnd);
-}
-
 /* called from client.c when a new session is negotiated */
-void win_newcert(SSL *ssl, SERVICE_OPTIONS *opt) {
-    SERVICE_OPTIONS *tmp_opt;
-    unsigned int section=0;
+void win_newcert(SSL *ssl, SERVICE_OPTIONS *section) {
     BIO *bio;
     int i, len;
     X509 *peer=NULL;
     STACK_OF(X509) *sk;
 
-    s_log(LOG_DEBUG, "A new certificate was received");
-    for(tmp_opt=service_options.next; tmp_opt; tmp_opt=tmp_opt->next) {
-        if(tmp_opt==opt)
-            break;
-        ++section;
+    if(!peer_cert_table) {
+        s_log(LOG_ERR, "INTERNAL ERROR: peer_cert_table not initialized");
+        return;
     }
-    if(peer_cert_table[section].chain)
+    if(peer_cert_table[section->section_number].chain)
         return; /* a peer certificate was already cached */
 
+    s_log(LOG_DEBUG, "A new certificate was received");
     bio=BIO_new(BIO_s_mem());
     if(!bio)
         return;
-
     sk=SSL_get_peer_cert_chain(ssl);
     for(i=0; sk && i<sk_X509_num(sk); i++) {
         peer=sk_X509_value(sk, i);
         PEM_write_bio_X509(bio, peer);
     }
-    if(!sk || !opt->option.client) {
+    if(!sk || !section->option.client) {
         peer=SSL_get_peer_certificate(ssl);
         if(peer) {
             PEM_write_bio_X509(bio, peer);
             X509_free(peer);
         }
     }
-
     len=BIO_pending(bio);
-    peer_cert_table[section].chain=str_alloc(len+1);
-    if(!peer_cert_table[section].chain) {
+    peer_cert_table[section->section_number].chain=str_alloc(len+1);
+    if(!peer_cert_table[section->section_number].chain) {
         BIO_free(bio);
         return;
     }
-    str_detach(peer_cert_table[section].chain);
-    len=BIO_read(bio, peer_cert_table[section].chain, len);
+    str_detach(peer_cert_table[section->section_number].chain);
+    len=BIO_read(bio, peer_cert_table[section->section_number].chain, len);
     if(len<0) {
         BIO_free(bio);
-        str_free(peer_cert_table[section].chain);
+        str_free(peer_cert_table[section->section_number].chain);
         return;
     }
-    peer_cert_table[section].chain[len]='\0';
+    peer_cert_table[section->section_number].chain[len]='\0';
     BIO_free(bio);
-
     s_log(LOG_DEBUG, "A new certificate was cached (%d bytes)", len);
+
 #ifndef _WIN32_WCE
     if(main_menu_handle)
-        EnableMenuItem(main_menu_handle, IDM_PEER_MENU+section, MF_ENABLED);
+        EnableMenuItem(main_menu_handle, IDM_PEER_MENU+section->section_number,
+            MF_ENABLED);
 #endif
     if(tray_menu_handle)
-        EnableMenuItem(tray_menu_handle, IDM_PEER_MENU+section, MF_ENABLED);
+        EnableMenuItem(tray_menu_handle, IDM_PEER_MENU+section->section_number,
+            MF_ENABLED);
 }
 
 void win_exit(int exit_code) { /* used instead of exit() on Win32 */

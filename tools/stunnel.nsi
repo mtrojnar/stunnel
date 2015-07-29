@@ -1,6 +1,6 @@
 # NSIS stunnel installer by Michal Trojnara 2011
 
-!define VERSION "4.40"
+!define VERSION "4.41"
 !define DLLS "/home/ftp/openssl/openssl-1.0.0d-i586/"
 !include "Sections.nsh"
 
@@ -8,7 +8,7 @@ Name "stunnel ${VERSION}"
 OutFile "stunnel-${VERSION}-installer.exe" 
 InstallDir "$PROGRAMFILES\stunnel"
 BrandingText "Author: Michal Trojnara" 
-LicenseData "${SRCDIR}/COPYING"
+LicenseData "${SRCDIR}tools/stunnel.license"
 SetCompressor /SOLID LZMA
 InstallDirRegKey HKLM "Software\NSIS_stunnel" "Install_Dir"
 

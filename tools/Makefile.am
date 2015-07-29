@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
 EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
-	stunnel.spec stunnel.cnf stunnel.nsi stunnel.conf
+	stunnel.spec stunnel.cnf stunnel.nsi stunnel.license stunnel.conf
 
 confdir = $(sysconfdir)/stunnel
 conf_DATA = stunnel.conf-sample

@@ -1025,7 +1025,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* options */
     switch(cmd) {
     case CMD_INIT:
-        section->ssl_options=SSL_OP_SINGLE_ECDH_USE;
+        section->ssl_options=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "options"))

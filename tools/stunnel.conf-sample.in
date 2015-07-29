@@ -1,4 +1,4 @@
-; Sample Unix stunnel configuration file by Michal Trojnara 2002-2011
+; Sample stunnel configuration file for Unix by Michal Trojnara 2002-2011
 ; Some options used here may not be adequate for your particular configuration
 ; Please read the manual and make sure you understand them
 
@@ -47,12 +47,17 @@ options = NO_SSLv2
 ; Workaround for Eudora bug
 ;options = DONT_INSERT_EMPTY_FRAGMENTS
 
-; SSL client mode
-;client = yes
+; The following options provide additional security at some performance penalty
+; Default ECDH/DH parameters are strong/conservative, so it is quite safe to
+; comment out these lines in order to get a performance boost
+options = SINGLE_ECDH_USE
+options = SINGLE_DH_USE
 
 ; *****************************************************************************
 ; * Service Definitions (remove all services for inetd mode)                  *
 ; *****************************************************************************
+
+; Example SSL server mode services
 
 [pop3s]
 accept  = 995
@@ -66,9 +71,30 @@ connect = 143
 accept  = 465
 connect = 25
 
+; Example SSL client mode services
+
+;[gmail-pop3]
+;client = yes
+;accept = 127.0.0.1:110
+;connect = pop.gmail.com:995
+
+;[gmail-imap]
+;client = yes
+;accept = 127.0.0.1:143
+;connect = imap.gmail.com:993
+
+;[gmail-smtp]
+;client = yes
+;accept = 127.0.0.1:25
+;connect = smtp.gmail.com:465
+
+; Example SSL front-end to a web server
+
 ;[https]
 ;accept  = 443
 ;connect = 80
+; "TIMEOUTclose = 0" is a workaround for a design flaw in Microsoft SSL
+; It does not use SSL close-notify alert designed to prevent truncation attacks
 ;TIMEOUTclose = 0
 
 ; vim:ft=dosini

@@ -1,11 +1,15 @@
 stunnel change log
 
 
+Version 4.41, 2011.07.25, urgency: MEDIUM:
+* Bugfixes
+  - Fixed Windows service crash of stunnel 4.40.
+
 Version 4.40, 2011.07.23, urgency: LOW:
 * New Win32 features
   - Added a GUI menu to save cached peer certificate chains.
-  - Added "-exit" option to stop stunnel *not* running as a service.
-    This option may be useful for scripts.
+  - Added comandline "-exit" option to stop stunnel *not* running
+    as a service.  This option may be useful for scripts.
   - Added file version information to stunnel.exe.
   - A number of other GUI improvements.
 * Other new features

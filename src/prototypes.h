@@ -110,7 +110,7 @@ typedef struct {
 
 extern GLOBAL_OPTIONS global_options;
 
-typedef struct servername_list_struct SERVERNAME_LIST; /* forward declaration */
+typedef struct servername_list_struct SERVERNAME_LIST;/* forward declaration */
 
 typedef struct service_options_struct {
     struct service_options_struct *next;   /* next node in the services list */
@@ -173,6 +173,11 @@ typedef struct service_options_struct {
     char *protocol_username;
     char *protocol_password;
     char *protocol_authentication;
+
+        /* service-specific data for gui.c */
+#ifdef USE_WIN32
+    int section_number;
+#endif
 
         /* on/off switches */
     struct {
