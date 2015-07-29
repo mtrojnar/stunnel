@@ -47,7 +47,7 @@ int negotiate(CLI *c) {
 
     if(!c->opt->protocol)
         return 0; /* No protocol negotiations */
-    log(LOG_NOTICE, "Negotiations for %s (%s side) started", c->opt->protocol,
+    s_log(LOG_NOTICE, "Negotiations for %s (%s side) started", c->opt->protocol,
         options.option.client ? "client" : "server");
 
     if(!strcmp(c->opt->protocol, "cifs"))
@@ -59,15 +59,15 @@ int negotiate(CLI *c) {
     else if(!strcmp(c->opt->protocol, "nntp"))
         retval = options.option.client ? nntp_client(c) : nntp_server(c);
     else {
-        log(LOG_ERR, "Protocol %s not supported in %s mode",
+        s_log(LOG_ERR, "Protocol %s not supported in %s mode",
             c->opt->protocol, options.option.client ? "client" : "server");
         return -1;
     }
 
     if(retval)
-        log(LOG_NOTICE, "Protocol negotiation failed");
+        s_log(LOG_NOTICE, "Protocol negotiation failed");
     else
-        log(LOG_NOTICE, "Protocol negotiation succeded");
+        s_log(LOG_NOTICE, "Protocol negotiation succeded");
     return retval;
 }
 
@@ -78,19 +78,19 @@ static int cifs_client(CLI *c) {
     if(write_blocking(c, c->remote_fd.fd, request_dummy, 4)<0)
         return -1;
     if(read_blocking(c, c->remote_fd.fd, buffer, 5)<0) {
-        log(LOG_ERR, "Failed to read NetBIOS response");
+        s_log(LOG_ERR, "Failed to read NetBIOS response");
         return -1;
     }
     if(buffer[0]!=0x83) { /* NB_SSN_NEGRESP */
-        log(LOG_ERR, "Negative response expected");
+        s_log(LOG_ERR, "Negative response expected");
         return -1;
     }
     if(buffer[2]!=0 || buffer[3]!=1) { /* length != 1 */
-        log(LOG_ERR, "Unexpected NetBIOS response size");
+        s_log(LOG_ERR, "Unexpected NetBIOS response size");
         return -1;
     }
     if(buffer[4]!=0x8e) { /* use SSL */
-        log(LOG_ERR, "Remote server does not require SSL");
+        s_log(LOG_ERR, "Remote server does not require SSL");
         return -1;
     }
     return 0; /* OK */
@@ -107,13 +107,13 @@ static int cifs_server(CLI *c) {
     len=buffer[3];
     len|=(u16)(buffer[2]) << 8;
     if(len>sizeof(buffer)-4) {
-        log(LOG_ERR, "Received block too long");
+        s_log(LOG_ERR, "Received block too long");
         return -1;
     }
     if(read_blocking(c, c->local_rfd.fd, buffer+4, len)<0)
         return -1;
     if(buffer[0]!=0x81){ /* NB_SSN_REQUEST */
-        log(LOG_ERR, "Client did not send session setup");
+        s_log(LOG_ERR, "Client did not send session setup");
         write_blocking(c, c->local_wfd.fd, response_access_denied, 5);
         return -1;
     }
@@ -139,7 +139,7 @@ static int smtp_client(CLI *c) {
             return -1;
     } while(strncasecmp(line,"250-",4)==0);
     if(strncasecmp(line,"250 ",4)!=0) { /* Error */
-        log(LOG_ERR, "Remote server is not RFC 1425 compliant");
+        s_log(LOG_ERR, "Remote server is not RFC 1425 compliant");
         return -1;
     }
 
@@ -150,7 +150,7 @@ static int smtp_client(CLI *c) {
             return -1;
     } while(strncasecmp(line,"220-",4)==0);
     if(strncasecmp(line,"220 ",4)!=0) { /* Error */
-        log(LOG_ERR, "Remote server is not RFC 2487 compliant");
+        s_log(LOG_ERR, "Remote server is not RFC 2487 compliant");
         return -1;
     }
     return 0;
@@ -163,13 +163,13 @@ static int smtp_server(CLI *c) {
         return 0; /* Return if RFC 2487 is not used */
 
     if(fdscanf(c, c->remote_fd.fd, "220%[^\n]", line)!=1) {
-        log(LOG_ERR, "Unknown server welcome");
+        s_log(LOG_ERR, "Unknown server welcome");
         return -1;
     }
     if(fdprintf(c, c->local_wfd.fd, "220%s + stunnel", line)<0)
         return -1;
     if(fdscanf(c, c->local_rfd.fd, "EHLO %[^\n]", line)!=1) {
-        log(LOG_ERR, "Unknown client EHLO");
+        s_log(LOG_ERR, "Unknown client EHLO");
         return -1;
     }
     if(fdprintf(c, c->local_wfd.fd, "250-%s Welcome", line)<0)
@@ -177,7 +177,7 @@ static int smtp_server(CLI *c) {
     if(fdprintf(c, c->local_wfd.fd, "250 STARTTLS")<0)
         return -1;
     if(fdscanf(c, c->local_rfd.fd, "STARTTLS", line)<0) {
-        log(LOG_ERR, "STARTTLS expected");
+        s_log(LOG_ERR, "STARTTLS expected");
         return -1;
     }
     if(fdprintf(c, c->local_wfd.fd, "220 Go ahead")<0)
@@ -191,7 +191,7 @@ static int pop3_client(CLI *c) {
     if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
         return -1;
     if(strncasecmp(line,"+OK ",4)) {
-        log(LOG_ERR, "Unknown server welcome");
+        s_log(LOG_ERR, "Unknown server welcome");
         return -1;
     }
     if(fdprintf(c, c->local_wfd.fd, "%s", line)<0)
@@ -201,7 +201,7 @@ static int pop3_client(CLI *c) {
     if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
         return -1;
     if(strncasecmp(line,"+OK ",4)) {
-        log(LOG_ERR, "Server does not support TLS");
+        s_log(LOG_ERR, "Server does not support TLS");
         return -1;
     }
     return 0;
@@ -223,7 +223,7 @@ static int pop3_server(CLI *c) {
             return -1;
     }
     if(strncasecmp(line, "STLS", 4)) {
-        log(LOG_ERR, "Client does not want TLS");
+        s_log(LOG_ERR, "Client does not want TLS");
         return -1;
     }
     if(fdprintf(c, c->local_wfd.fd, "+OK Stunnel starts TLS negotiation")<0)
@@ -238,7 +238,7 @@ static int nntp_client(CLI *c) {
     if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
         return -1;
     if(strncasecmp(line,"200 ",4) && strncasecmp(line,"201 ",4)) {
-        log(LOG_ERR, "Unknown server welcome");
+        s_log(LOG_ERR, "Unknown server welcome");
         return -1;
     }
     if(fdprintf(c, c->local_wfd.fd, "%s", line)<0)
@@ -248,34 +248,32 @@ static int nntp_client(CLI *c) {
     if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
         return -1;
     if(strncasecmp(line,"382 ",4)) {
-        log(LOG_ERR, "Server does not support TLS");
+        s_log(LOG_ERR, "Server does not support TLS");
         return -1;
     }
     return 0;
 }
 
 static int nntp_server(CLI *c) {
-    log(LOG_ERR, "Protocol not supported in server mode");
+    s_log(LOG_ERR, "Protocol not supported in server mode");
     return -1;
 }
 
 static int RFC2487(int fd) {
-    fd_set         fdsRead;
-    struct timeval timeout;
+    s_poll_set fds;
 
-    FD_ZERO(&fdsRead);
-    FD_SET(fd, &fdsRead);
-    timeout.tv_sec=timeout.tv_usec=0; /* don't wait */
+    s_poll_zero(&fds);
+    s_poll_add(&fds, fd, 1, 0);
 
-    switch(sselect(fd+1, &fdsRead, NULL, NULL, &timeout)) {
+    switch(s_poll_wait(&fds, 0)) {
     case 0: /* fd not ready to read */
-        log(LOG_DEBUG, "RFC 2487 detected");
+        s_log(LOG_DEBUG, "RFC 2487 detected");
         return 1;
     case 1: /* fd ready to read */
-        log(LOG_DEBUG, "RFC 2487 not detected");
+        s_log(LOG_DEBUG, "RFC 2487 not detected");
         return 0;
     default: /* -1 */
-        sockerror("RFC2487 (select)");
+        sockerror("RFC2487 (s_poll_wait)");
         return -1;
     }
 }

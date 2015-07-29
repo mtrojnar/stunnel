@@ -1,19 +1,57 @@
 stunnel         Universal SSL tunnel
 
+Version 4.06, 2004.12.26, urgency: LOW:
+* New feature sponsored by SURFnet http://www.surfnet.nl/
+  - IPv6 support (to be enabled with ./configure --enable-ipv6).
+* New features
+  - poll() support - no more FD_SETSIZE limit!
+  - Multiple connect=host:port options are allowed in a single service
+    section.  Remote hosts are connected using round-robin algorithm.
+    This feature is not compatible with delayed resolver.
+  - New 'compression' option to enable compression.  To use zlib
+    algorithm you have to enable it when building OpenSSL library.
+  - New 'engine' option to select a hardware engine.
+  - New 'TIMEOUTconnect' option with 10 seconds default added.
+  - stunnel3 perl script to emulate version 3.x command line options.
+  - French manual updated by Bernard Choppy <choppy AT free POINT fr>.
+  - A watchdog to detect transfer() infinite loops added.
+  - Configuration file comment character changed from '#' to ';'.
+    '#' will still be recognized to keep compatibility.
+  - MT-safe getaddrinfo() and getnameinfo() are used where available
+    to get better performance on resolver calls.
+  - Automake upgraded from 1.4-p4 to 1.7.9.
+* Bugfixes
+  - log() changed to s_log() to avoid conflicts on some systems.
+  - Common CRIT_INET critical section introduced instead of separate
+    CRIT_NTOA and CRIT_RESOLVER to avoid potential problems with
+	libwrap (TCP Wrappers) library.
+  - CreateThread() finally replaced with _beginthread() on Win32.
+  - make install creates $(localstatedir)/stunnel.
+    $(localstatedir)/stunnel/dev/zero is also created on Solaris.
+  - Race condition with client session cache fixed.
+  - Other minor bugfixes.
+* Release notes
+  - Win32 port requires Winsock2 to work.
+    Some Win95 systems may need a free update from Microsoft.
+    http://www.microsoft.com/windows95/downloads/
+  - Default is *not* to use IPv6 '::' for accept and '::1' for
+    connect.  For example to accept pop3s on IPv6 you could use:
+    'accept = :::995'.  I hope the new syntax is clear enough.
+
 Version 4.05, 2004.02.14, urgency: MEDIUM:
 * New feature sponsored by SURFnet http://www.surfnet.nl/
   - Support for CIFS aka SMB protocol SSL negotiation.
 * New features
-  - CRL support with new CApath and CAfile global options.
-  - New 'taskbar' option on WIN32 (thx to Ken Mattsen
+  - CRL support with new CRLpath and CRLfile global options.
+  - New 'taskbar' option on Win32 (thx to Ken Mattsen
     <ken.Mattsen@roxio.com>).
   - New -fd command line parameter to read configuration
     from a specified file descriptor instead of a file.
-  - accept is reported as error with [section] defined (in
-    stunnel 4.04 it was silently ignored causing problems
-    for lusers that did not read the fine manual).
+  - accept is reported as error when no '[section]' is
+    defined (in stunnel 4.04 it was silently ignored causing
+    problems for lusers that did not read the fine manual).
   - Use fcntl() instead of ioctlsocket() to set socket
-    nonblocking when it is supported.
+    nonblocking where it is supported.
   - Basic support for hardware engines with OpenSSL >= 0.9.7.
   - French manual by Bernard Choppy <choppy@imaginet.fr>.
   - Thread stack size reduced to 64KB for maximum scalability.
@@ -27,7 +65,7 @@ Version 4.05, 2004.02.14, urgency: MEDIUM:
   - Use FD_SETSIZE instead of 16 file descriptors in inetd
     mode.
   - fdscanf groks lowercase protocol negotiation commands.
-  - WIN32 taskbar GDI objects leak fixed.
+  - Win32 taskbar GDI objects leak fixed.
   - Libwrap detection bug in ./configure script fixed.
   - grp.h header detection fixed for NetBSD and possibly
     other systems.
@@ -129,7 +167,7 @@ Version 3.22, 2001.12.20, urgency: HIGH:
 * Problem with -r and -l options used together fixed.
 * memmove() instead of memcpy() is used to move data in buffers.
 * More detailed information about negotiated ciphers is printed.
-* New ./configure options: "--enable-no-rsa" and "--enable-dh".
+* New ./configure options: '--enable-no-rsa' and '--enable-dh'.
 
 Version 3.21c, 2001.11.11, urgency: LOW:
 * autoconf scripts upgraded to version 2.52.
@@ -163,8 +201,8 @@ Version 3.21, 2001.10.31, urgency: MEDIUM:
    - timeout after 1 minute of inactivity.
 * auth_user() redesigned to force 1 minute timeout.
 * Some source arrangement towards 4.x architecture.
-* No need for "goto" any more.
-* New Makefile "test" rule.  It performs basic test of
+* No need for 'goto' any more.
+* New Makefile 'test' rule.  It performs basic test of
   standalone/inetd, remote/local and server/client mode.
 * pop3 server mode support added.
 
@@ -178,7 +216,7 @@ Version 3.20, 2001.08.15, urgency: LOW:
 
 Version 3.19, 2001.08.10, urgency: MEDIUM:
 * Critical section added around non MT-safe TCP Wrappers code.
-* Problem with "select: Interrupted system call" error fixed.
+* Problem with 'select: Interrupted system call' error fixed.
 * errno replaced with get_last_socket_error() for Win32.
 * Some FreeBSD/NetBSD patches to ./configure from Martti Kuparinen.
 * Local mode process pid logged.
@@ -384,7 +422,7 @@ Version 3.7, 2000.02.10:
 		FAQ added.
   
 3.0b7 1999.04.14
-		WIN32 native port fixed (looks quite stable).
+		Win32 native port fixed (looks quite stable).
 		New transfer() function algorithm.
 		New 'make cert' to be compatible with openssl-0.9.2b.
 		Removed support for memory leaks debugging.
@@ -416,7 +454,7 @@ Version 3.7, 2000.02.10:
 		New user interface.
 		Client mode added.
 		Peer certificate verification added (=strong authentication).
-		WIN32 port added.
+		Win32 port added.
 		Other minor problems fixed.
 
 2.1 1998.06.01	Few bugs fixed.

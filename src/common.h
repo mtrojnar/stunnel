@@ -27,7 +27,7 @@
 /* #define DEBUG_STACK_SIZE */
 
 #ifndef VERSION
-#define VERSION "4.05"
+#define VERSION "4.06"
 #endif
 
 #ifndef USE_WIN32
@@ -106,11 +106,23 @@ int _vsnprintf(char *, int, char *, ...);
 #define readsocket(s,b,n)       recv((s),(b),(n),0)
 #define writesocket(s,b,n)      send((s),(b),(n),0)
 
-#define __USE_W32_SOCKETS
-
 /* #define FD_SETSIZE 4096 */
 /* #define Win32_Winsock */
+#define __USE_W32_SOCKETS
 #include <windows.h>
+
+/* some declarations for IPv6 */
+#include <ws2tcpip.h>
+#define HAVE_GETADDRINFO
+#define HAVE_GETNAMEINFO
+#if 0
+typedef int (CALLBACK * GETADDRINFO) (const char *nodename,
+    const char *servname, const struct addrinfo *hints,
+    struct addrinfo **res);
+typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo FAR *ai);
+extern GETADDRINFO s_getaddrinfo;
+extern FREEADDRINFO s_freeaddrinfo;
+#endif
 
 #define ECONNRESET WSAECONNRESET
 #define ENOTSOCK WSAENOTSOCK
@@ -120,6 +132,8 @@ int _vsnprintf(char *, int, char *, ...);
 #define EISCONN WSAEISCONN
 #undef EINVAL
 #define EINVAL WSAEINVAL
+
+#include <process.h>     /* _beginthread */
 
 #define NO_IDEA
 #define OPENSSL_NO_IDEA
@@ -179,6 +193,13 @@ typedef unsigned long u32;
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>  /* for aix */
 #endif
+#ifdef HAVE_POLL_H
+#include <poll.h>
+#else /* HAVE_POLL_H */
+#ifdef HAVE_SYS_POLL_H
+#include <sys/poll.h>
+#endif /* HAVE_SYS_POLL_H */
+#endif /* HAVE_POLL_H */
 #ifdef HAVE_SYS_FILIO_H
 #include <sys/filio.h>   /* for FIONBIO */
 #endif
@@ -245,14 +266,17 @@ extern char *sys_errlist[];
 #endif
 
 /* I/O buffer size */
-#define BUFFSIZE 16384
+#define BUFFSIZE        16384
 
 /* Length of strings (including the terminating '\0' character) */
-#define STRLEN       1024
+#define STRLEN          256
+
+/* IP address and TCP port textual representation length */
+#define IPLEN           26
 
 /* How many bytes of random input to read from files for PRNG */
 /* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
-#define RANDOM_BYTES 64
+#define RANDOM_BYTES    64
 
 /* Safe copy for strings declarated as char[STRLEN] */
 #define safecopy(dst, src) \
@@ -265,6 +289,22 @@ extern char *sys_errlist[];
 /* change all unsafe characters to '.' */
 #define safename(s) \
     do {char *p; for(p=(s); *p; p++) if(!isalnum((int)*p)) *p='.';} while(0)
+
+/* Some definitions for IPv6 support */
+#if defined(USE_IPv6) || defined(USE_WIN32)
+#define addr_len(x) ((x).sa.sa_family==AF_INET ? \
+    sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
+#else
+#define addr_len(x) (sizeof(struct sockaddr_in))
+#endif
+
+/* Always use IPv4 defaults! */
+#define DEFAULT_LOOPBACK "127.0.0.1"
+#define DEFAULT_ANY "0.0.0.0"
+#if 0
+#define DEFAULT_LOOPBACK "::1"
+#define DEFAULT_ANY "::"
+#endif
 
 #endif /* defined COMMON_H */
 

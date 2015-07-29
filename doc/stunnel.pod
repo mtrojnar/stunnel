@@ -5,7 +5,17 @@ stunnel - universal SSL tunnel
 
 =head1 SYNOPSIS
 
+=over 4
+
+=item B<Unix:>
+
 B<stunnel> S<[filename]> | S<-fd [n]> | S<-help> | S<-version> | S<-sockets>
+
+=item B<WIN32:>
+
+B<stunnel> S<[filename]> | S<-install> | S<-uninstall> | S<-help> | S<-version> | S<-sockets>
+
+=back
 
 
 =head1 DESCRIPTION
@@ -72,15 +82,15 @@ an empty line (ignored)
 
 =item *
 
-a comment starting with "#" (ignored)
+a comment starting with ';' (ignored)
 
 =item *
 
-an "option_name = option_value" pair
+an 'option_name = option_value' pair
 
 =item *
 
-"[service_name]" indicating a start of a service definition
+'[service_name]' indicating a start of a service definition
 
 =back
 
@@ -95,6 +105,8 @@ Certificate Authority directory
 This is the directory in which B<stunnel> will look for certificates when
 using the I<verify>. Note that the certificates in this directory
 should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.
+
+I<CApath> path is relative to I<chroot> directory if specified.
 
 =item B<CAfile> = certfile
 
@@ -116,9 +128,9 @@ certificate to the highest level (root CA).
 
 directory to chroot B<stunnel> process
 
-B<chroot> keeps B<stunnel> in chrooted jail.  I<CApath>, I<pid> and I<exec>
-are located inside the jail and the patches have to be relative to the
-directory specified with B<chroot>.
+B<chroot> keeps B<stunnel> in chrooted jail.  I<CApath>, I<CRLpath>, I<pid>
+and I<exec> are located inside the jail and the patches have to be relative
+to the directory specified with B<chroot>.
 
 To have libwrap (TCP Wrappers) control effective in a chrooted environment
 you also have to copy its configuration files (/etc/hosts.allow and
@@ -137,6 +149,12 @@ client mode (remote service uses SSL)
 
 default: no (server mode)
 
+=item B<compression> = zlib | rle
+
+select data compression algorithm
+
+default: no compression
+
 =item B<CRLpath> = directory
 
 Certificate Revocation Lists directory
@@ -144,6 +162,8 @@ Certificate Revocation Lists directory
 This is the directory in which B<stunnel> will look for CRLs when
 using the I<verify>. Note that the CRLs in this directory should
 be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.
+
+I<CRLpath> path is relative to I<chroot> directory if specified.
 
 =item B<CRLfile> = certfile
 
@@ -172,6 +192,12 @@ path to Entropy Gathering Daemon socket
 
 Entropy Gathering Daemon socket to use to feed OpenSSL random number
 generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)
+
+=item B<engine> = auto | <engine id>
+
+select hardware engine
+
+default: software-only cryptography
 
 =item B<foreground> = yes | no (Unix only)
 
@@ -220,6 +246,8 @@ pid file location
 
 If the argument is empty, then no pid file will be created.
 
+I<pid> path is relative to I<chroot> directory if specified.
+
 =item B<RNDbytes> = bytes
 
 bytes to read from random seed files
@@ -246,9 +274,9 @@ default: yes
 
 use specified string as the service name
 
-On Unix: I<inetd> mode service name for TCP Wrapper library.
+B<On Unix:> I<inetd> mode service name for TCP Wrapper library.
 
-On NT/2000/XP: NT service name in the Control Panel.
+B<On NT/2000/XP:> NT service name in the Control Panel.
 
 default: stunnel
 
@@ -311,7 +339,7 @@ you distinguish B<stunnel> services in your log files.
 
 Note that if you wish to run B<stunnel> in I<inetd> mode (where it
 is provided a network socket by a server such as I<inetd>, I<xinetd>,
-or I<tcpserver>) then you should read the section entitiled I<INETD MODE>
+or I<tcpserver>) then you should read the section entitled I<INETD MODE>
 below.
 
 
@@ -337,12 +365,14 @@ delay DNS lookup for 'connect' option
 
 execute local inetd-type program 
 
+I<exec> path is relative to I<chroot> directory if specified.
+
 =item B<execargs> = $0 $1 $2 ... (Unix only)
 
 arguments for I<exec> including program name ($0)
 
 Quoting is currently not supported.
-Arguments are speparated with arbitrary number of whitespaces.
+Arguments are separated with arbitrary number of whitespaces.
 
 =item B<ident> = username
 
@@ -370,6 +400,10 @@ time to wait for expected data
 =item B<TIMEOUTclose> = seconds
 
 time to wait for close_notify (set to 0 for buggy MSIE)
+
+=item B<TIMEOUTconnect> = seconds
+
+time to wait to connect a remote host
 
 =item B<TIMEOUTidle> = seconds
 
@@ -580,7 +614,7 @@ access control facility for internet services
 
 =item L<inetd(8)>
 
-internet ``super-server''
+internet 'super-server'
 
 =item F<http://stunnel.mirt.net/>
 

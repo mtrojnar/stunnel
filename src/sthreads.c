@@ -42,11 +42,11 @@ static pthread_mutex_t stunnel_cs[CRIT_SECTIONS];
 static pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
 static pthread_attr_t pth_attr;
 
-void enter_critical_section(section_code i) {
+void enter_critical_section(SECTION_CODE i) {
     pthread_mutex_lock(stunnel_cs+i);
 }
 
-void leave_critical_section(section_code i) {
+void leave_critical_section(SECTION_CODE i) {
     pthread_mutex_unlock(stunnel_cs+i);
 }
 
@@ -122,11 +122,11 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
 
 CRITICAL_SECTION stunnel_cs[CRIT_SECTIONS];
 
-void enter_critical_section(section_code i) {
+void enter_critical_section(SECTION_CODE i) {
     EnterCriticalSection(stunnel_cs+i);
 }
 
-void leave_critical_section(section_code i) {
+void leave_critical_section(SECTION_CODE i) {
     LeaveCriticalSection(stunnel_cs+i);
 }
 
@@ -147,18 +147,12 @@ unsigned long stunnel_thread_id(void) {
 }
 
 int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
-    DWORD iID;
-    HANDLE hThread;
-
-    log(LOG_DEBUG, "Creating a new thread");
-    hThread=CreateThread(NULL, STACK_SIZE,
-        (LPTHREAD_START_ROUTINE)cli, arg, 0, &iID);
-    if(!hThread) {
-        ioerror("CreateThread");
+    s_log(LOG_DEBUG, "Creating a new thread");
+    if(_beginthread((void(*)(void *))cli, STACK_SIZE, arg)==-1) {
+        ioerror("_beginthread");
         return -1;
     }
-    CloseHandle(hThread);
-    log(LOG_DEBUG, "New thread created");
+    s_log(LOG_DEBUG, "New thread created");
     return 0;
 }
 
@@ -166,11 +160,11 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
 
 #ifdef USE_FORK
 
-void enter_critical_section(section_code i) {
+void enter_critical_section(SECTION_CODE i) {
     /* empty */
 }
 
-void leave_critical_section(section_code i) {
+void leave_critical_section(SECTION_CODE i) {
     /* empty */
 }
 
@@ -234,14 +228,14 @@ void stack_info(int init) { /* 1-initialize, 0-display */
         while(i<STACK_SIZE-STACK_RESERVE && table[i]==TEST_VALUE)
             i++;
         if(i<64)
-            log(LOG_ERR, "STACK_RESERVE is to high");
+            s_log(LOG_ERR, "STACK_RESERVE is to high");
         else
-            log(LOG_NOTICE, "stack_info: %d of %d bytes used (%d%%)",
+            s_log(LOG_NOTICE, "stack_info: %d of %d bytes used (%d%%)",
                 STACK_SIZE-STACK_RESERVE-i, STACK_SIZE,
                 (STACK_SIZE-STACK_RESERVE-i)*100/STACK_SIZE);
     }
 }
 
-#endif DEBUG_STACK_SIZE
+#endif /* DEBUG_STACK_SIZE */
 
 /* End of sthreads.c */

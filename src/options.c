@@ -31,7 +31,6 @@
 #include "common.h"
 #include "prototypes.h"
 
-static int host2nums(char *, u32 **);
 static int parse_debug_level(char *);
 static int parse_ssl_option(char *);
 static int print_socket_options(void);
@@ -200,6 +199,29 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         break;
     }
 
+    /* compression */
+    switch(cmd) {
+    case CMD_INIT:
+        options.compression=COMP_NONE;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "compression"))
+            break;
+        if(!strcasecmp(arg, "zlib"))
+            options.compression=COMP_ZLIB;
+        else if(!strcasecmp(arg, "rle"))
+            options.compression=COMP_RLE;
+        else
+            return "compression type should be either 'zlib' or 'rle'";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = zlib|rle compression type",
+            "compression");
+        break;
+    }
+
     /* CRLpath */
     switch(cmd) {
     case CMD_INIT:
@@ -283,6 +305,24 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         break;
     }
 #endif /* OpenSSL 0.9.5a */
+
+    /* engine */
+    switch(cmd) {
+    case CMD_INIT:
+        options.engine=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "engine"))
+            break;
+        options.engine=stralloc(arg);
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = auto|engine_id",
+            "engine");
+        break;
+    }
 
     /* foreground */
 #ifndef USE_WIN32
@@ -637,13 +677,14 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     switch(cmd) {
     case CMD_INIT:
         section->option.accept=0;
+        memset(&section->local_addr, 0, sizeof(SOCKADDR_LIST));
+        section->local_addr.addr[0].in.sin_family=AF_INET;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "accept"))
             break;
         section->option.accept=1;
-        if(!name2nums(arg, "0.0.0.0",
-                &section->localnames, &section->localport))
+        if(!name2addrlist(&section->local_addr, arg, DEFAULT_ANY))
             exit(2);
         return NULL; /* OK */
     case CMD_DEFAULT:
@@ -659,16 +700,15 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_INIT:
         section->option.remote=0;
         section->remote_address=NULL;
-        section->remotenames=NULL;
-        section->remoteport=0;
+        section->remote_addr.num=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "connect"))
             break;
         section->option.remote=1;
         section->remote_address=stralloc(arg);
-        if(!section->option.delayed_lookup && !name2nums(arg, "127.0.0.1",
-                &section->remotenames, &section->remoteport)) {
+        if(!section->option.delayed_lookup &&
+                !name2addrlist(&section->remote_addr, arg, DEFAULT_LOOPBACK)) {
             log_raw("Cannot resolve '%s' - delaying DNS lookup", arg);
             section->option.delayed_lookup=1;
         }
@@ -766,12 +806,13 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     /* local */
     switch(cmd) {
     case CMD_INIT:
-        section->local_ip=NULL;
+        memset(&section->source_addr, 0, sizeof(SOCKADDR_LIST));
+        section->source_addr.addr[0].in.sin_family=AF_INET;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "local"))
             break;
-        if(!host2nums(arg, &(section->local_ip)))
+        if(!hostport2addrlist(&section->source_addr, arg, "0"))
             exit(2);
         return NULL; /* OK */
     case CMD_DEFAULT:
@@ -869,6 +910,28 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         break;
     }
 
+    /* TIMEOUTconnect */
+    switch(cmd) {
+    case CMD_INIT:
+        section->timeout_connect=10; /* 10 seconds */
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "TIMEOUTconnect"))
+            break;
+        if(atoi(arg)>0 || !strcmp(arg, "0"))
+            section->timeout_connect=atoi(arg);
+        else
+            return "Illegal connect timeout";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        log_raw("%-15s = %d seconds", "TIMEOUTconnect",
+            section->timeout_connect);
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = seconds to connect remote host", "TIMEOUTconnect");
+        break;
+    }
+
     /* TIMEOUTidle */
     switch(cmd) {
     case CMD_INIT:
@@ -886,7 +949,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         log_raw("%-15s = %d seconds", "TIMEOUTidle", section->timeout_idle);
         break;
     case CMD_HELP:
-        log_raw("%-15s = seconds to keep idle connection", "TIMEOUTidle");
+        log_raw("%-15s = seconds to keep an idle connection", "TIMEOUTidle");
         break;
     }
 
@@ -1021,7 +1084,7 @@ void parse_config(char *name, char *parameter) {
             opt++; /* remove initial whitespaces */
         for(i=strlen(opt)-1; i>=0 && isspace(opt[i]); i--)
             opt[i]='\0'; /* remove trailing whitespaces */
-        if(opt[0]=='\0' || opt[0]=='#') /* empty line or comment */
+        if(opt[0]=='\0' || opt[0]=='#' || opt[0]==';') /* empty line or comment */
             continue;
         if(opt[0]=='[' && opt[strlen(opt)-1]==']') { /* new section */
             errstr=section_validate(section);
@@ -1038,6 +1101,7 @@ void parse_config(char *name, char *parameter) {
             }
             memcpy(new_section, &local_options, sizeof(LOCAL_OPTIONS));
             new_section->servname=stralloc(opt);
+            new_section->session=NULL;
             new_section->next=NULL;
             section->next=new_section;
             section=new_section;
@@ -1128,71 +1192,6 @@ static char **argalloc(char *str) { /* Allocate 'exec' argumets */
     return retval;
 }
 #endif
-
-int name2nums(char *name, char *default_host, u32 **names, u_short *port) {
-    char tmp[STRLEN], *host_str, *port_str;
-    struct servent *p;
-
-    safecopy(tmp, name);
-    port_str=strrchr(tmp, ':');
-    if(port_str) {
-        host_str=tmp;
-        *port_str++='\0';
-    } else { /* no ':' - use default host IP */
-        host_str=default_host;
-        port_str=tmp;
-    }
-    *port=htons((u_short)atoi(port_str));
-    if(!*port) { /* Zero is an illegal value for port number */
-        p=getservbyname(port_str, "tcp");
-        if(!p) {
-            log(LOG_ERR, "Invalid port: %s", port_str);
-            return 0;
-        }
-        *port=p->s_port;
-    }
-    return host2nums(host_str, names);
-}
-
-static int host2nums(char *hostname, u32 **hostlist) {
-        /* get list of host addresses */
-    struct hostent *h;
-    u32 ip;
-    int results, i;
-    char **tab;
-
-    ip=inet_addr(hostname);
-    if(ip+1) { /* (signed)ip!=-1 */
-        *hostlist=calloc(2, sizeof(u32));
-        if (!*hostlist) {
-            log(LOG_ERR, "Memory allocation error");
-            return 0;
-        }
-        (*hostlist)[0]=ip;
-        (*hostlist)[1]=-1;
-        return 1; /* single result */
-    }
-
-    /* not dotted decimal - we have to call resolver */
-    if(!(h=gethostbyname(hostname))) { /* get list of addresses */
-        log(LOG_ERR, "Failed to resolve hostname '%s'", hostname);
-        return 0; /* no results */
-    }
-    for(results=0, tab=h->h_addr_list; *tab; tab++)
-        results++;
-    *hostlist=calloc(results+1, sizeof(u32)); /* allocate memory */
-    if (!*hostlist) {
-        log(LOG_ERR, "Memory allocation error");
-        return 0;
-    }
-    for(i=0; i<results; i++) /* copy addresses */
-        (*hostlist)[i]=*(u32 *)(h->h_addr_list[i]);
-    (*hostlist)[results]=-1;
-#ifdef HAVE_ENDHOSTENT
-    endhostent();
-#endif
-    return results;
-}
 
 /* Parse out the facility/debug level stuff */
 

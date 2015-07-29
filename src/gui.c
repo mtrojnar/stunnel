@@ -43,7 +43,7 @@
 int unix_main(int, char *[]);
 
 /* Prototypes */
-static DWORD WINAPI ThreadFunc(LPVOID);
+static void ThreadFunc(void *);
 static LRESULT CALLBACK wndProc(HWND, UINT, WPARAM, LPARAM);
 
 static int win_main(HINSTANCE, HINSTANCE, LPSTR, int);
@@ -83,6 +83,11 @@ static jmp_buf jump_buf;
 
 static char passphrase[STRLEN];
 
+#if 0
+GETADDRINFO s_getaddrinfo=NULL;
+FREEADDRINFO s_freeaddrinfo=NULL;
+#endif
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     LPSTR lpszCmdLine, int nCmdShow) {
 
@@ -110,16 +115,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     strcat(service_path, "\" -service");
     /* strcat(service_path, lpszCmdLine); */
 
-    if(WSAStartup(0x0101, &wsa_state)) {
+    if(WSAStartup(MAKEWORD( 2, 2 ), &wsa_state)) {
         win_log("Failed to initialize winsock");
         error_mode=1;
     }
 
-    if(!strcmpi(lpszCmdLine, "-service")) {
-        if(!setjmp(jump_buf))
-            main_initialize(NULL, NULL);
-        return start_service(); /* Always start service with -service option */
-    }
+#if 0
+    /* Try to load getaddrinfo() and freeaddrinfo() from wship6.dll */
+    HINSTANCE wship6_dll=LoadLibrary("wship6.dll");
+    if(wship6_dll)
+        s_freeaddrinfo=
+            (FREEADDRINFO)GetProcAddress(wship6_dll, "freeaddrinfo");
+    if(s_freeaddrinfo)
+        s_getaddrinfo=
+            (GETADDRINFO)GetProcAddress(wship6_dll, "getaddrinfo");
+    if(wship6_dll && !s_getaddrinfo)
+        FreeLibrary(wship6_dll);
+#endif
 
     if(!error_mode && !setjmp(jump_buf)) { /* TRY */
         if(!strcmpi(lpszCmdLine, "-install")) {
@@ -133,6 +145,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         }
     }
 
+    if(!strcmpi(lpszCmdLine, "-service")) {
+        if(!setjmp(jump_buf))
+            main_initialize(NULL, NULL);
+        return start_service(); /* Always start service with -service option */
+    }
+
     /* CATCH */
     return win_main(hInstance, hPrevInstance, lpszCmdLine, nCmdShow);
 }
@@ -142,7 +160,6 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     WNDCLASSEX wc;
     MSG msg;
     char *classname=options.win32_name;
-    DWORD iID;
     RECT rect;
 
     /* register the class */
@@ -184,7 +201,7 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     if(error_mode) /* log window is hidden by default */
         set_visible(1);
     else /* create the main thread */
-        CloseHandle(CreateThread(NULL, 0, ThreadFunc, NULL, 0, &iID));
+        _beginthread(ThreadFunc, 0, NULL);
 
     while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
@@ -217,12 +234,12 @@ static void update_taskbar(void) { /* create the taskbar icon */
     Shell_NotifyIcon(NIM_ADD, &nid); /* this adds the icon */
 }
 
-static DWORD WINAPI ThreadFunc(LPVOID arg) {
+static void ThreadFunc(void *arg) {
     if(!setjmp(jump_buf))
         main_execute();
     else
         set_visible(1); /* could be unsafe to call it from another thread */
-    return 0;
+    _endthread();
 }
 
 static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -233,7 +250,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 
 #if 0
     if(message!=WM_CTLCOLORSTATIC && message!=WM_TIMER)
-        log(LOG_DEBUG, "Window message: %d", message);
+        s_log(LOG_DEBUG, "Window message: %d", message);
 #endif
     switch (message) {
     case WM_CREATE:
@@ -557,7 +574,7 @@ static void set_visible(int i) {
 
 void exit_stunnel(int code) { /* used instead of exit() on Win32 */
     win_log("");
-    log(LOG_ERR, "Server is down");
+    s_log(LOG_ERR, "Server is down");
     MessageBox(hwnd, "Stunnel server is down due to an error.\n"
         "You need to exit and correct the problem.\n"
         "Click OK to see the error log window.",

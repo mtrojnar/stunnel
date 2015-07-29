@@ -1,275 +1,444 @@
-<HTML>
-<HEAD>
-<TITLE>stunnel.8</TITLE>
-<LINK REV="made" HREF="mailto:perl@packages.debian.org">
-</HEAD>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>stunnel.8</title>
+<link rev="made" href="mailto:root@localhost" />
+</head>
 
-<BODY>
+<body style="background-color: white">
 
-<A NAME="__index__"></A>
+<p><a name="__index__"></a></p>
 <!-- INDEX BEGIN -->
 
-<UL>
+<ul>
 
-	<LI><A HREF="#name">NAME</A></LI>
-	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
-	<LI><A HREF="#description">DESCRIPTION</A></LI>
-	<LI><A HREF="#options">OPTIONS</A></LI>
-	<LI><A HREF="#configuration file">CONFIGURATION FILE</A></LI>
-	<UL>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#configuration_file">CONFIGURATION FILE</a></li>
+	<ul>
 
-		<LI><A HREF="#global options">GLOBAL OPTIONS</A></LI>
-		<LI><A HREF="#servicelevel options">SERVICE-LEVEL OPTIONS</A></LI>
-	</UL>
+		<li><a href="#global_options">GLOBAL OPTIONS</a></li>
+		<li><a href="#servicelevel_options">SERVICE-LEVEL OPTIONS</a></li>
+	</ul>
 
-	<LI><A HREF="#return value">RETURN VALUE</A></LI>
-	<LI><A HREF="#examples">EXAMPLES</A></LI>
-	<LI><A HREF="#files">FILES</A></LI>
-	<LI><A HREF="#bugs">BUGS</A></LI>
-	<LI><A HREF="#restrictions">RESTRICTIONS</A></LI>
-	<LI><A HREF="#notes">NOTES</A></LI>
-	<UL>
+	<li><a href="#return_value">RETURN VALUE</a></li>
+	<li><a href="#examples">EXAMPLES</a></li>
+	<li><a href="#files">FILES</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#restrictions">RESTRICTIONS</a></li>
+	<li><a href="#notes">NOTES</a></li>
+	<ul>
 
-		<LI><A HREF="#inetd mode">INETD MODE</A></LI>
-		<LI><A HREF="#certificates">CERTIFICATES</A></LI>
-		<LI><A HREF="#randomness">RANDOMNESS</A></LI>
-	</UL>
+		<li><a href="#inetd_mode">INETD MODE</a></li>
+		<li><a href="#certificates">CERTIFICATES</a></li>
+		<li><a href="#randomness">RANDOMNESS</a></li>
+	</ul>
 
-	<LI><A HREF="#see also">SEE ALSO</A></LI>
-	<LI><A HREF="#author">AUTHOR</A></LI>
-</UL>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+</ul>
 <!-- INDEX END -->
 
-<HR>
-<P>
-<H1><A NAME="name">NAME</A></H1>
-<P>stunnel - universal SSL tunnel</P>
-<P>
-<HR>
-<H1><A NAME="synopsis">SYNOPSIS</A></H1>
-<P><STRONG>stunnel</STRONG> [filename] | -fd&nbsp;[n] | -help | -version | -sockets</P>
-<P>
-<HR>
-<H1><A NAME="description">DESCRIPTION</A></H1>
-<P>The <STRONG>stunnel</STRONG> program is designed to work as <EM>SSL</EM> encryption wrapper 
-between remote clients and local (<EM>inetd</EM>-startable) or remote
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>stunnel - universal SSL tunnel</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<dl>
+<dt><strong><a name="item_unix_3a"><strong>Unix:</strong></a></strong><br />
+</dt>
+<dd>
+<strong>stunnel</strong> [filename] | -fd&nbsp;[n] | -help | -version | -sockets
+</dd>
+<p></p>
+<dt><strong><a name="item_win32_3a"><strong>WIN32:</strong></a></strong><br />
+</dt>
+<dd>
+<strong>stunnel</strong> [filename] | -install | -uninstall | -help | -version | -sockets
+</dd>
+<p></p></dl>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>The <strong>stunnel</strong> program is designed to work as <em>SSL</em> encryption wrapper 
+between remote clients and local (<em>inetd</em>-startable) or remote
 servers. The concept is that having non-SSL aware daemons running on
 your system you can easily set them up to communicate with clients over
-secure SSL channels.</P>
-<P><STRONG>stunnel</STRONG> can be used to add SSL functionality to commonly used <EM>Inetd</EM>
+secure SSL channels.</p>
+<p><strong>stunnel</strong> can be used to add SSL functionality to commonly used <em>Inetd</em>
 daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
 NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
-changes to the source code.</P>
-<P>This product includes cryptographic software written by
-Eric Young (<A HREF="mailto:eay@cryptsoft.com">eay@cryptsoft.com</A>)</P>
-<P>
-<HR>
-<H1><A NAME="options">OPTIONS</A></H1>
-<DL>
-<DT><STRONG><A NAME="item_%5Bfilename%5D"><STRONG>[filename]</STRONG></A></STRONG><BR>
-<DD>
+changes to the source code.</p>
+<p>This product includes cryptographic software written by
+Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
+<p>
+</p>
+<hr />
+<h1><a name="options">OPTIONS</a></h1>
+<dl>
+<dt><strong><a name="item__5bfilename_5d"><strong>[filename]</strong></a></strong><br />
+</dt>
+<dd>
 Use specified configuration file
-<P></P>
-<DT><STRONG><A NAME="item_%2Dfd_%5Bn%5D_%28Unix_only%29"><STRONG>-fd [n]</STRONG> (Unix only)</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item__2dfd__5bn_5d__28unix_only_29"><strong>-fd [n]</strong> (Unix only)</a></strong><br />
+</dt>
+<dd>
 Read the config file from specified file descriptor
-<P></P>
-<DT><STRONG><A NAME="item_%2Dhelp"><STRONG>-help</STRONG></A></STRONG><BR>
-<DD>
-Print <STRONG>stunnel</STRONG> help menu
-<P></P>
-<DT><STRONG><A NAME="item_%2Dversion"><STRONG>-version</STRONG></A></STRONG><BR>
-<DD>
-Print <STRONG>stunnel</STRONG> version and compile time defaults
-<P></P>
-<DT><STRONG><A NAME="item_%2Dsockets"><STRONG>-sockets</STRONG></A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item__2dhelp"><strong>-help</strong></a></strong><br />
+</dt>
+<dd>
+Print <strong>stunnel</strong> help menu
+</dd>
+<p></p>
+<dt><strong><a name="item__2dversion"><strong>-version</strong></a></strong><br />
+</dt>
+<dd>
+Print <strong>stunnel</strong> version and compile time defaults
+</dd>
+<p></p>
+<dt><strong><a name="item__2dsockets"><strong>-sockets</strong></a></strong><br />
+</dt>
+<dd>
 Print default socket options
-<P></P>
-<DT><STRONG><A NAME="item_install"><STRONG>-install</STRONG> (NT/2000/XP only)</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_install"><strong>-install</strong> (NT/2000/XP only)</a></strong><br />
+</dt>
+<dd>
 Install NT Service
-<P></P>
-<DT><STRONG><A NAME="item_uninstall"><STRONG>-uninstall</STRONG> (NT/2000/XP only)</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_uninstall"><strong>-uninstall</strong> (NT/2000/XP only)</a></strong><br />
+</dt>
+<dd>
 Uninstall NT Service
-<P></P></DL>
-<P>
-<HR>
-<H1><A NAME="configuration file">CONFIGURATION FILE</A></H1>
-<P>Each line of the configuration file can be either:</P>
-<UL>
-<LI>
+</dd>
+<p></p></dl>
+<p>
+</p>
+<hr />
+<h1><a name="configuration_file">CONFIGURATION FILE</a></h1>
+<p>Each line of the configuration file can be either:</p>
+<ul>
+<li></li>
 an empty line (ignored)
-<P></P>
-<LI>
-a comment starting with ``#'' (ignored)
-<P></P>
-<LI>
-an ``option_name = option_value'' pair
-<P></P>
-<LI>
-``[service_name]'' indicating a start of a service definition
-<P></P></UL>
-<P>
-<H2><A NAME="global options">GLOBAL OPTIONS</A></H2>
-<DL>
-<DT><STRONG><A NAME="item_CApath_%3D_directory"><STRONG>CApath</STRONG> = directory</A></STRONG><BR>
-<DD>
+<p></p>
+<li></li>
+a comment starting with ';' (ignored)
+<p></p>
+<li></li>
+an 'option_name = option_value' pair
+<p></p>
+<li></li>
+'[service_name]' indicating a start of a service definition
+<p></p></ul>
+<p>
+</p>
+<h2><a name="global_options">GLOBAL OPTIONS</a></h2>
+<dl>
+<dt><strong><a name="item_capath__3d_directory"><strong>CApath</strong> = directory</a></strong><br />
+</dt>
+<dd>
 Certificate Authority directory
-<P>This is the directory in which <STRONG>stunnel</STRONG> will look for certificates when
-using the <EM>verify</EM>. Note that the certificates in this directory
-should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.</P>
-<P></P>
-<DT><STRONG><A NAME="item_CAfile_%3D_certfile"><STRONG>CAfile</STRONG> = certfile</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>This is the directory in which <strong>stunnel</strong> will look for certificates when
+using the <em>verify</em>. Note that the certificates in this directory
+should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.</p>
+</dd>
+<dd>
+<p><em>CApath</em> path is relative to <em>chroot</em> directory if specified.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_cafile__3d_certfile"><strong>CAfile</strong> = certfile</a></strong><br />
+</dt>
+<dd>
 Certificate Authority file
-<P>This file contains multiple CA certificates, used with the <EM>verify</EM>.</P>
-<P></P>
-<DT><STRONG><A NAME="item_cert_%3D_pemfile"><STRONG>cert</STRONG> = pemfile</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>This file contains multiple CA certificates, used with the <em>verify</em>.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_cert__3d_pemfile"><strong>cert</strong> = pemfile</a></strong><br />
+</dt>
+<dd>
 certificate chain PEM file name
-<P>A PEM is always needed in server mode.
+</dd>
+<dd>
+<p>A PEM is always needed in server mode.
 Specifying this flag in client mode will use this certificate chain
 as a client side certificate chain.  Using client side certs is optional.
 The certificates must be in PEM format and must be sorted starting with the
-certificate to the highest level (root CA).</P>
-<P></P>
-<DT><STRONG><A NAME="item_directory"><STRONG>chroot</STRONG> = directory (Unix only)</A></STRONG><BR>
-<DD>
-directory to chroot <STRONG>stunnel</STRONG> process
-<P><STRONG>chroot</STRONG> keeps <STRONG>stunnel</STRONG> in chrooted jail.  <EM>CApath</EM>, <EM>pid</EM> and <EM>exec</EM>
-are located inside the jail and the patches have to be relative to the
-directory specified with <STRONG>chroot</STRONG>.</P>
-<P>To have libwrap (TCP Wrappers) control effective in a chrooted environment
+certificate to the highest level (root CA).</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_directory"><strong>chroot</strong> = directory (Unix only)</a></strong><br />
+</dt>
+<dd>
+directory to chroot <strong>stunnel</strong> process
+</dd>
+<dd>
+<p><strong>chroot</strong> keeps <strong>stunnel</strong> in chrooted jail.  <em>CApath</em>, <em>CRLpath</em>, <em>pid</em>
+and <em>exec</em> are located inside the jail and the patches have to be relative
+to the directory specified with <strong>chroot</strong>.</p>
+</dd>
+<dd>
+<p>To have libwrap (TCP Wrappers) control effective in a chrooted environment
 you also have to copy its configuration files (/etc/hosts.allow and
-/etc/hosts.deny) there.</P>
-<P></P>
-<DT><STRONG><A NAME="item_ciphers_%3D_cipherlist"><STRONG>ciphers</STRONG> = cipherlist</A></STRONG><BR>
-<DD>
+/etc/hosts.deny) there.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_ciphers__3d_cipherlist"><strong>ciphers</strong> = cipherlist</a></strong><br />
+</dt>
+<dd>
 Select permitted SSL ciphers
-<P>A colon delimited list of the ciphers to allow in the SSL connection.
-For example DES-CBC3-SHA:IDEA-CBC-MD5</P>
-<P></P>
-<DT><STRONG><A NAME="item_client_%3D_yes_%7C_no"><STRONG>client</STRONG> = yes | no</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>A colon delimited list of the ciphers to allow in the SSL connection.
+For example DES-CBC3-SHA:IDEA-CBC-MD5</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_client__3d_yes__7c_no"><strong>client</strong> = yes | no</a></strong><br />
+</dt>
+<dd>
 client mode (remote service uses SSL)
-<P>default: no (server mode)</P>
-<P></P>
-<DT><STRONG><A NAME="item_CRLpath_%3D_directory"><STRONG>CRLpath</STRONG> = directory</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>default: no (server mode)</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_compression__3d_zlib__7c_rle"><strong>compression</strong> = zlib | rle</a></strong><br />
+</dt>
+<dd>
+select data compression algorithm
+</dd>
+<dd>
+<p>default: no compression</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_crlpath__3d_directory"><strong>CRLpath</strong> = directory</a></strong><br />
+</dt>
+<dd>
 Certificate Revocation Lists directory
-<P>This is the directory in which <STRONG>stunnel</STRONG> will look for CRLs when
-using the <EM>verify</EM>. Note that the CRLs in this directory should
-be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.</P>
-<P></P>
-<DT><STRONG><A NAME="item_CRLfile_%3D_certfile"><STRONG>CRLfile</STRONG> = certfile</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>This is the directory in which <strong>stunnel</strong> will look for CRLs when
+using the <em>verify</em>. Note that the CRLs in this directory should
+be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.</p>
+</dd>
+<dd>
+<p><em>CRLpath</em> path is relative to <em>chroot</em> directory if specified.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_crlfile__3d_certfile"><strong>CRLfile</strong> = certfile</a></strong><br />
+</dt>
+<dd>
 Certificate Revocation Lists file
-<P>This file contains multiple CRLs, used with the <EM>verify</EM>.</P>
-<P></P>
-<DT><STRONG><A NAME="item_debug_%3D_%5Bfacility%2E%5Dlevel"><STRONG>debug</STRONG> = [facility.]level</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>This file contains multiple CRLs, used with the <em>verify</em>.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_debug__3d__5bfacility_2e_5dlevel"><strong>debug</strong> = [facility.]level</a></strong><br />
+</dt>
+<dd>
 debugging level
-<P>Level is a one of the syslog level names or numbers
+</dd>
+<dd>
+<p>Level is a one of the syslog level names or numbers
 emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6), or debug (7).  All logs for the specified level and
-all levels numerically less than it will be shown.  Use <STRONG>debug = debug</STRONG> or
-<STRONG>debug = 7</STRONG> for greatest debugging output.  The default is notice (5).</P>
-<P>The syslog facility 'daemon' will be used unless a facility name is supplied.
-(Facilities are not supported on Win32.)</P>
-<P>Case is ignored for both facilities and levels.</P>
-<P></P>
-<DT><STRONG><A NAME="item_path"><STRONG>EGD</STRONG> = egd path (Unix only)</A></STRONG><BR>
-<DD>
+all levels numerically less than it will be shown.  Use <strong>debug = debug</strong> or
+<strong>debug = 7</strong> for greatest debugging output.  The default is notice (5).</p>
+</dd>
+<dd>
+<p>The syslog facility 'daemon' will be used unless a facility name is supplied.
+(Facilities are not supported on Win32.)</p>
+</dd>
+<dd>
+<p>Case is ignored for both facilities and levels.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_path"><strong>EGD</strong> = egd path (Unix only)</a></strong><br />
+</dt>
+<dd>
 path to Entropy Gathering Daemon socket
-<P>Entropy Gathering Daemon socket to use to feed OpenSSL random number
-generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)</P>
-<P></P>
-<DT><STRONG><A NAME="item_no"><STRONG>foreground</STRONG> = yes | no (Unix only)</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>Entropy Gathering Daemon socket to use to feed OpenSSL random number
+generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_engine__3d_auto__7c__3cengine_id_3e"><strong>engine</strong> = auto | &lt;engine id&gt;</a></strong><br />
+</dt>
+<dd>
+select hardware engine
+</dd>
+<dd>
+<p>default: software-only cryptography</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_no"><strong>foreground</strong> = yes | no (Unix only)</a></strong><br />
+</dt>
+<dd>
 foreground mode
-<P>Stay in foreground (don't fork) and log to stderr
-instead of via syslog (unless <STRONG>output</STRONG> is specified).</P>
-<P>default: background in daemon mode</P>
-<P></P>
-<DT><STRONG><A NAME="item_key_%3D_keyfile"><STRONG>key</STRONG> = keyfile</A></STRONG><BR>
-<DD>
-private key for certificate specified with <EM>cert</EM> option
-<P>Private key is needed to authenticate certificate owner.
+</dd>
+<dd>
+<p>Stay in foreground (don't fork) and log to stderr
+instead of via syslog (unless <strong>output</strong> is specified).</p>
+</dd>
+<dd>
+<p>default: background in daemon mode</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_key__3d_keyfile"><strong>key</strong> = keyfile</a></strong><br />
+</dt>
+<dd>
+private key for certificate specified with <em>cert</em> option
+</dd>
+<dd>
+<p>Private key is needed to authenticate certificate owner.
 Since this file should be kept secret it should only be readable
-to its owner.  On Unix systems you can use the following command:</P>
-<PRE>
-    chmod 600 keyfile</PRE>
-<P>default: value of <EM>cert</EM> option</P>
-<P></P>
-<DT><STRONG><A NAME="item_options_%3D_SSL_options"><STRONG>options</STRONG> = SSL_options</A></STRONG><BR>
-<DD>
+to its owner.  On Unix systems you can use the following command:</p>
+</dd>
+<dd>
+<pre>
+    chmod 600 keyfile</pre>
+</dd>
+<dd>
+<p>default: value of <em>cert</em> option</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_options__3d_ssl_options"><strong>options</strong> = SSL_options</a></strong><br />
+</dt>
+<dd>
 OpenSSL library options
-<P>The parameter is the OpenSSL option name as described in the
-<EM>SSL_CTX_set_options(3ssl)</EM> manual, but without <EM>SSL_OP_</EM> prefix.
-Several <EM>options</EM> can be used to specify multiple options.</P>
-<P>For example for compatibility with erroneous Eudora SSL implementation
-the following option can be used:</P>
-<PRE>
-    options = DONT_INSERT_EMPTY_FRAGMENTS</PRE>
-<P></P>
-<DT><STRONG><A NAME="item_output_%3D_file"><STRONG>output</STRONG> = file</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>The parameter is the OpenSSL option name as described in the
+<em>SSL_CTX_set_options(3ssl)</em> manual, but without <em>SSL_OP_</em> prefix.
+Several <em>options</em> can be used to specify multiple options.</p>
+</dd>
+<dd>
+<p>For example for compatibility with erroneous Eudora SSL implementation
+the following option can be used:</p>
+</dd>
+<dd>
+<pre>
+    options = DONT_INSERT_EMPTY_FRAGMENTS</pre>
+</dd>
+<p></p>
+<dt><strong><a name="item_output__3d_file"><strong>output</strong> = file</a></strong><br />
+</dt>
+<dd>
 append log messages to a file instead of using syslog
-<P>/dev/stdout device can be used to redirect log messages to the standard
-output (for example to log them with daemontools splogger).</P>
-<P></P>
-<DT><STRONG><A NAME="item_file"><STRONG>pid</STRONG> = file (Unix only)</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>/dev/stdout device can be used to redirect log messages to the standard
+output (for example to log them with daemontools splogger).</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_file"><strong>pid</strong> = file (Unix only)</a></strong><br />
+</dt>
+<dd>
 pid file location
-<P>If the argument is empty, then no pid file will be created.</P>
-<P></P>
-<DT><STRONG><A NAME="item_RNDbytes_%3D_bytes"><STRONG>RNDbytes</STRONG> = bytes</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>If the argument is empty, then no pid file will be created.</p>
+</dd>
+<dd>
+<p><em>pid</em> path is relative to <em>chroot</em> directory if specified.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_rndbytes__3d_bytes"><strong>RNDbytes</strong> = bytes</a></strong><br />
+</dt>
+<dd>
 bytes to read from random seed files
-<P>Number of bytes of data read from random seed files.  With SSL versions
+</dd>
+<dd>
+<p>Number of bytes of data read from random seed files.  With SSL versions
 less than 0.9.5a, also determines how many bytes of data are considered
 sufficient to seed the PRNG.  More recent OpenSSL versions have a builtin
-function to determine when sufficient randomness is available.</P>
-<P></P>
-<DT><STRONG><A NAME="item_RNDfile_%3D_file"><STRONG>RNDfile</STRONG> = file</A></STRONG><BR>
-<DD>
+function to determine when sufficient randomness is available.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_rndfile__3d_file"><strong>RNDfile</strong> = file</a></strong><br />
+</dt>
+<dd>
 path to file with random seed data
-<P>The SSL library will use data from this file first to seed the random
-number generator.</P>
-<P></P>
-<DT><STRONG><A NAME="item_RNDoverwrite_%3D_yes_%7C_no"><STRONG>RNDoverwrite</STRONG> = yes | no</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>The SSL library will use data from this file first to seed the random
+number generator.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_rndoverwrite__3d_yes__7c_no"><strong>RNDoverwrite</strong> = yes | no</a></strong><br />
+</dt>
+<dd>
 overwrite the random seed files with new random data
-<P>default: yes</P>
-<P></P>
-<DT><STRONG><A NAME="item_service_%3D_servicename"><STRONG>service</STRONG> = servicename</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>default: yes</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_service__3d_servicename"><strong>service</strong> = servicename</a></strong><br />
+</dt>
+<dd>
 use specified string as the service name
-<P>On Unix: <EM>inetd</EM> mode service name for TCP Wrapper library.</P>
-<P>On NT/2000/XP: NT service name in the Control Panel.</P>
-<P>default: stunnel</P>
-<P></P>
-<DT><STRONG><A NAME="item_session_%3D_timeout"><STRONG>session</STRONG> = timeout</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p><strong>On Unix:</strong> <em>inetd</em> mode service name for TCP Wrapper library.</p>
+</dd>
+<dd>
+<p><strong>On NT/2000/XP:</strong> NT service name in the Control Panel.</p>
+</dd>
+<dd>
+<p>default: stunnel</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_session__3d_timeout"><strong>session</strong> = timeout</a></strong><br />
+</dt>
+<dd>
 session cache timeout
-<P></P>
-<DT><STRONG><A NAME="item_groupname"><STRONG>setgid</STRONG> = groupname (Unix only)</A></STRONG><BR>
-<DD>
-<CODE>setgid()</CODE> to groupname in daemon mode and clears all other groups
-<P></P>
-<DT><STRONG><A NAME="item_username"><STRONG>setuid</STRONG> = username (Unix only)</A></STRONG><BR>
-<DD>
-<CODE>setuid()</CODE> to username in daemon mode
-<P></P>
-<DT><STRONG><A NAME="item_socket_%3D_a%7Cl%7Cr%3Aoption%3Dvalue%5B%3Avalue%5"><STRONG>socket</STRONG> = a|l|r:option=value[:value]</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_groupname"><strong>setgid</strong> = groupname (Unix only)</a></strong><br />
+</dt>
+<dd>
+<code>setgid()</code> to groupname in daemon mode and clears all other groups
+</dd>
+<p></p>
+<dt><strong><a name="item_username"><strong>setuid</strong> = username (Unix only)</a></strong><br />
+</dt>
+<dd>
+<code>setuid()</code> to username in daemon mode
+</dd>
+<p></p>
+<dt><strong><a name="item_socket__3d_a_7cl_7cr_3aoption_3dvalue_5b_3avalue_5"><strong>socket</strong> = a|l|r:option=value[:value]</a></strong><br />
+</dt>
+<dd>
 Set an option on accept/local/remote socket
-<P>The values for linger option are l_onof:l_linger.
-The values for time are tv_sec:tv_usec.</P>
-<P>Examples:</P>
-<PRE>
+</dd>
+<dd>
+<p>The values for linger option are l_onof:l_linger.
+The values for time are tv_sec:tv_usec.</p>
+</dd>
+<dd>
+<p>Examples:</p>
+</dd>
+<dd>
+<pre>
     socket = l:SO_LINGER=1:60
         set one minute timeout for closing local socket
     socket = r:TCP_NODELAY=1
@@ -280,189 +449,256 @@ The values for time are tv_sec:tv_usec.</P>
     socket = a:SO_REUSEADDR=0
         disable address reuse (enabled by default)
     socket = a:SO_BINDTODEVICE=lo
-        only accept connections on loopback interface</PRE>
-<P></P>
-<DT><STRONG><STRONG>taskbar</STRONG> = yes | no (WIN32 only)</STRONG><BR>
-<DD>
+        only accept connections on loopback interface</pre>
+</dd>
+<p></p>
+<dt><strong><strong>taskbar</strong> = yes | no (WIN32 only)</strong><br />
+</dt>
+<dd>
 enable the taskbar icon
-<P>default: yes</P>
-<P></P>
-<DT><STRONG><A NAME="item_verify_%3D_level"><STRONG>verify</STRONG> = level</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>default: yes</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_verify__3d_level"><strong>verify</strong> = level</a></strong><br />
+</dt>
+<dd>
 verify peer certificate
-<PRE>
+</dd>
+<dd>
+<pre>
     level 1 - verify peer certificate if present
     level 2 - verify peer certificate
     level 3 - verify peer with locally installed certificate
-    default - no verify</PRE>
-<P></P></DL>
-<P>
-<H2><A NAME="servicelevel options">SERVICE-LEVEL OPTIONS</A></H2>
-<P>Each configuration section begins with service name in square brackets.
+    default - no verify</pre>
+</dd>
+<p></p></dl>
+<p>
+</p>
+<h2><a name="servicelevel_options">SERVICE-LEVEL OPTIONS</a></h2>
+<p>Each configuration section begins with service name in square brackets.
 The service name is used for libwrap (TCP Wrappers) access control and lets
-you distinguish <STRONG>stunnel</STRONG> services in your log files.</P>
-<P>Note that if you wish to run <STRONG>stunnel</STRONG> in <EM>inetd</EM> mode (where it
-is provided a network socket by a server such as <EM>inetd</EM>, <EM>xinetd</EM>,
-or <EM>tcpserver</EM>) then you should read the section entitiled <EM>INETD MODE</EM>
-below.</P>
-<DL>
-<DT><STRONG><A NAME="item_accept_%3D_%5Bhost%3A%5Dport"><STRONG>accept</STRONG> = [host:]port</A></STRONG><BR>
-<DD>
+you distinguish <strong>stunnel</strong> services in your log files.</p>
+<p>Note that if you wish to run <strong>stunnel</strong> in <em>inetd</em> mode (where it
+is provided a network socket by a server such as <em>inetd</em>, <em>xinetd</em>,
+or <em>tcpserver</em>) then you should read the section entitled <em>INETD MODE</em>
+below.</p>
+<dl>
+<dt><strong><a name="item_accept__3d__5bhost_3a_5dport"><strong>accept</strong> = [host:]port</a></strong><br />
+</dt>
+<dd>
 accept connections on specified host:port
-<P>If no host specified, defaults to all IP addresses for the local host.</P>
-<P></P>
-<DT><STRONG><A NAME="item_connect_%3D_%5Bhost%3A%5Dport"><STRONG>connect</STRONG> = [host:]port</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>If no host specified, defaults to all IP addresses for the local host.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_connect__3d__5bhost_3a_5dport"><strong>connect</strong> = [host:]port</a></strong><br />
+</dt>
+<dd>
 connect to remote host:port
-<P>If no host specified, defaults to localhost.</P>
-<P></P>
-<DT><STRONG><A NAME="item_delay_%3D_yes_%7C_no"><STRONG>delay</STRONG> = yes | no</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>If no host specified, defaults to localhost.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_delay__3d_yes__7c_no"><strong>delay</strong> = yes | no</a></strong><br />
+</dt>
+<dd>
 delay DNS lookup for 'connect' option
-<P></P>
-<DT><STRONG><A NAME="item_executable_path"><STRONG>exec</STRONG> = executable_path (Unix only)</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_executable_path"><strong>exec</strong> = executable_path (Unix only)</a></strong><br />
+</dt>
+<dd>
 execute local inetd-type program
-<P></P>
-<DT><STRONG><A NAME="item_execargs_%3D_%240_%241_%242_%2E%2E%2E_%28Unix_only"><STRONG>execargs</STRONG> = $0 $1 $2 ... (Unix only)</A></STRONG><BR>
-<DD>
-arguments for <EM>exec</EM> including program name ($0)
-<P>Quoting is currently not supported.
-Arguments are speparated with arbitrary number of whitespaces.</P>
-<P></P>
-<DT><STRONG><A NAME="item_ident_%3D_username"><STRONG>ident</STRONG> = username</A></STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p><em>exec</em> path is relative to <em>chroot</em> directory if specified.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_execargs__3d__240__241__242__2e_2e_2e__28unix_only"><strong>execargs</strong> = $0 $1 $2 ... (Unix only)</a></strong><br />
+</dt>
+<dd>
+arguments for <em>exec</em> including program name ($0)
+</dd>
+<dd>
+<p>Quoting is currently not supported.
+Arguments are separated with arbitrary number of whitespaces.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_ident__3d_username"><strong>ident</strong> = username</a></strong><br />
+</dt>
+<dd>
 use IDENT (RFC 1413) username checking
-<P></P>
-<DT><STRONG><A NAME="item_local_%3D_host"><STRONG>local</STRONG> = host</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_local__3d_host"><strong>local</strong> = host</a></strong><br />
+</dt>
+<dd>
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
-<P></P>
-<DT><STRONG><A NAME="item_protocol_%3D_proto"><STRONG>protocol</STRONG> = proto</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_protocol__3d_proto"><strong>protocol</strong> = proto</a></strong><br />
+</dt>
+<dd>
 Negotiate SSL with specified protocol
-<P>currently supported: cifs, nntp, pop3, smtp</P>
-<P></P>
-<DT><STRONG><STRONG>pty</STRONG> = yes | no (Unix only)</STRONG><BR>
-<DD>
+</dd>
+<dd>
+<p>currently supported: cifs, nntp, pop3, smtp</p>
+</dd>
+<p></p>
+<dt><strong><strong>pty</strong> = yes | no (Unix only)</strong><br />
+</dt>
+<dd>
 allocate pseudo terminal for 'exec' option
-<P></P>
-<DT><STRONG><A NAME="item_TIMEOUTbusy_%3D_seconds"><STRONG>TIMEOUTbusy</STRONG> = seconds</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_timeoutbusy__3d_seconds"><strong>TIMEOUTbusy</strong> = seconds</a></strong><br />
+</dt>
+<dd>
 time to wait for expected data
-<P></P>
-<DT><STRONG><A NAME="item_TIMEOUTclose_%3D_seconds"><STRONG>TIMEOUTclose</STRONG> = seconds</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_timeoutclose__3d_seconds"><strong>TIMEOUTclose</strong> = seconds</a></strong><br />
+</dt>
+<dd>
 time to wait for close_notify (set to 0 for buggy MSIE)
-<P></P>
-<DT><STRONG><A NAME="item_TIMEOUTidle_%3D_seconds"><STRONG>TIMEOUTidle</STRONG> = seconds</A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_timeoutconnect__3d_seconds"><strong>TIMEOUTconnect</strong> = seconds</a></strong><br />
+</dt>
+<dd>
+time to wait to connect a remote host
+</dd>
+<p></p>
+<dt><strong><a name="item_timeoutidle__3d_seconds"><strong>TIMEOUTidle</strong> = seconds</a></strong><br />
+</dt>
+<dd>
 time to keep an idle connection
-<P></P>
-<DT><STRONG><STRONG>transparent</STRONG> = yes | no (Unix only)</STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><strong>transparent</strong> = yes | no (Unix only)</strong><br />
+</dt>
+<dd>
 transparent proxy mode
-<P>Re-write address to appear as if wrapped daemon is connecting
-from the SSL client machine instead of the machine running <STRONG>stunnel</STRONG>.
-This option is only available in local mode (<EM>exec</EM> option)
-by LD_PRELOADing env.so shared library or in remote mode (<EM>connect</EM>
-option) on Linux 2.2 kernel compiled with <EM>transparent proxy</EM> option
+</dd>
+<dd>
+<p>Re-write address to appear as if wrapped daemon is connecting
+from the SSL client machine instead of the machine running <strong>stunnel</strong>.
+This option is only available in local mode (<em>exec</em> option)
+by LD_PRELOADing env.so shared library or in remote mode (<em>connect</em>
+option) on Linux 2.2 kernel compiled with <em>transparent proxy</em> option
 and then only in server mode. Note that this option will not combine
-with proxy mode (<EM>connect</EM>) unless the client's default route to the target
-machine lies through the host running <STRONG>stunnel</STRONG>, which cannot be localhost.</P>
-<P></P></DL>
-<P>
-<HR>
-<H1><A NAME="return value">RETURN VALUE</A></H1>
-<P><STRONG>stunnel</STRONG> returns zero on success, non-zero on error.</P>
-<P>
-<HR>
-<H1><A NAME="examples">EXAMPLES</A></H1>
-<P>In order to provide SSL encapsulation to your local <EM>imapd</EM> service, use</P>
-<PRE>
+with proxy mode (<em>connect</em>) unless the client's default route to the target
+machine lies through the host running <strong>stunnel</strong>, which cannot be localhost.</p>
+</dd>
+<p></p></dl>
+<p>
+</p>
+<hr />
+<h1><a name="return_value">RETURN VALUE</a></h1>
+<p><strong>stunnel</strong> returns zero on success, non-zero on error.</p>
+<p>
+</p>
+<hr />
+<h1><a name="examples">EXAMPLES</a></h1>
+<p>In order to provide SSL encapsulation to your local <em>imapd</em> service, use</p>
+<pre>
     [imapd]
     accept = 993
     exec = /usr/sbin/imapd
-    execargs = imapd</PRE>
-<P>If you want to provide tunneling to your <EM>pppd</EM> daemon on port 2020,
-use something like</P>
-<PRE>
+    execargs = imapd</pre>
+<p>If you want to provide tunneling to your <em>pppd</em> daemon on port 2020,
+use something like</p>
+<pre>
     [vpn]
     accept = 2020
     exec = /usr/sbin/pppd
     execargs = pppd local
-    pty = yes</PRE>
-<P>If you want to use <STRONG>stunnel</STRONG> in <EM>inetd</EM> mode to launch your imapd
-process, you'd use this <EM>stunnel.conf</EM>.
-Note there must be no <EM>[service_name]</EM> section.</P>
-<PRE>
+    pty = yes</pre>
+<p>If you want to use <strong>stunnel</strong> in <em>inetd</em> mode to launch your imapd
+process, you'd use this <em>stunnel.conf</em>.
+Note there must be no <em>[service_name]</em> section.</p>
+<pre>
     exec = /usr/sbin/imapd
-    execargs = imapd</PRE>
-<P>
-<HR>
-<H1><A NAME="files">FILES</A></H1>
-<DL>
-<DT><STRONG><A NAME="item_stunnel%2Econf"><EM>stunnel.conf</EM></A></STRONG><BR>
-<DD>
-<STRONG>stunnel</STRONG> configuration file
-<P></P>
-<DT><STRONG><A NAME="item_stunnel%2Epem"><EM>stunnel.pem</EM></A></STRONG><BR>
-<DD>
-<STRONG>stunnel</STRONG> certificate and private key
-<P></P></DL>
-<P>
-<HR>
-<H1><A NAME="bugs">BUGS</A></H1>
-<P>Option <EM>execargs</EM> does not support quoting.</P>
-<P>
-<HR>
-<H1><A NAME="restrictions">RESTRICTIONS</A></H1>
-<P><STRONG>stunnel</STRONG> cannot be used for the FTP daemon because of the nature
+    execargs = imapd</pre>
+<p>
+</p>
+<hr />
+<h1><a name="files">FILES</a></h1>
+<dl>
+<dt><strong><a name="item_stunnel_2econf"><em>stunnel.conf</em></a></strong><br />
+</dt>
+<dd>
+<strong>stunnel</strong> configuration file
+</dd>
+<p></p>
+<dt><strong><a name="item_stunnel_2epem"><em>stunnel.pem</em></a></strong><br />
+</dt>
+<dd>
+<strong>stunnel</strong> certificate and private key
+</dd>
+<p></p></dl>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>Option <em>execargs</em> does not support quoting.</p>
+<p>
+</p>
+<hr />
+<h1><a name="restrictions">RESTRICTIONS</a></h1>
+<p><strong>stunnel</strong> cannot be used for the FTP daemon because of the nature
 of the FTP protocol which utilizes multiple ports for data transfers.
-There are available SSL enabled versions of FTP and telnet daemons, however.</P>
-<P>
-<HR>
-<H1><A NAME="notes">NOTES</A></H1>
-<P>
-<H2><A NAME="inetd mode">INETD MODE</A></H2>
-<P>The most common use of <STRONG>stunnel</STRONG> is to listen on a network
+There are available SSL enabled versions of FTP and telnet daemons, however.</p>
+<p>
+</p>
+<hr />
+<h1><a name="notes">NOTES</a></h1>
+<p>
+</p>
+<h2><a name="inetd_mode">INETD MODE</a></h2>
+<p>The most common use of <strong>stunnel</strong> is to listen on a network
 port and establish communication with either a new port
-via the connect option, or a new program via the <EM>exec</EM> option.
+via the connect option, or a new program via the <em>exec</em> option.
 However there is a special case when you wish to have
 some other program accept incoming connections and
-launch <STRONG>stunnel</STRONG>, for example with <EM>inetd</EM>, <EM>xinetd</EM>,
-or <EM>tcpserver</EM>.</P>
-<P>For example, if you have the following line in <EM>inetd.conf</EM>:</P>
-<PRE>
-    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf</PRE>
-<P>In these cases, the <EM>inetd</EM>-style program is responsible
-for binding a network socket (<EM>imaps</EM> above) and handing
-it to <STRONG>stunnel</STRONG> when a connection is received.
-Thus you do not want <STRONG>stunnel</STRONG> to have any <EM>accept</EM> option.
-All the <EM>Service Level Options</EM> should be placed in the
-global options section, and no <EM>[service_name]</EM> section
-will be present.  See the <EM>EXAMPLES</EM> section for example
-configurations.</P>
-<P>
-<H2><A NAME="certificates">CERTIFICATES</A></H2>
-<P>Each SSL enabled daemon needs to present a valid X.509 certificate
+launch <strong>stunnel</strong>, for example with <em>inetd</em>, <em>xinetd</em>,
+or <em>tcpserver</em>.</p>
+<p>For example, if you have the following line in <em>inetd.conf</em>:</p>
+<pre>
+    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf</pre>
+<p>In these cases, the <em>inetd</em>-style program is responsible
+for binding a network socket (<em>imaps</em> above) and handing
+it to <strong>stunnel</strong> when a connection is received.
+Thus you do not want <strong>stunnel</strong> to have any <em>accept</em> option.
+All the <em>Service Level Options</em> should be placed in the
+global options section, and no <em>[service_name]</em> section
+will be present.  See the <em>EXAMPLES</em> section for example
+configurations.</p>
+<p>
+</p>
+<h2><a name="certificates">CERTIFICATES</a></h2>
+<p>Each SSL enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
-generate them with the free <EM>OpenSSL</EM> package. You can find more
-information on certificates generation on pages listed below.</P>
-<P>Two things are important when generating certificate-key pairs for
-<STRONG>stunnel</STRONG>. The private key cannot be encrypted, because the server
+generate them with the free <em>OpenSSL</em> package. You can find more
+information on certificates generation on pages listed below.</p>
+<p>Two things are important when generating certificate-key pairs for
+<strong>stunnel</strong>. The private key cannot be encrypted, because the server
 has no way to obtain the password from the user. To produce an
-unencrypted key add the <EM>-nodes</EM> option when running the <STRONG>req</STRONG>
-command from the <EM>OpenSSL</EM> kit.</P>
-<P>The order of contents of the <EM>.pem</EM> file is also important.
+unencrypted key add the <em>-nodes</em> option when running the <strong>req</strong>
+command from the <em>OpenSSL</em> kit.</p>
+<p>The order of contents of the <em>.pem</em> file is also important.
 It should contain the unencrypted private key first, then a signed certificate
 (not certificate request).
 There should be also empty lines after certificate and private key.
 Plaintext certificate information appended on the top of generated certificate
-should be discarded. So the file should look like this:</P>
-<PRE>
+should be discarded. So the file should look like this:</p>
+<pre>
     -----BEGIN RSA PRIVATE KEY-----
     [encoded key]
     -----END RSA PRIVATE KEY-----
@@ -470,89 +706,104 @@ should be discarded. So the file should look like this:</P>
     -----BEGIN CERTIFICATE-----
     [encoded certificate]
     -----END CERTIFICATE-----
-    [empty line]</PRE>
-<P>
-<H2><A NAME="randomness">RANDOMNESS</A></H2>
-<P><STRONG>stunnel</STRONG> needs to seed the PRNG (pseudo random number generator) in
+    [empty line]</pre>
+<p>
+</p>
+<h2><a name="randomness">RANDOMNESS</a></h2>
+<p><strong>stunnel</strong> needs to seed the PRNG (pseudo random number generator) in
 order for SSL to use good randomness.  The following sources are loaded
-in order until sufficient random data has been gathered:</P>
-<UL>
-<LI>
-The file specified with the <EM>RNDfile</EM> flag.
-<P></P>
-<LI>
+in order until sufficient random data has been gathered:</p>
+<ul>
+<li></li>
+The file specified with the <em>RNDfile</em> flag.
+<p></p>
+<li></li>
 The file specified by the RANDFILE environment variable, if set.
-<P></P>
-<LI>
+<p></p>
+<li></li>
 The file .rnd in your home directory, if RANDFILE not set.
-<P></P>
-<LI>
+<p></p>
+<li></li>
 The file specified with '--with-random' at compile time.
-<P></P>
-<LI>
+<p></p>
+<li></li>
 The contents of the screen if running on Windows.
-<P></P>
-<LI>
-The egd socket specified with the <EM>EGD</EM> flag.
-<P></P>
-<LI>
+<p></p>
+<li></li>
+The egd socket specified with the <em>EGD</em> flag.
+<p></p>
+<li></li>
 The egd socket specified with '--with-egd-sock' at compile time.
-<P></P>
-<LI>
+<p></p>
+<li></li>
 The /dev/urandom device.
-<P></P></UL>
-<P>With recent (&gt;=OpenSSL 0.9.5a) version of SSL it will stop loading
+<p></p></ul>
+<p>With recent (&gt;=OpenSSL 0.9.5a) version of SSL it will stop loading
 random data automatically when sufficient entropy has been gathered.
 With previous versions it will continue to gather from all the above
-sources since no SSL function exists to tell when enough data is available.</P>
-<P>Note that on Windows machines that do not have console user interaction
+sources since no SSL function exists to tell when enough data is available.</p>
+<p>Note that on Windows machines that do not have console user interaction
 (mouse movements, creating windows, etc) the screen contents are not
 variable enough to be sufficient, and you should provide a random file
-for use with the <EM>RNDfile</EM> flag.</P>
-<P>Note that the file specified with the <EM>RNDfile</EM> flag should contain
+for use with the <em>RNDfile</em> flag.</p>
+<p>Note that the file specified with the <em>RNDfile</em> flag should contain
 random data -- that means it should contain different information
-each time <STRONG>stunnel</STRONG> is run.  This is handled automatically
-unless the <EM>RNDoverwrite</EM> flag is used.  If you wish to update this file
-manually, the <EM>openssl rand</EM> command in recent versions of OpenSSL,
-would be useful.</P>
-<P>One important note -- if /dev/urandom is available, OpenSSL has a habit of
+each time <strong>stunnel</strong> is run.  This is handled automatically
+unless the <em>RNDoverwrite</em> flag is used.  If you wish to update this file
+manually, the <em>openssl rand</em> command in recent versions of OpenSSL,
+would be useful.</p>
+<p>One important note -- if /dev/urandom is available, OpenSSL has a habit of
 seeding the PRNG with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
-at the very bottom of the list above.  This isn't <STRONG>stunnel's</STRONG> behaviour, it's
-OpenSSLs.</P>
-<P>
-<HR>
-<H1><A NAME="see also">SEE ALSO</A></H1>
-<DL>
-<DT><STRONG><A NAME="item_tcpd"><A HREF="#item_tcpd">tcpd(8)</A></A></STRONG><BR>
-<DD>
+at the very bottom of the list above.  This isn't <strong>stunnel's</strong> behaviour, it's
+OpenSSLs.</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<dl>
+<dt><strong><a name="item_tcpd"><a href="#item_tcpd">tcpd(8)</a></a></strong><br />
+</dt>
+<dd>
 access control facility for internet services
-<P></P>
-<DT><STRONG><A NAME="item_inetd"><A HREF="#item_inetd">inetd(8)</A></A></STRONG><BR>
-<DD>
-internet ``super-server''
-<P></P>
-<DT><STRONG><A NAME="item_http%3A%2F%2Fstunnel%2Emirt%2Enet%2F"><EM><A HREF="http://stunnel.mirt.net/">http://stunnel.mirt.net/</A></EM></A></STRONG><BR>
-<DD>
-<STRONG>stunnel</STRONG> homepage
-<P></P>
-<DT><STRONG><A NAME="item_http%3A%2F%2Fwww%2Estunnel%2Eorg%2F"><EM><A HREF="http://www.stunnel.org/">http://www.stunnel.org/</A></EM></A></STRONG><BR>
-<DD>
-<STRONG>stunnel</STRONG> Frequently Asked Questions
-<P></P>
-<DT><STRONG><A NAME="item_http%3A%2F%2Fwww%2Eopenssl%2Eorg%2F"><EM><A HREF="http://www.openssl.org/">http://www.openssl.org/</A></EM></A></STRONG><BR>
-<DD>
+</dd>
+<p></p>
+<dt><strong><a name="item_inetd"><a href="#item_inetd">inetd(8)</a></a></strong><br />
+</dt>
+<dd>
+internet 'super-server'
+</dd>
+<p></p>
+<dt><strong><a name="item_http_3a_2f_2fstunnel_2emirt_2enet_2f"><em><a href="http://stunnel.mirt.net/">http://stunnel.mirt.net/</a></em></a></strong><br />
+</dt>
+<dd>
+<strong>stunnel</strong> homepage
+</dd>
+<p></p>
+<dt><strong><a name="item_http_3a_2f_2fwww_2estunnel_2eorg_2f"><em><a href="http://www.stunnel.org/">http://www.stunnel.org/</a></em></a></strong><br />
+</dt>
+<dd>
+<strong>stunnel</strong> Frequently Asked Questions
+</dd>
+<p></p>
+<dt><strong><a name="item_http_3a_2f_2fwww_2eopenssl_2eorg_2f"><em><a href="http://www.openssl.org/">http://www.openssl.org/</a></em></a></strong><br />
+</dt>
+<dd>
 OpenSSL project website
-<P></P></DL>
-<P>
-<HR>
-<H1><A NAME="author">AUTHOR</A></H1>
-<DL>
-<DT><STRONG><A NAME="item_Michal_Trojnara">Michal Trojnara</A></STRONG><BR>
-<DD>
-&lt;<EM><A HREF="mailto:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net</A></EM>&gt;
-<P></P></DL>
+</dd>
+<p></p></dl>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<dl>
+<dt><strong><a name="item_michal_trojnara">Michal Trojnara</a></strong><br />
+</dt>
+<dd>
+&lt;<em><a href="mailto:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net</a></em>&gt;
+</dd>
+<p></p></dl>
 
-</BODY>
+</body>
 
-</HTML>
+</html>

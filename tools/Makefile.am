@@ -1,3 +1,5 @@
+## Process this file with automake to produce Makefile.in
+
 DISTCLEANFILES = stunnel.pem
 EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
 	stunnel.spec stunnel.mak stunnel.cnf
@@ -9,6 +11,15 @@ docdir = $(datadir)/doc/stunnel
 examplesdir = $(docdir)/examples
 examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
 	stunnel.spec stunnel.init
+
+install-data-local:
+	mkdir -p $(localstatedir)/stunnel
+	-chmod a=rwx,+t $(localstatedir)/stunnel
+	-uname | grep SunOS && \
+		mkdir -p $(localstatedir)/stunnel/dev && \
+		chmod u=rwx,go=rx $(localstatedir)/stunnel/dev && \
+		mknod $(localstatedir)/stunnel/dev/zero c 13 12 && \
+		chmod a=rw $(localstatedir)/stunnel/dev/zero
 
 openssl=$(ssldir)/bin/openssl
 stunnel.pem: stunnel.cnf

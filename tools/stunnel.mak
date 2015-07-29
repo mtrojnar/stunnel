@@ -35,7 +35,7 @@ RSC=rc.exe
 
 !IF  "$(CFG)" == "stunnel - Win32 rel"
 #PATH_2_SSL_INCLUDE=D:\ssl\ssl
-PATH_2_SSL_INCLUDE=c:/tpsrc/openssl-0.9.7c/inc32/openssl
+PATH_2_SSL_INCLUDE=c:/tpsrc/openssl-0.9.7e/inc32/openssl
 OUTDIR=.\stunnel_Win32
 INTDIR=.\stunnel_Win32
 # Begin Custom Macros
@@ -62,7 +62,7 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\stunnel.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=wsock32.lib ssleay32.lib libeay32.lib /nologo /subsystem:console /incremental:yes /pdb:"$(OUTDIR)\stunnel.pdb" /machine:I386 /out:"$(OUTDIR)\stunnel.exe" /pdbtype:sept /libpath:"c:/tpsrc/openssl-0.9.7c/out32dll"
+LINK32_FLAGS=wsock32.lib ssleay32.lib libeay32.lib /nologo /subsystem:console /incremental:yes /pdb:"$(OUTDIR)\stunnel.pdb" /machine:I386 /out:"$(OUTDIR)\stunnel.exe" /pdbtype:sept /libpath:"c:/tpsrc/openssl-0.9.7e/out32dll"
 LINK32_OBJS= \
 	"$(INTDIR)\log.obj" \
 	"$(INTDIR)\sthreads.obj" \

@@ -6,3 +6,5 @@ KNOWN BUGS
   is not too portable.  stunnel should support creating shared
   libraries on non-gcc compilers.
 
+- Shared library to be LD_PRELOADed does not support IPv6.
+

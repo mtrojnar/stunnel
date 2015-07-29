@@ -1,3 +1,5 @@
+## Process this file with automake to produce Makefile.in
+
 SUBDIRS = src doc tools
 
 # extra_src = src/gui.c src/resources.rc src/stunnel.ico src/stunnel.exe
@@ -6,11 +8,14 @@ SUBDIRS = src doc tools
 # 	tools/stunnel.spec tools/make.bat tools/stunnel.mak tools/stunnel.cnf
 # EXTRA_DIST = auto PORTS $(extra_src) $(extra_doc) $(extra_tools)
 
-EXTRA_DIST = auto PORTS BUGS COPYRIGHT.GPL CREDITS INSTALL.W32
+EXTRA_DIST = PORTS BUGS COPYRIGHT.GPL CREDITS INSTALL.W32
 
 docdir = $(datadir)/doc/stunnel
 doc_DATA = AUTHORS BUGS ChangeLog COPYING COPYRIGHT.GPL CREDITS \
 	INSTALL INSTALL.W32 NEWS PORTS README TODO
+
+distcleancheck_listfiles = \
+	find -type f -exec sh -c 'test -f $(srcdir)/{} || echo {}' ';'
 
 distclean-local:
 	rm -rf autom4te.cache

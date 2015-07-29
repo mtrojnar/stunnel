@@ -44,11 +44,15 @@
 #include "common.h"
 #include "prototypes.h"
 
-    /* SSL functions */
-static int init_dh(void);
+    /* Global SSL initalization */
+static void init_compression(void);
+static void init_engine(void);
 static int init_prng(void);
 static int prng_seeded(int);
 static int add_rand_file(char *);
+
+    /* SSL context initalization */
+static int init_dh(void);
 #ifndef NO_RSA
 static RSA *tmp_rsa_cb(SSL *, int, int);
 static RSA *make_temp_key(int);
@@ -67,95 +71,76 @@ static void sslerror_stack(void);
 SSL_CTX *ctx; /* global SSL context */
 static X509_STORE *revocation_store=NULL;
 
-void context_init(void) { /* init SSL */
-    int i;
-
-#if SSLEAY_VERSION_NUMBER >= 0x00907000L
-    /* Load all bundled ENGINEs into memory and make them visible */
-    ENGINE_load_builtin_engines();
-    /* Register all of them for every algorithm they collectively implement */
-    ENGINE_register_all_complete();
-#endif
-    if(!init_prng())
-        log(LOG_INFO, "PRNG seeded successfully");
+void ssl_init(void) { /* init SSL */
     SSLeay_add_ssl_algorithms();
     SSL_load_error_strings();
-    if(options.option.client) {
-        ctx=SSL_CTX_new(SSLv3_client_method());
-    } else { /* Server mode */
-        ctx=SSL_CTX_new(SSLv23_server_method());
-#ifndef NO_RSA
-        SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb);
-#endif /* NO_RSA */
-        if(init_dh())
-            log(LOG_WARNING, "Diffie-Hellman initialization failed");
-    }
-    if(options.ssl_options) {
-        log(LOG_DEBUG, "Configuration SSL options: 0x%08lX",
-            options.ssl_options);
-        log(LOG_DEBUG, "SSL options set: 0x%08lX", 
-            SSL_CTX_set_options(ctx, options.ssl_options));
-    }
-#if SSLEAY_VERSION_NUMBER >= 0x00906000L
-    SSL_CTX_set_mode(ctx,
-        SSL_MODE_ENABLE_PARTIAL_WRITE|SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
-#endif /* OpenSSL-0.9.6 */
-
-    SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_BOTH);
-    SSL_CTX_set_timeout(ctx, options.session_timeout);
-    if(options.option.cert) {
-        if(!SSL_CTX_use_certificate_chain_file(ctx, options.cert)) {
-            log(LOG_ERR, "Error reading certificate file: %s", options.cert);
-            sslerror("SSL_CTX_use_certificate_chain_file");
-            exit(1);
-        }
-        log(LOG_DEBUG, "Certificate: %s", options.cert);
-        log(LOG_DEBUG, "Key file: %s", options.key);
-#ifdef USE_WIN32
-        SSL_CTX_set_default_passwd_cb(ctx, pem_passwd_cb);
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+    if(options.engine)
+        init_engine();
 #endif
-        for(i=0; i<3; i++) {
-#ifdef NO_RSA
-            if(SSL_CTX_use_PrivateKey_file(ctx, options.key,
-                    SSL_FILETYPE_PEM))
-#else /* NO_RSA */
-            if(SSL_CTX_use_RSAPrivateKey_file(ctx, options.key,
-                    SSL_FILETYPE_PEM))
-#endif /* NO_RSA */
-                break;
-            if(i<2 && ERR_GET_REASON(ERR_peek_error())==EVP_R_BAD_DECRYPT) {
-                sslerror_stack(); /* dump the error stack */
-                log(LOG_ERR, "Wrong pass phrase: retrying");
-                continue;
-            }
-#ifdef NO_RSA
-            sslerror("SSL_CTX_use_PrivateKey_file");
-#else /* NO_RSA */
-            sslerror("SSL_CTX_use_RSAPrivateKey_file");
-#endif /* NO_RSA */
-            exit(1);
-        }
-        if(!SSL_CTX_check_private_key(ctx)) {
-            sslerror("Private key does not match the certificate");
-            exit(1);
-        }
-    }
-
-    verify_init(); /* Initialize certificate verification */
-
-    SSL_CTX_set_info_callback(ctx, info_callback);
-
-    if(options.cipher_list) {
-        if (!SSL_CTX_set_cipher_list(ctx, options.cipher_list)) {
-            sslerror("SSL_CTX_set_cipher_list");
-            exit(1);
-        }
-    }
+    if(options.compression!=COMP_NONE)
+        init_compression();
+    if(!init_prng())
+        s_log(LOG_INFO, "PRNG seeded successfully");
 }
 
-void context_free(void) { /* free SSL */
-    SSL_CTX_free(ctx);
+static void init_compression(void) {
+    int id=0;
+    COMP_METHOD *cm=NULL;
+
+    switch(options.compression) {
+    case COMP_ZLIB:
+        id=0xe0;
+        cm=COMP_zlib();
+        break;
+    case COMP_RLE:
+        id=0xe1;
+        cm=COMP_rle();
+        break;
+    default:
+        s_log(LOG_ERR, "INTERNAL ERROR: Bad compression method");
+        exit(1);
+    }
+    if(!cm || cm->type==NID_undef) {
+        s_log(LOG_ERR, "Failed to initialize compression method");
+        exit(1);
+    }
+    if(SSL_COMP_add_compression_method(id, cm)) {
+        s_log(LOG_ERR, "Failed to initialize compression");
+        exit(1);
+    }
+    s_log(LOG_INFO, "Compression enabled");
 }
+
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+static void init_engine(void) {
+    ENGINE *e;
+
+    ENGINE_load_builtin_engines();
+    if(!strcasecmp(options.engine, "auto")) {
+        s_log(LOG_DEBUG, "Enabling auto engine support");
+        ENGINE_register_all_complete();
+        return;
+    }
+    e=ENGINE_by_id(options.engine);
+    if(!e) {
+        s_log(LOG_ERR, "Engine not found");
+        exit(1);
+    }
+    if(!ENGINE_init(e)) {
+        s_log(LOG_ERR, "Engine can't be initialized");
+        ENGINE_free(e);
+        exit(1);
+    }
+    if(!ENGINE_set_default(e, ENGINE_METHOD_ALL)) {
+        s_log(LOG_ERR,"Engine can't be used");
+        ENGINE_free(e);
+        exit(1);
+    }
+    ENGINE_finish(e);
+    ENGINE_free(e);
+}
+#endif
 
 static int init_prng(void) {
     int totbytes=0;
@@ -192,20 +177,20 @@ static int init_prng(void) {
 #ifdef USE_WIN32
     RAND_screen();
     if(prng_seeded(totbytes)) {
-        log(LOG_DEBUG, "Seeded PRNG with RAND_screen");
+        s_log(LOG_DEBUG, "Seeded PRNG with RAND_screen");
         return 0;
     }
-    log(LOG_DEBUG, "RAND_screen failed to sufficiently seed PRNG");
+    s_log(LOG_DEBUG, "RAND_screen failed to sufficiently seed PRNG");
 #else
 
 #if SSLEAY_VERSION_NUMBER >= 0x0090581fL
     if(options.egd_sock) {
         if((bytes=RAND_egd(options.egd_sock))==-1) {
-            log(LOG_WARNING, "EGD Socket %s failed", options.egd_sock);
+            s_log(LOG_WARNING, "EGD Socket %s failed", options.egd_sock);
             bytes=0;
         } else {
             totbytes += bytes;
-            log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
+            s_log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
                 bytes, options.egd_sock);
             return 0; /* OpenSSL always gets what it needs or fails,
                          so no need to check if seeded sufficiently */
@@ -213,10 +198,10 @@ static int init_prng(void) {
     }
 #ifdef EGD_SOCKET
     if((bytes=RAND_egd(EGD_SOCKET))==-1) {
-        log(LOG_WARNING, "EGD Socket %s failed", EGD_SOCKET);
+        s_log(LOG_WARNING, "EGD Socket %s failed", EGD_SOCKET);
     } else {
         totbytes += bytes;
-        log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
+        s_log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
             bytes, EGD_SOCKET);
         return 0;
     }
@@ -231,63 +216,21 @@ static int init_prng(void) {
         return 0;
 
     /* Random file specified during configure */
-    log(LOG_INFO, "PRNG seeded with %d bytes total", totbytes);
-    log(LOG_WARNING, "PRNG may not have been seeded with enough random bytes");
+    s_log(LOG_INFO, "PRNG seeded with %d bytes total", totbytes);
+    s_log(LOG_WARNING, "PRNG may not have been seeded with enough random bytes");
     return -1; /* FAILED */
-}
-
-static int init_dh(void) {
-#ifdef USE_DH
-    FILE *fp;
-    DH *dh;
-    BIO *bio;
-
-    fp=fopen(options.cert, "r");
-    if(!fp) {
-#ifdef USE_WIN32
-        /* Win32 doesn't seem to set errno in fopen() */
-        log(LOG_ERR, "Failed to open %s", options.cert);
-#else
-        ioerror(options.cert);
-#endif
-        return -1; /* FAILED */
-    }
-    bio=BIO_new_fp(fp, BIO_CLOSE|BIO_FP_TEXT);
-    if(!bio) {
-        log(LOG_ERR, "BIO_new_fp failed");
-        return -1; /* FAILED */
-    }
-    if((dh=PEM_read_bio_DHparams(bio, NULL, NULL
-#if SSLEAY_VERSION_NUMBER >= 0x00904000L
-            , NULL
-#endif
-            ))) {
-        BIO_free(bio);
-        log(LOG_DEBUG, "Using Diffie-Hellman parameters from %s",
-            options.cert);
-    } else { /* Failed to load DH parameters from file */
-        BIO_free(bio);
-        log(LOG_NOTICE, "Could not load DH parameters from %s", options.cert);
-        return -1; /* FAILED */
-    }
-    SSL_CTX_set_tmp_dh(ctx, dh);
-    log(LOG_INFO, "Diffie-Hellman initialized with %d bit key",
-        8*DH_size(dh));
-    DH_free(dh);
-#endif /* USE_DH */
-    return 0; /* OK */
 }
 
 /* shortcut to determine if sufficient entropy for PRNG is present */
 static int prng_seeded(int bytes) {
 #if SSLEAY_VERSION_NUMBER >= 0x0090581fL
     if(RAND_status()){
-        log(LOG_DEBUG, "RAND_status claims sufficient entropy for the PRNG");
+        s_log(LOG_DEBUG, "RAND_status claims sufficient entropy for the PRNG");
         return 1;
     }
 #else
     if(bytes>=options.random_bytes) {
-        log(LOG_INFO, "Sufficient entropy in PRNG assumed (>= %d)", options.random_bytes);
+        s_log(LOG_INFO, "Sufficient entropy in PRNG assumed (>= %d)", options.random_bytes);
         return 1;
     }
 #endif
@@ -302,19 +245,142 @@ static int add_rand_file(char *filename) {
     if(stat(filename, &sb))
         return 0;
     if((readbytes=RAND_load_file(filename, options.random_bytes)))
-        log(LOG_DEBUG, "Snagged %d random bytes from %s", readbytes, filename);
+        s_log(LOG_DEBUG, "Snagged %d random bytes from %s", readbytes, filename);
     else
-        log(LOG_INFO, "Unable to retrieve any random data from %s", filename);
+        s_log(LOG_INFO, "Unable to retrieve any random data from %s", filename);
     /* Write new random data for future seeding if it's a regular file */
     if(options.option.rand_write && (sb.st_mode & S_IFREG)){
         writebytes = RAND_write_file(filename);
         if(writebytes==-1)
-            log(LOG_WARNING, "Failed to write strong random data to %s - "
+            s_log(LOG_WARNING, "Failed to write strong random data to %s - "
                 "may be a permissions or seeding problem", filename);
         else
-            log(LOG_DEBUG, "Wrote %d new random bytes to %s", writebytes, filename);
+            s_log(LOG_DEBUG, "Wrote %d new random bytes to %s", writebytes, filename);
     }
     return readbytes;
+}
+
+void context_init(void) { /* init global SSL context */
+    int i;
+
+    /* create SSL context */
+    if(options.option.client) {
+        ctx=SSL_CTX_new(SSLv3_client_method());
+    } else { /* Server mode */
+        ctx=SSL_CTX_new(SSLv23_server_method());
+#ifndef NO_RSA
+        SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb);
+#endif /* NO_RSA */
+        if(init_dh())
+            s_log(LOG_WARNING, "Diffie-Hellman initialization failed");
+    }
+    if(options.ssl_options) {
+        s_log(LOG_DEBUG, "Configuration SSL options: 0x%08lX",
+            options.ssl_options);
+        s_log(LOG_DEBUG, "SSL options set: 0x%08lX", 
+            SSL_CTX_set_options(ctx, options.ssl_options));
+    }
+#if SSLEAY_VERSION_NUMBER >= 0x00906000L
+    SSL_CTX_set_mode(ctx,
+        SSL_MODE_ENABLE_PARTIAL_WRITE|SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+#endif /* OpenSSL-0.9.6 */
+
+    SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_BOTH);
+    SSL_CTX_set_timeout(ctx, options.session_timeout);
+    if(options.option.cert) {
+        if(!SSL_CTX_use_certificate_chain_file(ctx, options.cert)) {
+            s_log(LOG_ERR, "Error reading certificate file: %s", options.cert);
+            sslerror("SSL_CTX_use_certificate_chain_file");
+            exit(1);
+        }
+        s_log(LOG_DEBUG, "Certificate: %s", options.cert);
+        s_log(LOG_DEBUG, "Key file: %s", options.key);
+#ifdef USE_WIN32
+        SSL_CTX_set_default_passwd_cb(ctx, pem_passwd_cb);
+#endif
+        for(i=0; i<3; i++) {
+#ifdef NO_RSA
+            if(SSL_CTX_use_PrivateKey_file(ctx, options.key,
+                    SSL_FILETYPE_PEM))
+#else /* NO_RSA */
+            if(SSL_CTX_use_RSAPrivateKey_file(ctx, options.key,
+                    SSL_FILETYPE_PEM))
+#endif /* NO_RSA */
+                break;
+            if(i<2 && ERR_GET_REASON(ERR_peek_error())==EVP_R_BAD_DECRYPT) {
+                sslerror_stack(); /* dump the error stack */
+                s_log(LOG_ERR, "Wrong pass phrase: retrying");
+                continue;
+            }
+#ifdef NO_RSA
+            sslerror("SSL_CTX_use_PrivateKey_file");
+#else /* NO_RSA */
+            sslerror("SSL_CTX_use_RSAPrivateKey_file");
+#endif /* NO_RSA */
+            exit(1);
+        }
+        if(!SSL_CTX_check_private_key(ctx)) {
+            sslerror("Private key does not match the certificate");
+            exit(1);
+        }
+    }
+
+    verify_init(); /* Initialize certificate verification */
+
+    SSL_CTX_set_info_callback(ctx, info_callback);
+
+    if(options.cipher_list) {
+        if (!SSL_CTX_set_cipher_list(ctx, options.cipher_list)) {
+            sslerror("SSL_CTX_set_cipher_list");
+            exit(1);
+        }
+    }
+}
+
+void context_free(void) { /* free SSL */
+    SSL_CTX_free(ctx);
+}
+
+static int init_dh(void) {
+#ifdef USE_DH
+    FILE *fp;
+    DH *dh;
+    BIO *bio;
+
+    fp=fopen(options.cert, "r");
+    if(!fp) {
+#ifdef USE_WIN32
+        /* Win32 doesn't seem to set errno in fopen() */
+        s_log(LOG_ERR, "Failed to open %s", options.cert);
+#else
+        ioerror(options.cert);
+#endif
+        return -1; /* FAILED */
+    }
+    bio=BIO_new_fp(fp, BIO_CLOSE|BIO_FP_TEXT);
+    if(!bio) {
+        s_log(LOG_ERR, "BIO_new_fp failed");
+        return -1; /* FAILED */
+    }
+    if((dh=PEM_read_bio_DHparams(bio, NULL, NULL
+#if SSLEAY_VERSION_NUMBER >= 0x00904000L
+            , NULL
+#endif
+            ))) {
+        BIO_free(bio);
+        s_log(LOG_DEBUG, "Using Diffie-Hellman parameters from %s",
+            options.cert);
+    } else { /* Failed to load DH parameters from file */
+        BIO_free(bio);
+        s_log(LOG_NOTICE, "Could not load DH parameters from %s", options.cert);
+        return -1; /* FAILED */
+    }
+    SSL_CTX_set_tmp_dh(ctx, dh);
+    s_log(LOG_INFO, "Diffie-Hellman initialized with %d bit key",
+        8*DH_size(dh));
+    DH_free(dh);
+#endif /* USE_DH */
+    return 0; /* OK */
 }
 
 #ifndef NO_RSA
@@ -368,13 +434,13 @@ static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
 static RSA *make_temp_key(int keylen) {
     RSA *result;
 
-    log(LOG_DEBUG, "Generating %d bit temporary RSA key...", keylen);
+    s_log(LOG_DEBUG, "Generating %d bit temporary RSA key...", keylen);
 #if SSLEAY_VERSION_NUMBER >= 0x0900
     result=RSA_generate_key(keylen, RSA_F4, NULL, NULL);
 #else
     result=RSA_generate_key(keylen, RSA_F4, NULL);
 #endif
-    log(LOG_DEBUG, "Temporary RSA key created");
+    s_log(LOG_DEBUG, "Temporary RSA key created");
     return result;
 }
 
@@ -387,14 +453,14 @@ static void verify_init(void) {
         return; /* No certificate verification */
 
     if(options.verify_level>1 && !options.ca_file && !options.ca_dir) {
-        log(LOG_ERR, "Either CApath or CAfile "
+        s_log(LOG_ERR, "Either CApath or CAfile "
             "has to be used for authentication");
         exit(1);
     }
 
     if(options.ca_file) {
         if(!SSL_CTX_load_verify_locations(ctx, options.ca_file, NULL)) {
-            log(LOG_ERR, "Error loading verify certificates from %s",
+            s_log(LOG_ERR, "Error loading verify certificates from %s",
                 options.ca_file);
             sslerror("SSL_CTX_load_verify_locations");
             exit(1);
@@ -403,18 +469,18 @@ static void verify_init(void) {
         SSL_CTX_set_client_CA_list(ctx,
             SSL_load_client_CA_file(options.ca_file));
 #endif
-        log(LOG_DEBUG, "Loaded verify certificates from %s",
+        s_log(LOG_DEBUG, "Loaded verify certificates from %s",
             options.ca_file);
     }
 
     if(options.ca_dir) {
         if(!SSL_CTX_load_verify_locations(ctx, NULL, options.ca_dir)) {
-            log(LOG_ERR, "Error setting verify directory to %s",
+            s_log(LOG_ERR, "Error setting verify directory to %s",
                 options.ca_dir);
             sslerror("SSL_CTX_load_verify_locations");
             exit(1);
         }
-        log(LOG_DEBUG, "Verify directory set to %s", options.ca_dir);
+        s_log(LOG_DEBUG, "Verify directory set to %s", options.ca_dir);
     }
 
     if(options.crl_file || options.crl_dir) { /* setup CRL store */
@@ -432,12 +498,12 @@ static void verify_init(void) {
             }
             if(!X509_LOOKUP_load_file(lookup, options.crl_file,
                     X509_FILETYPE_PEM)) {
-                log(LOG_ERR, "Error loading CRLs from %s",
+                s_log(LOG_ERR, "Error loading CRLs from %s",
                     options.crl_file);
                 sslerror("X509_LOOKUP_load_file");
                 exit(1);
             }
-            log(LOG_DEBUG, "Loaded CRLs from %s", options.crl_file);
+            s_log(LOG_DEBUG, "Loaded CRLs from %s", options.crl_file);
         }
         if(options.crl_dir) {
             lookup=X509_STORE_add_lookup(revocation_store,
@@ -448,12 +514,12 @@ static void verify_init(void) {
             }
             if(!X509_LOOKUP_add_dir(lookup, options.crl_dir,
                     X509_FILETYPE_PEM)) {
-                log(LOG_ERR, "Error setting CRL directory to %s",
+                s_log(LOG_ERR, "Error setting CRL directory to %s",
                     options.crl_dir);
                 sslerror("X509_LOOKUP_add_dir");
                 exit(1);
             }
-            log(LOG_DEBUG, "CRL directory set to %s", options.crl_dir);
+            s_log(LOG_DEBUG, "CRL directory set to %s", options.crl_dir);
         }
     }
 
@@ -461,7 +527,7 @@ static void verify_init(void) {
         SSL_VERIFY_PEER : options.verify_level, verify_callback);
 
     if(options.ca_dir && options.verify_use_only_my)
-        log(LOG_NOTICE, "Peer certificate location %s", options.ca_dir);
+        s_log(LOG_NOTICE, "Peer certificate location %s", options.ca_dir);
 }
 
 static int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
@@ -473,13 +539,13 @@ static int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         txt, STRLEN);
     safestring(txt);
     if(options.verify_level==SSL_VERIFY_NONE) {
-        log(LOG_NOTICE, "VERIFY IGNORE: depth=%d, %s",
+        s_log(LOG_NOTICE, "VERIFY IGNORE: depth=%d, %s",
             callback_ctx->error_depth, txt);
         return 1; /* Accept connection */
     }
     if(!preverify_ok) {
         /* Remote site specified a certificate, but it's not correct */
-        log(LOG_WARNING, "VERIFY ERROR: depth=%d, error=%s: %s",
+        s_log(LOG_WARNING, "VERIFY ERROR: depth=%d, error=%s: %s",
             callback_ctx->error_depth,
             X509_verify_cert_error_string (callback_ctx->error), txt);
         return 0; /* Reject connection */
@@ -487,14 +553,14 @@ static int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
     if(options.verify_use_only_my && callback_ctx->error_depth==0 &&
             X509_STORE_get_by_subject(callback_ctx, X509_LU_X509,
                 X509_get_subject_name(callback_ctx->current_cert), &ret)!=1) {
-        log(LOG_WARNING, "VERIFY ERROR ONLY MY: no cert for %s", txt);
+        s_log(LOG_WARNING, "VERIFY ERROR ONLY MY: no cert for %s", txt);
         return 0; /* Reject connection */
     }
     if(revocation_store && !crl_callback(callback_ctx))
         return 0; /* Reject connection */
     /* errnum = X509_STORE_CTX_get_error(ctx); */
 
-    log(LOG_NOTICE, "VERIFY OK: depth=%d, %s", callback_ctx->error_depth, txt);
+    s_log(LOG_NOTICE, "VERIFY OK: depth=%d, %s", callback_ctx->error_depth, txt);
     return 1; /* Accept connection */
 }
 
@@ -541,14 +607,14 @@ static int crl_callback(X509_STORE_CTX *callback_ctx) {
         cp[n]='\0';
         BIO_free(bio);
         cp2=X509_NAME_oneline(subject, NULL, 0);
-        log(LOG_NOTICE, "CA CRL: Issuer: %s, %s", cp2, cp);
+        s_log(LOG_NOTICE, "CA CRL: Issuer: %s, %s", cp2, cp);
         OPENSSL_free(cp2);
         free(cp);
 
         /* Verify the signature on this CRL */
         pubkey=X509_get_pubkey(xs);
         if(X509_CRL_verify(crl, pubkey)<=0) {
-            log(LOG_WARNING, "Invalid signature on CRL");
+            s_log(LOG_WARNING, "Invalid signature on CRL");
             X509_STORE_CTX_set_error(callback_ctx,
                 X509_V_ERR_CRL_SIGNATURE_FAILURE);
             X509_OBJECT_free_contents(&obj);
@@ -562,14 +628,14 @@ static int crl_callback(X509_STORE_CTX *callback_ctx) {
         /* Check date of CRL to make sure it's not expired */
         t=X509_CRL_get_nextUpdate(crl);
         if(!t) {
-            log(LOG_WARNING, "Found CRL has invalid nextUpdate field");
+            s_log(LOG_WARNING, "Found CRL has invalid nextUpdate field");
             X509_STORE_CTX_set_error(callback_ctx,
                 X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD);
             X509_OBJECT_free_contents(&obj);
             return 0; /* Reject connection */
         }
         if(X509_cmp_current_time(t)<0) {
-            log(LOG_WARNING, "Found CRL is expired - "
+            s_log(LOG_WARNING, "Found CRL is expired - "
                 "revoking all certificates until you get updated CRL");
             X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CRL_HAS_EXPIRED);
             X509_OBJECT_free_contents(&obj);
@@ -602,7 +668,7 @@ static int crl_callback(X509_STORE_CTX *callback_ctx) {
                     X509_get_serialNumber(xs)) == 0) {
                 serial=ASN1_INTEGER_get(revoked->serialNumber);
                 cp=X509_NAME_oneline(issuer, NULL, 0);
-                log(LOG_NOTICE, "Certificate with serial %ld (0x%lX) "
+                s_log(LOG_NOTICE, "Certificate with serial %ld (0x%lX) "
                     "revoked per CRL from issuer %s", serial, serial, cp);
                 OPENSSL_free(cp);
                 X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REVOKED);
@@ -621,12 +687,12 @@ static void info_callback(const SSL *s, int where, int ret) {
 static void info_callback(SSL *s, int where, int ret) {
 #endif
     if(where & SSL_CB_LOOP)
-        log(LOG_DEBUG, "SSL state (%s): %s",
+        s_log(LOG_DEBUG, "SSL state (%s): %s",
         where & SSL_ST_CONNECT ? "connect" :
         where & SSL_ST_ACCEPT ? "accept" :
         "undefined", SSL_state_string_long(s));
     else if(where & SSL_CB_ALERT)
-        log(LOG_DEBUG, "SSL alert (%s): %s: %s",
+        s_log(LOG_DEBUG, "SSL alert (%s): %s: %s",
             where & SSL_CB_READ ? "read" : "write",
             SSL_alert_type_string_long(ret),
             SSL_alert_desc_string_long(ret));
@@ -635,27 +701,27 @@ static void info_callback(SSL *s, int where, int ret) {
 }
 
 static void print_stats(void) { /* print statistics */
-    log(LOG_DEBUG, "%4ld items in the session cache",
+    s_log(LOG_DEBUG, "%4ld items in the session cache",
         SSL_CTX_sess_number(ctx));
-    log(LOG_DEBUG, "%4ld client connects (SSL_connect())",
+    s_log(LOG_DEBUG, "%4ld client connects (SSL_connect())",
         SSL_CTX_sess_connect(ctx));
-    log(LOG_DEBUG, "%4ld client connects that finished",
+    s_log(LOG_DEBUG, "%4ld client connects that finished",
         SSL_CTX_sess_connect_good(ctx));
 #if SSLEAY_VERSION_NUMBER >= 0x0922
-    log(LOG_DEBUG, "%4ld client renegotiatations requested",
+    s_log(LOG_DEBUG, "%4ld client renegotiatations requested",
         SSL_CTX_sess_connect_renegotiate(ctx));
 #endif
-    log(LOG_DEBUG, "%4ld server connects (SSL_accept())",
+    s_log(LOG_DEBUG, "%4ld server connects (SSL_accept())",
         SSL_CTX_sess_accept(ctx));
-    log(LOG_DEBUG, "%4ld server connects that finished",
+    s_log(LOG_DEBUG, "%4ld server connects that finished",
         SSL_CTX_sess_accept_good(ctx));
 #if SSLEAY_VERSION_NUMBER >= 0x0922
-    log(LOG_DEBUG, "%4ld server renegotiatiations requested",
+    s_log(LOG_DEBUG, "%4ld server renegotiatiations requested",
         SSL_CTX_sess_accept_renegotiate(ctx));
 #endif
-    log(LOG_DEBUG, "%4ld session cache hits", SSL_CTX_sess_hits(ctx));
-    log(LOG_DEBUG, "%4ld session cache misses", SSL_CTX_sess_misses(ctx));
-    log(LOG_DEBUG, "%4ld session cache timeouts", SSL_CTX_sess_timeouts(ctx));
+    s_log(LOG_DEBUG, "%4ld session cache hits", SSL_CTX_sess_hits(ctx));
+    s_log(LOG_DEBUG, "%4ld session cache misses", SSL_CTX_sess_misses(ctx));
+    s_log(LOG_DEBUG, "%4ld session cache timeouts", SSL_CTX_sess_timeouts(ctx));
 }
 
 void sslerror(char *txt) { /* SSL Error handler */
@@ -664,12 +730,12 @@ void sslerror(char *txt) { /* SSL Error handler */
 
     err=ERR_get_error();
     if(!err) {
-        log(LOG_ERR, "%s: Peer suddenly disconnected", txt);
+        s_log(LOG_ERR, "%s: Peer suddenly disconnected", txt);
         return;
     }
     sslerror_stack();
     ERR_error_string(err, string);
-    log(LOG_ERR, "%s: %lX: %s", txt, err, string);
+    s_log(LOG_ERR, "%s: %lX: %s", txt, err, string);
 }
 
 static void sslerror_stack(void) { /* recursive dump of the error stack */
@@ -681,7 +747,7 @@ static void sslerror_stack(void) { /* recursive dump of the error stack */
         return;
     sslerror_stack();
     ERR_error_string(err, string);
-    log(LOG_ERR, "error stack: %lX : %s", err, string);
+    s_log(LOG_ERR, "error stack: %lX : %s", err, string);
 }
 
 /* End of ssl.c */

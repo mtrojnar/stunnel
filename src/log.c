@@ -55,7 +55,7 @@ void log_open(void) { /* Win32 version */
     /* TODO: Register NT EventLog source here */
     /* evt=RegisterEventSource(NULL, "stunnel"); */
     if(options.output_file)
-        log(LOG_ERR, "Unable to open output file: %s", options.output_file);
+        s_log(LOG_ERR, "Unable to open output file: %s", options.output_file);
 }
 
 void log_close(void) {
@@ -89,7 +89,7 @@ void log_open(void) { /* Unix version */
 #endif /* __ultrix__ */
     }
     if(options.output_file)
-        log(LOG_ERR, "Unable to open output file: %s", options.output_file);
+        s_log(LOG_ERR, "Unable to open output file: %s", options.output_file);
 }
 
 void log_close(void) {
@@ -103,7 +103,7 @@ void log_close(void) {
 
 #endif /* USE_WIN32, __vms */
 
-void log(int level, const char *format, ...) {
+void s_log(int level, const char *format, ...) {
     va_list arglist;
     char text[STRLEN], timestamped[STRLEN];
     FILE *out;

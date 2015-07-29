@@ -1,0 +1,91 @@
+#!/usr/bin/perl
+#
+# stunnel3      Perl wrapper to use stunnel 3.x syntax in stunnel >=4.05
+# Copyright (c) 2004 Michal Trojnara <Michal.Trojnara@mirt.net>
+#               All Rights Reserved
+#
+# Version:      1.00
+# Date:         2004.09.01
+# Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+
+use POSIX;
+
+# Configuration - path to stunnel (version >=4.05)
+$stunnel_bin='@prefix@/sbin/stunnel';
+
+# stunnel3 script body begins here
+($read_fd, $write_fd)=POSIX::pipe();
+$pid=fork;
+die "Can't fork" unless defined $pid;
+if($pid) { # parent
+    POSIX::close($write_fd);
+    exec "$stunnel_bin -fd $read_fd";
+    die "$stunnel_bin exec failed";
+}
+# child
+POSIX::close($read_fd);
+open(STUNNEL, ">&$write_fd");
+# comment out the next line to see the config file
+select(STUNNEL);
+
+$daemon=0;
+@execargs=();
+while($_=shift @ARGV) {
+    push(@execargs, $_), next unless /^-/;
+    print("client = yes\n"), next if /^-c$/;
+    print("transparent = yes\n"), next if /^-T$/;
+    print("RNDoverwrite = yes\n"), next if /^-W$/;
+    print("foreground = yes\n"), next if /^-f$/;
+    push(@execargs, @ARGV), last if /^--$/;
+    $arg=shift @ARGV;
+    unless(defined $arg) {
+        kill('TERM', getppid);
+        die "Option '$_' not supported or needs a parameter";
+    }
+    print("debug = $arg\n"), next if /^-D$/;
+    print("socket = $arg\n"), next if /^-O$/;
+    print("output = $arg\n"), next if /^-o$/;
+    print("ciphers = $arg\n"), next if /^-C$/;
+    print("cert = $arg\n"), next if /^-p$/;
+    print("verify = $arg\n"), next if /^-v$/;
+    print("CApath = $arg\n"), next if /^-a$/;
+    print("CAfile = $arg\n"), next if /^-A$/;
+    print("session = $arg\n"), next if /^-t$/;
+    print("service = $arg\n"), next if /^-N$/;
+    print("ident = $arg\n"), next if /^-u$/;
+    print("protocol = $arg\n"), next if /^-n$/;
+    print("EGD = $arg\n"), next if /^-E$/;
+    print("RNDfile = $arg\n"), next if /^-R$/;
+    print("RNDbytes = $arg\n"), next if /^-B$/;
+    print("local = $arg\n"), next if /^-I$/;
+    print("accept = $arg\n"), $daemon=1, next if /^-d$/;
+    print("setuid = $arg\n"), next if /^-s$/;
+    print("setgid = $arg\n"), next if /^-g$/;
+    print("pid = $arg\n"), next if /^-P$/;
+    print("connect = $arg\n"), next if /^-r$/;
+    print("pty = yes\n") if /^-L$/;
+    print("exec = $arg\n"), next if /^-[lL]$/;
+    kill('TERM', getppid);
+    die "Option '$_' not supported";
+};
+print("execargs = " . join(' ', @execargs) . "\n") if @execargs;
+print("[stunnel3]\n") if $daemon;
+
+close(STUNNEL);
+
+# stunnel3 script body ends here

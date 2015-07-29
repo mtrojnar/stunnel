@@ -1,10 +1,11 @@
 #!/bin/bash
 
-echo "client script started"
+REMOTE_HOST="www.mirt.net:443"
+echo "client script connecting $REMOTE_HOST"
 /usr/local/sbin/stunnel -fd 10 \
     11<&0 <<EOT 10<&0 0<&11 11<&-
 client=yes
-connect=www.mirt.net:443
+connect=$REMOTE_HOST
 EOT
 echo "client script finished"
 

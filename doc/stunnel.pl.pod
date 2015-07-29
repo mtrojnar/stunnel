@@ -5,16 +5,27 @@ stunnel - uniwersalny tunel protoko³u SSL
 
 =head1 SK£ADNIA
 
-B<stunnel> S<[filename]> | S<-fd [n]> | S<-help> | S<-version> | S<-sockets>
+=over 4
+
+=item B<Unix:>
+
+B<stunnel> S<[plik]> | S<-fd [n]> | S<-help> | S<-version> | S<-sockets>
+
+=item B<WIN32:>
+
+B<stunnel> S<[plik]> | S<-install> | S<-uninstall> | S<-help> | S<-version> | S<-sockets>
+
+=back
 
 
 =head1 OPIS
 
-Program B<stunnel> zosta³ zaprojektowany do opakowywania po³±czeñ
-pomiêdzy zdalnymi klientami a lokalnymi (startowalnymi przez I<inetd>)
-lub zdalnymi serwerami w protokó³ I<SSL>.  Pozwala to proste zestawinie
-komunikacji serwerów nie posiadaj±cych funkcjonalno¶ci I<SSL> poprzez
-bezpieczne kana³y I<SSL>.
+Program B<stunnel> zosta³ zaprojektowany do opakowywania w protokó³ I<SSL>
+po³±czeñ pomiêdzy zdalnymi klientami a lokalnymi lub zdalnymi serwerami.
+Przez serwer lokalny rozumiana jest aplikacja przeznaczona do uruchamiania
+przy pomocy I<inetd>.
+Stunnel pozwala na proste zestawienie komunikacji serwerów nie posiadaj±cych
+funkcjonalno¶ci I<SSL> poprzez bezpieczne kana³y I<SSL>.
 
 B<stunnel> pozwala dodaæ funkcjonalno¶æ I<SSL> do powszechnie stosowanych
 demonów I<inetd>, np. I<pop3> lub I<imap>, do samodzielnych demonów,
@@ -69,15 +80,15 @@ pusta (ignorowana)
 
 =item *
 
-komentarzem rozpoczynaj±cym siê znakiem "#" (ignorowana)
+komentarzem rozpoczynaj±cym siê znakiem ';' (ignorowana)
 
 =item *
 
-par± "nazwa_opcji = warto¶æ_opcji"
+par± 'nazwa_opcji = warto¶æ_opcji'
 
 =item *
 
-tekstem "[nazwa_us³ugi]" wskazuj±cym pocz±tek definicji us³ugi
+tekstem '[nazwa_us³ugi]' wskazuj±cym pocz±tek definicji us³ugi
 
 =back
 
@@ -93,6 +104,9 @@ Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 certyfikatu.
+
+Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<CApath> jest okre¶lona
+wzglêdem tego katalogu.
 
 =item B<CAfile> = plik_CA
 
@@ -116,9 +130,9 @@ katalog roboczego korzenia systemu plików
 
 Opcja okre¶la katalog, w którym uwiêziony zostanie proces programu
 B<stunnel> tu¿ po jego inicjalizacji, a przed rozpoczêciem odbierania
-po³±czeñ.  ¦cie¿ki podane w opcjach I<CApath>, I<pid> oraz I<exec>
-musz± byæ umieszczone wewn±trz katalogu podanego w opcji I<chroot>
-i okre¶lone wzlêdem tego katalogu.
+po³±czeñ.  ¦cie¿ki podane w opcjach I<CApath>, I<CRLpath>, I<pid>
+oraz I<exec> musz± byæ umieszczone wewn±trz katalogu podanego w opcji
+I<chroot> i okre¶lone wzglêdem tego katalogu.
 
 W przypadku wykorzystania kontroli dostêpu przy pomocy biblioteki
 libwrap (TCP wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
@@ -134,9 +148,15 @@ otwieraniu nowych po³±czeñ SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5
 
 =item B<client> = yes | no
 
-tryb kliencki (dalna us³uga u¿ywa SSL)
+tryb kliencki (zdalna us³uga u¿ywa SSL)
 
 domy¶lnie: no (tryb serwerowy)
+
+=item B<compression> = zlib | rle
+
+wybór algorytmu kompresji przesy³anych danych
+
+domy¶lnie: bez kompresji
 
 =item B<CRLpath> = katalog_CRL
 
@@ -146,6 +166,9 @@ Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ list CRL,
 je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z listami CRL musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 listy CRL.
+
+Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<CRLpath> jest okre¶lona
+wzglêdem tego katalogu.
 
 =item B<CRLfile> = plik_CRL
 
@@ -178,11 +201,17 @@ Opcja pozwala okre¶liæ ¶cie¿kê do gniazda programu Entropy Gathering Daemon
 u¿ywanego do zainicjalizowania generatora ci±gów pseudolosowych biblioteki
 OpenSSL.  Opcja jest dostêpna z bibliotek± OpenSSL 0.9.5a lub nowsz±.
 
+=item B<engine> = auto | <identyfikator urz±dzenia>
+
+wybór sprzêtowego urz±dzenia kryptograficznego
+
+domy¶lnie: bez wykorzystania urz±dzeñ kryptograficznych
+
 =item B<foreground> = yes | no (tylko Unix)
 
 tryb pierwszoplanowy
 
-U¿ycie tej opcji powoduje, ¿e I<stunnel> nie przechodzi w t³o loguj±æ
+U¿ycie tej opcji powoduje, ¿e I<stunnel> nie przechodzi w t³o loguj±c
 swoje komunikaty na konsolê zamiast przez I<syslog> (o ile nie u¿yto
 opcji I<output>).
 
@@ -203,7 +232,7 @@ domy¶lnie: warto¶æ opcji I<cert>
 
 opcje biblioteki OpenSSL
 
-Paremetrem jest nazwa opcji zgodnie z opisem w I<SSL_CTX_set_options(3ssl)>,
+Parametrem jest nazwa opcji zgodnie z opisem w I<SSL_CTX_set_options(3ssl)>,
 ale bez przedrostka I<SSL_OP_>.
 Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ I<options> wielokrotnie.
 
@@ -229,6 +258,9 @@ po³o¿enie pliku z numerem procesu
 
 Je¿eli argument jest pusty plik nie zostanie stworzony.
 
+Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<pid> jest okre¶lona
+wzglêdem tego katalogu.
+
 =item B<RNDbytes> = liczba_bajtów
 
 liczba bajtów do zainicjowania generatora pseudolosowego
@@ -251,13 +283,13 @@ nadpisz plik nowymi warto¶ciami pseudolosowymi
 
 domy¶lnie: yes (nadpisz)
 
-=item B<service> = nazwa_serwisu (tylko NT/2000/XP)
+=item B<service> = nazwa_serwisu
 
 u¿yj parametru jako nazwy serwisu
 
-Unix: nazwa serwisu dla biblioteki TCP Wrapper w trybie I<inetd>.
+B<Unix:> nazwa serwisu dla biblioteki TCP Wrapper w trybie I<inetd>.
 
-NT/2000/XP: nazwa serwisu NT w Panelu Sterowania.
+B<NT/2000/XP:> nazwa serwisu NT w Panelu Sterowania.
 
 domy¶lnie: stunnel
 
@@ -286,7 +318,7 @@ Przyk³ady:
         ustaw jednominutowe przeterminowanie
         przy zamykaniu lokalnego gniazda
     socket = r:TCP_NODELAY=1
-        wy³±cz algortym Nagle'a na zdalnych
+        wy³±cz algorytm Nagle'a na zdalnych
         gniazdach
     socket = r:SO_OOBINLINE=1
         umie¶æ dane pozapasmowe (out-of-band)
@@ -355,6 +387,9 @@ opó¼nij rozwiniêcie adresu DNS podanego w opcji I<connect>
 
 wykonaj lokalny program przystosowany do pracy z superdemonem inetd
 
+Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<exec> jest okre¶lona
+wzglêdem tego katalogu.
+
 =item B<execargs> = $0 $1 $2 ... (tylko Unix)
 
 argumenty do opcji I<exec> w³±cznie z nazw± programu ($0)
@@ -364,7 +399,7 @@ Argumenty s± rozdzielone dowoln± liczb± bia³ych znaków.
 
 =item B<ident> = nazwa_u¿ytkownika
 
-weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z proto³u IDENT (RFC 1413)
+weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z protoko³u IDENT (RFC 1413)
 
 =item B<local> = serwer
 
@@ -391,6 +426,10 @@ czas oczekiwania na spodziewane dane
 
 czas oczekiwania na close_notify (ustaw na 0, je¿eli klientem jest MSIE)
 
+=item B<TIMEOUTconnect> = liczba_sekund
+
+czas oczekiwania na nawi±zanie po³±czenia
+
 =item B<TIMEOUTidle> = liczba_sekund
 
 maksymalny czas utrzymywania bezczynnego po³±czenia
@@ -400,7 +439,7 @@ maksymalny czas utrzymywania bezczynnego po³±czenia
 tryb przezroczystego proxy
 
 Przepisz adres, aby nawi±zywane po³±czenie wydawa³o siê pochodziæ
-z bezpo¶rednio od klienta, a nie od programu I<stunnel>.
+bezpo¶rednio od klienta, a nie od programu I<stunnel>.
 Opcja dzia³a tylko w trybie lokalnym (opcja I<exec>) przez za³adowanie
 przy pomocy LD_PRELOAD biblioteki env.so, albo w trybie zdalnym (opcja
 I<connect>) na systemie Linux 2.2 z w³±czon± opcj± I<transparent proxy>.
@@ -430,7 +469,7 @@ albo w trybie zdalnym:
     connect = 143
 
 W po³±czeniu z programem I<pppd> B<stunnel> pozwala zestawiæ prosty VPN.
-Po stronie sewera nas³uchuj±cego na porcie 2020 jego konfiguracja
+Po stronie serwera nas³uchuj±cego na porcie 2020 jego konfiguracja
 mo¿e wygl±daæ nastêpuj±co:
 
     [vpn]
@@ -439,7 +478,7 @@ mo¿e wygl±daæ nastêpuj±co:
     execargs = pppd local
     pty = yes
 
-Poni¿szy plik konfiguracyjny mo¿eby byæ wykorzystany do uruchomienia
+Poni¿szy plik konfiguracyjny mo¿e byæ wykorzystany do uruchomienia
 programu B<stunnel> w trybie I<inetd>.  Warto zauwa¿yæ, ¿e w pliku
 konfiguracyjnym nie ma sekcji I<[nazwa_us³ugi]>.
 
@@ -471,7 +510,7 @@ Opcja I<execargs> nie obs³uguje cytowania.
 
 I<stunnel> nie mo¿e byæ u¿ywany do szyfrowania protoko³u I<FTP>,
 poniewa¿ do przesy³ania poszczególnych plików u¿ywa on dodatkowych
-po³±czeñ na otwieranych na dynamicznie przydzielanych portach.
+po³±czeñ otwieranych na portach o dynamicznie przydzielanych numerach.
 Istniej± jednak specjalne wersje klientów i serwerów FTP pozwalaj±ce
 na szyfrowanie przesy³anych danych przy pomocy protoko³u I<SSL>.
 
@@ -494,7 +533,7 @@ Przyk³adowa linia pliku /etc/inetd.conf mo¿e wygl±daæ tak:
 
 Poniewa¿ w takich przypadkach po³±czenie na zdefiniowanym porcie
 (tutaj I<imaps>) nawi±zuje osobny program (tutaj I<inetd>), B<stunnel>
-nie mo¿e mieæ u¿ywaæ opcji I<accept>.  W pliku konfiguracyjnym nie mo¿e
+nie mo¿e u¿ywaæ opcji I<accept>.  W pliku konfiguracyjnym nie mo¿e
 byæ równie¿ zdefiniowana ¿adna us³uga (I<[nazwa_us³ugi]>), poniewa¿
 konfiguracja taka pozwala na nawi±zanie tylko jednego po³±czenia.
 Wszystkie I<OPCJE US£UG> powinny byæ umieszczone razem z opcjami
@@ -505,9 +544,10 @@ I<PRZYK£ADY>.
 =head2 CERTYFIKATY
 
 Protokó³ SSL wymaga, aby ka¿dy serwer przedstawia³ siê nawi±zuj±cemu
-po³±czenie klientowi prawid³owym certyfikatem X.509.  Do potwierdzenia
-to¿samo¶ci w³a¶ciciela certyfikatu serwer musi mieæ odpowiadaj±cy mu
-klucz prywatny.  Najprostsz± metod± uzyskania certyfikatu jest wygenerowanie
+po³±czenie klientowi prawid³owym certyfikatem X.509.
+Potwierdzenie to¿samo¶ci serwera polega na wykazaniu, ¿e posiada on
+odpowiadaj±cy certyfikatowi klucz prywatny.
+Najprostsz± metod± uzyskania certyfikatu jest wygenerowanie
 go przy pomocy wolnego pakietu I<OpenSSL>.  Wiêcej informacji na temat
 generowania certyfikatów mo¿na znale¼æ na umieszczonych poni¿ej stronach.
 
@@ -616,7 +656,7 @@ biblioteka kontroli dostêpu do us³ug internetowych
 
 =item L<inetd(8)>
 
-super-serwer internetowy
+'super-serwer' internetowy
 
 =item F<http://stunnel.mirt.net/>
 

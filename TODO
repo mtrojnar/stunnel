@@ -1,16 +1,20 @@
 stunnel         Universal SSL tunnel
 
 * High priority features I'm going to support (sponsorship welcomed):
-  - IPv6 support.
-  - poll() support.
   - Add service-level SSL contexts.
   - Add service-level logging.
   - Optional use of syslog in foreground mode.
+  - Provide transparent proxy for Linux 2.6.x.
+  - In transparent proxy mode bind source port (not only IP).
+  - In transparent proxy mode add an option to connect destination address
+    of the the original connection instead of a fixed IP list.
 
 * Low priority features I'm going to support (sponsorship welcomed):
+  - Replace protocol.c with a scripting engine.
+  - Add some scripting capabilities *after* SSL negotiations.
   - Log file rotation on a signal.
   - Key renegotiation (re-handshake) for long connections.
-  - Support for multiple languages.
+  - Support for multiple languages (i18n).
   - Logging to NT eventlog.
   - IMAP protocol support (RFC 2595).
     http://www.ietf.org/rfc/rfc2595.txt
@@ -20,6 +24,7 @@ stunnel         Universal SSL tunnel
     http://www.ietf.org/rfc/rfc2817.txt
   - Graceful configuration reload with a signal on Unix and with GUI on Windows.
 
-* Features I'm *not* going to support:
-  - HTTP protocol.
+* Features waiting for a wealthy sponsor:
+  - HTTP protocol (X-Forwarded-For header).
+  - SMTP protocol (X-Forwarded-For header).
 

@@ -23,6 +23,24 @@
 
 #include "common.h"
 
+/**************************************** Network data structure */
+
+#define MAX_HOSTS 16
+
+typedef union sockaddr_union {
+    struct sockaddr sa;
+    struct sockaddr_in in;
+#if defined(USE_IPv6) || defined(USE_WIN32)
+    struct sockaddr_in6 in6;
+#endif
+} SOCKADDR_UNION;
+
+typedef struct sockaddr_list {      /* list of addresses */
+    SOCKADDR_UNION addr[MAX_HOSTS]; /* the list of addresses */
+    u16 cur;                        /* current address for round-robin */
+    u16 num;                        /* how many addresses are used */
+} SOCKADDR_LIST;
+
 /**************************************** Prototypes for stunnel.c */
 
 extern int num_clients;
@@ -36,10 +54,14 @@ char *my_strerror(int);
 int set_socket_options(int, int);
 char *stunnel_info(void);
 int alloc_fd(int);
-char *safe_ntoa(char *, struct in_addr);
 
 /**************************************** Prototypes for ssl.c */
 
+typedef enum {
+    COMP_NONE, COMP_ZLIB, COMP_RLE
+} COMP_TYPE;
+
+void ssl_init(void);
 void context_init(void);
 void context_free(void);
 void sslerror(char *);
@@ -48,11 +70,7 @@ void sslerror(char *);
 
 void log_open(void);
 void log_close(void);
-#if defined (USE_WIN32) || defined (__vms)
-/* This conflicts with the "double log (double __x)" routine from math.h */
-#define log stunnel_log
-#endif
-void log(int, const char *, ...)
+void s_log(int, const char *, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 2, 3)));
 #else
@@ -68,11 +86,12 @@ void log_raw(const char *, ...)
 /**************************************** Prototypes for sthreads.c */
 
 typedef enum {
-    CRIT_KEYGEN, CRIT_NTOA, CRIT_CLIENTS, CRIT_WIN_LOG, CRIT_SECTIONS
-} section_code;
+    CRIT_KEYGEN, CRIT_INET, CRIT_CLIENTS, CRIT_WIN_LOG, CRIT_SESSION,
+    CRIT_SECTIONS
+} SECTION_CODE;
 
-void enter_critical_section(section_code);
-void leave_critical_section(section_code);
+void enter_critical_section(SECTION_CODE);
+void leave_critical_section(SECTION_CODE);
 void sthreads_init(void);
 unsigned long stunnel_process_id(void);
 unsigned long stunnel_thread_id(void);
@@ -94,6 +113,8 @@ void pty_make_controlling_tty(int *, char *);
 
 typedef struct {
         /* some data for SSL initialization in ssl.c */
+    COMP_TYPE compression;                               /* compression type */
+    char *engine;                                     /* hardware SSL engine */
     char *ca_dir;                              /* directory for hashed certs */
     char *ca_file;                       /* file containing bunches of certs */
     char *crl_dir;                              /* directory for hashed CRLs */
@@ -149,24 +170,22 @@ typedef struct {
 extern GLOBAL_OPTIONS options;
 
 typedef struct local_options {
-    struct local_options *next;            /* next node in the services list */
-
-    char local_address[16]; /* Dotted-decimal address to bind */
-
-        /* name of service */
-    char *servname;         /* service name for loggin & permission checking */
+    struct local_options *next; /* next node in the services list */
+    char *servname; /* service name for loggin & permission checking */
+    SSL_SESSION *session; /* Recently used session */
+    char local_address[IPLEN]; /* Dotted-decimal address to bind */
 
         /* service-specific data for client.c */
     int fd;        /* file descriptor accepting connections for this service */
-    unsigned short localport, remoteport;
     char *execname, **execargs; /* program name and arguments for local mode */
-    u32 *localnames, *remotenames;
-    u32 *local_ip;
+    SOCKADDR_LIST local_addr, remote_addr;
+    SOCKADDR_LIST source_addr;
     char *username;
     char *remote_address;
     int timeout_busy; /* Maximum waiting for data time */
-    int timeout_idle; /* Maximum idle connection time */
     int timeout_close; /* Maximum close_notify time */
+    int timeout_connect; /* Maximum connect() time */
+    int timeout_idle; /* Maximum idle connection time */
 
         /* protocol name for protocol.c */
     char *protocol;
@@ -207,7 +226,6 @@ typedef struct {
 } SOCK_OPT;
 
 void parse_config(char *, char *);
-int name2nums(char *, char *, u32 **, u_short *);
 
 /**************************************** Prototypes for client.c */
 
@@ -220,14 +238,13 @@ typedef struct {
 
 typedef struct {
     LOCAL_OPTIONS *opt;
-    char accepting_address[16], connecting_address[16]; /* Dotted-decimal */
-    struct sockaddr_in addr; /* Local address */
+    char accepting_address[IPLEN], connecting_address[IPLEN]; /* text */
+    SOCKADDR_LIST peer_addr; /* Peer address */
     FD local_rfd, local_wfd; /* Read and write local descriptors */
     FD remote_fd; /* Remote descriptor */
     SSL *ssl; /* SSL Connection */
-    int bind_ip; /* IP for explicit local bind or transparent proxy */
+    SOCKADDR_LIST bind_addr; /* IP for explicit local bind or transparent proxy */
     unsigned long pid; /* PID of local process */
-    u32 *resolved_addresses; /* List of IP addresses for delayed lookup */
 
     char sock_buff[BUFFSIZE]; /* Socket read buffer */
     char ssl_buff[BUFFSIZE]; /* SSL read buffer */
@@ -242,11 +259,6 @@ extern int max_clients;
 extern int max_fds;
 #endif
 
-#define sock_rd (c->sock_rfd->rd)
-#define sock_wr (c->sock_wfd->wr)
-#define ssl_rd (c->ssl_rfd->rd)
-#define ssl_wr (c->ssl_wfd->wr)
-
 void *alloc_client_session(LOCAL_OPTIONS *, int, int);
 void *client(void *);
 
@@ -254,12 +266,28 @@ void *client(void *);
 
 int negotiate(CLI *c);
 
-/**************************************** Prototypes for select.c */
+/**************************************** Prototypes for network.c */
 
-int sselect(int, fd_set *, fd_set *, fd_set *, struct timeval *);
-int waitforsocket(int, int, int);
+#define MAX_FD 64
+
+typedef struct {
+#ifdef HAVE_POLL
+    struct pollfd ufds[MAX_FD];
+    unsigned int nfds;
+#else
+    fd_set irfds, iwfds, orfds, owfds;
+    int max;
+#endif
+} s_poll_set;
+
+void s_poll_zero(s_poll_set *);
+void s_poll_add(s_poll_set *, int, int, int);
+int s_poll_canread(s_poll_set *, int);
+int s_poll_canwrite(s_poll_set *, int);
+int s_poll_wait(s_poll_set *, int);
+
 #ifndef USE_WIN32
-void sselect_init(fd_set *, int *);
+int signal_pipe_init(void);
 void exec_status(void);
 #endif
 int write_blocking(CLI *, int fd, u8 *, int);
@@ -277,6 +305,9 @@ int fdscanf(CLI *, int, const char *, char *)
 #else
        ;
 #endif
+int name2addrlist(SOCKADDR_LIST *, char *, char *);
+int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
+char *s_ntop(char *, SOCKADDR_UNION *);
 
 /**************************************** Prototypes for gui.c */
 

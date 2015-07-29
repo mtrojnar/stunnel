@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.05             (stunnel.c)
- *   Date:         2004.02.14
+ *   Version:      4.06             (stunnel.c)
+ *   Date:         2004.12.26
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -81,7 +81,7 @@ void main_initialize(char *arg1, char *arg2) {
     sthreads_init(); /* initialize critical sections & SSL callbacks */
     parse_config(arg1, arg2);
     log_open();
-    log(LOG_NOTICE, "%s", stunnel_info());
+    s_log(LOG_NOTICE, "%s", stunnel_info());
 
     /* check if certificate exists */
     if(!options.key) /* key file not specified */
@@ -93,12 +93,13 @@ void main_initialize(char *arg1, char *arg2) {
         }
 #ifndef USE_WIN32
         if(st.st_mode & 7)
-            log(LOG_WARNING, "Wrong permissions on %s", options.key);
+            s_log(LOG_WARNING, "Wrong permissions on %s", options.key);
 #endif /* defined USE_WIN32 */
     }
 }
 
 void main_execute(void) {
+    ssl_init(); /* initialize SSL library */
     context_init(); /* initialize global SSL context */
     /* check if started from inetd */
     if(local_options.next) { /* there are service sections -> daemon mode */
@@ -117,26 +118,29 @@ void main_execute(void) {
 }
 
 static void daemon_loop(void) {
-    struct sockaddr_in addr;
-    fd_set base_set, current_set;
-    int n;
+    SOCKADDR_UNION addr;
+    s_poll_set fds;
     LOCAL_OPTIONS *opt;
 
     get_limits();
-    FD_ZERO(&base_set);
+    s_poll_zero(&fds);
+#ifndef USE_WIN32
+    s_poll_add(&fds, signal_pipe_init(), 1, 0);
+#endif
+
     if(!local_options.next) {
-        log(LOG_ERR, "No connections defined in config file");
+        s_log(LOG_ERR, "No connections defined in config file");
         exit(1);
     }
 
     num_clients=0;
 
     /* bind local ports */
-    n=0;
     for(opt=local_options.next; opt; opt=opt->next) {
         if(!opt->option.accept) /* no need to bind this service */
             continue;
-        if((opt->fd=socket(AF_INET, SOCK_STREAM, 0))<0) {
+        memcpy(&addr, &opt->local_addr.addr[0], sizeof(SOCKADDR_UNION));
+        if((opt->fd=socket(addr.sa.sa_family, SOCK_STREAM, 0))<0) {
             sockerror("local socket");
             exit(1);
         }
@@ -144,19 +148,14 @@ static void daemon_loop(void) {
             exit(1);
         if(set_socket_options(opt->fd, 0)<0)
             exit(1);
-        memset(&addr, 0, sizeof(addr));
-        addr.sin_family=AF_INET;
-        addr.sin_addr.s_addr=*opt->localnames;
-        addr.sin_port=opt->localport;
-        safe_ntoa(opt->local_address, addr.sin_addr);
-        if(bind(opt->fd, (struct sockaddr *)&addr, sizeof(addr))) {
-            log(LOG_ERR, "Error binding %s to %s:%d", opt->servname,
-                opt->local_address, ntohs(addr.sin_port));
+        s_ntop(opt->local_address, &addr);
+        if(bind(opt->fd, &addr.sa, addr_len(addr))) {
+            s_log(LOG_ERR, "Error binding %s to %s",
+                opt->servname, opt->local_address);
             sockerror("bind");
             exit(1);
         }
-        log(LOG_DEBUG, "%s bound to %s:%d", opt->servname,
-            opt->local_address, ntohs(addr.sin_port));
+        s_log(LOG_DEBUG, "%s bound to %s", opt->servname, opt->local_address);
         if(listen(opt->fd, 5)) {
             sockerror("listen");
             exit(1);
@@ -164,14 +163,8 @@ static void daemon_loop(void) {
 #ifdef FD_CLOEXEC
         fcntl(opt->fd, F_SETFD, FD_CLOEXEC); /* close socket in child execvp */
 #endif
-        FD_SET(opt->fd, &base_set);
-        if(opt->fd > n)
-            n=opt->fd;
+        s_poll_add(&fds, opt->fd, 1, 0);
     }
-
-#ifndef USE_WIN32
-    sselect_init(&base_set, &n);
-#endif
 
 #if !defined (USE_WIN32) && !defined (__vms)
     if(!(options.option.foreground))
@@ -191,48 +184,43 @@ static void daemon_loop(void) {
     }
 
     while(1) {
-        memcpy(&current_set, &base_set, sizeof(fd_set));
-        if(sselect(n+1, &current_set, NULL, NULL, NULL)<0)
-            /* non-critical error */
-            log_error(LOG_INFO, get_last_socket_error(), "main loop select");
+        if(s_poll_wait(&fds, -1)<0) /* non-critical error */
+            log_error(LOG_INFO, get_last_socket_error(),
+                "daemon_loop: s_poll_wait");
         else 
             for(opt=local_options.next; opt; opt=opt->next)
-                if(FD_ISSET(opt->fd, &current_set))
+                if(s_poll_canread(&fds, opt->fd))
                     accept_connection(opt);
     }
-    log(LOG_ERR, "INTERNAL ERROR: End of infinite loop 8-)");
+    s_log(LOG_ERR, "INTERNAL ERROR: End of infinite loop 8-)");
 }
 
 static void accept_connection(LOCAL_OPTIONS *opt) {
-    struct sockaddr_in addr;
-    int err, s, addrlen=sizeof(addr);
+    SOCKADDR_UNION addr;
+    char from_address[IPLEN];
+    int s, addrlen=sizeof(SOCKADDR_UNION);
 
-    do {
-        s=accept(opt->fd, (struct sockaddr *)&addr, &addrlen);
-        if(s<0)
-            err=get_last_socket_error();
-    } while(s<0 && err==EINTR);
-    if(s<0) {
-        sockerror("accept");
-        switch(err) {
+    while((s=accept(opt->fd, &addr.sa, &addrlen))<0) {
+        switch(get_last_socket_error()) {
+            case EINTR:
+                break; /* retry */
             case EMFILE:
             case ENFILE:
 #ifdef ENOBUFS
             case ENOBUFS:
 #endif
             case ENOMEM:
-                sleep(1);
+                sleep(1); /* temporarily out of resources - short delay */
             default:
-                ;
+                sockerror("accept");
+                return; /* error */
         }
-        return;
     }
-    enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
-    log(LOG_DEBUG, "%s accepted FD=%d from %s:%d", opt->servname, s,
-        inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-    leave_critical_section(CRIT_NTOA);
-    if(num_clients>=max_clients) {
-        log(LOG_WARNING, "Connection rejected: too many clients (>=%d)",
+    s_ntop(from_address, &addr);
+    s_log(LOG_DEBUG, "%s accepted FD=%d from %s",
+        opt->servname, s, from_address);
+    if(max_clients && num_clients>=max_clients) {
+        s_log(LOG_WARNING, "Connection rejected: too many clients (>=%d)",
             max_clients);
         closesocket(s);
         return;
@@ -243,7 +231,7 @@ static void accept_connection(LOCAL_OPTIONS *opt) {
     fcntl(s, F_SETFD, FD_CLOEXEC); /* close socket in child execvp */
 #endif
     if(create_client(opt->fd, s, alloc_client_session(opt, s, s), client)) {
-        log(LOG_ERR, "Connection rejected: create_client failed");
+        s_log(LOG_ERR, "Connection rejected: create_client failed");
         closesocket(s);
         return;
     }
@@ -254,30 +242,44 @@ static void accept_connection(LOCAL_OPTIONS *opt) {
 
 static void get_limits(void) {
 #ifdef USE_WIN32
-    max_clients=30000;
-    log(LOG_NOTICE, "WIN32 platform: %d clients allowed", max_clients);
+    max_clients=0;
+    s_log(LOG_NOTICE, "No limit detected for the number of clients");
 #else
-    int fds_ulimit=-1;
+    max_fds=0; /* unlimited */
 
 #if defined HAVE_SYSCONF
-    fds_ulimit=sysconf(_SC_OPEN_MAX);
-    if(fds_ulimit<0)
+    max_fds=sysconf(_SC_OPEN_MAX);
+    if(max_fds<0)
         ioerror("sysconf");
 #elif defined HAVE_GETRLIMIT
     struct rlimit rlim;
     if(getrlimit(RLIMIT_NOFILE, &rlim)<0)
         ioerror("getrlimit");
     else
-        fds_ulimit=rlim.rlim_cur;
-    if(fds_ulimit==RLIM_INFINITY)
-        fds_ulimit=-1;
+        max_fds=rlim.rlim_cur;
+    if(max_fds==RLIM_INFINITY)
+        max_fds=0; /* RLIM_INFINITY should be equal to zero, anyway */
 #endif
-    max_fds=fds_ulimit<FD_SETSIZE ? fds_ulimit : FD_SETSIZE;
-    if(max_fds<16) /* stunnel needs at least 16 file desriptors to work */
+    s_log(LOG_INFO, "file ulimit = %d%s (can be changed with 'ulimit -n')",
+        max_fds, max_fds ? "" : " (unlimited)");
+#ifdef HAVE_POLL
+    s_log(LOG_INFO, "poll() used - no FD_SETSIZE limit for file descriptors");
+#else
+    s_log(LOG_INFO,
+        "FD_SETSIZE = %d (some systems allow to increase this value)",
+        FD_SETSIZE);
+    if(!max_fds || max_fds>FD_SETSIZE)
+        max_fds=FD_SETSIZE;
+#endif
+    if(max_fds && max_fds<16) /* stunnel needs at least 16 file desriptors */
         max_fds=16;
-    max_clients=max_fds>=256 ? max_fds*125/256 : (max_fds-6)/2;
-    log(LOG_NOTICE, "FD_SETSIZE=%d, file ulimit=%d%s -> %d clients allowed",
-        FD_SETSIZE, fds_ulimit, fds_ulimit<0?" (unlimited)":"", max_clients);
+    if(max_fds) {
+        max_clients=max_fds>=256 ? max_fds*125/256 : (max_fds-6)/2;
+        s_log(LOG_NOTICE, "%d clients allowed", max_clients);
+    } else {
+        max_clients=0;
+        s_log(LOG_NOTICE, "No limit detected for the number of clients");
+    }
 #endif
 }
 
@@ -299,7 +301,7 @@ static void drop_privileges(void) {
         else if(atoi(options.setgid_group)) /* numerical? */
             gid=atoi(options.setgid_group);
         else {
-            log(LOG_ERR, "Failed to get GID for group %s",
+            s_log(LOG_ERR, "Failed to get GID for group %s",
                 options.setgid_group);
             exit(1);
         }
@@ -311,7 +313,7 @@ static void drop_privileges(void) {
         else if(atoi(options.setuid_user)) /* numerical? */
             uid=atoi(options.setuid_user);
         else {
-            log(LOG_ERR, "Failed to get UID for user %s",
+            s_log(LOG_ERR, "Failed to get UID for user %s",
                 options.setuid_user);
             exit(1);
         }
@@ -355,7 +357,7 @@ static void drop_privileges(void) {
 
 static void daemonize(void) { /* go to background */
 #if defined(HAVE_DAEMON) && !defined(__BEOS__)
-    if(daemon(0,0)==-1){
+    if(daemon(0,0)==-1) {
         ioerror("daemon");
         exit(1);
     }
@@ -384,11 +386,11 @@ static void create_pid(void) {
     char pid[STRLEN];
 
     if(!options.pidfile) {
-        log(LOG_DEBUG, "No pid file being created");
+        s_log(LOG_DEBUG, "No pid file being created");
         return;
     }
     if(options.pidfile[0]!='/') {
-        log(LOG_ERR, "Pid file (%s) must be full path name", options.pidfile);
+        s_log(LOG_ERR, "Pid file (%s) must be full path name", options.pidfile);
         /* Why?  Because we don't want to confuse by
            allowing '.', which would be '/' after
            daemonizing) */
@@ -399,19 +401,19 @@ static void create_pid(void) {
     /* silently remove old pid file */
     unlink(options.pidfile);
     if((pf=open(options.pidfile, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL,0644))==-1) {
-        log(LOG_ERR, "Cannot create pid file %s", options.pidfile);
+        s_log(LOG_ERR, "Cannot create pid file %s", options.pidfile);
         ioerror("create");
         exit(1);
     }
     sprintf(pid, "%lu\n", options.dpid);
     write(pf, pid, strlen(pid));
     close(pf);
-    log(LOG_DEBUG, "Created pid file %s", options.pidfile);
+    s_log(LOG_DEBUG, "Created pid file %s", options.pidfile);
     atexit(delete_pid);
 }
 
 static void delete_pid(void) {
-    log(LOG_DEBUG, "removing pid file %s", options.pidfile);
+    s_log(LOG_DEBUG, "removing pid file %s", options.pidfile);
     if((unsigned long)getpid()!=options.dpid)
         return; /* current process is not main daemon process */
     if(unlink(options.pidfile)<0)
@@ -443,7 +445,7 @@ int set_socket_options(int s, int type) {
             sockerror(ptr->opt_str);
             return -1; /* FAILED */
         } else {
-            log(LOG_DEBUG, "%s option set on %s socket",
+            s_log(LOG_DEBUG, "%s option set on %s socket",
                 ptr->opt_str, type_str[type]);
         }
     }
@@ -459,7 +461,7 @@ void sockerror(char *txt) { /* socket error handler */
 }
 
 void log_error(int level, int error, char *txt) { /* generic error logger */
-    log(level, "%s: %s (%d)", txt, my_strerror(error), error);
+    s_log(level, "%s: %s (%d)", txt, my_strerror(error), error);
 }
 
 char *my_strerror(int errnum) {
@@ -578,7 +580,7 @@ char *my_strerror(int errnum) {
 #ifndef USE_WIN32
 
 static void signal_handler(int sig) { /* signal handler */
-    log(sig==SIGTERM ? LOG_NOTICE : LOG_ERR,
+    s_log(sig==SIGTERM ? LOG_NOTICE : LOG_ERR,
         "Received signal %d; terminating", sig);
     exit(3);
 }
@@ -598,6 +600,12 @@ char *stunnel_info(void) {
 #ifdef USE_FORK
     safeconcat(retval, " FORK");
 #endif
+#ifdef HAVE_POLL
+    safeconcat(retval, "+POLL");
+#endif
+#if defined(USE_IPv6) || defined(USE_WIN32)
+    safeconcat(retval, "+IPv6");
+#endif
 #ifdef USE_LIBWRAP
     safeconcat(retval, "+LIBWRAP");
 #endif
@@ -608,8 +616,8 @@ char *stunnel_info(void) {
 
 int alloc_fd(int sock) {
 #ifndef USE_WIN32
-    if(sock>=max_fds) {
-        log(LOG_ERR,
+    if(!max_fds || sock>=max_fds) {
+        s_log(LOG_ERR,
             "File descriptor out of range (%d>=%d)", sock, max_fds);
         closesocket(sock);
         return -1;
@@ -640,16 +648,8 @@ static void setnonblock(int sock, unsigned long l) {
 #endif
         sockerror("nonblocking"); /* non-critical */
     else
-        log(LOG_DEBUG, "FD %d in %sblocking mode", sock,
+        s_log(LOG_DEBUG, "FD %d in %sblocking mode", sock,
             l ? "non-" : "");
-}
-
-char *safe_ntoa(char *text, struct in_addr in) {
-    enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
-    strncpy(text, inet_ntoa(in), 15);
-    leave_critical_section(CRIT_NTOA);
-    text[15]='\0';
-    return text;
 }
 
 /* End of stunnel.c */
