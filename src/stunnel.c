@@ -130,7 +130,6 @@ static int main_unix(int argc, char* argv[]) {
         signal(SIGCHLD, SIG_IGN); /* ignore dead children */
         signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
         client_main(alloc_client_session(&service_options, 0, 1));
-        log_close();
     }
     return 0;
 }

@@ -271,6 +271,13 @@ typedef struct disk_file {
     /* the inteface is prepared to easily implement buffering if needed */
 } DISK_FILE;
 
+    /* FD definition for client.c */
+
+typedef struct {
+    int fd; /* file descriptor */
+    int is_socket; /* file descriptor is a socket */
+} FD;
+
 /**************************************** prototypes for stunnel.c */
 
 extern volatile int num_clients;
@@ -354,7 +361,7 @@ void s_poll_init(s_poll_set *);
 void s_poll_add(s_poll_set *, int, int, int);
 int s_poll_canread(s_poll_set *, int);
 int s_poll_canwrite(s_poll_set *, int);
-int s_poll_error(s_poll_set *, int);
+int s_poll_error(s_poll_set *, FD *);
 int s_poll_wait(s_poll_set *, int, int);
 
 #ifdef USE_WIN32
@@ -372,11 +379,6 @@ int get_socket_error(const int);
 int make_sockets(int [2]);
 
 /**************************************** prototypes for client.c */
-
-typedef struct {
-    int fd; /* file descriptor */
-    int is_socket; /* file descriptor is a socket */
-} FD;
 
 typedef struct {
     SSL *ssl; /* SSL connnection */
@@ -465,13 +467,13 @@ int getnameinfo(const struct sockaddr *, int, char *, int, char *, int, int);
 /**************************************** prototypes for sthreads.c */
 
 typedef enum {
-    CRIT_CLIENTS, CRIT_SESSION, /* client.c */
-    CRIT_SSL,                   /* client.c */
-    CRIT_INET,                  /* resolver.c */
+    CRIT_CLIENTS, CRIT_SESSION, CRIT_SSL,   /* client.c */
+    CRIT_INET,                              /* resolver.c */
 #ifndef USE_WIN32
-    CRIT_LIBWRAP,               /* libwrap.c */
+    CRIT_LIBWRAP,                           /* libwrap.c */
 #endif
-    CRIT_SECTIONS               /* number of critical sections */
+    CRIT_LOG,                               /* log.c */
+    CRIT_SECTIONS                           /* number of critical sections */
 } SECTION_CODE;
 
 void enter_critical_section(SECTION_CODE);

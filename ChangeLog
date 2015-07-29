@@ -1,6 +1,14 @@
 stunnel change log
 
 
+Version 4.52, 2012.01.12, urgency: MEDIUM:
+* Bugfixes
+  - Fixed write closure notification for non-socket file descriptors.
+  - Removed a line logged to stderr in inetd mode.
+  - Fixed "Socket operation on non-socket" error in inetd mode on
+    Mac OS X platform.
+  - Removed direct access to the fields of the X509_STORE_CTX data structure.
+
 Version 4.51, 2012.01.09, urgency: MEDIUM:
 * New features
   - Updated Win32 binary distribution OpenSSL DLLs to version 0.9.8s-fips.

@@ -80,6 +80,7 @@ static void update_peer_menu(void);
 static void update_tray_icon(void);
 static void error_box(const LPSTR);
 static void message_box(const LPSTR, const UINT);
+static void edit_config(HWND);
 static BOOL is_admin(void);
 
 /* NT Service related function */
@@ -394,7 +395,6 @@ static LRESULT CALLBACK window_proc(HWND main_window_handle,
     RECT rect;
     SERVICE_OPTIONS *section;
     unsigned int section_number;
-    char cwd[MAX_PATH], *conf_path;
 
 #if 0
     if(message!=WM_CTLCOLORSTATIC && message!=WM_TIMER)
@@ -528,20 +528,8 @@ static LRESULT CALLBACK window_proc(HWND main_window_handle,
             break;
         case IDM_EDIT_CONFIG:
 #ifndef _WIN32_WCE
-            if(!cmdline.service) { /* security */
-                if(is_admin()) {
-                    ShellExecute(main_window_handle, TEXT("open"),
-                        TEXT("notepad.exe"), TEXT("stunnel.conf"),
-                        NULL, SW_SHOWNORMAL);
-                } else { /* UAC workaround */
-                    GetCurrentDirectory(MAX_PATH, cwd);
-                    conf_path=str_printf("%s\\stunnel.conf", cwd);
-                    ShellExecute(main_window_handle, TEXT("runas"),
-                        TEXT("notepad.exe"), conf_path,
-                        NULL, SW_SHOWNORMAL);
-                    str_free(conf_path);
-                }
-            }
+            if(!cmdline.service) /* security */
+                edit_config(main_window_handle);
 #endif
             break;
         case IDM_RELOAD_CONFIG:
@@ -1041,6 +1029,23 @@ static void message_box(const LPSTR text, const UINT type) {
     tstr=str2tstr(text);
     MessageBox(hwnd, tstr, win32_name, type);
     str_free(tstr);
+}
+
+static void edit_config(HWND main_window_handle) {
+    char cwd[MAX_PATH], *conf_path;
+
+    if(is_admin()) {
+        ShellExecute(main_window_handle, TEXT("open"),
+            TEXT("notepad.exe"), TEXT("stunnel.conf"),
+            NULL, SW_SHOWNORMAL);
+    } else { /* UAC workaround */
+        GetCurrentDirectory(MAX_PATH, cwd);
+        conf_path=str_printf("%s\\stunnel.conf", cwd);
+        ShellExecute(main_window_handle, TEXT("runas"),
+            TEXT("notepad.exe"), conf_path,
+            NULL, SW_SHOWNORMAL);
+        str_free(conf_path);
+    }
 }
 
 static BOOL is_admin(void) {

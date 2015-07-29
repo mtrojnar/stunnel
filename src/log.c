@@ -99,6 +99,7 @@ void log_flush(LOG_MODE new_mode) {
     if(mode!=LOG_MODE_CONFIGURED)
         mode=new_mode;
 
+    enter_critical_section(CRIT_LOG);
     while(head) {
         log_raw(head->level, head->stamp, head->id, head->text);
         str_free(head->stamp);
@@ -107,6 +108,7 @@ void log_flush(LOG_MODE new_mode) {
         head=head->next;
         str_free(tmp);
     }
+    leave_critical_section(CRIT_LOG);
     head=tail=NULL;
 }
 
@@ -144,6 +146,7 @@ void s_log(int level, const char *format, ...) {
     va_end(ap);
 
     if(mode==LOG_MODE_NONE) { /* save the text to log it later */
+        enter_critical_section(CRIT_LOG);
         tmp=str_alloc(sizeof(struct LIST));
         tmp->next=NULL;
         tmp->level=level;
@@ -155,6 +158,7 @@ void s_log(int level, const char *format, ...) {
         else
             head=tmp;
         tail=tmp;
+        leave_critical_section(CRIT_LOG);
     } else { /* ready log the text directly */
         log_raw(level, stamp, id, text);
         str_free(stamp);

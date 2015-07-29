@@ -517,7 +517,7 @@ static void transfer(CLI *c) {
         }
 
         /****************************** check for errors on sockets */
-        err=s_poll_error(c->fds, c->sock_rfd->fd);
+        err=s_poll_error(c->fds, c->sock_rfd);
         if(err) {
             s_log(LOG_NOTICE,
                 "Error detected on socket (read) file descriptor: %s (%d)",
@@ -525,7 +525,7 @@ static void transfer(CLI *c) {
             longjmp(c->err, 1);
         }
         if(c->sock_wfd->fd != c->sock_rfd->fd) { /* performance optimization */
-            err=s_poll_error(c->fds, c->sock_wfd->fd);
+            err=s_poll_error(c->fds, c->sock_wfd);
             if(err) {
                 s_log(LOG_NOTICE,
                     "Error detected on socket write file descriptor: %s (%d)",
@@ -533,7 +533,7 @@ static void transfer(CLI *c) {
                 longjmp(c->err, 1);
             }
         }
-        err=s_poll_error(c->fds, c->ssl_rfd->fd);
+        err=s_poll_error(c->fds, c->ssl_rfd);
         if(err) {
             s_log(LOG_NOTICE,
                 "Error detected on SSL (read) file descriptor: %s (%d)",
@@ -541,7 +541,7 @@ static void transfer(CLI *c) {
             longjmp(c->err, 1);
         }
         if(c->ssl_wfd->fd != c->ssl_rfd->fd) { /* performance optimization */
-            err=s_poll_error(c->fds, c->ssl_wfd->fd);
+            err=s_poll_error(c->fds, c->ssl_wfd);
             if(err) {
                 s_log(LOG_NOTICE,
                     "Error detected on SSL write file descriptor: %s (%d)",
@@ -563,37 +563,17 @@ static void transfer(CLI *c) {
                 "s_poll_wait returned %d, but no descriptor is ready", err);
             longjmp(c->err, 1);
         }
-        /* these checks should no longer be needed */
-        /* I'm going to remove them soon */
-        if(!sock_open_rd && sock_can_rd) {
-            err=get_socket_error(c->sock_rfd->fd);
-            if(err) { /* really an error? */
-                s_log(LOG_ERR, "INTERNAL ERROR: "
-                    "Closed socket ready to read: %s (%d)",
-                    s_strerror(err), err);
-                longjmp(c->err, 1);
-            }
-            if(c->ssl_ptr) { /* anything left to write */
-                s_log(LOG_ERR, "INTERNAL ERROR: "
-                    "Closed socket ready to read: sending reset");
-                longjmp(c->err, 1);
-            }
-            s_log(LOG_ERR, "INTERNAL ERROR: "
-                "Closed socket ready to read: write close");
-            sock_open_wr=0; /* no further write allowed */
-            shutdown(c->sock_wfd->fd, SHUT_WR); /* send TCP FIN */
-        }
 
-        /****************************** send SSL close_notify message */
+        /****************************** send SSL close_notify alert */
         if(shutdown_wants_read || shutdown_wants_write) {
-            num=SSL_shutdown(c->ssl); /* send close_notify */
+            num=SSL_shutdown(c->ssl); /* send close_notify alert */
             if(num<0) /* -1 - not completed */
                 err=SSL_get_error(c->ssl, num);
             else /* 0 or 1 - success */
                 err=SSL_ERROR_NONE;
             switch(err) {
             case SSL_ERROR_NONE: /* the shutdown was successfully completed */
-                s_log(LOG_INFO, "SSL_shutdown successfully sent close_notify");
+                s_log(LOG_INFO, "SSL_shutdown successfully sent close_notify alert");
                 shutdown_wants_read=shutdown_wants_write=0;
                 break;
             case SSL_ERROR_SYSCALL: /* socket error */
@@ -692,7 +672,8 @@ static void transfer(CLI *c) {
             case SSL_ERROR_SYSCALL:
                 if(num && parse_socket_error(c, "SSL_read"))
                     break; /* a non-critical error: retry */
-                /* EOF -> buggy peer: no close_notify */
+                /* EOF -> buggy (e.g. Microsoft) peer:
+                 * SSL socket closed without close_notify alert */
                 if(c->sock_ptr) {
                     s_log(LOG_ERR,
                         "SSL socket closed on SSL_read with %d unsent byte(s)",
@@ -702,7 +683,7 @@ static void transfer(CLI *c) {
                 s_log(LOG_DEBUG, "SSL socket closed on SSL_read");
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
-            case SSL_ERROR_ZERO_RETURN: /* close_notify received */
+            case SSL_ERROR_ZERO_RETURN: /* close_notify alert received */
                 s_log(LOG_DEBUG, "SSL closed on SSL_read");
                 if(SSL_version(c->ssl)==SSL2_VERSION)
                     SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
@@ -743,7 +724,8 @@ static void transfer(CLI *c) {
             case SSL_ERROR_SYSCALL: /* socket error */
                 if(num && parse_socket_error(c, "SSL_write"))
                     break; /* a non-critical error: retry */
-                /* EOF -> buggy peer: no close_notify */
+                /* EOF -> buggy (e.g. Microsoft) peer:
+                 * SSL socket closed without close_notify alert */
                 if(c->sock_ptr) {
                     s_log(LOG_ERR,
                         "SSL socket closed on SSL_write with %d unsent byte(s)",
@@ -753,7 +735,7 @@ static void transfer(CLI *c) {
                 s_log(LOG_DEBUG, "SSL socket closed on SSL_write");
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
-            case SSL_ERROR_ZERO_RETURN: /* close_notify received */
+            case SSL_ERROR_ZERO_RETURN: /* close_notify alert received */
                 s_log(LOG_DEBUG, "SSL closed on SSL_write");
                 if(SSL_version(c->ssl)==SSL2_VERSION)
                     SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
@@ -769,16 +751,27 @@ static void transfer(CLI *c) {
 
         /****************************** check write shutdown conditions */
         if(sock_open_wr && SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN && !c->ssl_ptr) {
-            s_log(LOG_DEBUG, "Sending socket write shutdown");
             sock_open_wr=0; /* no further write allowed */
-            shutdown(c->sock_wfd->fd, SHUT_WR); /* send TCP FIN */
+            if(!c->sock_wfd->is_socket) {
+                s_log(LOG_DEBUG, "Closing the socket file descriptor");
+                sock_open_rd=0; /* file descriptor is ready to be closed */
+            } else if(!shutdown(c->sock_wfd->fd, SHUT_WR)) { /* send TCP FIN */
+                s_log(LOG_DEBUG, "Sent socket write shutdown");
+            } else {
+                s_log(LOG_DEBUG, "Failed to send socket write shutdown");
+                sock_open_rd=0; /* file descriptor is ready to be closed */
+            }
         }
         if(!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN) && !sock_open_rd && !c->sock_ptr) {
-            s_log(LOG_DEBUG, "Sending SSL write shutdown");
             if(SSL_version(c->ssl)!=SSL2_VERSION) { /* SSLv3, TLSv1 */
-                shutdown_wants_write=1; /* initiate close_notify */
-            } else { /* no alerts in SSLv2 including close_notify alert */
-                shutdown(c->sock_rfd->fd, SHUT_RDWR); /* notify the kernel */
+                s_log(LOG_DEBUG, "Sending close_notify alert");
+                shutdown_wants_write=1;
+            } else { /* no alerts in SSLv2, including the close_notify alert */
+                s_log(LOG_DEBUG, "Closing SSLv2 socket");
+                if(c->ssl_rfd->is_socket)
+                    shutdown(c->ssl_rfd->fd, SHUT_RD); /* notify the kernel */
+                if(c->ssl_wfd->is_socket)
+                    shutdown(c->ssl_wfd->fd, SHUT_WR); /* send TCP FIN */
                 /* notify the OpenSSL library */
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
             }

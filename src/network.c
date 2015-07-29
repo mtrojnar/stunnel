@@ -101,13 +101,15 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
     return 0;
 }
 
-int s_poll_error(s_poll_set *fds, int fd) {
+int s_poll_error(s_poll_set *fds, FD *s) {
     unsigned int i;
 
+    if(!s->is_socket)
+        return 0;
     for(i=0; i<fds->nfds; i++)
-        if(fds->ufds[i].fd==fd)
+        if(fds->ufds[i].fd==s->fd)
             return fds->ufds[i].revents&(POLLERR|POLLNVAL) ?
-                get_socket_error(fd) : 0;
+                get_socket_error(s->fd) : 0;
     return 0;
 }
 
@@ -316,10 +318,12 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
     return FD_ISSET(fd, &fds->owfds);
 }
 
-int s_poll_error(s_poll_set *fds, int fd) {
-    if(!FD_ISSET(fd, &fds->orfds)) /* error conditions are signaled as read */
+int s_poll_error(s_poll_set *fds, FD *s) {
+    if(!s->is_socket)
         return 0;
-    return get_socket_error(fd); /* check if it's really an error */
+    if(!FD_ISSET(s->fd, &fds->orfds)) /* error conditions are signaled as read */
+        return 0;
+    return get_socket_error(s->fd); /* check if it's really an error */
 }
 
 int s_poll_wait(s_poll_set *fds, int sec, int msec) {
@@ -352,7 +356,7 @@ int set_socket_options(int s, int type) {
     int opt_size;
     int retval=0; /* no error found */
 
-    for(ptr=sock_opts;ptr->opt_str;ptr++) {
+    for(ptr=sock_opts; ptr->opt_str; ptr++) {
         if(!ptr->opt_val[type])
             continue; /* default */
         switch(ptr->opt_type) {
@@ -395,7 +399,7 @@ int get_socket_error(const int fd) {
     socklen_t optlen=sizeof err;
 
     if(getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&err, &optlen))
-        return get_last_socket_error(); /* failed -> ask why */
+        err=get_last_socket_error(); /* failed -> ask why */
     return err;
 }
 
@@ -438,16 +442,12 @@ int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
         str_free(dst);
         return -1;
     default:
-        if(s_poll_canread(c->fds, c->fd) || s_poll_error(c->fds, c->fd)) {
-            /* newly connected socket should not be ready for read */
-            /* get the resulting error code, now */
-            error=get_socket_error(c->fd);
-            if(error) { /* really an error? */
-                s_log(LOG_ERR, "connect_blocking: getsockopt %s: %s (%d)",
-                    dst, s_strerror(error), error);
-                str_free(dst);
-                return -1;
-            }
+        error=get_socket_error(c->fd);
+        if(error) {
+            s_log(LOG_ERR, "connect_blocking: connect %s: %s (%d)",
+               dst, s_strerror(error), error);
+            str_free(dst);
+            return -1;
         }
         if(s_poll_canwrite(c->fds, c->fd)) {
             s_log(LOG_NOTICE, "connect_blocking: connected %s", dst);
