@@ -28,7 +28,8 @@ install-data-local:
 		${INSTALL} -m 600 stunnel.pem $(DESTDIR)$(confdir)/stunnel.pem; \
 		rm stunnel.pem; \
 	fi
-	${INSTALL} -d -m 1770 -g nogroup $(DESTDIR)$(prefix)/var/lib/stunnel
+	${INSTALL} -d -m 1770 $(DESTDIR)$(prefix)/var/lib/stunnel
+	-chgrp $(DEFAULT_GROUP) $(DESTDIR)$(prefix)/var/lib/stunnel
 	if uname | grep SunOS; then \
 		${INSTALL} -d -m 755 $(DESTDIR)$(prefix)/var/lib/stunnel/dev; \
 		mknod $(DESTDIR)$(prefix)/var/lib/stunnel/dev/zero c 13 12; \

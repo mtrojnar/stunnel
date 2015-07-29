@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.15             (stunnel.c)
- *   Date:         2006.03.11
+ *   Version:      4.16             (stunnel.c)
+ *   Date:         2006.08.31
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -40,7 +40,7 @@
 static void daemon_loop(void);
 static void accept_connection(LOCAL_OPTIONS *);
 static void get_limits(void); /* setup global max_clients and max_fds */
-#if !defined (USE_WIN32) && !defined (__vms)
+#if !defined (USE_WIN32) && !defined (__vms) 
 static void drop_privileges(void);
 static void daemonize(void);
 static void create_pid(void);
@@ -91,7 +91,7 @@ void main_execute(void) {
     if(local_options.next) { /* there are service sections -> daemon mode */
         daemon_loop();
     } else { /* inetd mode */
-#if !defined (USE_WIN32) && !defined (__vms)
+#if !defined (USE_WIN32) && !defined (__vms)&&!defined(USE_OS2)
         max_fds=FD_SETSIZE; /* just in case */
         drop_privileges();
 #endif
@@ -105,18 +105,15 @@ static void daemon_loop(void) {
     SOCKADDR_UNION addr;
     s_poll_set fds;
     LOCAL_OPTIONS *opt;
-
     get_limits();
     s_poll_zero(&fds);
-#ifndef USE_WIN32
+#if !defined(USE_WIN32) && !defined(USE_OS2)
     s_poll_add(&fds, signal_pipe_init(), 1, 0);
 #endif
-
     if(!local_options.next) {
         s_log(LOG_ERR, "No connections defined in config file");
         exit(1);
     }
-
     num_clients=0;
 
     /* bind local ports */
@@ -150,13 +147,12 @@ static void daemon_loop(void) {
         s_poll_add(&fds, opt->fd, 1, 0);
     }
 
-#if !defined (USE_WIN32) && !defined (__vms)
+#if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
     if(!(options.option.foreground))
         daemonize();
     drop_privileges();
     create_pid();
 #endif /* !defined USE_WIN32 && !defined (__vms) */
-
     /* create exec+connect services */
     for(opt=local_options.next; opt; opt=opt->next) {
         if(opt->option.accept) /* skip ordinary (accepting) services */
@@ -166,9 +162,8 @@ static void daemon_loop(void) {
         leave_critical_section(CRIT_CLIENTS);
         create_client(-1, -1, alloc_client_session(opt, -1, -1), client);
     }
-
     while(1) {
-        if(s_poll_wait(&fds, -1)<0) { /* non-critical error */
+        if(s_poll_wait(&fds, -1, -1)<0) { /* non-critical error */
             log_error(LOG_INFO, get_last_socket_error(),
                 "daemon_loop: s_poll_wait");
             sleep(1); /* to avoid log trashing */
@@ -176,6 +171,7 @@ static void daemon_loop(void) {
             for(opt=local_options.next; opt; opt=opt->next)
                 if(s_poll_canread(&fds, opt->fd))
                     accept_connection(opt);
+
         }
     }
     s_log(LOG_ERR, "INTERNAL ERROR: End of infinite loop 8-)");
@@ -233,6 +229,13 @@ static void get_limits(void) {
     max_clients=0;
     s_log(LOG_NOTICE, "No limit detected for the number of clients");
 #else
+#if defined(USE_OS2) && defined(__INNOTEK_LIBC__)
+    /* OS/2 with the Innotek LIBC does not share the same handles between files
+     and socket connections.
+     */
+    max_clients=(FD_SETSIZE-6)/2;
+    max_fds=FD_SETSIZE;
+#else
     max_fds=0; /* unlimited */
 
 #if defined HAVE_SYSCONF
@@ -268,6 +271,7 @@ static void get_limits(void) {
         max_clients=0;
         s_log(LOG_NOTICE, "No limit detected for the number of clients");
     }
+#endif
 #endif
 }
 

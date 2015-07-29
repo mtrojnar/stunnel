@@ -34,7 +34,7 @@ STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About stunnel"
 BEGIN
     ICON            IDI_MYICON,-1,9,8,18,20
-    LTEXT           "stunnel version 4.15",-1,30,4,104,8
+    LTEXT           "stunnel version 4.16",-1,30,4,104,8
     LTEXT           "© by Michal Trojnara 2006",-1,30,12,104,8
     LTEXT           "All Rights Reserved",-1,30,20,104,8
     LTEXT           "Licensed under the GNU GPL version 2",-1,4,28,130,8
@@ -47,7 +47,18 @@ CAPTION ""
 BEGIN
     ICON            IDI_MYICON,-1,8,6,18,20
     LTEXT           "Pass phrase:",-1,33,11,45,8
-    EDITTEXT        IDE_PASSWORDEDIT,81,7,70,12,ES_PASSWORD | ES_AUTOHSCROLL
+    EDITTEXT        IDE_PASSEDIT,81,7,70,12,ES_PASSWORD | ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,7,30,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,101,30,50,14
+END
+
+PINBOX DIALOG DISCARDABLE 0, 0, 158, 51
+STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION ""
+BEGIN
+    ICON            IDI_MYICON,-1,8,6,18,20
+    LTEXT           "SmartCard PIN:",-1,33,11,45,8
+    EDITTEXT        IDE_PINEDIT,81,7,70,12,ES_PASSWORD | ES_AUTOHSCROLL
     DEFPUSHBUTTON   "OK",IDOK,7,30,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,101,30,50,14
 END

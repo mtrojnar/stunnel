@@ -54,8 +54,14 @@ void exit_stunnel(int code) {
     exit(code);
 }
 
-int pem_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
+int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
     return 0; /* not implemented */
 }
+
+#ifdef HAVE_OSSL_ENGINE_H
+int pin_cb(UI *ui, UI_STRING *uis) {
+    return 0; /* not implemented */
+}
+#endif
 
 /* End of nogui.c */

@@ -33,7 +33,7 @@
 
 static DISK_FILE *outfile=NULL; /* Logging to file disabled by default */
 
-void log_open(void) { /* Unix version */
+void log_open(void) {
     if(options.output_file) { /* 'output' option specified */
         outfile=file_open(options.output_file, 1);
         if(outfile) /* file opened or created */

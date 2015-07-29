@@ -235,6 +235,19 @@ wybór sprzêtowego urz±dzenia kryptograficznego
 <dd>
 <p>domy¶lnie: bez wykorzystania urz±dzeñ kryptograficznych</p>
 </dd>
+<dd>
+<p>Przyk³ad wykorzystania w sekcji 'PRZYK£ADY'.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_enginectrl__3d__3ccommand_3e_5b_3a_3cparameter_3e_"><strong>engineCtrl</strong> = &lt;command&gt;[:&lt;parameter&gt;]</a></strong><br />
+</dt>
+<dd>
+konfiguracja urz±dzenia kryptograficznego
+</dd>
+<dd>
+<p>Specjalne komendy ``LOAD'' i ``INIT'' pozwalaj± na za³adowanie i inicjalizacjê
+modu³u kryptograficznego urz±dzenia.</p>
+</dd>
 <p></p>
 <dt><strong><a name="item_no"><strong>foreground</strong> = yes | no (tylko Unix)</a></strong><br />
 </dt>
@@ -404,7 +417,8 @@ katalog Centrum Certyfikacji
 <p>Opcja okre¶la katalog, w którym <strong>stunnel</strong> bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja <em>verify</em>.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
-certyfikatu.</p>
+kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu
+(4 pierwsze bajty skrótu MD5 pocz±wszy od najmniej znaczacego).</p>
 </dd>
 <dd>
 <p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>CApath</em> jest okre¶lona
@@ -494,6 +508,15 @@ przez opcjê <em>verify</em>.</p>
 opó¼nij rozwiniêcie adresu DNS podanego w opcji <em>connect</em>
 </dd>
 <p></p>
+<dt><strong><a name="item_enginenum__3d__3cnumer_urz_b1dzenia_3e"><strong>engineNum</strong> = &lt;numer urz±dzenia&gt;</a></strong><br />
+</dt>
+<dd>
+wybierz urz±dzenie do odczyta klucza prywatnego
+</dd>
+<dd>
+<p>Urz±dzenia s± numerowane od 1 w górê.</p>
+</dd>
+<p></p>
 <dt><strong><a name="item_ka_do_programu"><strong>exec</strong> = ¶cie¿ka_do_programu (tylko Unix)</a></strong><br />
 </dt>
 <dd>
@@ -549,6 +572,12 @@ IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
 serwera, do którego nawi±zywane jest po³±czenie.</p>
 </dd>
 <p></p>
+<dt><strong><a name="item_ocsp__3d_url"><strong>ocsp</strong> = URL</a></strong><br />
+</dt>
+<dd>
+serwer OCSP do weryfikacji certyfikatów
+</dd>
+<p></p>
 <dt><strong><a name="item_options__3d_opcje_ssl"><strong>options</strong> = opcje_SSL</a></strong><br />
 </dt>
 <dd>
@@ -599,6 +628,15 @@ alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
 </dt>
 <dd>
 czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
+</dd>
+<p></p>
+<dt><strong><a name="item_sslversion__3d_wersja"><strong>sslVersion</strong> = wersja</a></strong><br />
+</dt>
+<dd>
+wybierz wersjê protoko³u SSL
+</dd>
+<dd>
+<p>Dozwolone opcje: all, SSLv2, SSLv3, TLSv1</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_timeoutbusy__3d_liczba_sekund"><strong>TIMEOUTbusy</strong> = liczba_sekund</a></strong><br />
@@ -690,6 +728,20 @@ konfiguracyjnym nie ma sekcji <em>[nazwa_us³ugi]</em>.</p>
 <pre>
     exec = /usr/sbin/imapd
     execargs = imapd</pre>
+<p>Przyk³adowa konfiguracja umo¿liwiaj±ca odczytanie klucza prywatnego z
+urz±dzenia zgodnego z OpenSC</p>
+<pre>
+    engine=dynamic
+    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+    engineCtrl=ID:pkcs11
+    engineCtrl=LIST_ADD:1
+    engineCtrl=LOAD
+    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
+    engineCtrl=INIT</pre>
+<pre>
+    [service]
+    engineNum=1
+    key=id_45</pre>
 <p>
 </p>
 <hr />

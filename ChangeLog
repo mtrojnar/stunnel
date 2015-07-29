@@ -1,5 +1,37 @@
 stunnel         Universal SSL tunnel
 
+Version 4.16, 2006.08.31, urgency: MEDIUM:
+* New features sponsored by Hewlett-Packard
+  - A new global option to control engine:
+    engineCtrl = <command>[:<parameter>]
+  - A new service-level option to select engine to read private key:
+    engineNum = <engine number>
+  - OCSP support:
+    ocsp = <URL>
+* New features
+  - A new option to select version of SSL protocol:
+    sslVersion = all|SSLv2|SSLv3|TLSv1
+  - Visual Studio vc.mak by David Gillingham <dgillingham@gmail.com>.
+  - OS2 support by Paul Smedley (http://smedley.info)
+* Bugfixes
+  - An ordinary user can install stunnel again.
+  - Compilation problem with --enable-dh fixed.
+  - Some minor compilation warnings fixed.
+  - Service-level CRL cert store implemented.
+  - GPF on protocol negotiations fixed.
+  - Problem detecting addrinfo() on Tru64 fixed.
+  - Default group is now detected by configure script.
+  - Check for maximum number of defined services added.
+  - OpenSSL_add_all_algorithms() added to SSL initialization.
+  - configure script sections reordered to detect pthread library funcions.
+  - RFC 2487 autdetection improved (thx to Hans Werner Strube).  High
+    resolution s_poll_wait() not currently supported by UCONTEXT threading.
+  - More precise description of cert directory file names (thx to Muhammad
+    Muquit).
+
+* Other changes
+  - Maximum number of services increased from 64 to 256 when poll() is used.
+
 Version 4.15, 2006.03.11, urgency: LOW:
 * Release notes
   - There are a lot of new features in this version.  I recommend

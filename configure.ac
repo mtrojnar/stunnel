@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel], [4.15])
+AC_INIT([stunnel], [4.16])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.15)
+AM_INIT_AUTOMAKE(stunnel, 4.16)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -48,118 +48,6 @@ AC_MSG_NOTICE([**************************************** PTY device files])
 AC_CHECK_FILE("/dev/ptmx", AC_DEFINE(HAVE_DEV_PTMX))
 AC_CHECK_FILE("/dev/ptc", AC_DEFINE(HAVE_DEV_PTS_AND_PTC))
 
-AC_MSG_NOTICE([**************************************** libraries])
-# Checks for standard libraries
-AC_CHECK_LIB(nsl, gethostbyname)
-AC_CHECK_LIB(socket, socket)
-AC_CHECK_LIB(util, openpty)
-# Checks for dynamic loader and zlib needed by OpenSSL
-AC_CHECK_LIB(dl, dlopen)
-AC_CHECK_LIB(dld, shl_load)
-AC_CHECK_LIB(z, inflateEnd)
-
-# Add BeOS libraries
-if test "$host_os" = "beos"
-then LIBS="$LIBS -lbe -lroot -lbind"
-fi
-
-AC_MSG_NOTICE([**************************************** header files])
-# AC_HEADER_DIRENT
-# AC_HEADER_STDC
-# AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(ucontext.h pthread.h)
-AC_CHECK_HEADERS(sys/select.h poll.h sys/poll.h tcpd.h)
-AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h stropts.h)
-AC_CHECK_HEADERS(grp.h unistd.h util.h libutil.h sys/resource.h pty.h)
-
-AC_MSG_NOTICE([**************************************** library functions])
-# safe string operations
-AC_CHECK_FUNCS(snprintf vsnprintf)
-# pseudoterminal
-AC_CHECK_FUNCS(openpty _getpty)
-# Unix
-AC_CHECK_FUNCS(daemon waitpid wait4 setsid setgroups chroot)
-# limits
-AC_CHECK_FUNCS(sysconf getrlimit)
-# threads/reentrant functions
-AC_CHECK_FUNCS(pthread_sigmask localtime_r)
-# threads
-AC_CHECK_FUNCS(getcontext __makecontext_v2)
-# sockets
-AC_CHECK_FUNCS(poll endhostent getaddrinfo getnameinfo)
-# poll() is not recommended on Mac OS X <=10.3 and broken on Mac OS X >=10.4
-AC_MSG_CHECKING([for broken poll() implementation])
-case "$host_os" in
-darwin*)
-    AC_MSG_RESULT([yes (poll() disabled)])
-    AC_DEFINE(BROKEN_POLL)
-    ;;
-*)
-    AC_MSG_RESULT([no])
-    ;;
-esac
-
-AC_MSG_NOTICE([**************************************** SSL])
-checkssldir() { :
-    if test -f "$1/include/openssl/ssl.h"
-    then AC_DEFINE(HAVE_OPENSSL)
-        ssldir="$1"
-        return 0
-    fi
-    if test -f "$1/include/ssl.h"
-    then ssldir="$1"
-        return 0
-    fi
-    return 1
-}
-
-# Check for SSL directory
-AC_MSG_CHECKING([for SSL directory])
-AC_ARG_WITH(ssl,
-[  --with-ssl=DIR          location of installed SSL libraries/include files],
-    [
-        # Check the specified localtion only
-        checkssldir "$withval"
-    ],
-    [
-        # Search default localtions of SSL library
-        for maindir in /usr/local /usr/lib /usr/pkg /usr /var/ssl /opt; do
-            for dir in $maindir $maindir/openssl $maindir/ssl; do
-                checkssldir $dir && break 2
-            done
-        done
-    ]
-)
-if test -z "$ssldir"
-then AC_MSG_RESULT([Not found])
-    echo
-    echo "Couldn't find your SSL library installation dir"
-    echo "Use --with-ssl option to fix this problem"
-    echo
-    exit 1
-fi
-AC_MSG_RESULT([$ssldir])
-AC_SUBST(ssldir)
-AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
-
-# Add SSL includes and libraries
-CFLAGS="$CFLAGS -I$ssldir/include"
-LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
-
-# Check for obsolete RSAref library
-AC_MSG_CHECKING([for obsolete RSAref library])
-saved_LIBS="$LIBS"
-LIBS="$saved_LIBS -lRSAglue -L$prefix/lib -lrsaref"
-AC_LINK_IFELSE(
-    [AC_LANG_PROGRAM([[]], [[]])],
-    [AC_MSG_RESULT([yes])],
-    [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"]
-)
-
-AC_CHECK_HEADER([$ssldir/include/openssl/engine.h],
-    [AC_DEFINE([HAVE_OSSL_ENGINE_H])],
-    [AC_MSG_WARN([Openssl engine header not found])])
-
 AC_MSG_NOTICE([**************************************** entropy])
 
 AC_ARG_WITH(egd-socket,
@@ -182,6 +70,37 @@ AC_ARG_WITH(random,
 if test -n "$RANDOM_FILE"
 then AC_SUBST(RANDOM_FILE)
     AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE")
+fi
+
+AC_MSG_NOTICE([**************************************** default group])
+AC_MSG_CHECKING([for default group])
+DEFAULT_GROUP=nobody
+grep '^nogroup:' /etc/group >/dev/null && DEFAULT_GROUP=nogroup
+AC_MSG_RESULT([$DEFAULT_GROUP])
+AC_SUBST(DEFAULT_GROUP)
+
+AC_MSG_NOTICE([**************************************** header files])
+# AC_HEADER_DIRENT
+# AC_HEADER_STDC
+# AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS(ucontext.h pthread.h)
+AC_CHECK_HEADERS(sys/select.h poll.h sys/poll.h tcpd.h)
+AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h stropts.h)
+AC_CHECK_HEADERS(grp.h unistd.h util.h libutil.h sys/resource.h pty.h)
+
+AC_MSG_NOTICE([**************************************** libraries])
+# Checks for standard libraries
+AC_SEARCH_LIBS(gethostbyname, nsl)
+AC_CHECK_LIB(socket, socket)
+AC_CHECK_LIB(util, openpty)
+# Checks for dynamic loader and zlib needed by OpenSSL
+AC_CHECK_LIB(dl, dlopen)
+AC_CHECK_LIB(dld, shl_load)
+AC_CHECK_LIB(z, inflateEnd)
+
+# Add BeOS libraries
+if test "$host_os" = "beos"
+then LIBS="$LIBS -lbe -lroot -lbind"
 fi
 
 AC_MSG_NOTICE([**************************************** thread model])
@@ -254,6 +173,105 @@ AC_ARG_WITH(threads,
     fi
 ])
 
+AC_MSG_NOTICE([**************************************** library functions])
+# safe string operations
+AC_CHECK_FUNCS(snprintf vsnprintf)
+# pseudoterminal
+AC_CHECK_FUNCS(openpty _getpty)
+# Unix
+AC_CHECK_FUNCS(daemon waitpid wait4 setsid setgroups chroot)
+# limits
+AC_CHECK_FUNCS(sysconf getrlimit)
+# threads/reentrant functions
+AC_CHECK_FUNCS(pthread_sigmask localtime_r)
+# threads
+AC_CHECK_FUNCS(getcontext __makecontext_v2)
+# sockets
+AC_CHECK_FUNCS(poll endhostent getnameinfo)
+# Tru64 UNIX has getaddrinfo() but has it renamed in libc as
+# something else so we must include <netdb.h> to get the
+# redefinition.
+AC_MSG_CHECKING([for getaddrinfo])
+AC_LINK_IFELSE(
+    [AC_LANG_PROGRAM(
+        [[#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>]],
+        [[getaddrinfo(NULL, NULL, NULL, NULL);]],)],
+    [AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_GETADDRINFO)],
+    [AC_MSG_RESULT([no])])
+# poll() is not recommended on Mac OS X <=10.3 and broken on Mac OS X >=10.4
+AC_MSG_CHECKING([for broken poll() implementation])
+case "$host_os" in
+darwin*)
+    AC_MSG_RESULT([yes (poll() disabled)])
+    AC_DEFINE(BROKEN_POLL)
+    ;;
+*)
+    AC_MSG_RESULT([no])
+    ;;
+esac
+
+AC_MSG_NOTICE([**************************************** SSL])
+checkssldir() { :
+    if test -f "$1/include/openssl/ssl.h"
+    then AC_DEFINE(HAVE_OPENSSL)
+        ssldir="$1"
+        return 0
+    fi
+    if test -f "$1/include/ssl.h"
+    then ssldir="$1"
+        return 0
+    fi
+    return 1
+}
+
+# Check for SSL directory
+AC_MSG_CHECKING([for SSL directory])
+AC_ARG_WITH(ssl,
+[  --with-ssl=DIR          location of installed SSL libraries/include files],
+    [
+        # Check the specified localtion only
+        checkssldir "$withval"
+    ],
+    [
+        # Search default localtions of SSL library
+        for maindir in /usr/local /usr/lib /usr/pkg /usr /var/ssl /opt; do
+            for dir in $maindir $maindir/openssl $maindir/ssl; do
+                checkssldir $dir && break 2
+            done
+        done
+    ]
+)
+if test -z "$ssldir"
+then AC_MSG_RESULT([Not found])
+    echo
+    echo "Couldn't find your SSL library installation dir"
+    echo "Use --with-ssl option to fix this problem"
+    echo
+    exit 1
+fi
+AC_MSG_RESULT([$ssldir])
+AC_SUBST(ssldir)
+AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
+
+# Add SSL includes and libraries
+CFLAGS="$CFLAGS -I$ssldir/include"
+LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
+
+# Check for obsolete RSAref library
+AC_MSG_CHECKING([for obsolete RSAref library])
+saved_LIBS="$LIBS"
+LIBS="$saved_LIBS -lRSAglue -L$prefix/lib -lrsaref"
+AC_LINK_IFELSE(
+    [AC_LANG_PROGRAM([[]], [[]])],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"]
+)
+
+AC_CHECK_HEADER([$ssldir/include/openssl/engine.h],
+    [AC_DEFINE([HAVE_OSSL_ENGINE_H])],
+    [AC_MSG_WARN([Openssl engine header not found])])
 
 AC_MSG_NOTICE([**************************************** optional features])
 # Use RSA?

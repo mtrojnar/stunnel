@@ -43,6 +43,7 @@ static void smtp_client(CLI *);
 static void smtp_server(CLI *);
 static void pop3_client(CLI *);
 static void pop3_server(CLI *);
+static void imap_client(CLI *);
 static void nntp_client(CLI *);
 static void connect_client(CLI *);
 
@@ -60,6 +61,8 @@ void negotiate(CLI *c) {
             smtp_client(c);
         else if(!strcmp(c->opt->protocol, "pop3"))
             pop3_client(c);
+        else if(!strcmp(c->opt->protocol, "imap"))
+            imap_client(c);
         else if(!strcmp(c->opt->protocol, "nntp"))
             nntp_client(c);
         else if(!strcmp(c->opt->protocol, "connect"))
@@ -159,7 +162,7 @@ static void smtp_server(CLI *c) {
 
     s_poll_zero(&c->fds);
     s_poll_add(&c->fds, c->local_rfd.fd, 1, 0);
-    switch(s_poll_wait(&c->fds, 0)) {
+    switch(s_poll_wait(&c->fds, 0, 100)) {
     case 0: /* fd not ready to read */
         s_log(LOG_DEBUG, "RFC 2487 detected");
         break;
@@ -224,6 +227,23 @@ static void pop3_server(CLI *c) {
         longjmp(c->err, 1);
     }
     fdputline(c, c->local_wfd.fd, "+OK Stunnel starts TLS negotiation");
+}
+
+static void imap_client(CLI *c) {
+    char line[STRLEN];
+
+    fdgetline(c, c->remote_fd.fd, line);
+    if(!isprefix(line, "* OK")) {
+        s_log(LOG_ERR, "Unknown server welcome");
+        longjmp(c->err, 1);
+    }
+    fdputline(c, c->local_wfd.fd, line);
+    fdputline(c, c->remote_fd.fd, "stunnel STARTTLS");
+    fdgetline(c, c->remote_fd.fd, line);
+    if(!isprefix(line, "stunnel OK")) {
+        s_log(LOG_ERR, "Server does not support TLS");
+        longjmp(c->err, 1);
+    }
 }
 
 static void nntp_client(CLI *c) {

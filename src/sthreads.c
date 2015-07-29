@@ -28,6 +28,11 @@
  *   do so, delete this exception statement from your version.
  */
 
+#ifdef USE_OS2
+#define INCL_DOSPROCESS
+#include <os2.h>
+#endif
+
 #include "common.h"
 #include "prototypes.h"
 
@@ -307,6 +312,43 @@ unsigned long stunnel_thread_id(void) {
 int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
     s_log(LOG_DEBUG, "Creating a new thread");
     if(_beginthread((void(*)(void *))cli, STACK_SIZE, arg)==-1) {
+        ioerror("_beginthread");
+        return -1;
+    }
+    s_log(LOG_DEBUG, "New thread created");
+    return 0;
+}
+
+#endif
+ 
+#ifdef USE_OS2
+
+void enter_critical_section(SECTION_CODE i) {
+    DosEnterCritSec();
+}
+
+void leave_critical_section(SECTION_CODE i) {
+    DosExitCritSec();
+}
+
+void sthreads_init(void) {
+}
+
+unsigned long stunnel_process_id(void) {
+    PTIB ptib=NULL;
+    DosGetInfoBlocks(&ptib, NULL);
+    return (unsigned long)ptib->tib_ordinal;
+}
+
+unsigned long stunnel_thread_id(void) {
+    PPIB ppib=NULL;
+    DosGetInfoBlocks(NULL, &ppib);
+    return (unsigned long)ppib->pib_ulpid;
+}
+
+int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
+    s_log(LOG_DEBUG, "Creating a new thread");
+    if(_beginthread((void(*)(void *))cli, NULL, STACK_SIZE, arg)==-1) {
         ioerror("_beginthread");
         return -1;
     }

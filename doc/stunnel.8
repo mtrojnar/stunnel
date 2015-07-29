@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2005.11.17" "4.08" "stunnel"
+.TH STUNNEL 8 "2006.08.31" "4.08" "stunnel"
 .SH "NAME"
 stunnel \- universal SSL tunnel
 .SH "SYNOPSIS"
@@ -242,6 +242,14 @@ generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)
 select hardware engine
 .Sp
 default: software-only cryptography
+.Sp
+There's an example in '\s-1EXAMPLES\s0' section.
+.IP "\fBengineCtrl\fR = command[:parameter]" 4
+.IX Item "engineCtrl = command[:parameter]"
+control hardware engine
+.Sp
+Special commands \*(L"\s-1LOAD\s0\*(R" and \*(L"\s-1INIT\s0\*(R" can be used to load and initialize the
+engine cryptogaphic module.
 .IP "\fBforeground\fR = yes | no (Unix only)" 4
 .IX Item "foreground = yes | no (Unix only)"
 foreground mode
@@ -343,9 +351,10 @@ If no host specified, defaults to all \s-1IP\s0 addresses for the local host.
 .IX Item "CApath = directory"
 Certificate Authority directory
 .Sp
-This is the directory in which \fBstunnel\fR will look for certificates when
-using the \fIverify\fR. Note that the certificates in this directory
-should be named \s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the cert.
+This is the directory in which \fBstunnel\fR will look for certificates when using
+the \fIverify\fR. Note that the certificates in this directory should be named
+\&\s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1DER\s0 encoded subject of the
+cert (the first 4 bytes of the \s-1MD5\s0 hash in least significant byte order).
 .Sp
 \&\fICApath\fR path is relative to \fIchroot\fR directory if specified.
 .IP "\fBCAfile\fR = certfile" 4
@@ -395,6 +404,11 @@ This file contains multiple CRLs, used with the \fIverify\fR.
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
 delay \s-1DNS\s0 lookup for 'connect' option
+.IP "\fBengineNum\fR = engine number" 4
+.IX Item "engineNum = engine number"
+select engine number to read private key
+.Sp
+The engines are numbered starting from 1.
 .IP "\fBexec\fR = executable_path (Unix only)" 4
 .IX Item "exec = executable_path (Unix only)"
 execute local inetd-type program 
@@ -427,6 +441,9 @@ default: value of \fIcert\fR option
 .IX Item "local = host"
 \&\s-1IP\s0 of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local \s-1IP\s0 address, instead.
+.IP "\fBocsp\fR = url" 4
+.IX Item "ocsp = url"
+select \s-1OCSP\s0 server for certificate verification
 .IP "\fBoptions\fR = SSL_options" 4
 .IX Item "options = SSL_options"
 OpenSSL library options
@@ -458,6 +475,11 @@ allocate pseudo terminal for 'exec' option
 .IP "\fBsession\fR = timeout" 4
 .IX Item "session = timeout"
 session cache timeout
+.IP "\fBsslVersion\fR = version" 4
+.IX Item "sslVersion = version"
+select version of \s-1SSL\s0 protocol
+.Sp
+Allowed options: all, SSLv2, SSLv3, TLSv1
 .IP "\fBTIMEOUTbusy\fR = seconds" 4
 .IX Item "TIMEOUTbusy = seconds"
 time to wait for expected data
@@ -524,6 +546,25 @@ Note there must be no \fI[service_name]\fR section.
 .Vb 2
 \&    exec = /usr/sbin/imapd
 \&    execargs = imapd
+.Ve
+.PP
+Here is an example of advanced engine configuration to read private key from an
+OpenSC engine
+.PP
+.Vb 7
+\&    engine=dynamic
+\&    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+\&    engineCtrl=ID:pkcs11
+\&    engineCtrl=LIST_ADD:1
+\&    engineCtrl=LOAD
+\&    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc\-pkcs11.so
+\&    engineCtrl=INIT
+.Ve
+.PP
+.Vb 3
+\&    [service]
+\&    engineNum=1
+\&    key=id_45
 .Ve
 .SH "FILES"
 .IX Header "FILES"

@@ -6,10 +6,13 @@
 cert = @prefix@/etc/stunnel/mail.pem
 ;key = @prefix@/etc/stunnel/mail.pem
 
+; Protocol version (all, SSLv2, SSLv3, TLSv1)
+sslVersion = SSLv3
+
 ; Some security enhancements for UNIX systems - comment them out on Win32
 chroot = @prefix@/var/lib/stunnel/
 setuid = nobody
-setgid = nogroup
+setgid = @DEFAULT_GROUP@
 ; PID is created inside chroot jail
 pid = /stunnel.pid
 

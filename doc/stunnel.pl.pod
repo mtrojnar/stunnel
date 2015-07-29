@@ -161,6 +161,15 @@ wybór sprzêtowego urz±dzenia kryptograficznego
 
 domy¶lnie: bez wykorzystania urz±dzeñ kryptograficznych
 
+Przyk³ad wykorzystania w sekcji 'PRZYK£ADY'.
+
+=item B<engineCtrl> = <command>[:<parameter>]
+
+konfiguracja urz±dzenia kryptograficznego
+
+Specjalne komendy "LOAD" i "INIT" pozwalaj± na za³adowanie i inicjalizacjê
+modu³u kryptograficznego urz±dzenia.
+
 =item B<foreground> = yes | no (tylko Unix)
 
 tryb pierwszoplanowy
@@ -291,7 +300,8 @@ katalog Centrum Certyfikacji
 Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
-certyfikatu.
+kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu
+(4 pierwsze bajty skrótu MD5 pocz±wszy od najmniej znaczacego).
 
 Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<CApath> jest okre¶lona
 wzglêdem tego katalogu.
@@ -355,6 +365,12 @@ przez opcjê I<verify>.
 
 opó¼nij rozwiniêcie adresu DNS podanego w opcji I<connect>
 
+=item B<engineNum> = <numer urz±dzenia>
+
+wybierz urz±dzenie do odczyta klucza prywatnego
+
+Urz±dzenia s± numerowane od 1 w górê.
+
 =item B<exec> = ¶cie¿ka_do_programu (tylko Unix)
 
 wykonaj lokalny program przystosowany do pracy z superdemonem inetd
@@ -393,6 +409,10 @@ IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
 Domy¶lnie u¿ywane jest IP najbardziej zewnêtrznego interfejsu w stronê
 serwera, do którego nawi±zywane jest po³±czenie.
 
+=item B<ocsp> = URL
+
+serwer OCSP do weryfikacji certyfikatów
+
 =item B<options> = opcje_SSL
 
 opcje biblioteki OpenSSL
@@ -427,6 +447,12 @@ alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
 =item B<session> = przeterminowanie_pamiêci_podrêcznej_sesji
 
 czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
+
+=item B<sslVersion> = wersja
+
+wybierz wersjê protoko³u SSL
+
+Dozwolone opcje: all, SSLv2, SSLv3, TLSv1
 
 =item B<TIMEOUTbusy> = liczba_sekund
 
@@ -506,6 +532,21 @@ konfiguracyjnym nie ma sekcji I<[nazwa_us³ugi]>.
 
     exec = /usr/sbin/imapd
     execargs = imapd
+
+Przyk³adowa konfiguracja umo¿liwiaj±ca odczytanie klucza prywatnego z
+urz±dzenia zgodnego z OpenSC
+
+    engine=dynamic
+    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+    engineCtrl=ID:pkcs11
+    engineCtrl=LIST_ADD:1
+    engineCtrl=LOAD
+    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
+    engineCtrl=INIT
+
+    [service]
+    engineNum=1
+    key=id_45
 
 
 =head1 PLIKI

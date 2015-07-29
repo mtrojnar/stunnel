@@ -229,6 +229,19 @@ select hardware engine
 <dd>
 <p>default: software-only cryptography</p>
 </dd>
+<dd>
+<p>There's an example in 'EXAMPLES' section.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_enginectrl__3d_command_5b_3aparameter_5d"><strong>engineCtrl</strong> = command[:parameter]</a></strong><br />
+</dt>
+<dd>
+control hardware engine
+</dd>
+<dd>
+<p>Special commands ``LOAD'' and ``INIT'' can be used to load and initialize the
+engine cryptogaphic module.</p>
+</dd>
 <p></p>
 <dt><strong><a name="item_no"><strong>foreground</strong> = yes | no (Unix only)</a></strong><br />
 </dt>
@@ -385,9 +398,10 @@ accept connections on specified host:port
 Certificate Authority directory
 </dd>
 <dd>
-<p>This is the directory in which <strong>stunnel</strong> will look for certificates when
-using the <em>verify</em>. Note that the certificates in this directory
-should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.</p>
+<p>This is the directory in which <strong>stunnel</strong> will look for certificates when using
+the <em>verify</em>. Note that the certificates in this directory should be named
+XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the
+cert (the first 4 bytes of the MD5 hash in least significant byte order).</p>
 </dd>
 <dd>
 <p><em>CApath</em> path is relative to <em>chroot</em> directory if specified.</p>
@@ -472,6 +486,15 @@ Certificate Revocation Lists file
 delay DNS lookup for 'connect' option
 </dd>
 <p></p>
+<dt><strong><a name="item_enginenum__3d_engine_number"><strong>engineNum</strong> = engine number</a></strong><br />
+</dt>
+<dd>
+select engine number to read private key
+</dd>
+<dd>
+<p>The engines are numbered starting from 1.</p>
+</dd>
+<p></p>
 <dt><strong><a name="item_executable_path"><strong>exec</strong> = executable_path (Unix only)</a></strong><br />
 </dt>
 <dd>
@@ -520,6 +543,12 @@ to its owner.  On Unix systems you can use the following command:</p>
 <dd>
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
+</dd>
+<p></p>
+<dt><strong><a name="item_ocsp__3d_url"><strong>ocsp</strong> = url</a></strong><br />
+</dt>
+<dd>
+select OCSP server for certificate verification
 </dd>
 <p></p>
 <dt><strong><a name="item_options__3d_ssl_options"><strong>options</strong> = SSL_options</a></strong><br />
@@ -572,6 +601,15 @@ allocate pseudo terminal for 'exec' option
 </dt>
 <dd>
 session cache timeout
+</dd>
+<p></p>
+<dt><strong><a name="item_sslversion__3d_version"><strong>sslVersion</strong> = version</a></strong><br />
+</dt>
+<dd>
+select version of SSL protocol
+</dd>
+<dd>
+<p>Allowed options: all, SSLv2, SSLv3, TLSv1</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_timeoutbusy__3d_seconds"><strong>TIMEOUTbusy</strong> = seconds</a></strong><br />
@@ -656,6 +694,20 @@ Note there must be no <em>[service_name]</em> section.</p>
 <pre>
     exec = /usr/sbin/imapd
     execargs = imapd</pre>
+<p>Here is an example of advanced engine configuration to read private key from an
+OpenSC engine</p>
+<pre>
+    engine=dynamic
+    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+    engineCtrl=ID:pkcs11
+    engineCtrl=LIST_ADD:1
+    engineCtrl=LOAD
+    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
+    engineCtrl=INIT</pre>
+<pre>
+    [service]
+    engineNum=1
+    key=id_45</pre>
 <p>
 </p>
 <hr />

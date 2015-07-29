@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2005.11.17" "4.08" "stunnel"
+.TH STUNNEL.PL 8 "2006.08.31" "4.08" "stunnel"
 .SH "NAZWA"
 .IX Header "NAZWA"
 stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
@@ -247,6 +247,14 @@ OpenSSL.  Opcja jest dostêpna z bibliotek± OpenSSL 0.9.5a lub nowsz±.
 wybór sprzêtowego urz±dzenia kryptograficznego
 .Sp
 domy¶lnie: bez wykorzystania urz±dzeñ kryptograficznych
+.Sp
+Przyk³ad wykorzystania w sekcji 'PRZYK£ADY'.
+.IP "\fBengineCtrl\fR = <command>[:<parameter>]" 4
+.IX Item "engineCtrl = <command>[:<parameter>]"
+konfiguracja urz±dzenia kryptograficznego
+.Sp
+Specjalne komendy \*(L"\s-1LOAD\s0\*(R" i \*(L"\s-1INIT\s0\*(R" pozwalaj± na za³adowanie i inicjalizacjê
+modu³u kryptograficznego urz±dzenia.
 .IP "\fBforeground\fR = yes | no (tylko Unix)" 4
 .IX Item "foreground = yes | no (tylko Unix)"
 tryb pierwszoplanowy
@@ -361,7 +369,8 @@ katalog Centrum Certyfikacji
 Opcja okre¶la katalog, w którym \fBstunnel\fR bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja \fIverify\fR.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
-certyfikatu.
+kryptograficznym reprezentacji \s-1DER\s0 nazwy podmiotu certyfikatu
+(4 pierwsze bajty skrótu \s-1MD5\s0 pocz±wszy od najmniej znaczacego).
 .Sp
 Je¿eli zdefiniowano katalog \fIchroot\fR, to ¶cie¿ka do \fICApath\fR jest okre¶lona
 wzglêdem tego katalogu.
@@ -416,6 +425,11 @@ przez opcjê \fIverify\fR.
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
 opó¼nij rozwiniêcie adresu \s-1DNS\s0 podanego w opcji \fIconnect\fR
+.IP "\fBengineNum\fR = <numer urz±dzenia>" 4
+.IX Item "engineNum = <numer urz±dzenia>"
+wybierz urz±dzenie do odczyta klucza prywatnego
+.Sp
+Urz±dzenia s± numerowane od 1 w górê.
 .IP "\fBexec\fR = ¶cie¿ka_do_programu (tylko Unix)" 4
 .IX Item "exec = ¶cie¿ka_do_programu (tylko Unix)"
 wykonaj lokalny program przystosowany do pracy z superdemonem inetd
@@ -452,6 +466,9 @@ domy¶lnie: warto¶æ opcji \fIcert\fR
 .Sp
 Domy¶lnie u¿ywane jest \s-1IP\s0 najbardziej zewnêtrznego interfejsu w stronê
 serwera, do którego nawi±zywane jest po³±czenie.
+.IP "\fBocsp\fR = \s-1URL\s0" 4
+.IX Item "ocsp = URL"
+serwer \s-1OCSP\s0 do weryfikacji certyfikatów
 .IP "\fBoptions\fR = opcje_SSL" 4
 .IX Item "options = opcje_SSL"
 opcje biblioteki OpenSSL
@@ -483,6 +500,11 @@ alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
 .IP "\fBsession\fR = przeterminowanie_pamiêci_podrêcznej_sesji" 4
 .IX Item "session = przeterminowanie_pamiêci_podrêcznej_sesji"
 czas w sekundach, po którym sesja \s-1SSL\s0 zostanie usuniêta z pamiêci podrêcznej
+.IP "\fBsslVersion\fR = wersja" 4
+.IX Item "sslVersion = wersja"
+wybierz wersjê protoko³u \s-1SSL\s0
+.Sp
+Dozwolone opcje: all, SSLv2, SSLv3, TLSv1
 .IP "\fBTIMEOUTbusy\fR = liczba_sekund" 4
 .IX Item "TIMEOUTbusy = liczba_sekund"
 czas oczekiwania na spodziewane dane
@@ -559,6 +581,25 @@ konfiguracyjnym nie ma sekcji \fI[nazwa_us³ugi]\fR.
 .Vb 2
 \&    exec = /usr/sbin/imapd
 \&    execargs = imapd
+.Ve
+.PP
+Przyk³adowa konfiguracja umo¿liwiaj±ca odczytanie klucza prywatnego z
+urz±dzenia zgodnego z OpenSC
+.PP
+.Vb 7
+\&    engine=dynamic
+\&    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+\&    engineCtrl=ID:pkcs11
+\&    engineCtrl=LIST_ADD:1
+\&    engineCtrl=LOAD
+\&    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc\-pkcs11.so
+\&    engineCtrl=INIT
+.Ve
+.PP
+.Vb 3
+\&    [service]
+\&    engineNum=1
+\&    key=id_45
 .Ve
 .SH "PLIKI"
 .IX Header "PLIKI"

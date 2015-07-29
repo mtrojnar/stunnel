@@ -123,6 +123,7 @@ CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
+DEFAULT_GROUP = @DEFAULT_GROUP@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO = @ECHO@
@@ -225,7 +226,7 @@ INCLUDES = -I/usr/kerberos/include
 AM_CPPFLAGS = -DLIBDIR='"$(libdir)"' -DCONFDIR='"$(sysconfdir)/stunnel"' -DPIDFILE='"$(prefix)/var/run/stunnel/stunnel.pid"'
 
 # Win32 executable
-EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak nogui.c
+EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak nogui.c os2.mak
 stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_sources)
 # dist-hook: stunnel.exe
 # 	cp -p stunnel.exe $(distdir)/../

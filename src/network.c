@@ -37,13 +37,20 @@
 static int signal_pipe[2]={-1, -1};
 static char signal_buffer[16];
 static void sigchld_handler(int);
+#ifdef __INNOTEK_LIBC__
+struct sockaddr_un {
+    u_char  sun_len;             /* sockaddr len including null */
+    u_char  sun_family;          /* AF_OS2 or AF_UNIX */
+    char    sun_path[108];       /* path name */
+};
+#endif
 static void signal_pipe_empty(void);
 #ifdef USE_FORK
 static void client_status(void); /* dead children detected */
 #endif
 #endif /* !defined(USE_WIN32) */
 
-static void setnonblock(int, unsigned long);
+/**************************************** s_poll functions */
 
 #ifdef USE_POLL
 
@@ -193,7 +200,8 @@ static void scan_waiting_queue(void) {
     }
 }
 
-int s_poll_wait(s_poll_set *fds, int timeout) {
+int s_poll_wait(s_poll_set *fds, int sec, int msec) {
+    /* FIXME: msec parameter is currently ignored with UCONTEXT threads */
     CONTEXT *ctx; /* current context */
     static CONTEXT *to_free=NULL; /* delayed memory deallocation */
 
@@ -205,7 +213,7 @@ int s_poll_wait(s_poll_set *fds, int timeout) {
 
     if(fds) { /* something to wait for -> swap the context */
         ctx->fds=fds; /* set file descriptors to wait for */
-        ctx->finish=timeout<0 ? -1 : time(NULL)+timeout;
+        ctx->finish=sec<0 ? -1 : time(NULL)+sec;
         /* move (append) the current context to the waiting queue */
         ctx->next=NULL;
         if(waiting_tail)
@@ -246,13 +254,13 @@ int s_poll_wait(s_poll_set *fds, int timeout) {
 
 #else /* USE_UCONTEXT */
 
-int s_poll_wait(s_poll_set *fds, int timeout) {
+int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     int retval, retry;
 
     do { /* skip "Interrupted system call" errors */
         retry=0;
-        retval=poll(fds->ufds, fds->nfds, timeout<0 ? -1 : 1000*timeout);
-        if(timeout<0 && retval>0 && s_poll_canread(fds, signal_pipe[0])) {
+        retval=poll(fds->ufds, fds->nfds, sec<0 ? -1 : 1000*sec+msec);
+        if(sec<0 && retval>0 && s_poll_canread(fds, signal_pipe[0])) {
             signal_pipe_empty(); /* no timeout -> main loop */
             retry=1;
         }
@@ -287,7 +295,7 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
     return FD_ISSET(fd, &fds->owfds);
 }
 
-int s_poll_wait(s_poll_set *fds, int timeout) {
+int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     int retval, retry;
     struct timeval tv, *tv_ptr;
 
@@ -295,16 +303,16 @@ int s_poll_wait(s_poll_set *fds, int timeout) {
         retry=0;
         memcpy(&fds->orfds, &fds->irfds, sizeof(fd_set));
         memcpy(&fds->owfds, &fds->iwfds, sizeof(fd_set));
-        if(timeout<0) { /* infinite timeout */
+        if(sec<0) { /* infinite timeout */
             tv_ptr=NULL;
         } else {
-            tv.tv_sec=timeout;
-            tv.tv_usec=0;
+            tv.tv_sec=sec;
+            tv.tv_usec=1000*msec;
             tv_ptr=&tv;
         }
         retval=select(fds->max+1, &fds->orfds, &fds->owfds, NULL, tv_ptr);
-#ifndef USE_WIN32
-        if(timeout<0 && retval>0 && s_poll_canread(fds, signal_pipe[0])) {
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+        if(sec<0 && retval>0 && s_poll_canread(fds, signal_pipe[0])) {
             signal_pipe_empty(); /* no timeout -> main loop */
             retry=1;
         }
@@ -332,13 +340,52 @@ static void sigchld_handler(int sig) { /* SIGCHLD detected */
 #endif /* USE_FORK */
     }
 #else /* __sgi */
+#ifdef __INNOTEK_LIBC__
+    writesocket(signal_pipe[1], signal_buffer, 1);
+#else
     write(signal_pipe[1], signal_buffer, 1);
+#endif /* __INNOTEK_LIBC__ */
 #endif /* __sgi */
     signal(SIGCHLD, sigchld_handler);
     errno=save_errno;
 }
 
+/**************************************** signal pipe */
+
 int signal_pipe_init(void) {
+#if defined(__INNOTEK_LIBC__)
+    /* Innotek port of GCC can not use select on a pipe, use local socket instead */
+    struct sockaddr_un un;
+    fd_set set_pipe;
+    int pipe_in;
+
+    FD_ZERO(&set_pipe);
+    signal_pipe[0] = socket(PF_OS2, SOCK_STREAM, 0);
+    pipe_in=signal_pipe[0];
+    signal_pipe[1] = socket(PF_OS2, SOCK_STREAM, 0);
+
+    alloc_fd(signal_pipe[0]);
+    alloc_fd(signal_pipe[1]);
+
+    /* Connect the two endpoints */
+    memset(&un, 0, sizeof(un));
+
+    un.sun_len = sizeof(un);
+    un.sun_family = AF_OS2;
+    sprintf(un.sun_path, "\\socket\\stunnel-%u", getpid());
+    /* Make the first endpoint listen */
+    bind(signal_pipe[0], (struct sockaddr *)&un, sizeof(un));
+    listen(signal_pipe[0], 5);
+    connect(signal_pipe[1], (struct sockaddr *)&un, sizeof(un));
+    FD_SET(signal_pipe[0], &set_pipe);
+    if (select(signal_pipe[0]+1, &set_pipe, NULL, NULL, NULL)>0) {
+        signal_pipe[0]=accept(signal_pipe[0], NULL, 0);
+        closesocket(pipe_in);
+    } else {
+        sockerror("select");
+        exit(1);
+    }
+#else /* __INNOTEK_LIBC__ */
     if(pipe(signal_pipe)) {
         ioerror("pipe");
         exit(1);
@@ -349,14 +396,19 @@ int signal_pipe_init(void) {
     /* close the pipe in child execvp */
     fcntl(signal_pipe[0], F_SETFD, FD_CLOEXEC);
     fcntl(signal_pipe[1], F_SETFD, FD_CLOEXEC);
-#endif
+#endif /* FD_CLOEXEC */
+#endif /* __INNOTEK_LIBC__ */
     signal(SIGCHLD, sigchld_handler);
     return signal_pipe[0];
 }
 
 static void signal_pipe_empty(void) {
     s_log(LOG_DEBUG, "Cleaning up the signal pipe");
+#ifdef __INNOTEK_LIBC__
+    readsocket(signal_pipe[0], signal_buffer, sizeof(signal_buffer));
+#else
     read(signal_pipe[0], signal_buffer, sizeof(signal_buffer));
+#endif
 #ifdef USE_FORK
     client_status(); /* report status of client process */
 #else /* USE_UCONTEXT || USE_PTHREAD */
@@ -417,6 +469,8 @@ void child_status(void) { /* dead libwrap or 'exec' process detected */
 
 #endif /* !defined USE_WIN32 */
 
+/**************************************** fd management */
+
 int alloc_fd(int sock) {
 #ifndef USE_WIN32
     if(!max_fds || sock>=max_fds) {
@@ -435,8 +489,8 @@ int alloc_fd(int sock) {
 #define O_NONBLOCK O_NDELAY
 #endif
 
-static void setnonblock(int sock, unsigned long l) {
-#if defined F_GETFL && defined F_SETFL && defined O_NONBLOCK
+void setnonblock(int sock, unsigned long l) {
+#if defined F_GETFL && defined F_SETFL && defined O_NONBLOCK && !defined __INNOTEK_LIBC__
     int retval, flags;
     do {
         flags=fcntl(sock, F_GETFL, 0);
@@ -486,7 +540,9 @@ int set_socket_options(int s, int type) {
     return 0; /* OK */
 }
 
-void write_blocking(CLI *c, int fd, u8 *ptr, int len) {
+/**************************************** simulate blocking I/O */
+
+void write_blocking(CLI *c, int fd, void *ptr, int len) {
         /* simulate a blocking write */
     s_poll_set fds;
     int num;
@@ -494,7 +550,7 @@ void write_blocking(CLI *c, int fd, u8 *ptr, int len) {
     while(len>0) {
         s_poll_zero(&fds);
         s_poll_add(&fds, fd, 0, 1); /* write */
-        switch(s_poll_wait(&fds, c->opt->timeout_busy)) {
+        switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
         case -1:
             sockerror("write_blocking: s_poll_wait");
             longjmp(c->err, 1); /* error */
@@ -513,12 +569,12 @@ void write_blocking(CLI *c, int fd, u8 *ptr, int len) {
             sockerror("writesocket (write_blocking)");
             longjmp(c->err, 1);
         }
-        ptr+=num;
+        ptr=(u8 *)ptr+num;
         len-=num;
     }
 }
 
-void read_blocking(CLI *c, int fd, u8 *ptr, int len) {
+void read_blocking(CLI *c, int fd, void *ptr, int len) {
         /* simulate a blocking read */
     s_poll_set fds;
     int num;
@@ -526,7 +582,7 @@ void read_blocking(CLI *c, int fd, u8 *ptr, int len) {
     while(len>0) {
         s_poll_zero(&fds);
         s_poll_add(&fds, fd, 1, 0); /* read */
-        switch(s_poll_wait(&fds, c->opt->timeout_busy)) {
+        switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
         case -1:
             sockerror("read_blocking: s_poll_wait");
             longjmp(c->err, 1); /* error */
@@ -548,35 +604,34 @@ void read_blocking(CLI *c, int fd, u8 *ptr, int len) {
             s_log(LOG_ERR, "Unexpected socket close (read_blocking)");
             longjmp(c->err, 1);
         }
-        ptr+=num;
+        ptr=(u8 *)ptr+num;
         len-=num;
     }
 }
 
-void fdputline(CLI *c, int fd, char *line) {
-    char logline[STRLEN];
+void fdputline(CLI *c, int fd, const char *line) {
+    char tmpline[STRLEN];
     const char crlf[]="\r\n";
+    int len;
 
-    if(strlen(line)+2>=STRLEN) { /* 2 for crlf */
-        s_log(LOG_ERR, "Line too long in fdputline");
-        longjmp(c->err, 1);
-    }
-    safecopy(logline, line); /* the line without crlf */
-    safeconcat(line, crlf);
-    write_blocking(c, fd, line, strlen(line));
-    safestring(logline);
-    s_log(LOG_DEBUG, " -> %s", logline);
+    safecopy(tmpline, line);
+    safeconcat(tmpline, crlf);
+    len=strlen(tmpline);
+    write_blocking(c, fd, tmpline, len);
+    tmpline[len-2]='\0'; /* remove CRLF */
+    safestring(tmpline);
+    s_log(LOG_DEBUG, " -> %s", tmpline);
 }
 
 void fdgetline(CLI *c, int fd, char *line) {
-    char logline[STRLEN];
+    char tmpline[STRLEN];
     s_poll_set fds;
     int ptr;
 
     for(ptr=0;;) {
         s_poll_zero(&fds);
         s_poll_add(&fds, fd, 1, 0); /* read */
-        switch(s_poll_wait(&fds, c->opt->timeout_busy)) {
+        switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
         case -1:
             sockerror("fdgetline: s_poll_wait");
             longjmp(c->err, 1); /* error */
@@ -609,9 +664,9 @@ void fdgetline(CLI *c, int fd, char *line) {
         }
     }
     line[ptr]='\0';
-    safecopy(logline, line);
-    safestring(logline);
-    s_log(LOG_DEBUG, " <- %s", logline);
+    safecopy(tmpline, line);
+    safestring(tmpline);
+    s_log(LOG_DEBUG, " <- %s", tmpline);
 }
 
 int fdprintf(CLI *c, int fd, const char *format, ...) {

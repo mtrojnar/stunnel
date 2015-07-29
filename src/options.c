@@ -43,11 +43,6 @@
 
 #define CONFLINELEN (16*1024)
 
-static int parse_debug_level(char *);
-static int parse_ssl_option(char *);
-static int print_socket_options(void);
-static void print_option(char *, int, OPT_UNION *);
-static int parse_socket_option(char *);
 static void section_validate(char *, int, LOCAL_OPTIONS *, int);
 static void config_error(char *, int, char *);
 static char *stralloc(char *);
@@ -55,6 +50,13 @@ static char *base64(char *);
 #ifndef USE_WIN32
 static char **argalloc(char *);
 #endif
+
+static int parse_debug_level(char *);
+static int parse_ssl_option(char *);
+static int print_socket_options(void);
+static void print_option(char *, int, OPT_UNION *);
+static int parse_socket_option(char *);
+static char *parse_ocsp_option(LOCAL_OPTIONS *, char *);
 
 GLOBAL_OPTIONS options;
 LOCAL_OPTIONS local_options;
@@ -108,7 +110,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "rle"))
             options.compression=COMP_RLE;
         else
-            return "compression type should be either 'zlib' or 'rle'";
+            return "Compression type should be either 'zlib' or 'rle'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -216,7 +218,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "no"))
             options.option.foreground=0;
         else
-            return "argument should be either 'yes' or 'no'";
+            return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -318,7 +320,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "no"))
             options.option.rand_write=0;
         else
-            return "argument should be either 'yes' or 'no'";
+            return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         log_raw("%-15s = yes", "RNDoverwrite");
@@ -425,7 +427,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "no"))
             options.option.taskbar=0;
         else
-            return "argument should be either 'yes' or 'no'";
+            return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         log_raw("%-15s = yes", "taskbar");
@@ -443,7 +445,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
 
 static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         char *opt, char *arg) {
-    int tmp;
+    int tmpnum;
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         log_raw(" ");
@@ -462,7 +464,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             break;
         section->option.accept=1;
         if(!name2addrlist(&section->local_addr, arg, DEFAULT_ANY))
-            exit(2);
+            return "Failed to resolve accepting address";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -582,7 +584,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.client=0;
         else
-            return "argument should be either 'yes' or 'no'";
+            return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -671,7 +673,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.delayed_lookup=0;
         else
-            return "argument should be either 'yes' or 'no'";
+            return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -680,6 +682,27 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             "delay");
         break;
     }
+
+#ifdef HAVE_OSSL_ENGINE_H
+    /* engineNum */
+    switch(cmd) {
+    case CMD_INIT:
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "engineNum"))
+            break;
+        section->engine=get_engine(atoi(arg));
+        if(!section->engine)
+            return "Illegal engine number";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = number of engine to read the key from",
+            "engineNum");
+        break;
+    }
+#endif
 
     /* exec */
 #ifndef USE_WIN32
@@ -768,7 +791,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         if(strcasecmp(opt, "local"))
             break;
         if(!hostport2addrlist(&section->source_addr, arg, "0"))
-            exit(2);
+            return "Failed to resolve local address";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -778,6 +801,27 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         break;
     }
 
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+    /* ocsp */
+    switch(cmd) {
+    case CMD_INIT:
+        section->option.ocsp=0;
+        memset(&section->ocsp_addr, 0, sizeof(SOCKADDR_LIST));
+        section->ocsp_addr.addr[0].in.sin_family=AF_INET;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "ocsp"))
+            break;
+        section->option.ocsp=1;
+        return parse_ocsp_option(section, arg);
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = OCSP server URL", "ocsp");
+        break;
+    }
+#endif /* OpenSSL-0.9.7 */
+
     /* options */
     switch(cmd) {
     case CMD_INIT:
@@ -786,10 +830,10 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "options"))
             break;
-        tmp=parse_ssl_option(arg);
-        if(!tmp)
+        tmpnum=parse_ssl_option(arg);
+        if(!tmpnum)
             return "Illegal SSL option";
-        section->ssl_options|=tmp;
+        section->ssl_options|=tmpnum;
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -868,7 +912,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.pty=0;
         else
-            return "argument should be either 'yes' or 'no'";
+            return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -897,6 +941,38 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         break;
     case CMD_HELP:
         log_raw("%-15s = session cache timeout (in seconds)", "session");
+        break;
+    }
+
+    /* sslVersion */
+    switch(cmd) {
+    case CMD_INIT: 
+        section->client_method=SSLv3_client_method;
+        section->server_method=SSLv23_server_method;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "sslVersion"))
+            break;
+        if(!strcasecmp(arg, "all")) {
+            section->client_method=SSLv23_client_method;
+            section->server_method=SSLv23_server_method;
+        } else if(!strcasecmp(arg, "SSLv2")) {
+            section->client_method=SSLv2_client_method;
+            section->server_method=SSLv2_server_method;
+        } else if(!strcasecmp(arg, "SSLv3")) {
+            section->client_method=SSLv3_client_method;
+            section->server_method=SSLv3_server_method;
+	    } else if(!strcasecmp(arg, "TLSv1")) {
+            section->client_method=TLSv1_client_method;
+            section->server_method=TLSv1_server_method;
+        } else
+            return "Incorrect version of SSL protocol";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        log_raw("%-15s = SSLv3 for client, all for server", "sslVersion");
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = all|SSLv2|SSLv3|TLSv1 SSL version", "sslVersion");
         break;
     }
 
@@ -1000,7 +1076,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.transparent=0;
         else
-            return "argument should be either 'yes' or 'no'";
+            return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -1091,6 +1167,9 @@ void parse_config(char *name, char *parameter) {
     DISK_FILE *df;
     char confline[CONFLINELEN], *arg, *opt, *errstr, *filename;
     int line_number, i;
+#ifdef MAX_FD
+    int sections=0;
+#endif
     LOCAL_OPTIONS *section, *new_section;
     
     memset(&options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
@@ -1152,7 +1231,7 @@ void parse_config(char *name, char *parameter) {
         opt=confline;
         while(isspace((unsigned char)*opt))
             opt++; /* remove initial whitespaces */
-        for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); i--)
+        for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); --i)
             opt[i]='\0'; /* remove trailing whitespaces */
         if(opt[0]=='\0' || opt[0]=='#' || opt[0]==';') /* empty or comment */
             continue;
@@ -1171,13 +1250,17 @@ void parse_config(char *name, char *parameter) {
             new_section->next=NULL;
             section->next=new_section;
             section=new_section;
+#ifdef MAX_FD
+            if(++sections>MAX_FD)
+                config_error(filename, line_number, "Too many sections");
+#endif
             continue;
         }
         arg=strchr(confline, '=');
         if(!arg)
             config_error(filename, line_number, "No '=' found");
         *arg++='\0'; /* split into option name and argument value */
-        for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); i--)
+        for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); --i)
             opt[i]='\0'; /* remove trailing whitespaces */
         while(isspace((unsigned char)*arg))
             arg++; /* remove initial whitespaces */
@@ -1215,7 +1298,7 @@ static void section_validate(char *filename, int line_number,
     }
     if(!section->option.client)
         section->option.cert=1; /* Server always needs a certificate */
-    section->ctx=context_init(section); /* initialize SSL context */
+    context_init(section); /* initialize SSL context */
 
     if(section==&local_options) { /* inetd mode */
         if(section->option.accept)
@@ -1358,7 +1441,7 @@ static int parse_debug_level(char *arg) {
     safecopy(arg_copy, arg);
     string = arg_copy;
 
-/* Facilities only make sense on unix */
+/* Facilities only make sense on Unix */
 #if !defined (USE_WIN32) && !defined (__vms)
     if(strchr(string, '.')) { /* We have a facility specified */
         options.facility=-1;
@@ -1393,7 +1476,7 @@ static int parse_debug_level(char *arg) {
     return 1; /* OK */
 }
 
-/* Parse SSL options stuff */
+/* Parse out SSL options stuff */
 
 static int parse_ssl_option(char *arg) {
     struct {
@@ -1612,6 +1695,29 @@ static int parse_socket_option(char *arg) {
         ; /* ANSI C compiler needs it */
     }
     return 0; /* FAILED */
+}
+
+/* Parse out OCSP stuff */
+
+static char *parse_ocsp_option(LOCAL_OPTIONS *section, char *arg) {
+    char *host, *port, *path;
+    int ssl;
+
+    if(!OCSP_parse_url(arg, &host, &port, &path, &ssl))
+        return "Failed to parse OCSP URL";
+    if(ssl)
+        return "SSL not supported for OCSP"
+            " - additional stunnel service needs to be defined";
+    if(!hostport2addrlist(&section->ocsp_addr, host, port))
+        return "Failed to resolve OCSP server address";
+    section->ocsp_path=stralloc(path);
+    if(host)
+        OPENSSL_free(host);
+    if(port)
+        OPENSSL_free(port);
+    if(path)
+        OPENSSL_free(path);
+    return NULL; /* OK! */
 }
 
 /* End of options.c */

@@ -41,6 +41,15 @@ typedef struct sockaddr_list {      /* list of addresses */
     u16 num;                        /* how many addresses are used */
 } SOCKADDR_LIST;
 
+#ifdef __INNOTEK_LIBC__
+#define socklen_t    __socklen_t
+#define strcasecmp   stricmp
+#define strncasecmp  strnicmp
+#define NI_NUMERICHOST 1
+#define NI_NUMERICSERV 2
+#endif
+
+
 /**************************************** Prototypes for stunnel.c */
 
 extern volatile int num_clients;
@@ -93,6 +102,7 @@ void ssl_configure(void);
 void open_engine(const char *);
 void ctrl_engine(const char *, const char *);
 void close_engine(void);
+ENGINE *get_engine(int);
 #endif
 
 /**************************************** Prototypes for options.c */
@@ -141,11 +151,15 @@ typedef struct {
 extern GLOBAL_OPTIONS options;
 
 typedef struct local_options {
-    SSL_CTX *ctx; /*  SSL context */
-    struct local_options *next; /* next node in the services list */
-    char *servname; /* service name for logging & permission checking */
-    SSL_SESSION *session; /* Recently used session */
-    char local_address[IPLEN]; /* Dotted-decimal address to bind */
+    SSL_CTX *ctx;                                            /*  SSL context */
+    X509_STORE *revocation_store;             /* cert store for CRL checking */
+#ifdef HAVE_OSSL_ENGINE_H
+    ENGINE *engine;                        /* engine to read the private key */
+#endif
+    struct local_options *next;            /* next node in the services list */
+    char *servname;        /* service name for logging & permission checking */
+    SSL_SESSION *session;                           /* jecently used session */
+    char local_address[IPLEN];             /* dotted-decimal address to bind */
 
         /* service-specific data for ctx.c */
     char *ca_dir;                              /* directory for hashed certs */
@@ -159,6 +173,11 @@ typedef struct local_options {
     int verify_level;
     int verify_use_only_my;
     long ssl_options;
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+    SOCKADDR_LIST ocsp_addr;
+    char *ocsp_path;
+#endif /* OpenSSL-0.9.7 */
+    SSL_METHOD *(*client_method)(void), *(*server_method)(void);
 
         /* service-specific data for client.c */
     int fd;        /* file descriptor accepting connections for this service */
@@ -189,6 +208,9 @@ typedef struct local_options {
         unsigned int pty:1;
         unsigned int transparent:1;
 #endif
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+        unsigned int ocsp:1;
+#endif
     } option;
 } LOCAL_OPTIONS;
 
@@ -218,13 +240,14 @@ void parse_config(char *, char *);
 
 /**************************************** Prototypes for ctx.c */
 
-SSL_CTX *context_init(LOCAL_OPTIONS *);
-void context_free(SSL_CTX *);
+void context_init(LOCAL_OPTIONS *);
 void sslerror(char *);
 
 /**************************************** Prototypes for network.c */
 
-#define MAX_FD 64
+#ifdef USE_POLL
+#define MAX_FD 256
+#endif
 
 typedef struct {
 #ifdef USE_POLL
@@ -240,7 +263,7 @@ void s_poll_zero(s_poll_set *);
 void s_poll_add(s_poll_set *, int, int, int);
 int s_poll_canread(s_poll_set *, int);
 int s_poll_canwrite(s_poll_set *, int);
-int s_poll_wait(s_poll_set *, int);
+int s_poll_wait(s_poll_set *, int, int);
 
 #ifndef USE_WIN32
 int signal_pipe_init(void);
@@ -248,6 +271,7 @@ void child_status(void);  /* dead libwrap or 'exec' process detected */
 #endif
 int set_socket_options(int, int);
 int alloc_fd(int);
+void setnonblock(int, unsigned long);
 
 /**************************************** Prototypes for client.c */
 
@@ -265,7 +289,8 @@ typedef struct {
     FD local_rfd, local_wfd; /* Read and write local descriptors */
     FD remote_fd; /* Remote file descriptor */
     SSL *ssl; /* SSL Connection */
-    SOCKADDR_LIST bind_addr; /* IP for explicit local bind or transparent proxy */
+    SOCKADDR_LIST bind_addr;
+        /* IP for explicit local bind or transparent proxy */
     unsigned long pid; /* PID of local process */
     int fd; /* Temporary file descriptor */
     jmp_buf err;
@@ -286,12 +311,13 @@ extern int max_fds;
 
 void *alloc_client_session(LOCAL_OPTIONS *, int, int);
 void *client(void *);
+int connect_wait(CLI *);
 
 /**************************************** Prototypes for network.c */
 
-void write_blocking(CLI *, int fd, u8 *, int);
-void read_blocking(CLI *, int fd, u8 *, int);
-void fdputline(CLI *, int, char *);
+void write_blocking(CLI *, int fd, void *, int);
+void read_blocking(CLI *, int fd, void *, int);
+void fdputline(CLI *, int, const char *);
 void fdgetline(CLI *, int, char *);
 /* descriptor versions of fprintf/fscanf */
 int fdprintf(CLI *, int, const char *, ...)
@@ -353,10 +379,18 @@ void stack_info(int);
 
 /**************************************** Prototypes for gui.c */
 
+typedef struct {
+    LOCAL_OPTIONS *section;
+    char pass[STRLEN];
+} UI_DATA;
+
 #ifdef USE_WIN32
 void win_log(char *);
 void exit_stunnel(int);
-int pem_passwd_cb(char *, int, int, void *);
+int passwd_cb(char *, int, int, void *);
+#ifdef HAVE_OSSL_ENGINE_H
+int pin_cb(UI *, UI_STRING *);
+#endif
 
 #ifndef _WIN32_WCE
 typedef int (CALLBACK * GETADDRINFO) (const char *,

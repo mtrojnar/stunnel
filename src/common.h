@@ -47,7 +47,7 @@ typedef int socklen_t;
 /**************************************** Common constants */
 
 #ifndef VERSION
-#define VERSION "4.15"
+#define VERSION "4.16"
 #endif
 
 /* CPU stack size */
@@ -188,13 +188,21 @@ typedef unsigned int u32;
 typedef unsigned long u32;
 #endif
 
+#ifdef __INNOTEK_LIBC__
+# define get_last_socket_error() sock_errno()
+# define get_last_error()        errno
+# define readsocket(s,b,n)       recv((s),(b),(n),0)
+# define writesocket(s,b,n)      send((s),(b),(n),0)
+# define closesocket(s)          close(s)
+# define ioctlsocket(a,b,c)      so_ioctl((a),(b),(c))
+#else
 #define get_last_socket_error() errno
 #define get_last_error()        errno
 #define readsocket(s,b,n)       read((s),(b),(n))
 #define writesocket(s,b,n)      write((s),(b),(n))
 #define closesocket(s)          close(s)
 #define ioctlsocket(a,b,c)      ioctl((a),(b),(c))
-
+#endif
     /* OpenVMS compatibility */
 #ifdef __vms
 #define libdir "__NA__"
@@ -296,12 +304,15 @@ extern char *sys_errlist[];
 #ifdef HAVE_OSSL_ENGINE_H
 #include <openssl/engine.h>
 #endif
-#else
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+#include <openssl/ocsp.h>
+#endif /* OpenSSL-0.9.7 */
+#else /* HAVE_OPENSSL */
 #include <lhash.h>
 #include <ssl.h>
 #include <err.h>
 #include <crypto.h> /* for CRYPTO_* and SSLeay_version */
-#endif
+#endif /* HAVE_OPENSSL */
 
 /**************************************** Other defines */
 

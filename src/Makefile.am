@@ -32,7 +32,7 @@ AM_CPPFLAGS = -DLIBDIR='"$(libdir)"' -DCONFDIR='"$(sysconfdir)/stunnel"' -DPIDFI
 
 # Win32 executable
 
-EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak nogui.c
+EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak nogui.c os2.mak
 EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES =  $(common_headers) $(common_sources) $(win32_sources)
 # dist-hook: stunnel.exe

@@ -93,8 +93,7 @@ static HANDLE stopServiceEvent=0;
 static int visible=0, error_mode=0;
 static jmp_buf jump_buf;
 
-static char passphrase[STRLEN];
-static LOCAL_OPTIONS *section;
+static UI_DATA *ui_data=NULL;
 
 #ifndef _WIN32_WCE
 GETADDRINFO s_getaddrinfo;
@@ -518,32 +517,33 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
         /* Set the default push button to "Cancel." */
         SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDCANCEL, (LPARAM) 0);
 
-        _sntprintf(titlebar, STRLEN, TEXT("Private key: %s"), section->key);
+        _sntprintf(titlebar, STRLEN, TEXT("Private key: %s"),
+            ui_data->section->key);
         SetWindowText(hDlg, titlebar);
         return TRUE;
 
     case WM_COMMAND:
         /* Set the default push button to "OK" when the user enters text. */
-        if(HIWORD (wParam) == EN_CHANGE && LOWORD(wParam) == IDE_PASSWORDEDIT)
+        if(HIWORD (wParam) == EN_CHANGE && LOWORD(wParam) == IDE_PASSEDIT)
             SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDOK, (LPARAM) 0);
         switch(wParam) {
         case IDOK:
             /* Get number of characters. */
             cchPassword = (WORD) SendDlgItemMessage(hDlg,
-                IDE_PASSWORDEDIT, EM_LINELENGTH, (WPARAM) 0, (LPARAM) 0);
+                IDE_PASSEDIT, EM_LINELENGTH, (WPARAM) 0, (LPARAM) 0);
             if(cchPassword==0 || cchPassword>=STRLEN) {
                 EndDialog(hDlg, FALSE);
                 return FALSE;
             }
 
             /* Put the number of characters into first word of buffer. */
-            *((LPWORD)passphrase) = cchPassword;
+            *((LPWORD)ui_data->pass) = cchPassword;
 
             /* Get the characters. */
-            SendDlgItemMessage(hDlg, IDE_PASSWORDEDIT, EM_GETLINE,
-                (WPARAM) 0, /* line 0 */ (LPARAM) passphrase);
+            SendDlgItemMessage(hDlg, IDE_PASSEDIT, EM_GETLINE,
+                (WPARAM) 0, /* line 0 */ (LPARAM) ui_data->pass);
 
-            passphrase[cchPassword] = 0; /* Null-terminate the string. */
+            ui_data->pass[cchPassword] = 0; /* Null-terminate the string. */
             EndDialog(hDlg, TRUE);
             return TRUE;
 
@@ -558,63 +558,24 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
     UNREFERENCED_PARAMETER(lParam);
 }
 
-int pem_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
-    int result;
-#if 0
-    DWORD dwThreadId;
-    HWINSTA hwinstaSave;
-    HDESK hdeskSave;
-    HWINSTA hwinstaUser;
-    HDESK hdeskUser;
-
-    buf[0]='\0'; /* empty the buffer */
-
-    /* Save the window station and desktop */
-    hwinstaSave=GetProcessWindowStation();
-    if(!hwinstaSave)
-        ioerror("GetProcessWindowStation");
-    dwThreadId=GetCurrentThreadId();
-    if(!dwThreadId)
-        ioerror("GetCurrentThreadId");
-    hdeskSave=GetThreadDesktop(dwThreadId);
-    if(!hdeskSave)
-        ioerror("GetThreadDesktop");
-
-    /* Switch to WinSta0/Default */
-    hwinstaUser=OpenWindowStation("winsta0", FALSE, MAXIMUM_ALLOWED);
-    if(!hwinstaUser)
-        ioerror("OpenWindowStation");
-    if(!SetProcessWindowStation(hwinstaUser))
-        ioerror("SetProcessWindowStation");
-    hdeskUser=OpenDesktop("Default", 0, FALSE, MAXIMUM_ALLOWED); /* Winlogon */
-    if(!hdeskUser)
-        ioerror("OpenDesktop");
-    if(!SetThreadDesktop(hdeskUser))
-        ioerror("SetThreadDesktop");
-#endif
-
-    /* Display the dialog box */
-    section=userdata;
-    result=DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc);
-
-#if 0
-    /* Restore window station and desktop */
-    if(!SetThreadDesktop(hdeskSave))
-        ioerror("SetThreadDesktop");
-    if(!SetProcessWindowStation(hwinstaSave))
-        ioerror("SetProcessWindowStation");
-    if(!CloseDesktop(hdeskUser))
-        ioerror("CloseDesktop");
-    if(!CloseWindowStation(hwinstaUser))
-        ioerror("CloseWindowStation");
-#endif
-
-    if(!result)
-        return 0;
-    strncpy(buf, passphrase, size);
+int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
+    ui_data=userdata;
+    if(!DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc))
+        return 0; /* error */
+    strncpy(buf, ui_data->pass, size);
     buf[size - 1] = '\0';
     return strlen(buf);
 }
+
+#ifdef HAVE_OSSL_ENGINE_H
+int pin_cb(UI *ui, UI_STRING *uis) {
+    ui_data=UI_get_app_data(ui);
+    if(!DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc))
+        return 0; /* error */
+    UI_set_result(ui, uis, ui_data->pass);
+    return 1;
+}
+#endif
 
 static void save_file(HWND hwnd) {
     TCHAR szFileName[MAX_PATH];

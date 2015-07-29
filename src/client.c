@@ -52,7 +52,7 @@ int deny_severity=LOG_WARNING;
 #endif
 
 #if SSLEAY_VERSION_NUMBER >= 0x0922
-static unsigned char *sid_ctx=(unsigned char *)"stunnel SID";
+static char *sid_ctx="stunnel SID";
     /* const allowed here */
 #endif
 
@@ -72,7 +72,7 @@ static int connect_local(CLI *);
 static void make_sockets(CLI *, int [2]);
 #endif
 static int connect_remote(CLI *);
-static void connect_wait(CLI *);
+int connect_wait(CLI *);
 static void reset(int, char *);
 
 int max_clients;
@@ -129,7 +129,7 @@ void *client(void *arg) {
 #endif
 #ifdef USE_UCONTEXT
     s_log(LOG_DEBUG, "Context %ld closed", ready_head->id);
-    s_poll_wait(NULL, 0); /* wait on poll() */
+    s_poll_wait(NULL, 0, 0); /* wait on poll() */
     s_log(LOG_ERR, "INTERNAL ERROR: failed to drop context");
 #endif
     return NULL;
@@ -282,7 +282,8 @@ static void init_ssl(CLI *c) {
     }
     SSL_set_ex_data(c->ssl, cli_index, c); /* for verify callback */
 #if SSLEAY_VERSION_NUMBER >= 0x0922
-    SSL_set_session_id_context(c->ssl, sid_ctx, strlen(sid_ctx));
+    SSL_set_session_id_context(c->ssl, (unsigned char *)sid_ctx,
+        strlen(sid_ctx));
 #endif
     if(c->opt->option.client) {
         if(c->opt->session) {
@@ -327,7 +328,7 @@ static void init_ssl(CLI *c) {
             s_poll_add(&c->fds, c->ssl_rfd->fd,
                 err==SSL_ERROR_WANT_READ,
                 err==SSL_ERROR_WANT_WRITE);
-            switch(s_poll_wait(&c->fds, c->opt->timeout_busy)) {
+            switch(s_poll_wait(&c->fds, c->opt->timeout_busy, 0)) {
             case -1:
                 sockerror("init_ssl: s_poll_wait");
                 longjmp(c->err, 1);
@@ -429,7 +430,7 @@ static void transfer(CLI *c) {
         err=s_poll_wait(&c->fds, (sock_rd && ssl_rd) /* both peers open */ ||
             c->ssl_ptr /* data buffered to write to socket */ ||
             c->sock_ptr /* data buffered to write to SSL */ ?
-            c->opt->timeout_idle : c->opt->timeout_close);
+            c->opt->timeout_idle : c->opt->timeout_close, 0);
         switch(err) {
         case -1:
             sockerror("transfer: s_poll_wait");
@@ -771,7 +772,8 @@ static void auth_user(CLI *c) {
             sockerror("ident connect (auth_user)");
             longjmp(c->err, 1);
         }
-        connect_wait(c);
+        if(connect_wait(c))
+            longjmp(c->err, 1);
     }
     s_log(LOG_DEBUG, "IDENT server connected");
     fdprintf(c, c->fd, "%u , %u",
@@ -782,7 +784,7 @@ static void auth_user(CLI *c) {
         longjmp(c->err, 1);
     }
     closesocket(c->fd);
-    c->fd=-1; /* avoid double close at cleanup */
+    c->fd=-1; /* avoid double close on cleanup */
     if(strcmp(name, c->opt->username)) {
         safestring(name);
         s_log(LOG_WARNING, "Connection from %s REFUSED by IDENT (user %s)",
@@ -983,7 +985,8 @@ static int connect_remote(CLI *c) { /* connect to remote host */
             c->fd=-1;
             continue; /* next IP */
         }
-        connect_wait(c);
+        if(connect_wait(c))
+            longjmp(c->err, 1);
         fd=c->fd;
         c->fd=-1;
         return fd; /* success! */
@@ -995,7 +998,7 @@ static int connect_remote(CLI *c) { /* connect to remote host */
     /* wait for the result of a non-blocking connect */
     /* file descriptor : c->fd                       */
     /* timeout         : c->opt->timeout_connect     */
-static void connect_wait(CLI *c) {
+int connect_wait(CLI *c) {
     int error;
     socklen_t optlen;
 
@@ -1003,13 +1006,13 @@ static void connect_wait(CLI *c) {
         c->opt->timeout_connect);
     s_poll_zero(&c->fds);
     s_poll_add(&c->fds, c->fd, 1, 1);
-    switch(s_poll_wait(&c->fds, c->opt->timeout_connect)) {
+    switch(s_poll_wait(&c->fds, c->opt->timeout_connect, 0)) {
     case -1:
         sockerror("connect_wait: s_poll_wait");
-        longjmp(c->err, 1);
+        return -1;
     case 0:
         s_log(LOG_INFO, "connect_wait: s_poll_wait timeout");
-        longjmp(c->err, 1);
+        return -1;
     default:
         if(s_poll_canread(&c->fds, c->fd)) {
             /* just connected socket should not be ready for read */
@@ -1019,17 +1022,17 @@ static void connect_wait(CLI *c) {
                 errno=error;
             if(errno) { /* really an error? */
                 sockerror("connect_wait: getsockopt");
-                longjmp(c->err, 1);
+                return -1;
             }
         }
         if(s_poll_canwrite(&c->fds, c->fd)) {
             s_log(LOG_DEBUG, "connect_wait: connected");
-            return; /* success */
+            return 0; /* success */
         }
         s_log(LOG_ERR, "connect_wait: unexpected s_poll_wait result");
-        longjmp(c->err, 1);
+        return -1;
     }
-    longjmp(c->err, 1); /* should not be possible */
+    return -1; /* should not be possible */
 }
 
 static void reset(int fd, char *txt) {

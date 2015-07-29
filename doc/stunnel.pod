@@ -157,6 +157,15 @@ select hardware engine
 
 default: software-only cryptography
 
+There's an example in 'EXAMPLES' section.
+
+=item B<engineCtrl> = command[:parameter]
+
+control hardware engine
+
+Special commands "LOAD" and "INIT" can be used to load and initialize the
+engine cryptogaphic module.
+
 =item B<foreground> = yes | no (Unix only)
 
 foreground mode
@@ -275,9 +284,10 @@ If no host specified, defaults to all IP addresses for the local host.
 
 Certificate Authority directory
 
-This is the directory in which B<stunnel> will look for certificates when
-using the I<verify>. Note that the certificates in this directory
-should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.
+This is the directory in which B<stunnel> will look for certificates when using
+the I<verify>. Note that the certificates in this directory should be named
+XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the
+cert (the first 4 bytes of the MD5 hash in least significant byte order).
 
 I<CApath> path is relative to I<chroot> directory if specified.
 
@@ -336,6 +346,12 @@ This file contains multiple CRLs, used with the I<verify>.
 
 delay DNS lookup for 'connect' option
 
+=item B<engineNum> = engine number
+
+select engine number to read private key
+
+The engines are numbered starting from 1.
+
 =item B<exec> = executable_path (Unix only)
 
 execute local inetd-type program 
@@ -369,6 +385,10 @@ default: value of I<cert> option
 
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
+
+=item B<ocsp> = url
+
+select OCSP server for certificate verification
 
 =item B<options> = SSL_options
 
@@ -404,6 +424,12 @@ allocate pseudo terminal for 'exec' option
 =item B<session> = timeout
 
 session cache timeout
+
+=item B<sslVersion> = version
+
+select version of SSL protocol
+
+Allowed options: all, SSLv2, SSLv3, TLSv1
 
 =item B<TIMEOUTbusy> = seconds
 
@@ -475,6 +501,21 @@ Note there must be no I<[service_name]> section.
 
     exec = /usr/sbin/imapd
     execargs = imapd
+
+Here is an example of advanced engine configuration to read private key from an
+OpenSC engine
+
+    engine=dynamic
+    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+    engineCtrl=ID:pkcs11
+    engineCtrl=LIST_ADD:1
+    engineCtrl=LOAD
+    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
+    engineCtrl=INIT
+
+    [service]
+    engineNum=1
+    key=id_45
 
 
 =head1 FILES

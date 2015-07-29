@@ -12,5 +12,6 @@
 #define IDM_SETUP 42
 
 #define IDE_EDIT 50
-#define IDE_PASSWORDEDIT 51
+#define IDE_PASSEDIT 51
+#define IDE_PINEDIT 52
 
