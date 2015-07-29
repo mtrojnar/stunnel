@@ -152,7 +152,7 @@ static void cifs_server(CLI *c) {
     write_blocking(c, c->local_wfd.fd, response_use_ssl, 5);
 }
 
-/* http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73013 */
+/* http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982 */
 u8 ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
 
 static void pgsql_client(CLI *c) {
@@ -181,16 +181,16 @@ static void pgsql_server(CLI *c) {
 }
 
 static void smtp_client(CLI *c) {
-    char line[STRLEN];
+    char *line;
 
     do { /* copy multiline greeting */
-        fdgetline(c, c->remote_fd.fd, line);
+        line=fdgetline(c, c->remote_fd.fd);
         fdputline(c, c->local_wfd.fd, line);
     } while(isprefix(line, "220-"));
 
     fdputline(c, c->remote_fd.fd, "EHLO localhost");
     do { /* skip multiline reply */
-        fdgetline(c, c->remote_fd.fd, line);
+        line=fdgetline(c, c->remote_fd.fd);
     } while(isprefix(line, "250-"));
     if(!isprefix(line, "250 ")) { /* error */
         s_log(LOG_ERR, "Remote server is not RFC 1425 compliant");
@@ -199,7 +199,7 @@ static void smtp_client(CLI *c) {
 
     fdputline(c, c->remote_fd.fd, "STARTTLS");
     do { /* skip multiline reply */
-        fdgetline(c, c->remote_fd.fd, line);
+        line=fdgetline(c, c->remote_fd.fd);
     } while(isprefix(line, "220-"));
     if(!isprefix(line, "220 ")) { /* error */
         s_log(LOG_ERR, "Remote server is not RFC 2487 compliant");
@@ -208,7 +208,7 @@ static void smtp_client(CLI *c) {
 }
 
 static void smtp_server(CLI *c) {
-    char line[STRLEN];
+    char *line;
 
     s_poll_init(&c->fds);
     s_poll_add(&c->fds, c->local_rfd.fd, 1, 0);
@@ -224,20 +224,20 @@ static void smtp_server(CLI *c) {
         longjmp(c->err, 1);
     }
 
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     if(!isprefix(line, "220")) {
         s_log(LOG_ERR, "Unknown server welcome");
         longjmp(c->err, 1);
     }
     fdprintf(c, c->local_wfd.fd, "%s + stunnel", line);
-    fdgetline(c, c->local_rfd.fd, line);
+    line=fdgetline(c, c->local_rfd.fd);
     if(!isprefix(line, "EHLO ")) {
         s_log(LOG_ERR, "Unknown client EHLO");
         longjmp(c->err, 1);
     }
     fdprintf(c, c->local_wfd.fd, "250-%s Welcome", line);
     fdputline(c, c->local_wfd.fd, "250 STARTTLS");
-    fdgetline(c, c->local_rfd.fd, line);
+    line=fdgetline(c, c->local_rfd.fd);
     if(!isprefix(line, "STARTTLS")) {
         s_log(LOG_ERR, "STARTTLS expected");
         longjmp(c->err, 1);
@@ -246,16 +246,16 @@ static void smtp_server(CLI *c) {
 }
 
 static void pop3_client(CLI *c) {
-    char line[STRLEN];
+    char *line;
 
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     if(!isprefix(line, "+OK ")) {
         s_log(LOG_ERR, "Unknown server welcome");
         longjmp(c->err, 1);
     }
     fdputline(c, c->local_wfd.fd, line);
     fdputline(c, c->remote_fd.fd, "STLS");
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     if(!isprefix(line, "+OK ")) {
         s_log(LOG_ERR, "Server does not support TLS");
         longjmp(c->err, 1);
@@ -263,14 +263,14 @@ static void pop3_client(CLI *c) {
 }
 
 static void pop3_server(CLI *c) {
-    char line[STRLEN];
+    char *line;
 
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     fdprintf(c, c->local_wfd.fd, "%s + stunnel", line);
-    fdgetline(c, c->local_rfd.fd, line);
+    line=fdgetline(c, c->local_rfd.fd);
     if(isprefix(line, "CAPA")) { /* client wants RFC 2449 extensions */
         fdputline(c, c->local_wfd.fd, "-ERR Stunnel does not support capabilities");
-        fdgetline(c, c->local_rfd.fd, line);
+        line=fdgetline(c, c->local_rfd.fd);
     }
     if(!isprefix(line, "STLS")) {
         s_log(LOG_ERR, "Client does not want TLS");
@@ -280,16 +280,16 @@ static void pop3_server(CLI *c) {
 }
 
 static void imap_client(CLI *c) {
-    char line[STRLEN];
+    char *line;
 
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     if(!isprefix(line, "* OK")) {
         s_log(LOG_ERR, "Unknown server welcome");
         longjmp(c->err, 1);
     }
     fdputline(c, c->local_wfd.fd, line);
     fdputline(c, c->remote_fd.fd, "stunnel STARTTLS");
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     if(!isprefix(line, "stunnel OK")) {
         fdputline(c, c->local_wfd.fd,
             "* BYE stunnel: Server does not support TLS");
@@ -299,7 +299,7 @@ static void imap_client(CLI *c) {
 }
 
 static void imap_server(CLI *c) {
-    char line[STRLEN], id[STRLEN], *tail, *capa;
+    char *line, *id, *tail, *capa;
  
     s_poll_init(&c->fds);
     s_poll_add(&c->fds, c->local_rfd.fd, 1, 0);
@@ -316,7 +316,7 @@ static void imap_server(CLI *c) {
     }
 
     /* process server welcome and send it to client */
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     if(!isprefix(line, "* OK")) {
         s_log(LOG_ERR, "Unknown server welcome");
         longjmp(c->err, 1);
@@ -329,9 +329,9 @@ static void imap_server(CLI *c) {
     fdprintf(c, c->local_wfd.fd, "%s (stunnel)", line);
 
     while(1) { /* process client commands */
-        fdgetline(c, c->local_rfd.fd, line);
+        line=fdgetline(c, c->local_rfd.fd);
         /* split line into id and tail */
-        safecopy(id, line);
+        id=str_dup(line);
         tail=strchr(id, ' ');
         if(!tail)
             break;
@@ -343,7 +343,7 @@ static void imap_server(CLI *c) {
             return; /* success */
         } else if(isprefix(tail, "CAPABILITY")) {
             fdputline(c, c->remote_fd.fd, line); /* send it to server */
-            fdgetline(c, c->remote_fd.fd, line); /* get the capabilites */
+            line=fdgetline(c, c->remote_fd.fd); /* get the capabilites */
             if(*line=='*') {
                 /* 
                  * append STARTTLS
@@ -352,7 +352,7 @@ static void imap_server(CLI *c) {
                  * LOGIN would fail as "unexpected command", anyway
                  */
                 fdprintf(c, c->local_wfd.fd, "%s STARTTLS", line);
-                fdgetline(c, c->remote_fd.fd, line); /* next line */
+                line=fdgetline(c, c->remote_fd.fd); /* next line */
             }
             fdputline(c, c->local_wfd.fd, line); /* forward to the client */
             tail=strchr(line, ' ');
@@ -375,23 +375,23 @@ static void imap_server(CLI *c) {
     }    
     /* clean server shutdown */
     fdputline(c, c->remote_fd.fd, "stunnel LOGOUT");
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     if(*line=='*')
-        fdgetline(c, c->remote_fd.fd, line);
+        line=fdgetline(c, c->remote_fd.fd);
     longjmp(c->err, 2); /* don't reset */
 }
 
 static void nntp_client(CLI *c) {
-    char line[STRLEN];
+    char *line;
 
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     if(!isprefix(line, "200 ") && !isprefix(line, "201 ")) {
         s_log(LOG_ERR, "Unknown server welcome");
         longjmp(c->err, 1);
     }
     fdputline(c, c->local_wfd.fd, line);
     fdputline(c, c->remote_fd.fd, "STARTTLS");
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
     if(!isprefix(line, "382 ")) {
         s_log(LOG_ERR, "Server does not support TLS");
         longjmp(c->err, 1);
@@ -399,7 +399,7 @@ static void nntp_client(CLI *c) {
 }
 
 static void connect_client(CLI *c) {
-    char line[STRLEN], *encoded;
+    char *line, *encoded;
 
     if(!c->opt->protocol_host) {
         s_log(LOG_ERR, "protocolHost not specified");
@@ -412,28 +412,28 @@ static void connect_client(CLI *c) {
         if(!strcasecmp(c->opt->protocol_authentication, "NTLM")) {
             ntlm(c);
         } else { /* basic authentication */
-            safecopy(line, c->opt->protocol_username);
-            safeconcat(line, ":");
-            safeconcat(line, c->opt->protocol_password);
+            line=str_printf("%s:%s",
+                c->opt->protocol_username, c->opt->protocol_password);
             encoded=base64(1, line, strlen(line));
-            safecopy(line, encoded);
-            free(encoded);
+            str_free(line);
             fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: basic %s",
-                line);
+                encoded);
+            str_free(encoded);
         }
     }
     fdputline(c, c->remote_fd.fd, ""); /* empty line */
-    fdgetline(c, c->remote_fd.fd, line);
-    if(line[9]!='2') { /* "HTTP/1.0 200 Connection established" */
+    line=fdgetline(c, c->remote_fd.fd);
+    if(strlen(line)<12 || line[9]!='2') {
+        /* not "HTTP/1.0 200 Connection established" */
         s_log(LOG_ERR, "CONNECT request rejected");
         do { /* read all headers */
-            fdgetline(c, c->remote_fd.fd, line);
+            line=fdgetline(c, c->remote_fd.fd);
         } while(*line);
         longjmp(c->err, 1);
     }
     s_log(LOG_INFO, "CONNECT request accepted");
     do {
-        fdgetline(c, c->remote_fd.fd, line); /* read all headers */
+        line=fdgetline(c, c->remote_fd.fd); /* read all headers */
     } while(*line);
 }
 
@@ -447,33 +447,35 @@ static void connect_client(CLI *c) {
 
 static void ntlm(CLI *c) {
 #ifndef OPENSSL_NO_MD4
-    char line[STRLEN], *encoded;
-    char buf[BUFSIZ], ntlm2[STRLEN];
-    long content_length;
+    char *line, *encoded;
+    char buf[BUFSIZ], *ntlm2=NULL;
+    long content_length=0; /* no HTTP content */
 
     /* send Proxy-Authorization (phase 1) */
     fdprintf(c, c->remote_fd.fd, "Proxy-Connection: keep-alive");
     fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", ntlm1());
     fdputline(c, c->remote_fd.fd, ""); /* empty line */
-    fdgetline(c, c->remote_fd.fd, line);
+    line=fdgetline(c, c->remote_fd.fd);
 
     /* receive Proxy-Authenticate (phase 2) */
     if(line[9]!='4' || line[10]!='0' || line[11]!='7') { /* code 407 */
         s_log(LOG_ERR, "NTLM authorization request rejected");
         do { /* read all headers */
-            fdgetline(c, c->remote_fd.fd, line);
+            line=fdgetline(c, c->remote_fd.fd);
         } while(*line);
         longjmp(c->err, 1);
     }
-    *ntlm2='\0';
-    content_length=0; /* no HTTP content */
     do { /* read all headers */
-        fdgetline(c, c->remote_fd.fd, line);
+        line=fdgetline(c, c->remote_fd.fd);
         if(isprefix(line, "Proxy-Authenticate: NTLM "))
-            safecopy(ntlm2, line+25);
+            ntlm2=str_dup(line+25);
         else if(isprefix(line, "Content-Length: "))
             content_length=atol(line+16);
     } while(*line);
+    if(!ntlm2) { /* no Proxy-Authenticate: NTLM header */
+        s_log(LOG_ERR, "Proxy-Authenticate: NTLM header not found");
+        longjmp(c->err, 1);
+    }
 
     /* read and ignore HTTP content (if any) */
     while(content_length) {
@@ -485,9 +487,9 @@ static void ntlm(CLI *c) {
     fdprintf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1", c->opt->protocol_host);
     fdprintf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
     encoded=ntlm3(c->opt->protocol_username, c->opt->protocol_password, ntlm2);
-    safecopy(line, encoded);
-    free(encoded);
-    fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", line);
+    str_free(ntlm2);
+    fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", encoded);
+    str_free(encoded);
 #else
     s_log(LOG_ERR, "NTLM authentication is not available");
     longjmp(c->err, 1);
@@ -549,7 +551,7 @@ static char *ntlm3(char *username, char *password, char *phase2) {
         (unsigned char *)decoded+24, md4_hash+7);
     crypt_DES((unsigned char *)phase3+80,
         (unsigned char *)decoded+24, md4_hash+14);
-    free(decoded);
+    str_free(decoded);
 
     strncpy(phase3+88, username, sizeof phase3-88);
 
@@ -599,7 +601,7 @@ static char *base64(int encode, char *in, int len) {
     len=BIO_pending(bio);
     /* 32 bytes as a safety precaution for passing decoded data to crypt_DES */
     /* len+1 to get null-terminated string on encode */
-    out=calloc(len<32?32:len+1, 1);
+    out=str_alloc(len<32?32:len+1);
     if(!out) {
         s_log(LOG_ERR, "Fatal memory allocation error");
         die(2);

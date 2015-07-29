@@ -9,7 +9,7 @@ conf_DATA = stunnel.conf-sample
 docdir = $(datadir)/doc/stunnel
 examplesdir = $(docdir)/examples
 examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
-	stunnel.spec stunnel.init
+	stunnel.spec stunnel.init stunnel.service
 
 openssl=$(ssldir)/bin/openssl
 install-data-local:

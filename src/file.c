@@ -50,7 +50,7 @@ DISK_FILE *file_open(char *name, int wr) {
     fh=CreateFile(tstr, wr ? GENERIC_WRITE : GENERIC_READ,
         FILE_SHARE_READ, NULL, wr ? OPEN_ALWAYS : OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
-    free(tstr);
+    str_free(tstr);
     if(fh==INVALID_HANDLE_VALUE) {
         ioerror(name);
         return NULL;
@@ -59,7 +59,7 @@ DISK_FILE *file_open(char *name, int wr) {
         SetFilePointer(fh, 0, NULL, FILE_END);
 
     /* setup df structure */
-    df=calloc(1, sizeof df);
+    df=str_alloc(sizeof df);
     if(!df) {
         CloseHandle(df->fh);
         return NULL;
@@ -73,7 +73,7 @@ DISK_FILE *file_open(char *name, int wr) {
 DISK_FILE *file_fdopen(int fd) {
     DISK_FILE *df;
 
-    df=calloc(1, sizeof(DISK_FILE));
+    df=str_alloc(sizeof(DISK_FILE));
     if(!df)
         return NULL;
     df->fd=fd;
@@ -105,7 +105,7 @@ DISK_FILE *file_open(char *name, int wr) {
     }
 
     /* setup df structure */
-    df=calloc(1, sizeof df);
+    df=str_alloc(sizeof df);
     if(!df) {
         close(df->fd);
         return NULL;
@@ -124,7 +124,7 @@ void file_close(DISK_FILE *df) {
 #else /* USE_WIN32 */
     close(df->fd);
 #endif /* USE_WIN32 */
-    free(df);
+    str_free(df);
 }
 
 int file_getline(DISK_FILE *df, char *line, int len) {
@@ -171,7 +171,7 @@ int file_putline(DISK_FILE *df, char *line) {
 #endif /* USE_WIN32 */
 
     len=strlen(line);
-    buff=calloc(len+2, 1); /* +2 for CR+LF */
+    buff=str_alloc(len+2); /* +2 for CR+LF */
     if(!buff)
         return 0;
     strcpy(buff, line);
@@ -185,7 +185,7 @@ int file_putline(DISK_FILE *df, char *line) {
     /* no file -> write to stderr */
     num=write(df ? df->fd : 2, buff, len);
 #endif /* USE_WIN32 */
-    free(buff);
+    str_free(buff);
     return num;
 }
 
@@ -199,7 +199,7 @@ LPTSTR str2tstr(const LPSTR in) {
     len=MultiByteToWideChar(CP_ACP, 0, in, -1, NULL, 0);
     if(!len)
         return NULL;
-    out=malloc((len+1)*sizeof(WCHAR));
+    out=str_alloc((len+1)*sizeof(WCHAR));
     if(!out)
         return NULL;
     len=MultiByteToWideChar(CP_ACP, 0, in, -1, out, len);
@@ -207,7 +207,7 @@ LPTSTR str2tstr(const LPSTR in) {
         return NULL;
 #else
     len=strlen(in);
-    out=malloc(len+1);
+    out=str_alloc(len+1);
     if(!out)
         return NULL;
     strcpy(out, in);
@@ -223,7 +223,7 @@ LPSTR tstr2str(const LPTSTR in) {
     len=WideCharToMultiByte(CP_ACP, 0, in, -1, NULL, 0, NULL, NULL);
     if(!len)
         return NULL;
-    out=malloc(len+1);
+    out=str_alloc(len+1);
     if(!out)
         return NULL;
     len=WideCharToMultiByte(CP_ACP, 0, in, -1, out, len, NULL, NULL);
@@ -231,7 +231,7 @@ LPSTR tstr2str(const LPTSTR in) {
         return NULL;
 #else
     len=strlen(in);
-    out=malloc(len+1);
+    out=str_alloc(len+1);
     if(!out)
         return NULL;
     strcpy(out, in);

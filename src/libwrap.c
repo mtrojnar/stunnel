@@ -47,6 +47,8 @@ static int check(char *, int);
 int allow_severity=LOG_NOTICE, deny_severity=LOG_WARNING;
 
 #ifdef USE_PTHREAD
+#define SERVNAME_LEN 256
+
 static ssize_t read_fd(int, void *, size_t, int *);
 static ssize_t write_fd(int, void *, size_t, int);
 
@@ -54,17 +56,16 @@ int num_processes=0;
 static int *ipc_socket, *busy;
 #endif /* USE_PTHREAD */
 
-
 void libwrap_init(int num) {
 #ifdef USE_PTHREAD
     int i, j, rfd, result;
-    char servname[STRLEN];
+    char servname[SERVNAME_LEN];
 
     num_processes=num;
     if(!num_processes) /* no extra processes to spawn */
         return;
-    ipc_socket=calloc(2*num_processes, sizeof(int));
-    busy=calloc(num_processes, sizeof(int));
+    ipc_socket=str_alloc(2*num_processes*sizeof(int));
+    busy=str_alloc(num_processes*sizeof(int));
     if(!ipc_socket || !busy) {
         s_log(LOG_ERR, "Memory allocation failed");
         die(1);
@@ -85,7 +86,7 @@ void libwrap_init(int num) {
             for(j=0; j<=i; ++j) /* close parent-side sockets created so far */
                 close(ipc_socket[2*j]);
             while(1) { /* main libwrap child loop */
-                if(read_fd(ipc_socket[2*i+1], servname, STRLEN, &rfd)<=0)
+                if(read_fd(ipc_socket[2*i+1], servname, SERVNAME_LEN, &rfd)<=0)
                     _exit(0);
                 result=check(servname, rfd);
                 write(ipc_socket[2*i+1], (u8 *)&result, sizeof result);

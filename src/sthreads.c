@@ -90,12 +90,12 @@ static CONTEXT *new_context(int stack_size) {
     CONTEXT *context;
 
     /* allocate and fill the CONTEXT structure */
-    context=malloc(sizeof(CONTEXT));
+    context=str_alloc(sizeof(CONTEXT));
     if(!context) {
         s_log(LOG_ERR, "Unable to allocate CONTEXT structure");
         return NULL;
     }
-    context->stack=malloc(stack_size);
+    context->stack=str_alloc(stack_size);
     if(!context->stack) {
         s_log(LOG_ERR, "Unable to allocate CONTEXT stack");
         return NULL;
@@ -105,8 +105,8 @@ static CONTEXT *new_context(int stack_size) {
     context->ready=0;
     /* some manuals claim that initialization of context structure is required */
     if(getcontext(&context->context)<0) {
-        free(context->stack);
-        free(context);
+        str_free(context->stack);
+        str_free(context);
         ioerror("getcontext");
         return NULL;
     }
@@ -236,6 +236,7 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
+    /* there is no guarantee free() is called from the same thread */
     value=malloc(sizeof(struct CRYPTO_dynlock_value));
     if(!value)
         return NULL;
@@ -258,6 +259,7 @@ static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     pthread_mutex_destroy(&value->mutex);
+    /* there is no guarantee malloc() is called from the same thread */
     free(value);
 }
 
@@ -289,40 +291,43 @@ void sthreads_init(void) {
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
-    pthread_attr_t pth_attr;
     pthread_t thread;
-#ifdef HAVE_PTHREAD_SIGMASK
-    sigset_t newmask, oldmask;
+    pthread_attr_t pth_attr;
+    int error;
+#if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
+    /* Disabled on OS X due to strange problems on Mac OS X 10.5
+       it seems to restore signal mask somewhere (I couldn't find where)
+       effectively blocking signals after first accepted connection */
+    sigset_t sigset;
+#endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
 
     (void)ls; /* this parameter is only used with USE_FORK */
-    /* initialize attributes for creating new threads */
+
+#if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
+    /* the idea is that only the main thread handles all the signals with
+     * posix threads;  signals are blocked for any other thread */
+    sigfillset(&sigset);
+    pthread_sigmask(SIG_SETMASK, &sigset, NULL); /* block signals */
+    sigemptyset(&sigset); /* prepare for unblocking */
+#endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
     pthread_attr_init(&pth_attr);
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
     pthread_attr_setstacksize(&pth_attr, arg->opt->stack_size);
+    error=pthread_create(&thread, &pth_attr, cli, arg);
+    pthread_attr_destroy(&pth_attr);
+#if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
+    pthread_sigmask(SIG_SETMASK, &sigset, NULL); /* unblock signals */
+#endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
 
-    /* the idea is that only the main thread handles all the signals with
-     * posix threads;  signals are blocked for any other thread */
-    sigemptyset(&newmask);
-    sigaddset(&newmask, SIGCHLD);
-    sigaddset(&newmask, SIGTERM);
-    sigaddset(&newmask, SIGQUIT);
-    sigaddset(&newmask, SIGINT);
-    sigaddset(&newmask, SIGHUP);
-    pthread_sigmask(SIG_BLOCK, &newmask, &oldmask); /* block signals */
-#endif /* HAVE_PTHREAD_SIGMASK */
-    if(pthread_create(&thread, &pth_attr, cli, arg)) {
-#ifdef HAVE_PTHREAD_SIGMASK
-        pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
-#endif /* HAVE_PTHREAD_SIGMASK */
+    if(error) {
+        errno=error;
+        ioerror("pthread_create");
         if(arg)
             free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
     }
-#ifdef HAVE_PTHREAD_SIGMASK
-    pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
-#endif /* HAVE_PTHREAD_SIGMASK */
     return 0;
 }
 
@@ -364,6 +369,7 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
+    /* there is no guarantee free() is called from the same thread */
     value=malloc(sizeof(struct CRYPTO_dynlock_value));
     if(!value)
         return NULL;
@@ -386,6 +392,7 @@ static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     DeleteCriticalSection(&value->mutex);
+    /* there is no guarantee malloc() is called from the same thread */
     free(value);
 }
 

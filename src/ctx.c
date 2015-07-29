@@ -393,14 +393,14 @@ static int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
     int val_len;
 
     val_len=i2d_SSL_SESSION(sess, NULL);
-    val_tmp=val=malloc(val_len);
+    val_tmp=val=str_alloc(val_len);
     if(!val)
         return 1;
     i2d_SSL_SESSION(sess, &val_tmp);
 
     cache_transfer(ssl->ctx, CACHE_CMD_NEW, SSL_SESSION_get_timeout(sess),
         sess->session_id, sess->session_id_length, val, val_len, NULL, NULL);
-    free(val);
+    str_free(val);
     return 1; /* leave the session in local cache for reuse */
 }
 
@@ -417,7 +417,7 @@ static SSL_SESSION *sess_get_cb(SSL *ssl,
         return NULL;
     val_tmp=val;
     sess=d2i_SSL_SESSION(NULL, (const unsigned char **)&val_tmp, val_len);
-    free(val);
+    str_free(val);
     return sess;
 }
 
@@ -473,7 +473,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
             key_len);
         return;
     }
-    packet=calloc(1, sizeof(CACHE_PACKET));
+    packet=str_alloc(sizeof(CACHE_PACKET));
     if(!packet) {
         s_log(LOG_ERR, "cache_transfer: packet buffer allocation failed");
         return;
@@ -489,7 +489,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     /* create the socket */
     s=s_socket(AF_INET, SOCK_DGRAM, 0, 0, "cache_transfer: socket");
     if(s<0) {
-        free(packet);
+        str_free(packet);
         return;
     }
 
@@ -500,13 +500,13 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
             &addr.sa, addr_len(addr))<0) {
         sockerror("cache_transfer: sendto");
         closesocket(s);
-        free(packet);
+        str_free(packet);
         return;
     }
 
     if(!ret || !ret_len) { /* no response is required */
         closesocket(s);
-        free(packet);
+        str_free(packet);
         return;
     }
 
@@ -516,7 +516,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (void *)&t, sizeof t)<0) {
         sockerror("cache_transfer: setsockopt SO_RCVTIMEO");
         closesocket(s);
-        free(packet);
+        str_free(packet);
         return;
     }
 
@@ -528,7 +528,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
             s_log(LOG_INFO, "cache_transfer: recv timeout");
         else
             sockerror("cache_transfer: recv");
-        free(packet);
+        str_free(packet);
         return;
     }
 
@@ -537,24 +537,24 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
             packet->version!=1 || /* wrong version */
             memcmp(packet->key, key, key_len)) { /* wrong session id */
         s_log(LOG_DEBUG, "cache_transfer: malformed packet received");
-        free(packet);
+        str_free(packet);
         return;
     }
     if(packet->type!=CACHE_RESP_OK) {
         s_log(LOG_INFO, "cache_transfer: session not found");
-        free(packet);
+        str_free(packet);
         return;
     }
     *ret_len=len-(sizeof(CACHE_PACKET)-MAX_VAL_LEN);
-    *ret=malloc(*ret_len);
+    *ret=str_alloc(*ret_len);
     if(!*ret) {
         s_log(LOG_ERR, "cache_transfer: return value allocation failed");
-        free(packet);
+        str_free(packet);
         return;
     }
     s_log(LOG_INFO, "cache_transfer: session found");
     memcpy(*ret, packet->val, *ret_len);
-    free(packet);
+    str_free(packet);
 }
 
 /**************************************** informational callback */

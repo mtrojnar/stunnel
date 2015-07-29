@@ -137,7 +137,7 @@ static void scan_waiting_queue(void) {
     }
     /* setup ufds structure */
     if(nfds>max_nfds) { /* need to allocate more memory */
-        ufds=realloc(ufds, nfds*sizeof(struct pollfd));
+        ufds=str_realloc(ufds, nfds*sizeof(struct pollfd));
         if(!ufds) {
             s_log(LOG_CRIT, "Memory allocation failed");
             die(1);
@@ -378,7 +378,7 @@ int signal_pipe_init(void) {
     sprintf(un.sun_path, "\\socket\\stunnel-%u", getpid());
     /* make the first endpoint listen */
     bind(signal_pipe[0], (struct sockaddr *)&un, sizeof un);
-    listen(signal_pipe[0], 5);
+    listen(signal_pipe[0], 1);
     connect(signal_pipe[1], (struct sockaddr *)&un, sizeof un);
     FD_SET(signal_pipe[0], &set_pipe);
     if(select(signal_pipe[0]+1, &set_pipe, NULL, NULL, NULL)>0) {
@@ -434,6 +434,7 @@ static void signal_pipe_empty(void) {
         default:
             s_log(sig==SIGTERM ? LOG_NOTICE : LOG_ERR,
                 "Received signal %d; terminating", sig);
+            str_stats();
             die(3);
         }
     }
@@ -661,47 +662,53 @@ void read_blocking(CLI *c, int fd, void *ptr, int len) {
 }
 
 void fdputline(CLI *c, int fd, const char *line) {
-    char tmpline[STRLEN];
+    char *tmpline;
     const char crlf[]="\r\n";
     int len;
 
-    safecopy(tmpline, line);
-    safeconcat(tmpline, crlf);
+    tmpline=str_printf("%s%s", line, crlf);
     len=strlen(tmpline);
     write_blocking(c, fd, tmpline, len);
     tmpline[len-2]='\0'; /* remove CRLF */
     safestring(tmpline);
     s_log(LOG_DEBUG, " -> %s", tmpline);
+    str_free(tmpline);
 }
 
-void fdgetline(CLI *c, int fd, char *line) {
-    char tmpline[STRLEN];
+char *fdgetline(CLI *c, int fd) {
+    char *line=NULL, *tmpline;
     s_poll_set fds;
-    int ptr;
+    int ptr=0;
 
-    for(ptr=0;;) {
+    for(;;) {
         s_poll_init(&fds);
         s_poll_add(&fds, fd, 1, 0); /* read */
         switch(s_poll_wait(&fds, c->opt->timeout_busy, 0)) {
         case -1:
             sockerror("fdgetline: s_poll_wait");
+            str_free(line);
             longjmp(c->err, 1); /* error */
         case 0:
             s_log(LOG_INFO, "fdgetline: s_poll_wait:"
                 " TIMEOUTbusy exceeded: sending reset");
+            str_free(line);
             longjmp(c->err, 1); /* timeout */
         case 1:
             break; /* OK */
         default:
             s_log(LOG_ERR, "fdgetline: s_poll_wait: unknown result");
+            str_free(line);
             longjmp(c->err, 1); /* error */
         }
+        line=str_realloc(line, ptr+1);
         switch(readsocket(fd, line+ptr, 1)) {
         case -1: /* error */
             sockerror("readsocket (fdgetline)");
+            str_free(line);
             longjmp(c->err, 1);
         case 0: /* EOF */
             s_log(LOG_ERR, "Unexpected socket close (fdgetline)");
+            str_free(line);
             longjmp(c->err, 1);
         }
         if(line[ptr]=='\r')
@@ -710,54 +717,30 @@ void fdgetline(CLI *c, int fd, char *line) {
             break;
         if(!line[ptr])
             break;
-        if(++ptr==STRLEN) {
-            s_log(LOG_ERR, "Input line too long");
-            longjmp(c->err, 1);
-        }
+        ++ptr;
     }
     line[ptr]='\0';
-    safecopy(tmpline, line);
+    tmpline=str_dup(line);
     safestring(tmpline);
     s_log(LOG_DEBUG, " <- %s", tmpline);
+    str_free(tmpline);
+    return line;
 }
 
 int fdprintf(CLI *c, int fd, const char *format, ...) {
-    va_list arglist;
-    char line[STRLEN];
-    int len;
+    va_list ap;
+    char *line;
 
-    va_start(arglist, format);
-#ifdef HAVE_VSNPRINTF
-    len=vsnprintf(line, STRLEN-2, format, arglist);
-#else
-    len=vsprintf(line, format, arglist);
-#endif
-    va_end(arglist);
-    if(len<0) {
-        s_log(LOG_ERR, "fdprintf: vs(n)printf failed");
+    va_start(ap, format);
+    line=str_vprintf(format, ap);
+    va_end(ap);
+    if(!line) {
+        s_log(LOG_ERR, "fdprintf: str_vprintf failed");
         longjmp(c->err, 1);
     }
     fdputline(c, fd, line);
-    return len+2;
-}
-
-int fdscanf(CLI *c, int fd, const char *format, char *buffer) {
-    char line[STRLEN], lformat[STRLEN];
-    int ptr, retval;
-
-    fdgetline(c, fd, line);
-
-    retval=sscanf(line, format, buffer);
-    if(retval>=0)
-        return retval;
-
-    s_log(LOG_DEBUG, "fdscanf falling back to lowercase");
-    safecopy(lformat, format);
-    for(ptr=0; lformat[ptr]; ptr++)
-        lformat[ptr]=tolower(lformat[ptr]);
-    for(ptr=0; line[ptr]; ptr++)
-        line[ptr]=tolower(line[ptr]);
-    return sscanf(line, lformat, buffer);
+    str_free(line);
+    return strlen(line)+2;
 }
 
 /* end of network.c */

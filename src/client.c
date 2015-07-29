@@ -78,6 +78,8 @@ static void reset(int, char *);
 CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
     CLI *c;
 
+    /* str_alloc() cannot be used here, because corresponding
+       free() is called from a different thread */
     c=calloc(1, sizeof(CLI));
     if(!c) {
         s_log(LOG_ERR, "Memory allocation failed");
@@ -104,20 +106,31 @@ void *client(void *arg) {
             if(!c->opt->option.retry)
                 break;
             sleep(1); /* FIXME: not a good idea in ucontext threading */
+#ifndef USE_UCONTEXT
+            str_stats();
+            str_cleanup();
+#endif
         }
     } else
         run_client(c);
+    /* str_free() cannot be used here, because corresponding
+       calloc() is called from a different thread */
     free(c);
 #ifdef DEBUG_STACK_SIZE
     stack_info(0); /* display computed value */
 #endif
+    str_stats();
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
+    str_cleanup();
     _endthread();
 #endif
 #ifdef USE_UCONTEXT
     s_log(LOG_DEBUG, "Context %ld closed", ready_head->id);
+    /* no str_cleanup() here, as all contexts share the same CPU thread */
     s_poll_wait(NULL, 0, 0); /* wait on poll() */
     s_log(LOG_ERR, "INTERNAL ERROR: failed to drop context");
+#else
+    str_cleanup();
 #endif
     return NULL;
 }
@@ -750,10 +763,10 @@ static void parse_socket_error(CLI *c, const char *text) {
 
 static void print_cipher(CLI *c) { /* print negotiated cipher */
     SSL_CIPHER *cipher;
-    char buf[STRLEN], *i, *j;
+    char *buf, *i, *j;
 
     cipher=(SSL_CIPHER *)SSL_get_current_cipher(c->ssl);
-    SSL_CIPHER_description(cipher, buf, STRLEN);
+    buf=SSL_CIPHER_description(cipher, NULL, 0);
     i=j=buf;
     do {
         switch(*i) {
@@ -769,6 +782,7 @@ static void print_cipher(CLI *c) { /* print negotiated cipher */
         }
     } while(*i++);
     s_log(LOG_INFO, "Negotiated ciphers: %s", buf);
+    OPENSSL_free(buf);
 }
 
 static void auth_user(CLI *c) {
@@ -776,7 +790,7 @@ static void auth_user(CLI *c) {
     struct servent *s_ent;    /* structure for getservbyname */
 #endif
     SOCKADDR_UNION ident;     /* IDENT socket name */
-    char name[STRLEN];
+    char *line, *type, *system, *user;
 
     if(!c->opt->username)
         return; /* -u option not specified */
@@ -801,16 +815,37 @@ static void auth_user(CLI *c) {
     fdprintf(c, c->fd, "%u , %u",
         ntohs(c->peer_addr.addr[0].in.sin_port),
         ntohs(c->opt->local_addr.addr[0].in.sin_port));
-    if(fdscanf(c, c->fd, "%*[^:]: USERID :%*[^:]:%s", name)!=1) {
-        s_log(LOG_ERR, "Incorrect data from IDENT server");
-        longjmp(c->err, 1);
-    }
+    line=fdgetline(c, c->fd);
     closesocket(c->fd);
     c->fd=-1; /* avoid double close on cleanup */
-    if(strcmp(name, c->opt->username)) {
-        safestring(name);
+    type=strchr(line, ':');
+    if(!type) {
+        s_log(LOG_ERR, "Malformed IDENT response");
+        longjmp(c->err, 1);
+    }
+    *type++='\0';
+    system=strchr(type, ':');
+    if(!system) {
+        s_log(LOG_ERR, "Malformed IDENT response");
+        longjmp(c->err, 1);
+    }
+    *system++='\0';
+    if(strcmp(type, " USERID ")) {
+        s_log(LOG_ERR, "Incorrect INETD response type");
+        longjmp(c->err, 1);
+    }
+    user=strchr(system, ':');
+    if(!user) {
+        s_log(LOG_ERR, "Malformed IDENT response");
+        longjmp(c->err, 1);
+    }
+    *user++='\0';
+    while(*user==' ') /* skip leading spaces */
+        ++user;
+    if(strcmp(user, c->opt->username)) {
+        safestring(user);
         s_log(LOG_WARNING, "Connection from %s REFUSED by IDENT (user %s)",
-            c->accepted_address, name);
+            c->accepted_address, user);
         longjmp(c->err, 1);
     }
     s_log(LOG_INFO, "IDENT authentication passed");
@@ -855,7 +890,7 @@ static int connect_local(CLI *c) { /* spawn local process */
 #else /* standard Unix version */
 
 static int connect_local(CLI *c) { /* spawn local process */
-    char env[3][STRLEN], name[STRLEN], *portname;
+    char *name, *portname;
     int fd[2], pid;
     X509 *peer;
 #ifdef HAVE_PTHREAD_SIGMASK
@@ -863,7 +898,7 @@ static int connect_local(CLI *c) { /* spawn local process */
 #endif
 
     if(c->opt->option.pty) {
-        char tty[STRLEN];
+        char tty[64];
 
         if(pty_allocate(fd, fd+1, tty))
             longjmp(c->err, 1);
@@ -887,12 +922,11 @@ static int connect_local(CLI *c) { /* spawn local process */
         if(!global_options.option.foreground)
             dup2(fd[1], 2);
         closesocket(fd[1]); /* not really needed due to FD_CLOEXEC */
-        safecopy(env[0], "REMOTE_HOST=");
-        safeconcat(env[0], c->accepted_address);
-        portname=strrchr(env[0], ':');
+        name=str_dup(c->accepted_address);
+        portname=strrchr(name, ':');
         if(portname) /* strip the port name */
             *portname='\0';
-        putenv(env[0]);
+        putenv(str_printf("REMOTE_HOST=%s", name));
         if(c->opt->option.transparent_src) {
             putenv("LD_PRELOAD=" LIBDIR "/libstunnel.so");
             /* for Tru64 _RLD_LIST is used instead */
@@ -901,16 +935,12 @@ static int connect_local(CLI *c) { /* spawn local process */
         if(c->ssl) {
             peer=SSL_get_peer_certificate(c->ssl);
             if(peer) {
-                safecopy(env[1], "SSL_CLIENT_DN=");
-                X509_NAME_oneline(X509_get_subject_name(peer), name, STRLEN);
+                name=X509_NAME_oneline(X509_get_subject_name(peer), NULL, 0);
                 safestring(name);
-                safeconcat(env[1], name);
-                putenv(env[1]);
-                safecopy(env[2], "SSL_CLIENT_I_DN=");
-                X509_NAME_oneline(X509_get_issuer_name(peer), name, STRLEN);
+                putenv(str_printf("SSL_CLIENT_DN=%s", name));
+                name=X509_NAME_oneline(X509_get_issuer_name(peer), NULL, 0);
                 safestring(name);
-                safeconcat(env[2], name);
-                putenv(env[2]);
+                putenv(str_printf("SSL_CLIENT_I_DN=%s", name));
                 X509_free(peer);
             }
         }
@@ -951,7 +981,7 @@ static void make_sockets(CLI *c, int fd[2]) { /* make a pair of connected socket
         log_error(LOG_DEBUG, get_last_socket_error(), "bind#1");
     if(bind(fd[1], &addr.sa, addrlen))
         log_error(LOG_DEBUG, get_last_socket_error(), "bind#2");
-    if(listen(s, 5)) {
+    if(listen(s, 1)) {
         sockerror("listen");
         longjmp(c->err, 1);
     }

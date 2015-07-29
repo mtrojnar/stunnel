@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2011.02.05" "4.35" "stunnel"
+.TH STUNNEL.PL 8 "2011.04.27" "4.36" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -166,7 +166,7 @@ emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6) lub debug (7).
 Zapisywane są komunikaty o poziomie niższym (numerycznie) lub równym podanemu.
 Do uzyskania najwyższego poziomu szczegółowości można użyć opcji
-\&\fBdebug = debug\fR lub \fBdebug = 7\fR.  Domyślnym poziomem jest notice (5).
+\&\fIdebug = debug\fR lub \fIdebug = 7\fR.  Domyślnym poziomem jest notice (5).
 .Sp
 O ile nie wyspecyfikowano podsystemu użyty będzie domyślny: daemon.
 Podsystemy nie są wspierane przez platformę Win32.
@@ -263,9 +263,9 @@ domyślnie: yes (nadpisz)
 .IX Item "service = nazwa_serwisu"
 użyj parametru jako nazwy serwisu
 .Sp
-\&\fBUnix:\fR nazwa serwisu dla biblioteki \s-1TCP\s0 Wrapper w trybie \fIinetd\fR.
+\&\fIUnix:\fR nazwa serwisu dla biblioteki \s-1TCP\s0 Wrapper w trybie \fIinetd\fR.
 .Sp
-\&\fB\s-1NT/2000/XP:\s0\fR nazwa serwisu \s-1NT\s0 w Panelu Sterowania.
+\&\fI\s-1NT/2000/XP:\s0\fR nazwa serwisu \s-1NT\s0 w Panelu Sterowania.
 .Sp
 domyślnie: stunnel
 .IP "\fBsetgid\fR = identyfikator_grupy (tylko Unix)" 4
@@ -320,7 +320,7 @@ usługi w logach.
 .PP
 Jeżeli \fBstunnel\fR ma zostać użyty w trybie \fIinetd\fR, gdzie za odebranie
 połączenia odpowiada osobny program (zwykle \fIinetd\fR, \fIxinetd\fR
-lub \fItcpserver\fR), należy przeczytać sekcję \fB\s-1TRYB\s0 \s-1INETD\s0\fR poniżej.
+lub \fItcpserver\fR), należy przeczytać sekcję \fI\s-1TRYB\s0 \s-1INETD\s0\fR poniżej.
 .IP "\fBaccept\fR = [adres:]port" 4
 .IX Item "accept = [adres:]port"
 nasłuchuje na połączenia na podanym adresie i porcie
@@ -490,11 +490,41 @@ w programie Eudora można użyć opcji:
 .Ve
 .IP "\fBprotocol\fR = protokół" 4
 .IX Item "protocol = protokół"
-negocjuj \s-1SSL\s0 podanym protokołem aplikacyjnym
+negocjuj \s-1SSL\s0 podanym protokołem aplikacyjnym (np. \fIstarttls\fR lub \fIstls\fR)
 .Sp
-Protokół \*(L"connect\*(R" pozwala na tworzenie połączeń klienta \s-1SSL\s0 przez proxy \s-1HTTP\s0.
+Opcji \fIprotocol\fR nie należy używać z szyfrowaniem \s-1SSL\s0 na osobnym porcie.
 .Sp
-aktualnie wspierane protokoły: cifs, connect, imap, nntp, pop3, smtp, pgsql
+Aktualnie wspierane protokoły:
+.RS 4
+.IP "\fIcifs\fR" 4
+.IX Item "cifs"
+Unieudokumentowane rozszerzenie protokołu \s-1CIFS\s0 wspierane przez serwer Samba.
+Wsparcie dla tego rozrzeczenia zostało zarzucone w wersji 3.0.0 serwera Samba.
+.IP "\fIconnect\fR" 4
+.IX Item "connect"
+\&\s-1RFC\s0 2817 \- \fIUpgrading to \s-1TLS\s0 Within \s-1HTTP/1\s0.1\fR, rozdział 5.2 \- \fIRequesting a Tunnel with \s-1CONNECT\s0\fR
+.Sp
+Ten protokół jest wspierany wyłącznie w trybie klienckim.
+.IP "\fIimap\fR" 4
+.IX Item "imap"
+\&\s-1RFC\s0 2595 \- \fIUsing \s-1TLS\s0 with \s-1IMAP\s0, \s-1POP3\s0 and \s-1ACAP\s0\fR
+.IP "\fInntp\fR" 4
+.IX Item "nntp"
+\&\s-1RFC\s0 4642 \- \fIUsing Transport Layer Security (\s-1TLS\s0) with Network News Transfer Protocol (\s-1NNTP\s0)\fR
+.Sp
+Ten protokół jest wspierany wyłącznie w trybie klienckim.
+.IP "\fIpop3\fR" 4
+.IX Item "pop3"
+\&\s-1RFC\s0 2449 \- \fI\s-1POP3\s0 Extension Mechanism\fR
+.IP "\fIsmtp\fR" 4
+.IX Item "smtp"
+\&\s-1RFC\s0 2487 \- \fI\s-1SMTP\s0 Service Extension for Secure \s-1SMTP\s0 over \s-1TLS\s0\fR
+.IP "\fIpgsql\fR" 4
+.IX Item "pgsql"
+http://www.postgresql.org/docs/8.3/static/protocol\-flow.html#AEN73982
+.RE
+.RS 4
+.RE
 .IP "\fBprotocolAuthentication\fR = uwierzytelnienie" 4
 .IX Item "protocolAuthentication = uwierzytelnienie"
 rodzaj uwierzytelnienia do negocjacji protokołu
@@ -563,7 +593,7 @@ bezpośrednio od klienta, a nie od programu \fIstunnel\fR.
 .Sp
 Opcja jest aktualnie obsługiwana w:
 .RS 4
-.IP "Trybie zdalnym (opcja \fBconnect\fR) w systemie \fBLinux >=2.6.28\fR" 4
+.IP "Trybie zdalnym (opcja \fIconnect\fR) w systemie \fILinux >=2.6.28\fR" 4
 .IX Item "Trybie zdalnym (opcja connect) w systemie Linux >=2.6.28"
 Konfiguracja wymaga następujących ustawień iptables oraz routingu
 (na przykład w pliku /etc/rc.local lub analogicznym):
@@ -578,29 +608,29 @@ Konfiguracja wymaga następujących ustawień iptables oraz routingu
 \&    echo 0 >/proc/sys/net/ipv4/conf/lo/rp_filter
 .Ve
 .Sp
-Konfiguracja ta wymaga, aby \fBstunnel\fR był wykonywany jako root i bez opcji \fBsetuid\fR.
-.IP "Trybie zdalnym (opcja \fBconnect\fR) w systemie \fBLinux 2.2.x\fR" 4
+Konfiguracja ta wymaga, aby \fBstunnel\fR był wykonywany jako root i bez opcji \fIsetuid\fR.
+.IP "Trybie zdalnym (opcja \fIconnect\fR) w systemie \fILinux 2.2.x\fR" 4
 .IX Item "Trybie zdalnym (opcja connect) w systemie Linux 2.2.x"
 Konfiguracja ta wymaga skompilowania jądra z opcją \fItransparent proxy\fR.
 Docelowa usługa musi być umieszczona na osobnej maszynie, do której routing
 kierowany jest poprzez serwer stunnela.
 .Sp
-Dodatkowo \fBstunnel\fR powinien być wykonywany jako root i bez opcji \fBsetuid\fR.
-.IP "Trybie zdalnym (opcja \fBconnect\fR) w systemie \fBFreeBSD >=8.0\fR" 4
+Dodatkowo \fBstunnel\fR powinien być wykonywany jako root i bez opcji \fIsetuid\fR.
+.IP "Trybie zdalnym (opcja \fIconnect\fR) w systemie \fIFreeBSD >=8.0\fR" 4
 .IX Item "Trybie zdalnym (opcja connect) w systemie FreeBSD >=8.0"
 Konfiguracja ta wymaga skonfigurowania firewalla i routingu.
-\&\fBstunnel\fR musi być wykonywany jako root i bez opcji \fBsetuid\fR.
-.IP "Trybie lokalnym (opcja \fBexec\fR)" 4
+\&\fBstunnel\fR musi być wykonywany jako root i bez opcji \fIsetuid\fR.
+.IP "Trybie lokalnym (opcja \fIexec\fR)" 4
 .IX Item "Trybie lokalnym (opcja exec)"
-Konfiguracja ta jest realizowana przy pomocy biblioteki \fBlibstunnel.so\fR.
+Konfiguracja ta jest realizowana przy pomocy biblioteki \fIlibstunnel.so\fR.
 Do załadowania biblioteki wykorzystywana jest zmienna środowiskowa _RLD_LIST na
 platformie Tru64 lub \s-1LD_PRELOAD\s0 na innych platformach.
 .RE
 .RS 4
 .RE
-.IP "\fBdestination\fR" 4
+.IP "\fIdestination\fR" 4
 .IX Item "destination"
-Oryginalny adres docelowy jest używany zamiast opcji \fBconnect\fR.
+Oryginalny adres docelowy jest używany zamiast opcji \fIconnect\fR.
 .Sp
 Przykładowana konfiguracja przezroczystego adresu docelowego:
 .Sp
@@ -620,7 +650,7 @@ Konfiguracja wymaga następujących ustawień iptables
 .Ve
 .Sp
 Przezroczysty adres docelowy jest aktualnie wspierany wyłącznie w systemie Linux.
-.IP "\fBboth\fR" 4
+.IP "\fIboth\fR" 4
 .IX Item "both"
 Użyj przezroczystego proxy zarówno dla adresu źródłowego jak i docelowego.
 .RE
@@ -628,12 +658,12 @@ Użyj przezroczystego proxy zarówno dla adresu źródłowego jak i docelowego.
 .Sp
 Dla zapewnienia kompatybilności z wcześniejszymim wersjami wspierane są dwie
 dodatkowe opcje:
-.IP "\fByes\fR" 4
+.IP "\fIyes\fR" 4
 .IX Item "yes"
-Opcja została przemianowana na \fBsource\fR.
-.IP "\fBno\fR" 4
+Opcja została przemianowana na \fIsource\fR.
+.IP "\fIno\fR" 4
 .IX Item "no"
-Opcja została przemianowana na \fBnone\fR.
+Opcja została przemianowana na \fInone\fR.
 .RE
 .RS 4
 .RE
@@ -641,14 +671,14 @@ Opcja została przemianowana na \fBnone\fR.
 .IX Item "verify = poziom"
 weryfikuj certyfikat drugiej strony połączenia
 .RS 4
-.IP "\fBpoziom 1\fR \- weryfikuj, jeżeli został przedstawiony" 4
+.IP "\fIpoziom 1\fR \- weryfikuj, jeżeli został przedstawiony" 4
 .IX Item "poziom 1 - weryfikuj, jeżeli został przedstawiony"
 .PD 0
-.IP "\fBpoziom 2\fR \- weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji" 4
+.IP "\fIpoziom 2\fR \- weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji" 4
 .IX Item "poziom 2 - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji"
-.IP "\fBpoziom 3\fR \- weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony" 4
+.IP "\fIpoziom 3\fR \- weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony" 4
 .IX Item "poziom 3 - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony"
-.IP "\fBdomyślnie\fR \- nie weryfikuj" 4
+.IP "\fIdomyślnie\fR \- nie weryfikuj" 4
 .IX Item "domyślnie - nie weryfikuj"
 .RE
 .RS 4

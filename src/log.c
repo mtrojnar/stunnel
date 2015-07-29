@@ -38,14 +38,13 @@
 #include "common.h"
 #include "prototypes.h"
 
-static void log_raw(const int, const char *, const char *);
-static void get_timestamp(int, char *);
+static void log_raw(const int, const char *, const char *, const char *);
 
 static DISK_FILE *outfile=NULL;
 static struct LIST { /* single-linked list of log lines */
     struct LIST *next;
     int level;
-    char stamp[STRLEN], text[STRLEN];
+    char *stamp, *id, *text;
 } *head=NULL, *tail=NULL;
 static LOG_MODE mode=LOG_MODE_NONE;
 
@@ -94,76 +93,20 @@ void log_flush(LOG_MODE new_mode) {
         mode=new_mode;
 
     while(head) {
-        log_raw(head->level, head->stamp, head->text);
+        log_raw(head->level, head->stamp, head->id, head->text);
+        str_free(head->stamp);
+        str_free(head->text);
         tmp=head;
         head=head->next;
-        free(tmp);
+        str_free(tmp);
     }
     head=tail=NULL;
 }
 
 void s_log(int level, const char *format, ...) {
-    va_list arglist;
-    char text[STRLEN], stamp[STRLEN];
+    va_list ap;
+    char *text, *stamp, *id;
     struct LIST *tmp;
-
-    va_start(arglist, format);
-#ifdef HAVE_VSNPRINTF
-    vsnprintf(text, STRLEN, format, arglist);
-#else
-    vsprintf(text, format, arglist);
-#endif
-    va_end(arglist);
-
-    if(mode==LOG_MODE_NONE) { /* save the text to log it later */
-        tmp=malloc(sizeof(struct LIST));
-        if(!tmp) /* out of memory */
-            return;
-        tmp->next=NULL;
-        tmp->level=level;
-        get_timestamp(level, tmp->stamp);
-        safecopy(tmp->text, text);
-        if(tail)
-            tail->next=tmp;
-        else
-            head=tmp;
-        tail=tmp;
-    } else { /* ready log the text directly */
-        get_timestamp(level, stamp);
-        log_raw(level, stamp, text);
-    }
-}
-
-static void log_raw(const int level, const char *stamp, const char *text) {
-    char line[STRLEN];
-
-    /* build the line and log it to syslog/file */
-    if(mode==LOG_MODE_FULL) { /* configured */
-        safecopy(line, stamp);
-        safeconcat(line, text);
-#if !defined(USE_WIN32) && !defined(__vms)
-        if(level<=global_options.debug_level && global_options.option.syslog)
-            syslog(level, "LOG%d[%lu:%lu]: %s", level,
-                stunnel_process_id(), stunnel_thread_id(), text);
-#endif /* USE_WIN32, __vms */
-        if(level<=global_options.debug_level && outfile)
-            file_putline(outfile, line); /* send log to file */
-    } else /* LOG_MODE_ERROR */
-        safecopy(line, text); /* don't log the time stamp in error mode */
-
-    /* log the line to GUI/stderr */
-#ifdef USE_WIN32
-    if(mode==LOG_MODE_ERROR || level<=global_options.debug_level)
-        win_log(line); /* always log to the GUI window */
-#else /* Unix */
-    if(mode==LOG_MODE_ERROR || /* always log LOG_MODE_ERROR to stderr */
-            (level<=global_options.debug_level &&
-            global_options.option.foreground))
-        fprintf(stderr, "%s\n", line); /* send log to stderr */
-#endif
-}
-
-static void get_timestamp(int level, char *txt) {
     time_t gmt;
     struct tm *timeptr;
 #if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
@@ -176,15 +119,65 @@ static void get_timestamp(int level, char *txt) {
 #else
     timeptr=localtime(&gmt);
 #endif
-#ifdef HAVE_SNPRINTF
-    snprintf(txt, STRLEN,
-#else
-    sprintf(txt,
-#endif
-        "%04d.%02d.%02d %02d:%02d:%02d LOG%d[%lu:%lu]: ",
+    stamp=str_printf("%04d.%02d.%02d %02d:%02d:%02d",
         timeptr->tm_year+1900, timeptr->tm_mon+1, timeptr->tm_mday,
-        timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec,
+        timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec);
+    id=str_printf("LOG%d[%lu:%lu]",
         level, stunnel_process_id(), stunnel_thread_id());
+    va_start(ap, format);
+    text=str_vprintf(format, ap);
+    va_end(ap);
+
+    if(mode==LOG_MODE_NONE) { /* save the text to log it later */
+        tmp=str_alloc(sizeof(struct LIST));
+        if(!tmp) /* out of memory */
+            return;
+        tmp->next=NULL;
+        tmp->level=level;
+        tmp->stamp=stamp;
+        tmp->id=id;
+        tmp->text=text;
+        if(tail)
+            tail->next=tmp;
+        else
+            head=tmp;
+        tail=tmp;
+    } else { /* ready log the text directly */
+        log_raw(level, stamp, id, text);
+        str_free(stamp);
+        str_free(id);
+        str_free(text);
+    }
+}
+
+static void log_raw(const int level, const char *stamp,
+        const char *id, const char *text) {
+    char *line;
+
+    /* build the line and log it to syslog/file */
+    if(mode==LOG_MODE_FULL) { /* configured */
+        line=str_printf("%s %s: %s", stamp, id, text);
+#if !defined(USE_WIN32) && !defined(__vms)
+        if(level<=global_options.debug_level && global_options.option.syslog)
+            syslog(level, "%s: %s", id, text);
+#endif /* USE_WIN32, __vms */
+        if(level<=global_options.debug_level && outfile)
+            file_putline(outfile, line); /* send log to file */
+    } else /* LOG_MODE_ERROR */
+        line=str_dup(text); /* don't log the time stamp in error mode */
+
+    /* log the line to GUI/stderr */
+#ifdef USE_WIN32
+    if(mode==LOG_MODE_ERROR || level<=global_options.debug_level)
+        win_log(line); /* always log to the GUI window */
+#else /* Unix */
+    if(mode==LOG_MODE_ERROR || /* always log LOG_MODE_ERROR to stderr */
+            (level<=global_options.debug_level &&
+            global_options.option.foreground))
+        fprintf(stderr, "%s\n", line); /* send log to stderr */
+#endif
+
+    str_free(line);
 }
 
 void ioerror(const char *txt) { /* input/output error */

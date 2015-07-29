@@ -56,7 +56,7 @@ startdaemons() {
 
 killdaemons()
 {
-  SIGNAL=${$1:-TERM}
+  SIGNAL=${1:-TERM}
   for file in $FILES; do
     PROCLIST=`get_pids $file`
     if [ "$PROCLIST" ] && kill -s 0 $PROCLIST 2>/dev/null; then

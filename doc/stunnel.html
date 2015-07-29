@@ -188,8 +188,8 @@ OpenSSL 0.9.7.</p>
 <p>Level is a one of the syslog level names or numbers
 emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6), or debug (7).  All logs for the specified level and
-all levels numerically less than it will be shown.  Use <strong>debug = debug</strong> or
-<strong>debug = 7</strong> for greatest debugging output.  The default is notice (5).</p>
+all levels numerically less than it will be shown.  Use <em>debug = debug</em> or
+<em>debug = 7</em> for greatest debugging output.  The default is notice (5).</p>
 <p>The syslog facility 'daemon' will be used unless a facility name is supplied.
 (Facilities are not supported on Win32.)</p>
 <p>Case is ignored for both facilities and levels.</p>
@@ -241,7 +241,7 @@ FIPS 140-2 support.</p>
 <dd>
 <p>foreground mode</p>
 <p>Stay in foreground (don't fork) and log to stderr
-instead of via syslog (unless <strong>output</strong> is specified).</p>
+instead of via syslog (unless <em>output</em> is specified).</p>
 <p>default: background in daemon mode</p>
 </dd>
 <dt><strong><a name="output_file" class="item"><strong>output</strong> = file</a></strong></dt>
@@ -395,7 +395,7 @@ For example DES-CBC3-SHA:IDEA-CBC-MD5</p>
 <p>connect to a remote host:port</p>
 <p>If no host is specified, the host defaults to localhost.</p>
 <p>Multiple <strong>connect</strong> options are allowed in a single service section.</p>
-<p>If host resolves to multiple addresses and/or if multiple <strong>connect</strong>
+<p>If host resolves to multiple addresses and/or if multiple <em>connect</em>
 options are specified, then the remote address is chosen using a
 round-robin algorithm.</p>
 </dd>
@@ -513,10 +513,49 @@ the following option can be used:</p>
 <dt><strong><a name="protocol_proto" class="item"><strong>protocol</strong> = proto</a></strong></dt>
 
 <dd>
-<p>application protocol to negotiate SSL</p>
-<p>Specifically &quot;connect&quot; protocol is used in client mode to establish SSL
-connections via HTTP proxy.</p>
-<p>currently supported: cifs, connect, imap, nntp, pop3, smtp, pgsql</p>
+<p>application protocol to negotiate SSL (e.g. <em>starttls</em> or <em>stls</em>)</p>
+<p><em>protocol</em> option should not be used with SSL encryption on a separate port.</p>
+<p>Currently supported protocols:</p>
+<dl>
+<dt><strong><a name="cifs" class="item"><em>cifs</em></a></strong></dt>
+
+<dd>
+<p>Proprietary (undocummented) extension of CIFS protocol implemented in Samba.
+Support for this extension was dropped in Samba 3.0.0.</p>
+</dd>
+<dt><strong><a name="connect" class="item"><em>connect</em></a></strong></dt>
+
+<dd>
+<p>RFC 2817 - <em>Upgrading to TLS Within HTTP/1.1</em>, section 5.2 - <em>Requesting a Tunnel with CONNECT</em></p>
+<p>This protocol is only supported in client mode.</p>
+</dd>
+<dt><strong><a name="imap" class="item"><em>imap</em></a></strong></dt>
+
+<dd>
+<p>RFC 2595 - <em>Using TLS with IMAP, POP3 and ACAP</em></p>
+</dd>
+<dt><strong><a name="nntp" class="item"><em>nntp</em></a></strong></dt>
+
+<dd>
+<p>RFC 4642 - <em>Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)</em></p>
+<p>This protocol is only supported in client mode.</p>
+</dd>
+<dt><strong><a name="pop3" class="item"><em>pop3</em></a></strong></dt>
+
+<dd>
+<p>RFC 2449 - <em>POP3 Extension Mechanism</em></p>
+</dd>
+<dt><strong><a name="smtp" class="item"><em>smtp</em></a></strong></dt>
+
+<dd>
+<p>RFC 2487 - <em>SMTP Service Extension for Secure SMTP over TLS</em></p>
+</dd>
+<dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
+
+<dd>
+<p><a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
+</dd>
+</dl>
 </dd>
 <dt><strong><a name="protocolauthentication_auth_type" class="item"><strong>protocolAuthentication</strong> = auth_type</a></strong></dt>
 
@@ -597,25 +636,25 @@ connections via HTTP proxy.</p>
 
 <dd>
 <p>enable transparent proxy support on selected platforms</p>
-<p>Supported options:</p>
+<p>Supported values:</p>
 <dl>
-<dt><strong><a name="none" class="item"><strong>none</strong></a></strong></dt>
+<dt><strong><a name="none" class="item"><em>none</em></a></strong></dt>
 
 <dd>
 <p>Disable transparent proxy support.  This is the default.</p>
 </dd>
-<dt><strong><a name="source" class="item"><strong>source</strong></a></strong></dt>
+<dt><strong><a name="source" class="item"><em>source</em></a></strong></dt>
 
 <dd>
 <p>Re-write address to appear as if wrapped daemon is connecting
 from the SSL client machine instead of the machine running <strong>stunnel</strong>.</p>
 <p>This option is currently available in:</p>
 <dl>
-<dt><strong><a name="mode" class="item">Remote mode (<strong>connect</strong> option) on <strong>Linux &gt;=2.6.28</strong></a></strong></dt>
+<dt><strong><a name="mode" class="item">Remote mode (<em>connect</em> option) on <em>Linux &gt;=2.6.28</em></a></strong></dt>
 
 <dd>
 <p>This configuration requires stunnel to be executed as root and without
-<strong>setuid</strong> option.</p>
+<em>setuid</em> option.</p>
 <p>This configuration requires the following setup for iptables and routing
 (possibly in /etc/rc.local or equivalent file):</p>
 <pre>
@@ -626,35 +665,35 @@ from the SSL client machine instead of the machine running <strong>stunnel</stro
     ip rule add fwmark 1 lookup 100
     ip route add local 0.0.0.0/0 dev lo table 100
     echo 0 &gt;/proc/sys/net/ipv4/conf/lo/rp_filter</pre>
-<p><strong>stunnel</strong> must also to be executed as root and without <strong>setuid</strong> option.</p>
+<p><strong>stunnel</strong> must also to be executed as root and without <em>setuid</em> option.</p>
 </dd>
-<dt><strong>Remote mode (<strong>connect</strong> option) on <strong>Linux 2.2.x</strong></strong></dt>
+<dt><strong>Remote mode (<em>connect</em> option) on <em>Linux 2.2.x</em></strong></dt>
 
 <dd>
 <p>This configuration requires kernel to be compiled with <em>transparent proxy</em> option.
 Connected service must be installed on a separate host.
 Routing towards the clients has to go through the stunnel box.</p>
-<p><strong>stunnel</strong> must also to be executed as root and without <strong>setuid</strong> option.</p>
+<p><strong>stunnel</strong> must also to be executed as root and without <em>setuid</em> option.</p>
 </dd>
-<dt><strong>Remote mode (<strong>connect</strong> option) on <strong>FreeBSD &gt;=8.0</strong></strong></dt>
+<dt><strong>Remote mode (<em>connect</em> option) on <em>FreeBSD &gt;=8.0</em></strong></dt>
 
 <dd>
 <p>This configuration requires additional firewall and routing setup.
-<strong>stunnel</strong> must also to be executed as root and without <strong>setuid</strong> option.</p>
+<strong>stunnel</strong> must also to be executed as root and without <em>setuid</em> option.</p>
 </dd>
-<dt><strong>Local mode (<strong>exec</strong> option)</strong></dt>
+<dt><strong>Local mode (<em>exec</em> option)</strong></dt>
 
 <dd>
-<p>This configuration works by pre-loading <strong>libstunnel.so</strong> shared library.
+<p>This configuration works by pre-loading <em>libstunnel.so</em> shared library.
 _RLD_LIST environment variable is used on Tru64, and LD_PRELOAD variable on
 other platforms.</p>
 </dd>
 </dl>
 </dd>
-<dt><strong><a name="destination" class="item"><strong>destination</strong></a></strong></dt>
+<dt><strong><a name="destination" class="item"><em>destination</em></a></strong></dt>
 
 <dd>
-<p>Original destination is used instead of <strong>connect</strong> option.</p>
+<p>Original destination is used instead of <em>connect</em> option.</p>
 <p>A service section for transparent destination may look like this:</p>
 <pre>
     [transparent]
@@ -668,23 +707,23 @@ other platforms.</p>
     /sbin/iptables -t nat -I PREROUTING -i eth0 -p tcp --dport &lt;redirected_port&gt; -j DNAT --to-destination &lt;local_ip&gt;:&lt;stunnel_port&gt;</pre>
 <p>Transparent destination option is currently only supported on Linux.</p>
 </dd>
-<dt><strong><strong>both</strong></strong></dt>
+<dt><strong><em>both</em></strong></dt>
 
 <dd>
-<p>Use both <strong>source</strong> and <strong>destination</strong> transparent proxy.</p>
+<p>Use both <em>source</em> and <em>destination</em> transparent proxy.</p>
 </dd>
 </dl>
 <p>Two legacy options are also supported for backward compatibility:</p>
 <dl>
-<dt><strong><a name="yes" class="item"><strong>yes</strong></a></strong></dt>
+<dt><strong><a name="yes" class="item"><em>yes</em></a></strong></dt>
 
 <dd>
-<p>This options has been renamed to <strong>source</strong>.</p>
+<p>This options has been renamed to <em>source</em>.</p>
 </dd>
-<dt><strong><strong>no</strong></strong></dt>
+<dt><strong><em>no</em></strong></dt>
 
 <dd>
-<p>This options has been renamed to <strong>none</strong>.</p>
+<p>This options has been renamed to <em>none</em>.</p>
 </dd>
 </dl>
 </dd>
@@ -693,13 +732,13 @@ other platforms.</p>
 <dd>
 <p>verify peer certificate</p>
 <dl>
-<dt><strong><a name="level_1_verify_peer_certificate_if_present" class="item"><strong>level 1</strong> - verify peer certificate if present</a></strong></dt>
+<dt><strong><a name="level_1_verify_peer_certificate_if_present" class="item"><em>level 1</em> - verify peer certificate if present</a></strong></dt>
 
-<dt><strong><a name="level_2_verify_peer_certificate" class="item"><strong>level 2</strong> - verify peer certificate</a></strong></dt>
+<dt><strong><a name="level_2_verify_peer_certificate" class="item"><em>level 2</em> - verify peer certificate</a></strong></dt>
 
-<dt><strong><a name="level_3_verify_peer_with_locally_installed_certificate" class="item"><strong>level 3</strong> - verify peer with locally installed certificate</a></strong></dt>
+<dt><strong><a name="level_3_verify_peer_with_locally_installed_certificate" class="item"><em>level 3</em> - verify peer with locally installed certificate</a></strong></dt>
 
-<dt><strong><a name="default_no_verify" class="item"><strong>default</strong> - no verify</a></strong></dt>
+<dt><strong><a name="default_no_verify" class="item"><em>default</em> - no verify</a></strong></dt>
 
 </dl>
 <p>It is important to understand, that this option was solely designed for access

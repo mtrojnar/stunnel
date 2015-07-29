@@ -92,10 +92,11 @@ static int getnameinfo(const struct sockaddr *, int,
 #endif
 
 int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
-    char tmp[STRLEN], *hostname, *portname;
+    char *tmp, *hostname, *portname;
+    int retval;
 
     /* set hostname and portname */
-    safecopy(tmp, name);
+    tmp=str_dup(name);
     portname=strrchr(tmp, ':');
     if(portname) {
         hostname=tmp;
@@ -106,7 +107,9 @@ int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
     }
 
     /* fill addr_list structure */
-    return hostport2addrlist(addr_list, hostname, portname);
+    retval=hostport2addrlist(addr_list, hostname, portname);
+    str_free(tmp);
+    return retval;
 }
 
 int hostport2addrlist(SOCKADDR_LIST *addr_list,
@@ -124,21 +127,30 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
 #endif
     hints.ai_socktype=SOCK_STREAM;
     hints.ai_protocol=IPPROTO_TCP;
-
-    err=getaddrinfo(hostname, portname, &hints, &res);
-    if(err) {
-        if(err==EAI_SERVICE)
-            s_log(LOG_ERR, "Unknown TCP service '%s'", portname);
-        else
-            s_log(LOG_ERR, "Error resolving '%s': %s",
-                hostname, s_gai_strerror(err));
-        if(res)
+    do {
+        err=getaddrinfo(hostname, portname, &hints, &res);
+        if(err && res)
             freeaddrinfo(res);
+        if(err==EAI_AGAIN) {
+            s_log(LOG_DEBUG, "getaddrinfo: EAI_AGAIN received: retrying");
+            sleep(1);
+        }
+    } while(err==EAI_AGAIN);
+    switch(err) {
+    case 0:
+        break; /* success */
+    case EAI_SERVICE:
+        s_log(LOG_ERR, "Unknown TCP service '%s'", portname);
+        return 0; /* error */
+    default:
+        s_log(LOG_ERR, "Error resolving '%s': %s",
+            hostname, s_gai_strerror(err));
         return 0; /* error */
     }
+
     /* copy the list of addresses */
-    cur=res;
-    while(cur && addr_list->num<MAX_HOSTS) {
+    for(cur=res; cur && addr_list->num<MAX_HOSTS;
+            cur=cur->ai_next, addr_list->num++) {
         if(cur->ai_addrlen>sizeof(SOCKADDR_UNION)) {
             s_log(LOG_ERR, "INTERNAL ERROR: ai_addrlen value too big");
             freeaddrinfo(res);
@@ -146,8 +158,6 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
         }
         memcpy(&addr_list->addr[addr_list->num],
             cur->ai_addr, cur->ai_addrlen);
-        cur=cur->ai_next;
-        addr_list->num++;
     }
     freeaddrinfo(res);
     return addr_list->num; /* ok - return the number of addresses */
@@ -200,7 +210,7 @@ static int getaddrinfo(const char *node, const char *service,
     }
 
     /* allocate addrlist structure */
-    ai=calloc(1, sizeof(struct addrinfo));
+    ai=str_alloc(sizeof(struct addrinfo));
     if(!ai)
         return EAI_MEMORY;
     if(hints)
@@ -210,9 +220,9 @@ static int getaddrinfo(const char *node, const char *service,
 #if defined(USE_IPv6) && !defined(USE_WIN32)
     ai->ai_family=AF_INET6;
     ai->ai_addrlen=sizeof(struct sockaddr_in6);
-    ai->ai_addr=calloc(1, ai->ai_addrlen);
+    ai->ai_addr=str_alloc(ai->ai_addrlen);
     if(!ai->ai_addr) {
-        free(ai);
+        str_free(ai);
         return EAI_MEMORY;
     }
     ai->ai_addr->sa_family=AF_INET6;
@@ -221,9 +231,9 @@ static int getaddrinfo(const char *node, const char *service,
 #else
     ai->ai_family=AF_INET;
     ai->ai_addrlen=sizeof(struct sockaddr_in);
-    ai->ai_addr=calloc(1, ai->ai_addrlen);
+    ai->ai_addr=str_alloc(ai->ai_addrlen);
     if(!ai->ai_addr) {
-        free(ai);
+        str_free(ai);
         return EAI_MEMORY;
     }
     ai->ai_addr->sa_family=AF_INET;
@@ -235,8 +245,8 @@ static int getaddrinfo(const char *node, const char *service,
         *res=ai;
         return 0; /* numerical address resolved */
     }
-    free(ai->ai_addr);
-    free(ai);
+    str_free(ai->ai_addr);
+    str_free(ai);
 
     /* not numerical: need to call resolver library */
     *res=NULL;
@@ -274,7 +284,7 @@ static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
 
     /* copy addresses */
     for(i=0; h->h_addr_list[i]; i++) {
-        ai=calloc(1, sizeof(struct addrinfo));
+        ai=str_alloc(sizeof(struct addrinfo));
         if(!ai)
             return EAI_MEMORY;
         if(hints)
@@ -291,7 +301,7 @@ static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
 #if defined(USE_IPv6)
         if(h->h_addrtype==AF_INET6) {
             ai->ai_addrlen=sizeof(struct sockaddr_in6);
-            ai->ai_addr=calloc(1, ai->ai_addrlen);
+            ai->ai_addr=str_alloc(ai->ai_addrlen);
             if(!ai->ai_addr)
                 return EAI_MEMORY;
             memcpy(&((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr,
@@ -300,7 +310,7 @@ static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
 #endif
         {
             ai->ai_addrlen=sizeof(struct sockaddr_in);
-            ai->ai_addr=calloc(1, ai->ai_addrlen);
+            ai->ai_addr=str_alloc(ai->ai_addrlen);
             if(!ai->ai_addr)
                 return EAI_MEMORY;
             memcpy(&((struct sockaddr_in *)ai->ai_addr)->sin_addr,
@@ -324,11 +334,11 @@ static void freeaddrinfo(struct addrinfo *current) {
 #endif
     while(current) {
         if(current->ai_addr)
-            free(current->ai_addr);
+            str_free(current->ai_addr);
         if(current->ai_canonname)
-            free(current->ai_canonname);
+            str_free(current->ai_canonname);
         next=current->ai_next;
-        free(current);
+        str_free(current);
         current=next;
     }
 }

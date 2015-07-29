@@ -116,7 +116,7 @@ static int init_compression(void) {
 
 static int init_prng(void) {
     int totbytes=0;
-    char filename[STRLEN];
+    char filename[256];
     int bytes;
 
     bytes=0; /* avoid warning if #ifdef'd out for windows */
@@ -132,9 +132,8 @@ static int init_prng(void) {
     }
 
     /* try the $RANDFILE or $HOME/.rnd files */
-    RAND_file_name(filename, STRLEN);
+    RAND_file_name(filename, 256);
     if(filename[0]) {
-        filename[STRLEN-1]='\0';        /* just in case */
         totbytes+=add_rand_file(filename);
         if(RAND_status())
             return 1;

@@ -5,7 +5,7 @@ Building stunnel from source (optional):
 
  1) Install mingw32 cross-compiler o a Unix/Linux machine.
     In Debian all you need is:
-      apt-get install mingw32
+      apt-get install gcc-mingw32
     Native compilation on a Windows machine is possible, but not supported.
 
  2) Download the recent zlib from http://www.zlib.net/

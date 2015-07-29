@@ -1,0 +1,10 @@
+[Unit]
+Description=SSL tunnel for network daemons
+After=syslog.target
+
+[Service]
+ExecStart=@prefix@/bin/stunnel
+Type=forking
+
+[Install]
+WantedBy=multi-user.target

@@ -36,7 +36,8 @@ build_triplet = @build@
 host_triplet = @host@
 subdir = tools
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/stunnel.conf-sample.in $(srcdir)/stunnel.init.in
+	$(srcdir)/stunnel.conf-sample.in $(srcdir)/stunnel.init.in \
+	$(srcdir)/stunnel.service.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
@@ -45,7 +46,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
-CONFIG_CLEAN_FILES = stunnel.conf-sample stunnel.init
+CONFIG_CLEAN_FILES = stunnel.conf-sample stunnel.init stunnel.service
 CONFIG_CLEAN_VPATH_FILES =
 SOURCES =
 DIST_SOURCES =
@@ -195,7 +196,7 @@ confdir = $(sysconfdir)/stunnel
 conf_DATA = stunnel.conf-sample
 examplesdir = $(docdir)/examples
 examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
-	stunnel.spec stunnel.init
+	stunnel.spec stunnel.init stunnel.service
 
 openssl = $(ssldir)/bin/openssl
 all: all-am
@@ -234,6 +235,8 @@ $(am__aclocal_m4_deps):
 stunnel.conf-sample: $(top_builddir)/config.status $(srcdir)/stunnel.conf-sample.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 stunnel.init: $(top_builddir)/config.status $(srcdir)/stunnel.init.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+stunnel.service: $(top_builddir)/config.status $(srcdir)/stunnel.service.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 
 mostlyclean-libtool:

@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.35])
+AC_INIT([stunnel],[4.36])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.35)
+AM_INIT_AUTOMAKE(stunnel, 4.36)
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE(_GNU_SOURCE)
 
@@ -290,7 +290,7 @@ AC_ARG_WITH(ssl,
     ],
     [
         # Search default localtions of SSL library
-        for maindir in /usr/local /usr/lib /usr/pkg /opt /usr; do
+        for maindir in /usr/local /usr/lib /usr/pkg /opt/local /opt /usr; do
             for dir in $maindir/ssl/fips $maindir/ssl/fips-1.0 \
                     $maindir/ssl $maindir/openssl $maindir; do
                 checkssldir $dir && break 2
@@ -357,6 +357,7 @@ AC_ARG_ENABLE(libwrap,
         case "$enableval" in
             yes) AC_MSG_RESULT([no])
                 AC_DEFINE(HAVE_LIBWRAP)
+                LIBS="$LIBS -lwrap"
                 ;;
             no) AC_MSG_RESULT([yes])
                 ;;
@@ -414,7 +415,7 @@ AC_ARG_ENABLE(fips,
 )
 
 AC_MSG_NOTICE([**************************************** write the results])
-AC_CONFIG_FILES([Makefile src/Makefile src/stunnel3 doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init])
+AC_CONFIG_FILES([Makefile src/Makefile src/stunnel3 doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init tools/stunnel.service])
 AC_OUTPUT
 
 AC_MSG_NOTICE([**************************************** success])

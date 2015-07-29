@@ -83,7 +83,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf) {
         ioerror("openpty");
         return -1;
     }
-    safecopy(namebuf, buf); /* possible truncation */
+    strcpy(namebuf, buf); /* possible truncation */
     return 0;
 #else /* HAVE_OPENPTY */
 #ifdef HAVE__GETPTY
@@ -98,7 +98,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf) {
         ioerror("_getpty");
         return -1;
     }
-    safecopy(namebuf, slave);
+    strcpy(namebuf, slave);
     /* open the slave side */
     *ttyfd=open(namebuf, O_RDWR|O_NOCTTY);
     if(*ttyfd<0) {
@@ -133,7 +133,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf) {
     pts=ptsname(ptm);
     if(pts==NULL)
         s_log(LOG_ERR, "Slave pty side name could not be obtained");
-    safecopy(namebuf, pts);
+    strcpy(namebuf, pts);
     *ptyfd=ptm;
 
     /* open the slave side */
@@ -166,7 +166,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf) {
         s_log(LOG_ERR, "Open of /dev/ptc returns device for which ttyname fails");
         return -1;
     }
-    safecopy(namebuf, name);
+    strcpy(namebuf, name);
     *ttyfd=open(name, O_RDWR|O_NOCTTY);
     if(*ttyfd<0) {
         ioerror(name);

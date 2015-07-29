@@ -362,17 +362,11 @@ int connect_blocking(CLI *, SOCKADDR_UNION *, socklen_t);
 void write_blocking(CLI *, int fd, void *, int);
 void read_blocking(CLI *, int fd, void *, int);
 void fdputline(CLI *, int, const char *);
-void fdgetline(CLI *, int, char *);
+char *fdgetline(CLI *, int);
 /* descriptor versions of fprintf/fscanf */
 int fdprintf(CLI *, int, const char *, ...)
 #ifdef __GNUC__
        __attribute__ ((format (printf, 3, 4)));
-#else
-       ;
-#endif
-int fdscanf(CLI *, int, const char *, char *)
-#ifdef __GNUC__
-       __attribute__ ((format (scanf, 3, 0)));
 #else
        ;
 #endif
@@ -471,6 +465,23 @@ LPSTR tstr2str(const LPTSTR);
 
 void libwrap_init(int);
 void libwrap_auth(CLI *);
+
+/**************************************** prototypes for str.c */
+
+void str_init();
+void str_cleanup();
+void str_stats();
+void *str_alloc(size_t);
+void *str_realloc(void *, size_t);
+void str_free(void *);
+char *str_dup(const char *);
+char *str_vprintf(const char *, va_list);
+char *str_printf(const char *, ...)
+#ifdef __GNUC__
+    __attribute__ ((format (printf, 1, 2)));
+#else
+    ;
+#endif
 
 #endif /* defined PROTOTYPES_H */
 

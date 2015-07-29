@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2011.02.05" "4.35" "stunnel"
+.TH STUNNEL 8 "2011.04.27" "4.36" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -162,8 +162,8 @@ debugging level
 Level is a one of the syslog level names or numbers
 emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6), or debug (7).  All logs for the specified level and
-all levels numerically less than it will be shown.  Use \fBdebug = debug\fR or
-\&\fBdebug = 7\fR for greatest debugging output.  The default is notice (5).
+all levels numerically less than it will be shown.  Use \fIdebug = debug\fR or
+\&\fIdebug = 7\fR for greatest debugging output.  The default is notice (5).
 .Sp
 The syslog facility 'daemon' will be used unless a facility name is supplied.
 (Facilities are not supported on Win32.)
@@ -216,7 +216,7 @@ default: yes
 foreground mode
 .Sp
 Stay in foreground (don't fork) and log to stderr
-instead of via syslog (unless \fBoutput\fR is specified).
+instead of via syslog (unless \fIoutput\fR is specified).
 .Sp
 default: background in daemon mode
 .IP "\fBoutput\fR = file" 4
@@ -359,7 +359,7 @@ If no host is specified, the host defaults to localhost.
 .Sp
 Multiple \fBconnect\fR options are allowed in a single service section.
 .Sp
-If host resolves to multiple addresses and/or if multiple \fBconnect\fR
+If host resolves to multiple addresses and/or if multiple \fIconnect\fR
 options are specified, then the remote address is chosen using a
 round-robin algorithm.
 .IP "\fBCRLpath\fR = directory" 4
@@ -469,12 +469,41 @@ the following option can be used:
 .Ve
 .IP "\fBprotocol\fR = proto" 4
 .IX Item "protocol = proto"
-application protocol to negotiate \s-1SSL\s0
+application protocol to negotiate \s-1SSL\s0 (e.g. \fIstarttls\fR or \fIstls\fR)
 .Sp
-Specifically \*(L"connect\*(R" protocol is used in client mode to establish \s-1SSL\s0
-connections via \s-1HTTP\s0 proxy.
+\&\fIprotocol\fR option should not be used with \s-1SSL\s0 encryption on a separate port.
 .Sp
-currently supported: cifs, connect, imap, nntp, pop3, smtp, pgsql
+Currently supported protocols:
+.RS 4
+.IP "\fIcifs\fR" 4
+.IX Item "cifs"
+Proprietary (undocummented) extension of \s-1CIFS\s0 protocol implemented in Samba.
+Support for this extension was dropped in Samba 3.0.0.
+.IP "\fIconnect\fR" 4
+.IX Item "connect"
+\&\s-1RFC\s0 2817 \- \fIUpgrading to \s-1TLS\s0 Within \s-1HTTP/1\s0.1\fR, section 5.2 \- \fIRequesting a Tunnel with \s-1CONNECT\s0\fR
+.Sp
+This protocol is only supported in client mode.
+.IP "\fIimap\fR" 4
+.IX Item "imap"
+\&\s-1RFC\s0 2595 \- \fIUsing \s-1TLS\s0 with \s-1IMAP\s0, \s-1POP3\s0 and \s-1ACAP\s0\fR
+.IP "\fInntp\fR" 4
+.IX Item "nntp"
+\&\s-1RFC\s0 4642 \- \fIUsing Transport Layer Security (\s-1TLS\s0) with Network News Transfer Protocol (\s-1NNTP\s0)\fR
+.Sp
+This protocol is only supported in client mode.
+.IP "\fIpop3\fR" 4
+.IX Item "pop3"
+\&\s-1RFC\s0 2449 \- \fI\s-1POP3\s0 Extension Mechanism\fR
+.IP "\fIsmtp\fR" 4
+.IX Item "smtp"
+\&\s-1RFC\s0 2487 \- \fI\s-1SMTP\s0 Service Extension for Secure \s-1SMTP\s0 over \s-1TLS\s0\fR
+.IP "\fIpgsql\fR" 4
+.IX Item "pgsql"
+http://www.postgresql.org/docs/8.3/static/protocol\-flow.html#AEN73982
+.RE
+.RS 4
+.RE
 .IP "\fBprotocolAuthentication\fR = auth_type" 4
 .IX Item "protocolAuthentication = auth_type"
 authentication type for protocol negotiations
@@ -531,22 +560,22 @@ time to keep an idle connection
 .IX Item "transparent = none | source | destination | both (Unix only)"
 enable transparent proxy support on selected platforms
 .Sp
-Supported options:
+Supported values:
 .RS 4
-.IP "\fBnone\fR" 4
+.IP "\fInone\fR" 4
 .IX Item "none"
 Disable transparent proxy support.  This is the default.
-.IP "\fBsource\fR" 4
+.IP "\fIsource\fR" 4
 .IX Item "source"
 Re-write address to appear as if wrapped daemon is connecting
 from the \s-1SSL\s0 client machine instead of the machine running \fBstunnel\fR.
 .Sp
 This option is currently available in:
 .RS 4
-.IP "Remote mode (\fBconnect\fR option) on \fBLinux >=2.6.28\fR" 4
+.IP "Remote mode (\fIconnect\fR option) on \fILinux >=2.6.28\fR" 4
 .IX Item "Remote mode (connect option) on Linux >=2.6.28"
 This configuration requires stunnel to be executed as root and without
-\&\fBsetuid\fR option.
+\&\fIsetuid\fR option.
 .Sp
 This configuration requires the following setup for iptables and routing
 (possibly in /etc/rc.local or equivalent file):
@@ -561,29 +590,29 @@ This configuration requires the following setup for iptables and routing
 \&    echo 0 >/proc/sys/net/ipv4/conf/lo/rp_filter
 .Ve
 .Sp
-\&\fBstunnel\fR must also to be executed as root and without \fBsetuid\fR option.
-.IP "Remote mode (\fBconnect\fR option) on \fBLinux 2.2.x\fR" 4
+\&\fBstunnel\fR must also to be executed as root and without \fIsetuid\fR option.
+.IP "Remote mode (\fIconnect\fR option) on \fILinux 2.2.x\fR" 4
 .IX Item "Remote mode (connect option) on Linux 2.2.x"
 This configuration requires kernel to be compiled with \fItransparent proxy\fR option.
 Connected service must be installed on a separate host.
 Routing towards the clients has to go through the stunnel box.
 .Sp
-\&\fBstunnel\fR must also to be executed as root and without \fBsetuid\fR option.
-.IP "Remote mode (\fBconnect\fR option) on \fBFreeBSD >=8.0\fR" 4
+\&\fBstunnel\fR must also to be executed as root and without \fIsetuid\fR option.
+.IP "Remote mode (\fIconnect\fR option) on \fIFreeBSD >=8.0\fR" 4
 .IX Item "Remote mode (connect option) on FreeBSD >=8.0"
 This configuration requires additional firewall and routing setup.
-\&\fBstunnel\fR must also to be executed as root and without \fBsetuid\fR option.
-.IP "Local mode (\fBexec\fR option)" 4
+\&\fBstunnel\fR must also to be executed as root and without \fIsetuid\fR option.
+.IP "Local mode (\fIexec\fR option)" 4
 .IX Item "Local mode (exec option)"
-This configuration works by pre-loading \fBlibstunnel.so\fR shared library.
+This configuration works by pre-loading \fIlibstunnel.so\fR shared library.
 _RLD_LIST environment variable is used on Tru64, and \s-1LD_PRELOAD\s0 variable on
 other platforms.
 .RE
 .RS 4
 .RE
-.IP "\fBdestination\fR" 4
+.IP "\fIdestination\fR" 4
 .IX Item "destination"
-Original destination is used instead of \fBconnect\fR option.
+Original destination is used instead of \fIconnect\fR option.
 .Sp
 A service section for transparent destination may look like this:
 .Sp
@@ -603,19 +632,19 @@ This configuration requires the following setup for iptables
 .Ve
 .Sp
 Transparent destination option is currently only supported on Linux.
-.IP "\fBboth\fR" 4
+.IP "\fIboth\fR" 4
 .IX Item "both"
-Use both \fBsource\fR and \fBdestination\fR transparent proxy.
+Use both \fIsource\fR and \fIdestination\fR transparent proxy.
 .RE
 .RS 4
 .Sp
 Two legacy options are also supported for backward compatibility:
-.IP "\fByes\fR" 4
+.IP "\fIyes\fR" 4
 .IX Item "yes"
-This options has been renamed to \fBsource\fR.
-.IP "\fBno\fR" 4
+This options has been renamed to \fIsource\fR.
+.IP "\fIno\fR" 4
 .IX Item "no"
-This options has been renamed to \fBnone\fR.
+This options has been renamed to \fInone\fR.
 .RE
 .RS 4
 .RE
@@ -623,14 +652,14 @@ This options has been renamed to \fBnone\fR.
 .IX Item "verify = level"
 verify peer certificate
 .RS 4
-.IP "\fBlevel 1\fR \- verify peer certificate if present" 4
+.IP "\fIlevel 1\fR \- verify peer certificate if present" 4
 .IX Item "level 1 - verify peer certificate if present"
 .PD 0
-.IP "\fBlevel 2\fR \- verify peer certificate" 4
+.IP "\fIlevel 2\fR \- verify peer certificate" 4
 .IX Item "level 2 - verify peer certificate"
-.IP "\fBlevel 3\fR \- verify peer with locally installed certificate" 4
+.IP "\fIlevel 3\fR \- verify peer with locally installed certificate" 4
 .IX Item "level 3 - verify peer with locally installed certificate"
-.IP "\fBdefault\fR \- no verify" 4
+.IP "\fIdefault\fR \- no verify" 4
 .IX Item "default - no verify"
 .RE
 .RS 4

@@ -194,7 +194,7 @@ emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6) lub debug (7).
 Zapisywane s± komunikaty o poziomie ni¿szym (numerycznie) lub równym podanemu.
 Do uzyskania najwy¿szego poziomu szczegó³owo¶ci mo¿na u¿yæ opcji
-<strong>debug = debug</strong> lub <strong>debug = 7</strong>.  Domy¶lnym poziomem jest notice (5).</p>
+<em>debug = debug</em> lub <em>debug = 7</em>.  Domy¶lnym poziomem jest notice (5).</p>
 <p>O ile nie wyspecyfikowano podsystemu u¿yty bêdzie domy¶lny: daemon.
 Podsystemy nie s± wspierane przez platformê Win32.</p>
 <p>Wielko¶æ liter jest ignorowana zarówno dla poziomu jak podsystemu.</p>
@@ -294,8 +294,8 @@ generatora pseudolosowego.</p>
 
 <dd>
 <p>u¿yj parametru jako nazwy serwisu</p>
-<p><strong>Unix:</strong> nazwa serwisu dla biblioteki TCP Wrapper w trybie <em>inetd</em>.</p>
-<p><strong>NT/2000/XP:</strong> nazwa serwisu NT w Panelu Sterowania.</p>
+<p><em>Unix:</em> nazwa serwisu dla biblioteki TCP Wrapper w trybie <em>inetd</em>.</p>
+<p><em>NT/2000/XP:</em> nazwa serwisu NT w Panelu Sterowania.</p>
 <p>domy¶lnie: stunnel</p>
 </dd>
 <dt><strong><a name="identyfikator_grupy" class="item"><strong>setgid</strong> = identyfikator_grupy (tylko Unix)</a></strong></dt>
@@ -355,7 +355,7 @@ bibliotekê libwrap (TCP wrappers) oraz pozwala rozró¿niæ poszczególne
 us³ugi w logach.</p>
 <p>Je¿eli <strong>stunnel</strong> ma zostaæ u¿yty w trybie <em>inetd</em>, gdzie za odebranie
 po³±czenia odpowiada osobny program (zwykle <em>inetd</em>, <em>xinetd</em>
-lub <em>tcpserver</em>), nale¿y przeczytaæ sekcjê <strong>TRYB INETD</strong> poni¿ej.</p>
+lub <em>tcpserver</em>), nale¿y przeczytaæ sekcjê <em>TRYB INETD</em> poni¿ej.</p>
 <dl>
 <dt><strong><a name="accept_adres_port" class="item"><strong>accept</strong> = [adres:]port</a></strong></dt>
 
@@ -536,9 +536,49 @@ w programie Eudora mo¿na u¿yæ opcji:</p>
 <dt><strong><a name="protocol_protok" class="item"><strong>protocol</strong> = protokó³</a></strong></dt>
 
 <dd>
-<p>negocjuj SSL podanym protoko³em aplikacyjnym</p>
-<p>Protokó³ &quot;connect&quot; pozwala na tworzenie po³±czeñ klienta SSL przez proxy HTTP.</p>
-<p>aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp, pgsql</p>
+<p>negocjuj SSL podanym protoko³em aplikacyjnym (np. <em>starttls</em> lub <em>stls</em>)</p>
+<p>Opcji <em>protocol</em> nie nale¿y u¿ywaæ z szyfrowaniem SSL na osobnym porcie.</p>
+<p>Aktualnie wspierane protoko³y:</p>
+<dl>
+<dt><strong><a name="cifs" class="item"><em>cifs</em></a></strong></dt>
+
+<dd>
+<p>Unieudokumentowane rozszerzenie protoko³u CIFS wspierane przez serwer Samba.
+Wsparcie dla tego rozrzeczenia zosta³o zarzucone w wersji 3.0.0 serwera Samba.</p>
+</dd>
+<dt><strong><a name="connect" class="item"><em>connect</em></a></strong></dt>
+
+<dd>
+<p>RFC 2817 - <em>Upgrading to TLS Within HTTP/1.1</em>, rozdzia³ 5.2 - <em>Requesting a Tunnel with CONNECT</em></p>
+<p>Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.</p>
+</dd>
+<dt><strong><a name="imap" class="item"><em>imap</em></a></strong></dt>
+
+<dd>
+<p>RFC 2595 - <em>Using TLS with IMAP, POP3 and ACAP</em></p>
+</dd>
+<dt><strong><a name="nntp" class="item"><em>nntp</em></a></strong></dt>
+
+<dd>
+<p>RFC 4642 - <em>Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)</em></p>
+<p>Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.</p>
+</dd>
+<dt><strong><a name="pop3" class="item"><em>pop3</em></a></strong></dt>
+
+<dd>
+<p>RFC 2449 - <em>POP3 Extension Mechanism</em></p>
+</dd>
+<dt><strong><a name="smtp" class="item"><em>smtp</em></a></strong></dt>
+
+<dd>
+<p>RFC 2487 - <em>SMTP Service Extension for Secure SMTP over TLS</em></p>
+</dd>
+<dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
+
+<dd>
+<p><a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
+</dd>
+</dl>
 </dd>
 <dt><strong><a name="protocolauthentication_uwierzytelnienie" class="item"><strong>protocolAuthentication</strong> = uwierzytelnienie</a></strong></dt>
 
@@ -633,7 +673,7 @@ w programie Eudora mo¿na u¿yæ opcji:</p>
 bezpo¶rednio od klienta, a nie od programu <em>stunnel</em>.</p>
 <p>Opcja jest aktualnie obs³ugiwana w:</p>
 <dl>
-<dt><strong><a name="zdalnym" class="item">Trybie zdalnym (opcja <strong>connect</strong>) w systemie <strong>Linux &gt;=2.6.28</strong></a></strong></dt>
+<dt><strong><a name="zdalnym" class="item">Trybie zdalnym (opcja <em>connect</em>) w systemie <em>Linux &gt;=2.6.28</em></a></strong></dt>
 
 <dd>
 <p>Konfiguracja wymaga nastêpuj±cych ustawieñ iptables oraz routingu
@@ -646,35 +686,35 @@ bezpo¶rednio od klienta, a nie od programu <em>stunnel</em>.</p>
     ip rule add fwmark 1 lookup 100
     ip route add local 0.0.0.0/0 dev lo table 100
     echo 0 &gt;/proc/sys/net/ipv4/conf/lo/rp_filter</pre>
-<p>Konfiguracja ta wymaga, aby <strong>stunnel</strong> by³ wykonywany jako root i bez opcji <strong>setuid</strong>.</p>
+<p>Konfiguracja ta wymaga, aby <strong>stunnel</strong> by³ wykonywany jako root i bez opcji <em>setuid</em>.</p>
 </dd>
-<dt><strong>Trybie zdalnym (opcja <strong>connect</strong>) w systemie <strong>Linux 2.2.x</strong></strong></dt>
+<dt><strong>Trybie zdalnym (opcja <em>connect</em>) w systemie <em>Linux 2.2.x</em></strong></dt>
 
 <dd>
 <p>Konfiguracja ta wymaga skompilowania j±dra z opcj± <em>transparent proxy</em>.
 Docelowa us³uga musi byæ umieszczona na osobnej maszynie, do której routing
 kierowany jest poprzez serwer stunnela.</p>
-<p>Dodatkowo <strong>stunnel</strong> powinien byæ wykonywany jako root i bez opcji <strong>setuid</strong>.</p>
+<p>Dodatkowo <strong>stunnel</strong> powinien byæ wykonywany jako root i bez opcji <em>setuid</em>.</p>
 </dd>
-<dt><strong>Trybie zdalnym (opcja <strong>connect</strong>) w systemie <strong>FreeBSD &gt;=8.0</strong></strong></dt>
+<dt><strong>Trybie zdalnym (opcja <em>connect</em>) w systemie <em>FreeBSD &gt;=8.0</em></strong></dt>
 
 <dd>
 <p>Konfiguracja ta wymaga skonfigurowania firewalla i routingu.
-<strong>stunnel</strong> musi byæ wykonywany jako root i bez opcji <strong>setuid</strong>.</p>
+<strong>stunnel</strong> musi byæ wykonywany jako root i bez opcji <em>setuid</em>.</p>
 </dd>
-<dt><strong><a name="lokalnym" class="item">Trybie lokalnym (opcja <strong>exec</strong>)</a></strong></dt>
+<dt><strong><a name="lokalnym" class="item">Trybie lokalnym (opcja <em>exec</em>)</a></strong></dt>
 
 <dd>
-<p>Konfiguracja ta jest realizowana przy pomocy biblioteki <strong>libstunnel.so</strong>.
+<p>Konfiguracja ta jest realizowana przy pomocy biblioteki <em>libstunnel.so</em>.
 Do za³adowania biblioteki wykorzystywana jest zmienna ¶rodowiskowa _RLD_LIST na
 platformie Tru64 lub LD_PRELOAD na innych platformach.</p>
 </dd>
 </dl>
 </dd>
-<dt><strong><a name="destination" class="item"><strong>destination</strong></a></strong></dt>
+<dt><strong><a name="destination" class="item"><em>destination</em></a></strong></dt>
 
 <dd>
-<p>Oryginalny adres docelowy jest u¿ywany zamiast opcji <strong>connect</strong>.</p>
+<p>Oryginalny adres docelowy jest u¿ywany zamiast opcji <em>connect</em>.</p>
 <p>Przyk³adowana konfiguracja przezroczystego adresu docelowego:</p>
 <pre>
     [transparent]
@@ -688,7 +728,7 @@ platformie Tru64 lub LD_PRELOAD na innych platformach.</p>
     /sbin/iptables -t nat -I PREROUTING -i eth0 -p tcp --dport &lt;port_przekierowany&gt; -j DNAT --to-destination &lt;lokalne_ip&gt;:&lt;port_stunnela&gt;</pre>
 <p>Przezroczysty adres docelowy jest aktualnie wspierany wy³±cznie w systemie Linux.</p>
 </dd>
-<dt><strong><strong>both</strong></strong></dt>
+<dt><strong><em>both</em></strong></dt>
 
 <dd>
 <p>U¿yj przezroczystego proxy zarówno dla adresu ¼ród³owego jak i docelowego.</p>
@@ -697,15 +737,15 @@ platformie Tru64 lub LD_PRELOAD na innych platformach.</p>
 <p>Dla zapewnienia kompatybilno¶ci z wcze¶niejszymim wersjami wspierane s± dwie
 dodatkowe opcje:</p>
 <dl>
-<dt><strong><a name="yes" class="item"><strong>yes</strong></a></strong></dt>
+<dt><strong><a name="yes" class="item"><em>yes</em></a></strong></dt>
 
 <dd>
-<p>Opcja zosta³a przemianowana na <strong>source</strong>.</p>
+<p>Opcja zosta³a przemianowana na <em>source</em>.</p>
 </dd>
-<dt><strong><strong>no</strong></strong></dt>
+<dt><strong><em>no</em></strong></dt>
 
 <dd>
-<p>Opcja zosta³a przemianowana na <strong>none</strong>.</p>
+<p>Opcja zosta³a przemianowana na <em>none</em>.</p>
 </dd>
 </dl>
 </dd>
@@ -714,13 +754,13 @@ dodatkowe opcje:</p>
 <dd>
 <p>weryfikuj certyfikat drugiej strony po³±czenia</p>
 <dl>
-<dt><strong><a name="poziom_1_weryfikuj_je_eli_zosta_przedstawiony" class="item"><strong>poziom 1</strong> - weryfikuj, je¿eli zosta³ przedstawiony</a></strong></dt>
+<dt><strong><a name="poziom_1_weryfikuj_je_eli_zosta_przedstawiony" class="item"><em>poziom 1</em> - weryfikuj, je¿eli zosta³ przedstawiony</a></strong></dt>
 
-<dt><strong><a name="poziom_2_weryfikuj_z_zainstalowanym_certyfikatem_centrum_certyfikacji" class="item"><strong>poziom 2</strong> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji</a></strong></dt>
+<dt><strong><a name="poziom_2_weryfikuj_z_zainstalowanym_certyfikatem_centrum_certyfikacji" class="item"><em>poziom 2</em> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji</a></strong></dt>
 
-<dt><strong><a name="poziom_3_weryfikuj_z_lokalnie_zainstalowanym_certyfikatem_drugiej_strony" class="item"><strong>poziom 3</strong> - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony</a></strong></dt>
+<dt><strong><a name="poziom_3_weryfikuj_z_lokalnie_zainstalowanym_certyfikatem_drugiej_strony" class="item"><em>poziom 3</em> - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony</a></strong></dt>
 
-<dt><strong><a name="domy_lnie_nie_weryfikuj" class="item"><strong>domy¶lnie</strong> - nie weryfikuj</a></strong></dt>
+<dt><strong><a name="domy_lnie_nie_weryfikuj" class="item"><em>domy¶lnie</em> - nie weryfikuj</a></strong></dt>
 
 </dl>
 </dd>

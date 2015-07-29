@@ -1,5 +1,26 @@
 stunnel change log
 
+
+Version 4.36, 2011.05.03, urgency: LOW:
+* New features
+  - Updated Win32 DLLs for OpenSSL 1.0.0d.
+  - Dynamic memory management for strings manipulation:
+    no more static STRLEN limit, lower stack footprint.
+  - Strict public key comparison added for "verify = 3" certificate
+    checking mode (thx to Philipp Hartwig).
+  - Backlog parameter of listen(2) changed from 5 to SOMAXCONN:
+    improved behavior on heavy load.
+  - Example tools/stunnel.service file added for systemd service manager.
+* Bugfixes
+  - Missing pthread_attr_destroy() added to fix memory leak (thx to
+    Paul Allex and Peter Pentchev).
+  - Fixed the incorrect way of setting FD_CLOEXEC flag.
+  - Fixed --enable-libwrap option of ./configure script.
+  - /opt/local added to OpenSSL search path for MacPorts compatibility.
+  - Workaround implemented for signal handling on MacOS X.
+  - A trivial bug fixed in the stunnel.init script.
+  - Retry implemented on EAI_AGAIN error returned by resolver calls.
+
 Version 4.35, 2011.02.05, urgency: LOW:
 * New features
   - Updated Win32 DLLs for OpenSSL 1.0.0c.
@@ -43,7 +64,7 @@ Version 4.33, 2010.04.05, urgency: MEDIUM:
 * New features
   - Win32 DLLs for OpenSSL 1.0.0.
     This library requires to c_rehash CApath/CRLpath directories on upgrade.
-  - Win32 DLLs for zlib 1.2.4. 
+  - Win32 DLLs for zlib 1.2.4.
   - Experimental support for local mode on WIN32 platform.
     Try "exec = c:\windows\system32\cmd.exe".
 * Bugfixes

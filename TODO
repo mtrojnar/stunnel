@@ -1,25 +1,30 @@
 stunnel TODO
 
 
-* High priority features I'm going to support (sponsorship welcomed):
+High priority features I'm going to support (sponsorship welcomed)
+* Separate control process running as root user on Unix.
+* Separate GUI process running as current user on Windows.
+* Features depending on replacing MinGW compiler with MSVC:
+  - Support for FIPS mode on Windows.
   - Support for CryptoAPI certificates and private keys with CAPI engine.
-  - Support for Server Name Indication SSL extension
-    with SSL_CTX_set_tlsext_servername_callback.
-  - Service-level logging configuration (separate verbosity and destination).
+* Service-level logging configuration (separate verbosity and destination).
+* Support for Server Name Indication SSL extension
+  with SSL_CTX_set_tlsext_servername_callback().
 
-* Low priority features I'm going to support (sponsorship welcomed):
-  - SOCKS 4 protocol support.
-    http://archive.socks.permeo.com/protocol/socks4.protocol
-  - Key renegotiation (re-handshake) for long connections.
-  - Logging to NT EventLog on Windows.
-  - Log file rotation with with GUI on Windows.
-  - Internationalization of logged messages (i18n).
-  - Generic scripting engine instead or static protocol.c.
+Low priority features I'm going to support (sponsorship welcomed)
+* SOCKS 4 protocol support.
+  http://archive.socks.permeo.com/protocol/socks4.protocol
+* Key renegotiation (re-handshake) for long connections.
+* Logging to NT EventLog on Windows.
+* Log file rotation with with GUI on Windows.
+* Internationalization of logged messages (i18n).
+* Generic scripting engine instead or static protocol.c.
 
-* Features I prefer *not* to support (waiting for a wealthy sponsor):
-  - Additional certificate checks (including wildcard comparison) based on
-    CN and X509v3 Subject Alternative Name.
-  - Protocol support *after* SSL is negotiated.
+Features I prefer *not* to support (waiting for a wealthy sponsor)
+* Additional certificate checks (including wildcard comparison) based on
+  CN and X509v3 Subject Alternative Name.
+* Protocol support *after* SSL is negotiated:
   - Support for adding X-Forwarded-For to HTTP request headers.
   - Support for adding X-Forwarded-For to SMTP email headers.
+* Set processes title that appear on the ps(1) and top(1) commands.
 

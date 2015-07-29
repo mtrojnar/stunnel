@@ -66,11 +66,9 @@ int signal_fd;
 
 #ifndef USE_WIN32
 int main(int argc, char* argv[]) { /* execution begins here 8-) */
-
+    str_init(); /* initialize per-thread string management */
     main_initialize(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL);
-
     main_execute();
-
     return 0; /* success */
 }
 #endif
@@ -243,7 +241,7 @@ int bind_ports(void) {
             }
             s_log(LOG_DEBUG, "Service %s bound to %s",
                 opt->servname, opt->local_address);
-            if(listen(opt->fd, 5)) {
+            if(listen(opt->fd, SOMAXCONN)) {
                 sockerror("listen");
                 return 0;
             }
@@ -370,7 +368,7 @@ static void daemonize(void) { /* go to background */
 
 static void create_pid(void) {
     int pf;
-    char pid[STRLEN];
+    char *pid;
 
     if(!global_options.pidfile) {
         s_log(LOG_DEBUG, "No pid file being created");
@@ -390,8 +388,9 @@ static void create_pid(void) {
         ioerror("create");
         die(1);
     }
-    sprintf(pid, "%lu\n", global_options.dpid);
+    pid=str_printf("%lu\n", global_options.dpid);
     write(pf, pid, strlen(pid));
+    str_free(pid);
     close(pf);
     s_log(LOG_DEBUG, "Created pid file %s", global_options.pidfile);
     atexit(delete_pid);
@@ -522,14 +521,18 @@ static int setup_fd(int fd, int nonblock, char *msg) {
         flags|=O_NONBLOCK;
     else
         flags&=~O_NONBLOCK;
-#ifdef FD_CLOEXEC
-    flags|=FD_CLOEXEC;
-#endif /* FD_CLOEXEC */
     do {
         err=fcntl(fd, F_SETFL, flags);
     } while(err<0 && get_last_socket_error()==EINTR);
     if(err<0)
-        sockerror("fcntl"); /* non-critical */
+        sockerror("fcntl SETFL"); /* non-critical */
+#ifdef FD_CLOEXEC
+    do {
+        err=fcntl(fd, F_SETFD, FD_CLOEXEC);
+    } while(err<0 && get_last_socket_error()==EINTR);
+    if(err<0)
+        sockerror("fcntl SETFD"); /* non-critical */
+#endif /* FD_CLOEXEC */
 #else /* use fcntl() */
     if(ioctlsocket(fd, FIONBIO, &l)<0)
         sockerror("ioctlsocket"); /* non-critical */
@@ -543,59 +546,57 @@ static int setup_fd(int fd, int nonblock, char *msg) {
 /**************************************** log messages to identify  build */
 
 void stunnel_info(int level) {
-    char line[STRLEN];
-
     s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " with %s",
         SSLeay_version(SSLEAY_VERSION));
-
-    safecopy(line, "Threading:");
+    s_log(level,
+        "Threading:"
 #ifdef USE_UCONTEXT
-    safeconcat(line, "UCONTEXT");
+        "UCONTEXT"
 #endif
 #ifdef USE_PTHREAD
-    safeconcat(line, "PTHREAD");
+        "PTHREAD"
 #endif
 #ifdef USE_WIN32
-    safeconcat(line, "WIN32");
+        "WIN32"
 #endif
 #ifdef USE_FORK
-    safeconcat(line, "FORK");
+        "FORK"
 #endif
 
-    safeconcat(line, " SSL:");
+        " SSL:"
 #ifdef HAVE_OSSL_ENGINE_H
-    safeconcat(line, "ENGINE");
+        "ENGINE"
 #else /* defined(HAVE_OSSL_ENGINE_H) */
-    safeconcat(line, "NOENGINE");
+        "NOENGINE"
 #endif /* defined(HAVE_OSSL_ENGINE_H) */
 #ifdef USE_FIPS
-    safeconcat(line, ",FIPS");
+        ",FIPS"
 #endif /* USE_FIPS */
 
-    safeconcat(line, " Sockets:");
-#ifdef USE_POLL
-    safeconcat(line, "POLL");
-#else /* defined(USE_POLL) */
-    safeconcat(line, "SELECT");
-#endif /* defined(USE_POLL) */
-#if defined(USE_WIN32) && !defined(_WIN32_WCE)
-    if(s_getaddrinfo)
-        safeconcat(line, ",IPv6");
-    else
-        safeconcat(line, ",IPv4");
-#else /* defined(USE_WIN32) */
-#if defined(USE_IPv6)
-    safeconcat(line, ",IPv6");
-#else /* defined(USE_IPv6) */
-    safeconcat(line, ",IPv4");
-#endif /* defined(USE_IPv6) */
-#endif /* defined(USE_WIN32) */
-
+        " Auth:"
 #ifdef USE_LIBWRAP
-    safeconcat(line, " Auth:LIBWRAP");
+        "LIBWRAP"
+#else
+        "none"
 #endif
 
-    s_log(level, "%s", line);
+        " Sockets:"
+#ifdef USE_POLL
+        "POLL"
+#else /* defined(USE_POLL) */
+        "SELECT"
+#endif /* defined(USE_POLL) */
+        ", IPv%c",
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+        s_getaddrinfo ? '6' : '4'
+#else /* defined(USE_WIN32) */
+#if defined(USE_IPv6)
+        '6'
+#else /* defined(USE_IPv6) */
+        '4'
+#endif /* defined(USE_IPv6) */
+#endif /* defined(USE_WIN32) */
+        );
 }
 
 /**************************************** fatal error */

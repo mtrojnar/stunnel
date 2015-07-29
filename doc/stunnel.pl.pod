@@ -134,7 +134,7 @@ emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6) lub debug (7).
 Zapisywane s± komunikaty o poziomie ni¿szym (numerycznie) lub równym podanemu.
 Do uzyskania najwy¿szego poziomu szczegó³owo¶ci mo¿na u¿yæ opcji
-B<debug = debug> lub B<debug = 7>.  Domy¶lnym poziomem jest notice (5).
+I<debug = debug> lub I<debug = 7>.  Domy¶lnym poziomem jest notice (5).
 
 O ile nie wyspecyfikowano podsystemu u¿yty bêdzie domy¶lny: daemon.
 Podsystemy nie s± wspierane przez platformê Win32.
@@ -240,9 +240,9 @@ domy¶lnie: yes (nadpisz)
 
 u¿yj parametru jako nazwy serwisu
 
-B<Unix:> nazwa serwisu dla biblioteki TCP Wrapper w trybie I<inetd>.
+I<Unix:> nazwa serwisu dla biblioteki TCP Wrapper w trybie I<inetd>.
 
-B<NT/2000/XP:> nazwa serwisu NT w Panelu Sterowania.
+I<NT/2000/XP:> nazwa serwisu NT w Panelu Sterowania.
 
 domy¶lnie: stunnel
 
@@ -304,7 +304,7 @@ us³ugi w logach.
 
 Je¿eli B<stunnel> ma zostaæ u¿yty w trybie I<inetd>, gdzie za odebranie
 po³±czenia odpowiada osobny program (zwykle I<inetd>, I<xinetd>
-lub I<tcpserver>), nale¿y przeczytaæ sekcjê B<TRYB INETD> poni¿ej.
+lub I<tcpserver>), nale¿y przeczytaæ sekcjê I<TRYB INETD> poni¿ej.
 
 =over 4
 
@@ -492,11 +492,48 @@ w programie Eudora mo¿na u¿yæ opcji:
 
 =item B<protocol> = protokó³
 
-negocjuj SSL podanym protoko³em aplikacyjnym
+negocjuj SSL podanym protoko³em aplikacyjnym (np. I<starttls> lub I<stls>)
 
-Protokó³ "connect" pozwala na tworzenie po³±czeñ klienta SSL przez proxy HTTP.
+Opcji I<protocol> nie nale¿y u¿ywaæ z szyfrowaniem SSL na osobnym porcie.
 
-aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp, pgsql
+Aktualnie wspierane protoko³y:
+
+=over 4
+
+=item I<cifs>
+
+Unieudokumentowane rozszerzenie protoko³u CIFS wspierane przez serwer Samba.
+Wsparcie dla tego rozrzeczenia zosta³o zarzucone w wersji 3.0.0 serwera Samba.
+
+=item I<connect>
+
+RFC 2817 - I<Upgrading to TLS Within HTTP/1.1>, rozdzia³ 5.2 - I<Requesting a Tunnel with CONNECT>
+
+Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.
+
+=item I<imap>
+
+RFC 2595 - I<Using TLS with IMAP, POP3 and ACAP>
+
+=item I<nntp>
+
+RFC 4642 - I<Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)>
+
+Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.
+
+=item I<pop3>
+
+RFC 2449 - I<POP3 Extension Mechanism>
+
+=item I<smtp>
+
+RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
+
+=item I<pgsql>
+
+http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
+
+=back
 
 =item B<protocolAuthentication> = uwierzytelnienie
 
@@ -585,7 +622,7 @@ Opcja jest aktualnie obs³ugiwana w:
 
 =over 4
 
-=item Trybie zdalnym (opcja B<connect>) w systemie B<Linux E<gt>=2.6.28>
+=item Trybie zdalnym (opcja I<connect>) w systemie I<Linux E<gt>=2.6.28>
 
 Konfiguracja wymaga nastêpuj±cych ustawieñ iptables oraz routingu
 (na przyk³ad w pliku /etc/rc.local lub analogicznym):
@@ -598,32 +635,32 @@ Konfiguracja wymaga nastêpuj±cych ustawieñ iptables oraz routingu
     ip route add local 0.0.0.0/0 dev lo table 100
     echo 0 >/proc/sys/net/ipv4/conf/lo/rp_filter
 
-Konfiguracja ta wymaga, aby B<stunnel> by³ wykonywany jako root i bez opcji B<setuid>.
+Konfiguracja ta wymaga, aby B<stunnel> by³ wykonywany jako root i bez opcji I<setuid>.
 
-=item Trybie zdalnym (opcja B<connect>) w systemie B<Linux 2.2.x>
+=item Trybie zdalnym (opcja I<connect>) w systemie I<Linux 2.2.x>
 
 Konfiguracja ta wymaga skompilowania j±dra z opcj± I<transparent proxy>.
 Docelowa us³uga musi byæ umieszczona na osobnej maszynie, do której routing
 kierowany jest poprzez serwer stunnela.
 
-Dodatkowo B<stunnel> powinien byæ wykonywany jako root i bez opcji B<setuid>.
+Dodatkowo B<stunnel> powinien byæ wykonywany jako root i bez opcji I<setuid>.
 
-=item Trybie zdalnym (opcja B<connect>) w systemie B<FreeBSD E<gt>=8.0>
+=item Trybie zdalnym (opcja I<connect>) w systemie I<FreeBSD E<gt>=8.0>
 
 Konfiguracja ta wymaga skonfigurowania firewalla i routingu.
-B<stunnel> musi byæ wykonywany jako root i bez opcji B<setuid>.
+B<stunnel> musi byæ wykonywany jako root i bez opcji I<setuid>.
 
-=item Trybie lokalnym (opcja B<exec>)
+=item Trybie lokalnym (opcja I<exec>)
 
-Konfiguracja ta jest realizowana przy pomocy biblioteki B<libstunnel.so>.
+Konfiguracja ta jest realizowana przy pomocy biblioteki I<libstunnel.so>.
 Do za³adowania biblioteki wykorzystywana jest zmienna ¶rodowiskowa _RLD_LIST na
 platformie Tru64 lub LD_PRELOAD na innych platformach.
 
 =back
 
-=item B<destination>
+=item I<destination>
 
-Oryginalny adres docelowy jest u¿ywany zamiast opcji B<connect>.
+Oryginalny adres docelowy jest u¿ywany zamiast opcji I<connect>.
 
 Przyk³adowana konfiguracja przezroczystego adresu docelowego:
 
@@ -640,7 +677,7 @@ Konfiguracja wymaga nastêpuj±cych ustawieñ iptables
 
 Przezroczysty adres docelowy jest aktualnie wspierany wy³±cznie w systemie Linux.
 
-=item B<both>
+=item I<both>
 
 U¿yj przezroczystego proxy zarówno dla adresu ¼ród³owego jak i docelowego.
 
@@ -651,13 +688,13 @@ dodatkowe opcje:
 
 =over 4
 
-=item B<yes>
+=item I<yes>
 
-Opcja zosta³a przemianowana na B<source>.
+Opcja zosta³a przemianowana na I<source>.
 
-=item B<no>
+=item I<no>
 
-Opcja zosta³a przemianowana na B<none>.
+Opcja zosta³a przemianowana na I<none>.
 
 =back
 
@@ -667,13 +704,13 @@ weryfikuj certyfikat drugiej strony po³±czenia
 
 =over 4
 
-=item B<poziom 1> - weryfikuj, je¿eli zosta³ przedstawiony
+=item I<poziom 1> - weryfikuj, je¿eli zosta³ przedstawiony
 
-=item B<poziom 2> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji
+=item I<poziom 2> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji
 
-=item B<poziom 3> - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony
+=item I<poziom 3> - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony
 
-=item B<domy¶lnie> - nie weryfikuj
+=item I<domy¶lnie> - nie weryfikuj
 
 =back
 

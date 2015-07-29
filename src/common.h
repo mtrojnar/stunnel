@@ -52,10 +52,6 @@
 /* I/O buffer size */
 #define BUFFSIZE 16384
 
-/* length of strings (including the terminating '\0' character) */
-/* it can't be lower than 256 bytes or NTLM authentication will break */
-#define STRLEN 256
-
 /* IP address and TCP port textual representation length */
 #define IPLEN 128
 
@@ -395,11 +391,6 @@ extern char *sys_errlist[];
 
 /**************************************** other defines */
 
-/* safe copy for strings declarated as char[STRLEN] */
-#define safecopy(dst, src) \
-    (dst[STRLEN-1]='\0', strncpy((dst), (src), STRLEN-1))
-#define safeconcat(dst, src) \
-    (dst[STRLEN-1]='\0', strncat((dst), (src), STRLEN-strlen(dst)-1))
 /* change all non-printable characters to '.' */
 #define safestring(s) \
     do {unsigned char *p; for(p=(unsigned char *)(s); *p; p++) \

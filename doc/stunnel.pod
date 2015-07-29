@@ -129,8 +129,8 @@ debugging level
 Level is a one of the syslog level names or numbers
 emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6), or debug (7).  All logs for the specified level and
-all levels numerically less than it will be shown.  Use B<debug = debug> or
-B<debug = 7> for greatest debugging output.  The default is notice (5).
+all levels numerically less than it will be shown.  Use I<debug = debug> or
+I<debug = 7> for greatest debugging output.  The default is notice (5).
 
 The syslog facility 'daemon' will be used unless a facility name is supplied.
 (Facilities are not supported on Win32.)
@@ -186,7 +186,7 @@ default: yes
 foreground mode
 
 Stay in foreground (don't fork) and log to stderr
-instead of via syslog (unless B<output> is specified).
+instead of via syslog (unless I<output> is specified).
 
 default: background in daemon mode
 
@@ -352,7 +352,7 @@ If no host is specified, the host defaults to localhost.
 
 Multiple B<connect> options are allowed in a single service section.
 
-If host resolves to multiple addresses and/or if multiple B<connect>
+If host resolves to multiple addresses and/or if multiple I<connect>
 options are specified, then the remote address is chosen using a
 round-robin algorithm.
 
@@ -471,12 +471,48 @@ the following option can be used:
 
 =item B<protocol> = proto
 
-application protocol to negotiate SSL
+application protocol to negotiate SSL (e.g. I<starttls> or I<stls>)
 
-Specifically "connect" protocol is used in client mode to establish SSL
-connections via HTTP proxy.
+I<protocol> option should not be used with SSL encryption on a separate port.
 
-currently supported: cifs, connect, imap, nntp, pop3, smtp, pgsql
+Currently supported protocols:
+
+=over 4
+
+=item I<cifs>
+
+Proprietary (undocummented) extension of CIFS protocol implemented in Samba.
+Support for this extension was dropped in Samba 3.0.0.
+
+=item I<connect>
+
+RFC 2817 - I<Upgrading to TLS Within HTTP/1.1>, section 5.2 - I<Requesting a Tunnel with CONNECT>
+
+This protocol is only supported in client mode.
+
+=item I<imap>
+
+RFC 2595 - I<Using TLS with IMAP, POP3 and ACAP>
+
+=item I<nntp>
+
+RFC 4642 - I<Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)>
+
+This protocol is only supported in client mode.
+
+=item I<pop3>
+
+RFC 2449 - I<POP3 Extension Mechanism>
+
+=item I<smtp>
+
+RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
+
+=item I<pgsql>
+
+http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
+
+=back
 
 =item B<protocolAuthentication> = auth_type
 
@@ -548,15 +584,15 @@ time to keep an idle connection
 
 enable transparent proxy support on selected platforms
 
-Supported options:
+Supported values:
 
 =over 4
 
-=item B<none>
+=item I<none>
 
 Disable transparent proxy support.  This is the default.
 
-=item B<source>
+=item I<source>
 
 Re-write address to appear as if wrapped daemon is connecting
 from the SSL client machine instead of the machine running B<stunnel>.
@@ -565,10 +601,10 @@ This option is currently available in:
 
 =over 4
 
-=item Remote mode (B<connect> option) on B<Linux E<gt>=2.6.28>
+=item Remote mode (I<connect> option) on I<Linux E<gt>=2.6.28>
 
 This configuration requires stunnel to be executed as root and without
-B<setuid> option.
+I<setuid> option.
 
 This configuration requires the following setup for iptables and routing
 (possibly in /etc/rc.local or equivalent file):
@@ -581,32 +617,32 @@ This configuration requires the following setup for iptables and routing
     ip route add local 0.0.0.0/0 dev lo table 100
     echo 0 >/proc/sys/net/ipv4/conf/lo/rp_filter
 
-B<stunnel> must also to be executed as root and without B<setuid> option.
+B<stunnel> must also to be executed as root and without I<setuid> option.
 
-=item Remote mode (B<connect> option) on B<Linux 2.2.x>
+=item Remote mode (I<connect> option) on I<Linux 2.2.x>
 
 This configuration requires kernel to be compiled with I<transparent proxy> option.
 Connected service must be installed on a separate host.
 Routing towards the clients has to go through the stunnel box.
 
-B<stunnel> must also to be executed as root and without B<setuid> option.
+B<stunnel> must also to be executed as root and without I<setuid> option.
 
-=item Remote mode (B<connect> option) on B<FreeBSD E<gt>=8.0>
+=item Remote mode (I<connect> option) on I<FreeBSD E<gt>=8.0>
 
 This configuration requires additional firewall and routing setup.
-B<stunnel> must also to be executed as root and without B<setuid> option.
+B<stunnel> must also to be executed as root and without I<setuid> option.
 
-=item Local mode (B<exec> option)
+=item Local mode (I<exec> option)
 
-This configuration works by pre-loading B<libstunnel.so> shared library.
+This configuration works by pre-loading I<libstunnel.so> shared library.
 _RLD_LIST environment variable is used on Tru64, and LD_PRELOAD variable on
 other platforms.
 
 =back
 
-=item B<destination>
+=item I<destination>
 
-Original destination is used instead of B<connect> option.
+Original destination is used instead of I<connect> option.
 
 A service section for transparent destination may look like this:
 
@@ -623,9 +659,9 @@ This configuration requires the following setup for iptables
 
 Transparent destination option is currently only supported on Linux.
 
-=item B<both>
+=item I<both>
 
-Use both B<source> and B<destination> transparent proxy.
+Use both I<source> and I<destination> transparent proxy.
 
 =back
 
@@ -633,13 +669,13 @@ Two legacy options are also supported for backward compatibility:
 
 =over 4
 
-=item B<yes>
+=item I<yes>
 
-This options has been renamed to B<source>.
+This options has been renamed to I<source>.
 
-=item B<no>
+=item I<no>
 
-This options has been renamed to B<none>.
+This options has been renamed to I<none>.
 
 =back
 
@@ -650,13 +686,13 @@ verify peer certificate
 
 =over 4
 
-=item B<level 1> - verify peer certificate if present
+=item I<level 1> - verify peer certificate if present
 
-=item B<level 2> - verify peer certificate
+=item I<level 2> - verify peer certificate
 
-=item B<level 3> - verify peer with locally installed certificate
+=item I<level 3> - verify peer with locally installed certificate
 
-=item B<default> - no verify
+=item I<default> - no verify
 
 =back
 
