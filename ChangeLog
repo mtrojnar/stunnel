@@ -1,5 +1,19 @@
 stunnel         Universal SSL tunnel
 
+Version 4.10, 2005.04.23, urgency: LOW/EXPERIMENTAL:
+* DLLs for OpenSSL 0.9.7g.
+* Bugfixes
+  - Missing locking on Win32 platform was added (thx to Yi Lin
+    <yi.lin@convergys.com>)
+  - Some problems with closing SSL fixed.
+* New features
+  - New UCONTEXT user-level non-preemptive threads model is used
+    on systems that support SYSV-compatible ucontext.h.
+  - Improved stunnel3 script with getopt-compatible syntax.
+* Release notes
+  - This version should be thoroughly tested before using it in the
+    mission-critical environment.
+
 Version 4.09, 2005.03.26, urgency: MEDIUM:
 * DLLs for OpenSSL 0.9.7f.
 * Bugfixes
@@ -10,7 +24,7 @@ Version 4.09, 2005.03.26, urgency: MEDIUM:
   - Closing SSL socket when there is some data in SSL output buffer
     is detected and reported as an error.
   - Install/chmod race condition when installing default certificate fixed.
-  - Stunnel no longer installs signal_handler on ignored singals.
+  - Stunnel no longer installs signal_handler on ignored signals.
 
 Version 4.08, 2005.02.27, urgency: LOW:
 * New features
@@ -24,7 +38,7 @@ Version 4.08, 2005.02.27, urgency: LOW:
   - Some fixes for bugs detected by the watchdog.
 * Release notes
   - There were many changes in the transfer() function (the main loop).
-    This version should be thoroughly tested before using it in the
+  - This version should be thoroughly tested before using it in the
     mission-critical environment.
 
 Version 4.07, 2005.01.03, urgency: MEDIUM:

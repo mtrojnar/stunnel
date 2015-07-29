@@ -27,7 +27,7 @@
 /* #define DEBUG_STACK_SIZE */
 
 #ifndef VERSION
-#define VERSION "4.09"
+#define VERSION "4.10"
 #endif
 
 #ifndef USE_WIN32
@@ -37,9 +37,13 @@
 #include <floss.h>
 #endif
 
-/* POSIX threads */
-#if HAVE_PTHREAD_H && HAVE_LIBPTHREAD
+/* threads model */
+#if HAVE_UCONTEXT_H && HAVE_GETCONTEXT && HAVE_POLL
+#define USE_UCONTEXT
+#include <ucontext.h>
+#elif HAVE_PTHREAD_H && HAVE_LIBPTHREAD
 #define USE_PTHREAD
+#include <pthread.h>
 #define THREADS
 #define _REENTRANT
 #define _THREAD_SAFE
@@ -254,6 +258,9 @@ extern char *sys_errlist[];
 #include <err.h>
 #include <crypto.h> /* for CRYPTO_* and SSLeay_version */
 #endif
+
+/* CPU stack size */
+#define STACK_SIZE 65536
 
 /* I/O buffer size */
 #define BUFFSIZE        16384

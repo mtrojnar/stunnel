@@ -14,7 +14,7 @@ stunnel         Universal SSL tunnel
   - Add some scripting capabilities *after* SSL negotiations.
   - Log file rotation on a signal.
   - Key renegotiation (re-handshake) for long connections.
-  - Support for multiple languages (i18n).
+  - Internationalization of logged messages (i18n).
   - Logging to NT eventlog.
   - IMAP protocol support (RFC 2595).
     http://www.ietf.org/rfc/rfc2595.txt
@@ -25,6 +25,6 @@ stunnel         Universal SSL tunnel
   - Graceful configuration reload with a signal on Unix and with GUI on Windows.
 
 * Features waiting for a wealthy sponsor:
-  - HTTP protocol (X-Forwarded-For header).
-  - SMTP protocol (X-Forwarded-For header).
+  - HTTP protocol support (X-Forwarded-For header).
+  - SMTP protocol support (X-Forwarded-For header).
 

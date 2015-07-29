@@ -81,23 +81,6 @@ void sockerror(const char *);
 void log_error(int, int, const char *);
 char *my_strerror(int);
     
-/**************************************** Prototypes for sthreads.c */
-
-typedef enum {
-    CRIT_KEYGEN, CRIT_INET, CRIT_CLIENTS, CRIT_WIN_LOG, CRIT_SESSION,
-    CRIT_SECTIONS
-} SECTION_CODE;
-
-void enter_critical_section(SECTION_CODE);
-void leave_critical_section(SECTION_CODE);
-void sthreads_init(void);
-unsigned long stunnel_process_id(void);
-unsigned long stunnel_thread_id(void);
-int create_client(int, int, void *, void *(*)(void *));
-#ifdef DEBUG_STACK_SIZE
-void stack_info(int);
-#endif
-
 /**************************************** Prototypes for pty.c */
 /* Based on Public Domain code by Tatu Ylonen <ylo@cs.hut.fi>  */
 
@@ -228,45 +211,6 @@ typedef struct {
 
 void parse_config(char *, char *);
 
-/**************************************** Prototypes for client.c */
-
-typedef struct {
-    int fd; /* File descriptor */
-    int rd; /* Open for read */
-    int wr; /* Open for write */
-    int is_socket; /* File descriptor is a socket */
-} FD;
-
-typedef struct {
-    LOCAL_OPTIONS *opt;
-    char accepting_address[IPLEN], connecting_address[IPLEN]; /* text */
-    SOCKADDR_LIST peer_addr; /* Peer address */
-    FD local_rfd, local_wfd; /* Read and write local descriptors */
-    FD remote_fd; /* Remote descriptor */
-    SSL *ssl; /* SSL Connection */
-    SOCKADDR_LIST bind_addr; /* IP for explicit local bind or transparent proxy */
-    unsigned long pid; /* PID of local process */
-
-    char sock_buff[BUFFSIZE]; /* Socket read buffer */
-    char ssl_buff[BUFFSIZE]; /* SSL read buffer */
-    int sock_ptr, ssl_ptr; /* Index of first unused byte in buffer */
-    FD *sock_rfd, *sock_wfd; /* Read and write socket descriptors */
-    FD *ssl_rfd, *ssl_wfd; /* Read and write SSL descriptors */
-    int sock_bytes, ssl_bytes; /* Bytes written to socket and ssl */
-} CLI;
-
-extern int max_clients;
-#ifndef USE_WIN32
-extern int max_fds;
-#endif
-
-void *alloc_client_session(LOCAL_OPTIONS *, int, int);
-void *client(void *);
-
-/**************************************** Prototype for protocol.c */
-
-int negotiate(CLI *c);
-
 /**************************************** Prototypes for network.c */
 
 #define MAX_FD 64
@@ -294,6 +238,44 @@ void exec_status(void);
 int set_socket_options(int, int);
 int alloc_fd(int);
 
+/**************************************** Prototypes for client.c */
+
+typedef struct {
+    int fd; /* File descriptor */
+    int rd; /* Open for read */
+    int wr; /* Open for write */
+    int is_socket; /* File descriptor is a socket */
+} FD;
+
+typedef struct {
+    LOCAL_OPTIONS *opt;
+    char accepting_address[IPLEN], connecting_address[IPLEN]; /* text */
+    SOCKADDR_LIST peer_addr; /* Peer address */
+    FD local_rfd, local_wfd; /* Read and write local descriptors */
+    FD remote_fd; /* Remote descriptor */
+    SSL *ssl; /* SSL Connection */
+    SOCKADDR_LIST bind_addr; /* IP for explicit local bind or transparent proxy */
+    unsigned long pid; /* PID of local process */
+
+    char sock_buff[BUFFSIZE]; /* Socket read buffer */
+    char ssl_buff[BUFFSIZE]; /* SSL read buffer */
+    int sock_ptr, ssl_ptr; /* Index of first unused byte in buffer */
+    FD *sock_rfd, *sock_wfd; /* Read and write socket descriptors */
+    FD *ssl_rfd, *ssl_wfd; /* Read and write SSL descriptors */
+    int sock_bytes, ssl_bytes; /* Bytes written to socket and ssl */
+    s_poll_set fds; /* File descriptors */
+} CLI;
+
+extern int max_clients;
+#ifndef USE_WIN32
+extern int max_fds;
+#endif
+
+void *alloc_client_session(LOCAL_OPTIONS *, int, int);
+void *client(void *);
+
+/**************************************** Prototypes for network.c */
+
 int write_blocking(CLI *, int fd, u8 *, int);
 int read_blocking(CLI *, int fd, u8 *, int);
 /* descriptor versions of fprintf/fscanf */
@@ -310,11 +292,45 @@ int fdscanf(CLI *, int, const char *, char *)
        ;
 #endif
 
+/**************************************** Prototype for protocol.c */
+
+int negotiate(CLI *c);
+
 /**************************************** Prototypes for resolver.c */
 
 int name2addrlist(SOCKADDR_LIST *, char *, char *);
 int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
 char *s_ntop(char *, SOCKADDR_UNION *);
+
+/**************************************** Prototypes for sthreads.c */
+
+typedef enum {
+    CRIT_KEYGEN, CRIT_INET, CRIT_CLIENTS, CRIT_WIN_LOG, CRIT_SESSION,
+    CRIT_SECTIONS
+} SECTION_CODE;
+
+void enter_critical_section(SECTION_CODE);
+void leave_critical_section(SECTION_CODE);
+void sthreads_init(void);
+unsigned long stunnel_process_id(void);
+unsigned long stunnel_thread_id(void);
+int create_client(int, int, void *, void *(*)(void *));
+#ifdef USE_UCONTEXT
+typedef struct CONTEXT_STRUCTURE {
+    char stack[STACK_SIZE];
+    unsigned long id;
+    ucontext_t ctx;
+    s_poll_set *fds;
+    int ready; /* number of ready file descriptors */
+    time_t finish; /* when to finish poll() for this context */
+    struct CONTEXT_STRUCTURE *next; /* next context on a list */
+} CONTEXT;
+extern CONTEXT *ready_head, *ready_tail;
+extern CONTEXT *waiting_head, *waiting_tail;
+#endif
+#ifdef DEBUG_STACK_SIZE
+void stack_info(int);
+#endif
 
 /**************************************** Prototypes for gui.c */
 

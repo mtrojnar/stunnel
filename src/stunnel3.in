@@ -1,11 +1,11 @@
 #!/usr/bin/perl
 #
 # stunnel3      Perl wrapper to use stunnel 3.x syntax in stunnel >=4.05
-# Copyright (c) 2004 Michal Trojnara <Michal.Trojnara@mirt.net>
+# Copyright (c) 2004-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
 #               All Rights Reserved
 #
-# Version:      1.00
-# Date:         2004.09.01
+# Version:      2.00
+# Date:         2005.04.20
 # Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -24,6 +24,7 @@
 #
 
 use POSIX;
+use Getopt::Std;
 
 # Configuration - path to stunnel (version >=4.05)
 $stunnel_bin='@prefix@/sbin/stunnel';
@@ -43,48 +44,37 @@ open(STUNNEL, ">&$write_fd");
 # comment out the next line to see the config file
 select(STUNNEL);
 
-$daemon=0;
-@execargs=();
-while($_=shift @ARGV) {
-    push(@execargs, $_), next unless /^-/;
-    print("client = yes\n"), next if /^-c$/;
-    print("transparent = yes\n"), next if /^-T$/;
-    print("RNDoverwrite = yes\n"), next if /^-W$/;
-    print("foreground = yes\n"), next if /^-f$/;
-    push(@execargs, @ARGV), last if /^--$/;
-    $arg=shift @ARGV;
-    unless(defined $arg) {
-        kill('TERM', getppid);
-        die "Option '$_' not supported or needs a parameter";
-    }
-    print("debug = $arg\n"), next if /^-D$/;
-    print("socket = $arg\n"), next if /^-O$/;
-    print("output = $arg\n"), next if /^-o$/;
-    print("ciphers = $arg\n"), next if /^-C$/;
-    print("cert = $arg\n"), next if /^-p$/;
-    print("verify = $arg\n"), next if /^-v$/;
-    print("CApath = $arg\n"), next if /^-a$/;
-    print("CAfile = $arg\n"), next if /^-A$/;
-    print("session = $arg\n"), next if /^-t$/;
-    print("service = $arg\n"), next if /^-N$/;
-    print("ident = $arg\n"), next if /^-u$/;
-    print("protocol = $arg\n"), next if /^-n$/;
-    print("EGD = $arg\n"), next if /^-E$/;
-    print("RNDfile = $arg\n"), next if /^-R$/;
-    print("RNDbytes = $arg\n"), next if /^-B$/;
-    print("local = $arg\n"), next if /^-I$/;
-    print("accept = $arg\n"), $daemon=1, next if /^-d$/;
-    print("setuid = $arg\n"), next if /^-s$/;
-    print("setgid = $arg\n"), next if /^-g$/;
-    print("pid = $arg\n"), next if /^-P$/;
-    print("connect = $arg\n"), next if /^-r$/;
-    print("pty = yes\n") if /^-L$/;
-    print("exec = $arg\n"), next if /^-[lL]$/;
-    kill('TERM', getppid);
-    die "Option '$_' not supported";
-};
-print("execargs = " . join(' ', @execargs) . "\n") if @execargs;
-print("[stunnel3]\n") if $daemon;
+getopts('cTWfD:O:o:C:p:v:a:A:t:N:u:n:E:R:B:I:d:s:g:P:r:L:l:');
+
+print("client = yes\n") if defined $opt_c;
+print("transparent = yes\n") if defined $opt_T;
+print("RNDoverwrite = yes\n") if defined $opt_W;
+print("foreground = yes\n") if defined $opt_f;
+print("debug = $opt_D\n") if defined $opt_D;
+print("socket = $opt_O\n") if defined $opt_O;
+print("output = $opt_o\n") if defined $opt_o;
+print("ciphers = $opt_C\n") if defined $opt_C;
+print("cert = $opt_p\n") if defined $opt_p;
+print("verify = $opt_v\n") if defined $opt_v;
+print("CApath = $opt_a\n") if defined $opt_a;
+print("CAfile = $opt_A\n") if defined $opt_A;
+print("session = $opt_t\n") if defined $opt_t;
+print("service = $opt_N\n") if defined $opt_N;
+print("ident = $opt_u\n") if defined $opt_u;
+print("protocol = $opt_n\n") if defined $opt_n;
+print("EGD = $opt_E\n") if defined $opt_E;
+print("RNDfile = $opt_R\n") if defined $opt_R;
+print("RNDbytes = $opt_B\n") if defined $opt_B;
+print("local = $opt_I\n") if defined $opt_I;
+print("accept = $opt_d\n") if defined $opt_d;
+print("setuid = $opt_s\n") if defined $opt_s;
+print("setgid = $opt_g\n") if defined $opt_g;
+print("pid = $opt_P\n") if defined $opt_P;
+print("connect = $opt_r\n") if defined $opt_r;
+print("pty = yes\n"), $opt_l=$opt_L if defined $opt_L;
+print("exec = $opt_l\n") if defined $opt_l;
+print("execargs = " . join(' ', @ARGV) . "\n") if @ARGV;
+print("[stunnel3]\n") if defined $opt_d;
 
 close(STUNNEL);
 

@@ -88,6 +88,138 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
     return 0;
 }
 
+#ifdef USE_UCONTEXT
+
+/* move ready contexts from waiting queue to ready queue */
+static void scan_waiting_queue(void) {
+    int retval, retry;
+    CONTEXT *c, *prev;
+    int min_timeout;
+    int nfds, i;
+    time_t now;
+    short *signal_revents;
+    static int max_nfds=0;
+    static struct pollfd *ufds=NULL;
+    
+    time(&now);
+    /* count file descriptors */
+    min_timeout=-1;
+    nfds=0;
+    for(c=waiting_head; c; c=c->next) {
+        nfds+=c->fds->nfds;
+        if(c->finish>=0) /* finite time */
+            if(min_timeout<0 || min_timeout>c->finish-now)
+                min_timeout=c->finish-now<0 ? 0 : c->finish-now;
+    }
+    /* setup ufds structure */
+    if(nfds>max_nfds) { /* need to allocate more memory */
+        ufds=realloc(ufds, nfds*sizeof(struct pollfd));
+        if(!ufds) {
+            s_log(LOG_CRIT, "Memory allocation failed");
+            exit(1);
+        }
+        max_nfds=nfds;
+    }
+    nfds=0;
+    signal_revents=NULL; /* to get a coredump on internal error */
+    for(c=waiting_head; c; c=c->next)
+        for(i=0; i<c->fds->nfds; i++) {
+            ufds[nfds].fd=c->fds->ufds[i].fd;
+            ufds[nfds].events=c->fds->ufds[i].events;
+            if(ufds[nfds].fd==signal_pipe[0])
+                signal_revents=&ufds[nfds].revents;
+            nfds++;
+        }
+
+    s_log(LOG_DEBUG, "Waiting %d second(s) for %d file descriptor(s)",
+        min_timeout, nfds);
+    do { /* skip "Interrupted system call" errors */
+        retry=0;
+        retval=poll(ufds, nfds, min_timeout<0 ? -1 : 1000*min_timeout);
+        if(retval>0 && (*signal_revents & POLLIN)) {
+            signal_pipe_empty(); /* no timeout -> main loop */
+            retry=1;
+        }
+    } while(retry || (retval<0 && get_last_socket_error()==EINTR));
+    time(&now);
+    /* process the returned data */
+    nfds=0;
+    for(prev=NULL, c=waiting_head; c; prev=c, c=c->next) {
+        c->ready=0;
+        for(i=0; i<c->fds->nfds; i++) {
+            c->fds->ufds[i].revents=ufds[nfds].revents;
+            s_log(LOG_DEBUG, "CONTEXT %ld, FD=%d, (%s%s)->(%s%s)",
+                c->id, ufds[nfds].fd,
+                ufds[nfds].events & POLLIN ? "IN" : "",
+                ufds[nfds].events & POLLOUT ? "OUT" : "",
+                ufds[nfds].revents & POLLIN ? "IN" : "",
+                ufds[nfds].revents & POLLOUT ? "OUT" : "");
+            if(ufds[nfds].revents & (POLLIN|POLLOUT))
+                c->ready++;
+            nfds++;
+        }
+        /* move a context to the ready queue */
+        if(c->ready || (c->finish>=0 && c->finish<=now)) {
+            /* update the waiting queue */
+            if(prev)
+                prev->next=c->next;
+            else
+                waiting_head=c->next;
+            if(!c->next) /* same as c==waiting_tail */
+                waiting_tail=prev;
+            /* update the ready queue */
+            if(ready_tail)
+                ready_tail->next=c;
+            ready_tail=c;
+            if(!ready_head)
+                ready_head=c;
+            /* leave c->next pointing to the waiting queue */
+        }
+    }
+    if(ready_tail)
+        ready_tail->next=NULL;
+}
+
+int s_poll_wait(s_poll_set *fds, int timeout) {
+    CONTEXT *ctx; /* current context */
+
+    /* remove the current context from ready queue */
+    ctx=ready_head;
+    ready_head=ready_head->next;
+    if(!ready_head) /* the queue is empty */
+        ready_tail=NULL;
+
+    /* insert the current context to the waiting queue if needed */
+    if(fds) { /* something to wait for -> swap the context */
+        ctx->fds=fds; /* set file descriptors to wait for */
+        ctx->finish=timeout<0 ? -1 : time(NULL)+timeout;
+        /* insert the context to the waiting queue */
+        ctx->next=NULL;
+        if(waiting_tail)
+            waiting_tail->next=ctx;
+        waiting_tail=ctx;
+        if(!waiting_head)
+            waiting_head=ctx;
+    } else /* nothing to wait for -> drop the context */
+        free(ctx);
+
+    /* move ready contexts from waiting queue to ready queue */
+    while(!ready_head) /* no context ready */
+        scan_waiting_queue();
+
+    /* switch the context */
+    if(fds) { /* swap the context */
+        swapcontext(&ctx->ctx, &ready_head->ctx);
+        return ready_head->ready;
+    } else { /* drop the context */
+        setcontext(&ready_head->ctx);
+        ioerror("setcontext"); /* should not ever happen */
+        return 0;
+    }
+}
+
+#else /* USE_UCONTEXT */
+
 int s_poll_wait(s_poll_set *fds, int timeout) {
     int retval, retry;
 
@@ -102,7 +234,9 @@ int s_poll_wait(s_poll_set *fds, int timeout) {
     return retval;
 }
 
-#else /* HAVE_POLL */
+#endif /* USE_UCONTEXT */
+
+#else /* select */
 
 void s_poll_zero(s_poll_set *fds) {
     FD_ZERO(&fds->irfds);

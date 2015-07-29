@@ -31,14 +31,155 @@
 #include "common.h"
 #include "prototypes.h"
 
-#define STACK_SIZE 65536
+#if defined(USE_UCONTEXT) || defined(USE_FORK)
+/* no need for critical sections */
+
+void enter_critical_section(SECTION_CODE i) {
+    /* empty */
+}
+
+void leave_critical_section(SECTION_CODE i) {
+    /* empty */
+}
+
+#endif /* USE_UCONTEXT || USE_FORK */
+
+#ifdef USE_UCONTEXT
+
+CONTEXT *ready_head, *ready_tail;       /* ready to execute */
+/* first context on the ready list is the active context */
+CONTEXT *waiting_head, *waiting_tail;   /* waiting on poll() */
+ucontext_t ctx_cleanup;                             /* cleanup context */
+char cleanup_stack[8192];
+int next_id;
+
+unsigned long stunnel_process_id(void) {
+    return (unsigned long)getpid();
+}
+
+unsigned long stunnel_thread_id(void) {
+    return ready_head ? ready_head->id : 0;
+}
+
+static void ctx_cleanup_func(void) { /* cleanup the active thread */
+    s_log(LOG_DEBUG, "Context %ld closed", ready_head->id);
+    s_poll_wait(NULL, 0); /* wait on poll() */
+}
+
+static CONTEXT *new_context(void) {
+    CONTEXT *ctx;
+
+    /* allocate and fill the CONTEXT structure */
+    ctx=malloc(sizeof(CONTEXT));
+    if(!ctx) {
+        s_log(LOG_ERR, "Unable to allocate CONTEXT structure");
+        return NULL;
+    }
+    ctx->id=next_id++;
+    ctx->fds=NULL;
+    ctx->ready=0;
+    /* some manuals claim that initialization of ctx structure is required */
+    if(getcontext(&ctx->ctx)<0) {
+        free(ctx);
+        ioerror("getcontext");
+        return NULL;
+    }
+    ctx->ctx.uc_link=&ctx_cleanup;
+    ctx->ctx.uc_stack.ss_sp=ctx->stack;
+    ctx->ctx.uc_stack.ss_size=STACK_SIZE;
+
+    /* attach to the tail of the ready queue */
+    ctx->next=NULL;
+    if(ready_tail)
+        ready_tail->next=ctx;
+    ready_tail=ctx;
+    if(!ready_head)
+        ready_head=ctx;
+    return ctx;
+}
+
+void sthreads_init(void) {
+    next_id=1;
+    ready_head=ready_tail=NULL;
+    waiting_head=waiting_tail=NULL;
+
+    /* alocate cleanup context */
+    if(getcontext(&ctx_cleanup)<0) {
+        ioerror("getcontext");
+        exit(1);
+    }
+    ctx_cleanup.uc_link=NULL; /* it should never happen */
+    ctx_cleanup.uc_stack.ss_sp=cleanup_stack;
+    ctx_cleanup.uc_stack.ss_size=sizeof(cleanup_stack);
+    makecontext(&ctx_cleanup, ctx_cleanup_func, 0);
+
+    /* create the first (listening) context and put it in the running queue */
+    if(!new_context()) {
+        s_log(LOG_ERR, "Unable create the listening context");
+        exit(1);
+    }
+}
+
+int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
+    CONTEXT *ctx;
+
+    s_log(LOG_DEBUG, "Creating a new context");
+    ctx=new_context();
+    if(!ctx)
+        return -1;
+    s_log(LOG_DEBUG, "Context %ld created", ctx->id);
+    makecontext(&ctx->ctx, (void(*)(void))cli, 1, arg);
+    return 0;
+}
+
+#endif /* USE_UCONTEXT */
+
+#ifdef USE_FORK
+
+void sthreads_init(void) {
+    /* empty */
+}
+
+unsigned long stunnel_process_id(void) {
+    return (unsigned long)getpid();
+}
+
+unsigned long stunnel_thread_id(void) {
+    return 0L;
+}
+
+static void null_handler(int sig) {
+    signal(SIGCHLD, null_handler);
+}
+
+int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
+    switch(fork()) {
+    case -1:    /* error */
+        if(arg)
+            free(arg);
+        if(s>=0)
+            closesocket(s);
+        return -1;
+    case  0:    /* child */
+        if(ls>=0)
+            closesocket(ls);
+        signal(SIGCHLD, null_handler);
+        cli(arg);
+        exit(0);
+    default:    /* parent */
+        if(arg)
+            free(arg);
+        if(s>=0)
+            closesocket(s);
+    }
+    return 0;
+}
+
+#endif /* USE_FORK */
 
 #ifdef USE_PTHREAD
 
-#include <pthread.h>
-
 static pthread_mutex_t stunnel_cs[CRIT_SECTIONS];
-
 static pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
 static pthread_attr_t pth_attr;
 
@@ -116,11 +257,12 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
     return 0;
 }
 
-#endif
+#endif /* USE_PTHREAD */
 
 #ifdef USE_WIN32
 
-CRITICAL_SECTION stunnel_cs[CRIT_SECTIONS];
+static CRITICAL_SECTION stunnel_cs[CRIT_SECTIONS];
+static CRITICAL_SECTION lock_cs[CRYPTO_NUM_LOCKS];
 
 void enter_critical_section(SECTION_CODE i) {
     EnterCriticalSection(stunnel_cs+i);
@@ -130,12 +272,28 @@ void leave_critical_section(SECTION_CODE i) {
     LeaveCriticalSection(stunnel_cs+i);
 }
 
+static void locking_callback(int mode, int type,
+#ifdef HAVE_OPENSSL
+    const /* Callback definition has been changed in openssl 0.9.3 */
+#endif
+    char *file, int line) {
+    if(mode&CRYPTO_LOCK)
+        EnterCriticalSection(lock_cs+type);
+    else
+        LeaveCriticalSection(lock_cs+type);
+}
+
 void sthreads_init(void) {
     int i;
 
     /* Initialize stunnel critical sections */
     for(i=0; i<CRIT_SECTIONS; i++)
         InitializeCriticalSection(stunnel_cs+i);
+
+    /* Initialize OpenSSL locking callback */
+    for(i=0; i<CRYPTO_NUM_LOCKS; i++)
+        InitializeCriticalSection(lock_cs+i);
+    CRYPTO_set_locking_callback(locking_callback);
 }
 
 unsigned long stunnel_process_id(void) {
@@ -156,58 +314,7 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
     return 0;
 }
 
-#endif
-
-#ifdef USE_FORK
-
-void enter_critical_section(SECTION_CODE i) {
-    /* empty */
-}
-
-void leave_critical_section(SECTION_CODE i) {
-    /* empty */
-}
-
-void sthreads_init(void) {
-    /* empty */
-}
-
-unsigned long stunnel_process_id(void) {
-    return (unsigned long)getpid();
-}
-
-unsigned long stunnel_thread_id(void) {
-    return 0L;
-}
-
-static void null_handler(int sig) {
-    signal(SIGCHLD, null_handler);
-}
-
-int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
-    switch(fork()) {
-    case -1:    /* error */
-        if(arg)
-            free(arg);
-        if(s>=0)
-            closesocket(s);
-        return -1;
-    case  0:    /* child */
-        if(ls>=0)
-            closesocket(ls);
-        signal(SIGCHLD, null_handler);
-        cli(arg);
-        exit(0);
-    default:    /* parent */
-        if(arg)
-            free(arg);
-        if(s>=0)
-            closesocket(s);
-    }
-    return 0;
-}
-
-#endif
+#endif /* USE_WIN32 */
 
 #ifdef DEBUG_STACK_SIZE
 

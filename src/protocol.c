@@ -40,7 +40,7 @@ static int pop3_client(CLI *);
 static int pop3_server(CLI *);
 static int nntp_client(CLI *);
 static int nntp_server(CLI *);
-static int RFC2487(int);
+static int RFC2487(CLI *, int);
 
 int negotiate(CLI *c) {
     int retval=-1; /* 0 = OK, -1 = ERROR */
@@ -159,7 +159,7 @@ static int smtp_client(CLI *c) {
 static int smtp_server(CLI *c) {
     char line[STRLEN];
 
-    if(RFC2487(c->local_rfd.fd)==0)
+    if(RFC2487(c, c->local_rfd.fd)==0)
         return 0; /* Return if RFC 2487 is not used */
 
     if(fdscanf(c, c->remote_fd.fd, "220%[^\n]", line)!=1) {
@@ -259,13 +259,11 @@ static int nntp_server(CLI *c) {
     return -1;
 }
 
-static int RFC2487(int fd) {
-    s_poll_set fds;
+static int RFC2487(CLI *c, int fd) {
+    s_poll_zero(&c->fds);
+    s_poll_add(&c->fds, fd, 1, 0);
 
-    s_poll_zero(&fds);
-    s_poll_add(&fds, fd, 1, 0);
-
-    switch(s_poll_wait(&fds, 0)) {
+    switch(s_poll_wait(&c->fds, 0)) {
     case 0: /* fd not ready to read */
         s_log(LOG_DEBUG, "RFC 2487 detected");
         return 1;

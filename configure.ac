@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.09])
+AC_INIT([stunnel],[4.10])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.09)
+AM_INIT_AUTOMAKE(stunnel, 4.10)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -175,10 +175,10 @@ AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_DIRENT
 # AC_HEADER_STDC
 # AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(grp.h unistd.h sys/select.h poll.h sys/poll.h tcpd.h pthread.h sys/ioctl.h util.h pty.h stropts.h sys/filio.h sys/resource.h)
+AC_CHECK_HEADERS(ucontext.h grp.h unistd.h sys/select.h poll.h sys/poll.h tcpd.h pthread.h sys/ioctl.h util.h pty.h stropts.h sys/filio.h sys/resource.h)
 
 AC_MSG_NOTICE([**************************************** library functions])
-AC_CHECK_FUNCS(snprintf vsnprintf openpty _getpty daemon waitpid wait4 sysconf getrlimit pthread_sigmask setgroups localtime_r chroot endhostent setsid getaddrinfo getnameinfo poll)
+AC_CHECK_FUNCS(getcontext snprintf vsnprintf openpty _getpty daemon waitpid wait4 sysconf getrlimit pthread_sigmask setgroups localtime_r chroot endhostent setsid getaddrinfo getnameinfo poll)
 
 AC_MSG_NOTICE([**************************************** optional features])
 # Use RSA?

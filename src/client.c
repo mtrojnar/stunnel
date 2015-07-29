@@ -73,8 +73,8 @@ static int connect_local(CLI *);
 #ifndef USE_WIN32
 static int make_sockets(int [2]);
 #endif
-static int connect_remote(CLI *c);
-static int connect_wait(int, int);
+static int connect_remote(CLI *);
+static int connect_wait(CLI *, int, int);
 static void reset(int, char *);
 
 int max_clients;
@@ -104,6 +104,11 @@ void *client(void *arg) {
     stack_info(1); /* initialize */
 #endif
     s_log(LOG_DEBUG, "%s started", c->opt->servname);
+    if(alloc_fd(c->local_rfd.fd))
+        return NULL;
+    if(c->local_wfd.fd!=c->local_rfd.fd)
+        if(alloc_fd(c->local_wfd.fd))
+            return NULL;
 #ifndef USE_WIN32
     if(c->opt->option.remote && c->opt->option.program)
         c->local_rfd.fd=c->local_wfd.fd=connect_local(c);
@@ -241,7 +246,6 @@ static int init_remote(CLI *c) {
 
 static int init_ssl(CLI *c) {
     int i, err;
-    s_poll_set fds;
     SSL_SESSION *old_session;
 
     if(!(c->ssl=SSL_new(ctx))) {
@@ -290,11 +294,11 @@ static int init_ssl(CLI *c) {
         if(err==SSL_ERROR_NONE)
             break; /* ok -> done */
         if(err==SSL_ERROR_WANT_READ || err==SSL_ERROR_WANT_WRITE) {
-            s_poll_zero(&fds);
-            s_poll_add(&fds, c->ssl_rfd->fd,
+            s_poll_zero(&c->fds);
+            s_poll_add(&c->fds, c->ssl_rfd->fd,
                 err==SSL_ERROR_WANT_READ,
                 err==SSL_ERROR_WANT_WRITE);
-            switch(s_poll_wait(&fds, c->opt->timeout_busy)) {
+            switch(s_poll_wait(&c->fds, c->opt->timeout_busy)) {
             case -1:
                 sockerror("init_ssl: s_poll_wait");
                 return -1; /* error */
@@ -348,10 +352,10 @@ static int init_ssl(CLI *c) {
 #define ssl_rd  (c->ssl_rfd->rd)
 #define ssl_wr  (c->ssl_wfd->wr)
 /* is socket/SSL ready for read/write? */
-#define sock_can_rd (s_poll_canread(&fds, c->sock_rfd->fd))
-#define sock_can_wr (s_poll_canwrite(&fds, c->sock_wfd->fd))
-#define ssl_can_rd  (s_poll_canread(&fds, c->ssl_rfd->fd))
-#define ssl_can_wr  (s_poll_canwrite(&fds, c->ssl_wfd->fd))
+#define sock_can_rd (s_poll_canread(&c->fds, c->sock_rfd->fd))
+#define sock_can_wr (s_poll_canwrite(&c->fds, c->sock_wfd->fd))
+#define ssl_can_rd  (s_poll_canread(&c->fds, c->ssl_rfd->fd))
+#define ssl_can_wr  (s_poll_canwrite(&c->fds, c->ssl_wfd->fd))
 /* NOTE: above defines are related to the logical data stream,
  * no longer to the underlying file descriptors */
 /* does the underlaying file descriptor want to read/write? */
@@ -360,7 +364,6 @@ static int init_ssl(CLI *c) {
 
 /****************************** transfer data */
 static int transfer(CLI *c) {
-    s_poll_set fds;
     int num, err;
     int check_SSL_pending;
     enum {CL_OPEN, CL_INIT, CL_RETRY, CL_CLOSED} ssl_closing=CL_OPEN;
@@ -375,32 +378,32 @@ static int transfer(CLI *c) {
          * if we made room in the buffer by writing to the socket */
         check_SSL_pending=0;
 
-        /****************************** setup fds structure */
-        s_poll_zero(&fds); /* Initialize the structure */
+        /****************************** setup c->fds structure */
+        s_poll_zero(&c->fds); /* Initialize the structure */
         if(sock_rd && c->sock_ptr<BUFFSIZE) /* socket input buffer not full*/
-            s_poll_add(&fds, c->sock_rfd->fd, 1, 0);
+            s_poll_add(&c->fds, c->sock_rfd->fd, 1, 0);
         if((ssl_rd && c->ssl_ptr<BUFFSIZE) /* SSL input buffer not full */ ||
                 ((c->sock_ptr || ssl_closing==CL_RETRY) && want_rd))
                 /* want to SSL_write or SSL_shutdown but read from the
                  * underlying socket needed for the SSL protocol */
-            s_poll_add(&fds, c->ssl_rfd->fd, 1, 0);
+            s_poll_add(&c->fds, c->ssl_rfd->fd, 1, 0);
         if(c->ssl_ptr) /* SSL input buffer not empty */
-            s_poll_add(&fds, c->sock_wfd->fd, 0, 1);
+            s_poll_add(&c->fds, c->sock_wfd->fd, 0, 1);
         if(c->sock_ptr /* socket input buffer not empty */ ||
                 ssl_closing==CL_INIT /* need to send close_notify */ ||
                 ((c->ssl_ptr<BUFFSIZE || ssl_closing==CL_RETRY) && want_wr))
                 /* want to SSL_read or SSL_shutdown but write to the
                  * underlying socket needed for the SSL protocol */
-            s_poll_add(&fds, c->ssl_wfd->fd, 0, 1);
+            s_poll_add(&c->fds, c->ssl_wfd->fd, 0, 1);
 
         /****************************** wait for an event */
-        err=s_poll_wait(&fds, (sock_rd && ssl_rd) /* both peers open */ ||
+        err=s_poll_wait(&c->fds, (sock_rd && ssl_rd) /* both peers open */ ||
             c->ssl_ptr /* data buffered to write to socket */ ||
             c->sock_ptr /* data buffered to write to SSL */ ?
             c->opt->timeout_idle : c->opt->timeout_close);
         switch(err) {
         case -1:
-            sockerror("s_poll_wait");
+            sockerror("transfer: s_poll_wait");
             return -1;
         case 0: /* timeout */
             if((sock_rd && ssl_rd) || c->ssl_ptr || c->sock_ptr) {
@@ -589,9 +592,19 @@ static int transfer(CLI *c) {
                 ssl_closing=CL_CLOSED; /* closed */
             }
         }
+        if(ssl_closing==CL_RETRY) { /* SSL shutdown */
+            if(!want_rd && !want_wr) { /* close_notify alert was received */
+                s_log(LOG_DEBUG, "SSL doesn't need to read or write");
+                ssl_closing=CL_CLOSED;
+            }
+            if(watchdog>5) {
+                s_log(LOG_NOTICE, "Too many retries on SSL shutdown");
+                ssl_closing=CL_CLOSED;
+            }
+        }
 
         /****************************** check watchdog */
-        if(++watchdog>1000) { /* loop executes without transferring any data */
+        if(++watchdog>100) { /* loop executes without transferring any data */
             s_log(LOG_ERR,
                 "transfer() loop executes not transferring any data");
             s_log(LOG_ERR,
@@ -734,7 +747,7 @@ static int auth_user(CLI *c) {
             closesocket(fd);
             return -1;
         }
-        if(connect_wait(fd, c->opt->timeout_connect)) { /* error */
+        if(connect_wait(c, fd, c->opt->timeout_connect)) { /* error */
             closesocket(fd);
             return -1;
         }
@@ -949,7 +962,7 @@ static int connect_remote(CLI *c) { /* connect to remote host */
             closesocket(s);
             continue; /* next IP */
         }
-        if(!connect_wait(s, c->opt->timeout_connect))
+        if(!connect_wait(c, s, c->opt->timeout_connect))
             return s; /* success! */
         closesocket(s); /* error -> next IP */
     }
@@ -957,14 +970,13 @@ static int connect_remote(CLI *c) { /* connect to remote host */
 }
 
     /* wait for the result of a non-blocking connect */
-static int connect_wait(int fd, int timeout) {
-    s_poll_set fds;
+static int connect_wait(CLI *c, int fd, int timeout) {
     int error, len;
 
     s_log(LOG_DEBUG, "connect_wait: waiting %d seconds", timeout);
-    s_poll_zero(&fds);
-    s_poll_add(&fds, fd, 1, 1);
-    switch(s_poll_wait(&fds, timeout)) {
+    s_poll_zero(&c->fds);
+    s_poll_add(&c->fds, fd, 1, 1);
+    switch(s_poll_wait(&c->fds, timeout)) {
     case -1:
         sockerror("connect_wait: s_poll_wait");
         return -1; /* error */
@@ -972,7 +984,7 @@ static int connect_wait(int fd, int timeout) {
         s_log(LOG_INFO, "connect_wait: s_poll_wait timeout");
         return -1; /* error */
     default:
-        if(s_poll_canread(&fds, fd)) {
+        if(s_poll_canread(&c->fds, fd)) {
             /* just connected socket should not be ready for read */
             /* get the resulting error code, now */
             len=sizeof(error);
@@ -983,7 +995,7 @@ static int connect_wait(int fd, int timeout) {
                 return -1; /* connection failed */
             }
         }
-        if(s_poll_canwrite(&fds, fd)) {
+        if(s_poll_canwrite(&c->fds, fd)) {
             s_log(LOG_DEBUG, "connect_wait: connected");
             return 0; /* success */
         }

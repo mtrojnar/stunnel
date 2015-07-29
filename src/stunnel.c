@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.09             (stunnel.c)
- *   Date:         2005.03.26
+ *   Version:      4.10             (stunnel.c)
+ *   Date:         2005.04.23
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -228,8 +228,6 @@ static void accept_connection(LOCAL_OPTIONS *opt) {
         closesocket(s);
         return;
     }
-    if(alloc_fd(s))
-        return;
 #ifdef FD_CLOEXEC
     fcntl(s, F_SETFD, FD_CLOEXEC); /* close socket in child execvp */
 #endif
@@ -434,6 +432,9 @@ char *stunnel_info(void) {
     static char retval[STRLEN];
 
     safecopy(retval, "stunnel " VERSION " on " HOST);
+#ifdef USE_UCONTEXT
+    safeconcat(retval, " UCONTEXT");
+#endif
 #ifdef USE_PTHREAD
     safeconcat(retval, " PTHREAD");
 #endif
