@@ -73,6 +73,7 @@ NOEXPORT int signal_pipe_dispatch(void);
 #ifdef USE_FORK
 NOEXPORT void client_status(void); /* dead children detected */
 #endif
+NOEXPORT char *signal_name(int);
 
 /**************************************** global variables */
 
@@ -209,6 +210,7 @@ void main_cleanup() {
 #ifdef USE_FORK
 NOEXPORT void client_status(void) { /* dead children detected */
     int pid, status;
+    char *sig_name;
 
 #ifdef HAVE_WAIT_FOR_PID
     while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
@@ -217,8 +219,10 @@ NOEXPORT void client_status(void) { /* dead children detected */
 #endif
 #ifdef WIFSIGNALED
         if(WIFSIGNALED(status)) {
-            s_log(LOG_DEBUG, "Process %d terminated on signal %d",
-                pid, WTERMSIG(status));
+            sig_name=signal_name(WTERMSIG(status));
+            s_log(LOG_DEBUG, "Process %d terminated on %s",
+                pid, sig_name);
+            str_free(sig_name);
         } else {
             s_log(LOG_DEBUG, "Process %d finished with code %d",
                 pid, WEXITSTATUS(status));
@@ -236,6 +240,7 @@ NOEXPORT void client_status(void) { /* dead children detected */
 
 void child_status(void) { /* dead libwrap or 'exec' process detected */
     int pid, status;
+    char *sig_name;
 
 #ifdef HAVE_WAIT_FOR_PID
     while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
@@ -244,8 +249,10 @@ void child_status(void) { /* dead libwrap or 'exec' process detected */
 #endif
 #ifdef WIFSIGNALED
         if(WIFSIGNALED(status)) {
-            s_log(LOG_INFO, "Child process %d terminated on signal %d",
-                pid, WTERMSIG(status));
+            sig_name=signal_name(WTERMSIG(status));
+            s_log(LOG_INFO, "Child process %d terminated on %s",
+                pid, sig_name);
+            str_free(sig_name);
         } else {
             s_log(LOG_INFO, "Child process %d finished with code %d",
                 pid, WEXITSTATUS(status));
@@ -270,7 +277,8 @@ void daemon_loop(void) {
         if(num>=0) {
             SERVICE_OPTIONS *opt;
             s_log(LOG_DEBUG, "Found %d ready file descriptor(s)", num);
-            s_poll_dump(fds, LOG_DEBUG);
+            if(service_options.log_level>=LOG_DEBUG) /* performance optimization */
+                s_poll_dump(fds, LOG_DEBUG);
             if(s_poll_canread(fds, signal_pipe[0]))
                 if(signal_pipe_dispatch()) /* SIGNAL_TERMINATE or error */
                     break; /* terminate daemon_loop */
@@ -556,6 +564,7 @@ NOEXPORT int signal_pipe_dispatch(void) {
     static int sig;
     static size_t ptr=0;
     ssize_t num;
+    char *sig_name;
 
     s_log(LOG_DEBUG, "Dispatching signals from the signal pipe");
     for(;;) {
@@ -625,10 +634,125 @@ NOEXPORT int signal_pipe_dispatch(void) {
             s_log(LOG_NOTICE, "Terminated");
             return 1;
         default:
-            s_log(LOG_ERR, "Received signal %d; terminating", sig);
+            sig_name=signal_name(sig);
+            s_log(LOG_ERR, "Received %s; terminating", sig_name);
+            str_free(sig_name);
             return 1;
         }
     }
+}
+
+/**************************************** signal name decoding */
+
+#define check_signal(s) if(signum==s) return str_dup(#s);
+
+NOEXPORT char *signal_name(int signum) {
+#ifdef SIGHUP
+    check_signal(SIGHUP)
+#endif
+#ifdef SIGINT
+    check_signal(SIGINT)
+#endif
+#ifdef SIGQUIT
+    check_signal(SIGQUIT)
+#endif
+#ifdef SIGILL
+    check_signal(SIGILL)
+#endif
+#ifdef SIGTRAP
+    check_signal(SIGTRAP)
+#endif
+#ifdef SIGABRT
+    check_signal(SIGABRT)
+#endif
+#ifdef SIGIOT
+    check_signal(SIGIOT)
+#endif
+#ifdef SIGBUS
+    check_signal(SIGBUS)
+#endif
+#ifdef SIGFPE
+    check_signal(SIGFPE)
+#endif
+#ifdef SIGKILL
+    check_signal(SIGKILL)
+#endif
+#ifdef SIGUSR1
+    check_signal(SIGUSR1)
+#endif
+#ifdef SIGSEGV
+    check_signal(SIGSEGV)
+#endif
+#ifdef SIGUSR2
+    check_signal(SIGUSR2)
+#endif
+#ifdef SIGPIPE
+    check_signal(SIGPIPE)
+#endif
+#ifdef SIGALRM
+    check_signal(SIGALRM)
+#endif
+#ifdef SIGTERM
+    check_signal(SIGTERM)
+#endif
+#ifdef SIGSTKFLT
+    check_signal(SIGSTKFLT)
+#endif
+#ifdef SIGCHLD
+    check_signal(SIGCHLD)
+#endif
+#ifdef SIGCONT
+    check_signal(SIGCONT)
+#endif
+#ifdef SIGSTOP
+    check_signal(SIGSTOP)
+#endif
+#ifdef SIGTSTP
+    check_signal(SIGTSTP)
+#endif
+#ifdef SIGTTIN
+    check_signal(SIGTTIN)
+#endif
+#ifdef SIGTTOU
+    check_signal(SIGTTOU)
+#endif
+#ifdef SIGURG
+    check_signal(SIGURG)
+#endif
+#ifdef SIGXCPU
+    check_signal(SIGXCPU)
+#endif
+#ifdef SIGXFSZ
+    check_signal(SIGXFSZ)
+#endif
+#ifdef SIGVTALRM
+    check_signal(SIGVTALRM)
+#endif
+#ifdef SIGPROF
+    check_signal(SIGPROF)
+#endif
+#ifdef SIGWINCH
+    check_signal(SIGWINCH)
+#endif
+#ifdef SIGIO
+    check_signal(SIGIO)
+#endif
+#ifdef SIGPOLL
+    check_signal(SIGPOLL)
+#endif
+#ifdef SIGLOST
+    check_signal(SIGLOST)
+#endif
+#ifdef SIGPWR
+    check_signal(SIGPWR)
+#endif
+#ifdef SIGSYS
+    check_signal(SIGSYS)
+#endif
+#ifdef SIGUNUSED
+    check_signal(SIGUNUSED)
+#endif
+    return str_printf("signal %d", signum);
 }
 
 /**************************************** log build details */

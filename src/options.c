@@ -1194,7 +1194,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "accept"))
             break;
         section->option.accept=1;
-        if(!name2addr(&section->local_addr, arg, DEFAULT_ANY))
+        if(!name2addr(&section->local_addr, arg, 1))
             return "Failed to resolve accepting address";
         return NULL; /* OK */
     case CMD_END:
@@ -1446,7 +1446,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* connect */
     switch(cmd) {
     case CMD_BEGIN:
-        addrlist_clear(&section->connect_addr);
+        addrlist_clear(&section->connect_addr, 0);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "connect"))
@@ -1827,7 +1827,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "local"))
             break;
         section->option.local=1;
-        if(!hostport2addr(&section->source_addr, arg, "0"))
+        if(!hostport2addr(&section->source_addr, arg, "0", 1))
             return "Failed to resolve local address";
         return NULL; /* OK */
     case CMD_END:
@@ -2217,7 +2217,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* redirect */
     switch(cmd) {
     case CMD_BEGIN:
-        addrlist_clear(&section->redirect_addr);
+        addrlist_clear(&section->redirect_addr, 0);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "redirect"))
@@ -2401,7 +2401,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         /* this prevents session callbacks from beeing executed */
         section->ssl_options_set|=SSL_OP_NO_TICKET;
 #endif
-        if(!name2addr(&section->sessiond_addr, arg, DEFAULT_LOOPBACK))
+        if(!name2addr(&section->sessiond_addr, arg, 0))
             return "Failed to resolve sessiond server address";
         return NULL; /* OK */
     case CMD_END:

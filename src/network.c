@@ -156,8 +156,8 @@ void s_poll_dump(s_poll_set *fds, int level) {
     unsigned i;
 
     for(i=0; i<fds->nfds; i++)
-        s_log(level, "fd=%d revents=0x%X",
-            fds->ufds[i].fd, fds->ufds[i].revents);
+        s_log(level, "fd=%d events=0x%X revents=0x%X",
+            fds->ufds[i].fd, fds->ufds[i].events, fds->ufds[i].revents);
 }
 
 #ifdef USE_UCONTEXT
@@ -174,13 +174,14 @@ NOEXPORT void scan_waiting_queue(void) {
 
     time(&now);
     /* count file descriptors */
-    min_timeout=-1;
+    min_timeout=-1; /* infinity */
     nfds=0;
     for(context=waiting_head; context; context=context->next) {
         nfds+=context->fds->nfds;
         if(context->finish>=0) /* finite time */
             if(min_timeout<0 || min_timeout>context->finish-now)
-                min_timeout=context->finish-now<0 ? 0 : context->finish-now;
+                min_timeout=
+                    (int)(context->finish-now<0 ? 0 : context->finish-now);
     }
     /* setup ufds structure */
     if(nfds>max_nfds) { /* need to allocate more memory */
@@ -442,15 +443,19 @@ NOEXPORT void s_poll_realloc(s_poll_set *fds) {
 
 void s_poll_dump(s_poll_set *fds, int level) {
     SOCKET fd;
-    int r, w, x;
+    int ir, iw, ix, or, ow, ox;
 
     for(fd=0; fd<fds->max; fd++) {
-        r=FD_ISSET(fd, fds->orfds);
-        w=FD_ISSET(fd, fds->owfds);
-        x=FD_ISSET(fd, fds->oxfds);
-        if(r || w || x)
-            s_log(level, "fd=%d events=%c%c%c", fd,
-                r?'r':'-', w?'w':'-', x?'x':'-');
+        ir=FD_ISSET(fd, fds->irfds);
+        iw=FD_ISSET(fd, fds->iwfds);
+        ix=FD_ISSET(fd, fds->ixfds);
+        or=FD_ISSET(fd, fds->orfds);
+        ow=FD_ISSET(fd, fds->owfds);
+        ox=FD_ISSET(fd, fds->oxfds);
+        if(ir || iw || ix || or || ow || ox)
+            s_log(level, "fd=%d ifds=%c%c%c ofds=%c%c%c", fd,
+                ir?'r':'-', iw?'w':'-', ix?'x':'-',
+                or?'r':'-', ow?'w':'-', ox?'x':'-');
     }
 }
 

@@ -190,7 +190,7 @@ NOEXPORT void socks4_server(CLI *c) {
         }
     } else if(socks.cd==0xf0) { /* RESOLVE (a TOR extension) */
         host_name=ssl_getstring(c);
-        if(hostport2addr(&addr, host_name, "0") && addr.sa.sa_family==AF_INET) {
+        if(hostport2addr(&addr, host_name, "0", 0) && addr.sa.sa_family==AF_INET) {
             memcpy(&socks.sin_addr, &addr.in.sin_addr, 4);
             s_log(LOG_INFO, "SOCKS4a/TOR resolved \"%s\"", host_name);
             socks.cd=90;
@@ -311,7 +311,7 @@ NOEXPORT void socks5_server(CLI *c) {
         }
     } else if(socks.req.cmd==0xf0) { /* RESOLVE (a TOR extension) */
         host_name=ssl_getstring(c);
-        if(hostport2addr(&addr, host_name, "0")) {
+        if(hostport2addr(&addr, host_name, "0", 0)) {
             if(addr.sa.sa_family==AF_INET) {
                 s_log(LOG_INFO, "SOCKS5/TOR resolved \"%s\" to IPv4", host_name);
                 memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
@@ -867,7 +867,7 @@ NOEXPORT char *connect_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     } while(*header); /* not empty */
     str_free(header);
 
-    if(!name2addrlist(&c->connect_addr, request+8, DEFAULT_LOOPBACK)) {
+    if(!name2addrlist(&c->connect_addr, request+8)) {
         fd_putline(c, c->local_wfd.fd, "HTTP/1.0 404 Not Found");
         fd_putline(c, c->local_wfd.fd, "Server: stunnel/" STUNNEL_VERSION);
         fd_putline(c, c->local_wfd.fd, "");

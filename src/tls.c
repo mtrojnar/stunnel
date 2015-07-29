@@ -110,7 +110,7 @@ void tls_set(TLS_DATA *tls_data) {
     if(ready_head)
         ready_head->tls=tls_data;
     else /* ucontext threads not initialized */
-        global_tls=tls;
+        global_tls=tls_data;
 }
 
 TLS_DATA *tls_get() {

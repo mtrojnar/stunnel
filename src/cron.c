@@ -118,6 +118,8 @@ int cron_init() {
 /* run the cron job every 24 hours */
 #define CRON_PERIOD (24*60*60)
 
+#if defined(USE_PTHREAD) || defined(USE_WIN32)
+
 NOEXPORT void cron_worker(void) {
     time_t now, then;
     int delay;
@@ -141,7 +143,11 @@ NOEXPORT void cron_worker(void) {
             then=now+delay;
         }
         s_log(LOG_DEBUG, "Waiting %d seconds", delay);
-        sleep((unsigned)delay);
+        do { /* retry sleep() if it was interrupted by a signal */
+            sleep((unsigned)delay);
+            time(&now);
+            delay=(int)(then-now);
+        } while(delay>0);
         s_log(LOG_INFO, "Reopening log file");
         signal_post(SIGNAL_REOPEN_LOG);
     }
@@ -189,5 +195,7 @@ NOEXPORT void cron_dh_param(void) {
     s_log(LOG_NOTICE, "DH parameters updated");
 }
 #endif /* OPENSSL_NO_DH */
+
+#endif /* USE_PTHREAD || USE_WIN32 */
 
 /* end of cron.c */

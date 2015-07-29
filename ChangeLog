@@ -1,5 +1,23 @@
 stunnel change log
 
+Version 5.21, 2015.07.27, urgency: MEDIUM
+* New features
+  - Signal names are displayed instead of numbers.
+  - First resolve IPv4 addresses on passive resolver requests.
+    This speeds up stunnel startup on Win32 with a slow/defunct
+    DNS service.
+  - The "make check" target was modified to only build Win32
+    executables when stunnel is built from a git repository (thx
+    to Peter Pentchev).
+  - More elaborate descriptions were added to the warning about
+    using "verify = 2" without "checkHost" or "checkIP".
+  - Performance optimization was performed on the debug code.
+* Bugfixes
+  - Fixed the FORK and UCONTEXT threading support.
+  - Fixed "failover=prio" (broken since stunnel 5.15).
+  - Added a retry when sleep(3) was interrupted by a singal
+    in the cron thread scheduler.
+
 Version 5.20, 2015.07.09, urgency: HIGH 
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2d.

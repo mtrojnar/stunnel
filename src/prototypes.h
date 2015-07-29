@@ -102,6 +102,7 @@ typedef struct sockaddr_list {                          /* list of addresses */
     SOCKADDR_UNION *addr;                           /* the list of addresses */
     unsigned *rr_ptr, rr_val;             /* current address for round-robin */
     unsigned num;                             /* how many addresses are used */
+    int passive;                                         /* listening socket */
     NAME_LIST *names;                          /* a list of unresolved names */
 } SOCKADDR_LIST;
 
@@ -568,13 +569,13 @@ char *protocol(CLI *, SERVICE_OPTIONS *opt, const PHASE);
 
 void resolver_init();
 
-unsigned name2addr(SOCKADDR_UNION *, char *, char *);
-unsigned hostport2addr(SOCKADDR_UNION *, char *, char *);
+unsigned name2addr(SOCKADDR_UNION *, char *, int);
+unsigned hostport2addr(SOCKADDR_UNION *, char *, char *, int);
 
-unsigned name2addrlist(SOCKADDR_LIST *, char *, char *);
+unsigned name2addrlist(SOCKADDR_LIST *, char *);
 unsigned hostport2addrlist(SOCKADDR_LIST *, char *, char *);
 
-void addrlist_clear(SOCKADDR_LIST *);
+void addrlist_clear(SOCKADDR_LIST *, int);
 unsigned addrlist_dup(SOCKADDR_LIST *, const SOCKADDR_LIST *);
 unsigned addrlist_resolve(SOCKADDR_LIST *);
 
@@ -645,7 +646,7 @@ typedef struct CONTEXT_STRUCTURE {
     int ready; /* number of ready file descriptors */
     time_t finish; /* when to finish poll() for this context */
     struct CONTEXT_STRUCTURE *next; /* next context on a list */
-    void *tls; /* thread local storage for str.c */
+    void *tls; /* thread local storage for tls.c */
 } CONTEXT;
 extern CONTEXT *ready_head, *ready_tail;
 extern CONTEXT *waiting_head, *waiting_tail;

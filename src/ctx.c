@@ -814,8 +814,8 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
                 c->reneg_state=RENEG_DETECTED;
             }
         }
-        if(c->opt->log_level<LOG_DEBUG)
-            return; /* performance optimization */
+        if(c->opt->log_level<LOG_DEBUG) /* performance optimization */
+            return;
     }
 
     if(where & SSL_CB_LOOP) {

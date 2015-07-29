@@ -88,7 +88,7 @@ unsigned long stunnel_thread_id(void) {
 }
 
 NOEXPORT CONTEXT *new_context(void) {
-    static int next_id=1;
+    static unsigned long next_id=1;
     CONTEXT *context;
 
     /* allocate and fill the CONTEXT structure */
@@ -114,6 +114,8 @@ int sthreads_init(void) {
         s_log(LOG_ERR, "Cannot create the listening context");
         return 1;
     }
+    /* update tls for newly allocated ready_head */
+    ui_tls=tls_alloc(NULL, ui_tls, "ui");
     /* no need to initialize ucontext_t structure here
        it will be initialied with swapcontext() call */
     return 0;

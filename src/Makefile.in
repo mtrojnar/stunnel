@@ -81,7 +81,8 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = stunnel$(EXEEXT)
-check_PROGRAMS = stunnel.exe$(EXEEXT) tstunnel.exe$(EXEEXT)
+@AUTHOR_TESTS_TRUE@check_PROGRAMS = stunnel.exe$(EXEEXT) \
+@AUTHOR_TESTS_TRUE@	tstunnel.exe$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(srcdir)/config.h.in $(top_srcdir)/auto/depcomp

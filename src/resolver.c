@@ -40,8 +40,11 @@
 
 /**************************************** prototypes */
 
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+NOEXPORT int get_ipv6(LPTSTR);
+#endif
 NOEXPORT void addrlist2addr(SOCKADDR_UNION *, SOCKADDR_LIST *);
-NOEXPORT void addrlist_init(SOCKADDR_LIST *);
+NOEXPORT void addrlist_reset(SOCKADDR_LIST *);
 
 #ifndef HAVE_GETADDRINFO
 
@@ -72,6 +75,10 @@ struct addrinfo {
 };
 #endif
 
+#ifndef AI_PASSIVE
+#define AI_PASSIVE 1
+#endif
+
 NOEXPORT int getaddrinfo(const char *, const char *,
     const struct addrinfo *, struct addrinfo **);
 NOEXPORT int alloc_addresses(struct hostent *, const struct addrinfo *,
@@ -90,47 +97,44 @@ GETNAMEINFO s_getnameinfo;
 
 void resolver_init() {
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
-    HINSTANCE handle;
-
-        /* IPv6 in Windows XP or higher */
-    handle=LoadLibrary(TEXT("ws2_32.dll"));
-    if(handle) {
-        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
-        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
-        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
-        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
-            return; /* IPv6 detected -> OK */
-        FreeLibrary(handle);
-    }
-
-        /* experimental IPv6 for Windows 2000 */
-    handle=LoadLibrary(TEXT("wship6.dll"));
-    if(handle) {
-        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
-        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
-        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
-        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
-            return; /* IPv6 detected -> OK */
-        FreeLibrary(handle);
-    }
-
-        /* fall back to the built-in emulation */
-    s_getaddrinfo=NULL;
-    s_freeaddrinfo=NULL;
-    s_getnameinfo=NULL;
+    if(get_ipv6(TEXT("ws2_32.dll"))) /* IPv6 in Windows XP or higher */
+        return;
+    if(get_ipv6(TEXT("wship6.dll"))) /* experimental IPv6 for Windows 2000 */
+        return;
+    /* fall back to the built-in emulation */
 #endif
 }
 
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+NOEXPORT int get_ipv6(LPTSTR file) {
+    HINSTANCE handle;
+
+    handle=LoadLibrary(file);
+    if(!handle)
+        return 0;
+    s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
+    s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
+    s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
+    if(!s_getaddrinfo || !s_freeaddrinfo || !s_getnameinfo) {
+        s_getaddrinfo=NULL;
+        s_freeaddrinfo=NULL;
+        s_getnameinfo=NULL;
+        FreeLibrary(handle);
+        return 0;
+    }
+    return 1; /* IPv6 detected -> OK */
+}
+#endif
+
 /**************************************** stunnel resolver API */
 
-unsigned name2addr(SOCKADDR_UNION *addr, char *name,
-        char *default_host) {
+unsigned name2addr(SOCKADDR_UNION *addr, char *name, int passive) {
     SOCKADDR_LIST *addr_list;
     unsigned retval;
 
     addr_list=str_alloc(sizeof(SOCKADDR_LIST));
-    addrlist_clear(addr_list);
-    retval=name2addrlist(addr_list, name, default_host);
+    addrlist_clear(addr_list, passive);
+    retval=name2addrlist(addr_list, name);
     if(retval)
         addrlist2addr(addr, addr_list);
     str_free(addr_list->addr);
@@ -139,12 +143,12 @@ unsigned name2addr(SOCKADDR_UNION *addr, char *name,
 }
 
 unsigned hostport2addr(SOCKADDR_UNION *addr,
-        char *host_name, char *port_name) {
+        char *host_name, char *port_name, int passive) {
     SOCKADDR_LIST *addr_list;
     unsigned retval;
 
     addr_list=str_alloc(sizeof(SOCKADDR_LIST));
-    addrlist_clear(addr_list);
+    addrlist_clear(addr_list, passive);
     retval=hostport2addrlist(addr_list, host_name, port_name);
     if(retval)
         addrlist2addr(addr, addr_list);
@@ -174,8 +178,7 @@ NOEXPORT void addrlist2addr(SOCKADDR_UNION *addr, SOCKADDR_LIST *addr_list) {
     memcpy(addr, &addr_list->addr[0], sizeof(SOCKADDR_UNION));
 }
 
-unsigned name2addrlist(SOCKADDR_LIST *addr_list,
-        char *name, char *default_host) {
+unsigned name2addrlist(SOCKADDR_LIST *addr_list, char *name) {
     char *tmp, *host_name, *port_name;
     unsigned retval;
 
@@ -202,7 +205,7 @@ unsigned name2addrlist(SOCKADDR_LIST *addr_list,
         host_name=tmp;
         *port_name++='\0';
     } else { /* no ':' - use default host IP */
-        host_name=default_host;
+        host_name=NULL;
         port_name=tmp;
     }
 
@@ -215,34 +218,48 @@ unsigned name2addrlist(SOCKADDR_LIST *addr_list,
 unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         char *host_name, char *port_name) {
     struct addrinfo hints, *res=NULL, *cur;
-    int err, retries=0;
+    int err, retry=0;
 
     memset(&hints, 0, sizeof hints);
 #if defined(USE_IPv6) || defined(USE_WIN32)
-    hints.ai_family=PF_UNSPEC;
+    hints.ai_family=AF_UNSPEC;
 #else
-    hints.ai_family=PF_INET;
+    hints.ai_family=AF_INET;
 #endif
     hints.ai_socktype=SOCK_STREAM;
     hints.ai_protocol=IPPROTO_TCP;
-    for(;;) {
-        err=getaddrinfo(host_name, port_name, &hints, &res);
-        if(err && res)
-            freeaddrinfo(res);
-        if(err!=EAI_AGAIN || ++retries>=3)
-            break;
-        s_log(LOG_DEBUG, "getaddrinfo: EAI_AGAIN received: retrying");
-        sleep(1);
+    hints.ai_flags=0;
+    if(addr_list->passive) {
+        hints.ai_family=AF_INET; /* first try IPv4 for passive requests */
+        hints.ai_flags|=AI_PASSIVE;
     }
-    switch(err) {
-    case 0:
-        break; /* success */
-    case EAI_SERVICE:
+    do {
+        err=getaddrinfo(host_name, port_name, &hints, &res);
+        if(!err)
+            break;
+        if(res)
+            freeaddrinfo(res);
+        if(err==EAI_AGAIN && ++retry<=3) {
+            s_log(LOG_DEBUG, "getaddrinfo: EAI_AGAIN received: retrying");
+            sleep(1);
+            continue;
+        }
+#if defined(USE_IPv6) || defined(USE_WIN32)
+        if(hints.ai_family==AF_INET) {
+            hints.ai_family=AF_UNSPEC;
+            continue; /* retry for non-IPv4 addresses */
+        }
+#endif
+    } while(0);
+    if(err==EAI_SERVICE) {
         s_log(LOG_ERR, "Unknown TCP service \"%s\"", port_name);
         return 0; /* error */
-    default:
+    }
+    if(err) {
         s_log(LOG_ERR, "Error resolving \"%s\": %s",
-            host_name, s_gai_strerror(err));
+            host_name ? host_name :
+                (addr_list->passive ? DEFAULT_ANY : DEFAULT_LOOPBACK),
+            s_gai_strerror(err));
         return 0; /* error */
     }
 
@@ -263,15 +280,18 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
     return addr_list->num; /* ok - return the number of addresses */
 }
 
-void addrlist_clear(SOCKADDR_LIST *addr_list) {
-    addrlist_init(addr_list);
+/* initialize the structure */
+void addrlist_clear(SOCKADDR_LIST *addr_list, int passive) {
+    addrlist_reset(addr_list);
     addr_list->names=NULL;
+    addr_list->passive=passive;
 }
 
-NOEXPORT void addrlist_init(SOCKADDR_LIST *addr_list) {
+/* prepare the structure to resolve new hosts */
+NOEXPORT void addrlist_reset(SOCKADDR_LIST *addr_list) {
     addr_list->num=0;
     addr_list->addr=NULL;
-    addr_list->rr_val=0; /* reset round-robin counter */
+    addr_list->rr_val=0; /* reset the round-robin counter */
     /* allow structures created with sockaddr_dup() to modify
      * the original rr_val rather than its local copy */
     addr_list->rr_ptr=&addr_list->rr_val;
@@ -292,10 +312,16 @@ unsigned addrlist_resolve(SOCKADDR_LIST *addr_list) {
     unsigned num=0, rnd;
     NAME_LIST *host;
 
-    addrlist_init(addr_list);
+    addrlist_reset(addr_list);
     for(host=addr_list->names; host; host=host->next)
-        num+=name2addrlist(addr_list, host->name, DEFAULT_LOOPBACK);
-    if(num>1) { /* randomize the initial value of round-robin counter */
+        num+=name2addrlist(addr_list, host->name);
+    switch(num) {
+    case 0:
+    case 1:
+        addr_list->rr_val=0;
+        break;
+    default:
+        /* randomize the initial value of round-robin counter */
         /* ignore the error value and the distribution bias */
         RAND_bytes((unsigned char *)&rnd, sizeof rnd);
         addr_list->rr_val=rnd%num;
@@ -354,6 +380,8 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
     int retval;
     char *tmpstr;
 
+    if(!node)
+        node=hints->ai_flags&AI_PASSIVE ? DEFAULT_ANY : DEFAULT_LOOPBACK;
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
     if(s_getaddrinfo)
         return s_getaddrinfo(node, service, hints, res);

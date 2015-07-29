@@ -3,7 +3,7 @@
 !include "Sections.nsh"
 
 !ifndef VERSION
-!define VERSION 5.20
+!define VERSION 5.21
 !endif
 
 !ifndef ZLIBDIR

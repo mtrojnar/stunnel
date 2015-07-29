@@ -150,7 +150,9 @@ NOEXPORT void auth_warnings(SERVICE_OPTIONS *section) {
     if(section->psk_keys)
         return;
 #endif /* !defined(OPENSSL_NO_PSK) */
-    if(!section->option.client) /* servers don't require authentication */
+    /* for servers it is usually okay to accept all client
+       certificates signed by a specified certificate authority */
+    if(!section->option.client)
         return;
     if(section->verify_level<2) {
         s_log(LOG_WARNING,
@@ -167,6 +169,12 @@ NOEXPORT void auth_warnings(SERVICE_OPTIONS *section) {
     s_log(LOG_WARNING,
         "Service [%s] uses \"verify = 2\" without subject checks",
         section->servname);
+#if OPENSSL_VERSION_NUMBER<0x10002000L
+    s_log(LOG_WARNING,
+        "Rebuild your stunnel against OpenSSL version 1.0.2 or higher");
+#endif /* OPENSSL_VERSION_NUMBER<0x10002000L */
+    s_log(LOG_WARNING,
+        "Use \"checkHost\" or \"checkIP\" to restrict trusted certificates");
 }
 
 NOEXPORT int load_file_lookup(X509_STORE *store, char *name) {
@@ -683,7 +691,7 @@ NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *c,
     }
     memset(&addr, 0, sizeof addr);
     addr.in.sin_family=AF_INET;
-    if(!hostport2addr(&addr, host, port)) {
+    if(!hostport2addr(&addr, host, port, 0)) {
         s_log(LOG_ERR, "OCSP: Failed to resolve the OCSP server address");
         goto cleanup;
     }

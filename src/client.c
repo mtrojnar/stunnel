@@ -165,7 +165,7 @@ NOEXPORT void client_run(CLI *c) {
         c->ssl_wfd=&(c->local_wfd);
     }
     c->fds=s_poll_alloc();
-    addrlist_clear(&c->connect_addr);
+    addrlist_clear(&c->connect_addr, 0);
 
         /* try to process the request */
     err=setjmp(c->err);
@@ -1192,11 +1192,16 @@ NOEXPORT SOCKET connect_remote(CLI *c) {
     unsigned ind_start, ind_try, ind_cur;
 
     setup_connect_addr(c);
-    if(!c->connect_addr.num) {
+    switch(c->connect_addr.num) {
+    case 0:
         s_log(LOG_ERR, "No remote host resolved");
         longjmp(c->err, 1);
+    case 1:
+        ind_start=0;
+        break;
+    default:
+        ind_start=connect_index(c);
     }
-    ind_start=connect_index(c);
 
     /* try to connect each host from the list */
     for(ind_try=0; ind_try<c->connect_addr.num; ind_try++) {
@@ -1279,13 +1284,15 @@ NOEXPORT unsigned connect_index(CLI *c) {
             s_log(LOG_NOTICE, "persistence: No cached address found");
         }
     }
-    i=*c->connect_addr.rr_ptr;
-    /* the race condition here can be safely ignored */
+
     if(c->opt->failover==FAILOVER_RR) {
+        /* the race condition here can be safely ignored */
+        i=*c->connect_addr.rr_ptr;
         *c->connect_addr.rr_ptr=(i+1)%c->connect_addr.num;
-        s_log(LOG_INFO, "failover: round-robin");
+        s_log(LOG_INFO, "failover: round-robin, starting at entry #%d", i);
     } else {
-        s_log(LOG_INFO, "failover: priority");
+        i=0;
+        s_log(LOG_INFO, "failover: priority, starting at entry #0");
     }
     return i;
 }

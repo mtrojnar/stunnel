@@ -45,8 +45,10 @@ stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 
 # Win32 executables
 
+if AUTHOR_TESTS
 # Just check if the programs can be built, don't perform any actual tests
 check_PROGRAMS = stunnel.exe tstunnel.exe
+endif
 stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_gui_sources)
 tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
 

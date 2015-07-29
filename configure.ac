@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.20])
+AC_INIT([stunnel],[5.21])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -9,6 +9,7 @@ AC_CONFIG_SRCDIR([src/stunnel.c])
 AM_INIT_AUTOMAKE
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
 
+AM_CONDITIONAL([AUTHOR_TESTS], [test -d ".git"])
 AC_CANONICAL_HOST
 AC_SUBST([host])
 AC_DEFINE_UNQUOTED([HOST], ["$host"], [Host description])
