@@ -262,13 +262,8 @@ void log_error(int, int, const char *);
 char *my_strerror(int);
 
 /**************************************** prototypes for pty.c */
-/* Based on Public Domain code by Tatu Ylonen <ylo@cs.hut.fi>  */
 
 int pty_allocate(int *, int *, char *, int);
-#if 0
-void pty_release(char *);
-void pty_make_controlling_tty(int *, char *);
-#endif
 
 /**************************************** prototypes for ssl.c */
 
@@ -316,32 +311,32 @@ void setnonblock(int, unsigned long);
 /**************************************** prototypes for client.c */
 
 typedef struct {
-    int fd; /* File descriptor */
-    int rd; /* Open for read */
-    int wr; /* Open for write */
-    int is_socket; /* File descriptor is a socket */
+    int fd; /* file descriptor */
+    int rd; /* open for read */
+    int wr; /* open for write */
+    int is_socket; /* file descriptor is a socket */
 } FD;
 
 typedef struct {
     SERVICE_OPTIONS *opt;
     char accepted_address[IPLEN]; /* text */
-    SOCKADDR_LIST peer_addr; /* Peer address */
-    FD local_rfd, local_wfd; /* Read and write local descriptors */
-    FD remote_fd; /* Remote file descriptor */
+    SOCKADDR_LIST peer_addr; /* peer address */
+    FD local_rfd, local_wfd; /* read and write local descriptors */
+    FD remote_fd; /* remote file descriptor */
     SSL *ssl; /* SSL Connection */
     SOCKADDR_LIST bind_addr;
         /* IP for explicit local bind or transparent proxy */
     unsigned long pid; /* PID of local process */
-    int fd; /* Temporary file descriptor */
+    int fd; /* temporary file descriptor */
     jmp_buf err;
 
-    char sock_buff[BUFFSIZE]; /* Socket read buffer */
+    char sock_buff[BUFFSIZE]; /* socket read buffer */
     char ssl_buff[BUFFSIZE]; /* SSL read buffer */
-    int sock_ptr, ssl_ptr; /* Index of first unused byte in buffer */
-    FD *sock_rfd, *sock_wfd; /* Read and write socket descriptors */
-    FD *ssl_rfd, *ssl_wfd; /* Read and write SSL descriptors */
-    int sock_bytes, ssl_bytes; /* Bytes written to socket and ssl */
-    s_poll_set fds; /* File descriptors */
+    int sock_ptr, ssl_ptr; /* index of first unused byte in buffer */
+    FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
+    FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
+    int sock_bytes, ssl_bytes; /* bytes written to socket and ssl */
+    s_poll_set fds; /* file descriptors */
 } CLI;
 
 extern int max_fds, max_clients;
@@ -463,4 +458,4 @@ void auth_libwrap(CLI *);
 
 #endif /* defined PROTOTYPES_H */
 
-/* End of prototypes.h */
+/* end of prototypes.h */

@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2010.01.21" "4.30" "stunnel"
+.TH STUNNEL.PL 8 "2010.02.03" "4.31" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -384,6 +384,9 @@ przez opcję \fIverify\fR.
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
 opóźnij rozwinięcie adresu \s-1DNS\s0 podanego w opcji \fIconnect\fR
+.Sp
+Opcja jest przydatna przy dynamicznym \s-1DNS\s0, albo gdy usługa \s-1DNS\s0 nie jest
+dostępna przy starcie programu stunnel (klient \s-1VPN\s0, połączenie wdzwaniane).
 .IP "\fBengineNum\fR = <numer urządzenia>" 4
 .IX Item "engineNum = <numer urządzenia>"
 wybierz urządzenie do odczyta klucza prywatnego
@@ -571,6 +574,46 @@ weryfikuj certyfikat drugiej strony połączenia
 .IX Header "ZWRACANA WARTOŚĆ"
 \&\fBstunnel\fR zwraca zero w przypadku sukcesu, lub wartość niezerową
 w przypadku błędu.
+.SH "SIGNAŁY"
+.IX Header "SIGNAŁY"
+Następujące sygnały mogą być użyte do sterowania programem w systemie Unix:
+.IP "\s-1SIGHUP\s0" 4
+.IX Item "SIGHUP"
+Załaduj ponownie plik konfiguracyjny.
+.Sp
+Niektóre globalne opcje nie będą przeładowane:
+.RS 4
+.IP "\(bu" 4
+chroot
+.IP "\(bu" 4
+fips
+.IP "\(bu" 4
+foreground
+.IP "\(bu" 4
+pid
+.IP "\(bu" 4
+setgid
+.IP "\(bu" 4
+setuid
+.RE
+.RS 4
+.Sp
+Jeżeli wykorzystywana jest opcja 'setuid' stunnel nie będzie mógł załadować
+ponownie konfiguracji wykorzystującej uprzywilejowane (<1024) porty.
+.Sp
+Jeżeli wykorzystywana jest opcja 'chroot' stunnel będzie szukał wszystkich
+potrzebnych plików (łącznie z plikiem konfiguracyjnym, certyfikatami, logiem i
+plikiem pid) wewnątrz katalogu wskazanego przez 'chroot'.
+.RE
+.IP "\s-1SIGUSR1\s0" 4
+.IX Item "SIGUSR1"
+Zamknij i otwórz ponownie log.
+Funkcja ta może zostać użyta w skrypcie rotującym log programu stunnel.
+.IP "\s-1SIGTERM\s0, \s-1SIGQUIT\s0, \s-1SIGINT\s0" 4
+.IX Item "SIGTERM, SIGQUIT, SIGINT"
+Zakończ działanie programu.
+.PP
+Skutek wysłania innych sygnałów jest niezdefiniowany.
 .SH "PRZYKŁADY"
 .IX Header "PRZYKŁADY"
 Szyfrowanie połączeń do lokalnego serwera \fIimapd\fR można użyć:
@@ -627,26 +670,15 @@ urządzenia zgodnego z OpenSC
 \&    engineNum=1
 \&    key=id_45
 .Ve
-.SH "PLIKI"
-.IX Header "PLIKI"
-.IP "\fIstunnel.conf\fR" 4
-.IX Item "stunnel.conf"
-plik konfiguracyjny programu
-.IP "\fIstunnel.pem\fR" 4
-.IX Item "stunnel.pem"
-certyfikat i klucz prywatny
-.SH "BŁĘDY"
-.IX Header "BŁĘDY"
-Opcja \fIexecargs\fR nie obsługuje cytowania.
-.SH "OGRANICZENIA"
-.IX Header "OGRANICZENIA"
+.SH "NOTKI"
+.IX Header "NOTKI"
+.SS "\s-1OGRANICZENIA\s0"
+.IX Subsection "OGRANICZENIA"
 \&\fIstunnel\fR nie może być używany do szyfrowania protokołu \fI\s-1FTP\s0\fR,
 ponieważ do przesyłania poszczególnych plików używa on dodatkowych
 połączeń otwieranych na portach o dynamicznie przydzielanych numerach.
 Istnieją jednak specjalne wersje klientów i serwerów \s-1FTP\s0 pozwalające
 na szyfrowanie przesyłanych danych przy pomocy protokołu \fI\s-1SSL\s0\fR.
-.SH "NOTKI"
-.IX Header "NOTKI"
 .SS "\s-1TRYB\s0 \s-1INETD\s0 (tylko Unix)"
 .IX Subsection "TRYB INETD (tylko Unix)"
 W większości zastosowań \fBstunnel\fR samodzielnie nasłuchuje na porcie
@@ -720,7 +752,8 @@ Zawartość ekranu w systemie Windows.
 .IP "\(bu" 4
 Gniazdo egd, jeżeli użyta została opcja \fI\s-1EGD\s0\fR.
 .IP "\(bu" 4
-Gniazdo egd podane w opcji '\-\-with\-egd\-socket' w czasie konfiguracji programu.
+Gniazdo egd podane w opcji '\-\-with\-egd\-socket' w czasie konfiguracji
+programu.
 .IP "\(bu" 4
 Urządzenie /dev/urandom.
 .PP
@@ -748,17 +781,17 @@ sprawdzania stanu generatora.  W systemach z \fI/dev/urandom\fR urządzenie
 to będzie najprawdopodobniej użyte, pomimo że znajduje się na samym końcu
 powyższej listy.  Jest to właściwość biblioteki \fIOpenSSL\fR, a nie programu
 \&\fIstunnel\fR.
-.SH "SIGNAŁY"
-.IX Header "SIGNAŁY"
-Następujące sygnały mogą być użyte do sterowania programem w systemie Unix:
-.IP "\s-1SIGHUP\s0" 4
-.IX Item "SIGHUP"
-Załaduj ponownie plik konfiguracyjny.
-.IP "\s-1SIGTERM\s0, \s-1SIGQUIT\s0, \s-1SIGINT\s0" 4
-.IX Item "SIGTERM, SIGQUIT, SIGINT"
-Zakończ działanie programu.
-.PP
-Skutek wysłania innych sygnałów jest niezdefiniowany.
+.SH "PLIKI"
+.IX Header "PLIKI"
+.IP "\fIstunnel.conf\fR" 4
+.IX Item "stunnel.conf"
+plik konfiguracyjny programu
+.IP "\fIstunnel.pem\fR" 4
+.IX Item "stunnel.pem"
+certyfikat i klucz prywatny
+.SH "BŁĘDY"
+.IX Header "BŁĘDY"
+Opcja \fIexecargs\fR nie obsługuje cytowania.
 .SH "ZOBACZ RÓWNIEŻ"
 .IX Header "ZOBACZ RÓWNIEŻ"
 .IP "\fItcpd\fR\|(8)" 4

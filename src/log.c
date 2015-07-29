@@ -307,4 +307,4 @@ char *my_strerror(int errnum) {
     }
 }
 
-/* End of log.c */
+/* end of log.c */

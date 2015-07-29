@@ -1567,7 +1567,7 @@ static int section_init(int line_number,
     }
 
     if(!section->option.client)
-        section->option.cert=1; /* Server always needs a certificate */
+        section->option.cert=1; /* server always needs a certificate */
     if(!context_init(section)) /* initialize SSL context */
         return 0;
 
@@ -1598,7 +1598,7 @@ static int section_init(int line_number,
             "Each service section must define two endpoints");
         return 0;
     }
-    return 1; /* All tests passed -- continue program execution */
+    return 1; /* all tests passed -- continue program execution */
 }
 
 /**************************************** facility/debug level */
@@ -1613,7 +1613,7 @@ static int parse_debug_level(char *arg) {
     char *string;
     facilitylevel *fl;
 
-/* Facilities only make sense on unix */
+/* facilities only make sense on unix */
 #if !defined (USE_WIN32) && !defined (__vms)
     facilitylevel facilities[] = {
         {"auth", LOG_AUTH},     {"cron", LOG_CRON},     {"daemon", LOG_DAEMON},
@@ -1623,7 +1623,7 @@ static int parse_debug_level(char *arg) {
         {"local2", LOG_LOCAL2}, {"local3", LOG_LOCAL3}, {"local4", LOG_LOCAL4},
         {"local5", LOG_LOCAL5}, {"local6", LOG_LOCAL6}, {"local7", LOG_LOCAL7},
 
-        /* Some that are not on all unicies */
+        /* some that are not on all unicies */
 #ifdef LOG_AUTHPRIV
         {"authpriv", LOG_AUTHPRIV},
 #endif
@@ -1648,9 +1648,9 @@ static int parse_debug_level(char *arg) {
     safecopy(arg_copy, arg);
     string = arg_copy;
 
-/* Facilities only make sense on Unix */
+/* facilities only make sense on Unix */
 #if !defined (USE_WIN32) && !defined (__vms)
-    if(strchr(string, '.')) { /* We have a facility specified */
+    if(strchr(string, '.')) { /* we have a facility specified */
         new_global_options.facility=-1;
         string=strtok(arg_copy, "."); /* break it up */
 
@@ -1666,7 +1666,7 @@ static int parse_debug_level(char *arg) {
     }
 #endif /* USE_WIN32, __vms */
 
-    /* Time to check the syslog level */
+    /* time to check the syslog level */
     if(string && strlen(string)==1 && *string>='0' && *string<='7') {
         new_global_options.debug_level=*string-'0';
         return 1; /* OK */
@@ -1855,7 +1855,7 @@ static void print_option(char *line, int type, OPT_UNION *val) {
             sprintf(text, "%10s", val->c_val);
             break;
         default:
-            safecopy(text, "  Ooops?  "); /* Internal error? */
+            safecopy(text, "  Ooops?  "); /* internal error? */
         }
     }
     safeconcat(line, text);
@@ -1880,7 +1880,7 @@ static int parse_socket_option(char *arg) {
     }
     arg+=2;
     opt_val_str=strchr(arg, '=');
-    if(!opt_val_str) /* No '='? */
+    if(!opt_val_str) /* no '='? */
         return 0; /* FAILED */
     *opt_val_str++='\0';
     ptr=sock_opts;
@@ -2015,7 +2015,7 @@ static void config_error(int num, char *str) {
     s_log(LOG_ERR, "line %d: %s", num, str);
 }
 
-static char *stralloc(char *str) { /* Allocate static string */
+static char *stralloc(char *str) { /* allocate static string */
     char *retval;
 
     retval=calloc(strlen(str)+1, 1);
@@ -2028,7 +2028,7 @@ static char *stralloc(char *str) { /* Allocate static string */
 }
 
 #ifndef USE_WIN32
-static char **argalloc(char *str) { /* Allocate 'exec' argumets */
+static char **argalloc(char *str) { /* allocate 'exec' argumets */
     int max_arg, i;
     char *ptr, **retval;
 
@@ -2052,4 +2052,4 @@ static char **argalloc(char *str) { /* Allocate 'exec' argumets */
 }
 #endif
 
-/* End of options.c */
+/* end of options.c */

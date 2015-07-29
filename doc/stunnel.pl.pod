@@ -90,21 +90,13 @@ Linia w pliku konfiguracyjnym mo¿e byæ:
 
 =over 4
 
-=item *
+=item * pusta (ignorowana)
 
-pusta (ignorowana)
+=item * komentarzem rozpoczynaj±cym siê znakiem ';' (ignorowana)
 
-=item *
+=item * par± 'nazwa_opcji = warto¶æ_opcji'
 
-komentarzem rozpoczynaj±cym siê znakiem ';' (ignorowana)
-
-=item *
-
-par± 'nazwa_opcji = warto¶æ_opcji'
-
-=item *
-
-tekstem '[nazwa_us³ugi]' wskazuj±cym pocz±tek definicji us³ugi
+=item * tekstem '[nazwa_us³ugi]' wskazuj±cym pocz±tek definicji us³ugi
 
 =back
 
@@ -391,6 +383,9 @@ przez opcjê I<verify>.
 
 opó¼nij rozwiniêcie adresu DNS podanego w opcji I<connect>
 
+Opcja jest przydatna przy dynamicznym DNS, albo gdy us³uga DNS nie jest
+dostêpna przy starcie programu stunnel (klient VPN, po³±czenie wdzwaniane).
+
 =item B<engineNum> = <numer urz±dzenia>
 
 wybierz urz±dzenie do odczyta klucza prywatnego
@@ -597,6 +592,55 @@ B<stunnel> zwraca zero w przypadku sukcesu, lub warto¶æ niezerow±
 w przypadku b³êdu.
 
 
+=head1 SIGNA£Y
+
+Nastêpuj±ce sygna³y mog± byæ u¿yte do sterowania programem w systemie Unix:
+
+=over 4
+
+=item SIGHUP
+
+Za³aduj ponownie plik konfiguracyjny.
+
+Niektóre globalne opcje nie bêd± prze³adowane:
+
+=over 4
+
+=item * chroot
+
+=item * fips
+
+=item * foreground
+
+=item * pid
+
+=item * setgid
+
+=item * setuid
+
+=back
+
+Je¿eli wykorzystywana jest opcja 'setuid' stunnel nie bêdzie móg³ za³adowaæ
+ponownie konfiguracji wykorzystuj±cej uprzywilejowane (<1024) porty.
+
+Je¿eli wykorzystywana jest opcja 'chroot' stunnel bêdzie szuka³ wszystkich
+potrzebnych plików (³±cznie z plikiem konfiguracyjnym, certyfikatami, logiem i
+plikiem pid) wewn±trz katalogu wskazanego przez 'chroot'.
+
+=item SIGUSR1
+
+Zamknij i otwórz ponownie log.
+Funkcja ta mo¿e zostaæ u¿yta w skrypcie rotuj±cym log programu stunnel.
+
+=item SIGTERM, SIGQUIT, SIGINT
+
+Zakoñcz dzia³anie programu.
+
+=back
+
+Skutek wys³ania innych sygna³ów jest niezdefiniowany.
+
+
 =head1 PRZYK£ADY
 
 Szyfrowanie po³±czeñ do lokalnego serwera I<imapd> mo¿na u¿yæ:
@@ -645,36 +689,15 @@ urz±dzenia zgodnego z OpenSC
     key=id_45
 
 
-=head1 PLIKI
+=head1 NOTKI
 
-=over 4
-
-=item F<stunnel.conf>
-
-plik konfiguracyjny programu
-
-=item F<stunnel.pem>
-
-certyfikat i klucz prywatny
-
-=back
-
-
-=head1 B£ÊDY
-
-Opcja I<execargs> nie obs³uguje cytowania.
-
-
-=head1 OGRANICZENIA
+=head2 OGRANICZENIA
 
 I<stunnel> nie mo¿e byæ u¿ywany do szyfrowania protoko³u I<FTP>,
 poniewa¿ do przesy³ania poszczególnych plików u¿ywa on dodatkowych
 po³±czeñ otwieranych na portach o dynamicznie przydzielanych numerach.
 Istniej± jednak specjalne wersje klientów i serwerów FTP pozwalaj±ce
 na szyfrowanie przesy³anych danych przy pomocy protoko³u I<SSL>.
-
-
-=head1 NOTKI
 
 =head2 TRYB INETD (tylko Unix)
 
@@ -698,7 +721,6 @@ konfiguracja taka pozwala na nawi±zanie tylko jednego po³±czenia.
 Wszystkie I<OPCJE US£UG> powinny byæ umieszczone razem z opcjami
 globalnymi.  Przyk³ad takiej konfiguracji znajduje siê w sekcji
 I<PRZYK£ADY>.
-
 
 =head2 CERTYFIKATY
 
@@ -736,39 +758,24 @@ uzyskania  wystarczaj±cej ilo¶ci entropii:
 
 =over 4
 
-=item *
+=item * Zawarto¶æ pliku podanego w opcji I<RNDfile>.
 
-Zawarto¶æ pliku podanego w opcji I<RNDfile>.
-
-=item *
-
-Zawarto¶æ pliku o nazwie okre¶lonej przez zmienn± ¶rodowiskow±
+=item * Zawarto¶æ pliku o nazwie okre¶lonej przez zmienn± ¶rodowiskow±
 RANDFILE, o ile jest ona ustawiona.
 
-=item *
-
-Plik .rnd umieszczony w katalogu domowym u¿ytkownika,
+=item * Plik .rnd umieszczony w katalogu domowym u¿ytkownika,
 je¿eli zmienna RANDFILE nie jest ustawiona.
 
-=item *
+=item * Plik podany w opcji '--with-random' w czasie konfiguracji programu.
 
-Plik podany w opcji '--with-random' w czasie konfiguracji programu.
+=item * Zawarto¶æ ekranu w systemie Windows.
 
-=item *
+=item * Gniazdo egd, je¿eli u¿yta zosta³a opcja I<EGD>.
 
-Zawarto¶æ ekranu w systemie Windows.
+=item * Gniazdo egd podane w opcji '--with-egd-socket' w czasie konfiguracji
+programu.
 
-=item *
-
-Gniazdo egd, je¿eli u¿yta zosta³a opcja I<EGD>.
-
-=item *
-
-Gniazdo egd podane w opcji '--with-egd-socket' w czasie konfiguracji programu.
-
-=item *
-
-Urz±dzenie /dev/urandom.
+=item * Urz±dzenie /dev/urandom.
 
 =back
 
@@ -798,23 +805,24 @@ powy¿szej listy.  Jest to w³a¶ciwo¶æ biblioteki I<OpenSSL>, a nie programu
 I<stunnel>.
 
 
-=head1 SIGNA£Y
-
-Nastêpuj±ce sygna³y mog± byæ u¿yte do sterowania programem w systemie Unix:
+=head1 PLIKI
 
 =over 4
 
-=item SIGHUP
+=item F<stunnel.conf>
 
-Za³aduj ponownie plik konfiguracyjny.
+plik konfiguracyjny programu
 
-=item SIGTERM, SIGQUIT, SIGINT
+=item F<stunnel.pem>
 
-Zakoñcz dzia³anie programu.
+certyfikat i klucz prywatny
 
 =back
 
-Skutek wys³ania innych sygna³ów jest niezdefiniowany.
+
+=head1 B£ÊDY
+
+Opcja I<execargs> nie obs³uguje cytowania.
 
 
 =head1 ZOBACZ RÓWNIE¯

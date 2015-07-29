@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2010.01.21" "4.30" "stunnel"
+.TH STUNNEL 8 "2010.02.03" "4.31" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -365,6 +365,9 @@ This file contains multiple CRLs, used with the \fIverify\fR.
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
 delay \s-1DNS\s0 lookup for 'connect' option
+.Sp
+This option is useful for dynamic \s-1DNS\s0, or when \s-1DNS\s0 is not available during
+stunnel startup (road warrior \s-1VPN\s0, dial-up configurations).
 .IP "\fBengineNum\fR = engine number" 4
 .IX Item "engineNum = engine number"
 select engine number to read private key
@@ -548,6 +551,46 @@ for webservers.  Level 3 is preferred for point-to-point connections.
 .SH "RETURN VALUE"
 .IX Header "RETURN VALUE"
 \&\fBstunnel\fR returns zero on success, non-zero on error.
+.SH "SIGNALS"
+.IX Header "SIGNALS"
+The following signals can be used to control stunnel in Unix environment:
+.IP "\s-1SIGHUP\s0" 4
+.IX Item "SIGHUP"
+Force a reload of the configuration file.
+.Sp
+Some global options will not be reloaded:
+.RS 4
+.IP "\(bu" 4
+chroot
+.IP "\(bu" 4
+fips
+.IP "\(bu" 4
+foreground
+.IP "\(bu" 4
+pid
+.IP "\(bu" 4
+setgid
+.IP "\(bu" 4
+setuid
+.RE
+.RS 4
+.Sp
+The use of 'setuid' option will also prevent stunnel from binding privileged
+(<1024) ports during configuration reloading.
+.Sp
+When 'chroot' option is used, stunnel will look for all its files (including
+configuration file, certificates, log file and pid file) within the chroot
+jail.
+.RE
+.IP "\s-1SIGUSR1\s0" 4
+.IX Item "SIGUSR1"
+Close and reopen stunnel log file.
+This function can be used for log rotation.
+.IP "\s-1SIGTERM\s0, \s-1SIGQUIT\s0, \s-1SIGINT\s0" 4
+.IX Item "SIGTERM, SIGQUIT, SIGINT"
+Shut stunnel down.
+.PP
+The result of sending any other signals to the server is undefined.
 .SH "EXAMPLES"
 .IX Header "EXAMPLES"
 In order to provide \s-1SSL\s0 encapsulation to your local \fIimapd\fR service, use
@@ -595,24 +638,13 @@ OpenSC engine
 \&    engineNum=1
 \&    key=id_45
 .Ve
-.SH "FILES"
-.IX Header "FILES"
-.IP "\fIstunnel.conf\fR" 4
-.IX Item "stunnel.conf"
-\&\fBstunnel\fR configuration file
-.IP "\fIstunnel.pem\fR" 4
-.IX Item "stunnel.pem"
-\&\fBstunnel\fR certificate and private key
-.SH "BUGS"
-.IX Header "BUGS"
-Option \fIexecargs\fR does not support quoting.
-.SH "RESTRICTIONS"
-.IX Header "RESTRICTIONS"
+.SH "NOTES"
+.IX Header "NOTES"
+.SS "\s-1RESTRICTIONS\s0"
+.IX Subsection "RESTRICTIONS"
 \&\fBstunnel\fR cannot be used for the \s-1FTP\s0 daemon because of the nature
 of the \s-1FTP\s0 protocol which utilizes multiple ports for data transfers.
 There are available \s-1SSL\s0 enabled versions of \s-1FTP\s0 and telnet daemons, however.
-.SH "NOTES"
-.IX Header "NOTES"
 .SS "\s-1INETD\s0 \s-1MODE\s0"
 .IX Subsection "INETD MODE"
 The most common use of \fBstunnel\fR is to listen on a network
@@ -705,17 +737,17 @@ seeding the \s-1PRNG\s0 with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
 at the very bottom of the list above.  This isn't \fBstunnel's\fR behaviour, it's
 OpenSSLs.
-.SH "SIGNALS"
-.IX Header "SIGNALS"
-The following signals can be used to control stunnel in Unix environment:
-.IP "\s-1SIGHUP\s0" 4
-.IX Item "SIGHUP"
-Force a reload of the configuration file.
-.IP "\s-1SIGTERM\s0, \s-1SIGQUIT\s0, \s-1SIGINT\s0" 4
-.IX Item "SIGTERM, SIGQUIT, SIGINT"
-Shut stunnel down.
-.PP
-The result of sending any other signals to the server is undefined.
+.SH "FILES"
+.IX Header "FILES"
+.IP "\fIstunnel.conf\fR" 4
+.IX Item "stunnel.conf"
+\&\fBstunnel\fR configuration file
+.IP "\fIstunnel.pem\fR" 4
+.IX Item "stunnel.pem"
+\&\fBstunnel\fR certificate and private key
+.SH "BUGS"
+.IX Header "BUGS"
+Option \fIexecargs\fR does not support quoting.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 .IP "\fItcpd\fR\|(8)" 4

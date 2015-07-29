@@ -209,7 +209,7 @@ void leave_critical_section(SECTION_CODE i) {
 
 static void locking_callback(int mode, int type,
 #ifdef HAVE_OPENSSL
-    const /* Callback definition has been changed in openssl 0.9.3 */
+    const /* callback definition has been changed in openssl 0.9.3 */
 #endif
     char *file, int line) {
     if(mode&CRYPTO_LOCK)
@@ -258,17 +258,17 @@ unsigned long stunnel_thread_id(void) {
 void sthreads_init(void) {
     int i;
 
-    /* Initialize stunnel critical sections */
+    /* initialize stunnel critical sections */
     for(i=0; i<CRIT_SECTIONS; i++)
         pthread_mutex_init(stunnel_cs+i, NULL);
 
-    /* Initialize OpenSSL locking callback */
+    /* initialize OpenSSL locking callback */
     for(i=0; i<CRYPTO_NUM_LOCKS; i++)
         pthread_mutex_init(lock_cs+i, NULL);
     CRYPTO_set_id_callback(stunnel_thread_id);
     CRYPTO_set_locking_callback(locking_callback);
 
-    /* Initialize OpenSSL dynamic locks callbacks */
+    /* initialize OpenSSL dynamic locks callbacks */
     CRYPTO_set_dynlock_create_callback(dyn_create_function);
     CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
@@ -280,13 +280,13 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 #ifdef HAVE_PTHREAD_SIGMASK
     sigset_t newmask, oldmask;
 
-    /* Initialize attributes for creating new threads */
+    /* initialize attributes for creating new threads */
     pthread_attr_init(&pth_attr);
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
     pthread_attr_setstacksize(&pth_attr, arg->opt->stack_size);
 
-    /* The idea is that only the main thread handles all the signals with
-     * posix threads.  Signals are blocked for any other thread. */
+    /* the idea is that only the main thread handles all the signals with
+     * posix threads;  signals are blocked for any other thread */
     sigemptyset(&newmask);
     sigaddset(&newmask, SIGCHLD);
     sigaddset(&newmask, SIGTERM);
@@ -326,7 +326,7 @@ void leave_critical_section(SECTION_CODE i) {
 
 static void locking_callback(int mode, int type,
 #ifdef HAVE_OPENSSL
-    const /* Callback definition has been changed in openssl 0.9.3 */
+    const /* callback definition has been changed in openssl 0.9.3 */
 #endif
     char *file, int line) {
     if(mode&CRYPTO_LOCK)
@@ -375,16 +375,16 @@ unsigned long stunnel_thread_id(void) {
 void sthreads_init(void) {
     int i;
 
-    /* Initialize stunnel critical sections */
+    /* initialize stunnel critical sections */
     for(i=0; i<CRIT_SECTIONS; i++)
         InitializeCriticalSection(stunnel_cs+i);
 
-    /* Initialize OpenSSL locking callback */
+    /* initialize OpenSSL locking callback */
     for(i=0; i<CRYPTO_NUM_LOCKS; i++)
         InitializeCriticalSection(lock_cs+i);
     CRYPTO_set_locking_callback(locking_callback);
 
-    /* Initialize OpenSSL dynamic locks callbacks */
+    /* initialize OpenSSL dynamic locks callbacks */
     CRYPTO_set_dynlock_create_callback(dyn_create_function);
     CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
@@ -505,4 +505,4 @@ void stack_info(int init) { /* 1-initialize, 0-display */
 
 #endif /* DEBUG_STACK_SIZE */
 
-/* End of sthreads.c */
+/* end of sthreads.c */

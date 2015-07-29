@@ -89,21 +89,13 @@ Each line of the configuration file can be either:
 
 =over 4
 
-=item *
+=item * an empty line (ignored)
 
-an empty line (ignored)
+=item * a comment starting with ';' (ignored)
 
-=item *
+=item * an 'option_name = option_value' pair
 
-a comment starting with ';' (ignored)
-
-=item *
-
-an 'option_name = option_value' pair
-
-=item *
-
-'[service_name]' indicating a start of a service definition
+=item * '[service_name]' indicating a start of a service definition
 
 =back
 
@@ -372,6 +364,9 @@ This file contains multiple CRLs, used with the I<verify>.
 
 delay DNS lookup for 'connect' option
 
+This option is useful for dynamic DNS, or when DNS is not available during
+stunnel startup (road warrior VPN, dial-up configurations).
+
 =item B<engineNum> = engine number
 
 select engine number to read private key
@@ -574,6 +569,55 @@ for webservers.  Level 3 is preferred for point-to-point connections.
 B<stunnel> returns zero on success, non-zero on error.
 
 
+=head1 SIGNALS
+
+The following signals can be used to control stunnel in Unix environment:
+
+=over 4
+
+=item SIGHUP
+
+Force a reload of the configuration file.
+
+Some global options will not be reloaded:
+
+=over 4
+
+=item * chroot
+
+=item * fips
+
+=item * foreground
+
+=item * pid
+
+=item * setgid
+
+=item * setuid
+
+=back
+
+The use of 'setuid' option will also prevent stunnel from binding privileged
+(<1024) ports during configuration reloading.
+
+When 'chroot' option is used, stunnel will look for all its files (including
+configuration file, certificates, log file and pid file) within the chroot
+jail.
+
+=item SIGUSR1
+
+Close and reopen stunnel log file.
+This function can be used for log rotation.
+
+=item SIGTERM, SIGQUIT, SIGINT
+
+Shut stunnel down.
+
+=back
+
+The result of sending any other signals to the server is undefined.
+
+
 =head1 EXAMPLES
 
 In order to provide SSL encapsulation to your local I<imapd> service, use
@@ -615,34 +659,14 @@ OpenSC engine
     key=id_45
 
 
-=head1 FILES
+=head1 NOTES
 
-=over 4
-
-=item F<stunnel.conf>
-
-B<stunnel> configuration file
-
-=item F<stunnel.pem>
-
-B<stunnel> certificate and private key
-
-=back
-
-
-=head1 BUGS
-
-Option I<execargs> does not support quoting.
-
-
-=head1 RESTRICTIONS
+=head2 RESTRICTIONS
 
 B<stunnel> cannot be used for the FTP daemon because of the nature
 of the FTP protocol which utilizes multiple ports for data transfers.
 There are available SSL enabled versions of FTP and telnet daemons, however.
 
-
-=head1 NOTES
 
 =head2 INETD MODE
 
@@ -698,37 +722,21 @@ in order until sufficient random data has been gathered:
 
 =over 4
 
-=item *
+=item * The file specified with the I<RNDfile> flag.
 
-The file specified with the I<RNDfile> flag.
+=item * The file specified by the RANDFILE environment variable, if set.
 
-=item *
+=item * The file .rnd in your home directory, if RANDFILE not set.
 
-The file specified by the RANDFILE environment variable, if set.
+=item * The file specified with '--with-random' at compile time.
 
-=item *
+=item * The contents of the screen if running on Windows.
 
-The file .rnd in your home directory, if RANDFILE not set.
+=item * The egd socket specified with the I<EGD> flag.
 
-=item *
+=item * The egd socket specified with '--with-egd-sock' at compile time.
 
-The file specified with '--with-random' at compile time.
-
-=item *
-
-The contents of the screen if running on Windows.
-
-=item *
-
-The egd socket specified with the I<EGD> flag.
-
-=item *
-
-The egd socket specified with '--with-egd-sock' at compile time.
-
-=item *
-
-The /dev/urandom device.
+=item * The /dev/urandom device.
 
 =back
 
@@ -756,23 +764,24 @@ at the very bottom of the list above.  This isn't B<stunnel's> behaviour, it's
 OpenSSLs.
 
 
-=head1 SIGNALS
-
-The following signals can be used to control stunnel in Unix environment:
+=head1 FILES
 
 =over 4
 
-=item SIGHUP
+=item F<stunnel.conf>
 
-Force a reload of the configuration file.
+B<stunnel> configuration file
 
-=item SIGTERM, SIGQUIT, SIGINT
+=item F<stunnel.pem>
 
-Shut stunnel down.
+B<stunnel> certificate and private key
 
 =back
 
-The result of sending any other signals to the server is undefined.
+
+=head1 BUGS
+
+Option I<execargs> does not support quoting.
 
 
 =head1 SEE ALSO

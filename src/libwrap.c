@@ -294,4 +294,4 @@ static ssize_t write_fd(int fd, void *ptr, size_t nbytes, int sendfd) {
 
 #endif /* USE_LIBWRAP */
 
-/* End of libwrap.c */
+/* end of libwrap.c */

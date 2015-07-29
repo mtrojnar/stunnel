@@ -44,7 +44,7 @@
 #define UWM_SYSTRAY (WM_USER + 1) /* sent to us by the taskbar */
 #define LOG_LINES 250
 
-/* Prototypes */
+/* prototypes */
 static void parse_cmdline(LPSTR);
 #ifndef _WIN32_WCE
 static int set_cwd(void);
@@ -71,7 +71,7 @@ static void WINAPI service_main(DWORD, LPTSTR *);
 static void WINAPI control_handler(DWORD);
 #endif /* !defined(_WIN32_WCE) */
 
-/* Global variables */
+/* global variables */
 static struct LIST {
   struct LIST *next;
   int len;
@@ -257,7 +257,7 @@ static int initialize_winsock() {
             return 0; /* IPv6 detected -> OK */
         FreeLibrary(handle);
     }
-    handle=LoadLibrary("wship6.dll"); /* Experimental IPv6 for Windows 2000 */
+    handle=LoadLibrary("wship6.dll"); /* experimental IPv6 for Windows 2000 */
     if(handle) {
         s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
         s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
@@ -653,7 +653,7 @@ static void save_file(HWND hwnd) {
     CloseHandle(hFile);
 }
 
-void win_log(LPSTR line) { /* Also used in log.c */
+void win_log(LPSTR line) { /* also used in log.c */
     struct LIST *curr;
     int len;
     static int log_len=0;
@@ -1018,4 +1018,4 @@ static void WINAPI control_handler(DWORD controlCode) {
 
 #endif /* !defined(_WIN32_WCE) */
 
-/* End of gui.c */
+/* end of gui.c */

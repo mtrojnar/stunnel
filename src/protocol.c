@@ -63,7 +63,7 @@ static char *base64(int, char *, int);
 
 void negotiate(CLI *c) {
     if(!c->opt->protocol)
-        return; /* No protocol negotiations */
+        return; /* no protocol negotiations */
 
     s_log(LOG_NOTICE, "Negotiations for %s (%s side) started", c->opt->protocol,
         c->opt->option.client ? "client" : "server");
@@ -181,25 +181,25 @@ static void pgsql_server(CLI *c) {
 static void smtp_client(CLI *c) {
     char line[STRLEN];
 
-    do { /* Copy multiline greeting */
+    do { /* copy multiline greeting */
         fdgetline(c, c->remote_fd.fd, line);
         fdputline(c, c->local_wfd.fd, line);
     } while(isprefix(line, "220-"));
 
     fdputline(c, c->remote_fd.fd, "EHLO localhost");
-    do { /* Skip multiline reply */
+    do { /* skip multiline reply */
         fdgetline(c, c->remote_fd.fd, line);
     } while(isprefix(line, "250-"));
-    if(!isprefix(line, "250 ")) { /* Error */
+    if(!isprefix(line, "250 ")) { /* error */
         s_log(LOG_ERR, "Remote server is not RFC 1425 compliant");
         longjmp(c->err, 1);
     }
 
     fdputline(c, c->remote_fd.fd, "STARTTLS");
-    do { /* Skip multiline reply */
+    do { /* skip multiline reply */
         fdgetline(c, c->remote_fd.fd, line);
     } while(isprefix(line, "220-"));
-    if(!isprefix(line, "220 ")) { /* Error */
+    if(!isprefix(line, "220 ")) { /* error */
         s_log(LOG_ERR, "Remote server is not RFC 2487 compliant");
         longjmp(c->err, 1);
     }
@@ -216,7 +216,7 @@ static void smtp_server(CLI *c) {
         break;
     case 1: /* fd ready to read */
         s_log(LOG_DEBUG, "RFC 2487 not detected");
-        return; /* Return if RFC 2487 is not used */
+        return; /* return if RFC 2487 is not used */
     default: /* -1 */
         sockerror("RFC2487 (s_poll_wait)");
         longjmp(c->err, 1);
@@ -266,7 +266,7 @@ static void pop3_server(CLI *c) {
     fdgetline(c, c->remote_fd.fd, line);
     fdprintf(c, c->local_wfd.fd, "%s + stunnel", line);
     fdgetline(c, c->local_rfd.fd, line);
-    if(isprefix(line, "CAPA")) { /* Client wants RFC 2449 extensions */
+    if(isprefix(line, "CAPA")) { /* client wants RFC 2449 extensions */
         fdputline(c, c->local_wfd.fd, "-ERR Stunnel does not support capabilities");
         fdgetline(c, c->local_rfd.fd, line);
     }
@@ -307,7 +307,7 @@ static void imap_server(CLI *c) {
         break;
     case 1: /* fd ready to read */
         s_log(LOG_DEBUG, "RFC 2595 not detected");
-        return; /* Return if RFC 2595 is not used */
+        return; /* return if RFC 2595 is not used */
     default: /* -1 */
         sockerror("RFC2595 (s_poll_wait)");
         longjmp(c->err, 1);
@@ -593,4 +593,4 @@ static char *base64(int encode, char *in, int len) {
     return out;
 }
 
-/* End of protocol.c */
+/* end of protocol.c */

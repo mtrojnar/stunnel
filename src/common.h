@@ -42,7 +42,7 @@
 #define VERSION "unknown"
 #endif
 
-/**************************************** Common constants */
+/**************************************** common constants */
 
 #define LIBWRAP_CLIENTS 5
 
@@ -53,21 +53,21 @@
 /* I/O buffer size */
 #define BUFFSIZE 16384
 
-/* Length of strings (including the terminating '\0' character) */
-/* It can't be lower than 256 bytes or NTLM authentication will break */
+/* length of strings (including the terminating '\0' character) */
+/* it can't be lower than 256 bytes or NTLM authentication will break */
 #define STRLEN 256
 
 /* IP address and TCP port textual representation length */
 #define IPLEN 128
 
-/* How many bytes of random input to read from files for PRNG */
+/* how many bytes of random input to read from files for PRNG */
 /* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
 #define RANDOM_BYTES 64
 
-/* For FormatGuard */
+/* for FormatGuard */
 /* #define __NO_FORMATGUARD_ */
 
-/**************************************** Platform */
+/**************************************** platform */
 
 #ifdef USE_WIN32
 #define USE_IPv6
@@ -88,13 +88,13 @@ typedef int socklen_t;
 #define __WINCRYPT_H__
 #endif
 
-/**************************************** Generic headers */
+/**************************************** generic headers */
 
 #ifdef __vms
 #include <starlet.h>
 #endif /* __vms */
 
-/* For nsr-tandem-nsk architecture */
+/* for nsr-tandem-nsk architecture */
 #ifdef __TANDEM
 #include <floss.h>
 #endif
@@ -117,11 +117,11 @@ typedef int socklen_t;
 #define USE_LIBWRAP
 #endif
 
-/* Must be included before sys/stat.h for Ultrix */
+/* must be included before sys/stat.h for Ultrix */
 #include <sys/types.h>   /* u_short, u_long */
-/* General headers */
+/* general headers */
 #include <stdio.h>
-/* Must be included before sys/stat.h for Ultrix */
+/* must be included before sys/stat.h for Ultrix */
 #ifndef _WIN32_WCE
 #include <errno.h>
 #endif
@@ -311,11 +311,11 @@ typedef unsigned long u32;
 #endif
 
 #if defined(HAVE_WAITPID)
-/* For SYSV systems */
+/* for SYSV systems */
 #define wait_for_pid(a, b, c) waitpid((a), (b), (c))
 #define HAVE_WAIT_FOR_PID 1
 #elif defined(HAVE_WAIT4)
-/* For BSD systems */
+/* for BSD systems */
 #define wait_for_pid(a, b, c) wait4((a), (b), (c), NULL)
 #define HAVE_WAIT_FOR_PID 1
 #endif
@@ -386,9 +386,9 @@ extern char *sys_errlist[];
 
 #endif /* HAVE_OPENSSL */
 
-/**************************************** Other defines */
+/**************************************** other defines */
 
-/* Safe copy for strings declarated as char[STRLEN] */
+/* safe copy for strings declarated as char[STRLEN] */
 #define safecopy(dst, src) \
     (dst[STRLEN-1]='\0', strncpy((dst), (src), STRLEN-1))
 #define safeconcat(dst, src) \
@@ -402,7 +402,7 @@ extern char *sys_errlist[];
     do {unsigned char *p; for(p=(s); *p; p++) \
         if(!isalnum((int)*p)) *p='.';} while(0)
 
-/* Some definitions for IPv6 support */
+/* some definitions for IPv6 support */
 #if defined(USE_IPv6)
 #define addr_len(x) ((x).sa.sa_family==AF_INET ? \
     sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
@@ -410,7 +410,7 @@ extern char *sys_errlist[];
 #define addr_len(x) (sizeof(struct sockaddr_in))
 #endif
 
-/* Always use IPv4 defaults! */
+/* always use IPv4 defaults! */
 #define DEFAULT_LOOPBACK "127.0.0.1"
 #define DEFAULT_ANY "0.0.0.0"
 #if 0
@@ -431,4 +431,4 @@ extern char *sys_errlist[];
 
 #endif /* defined COMMON_H */
 
-/* End of common.h */
+/* end of common.h */

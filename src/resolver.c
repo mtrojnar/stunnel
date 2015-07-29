@@ -38,7 +38,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-/**************************************** Resolver functions */
+/**************************************** resolver functions */
 
 #ifndef HAVE_GETADDRINFO
 
@@ -134,7 +134,7 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
                 hostname, s_gai_strerror(err));
         if(res)
             freeaddrinfo(res);
-        return 0; /* Error */
+        return 0; /* error */
     }
     /* copy the list of addresses */
     cur=res;
@@ -335,7 +335,7 @@ static void freeaddrinfo(struct addrinfo *current) {
 
 #endif /* !defined HAVE_GETADDRINFO */
 
-/* Due to a problem with Mingw32 I decided to define my own gai_strerror() */
+/* due to a problem with Mingw32 I decided to define my own gai_strerror() */
 static const char *s_gai_strerror(int err) {
     switch(err) {
 #ifdef EAI_BADFLAGS
@@ -415,4 +415,4 @@ static int getnameinfo(const struct sockaddr *sa, int salen,
 }
 #endif
 
-/* End of resolver.c */
+/* end of resolver.c */

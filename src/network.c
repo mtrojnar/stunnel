@@ -347,8 +347,8 @@ static void signal_handler(int sig) { /* SIGCHLD detected */
 
 int signal_pipe_init(void) {
 #if defined(__INNOTEK_LIBC__)
-    /* Innotek port of GCC can not use select on a pipe */
-    /* use local socket instead */
+    /* Innotek port of GCC can not use select on a pipe
+     * use local socket instead */
     struct sockaddr_un un;
     fd_set set_pipe;
     int pipe_in;
@@ -361,7 +361,7 @@ int signal_pipe_init(void) {
     alloc_fd(signal_pipe[0]);
     alloc_fd(signal_pipe[1]);
 
-    /* Connect the two endpoints */
+    /* connect the two endpoints */
     memset(&un, 0, sizeof un);
 
     un.sun_len=sizeof un;
@@ -394,6 +394,7 @@ int signal_pipe_init(void) {
 #endif /* __INNOTEK_LIBC__ */
     signal(SIGCHLD, signal_handler);
     signal(SIGHUP, signal_handler);
+    signal(SIGUSR1, signal_handler);
     return signal_pipe[0];
 }
 
@@ -415,6 +416,10 @@ static void signal_pipe_empty(void) {
             parse_conf(NULL, CONF_RELOAD);
             log_open();
             bind_ports();
+            break;
+        case SIGUSR1:
+            log_close();
+            log_open();
             break;
         }
     }
@@ -487,7 +492,7 @@ int alloc_fd(int sock) {
     return 0;
 }
 
-/* Try to use non-POSIX O_NDELAY on obsolete BSD systems */
+/* try to use non-POSIX O_NDELAY on obsolete BSD systems */
 #if !defined O_NONBLOCK && defined O_NDELAY
 #define O_NONBLOCK O_NDELAY
 #endif
@@ -768,4 +773,4 @@ int fdscanf(CLI *c, int fd, const char *format, char *buffer) {
     return sscanf(line, lformat, buffer);
 }
 
-/* End of network.c */
+/* end of network.c */

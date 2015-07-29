@@ -204,4 +204,4 @@ LPSTR tstr2str(const LPTSTR in) {
 
 #endif /* USE_WIN32 */
 
-/* End of file.c */
+/* end of file.c */

@@ -28,19 +28,19 @@
 	</ul>
 
 	<li><a href="#return_value">RETURN VALUE</a></li>
+	<li><a href="#signals">SIGNALS</a></li>
 	<li><a href="#examples">EXAMPLES</a></li>
-	<li><a href="#files">FILES</a></li>
-	<li><a href="#bugs">BUGS</a></li>
-	<li><a href="#restrictions">RESTRICTIONS</a></li>
 	<li><a href="#notes">NOTES</a></li>
 	<ul>
 
+		<li><a href="#restrictions">RESTRICTIONS</a></li>
 		<li><a href="#inetd_mode">INETD MODE</a></li>
 		<li><a href="#certificates">CERTIFICATES</a></li>
 		<li><a href="#randomness">RANDOMNESS</a></li>
 	</ul>
 
-	<li><a href="#signals">SIGNALS</a></li>
+	<li><a href="#files">FILES</a></li>
+	<li><a href="#bugs">BUGS</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 </ul>
@@ -147,17 +147,17 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <h1><a name="configuration_file">CONFIGURATION FILE</a></h1>
 <p>Each line of the configuration file can be either:</p>
 <ul>
-<li>
-<p>an empty line (ignored)</p>
+<li><strong><a name="line" class="item">an empty line (ignored)</a></strong>
+
 </li>
-<li>
-<p>a comment starting with ';' (ignored)</p>
+<li><strong><a name="a_comment_starting_with_ignored" class="item">a comment starting with ';' (ignored)</a></strong>
+
 </li>
-<li>
-<p>an 'option_name = option_value' pair</p>
+<li><strong><a name="an_option_name_option_value_pair" class="item">an 'option_name = option_value' pair</a></strong>
+
 </li>
-<li>
-<p>'[service_name]' indicating a start of a service definition</p>
+<li><strong><a name="service_name_indicating_a_start_of_a_service_definition" class="item">'[service_name]' indicating a start of a service definition</a></strong>
+
 </li>
 </ul>
 <p>
@@ -281,12 +281,12 @@ number generator.</p>
 <dt><strong><a name="groupname" class="item"><strong>setgid</strong> = groupname (Unix only)</a></strong></dt>
 
 <dd>
-<p><code>setgid()</code> to groupname in daemon mode and clears all other groups</p>
+<p><a href="#setgid"><code>setgid()</code></a> to groupname in daemon mode and clears all other groups</p>
 </dd>
 <dt><strong><a name="username" class="item"><strong>setuid</strong> = username (Unix only)</a></strong></dt>
 
 <dd>
-<p><code>setuid()</code> to username in daemon mode</p>
+<p><a href="#setuid"><code>setuid()</code></a> to username in daemon mode</p>
 </dd>
 <dt><strong><a name="socket_a_l_r_option_value_value" class="item"><strong>socket</strong> = a|l|r:option=value[:value]</a></strong></dt>
 
@@ -406,6 +406,8 @@ be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.</p>
 
 <dd>
 <p>delay DNS lookup for 'connect' option</p>
+<p>This option is useful for dynamic DNS, or when DNS is not available during
+stunnel startup (road warrior VPN, dial-up configurations).</p>
 </dd>
 <dt><strong><a name="enginenum_engine_number" class="item"><strong>engineNum</strong> = engine number</a></strong></dt>
 
@@ -614,6 +616,56 @@ for webservers.  Level 3 is preferred for point-to-point connections.</p>
 <p>
 </p>
 <hr />
+<h1><a name="signals">SIGNALS</a></h1>
+<p>The following signals can be used to control stunnel in Unix environment:</p>
+<dl>
+<dt><strong><a name="sighup" class="item">SIGHUP</a></strong></dt>
+
+<dd>
+<p>Force a reload of the configuration file.</p>
+<p>Some global options will not be reloaded:</p>
+<ul>
+<li><strong><a name="chroot" class="item">chroot</a></strong>
+
+</li>
+<li><strong><a name="fips" class="item">fips</a></strong>
+
+</li>
+<li><strong><a name="foreground" class="item">foreground</a></strong>
+
+</li>
+<li><strong><a name="pid" class="item">pid</a></strong>
+
+</li>
+<li><strong><a name="setgid" class="item">setgid</a></strong>
+
+</li>
+<li><strong><a name="setuid" class="item">setuid</a></strong>
+
+</li>
+</ul>
+<p>The use of 'setuid' option will also prevent stunnel from binding privileged
+(&lt;1024) ports during configuration reloading.</p>
+<p>When 'chroot' option is used, stunnel will look for all its files (including
+configuration file, certificates, log file and pid file) within the chroot
+jail.</p>
+</dd>
+<dt><strong><a name="sigusr1" class="item">SIGUSR1</a></strong></dt>
+
+<dd>
+<p>Close and reopen stunnel log file.
+This function can be used for log rotation.</p>
+</dd>
+<dt><strong><a name="sigterm_sigquit_sigint" class="item">SIGTERM, SIGQUIT, SIGINT</a></strong></dt>
+
+<dd>
+<p>Shut stunnel down.</p>
+</dd>
+</dl>
+<p>The result of sending any other signals to the server is undefined.</p>
+<p>
+</p>
+<hr />
 <h1><a name="examples">EXAMPLES</a></h1>
 <p>In order to provide SSL encapsulation to your local <em>imapd</em> service, use</p>
 <pre>
@@ -652,35 +704,13 @@ OpenSC engine</p>
 <p>
 </p>
 <hr />
-<h1><a name="files">FILES</a></h1>
-<dl>
-<dt><strong><a name="stunnel_conf" class="item"><em class="file">stunnel.conf</em></a></strong></dt>
-
-<dd>
-<p><strong>stunnel</strong> configuration file</p>
-</dd>
-<dt><strong><a name="stunnel_pem" class="item"><em class="file">stunnel.pem</em></a></strong></dt>
-
-<dd>
-<p><strong>stunnel</strong> certificate and private key</p>
-</dd>
-</dl>
+<h1><a name="notes">NOTES</a></h1>
 <p>
 </p>
-<hr />
-<h1><a name="bugs">BUGS</a></h1>
-<p>Option <em>execargs</em> does not support quoting.</p>
-<p>
-</p>
-<hr />
-<h1><a name="restrictions">RESTRICTIONS</a></h1>
+<h2><a name="restrictions">RESTRICTIONS</a></h2>
 <p><strong>stunnel</strong> cannot be used for the FTP daemon because of the nature
 of the FTP protocol which utilizes multiple ports for data transfers.
 There are available SSL enabled versions of FTP and telnet daemons, however.</p>
-<p>
-</p>
-<hr />
-<h1><a name="notes">NOTES</a></h1>
 <p>
 </p>
 <h2><a name="inetd_mode">INETD MODE</a></h2>
@@ -731,29 +761,29 @@ should be discarded. So the file should look like this:</p>
 order for SSL to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:</p>
 <ul>
-<li>
-<p>The file specified with the <em>RNDfile</em> flag.</p>
+<li><strong><a name="the_file_specified_with_the_rndfile_flag" class="item">The file specified with the <em>RNDfile</em> flag.</a></strong>
+
 </li>
-<li>
-<p>The file specified by the RANDFILE environment variable, if set.</p>
+<li><strong><a name="the_file_specified_by_the_randfile_environment_variable_if_set" class="item">The file specified by the RANDFILE environment variable, if set.</a></strong>
+
 </li>
-<li>
-<p>The file .rnd in your home directory, if RANDFILE not set.</p>
+<li><strong><a name="the_file_rnd_in_your_home_directory_if_randfile_not_set" class="item">The file .rnd in your home directory, if RANDFILE not set.</a></strong>
+
 </li>
-<li>
-<p>The file specified with '--with-random' at compile time.</p>
+<li><strong><a name="the_file_specified_with_with_random_at_compile_time" class="item">The file specified with '--with-random' at compile time.</a></strong>
+
 </li>
-<li>
-<p>The contents of the screen if running on Windows.</p>
+<li><strong><a name="the_contents_of_the_screen_if_running_on_windows" class="item">The contents of the screen if running on Windows.</a></strong>
+
 </li>
-<li>
-<p>The egd socket specified with the <em>EGD</em> flag.</p>
+<li><strong><a name="the_egd_socket_specified_with_the_egd_flag" class="item">The egd socket specified with the <em>EGD</em> flag.</a></strong>
+
 </li>
-<li>
-<p>The egd socket specified with '--with-egd-sock' at compile time.</p>
+<li><strong><a name="the_egd_socket_specified_with_with_egd_sock_at_compile_time" class="item">The egd socket specified with '--with-egd-sock' at compile time.</a></strong>
+
 </li>
-<li>
-<p>The /dev/urandom device.</p>
+<li><strong><a name="the_dev_urandom_device" class="item">The /dev/urandom device.</a></strong>
+
 </li>
 </ul>
 <p>With recent (&gt;=OpenSSL 0.9.5a) version of SSL it will stop loading
@@ -778,21 +808,24 @@ OpenSSLs.</p>
 <p>
 </p>
 <hr />
-<h1><a name="signals">SIGNALS</a></h1>
-<p>The following signals can be used to control stunnel in Unix environment:</p>
+<h1><a name="files">FILES</a></h1>
 <dl>
-<dt><strong><a name="sighup" class="item">SIGHUP</a></strong></dt>
+<dt><strong><a name="stunnel_conf" class="item"><em class="file">stunnel.conf</em></a></strong></dt>
 
 <dd>
-<p>Force a reload of the configuration file.</p>
+<p><strong>stunnel</strong> configuration file</p>
 </dd>
-<dt><strong><a name="sigterm_sigquit_sigint" class="item">SIGTERM, SIGQUIT, SIGINT</a></strong></dt>
+<dt><strong><a name="stunnel_pem" class="item"><em class="file">stunnel.pem</em></a></strong></dt>
 
 <dd>
-<p>Shut stunnel down.</p>
+<p><strong>stunnel</strong> certificate and private key</p>
 </dd>
 </dl>
-<p>The result of sending any other signals to the server is undefined.</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>Option <em>execargs</em> does not support quoting.</p>
 <p>
 </p>
 <hr />

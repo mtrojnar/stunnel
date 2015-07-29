@@ -46,7 +46,7 @@
 #include <sys/ioctl.h>
 #endif /* HAVE_SYS_IOCTL_H */
 
-/* Pty allocated with _getpty gets broken if we do I_PUSH:es to it. */
+/* pty allocated with _getpty gets broken if we do I_PUSH:es to it. */
 #if defined(HAVE__GETPTY) || defined(HAVE_OPENPTY)
 #undef HAVE_DEV_PTMX
 #endif /* HAVE__GETPTY || HAVE_OPENPTY */
@@ -64,10 +64,12 @@
 #endif /* O_NOCTTY */
 
 /*
- * Allocates and opens a pty.  Returns -1 if no pty could be allocated, or
- * zero if a pty was successfully allocated.  On success, open file
- * descriptors for the pty and tty sides and the name of the tty side are
- * returned (the buffer must be able to hold at least 64 characters).
+ * allocates and opens a pty
+ * returns -1 if no pty could be allocated, or zero if a pty was successfully
+ * allocated
+ * on success, open file descriptors for the pty and tty sides and the name of
+ * the tty side are returned
+ * the buffer must be able to hold at least 64 characters
  */
 
 int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
@@ -97,7 +99,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
         return -1;
     }
     safecopy(namebuf, slave);
-    /* Open the slave side. */
+    /* open the slave side */
     *ttyfd=open(namebuf, O_RDWR|O_NOCTTY);
     if(*ttyfd<0) {
         ioerror(namebuf);
@@ -108,11 +110,11 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
 #else /* HAVE__GETPTY */
 #if defined(HAVE_DEV_PTMX)
     /*
-     * This code is used e.g. on Solaris 2.x.  (Note that Solaris 2.3
-     * also has bsd-style ptys, but they simply do not work.)
+     * this code is used e.g. on Solaris 2.x
+     * note that Solaris 2.3 * also has bsd-style ptys, but they simply do not
+     * work
      */
-    int ptm;
-    char *pts;
+    int ptm; char *pts;
 
     ptm=open("/dev/ptmx", O_RDWR|O_NOCTTY);
     if(ptm<0) {
@@ -122,7 +124,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     if(grantpt(ptm)<0) {
         ioerror("grantpt");
         /* return -1; */
-        /* Can you tell me why it doesn't work? */
+        /* can you tell me why it doesn't work? */
     }
     if(unlockpt(ptm)<0) {
         ioerror("unlockpt");
@@ -134,14 +136,14 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     safecopy(namebuf, pts);
     *ptyfd=ptm;
 
-    /* Open the slave side. */
+    /* open the slave side */
     *ttyfd=open(namebuf, O_RDWR|O_NOCTTY);
     if(*ttyfd<0) {
         ioerror(namebuf);
         close(*ptyfd);
         return -1;
     }
-    /* Push the appropriate streams modules, as described in Solaris pts(7). */
+    /* push the appropriate streams modules, as described in Solaris pts(7) */
     if(ioctl(*ttyfd, I_PUSH, "ptem")<0)
         ioerror("ioctl I_PUSH ptem");
     if(ioctl(*ttyfd, I_PUSH, "ldterm")<0)
@@ -200,7 +202,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
             "/dev/tty%c%c",
             ptymajors[i/num_minors], ptyminors[i%num_minors]);
 
-        /* Open the slave side. */
+        /* open the slave side */
         *ttyfd=open(namebuf, O_RDWR | O_NOCTTY);
         if(*ttyfd<0) {
             ioerror(namebuf);
@@ -216,70 +218,4 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
 #endif /* HAVE_OPENPTY */
 }
 
-/* The code below is currently not used */
-#if 0
-
-/* Releases the tty.  Its ownership is returned to root, and permissions to 0666. */
-
-void pty_release(char *tty_name) {
-    if(chown(tty_name, (uid_t)0, (gid_t)0)<0)
-        s_log(LOG_DEBUG, "chown %.100s 0 0 failed: %.100s", tty_name,
-            strerror(get_last_socket_error()));
-    if(chmod(tty_name, (mode_t)0666)<0)
-        s_log(LOG_DEBUG, "chmod %.100s 0666 failed: %.100s", tty_name,
-            strerror(get_last_socket_error()));
-}
-
-/* Makes the tty the processes controlling tty and sets it to sane modes. */
-
-void pty_make_controlling_tty(int *ttyfd, char *tty_name) {
-    int fd;
-
-    /* First disconnect from the old controlling tty. */
-#ifdef TIOCNOTTY
-    fd=open("/dev/tty", O_RDWR | O_NOCTTY);
-    if(fd>=0) {
-        (void) ioctl(fd, TIOCNOTTY, NULL);
-        close(fd);
-    }
-#endif /* TIOCNOTTY */
-    if(setsid()<0)
-        ioerror("setsid");
-
-    /*
-     * Verify that we are successfully disconnected from the controlling
-     * tty.
-     */
-    fd=open("/dev/tty", O_RDWR | O_NOCTTY);
-    if(fd>=0) {
-        s_log(LOG_ERR, "Failed to disconnect from controlling tty");
-        close(fd);
-    }
-    /* Make it our controlling tty. */
-#ifdef TIOCSCTTY
-    s_log(LOG_DEBUG, "Setting controlling tty using TIOCSCTTY");
-    /*
-     * We ignore errors from this, because HPSUX defines TIOCSCTTY, but
-     * returns EINVAL with these arguments, and there is absolutely no
-     * documentation.
-     */
-    ioctl(*ttyfd, TIOCSCTTY, NULL);
-#endif /* TIOCSCTTY */
-    fd=open(tty_name, O_RDWR);
-    if(fd<0)
-        ioerror(tty_name);
-    else
-        close(fd);
-
-    /* Verify that we now have a controlling tty. */
-    fd=open("/dev/tty", O_WRONLY);
-    if(fd<0)
-        ioerror("open /dev/tty failed - could not set controlling tty");
-    else {
-        close(fd);
-    }
-}
-
-#endif
-
-/* End of pty.c */
+/* end of pty.c */

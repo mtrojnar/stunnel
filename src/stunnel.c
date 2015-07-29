@@ -90,7 +90,7 @@ void main_initialize(char *arg1, char *arg2) {
     parse_commandline(arg1, arg2);
 
 #ifdef USE_FIPS
-    if(options.option.fips) {
+    if(global_options.option.fips) {
         if(!FIPS_mode_set(1)) {
             ERR_load_crypto_strings();
             sslerror("FIPS_mode_set");
@@ -104,9 +104,9 @@ void main_initialize(char *arg1, char *arg2) {
     max_fds=FD_SETSIZE; /* start with select() limit */
     get_limits();
 #ifdef USE_LIBWRAP
-    /* spawn LIBWRAP_CLIENTS processes unless inetd mode is configured */
-    /* execute after parse_commandline() to know service_options.next, */
-    /* but as early as possible to avoid leaking file descriptors */
+    /* spawn LIBWRAP_CLIENTS processes unless inetd mode is configured
+     * execute after parse_commandline() to know service_options.next,
+     * but as early as possible to avoid leaking file descriptors */
     libwrap_init(service_options.next ? LIBWRAP_CLIENTS : 0);
 #endif /* USE_LIBWRAP */
 
@@ -117,19 +117,33 @@ void main_initialize(char *arg1, char *arg2) {
         die(1);
 
 #ifdef HAVE_CHROOT
+    /* change_root() must be called before drop_privileges()
+     * since chroot() needs root privileges */
     change_root();
 #endif /* HAVE_CHROOT */
 
 #if !defined(USE_WIN32) && !defined(__vms) && !defined(USE_OS2)
     drop_privileges();
+#endif /* standard Unix */
+
+    /* log_open() must be be called after drop_privileges()
+     * or logfile rotation won't be possible */
+    /* log_open() must be be called before daemonize()
+     * since daemonize() invalidates stderr */
+    log_open();
+
+#if !defined(USE_WIN32) && !defined(__vms) && !defined(USE_OS2)
     if(service_options.next) { /* there are service sections -> daemon mode */
-        create_pid();
         if(!(global_options.option.foreground))
             daemonize();
+        /* create_pid() must be called after drop_privileges()
+         * or it won't be possible to remove the file on exit */
+        /* create_pid() must be called after daemonize()
+         * since the final pid is not known beforehand */
+        create_pid();
     }
 #endif /* standard Unix */
 
-    log_open();
     stunnel_info();
 }
 
@@ -324,7 +338,7 @@ void drop_privileges(void) {
     gid_t gr_list[1];
 #endif
 
-    /* Set uid and gid */
+    /* set uid and gid */
     if(global_options.gid) {
         if(setgid(global_options.gid)) {
             sockerror("setgid");
@@ -347,8 +361,13 @@ void drop_privileges(void) {
 }
 
 static void daemonize(void) { /* go to background */
+    close(0);
+    close(1);
+    close(2);
 #if defined(HAVE_DAEMON) && !defined(__BEOS__)
-    if(daemon(0, 0)==-1) {
+    /* set noclose option when calling daemon() function,
+     * so it does not require /dev/null device in the chrooted directory */
+    if(daemon(0, 1)==-1) {
         ioerror("daemon");
         die(1);
     }
@@ -363,12 +382,9 @@ static void daemonize(void) { /* go to background */
     default:    /* parent */
         die(0);
     }
-    close(0);
-    close(1);
-    close(2);
 #endif
 #ifdef HAVE_SETSID
-    setsid(); /* Ignore the error */
+    setsid(); /* ignore the error */
 #endif
 }
 
@@ -381,10 +397,8 @@ static void create_pid(void) {
         return;
     }
     if(global_options.pidfile[0]!='/') {
+        /* to prevent creating pid file relative to '/' after daemonize() */
         s_log(LOG_ERR, "Pid file (%s) must be full path name", global_options.pidfile);
-        /* Why?  Because we don't want to confuse by
-           allowing '.', which would be '/' after
-           daemonizing) */
         die(1);
     }
     global_options.dpid=(unsigned long)getpid();
@@ -484,4 +498,4 @@ void die(int status) { /* some cleanup and exit */
 #endif
 }
 
-/* End of stunnel.c */
+/* end of stunnel.c */

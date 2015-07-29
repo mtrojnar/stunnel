@@ -1,5 +1,11 @@
 stunnel         Universal SSL tunnel
 
+Version 4.31, 2010.02.03, urgency: MEDIUM:
+* New features
+  - Log file reopen on USR1 signal was added.
+* Bugfixes
+  - Some regression issues introduced in 4.30 were fixed.
+
 Version 4.30, 2010.01.21, urgency: LOW/EXPERIMENTAL:
 * New features
   - Graceful configuration reload with HUP signal on Unix

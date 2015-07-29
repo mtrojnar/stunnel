@@ -29,19 +29,19 @@
 	</ul>
 
 	<li><a href="#zwracana_warto__">ZWRACANA WARTO¦Æ</a></li>
+	<li><a href="#signa_y">SIGNA£Y</a></li>
 	<li><a href="#przyk_ady">PRZYK£ADY</a></li>
-	<li><a href="#pliki">PLIKI</a></li>
-	<li><a href="#b__dy">B£ÊDY</a></li>
-	<li><a href="#ograniczenia">OGRANICZENIA</a></li>
 	<li><a href="#notki">NOTKI</a></li>
 	<ul>
 
+		<li><a href="#ograniczenia">OGRANICZENIA</a></li>
 		<li><a href="#tryb_inetd__tylko_unix_">TRYB INETD (tylko Unix)</a></li>
 		<li><a href="#certyfikaty">CERTYFIKATY</a></li>
 		<li><a href="#losowo__">LOSOWO¦Æ</a></li>
 	</ul>
 
-	<li><a href="#signa_y">SIGNA£Y</a></li>
+	<li><a href="#pliki">PLIKI</a></li>
+	<li><a href="#b__dy">B£ÊDY</a></li>
 	<li><a href="#zobacz_r_wnie_">ZOBACZ RÓWNIE¯</a></li>
 	<li><a href="#autor">AUTOR</a></li>
 </ul>
@@ -149,17 +149,17 @@ odinstalowaniu</p>
 <h1><a name="plik_konfiguracyjny">PLIK KONFIGURACYJNY</a></h1>
 <p>Linia w pliku konfiguracyjnym mo¿e byæ:</p>
 <ul>
-<li>
-<p>pusta (ignorowana)</p>
+<li><strong><a name="pusta" class="item">pusta (ignorowana)</a></strong>
+
 </li>
-<li>
-<p>komentarzem rozpoczynaj±cym siê znakiem ';' (ignorowana)</p>
+<li><strong><a name="komentarzem_rozpoczynaj_cym_si_znakiem_ignorowana" class="item">komentarzem rozpoczynaj±cym siê znakiem ';' (ignorowana)</a></strong>
+
 </li>
-<li>
-<p>par± 'nazwa_opcji = warto¶æ_opcji'</p>
+<li><strong><a name="par_nazwa_opcji_warto_opcji" class="item">par± 'nazwa_opcji = warto¶æ_opcji'</a></strong>
+
 </li>
-<li>
-<p>tekstem '[nazwa_us³ugi]' wskazuj±cym pocz±tek definicji us³ugi</p>
+<li><strong><a name="tekstem_nazwa_us_ugi_wskazuj_cym_pocz_tek_definicji_us_ugi" class="item">tekstem '[nazwa_us³ugi]' wskazuj±cym pocz±tek definicji us³ugi</a></strong>
+
 </li>
 </ul>
 <p>
@@ -428,6 +428,8 @@ przez opcjê <em>verify</em>.</p>
 
 <dd>
 <p>opó¼nij rozwiniêcie adresu DNS podanego w opcji <em>connect</em></p>
+<p>Opcja jest przydatna przy dynamicznym DNS, albo gdy us³uga DNS nie jest
+dostêpna przy starcie programu stunnel (klient VPN, po³±czenie wdzwaniane).</p>
 </dd>
 <dt><strong><a name="enginenum_numer_urz_dzenia" class="item"><strong>engineNum</strong> = &lt;numer urz±dzenia&gt;</a></strong></dt>
 
@@ -640,6 +642,56 @@ w przypadku b³êdu.</p>
 <p>
 </p>
 <hr />
+<h1><a name="signa_y">SIGNA£Y</a></h1>
+<p>Nastêpuj±ce sygna³y mog± byæ u¿yte do sterowania programem w systemie Unix:</p>
+<dl>
+<dt><strong><a name="sighup" class="item">SIGHUP</a></strong></dt>
+
+<dd>
+<p>Za³aduj ponownie plik konfiguracyjny.</p>
+<p>Niektóre globalne opcje nie bêd± prze³adowane:</p>
+<ul>
+<li><strong><a name="chroot" class="item">chroot</a></strong>
+
+</li>
+<li><strong><a name="fips" class="item">fips</a></strong>
+
+</li>
+<li><strong><a name="foreground" class="item">foreground</a></strong>
+
+</li>
+<li><strong><a name="pid" class="item">pid</a></strong>
+
+</li>
+<li><strong><a name="setgid" class="item">setgid</a></strong>
+
+</li>
+<li><strong><a name="setuid" class="item">setuid</a></strong>
+
+</li>
+</ul>
+<p>Je¿eli wykorzystywana jest opcja 'setuid' stunnel nie bêdzie móg³ za³adowaæ
+ponownie konfiguracji wykorzystuj±cej uprzywilejowane (&lt;1024) porty.</p>
+<p>Je¿eli wykorzystywana jest opcja 'chroot' stunnel bêdzie szuka³ wszystkich
+potrzebnych plików (³±cznie z plikiem konfiguracyjnym, certyfikatami, logiem i
+plikiem pid) wewn±trz katalogu wskazanego przez 'chroot'.</p>
+</dd>
+<dt><strong><a name="sigusr1" class="item">SIGUSR1</a></strong></dt>
+
+<dd>
+<p>Zamknij i otwórz ponownie log.
+Funkcja ta mo¿e zostaæ u¿yta w skrypcie rotuj±cym log programu stunnel.</p>
+</dd>
+<dt><strong><a name="sigterm_sigquit_sigint" class="item">SIGTERM, SIGQUIT, SIGINT</a></strong></dt>
+
+<dd>
+<p>Zakoñcz dzia³anie programu.</p>
+</dd>
+</dl>
+<p>Skutek wys³ania innych sygna³ów jest niezdefiniowany.</p>
+<p>
+</p>
+<hr />
 <h1><a name="przyk_ady">PRZYK£ADY</a></h1>
 <p>Szyfrowanie po³±czeñ do lokalnego serwera <em>imapd</em> mo¿na u¿yæ:</p>
 <pre>
@@ -684,37 +736,15 @@ urz±dzenia zgodnego z OpenSC</p>
 <p>
 </p>
 <hr />
-<h1><a name="pliki">PLIKI</a></h1>
-<dl>
-<dt><strong><a name="stunnel_conf" class="item"><em class="file">stunnel.conf</em></a></strong></dt>
-
-<dd>
-<p>plik konfiguracyjny programu</p>
-</dd>
-<dt><strong><a name="stunnel_pem" class="item"><em class="file">stunnel.pem</em></a></strong></dt>
-
-<dd>
-<p>certyfikat i klucz prywatny</p>
-</dd>
-</dl>
+<h1><a name="notki">NOTKI</a></h1>
 <p>
 </p>
-<hr />
-<h1><a name="b__dy">B£ÊDY</a></h1>
-<p>Opcja <em>execargs</em> nie obs³uguje cytowania.</p>
-<p>
-</p>
-<hr />
-<h1><a name="ograniczenia">OGRANICZENIA</a></h1>
+<h2><a name="ograniczenia">OGRANICZENIA</a></h2>
 <p><em>stunnel</em> nie mo¿e byæ u¿ywany do szyfrowania protoko³u <em>FTP</em>,
 poniewa¿ do przesy³ania poszczególnych plików u¿ywa on dodatkowych
 po³±czeñ otwieranych na portach o dynamicznie przydzielanych numerach.
 Istniej± jednak specjalne wersje klientów i serwerów FTP pozwalaj±ce
 na szyfrowanie przesy³anych danych przy pomocy protoko³u <em>SSL</em>.</p>
-<p>
-</p>
-<hr />
-<h1><a name="notki">NOTKI</a></h1>
 <p>
 </p>
 <h2><a name="tryb_inetd__tylko_unix_">TRYB INETD (tylko Unix)</a></h2>
@@ -770,31 +800,32 @@ gdy¿ protokó³ SSL wymaga do bezpieczeñstwa kryptograficznego ¼ród³a
 dobrej losowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
 uzyskania  wystarczaj±cej ilo¶ci entropii:</p>
 <ul>
-<li>
-<p>Zawarto¶æ pliku podanego w opcji <em>RNDfile</em>.</p>
+<li><strong><a name="zawarto_pliku_podanego_w_opcji_rndfile" class="item">Zawarto¶æ pliku podanego w opcji <em>RNDfile</em>.</a></strong>
+
 </li>
-<li>
-<p>Zawarto¶æ pliku o nazwie okre¶lonej przez zmienn± ¶rodowiskow±
-RANDFILE, o ile jest ona ustawiona.</p>
+<li><strong><a name="zawarto_pliku_o_nazwie_okre_lonej_przez_zmienn_rodowiskow_randfile_o_ile_jest_ona_ustawiona" class="item">Zawarto¶æ pliku o nazwie okre¶lonej przez zmienn± ¶rodowiskow±
+RANDFILE, o ile jest ona ustawiona.</a></strong>
+
 </li>
-<li>
-<p>Plik .rnd umieszczony w katalogu domowym u¿ytkownika,
-je¿eli zmienna RANDFILE nie jest ustawiona.</p>
+<li><strong><a name="plik_rnd_umieszczony_w_katalogu_domowym_u_ytkownika_je_eli_zmienna_randfile_nie_jest_ustawiona" class="item">Plik .rnd umieszczony w katalogu domowym u¿ytkownika,
+je¿eli zmienna RANDFILE nie jest ustawiona.</a></strong>
+
 </li>
-<li>
-<p>Plik podany w opcji '--with-random' w czasie konfiguracji programu.</p>
+<li><strong><a name="plik_podany_w_opcji_with_random_w_czasie_konfiguracji_programu" class="item">Plik podany w opcji '--with-random' w czasie konfiguracji programu.</a></strong>
+
 </li>
-<li>
-<p>Zawarto¶æ ekranu w systemie Windows.</p>
+<li><strong><a name="zawarto_ekranu_w_systemie_windows" class="item">Zawarto¶æ ekranu w systemie Windows.</a></strong>
+
 </li>
-<li>
-<p>Gniazdo egd, je¿eli u¿yta zosta³a opcja <em>EGD</em>.</p>
+<li><strong><a name="gniazdo_egd_je_eli_u_yta_zosta_a_opcja_egd" class="item">Gniazdo egd, je¿eli u¿yta zosta³a opcja <em>EGD</em>.</a></strong>
+
 </li>
-<li>
-<p>Gniazdo egd podane w opcji '--with-egd-socket' w czasie konfiguracji programu.</p>
+<li><strong><a name="gniazdo_egd_podane_w_opcji_with_egd_socket_w_czasie_konfiguracji_programu" class="item">Gniazdo egd podane w opcji '--with-egd-socket' w czasie konfiguracji
+programu.</a></strong>
+
 </li>
-<li>
-<p>Urz±dzenie /dev/urandom.</p>
+<li><strong><a name="urz_dzenie_dev_urandom" class="item">Urz±dzenie /dev/urandom.</a></strong>
+
 </li>
 </ul>
 <p>Wspó³czesne (&gt;=0.9.5a) wersje biblioteki <em>OpenSSL</em> automatycznie
@@ -821,21 +852,24 @@ powy¿szej listy.  Jest to w³a¶ciwo¶æ biblioteki <em>OpenSSL</em>, a nie programu
 <p>
 </p>
 <hr />
-<h1><a name="signa_y">SIGNA£Y</a></h1>
-<p>Nastêpuj±ce sygna³y mog± byæ u¿yte do sterowania programem w systemie Unix:</p>
+<h1><a name="pliki">PLIKI</a></h1>
 <dl>
-<dt><strong><a name="sighup" class="item">SIGHUP</a></strong></dt>
+<dt><strong><a name="stunnel_conf" class="item"><em class="file">stunnel.conf</em></a></strong></dt>
 
 <dd>
-<p>Za³aduj ponownie plik konfiguracyjny.</p>
+<p>plik konfiguracyjny programu</p>
 </dd>
-<dt><strong><a name="sigterm_sigquit_sigint" class="item">SIGTERM, SIGQUIT, SIGINT</a></strong></dt>
+<dt><strong><a name="stunnel_pem" class="item"><em class="file">stunnel.pem</em></a></strong></dt>
 
 <dd>
-<p>Zakoñcz dzia³anie programu.</p>
+<p>certyfikat i klucz prywatny</p>
 </dd>
 </dl>
-<p>Skutek wys³ania innych sygna³ów jest niezdefiniowany.</p>
+<p>
+</p>
+<hr />
+<h1><a name="b__dy">B£ÊDY</a></h1>
+<p>Opcja <em>execargs</em> nie obs³uguje cytowania.</p>
 <p>
 </p>
 <hr />

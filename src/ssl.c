@@ -38,7 +38,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-    /* Global OpenSSL initalization: compression, engine, entropy */
+    /* global OpenSSL initalization: compression, engine, entropy */
 static int init_compression(void);
 static int init_prng(void);
 static int prng_seeded(int);
@@ -112,7 +112,7 @@ static int init_prng(void) {
 
     filename[0]='\0';
 
-    /* If they specify a rand file on the command line we
+    /* if they specify a rand file on the command line we
        assume that they really do want it, so try it first */
     if(global_options.rand_file) {
         totbytes+=add_rand_file(global_options.rand_file);
@@ -171,12 +171,12 @@ static int init_prng(void) {
 #endif /* OpenSSL-0.9.5a */
 #endif /* USE_WIN32 */
 
-    /* Try the good-old default /dev/urandom, if available  */
+    /* try the good-old default /dev/urandom, if available  */
     totbytes+=add_rand_file("/dev/urandom");
     if(prng_seeded(totbytes))
         return 1;
 
-    /* Random file specified during configure */
+    /* random file specified during configure */
     s_log(LOG_ERR, "PRNG seeded with %d bytes total", totbytes);
     s_log(LOG_ERR, "PRNG was not seeded with enough random bytes");
     return 0; /* FAILED */
@@ -212,7 +212,7 @@ static int add_rand_file(char *filename) {
     else
         s_log(LOG_INFO, "Unable to retrieve any random data from %s",
             filename);
-    /* Write new random data for future seeding if it's a regular file */
+    /* write new random data for future seeding if it's a regular file */
     if(global_options.option.rand_write && (sb.st_mode & S_IFREG)){
         writebytes=RAND_write_file(filename);
         if(writebytes==-1)
@@ -306,4 +306,4 @@ ENGINE *get_engine(int i) {
 
 #endif /* HAVE_OSSL_ENGINE_H */
 
-/* End of ssl.c */
+/* end of ssl.c */

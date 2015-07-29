@@ -35,7 +35,7 @@
  *   forward this exception.
  */
 
-/* Undefine if you have problems with make_sockets() */
+/* undefine if you have problems with make_sockets() */
 #define INET_SOCKET_PAIR
 
 #include "common.h"
@@ -78,7 +78,7 @@ static void reset(int, char *);
 int max_clients;
 int max_fds;
 
-/* Allocate local data structure for the new thread */
+/* allocate local data structure for the new thread */
 CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
     CLI *c;
 
@@ -151,26 +151,26 @@ static void run_client(CLI *c) {
         "Connection %s: %d bytes sent to SSL, %d bytes sent to socket",
          error==1 ? "reset" : "closed", c->ssl_bytes, c->sock_bytes);
 
-        /* Cleanup IDENT socket */
+        /* cleanup IDENT socket */
     if(c->fd>=0)
         closesocket(c->fd);
 
-        /* Cleanup SSL */
+        /* cleanup SSL */
     if(c->ssl) { /* SSL initialized */
         SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         SSL_free(c->ssl);
         ERR_remove_state(0);
     }
 
-        /* Cleanup remote socket */
-    if(c->remote_fd.fd>=0) { /* Remote socket initialized */
+        /* cleanup remote socket */
+    if(c->remote_fd.fd>=0) { /* remote socket initialized */
         if(error==1 && c->remote_fd.is_socket)
             reset(c->remote_fd.fd, "linger (remote)");
         closesocket(c->remote_fd.fd);
     }
 
-        /* Cleanup local socket */
-    if(c->local_rfd.fd>=0) { /* Local socket initialized */
+        /* cleanup local socket */
+    if(c->local_rfd.fd>=0) { /* local socket initialized */
         if(c->local_rfd.fd==c->local_wfd.fd) {
             if(error==1 && c->local_rfd.is_socket)
                 reset(c->local_rfd.fd, "linger (local)");
@@ -196,7 +196,7 @@ static void run_client(CLI *c) {
 static void do_client(CLI *c) {
     init_local(c);
     if(!c->opt->option.client && !c->opt->protocol) {
-        /* Server mode and no protocol negotiation needed */
+        /* server mode and no protocol negotiation needed */
         init_ssl(c);
         init_remote(c);
     } else {
@@ -224,7 +224,7 @@ static void init_local(CLI *c) {
             sockerror("getpeerbyname");
             longjmp(c->err, 1);
         }
-        /* Ignore ENOTSOCK error so 'local' doesn't have to be a socket */
+        /* ignore ENOTSOCK error so 'local' doesn't have to be a socket */
     } else { /* success */
         /* copy addr to c->peer_addr */
         memcpy(&c->peer_addr.addr[0], &addr, sizeof addr);
@@ -232,7 +232,7 @@ static void init_local(CLI *c) {
         s_ntop(c->accepted_address, &c->peer_addr.addr[0]);
         c->local_rfd.is_socket=1;
         c->local_wfd.is_socket=1; /* TODO: It's not always true */
-        /* It's a socket: lets setup options */
+        /* it's a socket: lets setup options */
         if(set_socket_options(c->local_rfd.fd, 1)<0)
             longjmp(c->err, 1);
 #ifdef USE_LIBWRAP
@@ -261,7 +261,7 @@ static void init_remote(CLI *c) {
         c->remote_fd.fd=connect_remote(c);
     } else /* NOT in remote mode */
         c->remote_fd.fd=connect_local(c);
-    c->remote_fd.is_socket=1; /* Always! */
+    c->remote_fd.is_socket=1; /* always! */
     if(max_fds && c->remote_fd.fd>=max_fds) {
         s_log(LOG_ERR, "Remote file descriptor out of range (%d>=%d)",
             c->remote_fd.fd, max_fds);
@@ -297,14 +297,14 @@ static void init_ssl(CLI *c) {
         if(c->local_rfd.fd==c->local_wfd.fd)
             SSL_set_fd(c->ssl, c->local_rfd.fd);
         else {
-           /* Does it make sence to have SSL on STDIN/STDOUT? */
+           /* does it make sence to have SSL on STDIN/STDOUT? */
             SSL_set_rfd(c->ssl, c->local_rfd.fd);
             SSL_set_wfd(c->ssl, c->local_wfd.fd);
         }
         SSL_set_accept_state(c->ssl);
     }
 
-    /* Setup some values for transfer() function */
+    /* setup some values for transfer() function */
     if(c->opt->option.client) {
         c->sock_rfd=&(c->local_rfd);
         c->sock_wfd=&(c->local_wfd);
@@ -834,7 +834,7 @@ static int connect_local(CLI *c) { /* spawn local process */
         putenv(env[0]);
         if(c->opt->option.transparent) {
             putenv("LD_PRELOAD=" LIBDIR "/libstunnel.so");
-            /* For Tru64 _RLD_LIST is used instead */
+            /* for Tru64 _RLD_LIST is used instead */
             putenv("_RLD_LIST=" LIBDIR "/libstunnel.so:DEFAULT");
         }
         if(c->ssl) {
@@ -1028,7 +1028,7 @@ static void print_bound_address(CLI *c) {
 }
 
 static void reset(int fd, char *txt) {
-    /* Set lingering on a socket if needed*/
+    /* set lingering on a socket if needed*/
     struct linger l;
 
     l.l_onoff=1;
@@ -1037,4 +1037,4 @@ static void reset(int fd, char *txt) {
         log_error(LOG_DEBUG, get_last_socket_error(), txt);
 }
 
-/* End of client.c */
+/* end of client.c */

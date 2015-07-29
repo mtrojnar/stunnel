@@ -65,4 +65,4 @@ int getpeername(int s, struct sockaddr_in *name, int *len) {
     return 0;
 }
 
-/* End of env.c */
+/* end of env.c */

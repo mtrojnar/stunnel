@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void win_log(LPSTR line) { /* Also used in log.c */
+void win_log(LPSTR line) { /* also used in log.c */
     LPTSTR tstr;
 
     tstr=str2tstr(line);
@@ -70,4 +70,4 @@ int pin_cb(UI *ui, UI_STRING *uis) {
 }
 #endif
 
-/* End of nogui.c */
+/* end of nogui.c */

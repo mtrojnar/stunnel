@@ -57,7 +57,7 @@ static void log_time(const int, const char *, ASN1_TIME *);
 
 int verify_init(SERVICE_OPTIONS *section) {
     if(section->verify_level<0)
-        return 1; /* No certificate verification */
+        return 1; /* no certificate verification */
 
     if(section->verify_level>1 && !section->ca_file && !section->ca_dir) {
         s_log(LOG_ERR,
@@ -476,4 +476,4 @@ static void log_time(const int level, const char *txt, ASN1_TIME *t) {
     free(cp);
 }
 
-/* End of verify.c */
+/* end of verify.c */

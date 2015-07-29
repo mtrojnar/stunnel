@@ -40,10 +40,10 @@
 
 #ifndef NO_RSA
 
-/* Cache temporary keys up to 2048 bits */
+/* cache temporary keys up to 2048 bits */
 #define KEY_CACHE_LENGTH 2049
 
-/* Cache temporary keys up to 1 hour */
+/* cache temporary keys up to 1 hour */
 #define KEY_CACHE_TIME 3600
 
 #endif /* NO_RSA */
@@ -107,7 +107,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     /* create SSL context */
     if(section->option.client)
         section->ctx=SSL_CTX_new(section->client_method);
-    else /* Server mode */
+    else /* server mode */
         section->ctx=SSL_CTX_new(section->server_method);
     SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
     if(!section->option.client) { /* RSA/DH callbacks */
@@ -636,4 +636,4 @@ static void sslerror_stack(void) { /* recursive dump of the error stack */
     s_log(LOG_ERR, "error stack: %lX : %s", err, string);
 }
 
-/* End of ctx.c */
+/* end of ctx.c */
