@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -46,7 +46,10 @@
 
     /* Global SSL initalization */
 static void init_compression(void);
+
+#if (SSLEAY_VERSION_NUMBER >= 0x00907000L) && defined(HAVE_OSSL_ENGINE_H)
 static void init_engine(void);
+#endif
 static int init_prng(void);
 static int prng_seeded(int);
 static int add_rand_file(char *);
@@ -74,7 +77,7 @@ static X509_STORE *revocation_store=NULL;
 void ssl_init(void) { /* init SSL */
     SSLeay_add_ssl_algorithms();
     SSL_load_error_strings();
-#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+#if (SSLEAY_VERSION_NUMBER >= 0x00907000L) && defined(HAVE_OSSL_ENGINE_H)
     if(options.engine)
         init_engine();
 #endif
@@ -87,32 +90,35 @@ void ssl_init(void) { /* init SSL */
 static void init_compression(void) {
     int id=0;
     COMP_METHOD *cm=NULL;
+    char *name="unknown";
 
     switch(options.compression) {
     case COMP_ZLIB:
         id=0xe0;
         cm=COMP_zlib();
+        name="zlib";
         break;
     case COMP_RLE:
         id=0xe1;
         cm=COMP_rle();
+        name="rle";
         break;
     default:
         s_log(LOG_ERR, "INTERNAL ERROR: Bad compression method");
         exit(1);
     }
     if(!cm || cm->type==NID_undef) {
-        s_log(LOG_ERR, "Failed to initialize compression method");
+        s_log(LOG_ERR, "Failed to initialize %s compression method", name);
         exit(1);
     }
     if(SSL_COMP_add_compression_method(id, cm)) {
-        s_log(LOG_ERR, "Failed to initialize compression");
+        s_log(LOG_ERR, "Failed to add %s compression method", name);
         exit(1);
     }
-    s_log(LOG_INFO, "Compression enabled");
+    s_log(LOG_INFO, "Compression enabled using %s method", name);
 }
 
-#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+#if (SSLEAY_VERSION_NUMBER >= 0x00907000L) && defined(HAVE_OSSL_ENGINE_H)
 static void init_engine(void) {
     ENGINE *e;
 

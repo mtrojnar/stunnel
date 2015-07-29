@@ -12,7 +12,7 @@ doc_DATA = stunnel.html stunnel.pl.html stunnel.fr.html
 SUFFIXES = .pod .8 .html
 
 .pod.8:
-	pod2man --section=8 --release=4.06 --center=stunnel \
+	pod2man --section=8 --release=4.07 --center=stunnel \
 		--date=`date +%Y.%m.%d` $< $@
 
 stunnel.html: stunnel.pod

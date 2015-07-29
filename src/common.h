@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 /* #define DEBUG_STACK_SIZE */
 
 #ifndef VERSION
-#define VERSION "4.06"
+#define VERSION "4.07"
 #endif
 
 #ifndef USE_WIN32
@@ -111,18 +111,8 @@ int _vsnprintf(char *, int, char *, ...);
 #define __USE_W32_SOCKETS
 #include <windows.h>
 
-/* some declarations for IPv6 */
+/* Winsock2 header for IPv6 definitions */
 #include <ws2tcpip.h>
-#define HAVE_GETADDRINFO
-#define HAVE_GETNAMEINFO
-#if 0
-typedef int (CALLBACK * GETADDRINFO) (const char *nodename,
-    const char *servname, const struct addrinfo *hints,
-    struct addrinfo **res);
-typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo FAR *ai);
-extern GETADDRINFO s_getaddrinfo;
-extern FREEADDRINFO s_freeaddrinfo;
-#endif
 
 #define ECONNRESET WSAECONNRESET
 #define ENOTSOCK WSAENOTSOCK
@@ -255,7 +245,7 @@ extern char *sys_errlist[];
 #include <openssl/err.h>
 #include <openssl/crypto.h> /* for CRYPTO_* and SSLeay_version */
 #include <openssl/rand.h>
-#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+#if (SSLEAY_VERSION_NUMBER >= 0x00907000L) && defined(HAVE_OSSL_ENGINE_H)
 #include <openssl/engine.h>
 #endif
 #else
@@ -272,7 +262,7 @@ extern char *sys_errlist[];
 #define STRLEN          256
 
 /* IP address and TCP port textual representation length */
-#define IPLEN           26
+#define IPLEN           128
 
 /* How many bytes of random input to read from files for PRNG */
 /* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */

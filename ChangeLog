@@ -1,5 +1,17 @@
 stunnel         Universal SSL tunnel
 
+Version 4.07, 2005.01.03, urgency: MEDIUM:
+* Bugfixes
+  - Problem with infinite poll() timeout negative, but not equal to -1 fixed.
+  - Problem with a file descriptor ready to be read just after a non-blocking
+    connect call fixed.
+  - Compile error with EAI_NODATA not defined or equal to EAI_NONAME fixed.
+  - IP address and TCP port textual representation length (IPLEN) increased
+    to 128 bytes.
+  - OpenSSL engine support is only used if engine.h header file exists.
+  - Broken NT Service mode on WIN32 platform fixed.
+  - Support for IPv4-only WIN32 machines restored.
+
 Version 4.06, 2004.12.26, urgency: LOW:
 * New feature sponsored by SURFnet http://www.surfnet.nl/
   - IPv6 support (to be enabled with ./configure --enable-ipv6).

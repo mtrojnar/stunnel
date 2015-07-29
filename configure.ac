@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.06])
+AC_INIT([stunnel],[4.07])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.06)
+AM_INIT_AUTOMAKE(stunnel, 4.07)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -80,6 +80,10 @@ fi
 AC_MSG_RESULT([$ssldir])
 AC_SUBST(ssldir)
 AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
+
+AC_CHECK_HEADER([$ssldir/include/openssl/engine.h],
+    [AC_DEFINE([HAVE_OSSL_ENGINE_H])],
+    [AC_MSG_WARN([Openssl engine header not found])])
 
 AC_ARG_WITH(egd-socket,
     [  --with-egd-socket=FILE  Entropy Gathering Daemon socket pathname],

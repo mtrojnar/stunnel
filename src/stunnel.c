@@ -1,10 +1,10 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.06             (stunnel.c)
- *   Date:         2004.12.26
+ *   Version:      4.07             (stunnel.c)
+ *   Date:         2005.01.03
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -603,9 +603,18 @@ char *stunnel_info(void) {
 #ifdef HAVE_POLL
     safeconcat(retval, "+POLL");
 #endif
-#if defined(USE_IPv6) || defined(USE_WIN32)
+#ifdef USE_WIN32
+    if(s_getaddrinfo)
+        safeconcat(retval, "+IPv6");
+    else
+        safeconcat(retval, "+IPv4");
+#else /* defined(USE_WIN32) */
+#if defined(USE_IPv6)
     safeconcat(retval, "+IPv6");
-#endif
+#else /* defined(USE_IPv6) */
+    safeconcat(retval, "+IPv4");
+#endif /* defined(USE_IPv6) */
+#endif /* defined(USE_WIN32) */
 #ifdef USE_LIBWRAP
     safeconcat(retval, "+LIBWRAP");
 #endif

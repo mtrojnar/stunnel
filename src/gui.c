@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -43,9 +43,9 @@
 int unix_main(int, char *[]);
 
 /* Prototypes */
+static int load_ws2(char *);
 static void ThreadFunc(void *);
 static LRESULT CALLBACK wndProc(HWND, UINT, WPARAM, LPARAM);
-
 static int win_main(HINSTANCE, HINSTANCE, LPSTR, int);
 static void save_file(HWND);
 static LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
@@ -83,10 +83,9 @@ static jmp_buf jump_buf;
 
 static char passphrase[STRLEN];
 
-#if 0
 GETADDRINFO s_getaddrinfo=NULL;
 FREEADDRINFO s_freeaddrinfo=NULL;
-#endif
+GETNAMEINFO s_getnameinfo=NULL;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     LPSTR lpszCmdLine, int nCmdShow) {
@@ -116,22 +115,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     /* strcat(service_path, lpszCmdLine); */
 
     if(WSAStartup(MAKEWORD( 2, 2 ), &wsa_state)) {
-        win_log("Failed to initialize winsock");
-        error_mode=1;
+        MessageBox(hwnd, "Failed to initialize winsock",
+            options.win32_name, MB_ICONERROR);
+        return 1;
     }
+    if(!load_ws2("ws2_32.dll"))
+        load_ws2("wship6.dll");
 
-#if 0
-    /* Try to load getaddrinfo() and freeaddrinfo() from wship6.dll */
-    HINSTANCE wship6_dll=LoadLibrary("wship6.dll");
-    if(wship6_dll)
-        s_freeaddrinfo=
-            (FREEADDRINFO)GetProcAddress(wship6_dll, "freeaddrinfo");
-    if(s_freeaddrinfo)
-        s_getaddrinfo=
-            (GETADDRINFO)GetProcAddress(wship6_dll, "getaddrinfo");
-    if(wship6_dll && !s_getaddrinfo)
-        FreeLibrary(wship6_dll);
-#endif
+    if(!error_mode && !strcmpi(lpszCmdLine, "-service")) {
+        if(!setjmp(jump_buf))
+            main_initialize(NULL, NULL);
+        return start_service(); /* Always start service with -service option */
+    }
 
     if(!error_mode && !setjmp(jump_buf)) { /* TRY */
         if(!strcmpi(lpszCmdLine, "-install")) {
@@ -145,14 +140,38 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         }
     }
 
-    if(!strcmpi(lpszCmdLine, "-service")) {
-        if(!setjmp(jump_buf))
-            main_initialize(NULL, NULL);
-        return start_service(); /* Always start service with -service option */
-    }
-
     /* CATCH */
     return win_main(hInstance, hPrevInstance, lpszCmdLine, nCmdShow);
+}
+
+/* Try to load winsock2 resolver functions from a specified dll name */
+static int load_ws2(char *name) {
+    HINSTANCE handle;
+    
+    handle=LoadLibrary(name);
+    if(!handle)
+        return 0;
+
+    s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
+    if(!s_getaddrinfo) {
+        FreeLibrary(handle);
+        return 0;
+    }
+
+    s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
+    if(!s_freeaddrinfo) {
+        FreeLibrary(handle);
+        return 0;
+    }
+
+    s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
+    if(!s_getnameinfo) {
+        FreeLibrary(handle);
+        return 0;
+    }
+
+    FreeLibrary(handle);
+    return 1;
 }
 
 static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
@@ -578,7 +597,7 @@ void exit_stunnel(int code) { /* used instead of exit() on Win32 */
     MessageBox(hwnd, "Stunnel server is down due to an error.\n"
         "You need to exit and correct the problem.\n"
         "Click OK to see the error log window.",
-        options.win32_service, MB_ICONERROR);
+        options.win32_name, MB_ICONERROR);
     error_mode=1;
     longjmp(jump_buf, 1);
 }
@@ -591,7 +610,7 @@ static int start_service(void) {
 
     if(!StartServiceCtrlDispatcher(serviceTable)) {
         MessageBox(hwnd, "Unable to start the service",
-            options.win32_service, MB_ICONERROR);
+            options.win32_name, MB_ICONERROR);
         return 1;
     }
     return 0; /* NT service started */
@@ -603,7 +622,7 @@ static int install_service(void) {
     scm=OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
     if(!scm) {
         MessageBox(hwnd, "Failed to open service control manager",
-            options.win32_service, MB_ICONERROR);
+            options.win32_name, MB_ICONERROR);
         return 1;
     }
     service=CreateService(scm,
@@ -613,11 +632,11 @@ static int install_service(void) {
         NULL, NULL, NULL, NULL, NULL);
     if(!service) {
         MessageBox(hwnd, "Failed to create a new service",
-            options.win32_service, MB_ICONERROR);
+            options.win32_name, MB_ICONERROR);
         CloseServiceHandle(scm);
         return 1;
     }
-    MessageBox(hwnd, "Service installed", options.win32_service,
+    MessageBox(hwnd, "Service installed", options.win32_name,
         MB_ICONINFORMATION);
     CloseServiceHandle(service);
     CloseServiceHandle(scm);
@@ -631,39 +650,39 @@ static int uninstall_service(void) {
     scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
     if(!scm) {
         MessageBox(hwnd, "Failed to open service control manager",
-            options.win32_service, MB_ICONERROR);
+            options.win32_name, MB_ICONERROR);
         return 1;
     }
     service=OpenService(scm, options.win32_service,
         SERVICE_QUERY_STATUS | DELETE);
     if(!service) {
         MessageBox(hwnd, "Failed to open the service",
-            options.win32_service, MB_ICONERROR);
+            options.win32_name, MB_ICONERROR);
         CloseServiceHandle(scm);
         return 1;
     }
     if(!QueryServiceStatus(service, &serviceStatus)) {
         MessageBox(hwnd, "Failed to query service status",
-            options.win32_service, MB_ICONERROR);
+            options.win32_name, MB_ICONERROR);
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
         return 1;
     }
     if(serviceStatus.dwCurrentState!=SERVICE_STOPPED) {
         MessageBox(hwnd, "The service is still running",
-            options.win32_service, MB_ICONERROR);
+            options.win32_name, MB_ICONERROR);
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
         return 1;
     }
     if(!DeleteService(service)) {
         MessageBox(hwnd, "Failed to delete the service",
-            options.win32_service, MB_ICONERROR);
+            options.win32_name, MB_ICONERROR);
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
         return 1;
     }
-    MessageBox(hwnd, "Service uninstalled", options.win32_service,
+    MessageBox(hwnd, "Service uninstalled", options.win32_name,
         MB_ICONINFORMATION);
     CloseServiceHandle(service);
     CloseServiceHandle(scm);

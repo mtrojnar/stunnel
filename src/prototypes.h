@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -114,7 +114,10 @@ void pty_make_controlling_tty(int *, char *);
 typedef struct {
         /* some data for SSL initialization in ssl.c */
     COMP_TYPE compression;                               /* compression type */
+
+#if (SSLEAY_VERSION_NUMBER >= 0x00907000L) && defined(HAVE_OSSL_ENGINE_H)
     char *engine;                                     /* hardware SSL engine */
+#endif
     char *ca_dir;                              /* directory for hashed certs */
     char *ca_file;                       /* file containing bunches of certs */
     char *crl_dir;                              /* directory for hashed CRLs */
@@ -315,6 +318,16 @@ char *s_ntop(char *, SOCKADDR_UNION *);
 void win_log(char *);
 void exit_stunnel(int);
 int pem_passwd_cb(char *, int, int, void *);
+
+typedef int (CALLBACK * GETADDRINFO) (const char *,
+    const char *, const struct addrinfo *, struct addrinfo **);
+typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo FAR *);
+typedef int (CALLBACK * GETNAMEINFO) (const struct sockaddr *, socklen_t,
+    char *, size_t, char *, size_t, int);
+
+extern GETADDRINFO s_getaddrinfo;
+extern FREEADDRINFO s_freeaddrinfo;
+extern GETNAMEINFO s_getnameinfo;
 #endif
 
 #endif /* defined PROTOTYPES_H */

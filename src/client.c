@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -332,7 +332,8 @@ static int init_ssl(CLI *c) {
             enter_critical_section(CRIT_SESSION);
             old_session=c->opt->session;
             c->opt->session=SSL_get1_session(c->ssl); /* store it */
-            SSL_SESSION_free(old_session); /* release the old one */
+            if(old_session)
+                SSL_SESSION_free(old_session); /* release the old one */
             leave_critical_section(CRIT_SESSION);
         } else
             s_log(LOG_INFO, "SSL accepted: new session negotiated");
@@ -984,13 +985,15 @@ static int connect_wait(int fd, int timeout) {
         return -1; /* error */
     default:
         if(s_poll_canread(&fds, fd)) {
-            /* just connected socket can't be ready for read */
+            /* just connected socket should not be ready for read */
             /* get the resulting error code, now */
             len=sizeof(error);
             if(!getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&error, &len))
                 errno=error;
-            sockerror("connect_wait: getsockopt");
-            return -1; /* connection failed */
+            if(errno) { /* really an error? */
+                sockerror("connect_wait: getsockopt");
+                return -1; /* connection failed */
+            }
         }
         if(s_poll_canwrite(&fds, fd)) {
             s_log(LOG_DEBUG, "connect_wait: connected");

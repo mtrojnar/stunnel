@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -306,6 +306,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     }
 #endif /* OpenSSL 0.9.5a */
 
+#if (SSLEAY_VERSION_NUMBER >= 0x00907000L) && defined(HAVE_OSSL_ENGINE_H)
     /* engine */
     switch(cmd) {
     case CMD_INIT:
@@ -323,6 +324,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
             "engine");
         break;
     }
+#endif
 
     /* foreground */
 #ifndef USE_WIN32
