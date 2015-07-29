@@ -92,6 +92,7 @@ int libwrap_init() {
             ioerror("fork");
             return 1;
         case  0:    /* child */
+            tls_alloc(NULL); /* for the main thread */
             drop_privileges(0); /* libwrap processes are not chrooted */
             close(0); /* stdin */
             close(1); /* stdout */

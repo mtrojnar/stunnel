@@ -38,12 +38,14 @@
 #include "common.h"
 #include "prototypes.h"
 
-NOEXPORT void log_raw(const int, const char *, const char *, const char *);
+NOEXPORT void log_raw(const SERVICE_OPTIONS *, const int,
+    const char *, const char *, const char *);
 NOEXPORT void safestring(char *);
 
 static DISK_FILE *outfile=NULL;
 static struct LIST { /* single-linked list of log lines */
     struct LIST *next;
+    SERVICE_OPTIONS *opt;
     int level;
     char *stamp, *id, *text;
 } *head=NULL, *tail=NULL;
@@ -59,7 +61,7 @@ void syslog_open(void) {
 #ifdef __ultrix__
         openlog("stunnel", 0);
 #else
-        openlog("stunnel", LOG_CONS|LOG_NDELAY, global_options.facility);
+        openlog("stunnel", LOG_CONS|LOG_NDELAY, global_options.log_facility);
 #endif /* __ultrix__ */
     syslog_opened=1;
 }
@@ -119,7 +121,7 @@ void log_flush(LOG_MODE new_mode) {
 
     enter_critical_section(CRIT_LOG);
     while(head) {
-        log_raw(head->level, head->stamp, head->id, head->text);
+        log_raw(head->opt, head->level, head->stamp, head->id, head->text);
         str_free(head->stamp);
         str_free(head->id);
         str_free(head->text);
@@ -134,7 +136,6 @@ void log_flush(LOG_MODE new_mode) {
 void s_log(int level, const char *format, ...) {
     va_list ap;
     char *text, *stamp, *id;
-    unsigned long tid;
     struct LIST *tmp;
     int libc_error, socket_error;
     time_t gmt;
@@ -142,9 +143,12 @@ void s_log(int level, const char *format, ...) {
 #if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
     struct tm timestruct;
 #endif
+    TLS_DATA *tls_data;
+
+    tls_data=tls_get();
 
     /* performance optimization: skip the trivial case early */
-    if(mode==LOG_MODE_CONFIGURED && level>global_options.debug_level)
+    if(mode==LOG_MODE_CONFIGURED && level>tls_data->opt->log_level)
         return;
 
     libc_error=get_last_error();
@@ -160,10 +164,7 @@ void s_log(int level, const char *format, ...) {
     stamp=str_printf("%04d.%02d.%02d %02d:%02d:%02d",
         timeptr->tm_year+1900, timeptr->tm_mon+1, timeptr->tm_mday,
         timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec);
-    tid=stunnel_thread_id();
-    if(!tid) /* currently USE_FORK */
-        tid=stunnel_process_id();
-    id=str_printf("LOG%d[%lu]", level, tid);
+    id=str_printf("LOG%d[%s]", level, tls_data->id);
 
     /* format the text to be logged */
     va_start(ap, format);
@@ -175,6 +176,7 @@ void s_log(int level, const char *format, ...) {
         enter_critical_section(CRIT_LOG);
         tmp=str_alloc_detached(sizeof(struct LIST));
         tmp->next=NULL;
+        tmp->opt=tls_data->opt;
         tmp->level=level;
         tmp->stamp=stamp;
         str_detach(tmp->stamp);
@@ -189,7 +191,7 @@ void s_log(int level, const char *format, ...) {
         tail=tmp;
         leave_critical_section(CRIT_LOG);
     } else { /* ready log the text directly */
-        log_raw(level, stamp, id, text);
+        log_raw(tls_data->opt, level, stamp, id, text);
         str_free(stamp);
         str_free(id);
         str_free(text);
@@ -199,14 +201,15 @@ void s_log(int level, const char *format, ...) {
     set_last_socket_error(socket_error);
 }
 
-NOEXPORT void log_raw(const int level, const char *stamp,
+NOEXPORT void log_raw(const SERVICE_OPTIONS *opt,
+        const int level, const char *stamp,
         const char *id, const char *text) {
     char *line;
 
     /* build the line and log it to syslog/file */
     if(mode==LOG_MODE_CONFIGURED) { /* configured */
         line=str_printf("%s %s: %s", stamp, id, text);
-        if(level<=global_options.debug_level) {
+        if(level<=opt->log_level) {
 #if !defined(USE_WIN32) && !defined(__vms)
             if(global_options.option.syslog)
                 syslog(level, "%s: %s", id, text);
@@ -226,9 +229,9 @@ NOEXPORT void log_raw(const int level, const char *stamp,
     if(mode==LOG_MODE_ERROR ||
             (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
 #if defined(USE_WIN32) || defined(USE_JNI)
-            level<=global_options.debug_level
+            level<=opt->log_level
 #else
-            (level<=global_options.debug_level &&
+            (level<=opt->log_level &&
             global_options.option.foreground)
 #endif
             )
@@ -237,7 +240,48 @@ NOEXPORT void log_raw(const int level, const char *stamp,
     str_free(line);
 }
 
-/* critical problem - str.c functions are not safe to use */
+char *log_id(CLI *c) {
+    static volatile unsigned long long seq=0;
+    unsigned long long my_seq;
+    const char table[62]=
+        "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    unsigned char rnd[22];
+    char *uniq;
+    size_t i;
+    unsigned long tid;
+
+    if(!c) /* main thread */
+        return str_dup("main");
+    switch(c->opt->log_id) {
+    case LOG_ID_SEQENTIAL:
+        enter_critical_section(CRIT_ID);
+        my_seq=seq++;
+        leave_critical_section(CRIT_ID);
+        return str_printf("%llu", my_seq);
+    case LOG_ID_UNIQUE:
+        uniq=str_alloc(22+1); /* log2(62^22)=130.99 */
+        RAND_pseudo_bytes(rnd, 22);
+        for(i=0; i<22; ++i) {
+            rnd[i]&=63;
+            while(rnd[i]>=62) {
+                RAND_pseudo_bytes(rnd+i, 1);
+                rnd[i]&=63;
+            }
+            uniq[i]=table[rnd[i]];
+        }
+        uniq[22]='\0';
+        return uniq;
+    case LOG_ID_THREAD:
+        tid=stunnel_thread_id();
+        if(!tid) /* currently USE_FORK */
+            tid=stunnel_process_id();
+        return str_printf("%lu", tid);
+    }
+    return str_dup("error");
+}
+
+/* critical problem handling */
+/* str.c functions are not safe to use here */
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"

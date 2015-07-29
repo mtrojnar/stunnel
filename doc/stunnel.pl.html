@@ -193,7 +193,7 @@
 <p>Kompresja rle nie jest zaimplementowana w aktualnych wersjach <b>OpenSSL</b>.</p>
 
 </dd>
-<dt id="debug-POZIOM-.PODSYSTEM"><b>debug</b> = POZIOM[.PODSYSTEM]</dt>
+<dt id="debug-PODSYSTEM-.POZIOM"><b>debug</b> = [PODSYSTEM].POZIOM</dt>
 <dd>
 
 <p>szczeg&oacute;&#x142;owo&#x15B;&#x107; logowania</p>
@@ -515,6 +515,48 @@
 <pre><code>    openssl ecparam -list_curves</code></pre>
 
 <p>domy&#x15B;lnie: prime256v1</p>
+
+</dd>
+<dt id="logId-TYP"><b>logId</b> = TYP</dt>
+<dd>
+
+<p>typ identyfikatora po&#x142;&#x105;czenia klienta</p>
+
+<p>Identyfikator ten pozwala rozr&oacute;&#x17C;ni&#x107; wpisy w logu wygenerowane dla poszczeg&oacute;lnych po&#x142;&#x105;cze&#x144;.</p>
+
+<p>Aktualnie wspierane typy:</p>
+
+<dl>
+
+<dt id="sequential"><i>sequential</i></dt>
+<dd>
+
+<p>Kolejny numer po&#x142;&#x105;czenia jest unikalny jedynie w obr&#x119;bie pojedynczej instancji programu <b>stunnel</b>, ale bardzo kr&oacute;tki. Jest on szczeg&oacute;lnie u&#x17C;ytczny przy r&#x119;cznej analizie log&oacute;w.</p>
+
+</dd>
+<dt id="unique"><i>unique</i></dt>
+<dd>
+
+<p>Ten rodzaj identyfikatora jest globalnie unikalny, ale znacznie d&#x142;u&#x17C;szy, ni&#x17C; kolejny numer po&#x142;&#x105;czenia. Jest on szczeg&oacute;lnie u&#x17C;yteczny przy zautomatyzowanej analizie log&oacute;w.</p>
+
+</dd>
+<dt id="thread"><i>thread</i></dt>
+<dd>
+
+<p>Identyfikator w&#x105;tku systemu operacyjnego nie jest ani unikalny (nawet w obr&#x119;bie pojedynczej instancji programu <b>stunnel</b>), ani kr&oacute;tki. Jest on szczeg&oacute;lnie u&#x17C;yteczny przy diagnozowaniu problem&oacute;w z oprogramowaniem lub konfiguracj&#x105;.</p>
+
+</dd>
+</dl>
+
+<p>domy&#x15B;lnie: sequential</p>
+
+</dd>
+<dt id="debug-POZIOM"><b>debug</b> = POZIOM</dt>
+<dd>
+
+<p>szczeg&oacute;&#x142;owo&#x15B;&#x107; logowania</p>
+
+<p>Poziom logowania mo&#x17C;na okre&#x15B;li&#x107; przy pomocy jednej z nazw lub liczb: emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6) lub debug (7). Zapisywane s&#x105; komunikaty o poziomie ni&#x17C;szym (numerycznie) lub r&oacute;wnym podanemu. Do uzyskania najwy&#x17C;szego poziomu szczeg&oacute;&#x142;owo&#x15B;ci mo&#x17C;na u&#x17C;y&#x107; opcji <i>debug = debug</i> lub <i>debug = 7</i>. Domy&#x15B;lnym poziomem jest notice (5).</p>
 
 </dd>
 <dt id="delay-yes-no"><b>delay</b> = yes | no</dt>

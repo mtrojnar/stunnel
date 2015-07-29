@@ -5,6 +5,7 @@ High priority features.  They will likely be supported some day.
 A sponsor could allocate my time to get them faster.
 * Add an Apparmor profile.
 * Optional line-buffering of the log file.
+* Log rotation on Windows.
 * Configuration file option to limit the number of concurrent connections.
 * "include" configuration file option to include all configuration file
   parts located in the specified directory (e.g. /etc/stunnel/conf.d/).
@@ -27,7 +28,7 @@ A sponsor could allocate my time to get them faster.
 
 Low priority features.  They will unlikely ever be supported.
 * Support static FIPS-enabled build.
-* Service-level logging configuration (separate verbosity and destination).
+* Service-level logging destination.
 * Enforce key renegotiation (re-handshake) for long connections.
 * Logging to NT EventLog on Windows.
 * Internationalization of logged messages (i18n).

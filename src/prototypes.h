@@ -40,6 +40,10 @@
 
 #include "common.h"
 
+/**************************************** forward declarations */
+
+typedef struct tls_data_struct TLS_DATA;
+
 /**************************************** data structures */
 
 #if defined (USE_WIN32)
@@ -61,6 +65,12 @@ typedef enum {
     LOG_MODE_INFO,
     LOG_MODE_CONFIGURED
 } LOG_MODE;
+
+typedef enum {
+    LOG_ID_SEQENTIAL,
+    LOG_ID_UNIQUE,
+    LOG_ID_THREAD
+} LOG_ID;
 
 typedef enum {
     FILE_MODE_READ,
@@ -117,9 +127,8 @@ typedef struct {
 #endif
 
         /* logging-support data for log.c */
-    int debug_level;                              /* debug level for logging */
 #ifndef USE_WIN32
-    int facility;                               /* debug facility for syslog */
+    int log_facility;                           /* debug facility for syslog */
 #endif
     char *output_file;
     FILE_MODE log_file_mode;
@@ -167,6 +176,10 @@ typedef struct service_options_struct {
     struct service_options_struct *next;   /* next node in the services list */
     SSL_CTX *ctx;                                            /*  SSL context */
     char *servname;        /* service name for logging & permission checking */
+
+        /* service-specific data for log.c */
+    int log_level;                                /* debug level for logging */
+    LOG_ID log_id;                                /* logging session id type */
 
         /* service-specific data for sthreads.c */
 #ifndef USE_FORK
@@ -334,12 +347,45 @@ typedef struct disk_file {
     /* the inteface is prepared to easily implement buffering if needed */
 } DISK_FILE;
 
-    /* FD definition for client.c */
+    /* definitions for client.c */
 
 typedef struct {
     int fd; /* file descriptor */
     int is_socket; /* file descriptor is a socket */
 } FD;
+
+typedef enum {
+    RENEG_INIT, /* initial state */
+    RENEG_ESTABLISHED, /* initial handshake completed */
+    RENEG_DETECTED /* renegotiation detected */
+} RENEG_STATE;
+
+typedef struct {
+    jmp_buf err; /* exception handler needs to be 16-byte aligned on Itanium */
+    SSL *ssl; /* SSL connnection */
+    SERVICE_OPTIONS *opt;
+    TLS_DATA *tls;
+
+    SOCKADDR_UNION peer_addr; /* peer address */
+    socklen_t peer_addr_len;
+    SOCKADDR_UNION *bind_addr; /* address to bind() the socket */
+    SOCKADDR_LIST connect_addr; /* either copied or resolved dynamically */
+    FD local_rfd, local_wfd; /* read and write local descriptors */
+    FD remote_fd; /* remote file descriptor */
+        /* IP for explicit local bind or transparent proxy */
+    unsigned long pid; /* PID of the local process */
+    int fd; /* temporary file descriptor */
+    RENEG_STATE reneg_state; /* used to track renegotiation attempts */
+
+    /* data for transfer() function */
+    char sock_buff[BUFFSIZE]; /* socket read buffer */
+    char ssl_buff[BUFFSIZE]; /* SSL read buffer */
+    unsigned long sock_ptr, ssl_ptr; /* index of the first unused byte */
+    FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
+    FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
+    uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and SSL */
+    s_poll_set *fds; /* file descriptors */
+} CLI;
 
 /**************************************** prototypes for stunnel.c */
 
@@ -387,6 +433,7 @@ void s_log(int, const char *, ...)
 #else
     ;
 #endif
+char *log_id(CLI *);
 void fatal_debug(char *, const char *, int);
 #define fatal(a) fatal_debug((a), __FILE__, __LINE__)
 void ioerror(const char *);
@@ -459,38 +506,6 @@ int set_socket_options(int, int);
 int make_sockets(int [2]);
 
 /**************************************** prototypes for client.c */
-
-typedef enum {
-    RENEG_INIT, /* initial state */
-    RENEG_ESTABLISHED, /* initial handshake completed */
-    RENEG_DETECTED /* renegotiation detected */
-} RENEG_STATE;
-
-typedef struct {
-    jmp_buf err; /* exception handler needs to be 16-byte aligned on Itanium */
-    SSL *ssl; /* SSL connnection */
-    SERVICE_OPTIONS *opt;
-
-    SOCKADDR_UNION peer_addr; /* peer address */
-    socklen_t peer_addr_len;
-    SOCKADDR_UNION *bind_addr; /* address to bind() the socket */
-    SOCKADDR_LIST connect_addr; /* either copied or resolved dynamically */
-    FD local_rfd, local_wfd; /* read and write local descriptors */
-    FD remote_fd; /* remote file descriptor */
-        /* IP for explicit local bind or transparent proxy */
-    unsigned long pid; /* PID of the local process */
-    int fd; /* temporary file descriptor */
-    RENEG_STATE reneg_state; /* used to track renegotiation attempts */
-
-    /* data for transfer() function */
-    char sock_buff[BUFFSIZE]; /* socket read buffer */
-    char ssl_buff[BUFFSIZE]; /* SSL read buffer */
-    unsigned long sock_ptr, ssl_ptr; /* index of the first unused byte */
-    FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
-    FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
-    uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and SSL */
-    s_poll_set *fds; /* file descriptors */
-} CLI;
 
 CLI *alloc_client_session(SERVICE_OPTIONS *, int, int);
 void *client_thread(void *);
@@ -577,7 +592,7 @@ typedef enum {
 #ifndef USE_WIN32
     CRIT_LIBWRAP,                           /* libwrap.c */
 #endif
-    CRIT_LOG,                               /* log.c */
+    CRIT_LOG, CRIT_ID,                      /* log.c */
     CRIT_SECTIONS                           /* number of critical sections */
 } SECTION_CODE;
 
@@ -632,9 +647,30 @@ void libwrap_auth(CLI *, char *);
 
 /**************************************** prototypes for str.c */
 
-void str_init();
+typedef struct alloc_list_struct ALLOC_LIST;
+
+struct tls_data_struct {
+    ALLOC_LIST *alloc_head;
+    size_t alloc_bytes, alloc_blocks;
+    CLI *c;
+    SERVICE_OPTIONS *opt;
+    char *id;
+};
+
+char *str_dup_debug(const char *, const char *, int);
+#define str_dup(a) str_dup_debug((a), __FILE__, __LINE__)
+char *str_vprintf(const char *, va_list);
+char *str_printf(const char *, ...)
+#ifdef __GNUC__
+    __attribute__((format(printf, 1, 2)));
+#else
+    ;
+#endif
+#ifdef USE_WIN32
+LPTSTR str_tprintf(LPCTSTR, ...);
+#endif
+
 void str_canary_init();
-void str_cleanup();
 void str_stats();
 void *str_alloc_debug(size_t, const char *, int);
 #define str_alloc(a) str_alloc_debug((a), __FILE__, __LINE__)
@@ -647,20 +683,13 @@ void str_detach_debug(void *, const char *, int);
 void str_free_debug(void *, const char *, int);
 #define str_free(a) str_free_debug((a), __FILE__, __LINE__), (a)=NULL
 #define str_free_expression(a) str_free_debug((a), __FILE__, __LINE__)
-char *str_dup_debug(const char *, const char *, int);
-#define str_dup(a) str_dup_debug((a), __FILE__, __LINE__)
-char *str_vprintf(const char *, va_list);
-char *str_printf(const char *, ...)
-#ifdef __GNUC__
-    __attribute__((format(printf, 1, 2)));
-#else
-    ;
-#endif
-#ifdef USE_WIN32
-LPTSTR str_vtprintf(LPCTSTR, va_list);
-LPTSTR str_tprintf(LPCTSTR, ...);
-#endif
+
 int safe_memcmp(const void *, const void *, size_t);
+
+void tls_init();
+TLS_DATA *tls_alloc(CLI *c);
+void tls_free();
+TLS_DATA *tls_get();
 
 /**************************************** prototypes for ui_*.c */
 

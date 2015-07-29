@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     static struct WSAData wsa_state;
     TCHAR *c, stunnel_exe_path[MAX_PATH];
 
-    str_init(); /* initialize per-thread string management */
+    tls_init(); /* initialize thread-local storage */
 
     /* set current working directory and engine path */
     GetModuleFileName(0, stunnel_exe_path, MAX_PATH);

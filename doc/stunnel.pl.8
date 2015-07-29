@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2015.01.22" "5.10" "stunnel"
+.TH STUNNEL.PL 8 "2015.03.19" "5.12" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -193,8 +193,8 @@ Kompresja zlib zaimplementowana w \fBOpenSSL 0.9.8\fR i nowszych nie jest
 kompatybilna implementacją \fBOpenSSL 0.9.7\fR.
 .Sp
 Kompresja rle nie jest zaimplementowana w aktualnych wersjach \fBOpenSSL\fR.
-.IP "\fBdebug\fR = POZIOM[.PODSYSTEM]" 4
-.IX Item "debug = POZIOM[.PODSYSTEM]"
+.IP "\fBdebug\fR = [\s-1PODSYSTEM\s0].POZIOM" 4
+.IX Item "debug = [PODSYSTEM].POZIOM"
 szczegółowość logowania
 .Sp
 Poziom logowania można określić przy pomocy jednej z nazw lub liczb:
@@ -474,6 +474,45 @@ Listę dostępnych krzywych można uzyskać poleceniem:
 .Ve
 .Sp
 domyślnie: prime256v1
+.IP "\fBlogId\fR = \s-1TYP\s0" 4
+.IX Item "logId = TYP"
+typ identyfikatora połączenia klienta
+.Sp
+Identyfikator ten pozwala rozróżnić wpisy w logu wygenerowane dla
+poszczególnych połączeń.
+.Sp
+Aktualnie wspierane typy:
+.RS 4
+.IP "\fIsequential\fR" 4
+.IX Item "sequential"
+Kolejny numer połączenia jest unikalny jedynie w obrębie pojedynczej instancji
+programu \fBstunnel\fR, ale bardzo krótki.  Jest on szczególnie użytczny przy
+ręcznej analizie logów.
+.IP "\fIunique\fR" 4
+.IX Item "unique"
+Ten rodzaj identyfikatora jest globalnie unikalny, ale znacznie dłuższy, niż
+kolejny numer połączenia.  Jest on szczególnie użyteczny przy zautomatyzowanej
+analizie logów.
+.IP "\fIthread\fR" 4
+.IX Item "thread"
+Identyfikator wątku systemu operacyjnego nie jest ani unikalny (nawet w obrębie
+pojedynczej instancji programu \fBstunnel\fR), ani krótki.  Jest on szczególnie
+użyteczny przy diagnozowaniu problemów z oprogramowaniem lub konfiguracją.
+.RE
+.RS 4
+.Sp
+domyślnie: sequential
+.RE
+.IP "\fBdebug\fR = \s-1POZIOM\s0" 4
+.IX Item "debug = POZIOM"
+szczegółowość logowania
+.Sp
+Poziom logowania można określić przy pomocy jednej z nazw lub liczb:
+emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
+info (6) lub debug (7).
+Zapisywane są komunikaty o poziomie niższym (numerycznie) lub równym podanemu.
+Do uzyskania najwyższego poziomu szczegółowości można użyć opcji
+\&\fIdebug = debug\fR lub \fIdebug = 7\fR.  Domyślnym poziomem jest notice (5).
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
 opóźnij rozwinięcie adresu \s-1DNS\s0 podanego w opcji \fIconnect\fR

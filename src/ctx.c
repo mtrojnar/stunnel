@@ -838,10 +838,9 @@ NOEXPORT void info_callback(
                 c->reneg_state=RENEG_DETECTED;
             }
         }
+        if(c->opt->log_level<LOG_DEBUG)
+            return; /* performance optimization */
     }
-
-    if(global_options.debug_level<LOG_DEBUG)
-        return; /* performance optimization */
 
     if(where & SSL_CB_LOOP) {
         s_log(LOG_DEBUG, "SSL state (%s): %s",

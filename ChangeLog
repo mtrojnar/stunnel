@@ -1,6 +1,19 @@
 stunnel change log
 
 
+Version 5.12, 2015.03.19, urgency: HIGH:
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.2a.
+    https://www.openssl.org/news/secadv_20150319.txt
+* New features
+  - New service-level option "logId" to specify the
+    connection identifier type.  Currently supported types:
+    "sequential" (default), "unique", and "thread".
+  - New service-level option "debug" to individually control
+    logging verbosity of defined services.
+* Bugfixes
+  - OCSP fixed on Windows platform (thx to Alec Kosky).
+
 Version 5.11, 2015.03.11, urgency: LOW:
 * New features
   - OpenSSL DLLs updated to version 1.0.2.

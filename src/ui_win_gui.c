@@ -163,7 +163,7 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
     (void)lpCmdLine; /* skip warning about unused parameter */
     (void)nCmdShow; /* skip warning about unused parameter */
 
-    str_init(); /* initialize per-thread string management */
+    tls_init(); /* initialize thread-local storage */
     ghInst=this_instance;
     gui_cmdline(); /* setup global cmdline structure */
     GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
@@ -868,6 +868,7 @@ NOEXPORT LPTSTR log_txt(void) {
 NOEXPORT void daemon_thread(void *arg) {
     (void)arg; /* skip warning about unused parameter */
 
+    tls_alloc(NULL); /* for the main thread */
     main_init();
     SetEvent(main_initialized); /* unlock the GUI thread */
     /* get a valid configuration */

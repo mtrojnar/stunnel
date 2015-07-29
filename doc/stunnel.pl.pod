@@ -178,7 +178,7 @@ kompatybilna implementacją B<OpenSSL 0.9.7>.
 
 Kompresja rle nie jest zaimplementowana w aktualnych wersjach B<OpenSSL>.
 
-=item B<debug> = POZIOM[.PODSYSTEM]
+=item B<debug> = [PODSYSTEM].POZIOM
 
 szczegółowość logowania
 
@@ -488,6 +488,50 @@ Listę dostępnych krzywych można uzyskać poleceniem:
     openssl ecparam -list_curves
 
 domyślnie: prime256v1
+
+=item B<logId> = TYP
+
+typ identyfikatora połączenia klienta
+
+Identyfikator ten pozwala rozróżnić wpisy w logu wygenerowane dla
+poszczególnych połączeń.
+
+Aktualnie wspierane typy:
+
+=over 4
+
+=item I<sequential>
+
+Kolejny numer połączenia jest unikalny jedynie w obrębie pojedynczej instancji
+programu B<stunnel>, ale bardzo krótki.  Jest on szczególnie użytczny przy
+ręcznej analizie logów.
+
+=item I<unique>
+
+Ten rodzaj identyfikatora jest globalnie unikalny, ale znacznie dłuższy, niż
+kolejny numer połączenia.  Jest on szczególnie użyteczny przy zautomatyzowanej
+analizie logów.
+
+=item I<thread>
+
+Identyfikator wątku systemu operacyjnego nie jest ani unikalny (nawet w obrębie
+pojedynczej instancji programu B<stunnel>), ani krótki.  Jest on szczególnie
+użyteczny przy diagnozowaniu problemów z oprogramowaniem lub konfiguracją.
+
+=back
+
+domyślnie: sequential
+
+=item B<debug> = POZIOM
+
+szczegółowość logowania
+
+Poziom logowania można określić przy pomocy jednej z nazw lub liczb:
+emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
+info (6) lub debug (7).
+Zapisywane są komunikaty o poziomie niższym (numerycznie) lub równym podanemu.
+Do uzyskania najwyższego poziomu szczegółowości można użyć opcji
+I<debug = debug> lub I<debug = 7>.  Domyślnym poziomem jest notice (5).
 
 =item B<delay> = yes | no
 

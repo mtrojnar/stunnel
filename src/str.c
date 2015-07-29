@@ -38,27 +38,9 @@
 #include "common.h"
 #include "prototypes.h"
 
-#ifndef va_copy
-#ifdef __va_copy
-#define va_copy(dst, src) __va_copy((dst), (src))
-#else /* __va_copy */
-#define va_copy(dst, src) memcpy(&(dst), &(src), sizeof(va_list))
-#endif /* __va_copy */
-#endif /* va_copy */
-
-static uint8_t canary[10]; /* 80-bit canary value */
-static volatile int canary_initialized=0, str_initialized=0;
-
-typedef struct alloc_list_struct ALLOC_LIST;
-
-typedef struct {
-    ALLOC_LIST *head;
-    size_t bytes, blocks;
-} ALLOC_TLS;
-
 struct alloc_list_struct {
     ALLOC_LIST *prev, *next;
-    ALLOC_TLS *tls;
+    TLS_DATA *tls;
     size_t size;
     const char *file;
     int line;
@@ -72,11 +54,28 @@ struct alloc_list_struct {
 };
 #endif
 
-NOEXPORT void set_alloc_tls(ALLOC_TLS *);
-NOEXPORT ALLOC_TLS *get_alloc_tls();
+#ifdef USE_WIN32
+NOEXPORT LPTSTR str_vtprintf(LPCTSTR, va_list);
+#endif /* USE_WIN32 */
+
+NOEXPORT void tls_platform_init();
+NOEXPORT void tls_set(TLS_DATA *);
+
 NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
-NOEXPORT void crypto_init();
 NOEXPORT void str_free_function(void *);
+
+static uint8_t canary[10]; /* 80-bit canary value */
+static volatile int canary_initialized=0, tls_initialized=0;
+
+/**************************************** string manipulation functions */
+
+#ifndef va_copy
+#ifdef __va_copy
+#define va_copy(dst, src) __va_copy((dst), (src))
+#else /* __va_copy */
+#define va_copy(dst, src) memcpy(&(dst), &(src), sizeof(va_list))
+#endif /* __va_copy */
+#endif /* va_copy */
 
 char *str_dup_debug(const char *str, const char *file, int line) {
     char *retval;
@@ -128,7 +127,7 @@ LPTSTR str_tprintf(LPCTSTR format, ...) {
     return txt;
 }
 
-LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
+NOEXPORT LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
     int n, size=32;
     LPTSTR p;
     va_list ap;
@@ -146,89 +145,7 @@ LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
 
 #endif
 
-#ifdef USE_UCONTEXT
-
-static ALLOC_TLS *global_tls=NULL;
-
-void str_init() {
-    crypto_init();
-    str_initialized=1;
-}
-
-NOEXPORT void set_alloc_tls(ALLOC_TLS *tls) {
-    if(ready_head)
-        ready_head->tls=tls;
-    else /* ucontext threads not initialized */
-        global_tls=tls;
-}
-
-NOEXPORT ALLOC_TLS *get_alloc_tls() {
-    if(ready_head)
-        return ready_head->tls;
-    else /* ucontext threads not initialized */
-        return global_tls;
-}
-
-#endif /* USE_UCONTEXT */
-
-#ifdef USE_FORK
-
-static ALLOC_TLS *global_tls=NULL;
-
-void str_init() {
-    crypto_init();
-    str_initialized=1;
-}
-
-NOEXPORT void set_alloc_tls(ALLOC_TLS *tls) {
-    global_tls=tls;
-}
-
-NOEXPORT ALLOC_TLS *get_alloc_tls() {
-    return global_tls;
-}
-
-#endif /* USE_FORK */
-
-#ifdef USE_PTHREAD
-
-static pthread_key_t pthread_key;
-
-void str_init() {
-    crypto_init();
-    pthread_key_create(&pthread_key, NULL);
-    str_initialized=1;
-}
-
-NOEXPORT void set_alloc_tls(ALLOC_TLS *tls) {
-    pthread_setspecific(pthread_key, tls);
-}
-
-NOEXPORT ALLOC_TLS *get_alloc_tls() {
-    return pthread_getspecific(pthread_key);
-}
-
-#endif /* USE_PTHREAD */
-
-#ifdef USE_WIN32
-
-static DWORD tls_index;
-
-void str_init() {
-    crypto_init();
-    tls_index=TlsAlloc();
-    str_initialized=1;
-}
-
-NOEXPORT void set_alloc_tls(ALLOC_TLS *alloc_tls) {
-    TlsSetValue(tls_index, alloc_tls);
-}
-
-NOEXPORT ALLOC_TLS *get_alloc_tls() {
-    return TlsGetValue(tls_index);
-}
-
-#endif /* USE_WIN32 */
+/**************************************** memory allocation wrappers */
 
 void str_canary_init() {
     if(canary_initialized) /* prevent double initialization on config reload */
@@ -237,41 +154,23 @@ void str_canary_init() {
     canary_initialized=1; /* after RAND_bytes */
 }
 
-void str_cleanup() {
-    ALLOC_TLS *alloc_tls;
-
-    if(!str_initialized)
-        fatal("str not initialized");
-    alloc_tls=get_alloc_tls();
-    if(alloc_tls) {
-        while(alloc_tls->head) /* str_free macro requires an lvalue parameter */
-            str_free_expression(alloc_tls->head+1);
-        set_alloc_tls(NULL);
-        free(alloc_tls);
-    }
-}
-
 void str_stats() {
-    ALLOC_TLS *alloc_tls;
+    TLS_DATA *tls_data;
     ALLOC_LIST *alloc_list;
     int i=0;
 
-    if(!str_initialized)
+    if(!tls_initialized)
         fatal("str not initialized");
-    alloc_tls=get_alloc_tls();
-    if(!alloc_tls) {
-        s_log(LOG_DEBUG, "str_stats: alloc_tls not initialized");
-        return;
-    }
-    if(!alloc_tls->blocks && !alloc_tls->bytes)
+    tls_data=tls_get();
+    if(!tls_data || (!tls_data->alloc_blocks && !tls_data->alloc_bytes))
         return; /* skip if no data is allocated */
     s_log(LOG_DEBUG, "str_stats: %lu block(s), "
             "%lu data byte(s), %lu control byte(s)",
-        (unsigned long)alloc_tls->blocks,
-        (unsigned long)alloc_tls->bytes,
-        (unsigned long)(alloc_tls->blocks*
+        (unsigned long)tls_data->alloc_blocks,
+        (unsigned long)tls_data->alloc_bytes,
+        (unsigned long)(tls_data->alloc_blocks*
             (sizeof(ALLOC_LIST)+sizeof canary)));
-    for(alloc_list=alloc_tls->head; alloc_list; alloc_list=alloc_list->next) {
+    for(alloc_list=tls_data->alloc_head; alloc_list; alloc_list=alloc_list->next) {
         if(++i>10) /* limit the number of results */
             break;
         s_log(LOG_DEBUG, "str_stats: %lu byte(s) at %s:%d",
@@ -281,30 +180,28 @@ void str_stats() {
 }
 
 void *str_alloc_debug(size_t size, const char *file, int line) {
-    ALLOC_TLS *alloc_tls;
+    TLS_DATA *tls_data;
     ALLOC_LIST *alloc_list;
 
-    if(!str_initialized)
+    if(!tls_initialized)
         fatal_debug("str not initialized", file, line);
-    alloc_tls=get_alloc_tls();
-    if(!alloc_tls) { /* first allocation in this thread */
-        alloc_tls=calloc(1, sizeof(ALLOC_TLS));
-        if(!alloc_tls)
-            fatal_debug("Out of memory", file, line);
-        alloc_tls->head=NULL;
-        alloc_tls->bytes=alloc_tls->blocks=0;
-        set_alloc_tls(alloc_tls);
-    }
+    tls_data=tls_get();
+    if(!tls_data) /* an allocation without initialized thread-local storage */
+#if 0
+        fatal_debug("thread-local storage not initialized", file, line);
+#else
+        tls_data=tls_alloc(NULL); /* TODO: test it and change to fatal error */
+#endif
 
     alloc_list=(ALLOC_LIST *)str_alloc_detached_debug(size, file, line)-1;
     alloc_list->prev=NULL;
-    alloc_list->next=alloc_tls->head;
-    alloc_list->tls=alloc_tls;
-    if(alloc_tls->head)
-        alloc_tls->head->prev=alloc_list;
-    alloc_tls->head=alloc_list;
-    alloc_tls->bytes+=size;
-    alloc_tls->blocks++;
+    alloc_list->next=tls_data->alloc_head;
+    alloc_list->tls=tls_data;
+    if(tls_data->alloc_head)
+        tls_data->alloc_head->prev=alloc_list;
+    tls_data->alloc_head=alloc_list;
+    tls_data->alloc_bytes+=size;
+    tls_data->alloc_blocks++;
 
     return alloc_list+1;
 }
@@ -348,14 +245,14 @@ void *str_realloc_debug(void *ptr, size_t size, const char *file, int line) {
         memset((uint8_t *)ptr+alloc_list->size, 0, size-alloc_list->size);
     if(alloc_list->tls) { /* not detached */
         /* refresh possibly invalidated linked list pointers */
-        if(alloc_list->tls->head==prev_alloc_list)
-            alloc_list->tls->head=alloc_list;
+        if(alloc_list->tls->alloc_head==prev_alloc_list)
+            alloc_list->tls->alloc_head=alloc_list;
         if(alloc_list->next)
             alloc_list->next->prev=alloc_list;
         if(alloc_list->prev)
             alloc_list->prev->next=alloc_list;
         /* update statistics while the old size is still available */
-        alloc_list->tls->bytes+=size-alloc_list->size;
+        alloc_list->tls->alloc_bytes+=size-alloc_list->size;
     }
     alloc_list->size=size;
     alloc_list->file=file;
@@ -375,15 +272,15 @@ void str_detach_debug(void *ptr, const char *file, int line) {
     alloc_list=get_alloc_list_ptr(ptr, file, line);
     if(alloc_list->tls) { /* not detached */
         /* remove from linked list */
-        if(alloc_list->tls->head==alloc_list)
-            alloc_list->tls->head=alloc_list->next;
+        if(alloc_list->tls->alloc_head==alloc_list)
+            alloc_list->tls->alloc_head=alloc_list->next;
         if(alloc_list->next)
             alloc_list->next->prev=alloc_list->prev;
         if(alloc_list->prev)
             alloc_list->prev->next=alloc_list->next;
         /* update statistics */
-        alloc_list->tls->bytes-=alloc_list->size;
-        alloc_list->tls->blocks--;
+        alloc_list->tls->alloc_bytes-=alloc_list->size;
+        alloc_list->tls->alloc_blocks--;
         /* clear pointers */
         alloc_list->next=NULL;
         alloc_list->prev=NULL;
@@ -406,7 +303,7 @@ void str_free_debug(void *ptr, const char *file, int line) {
 NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
     ALLOC_LIST *alloc_list;
 
-    if(!str_initialized)
+    if(!tls_initialized)
         fatal_debug("str not initialized", file, line);
     alloc_list=(ALLOC_LIST *)ptr-1;
     if(alloc_list->magic!=0xdeadbeef) { /* not allocated by str_alloc() */
@@ -415,13 +312,15 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
         else
             fatal_debug("Bad magic", file, line); /* LOL */
     }
-    if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls())
+    if(alloc_list->tls /* not detached */ && alloc_list->tls!=tls_get())
         fatal_debug("Memory allocated in a different thread", file, line);
     if(alloc_list->valid_canary &&
             safe_memcmp((uint8_t *)ptr+alloc_list->size, canary, sizeof canary))
         fatal_debug("Dead canary", file, line); /* LOL */
     return alloc_list;
 }
+
+/**************************************** memcmp() replacement */
 
 /* a version of memcmp() with execution time not dependent on data values */
 /* it does *not* allow to test wheter s1 is greater or lesser than s2  */
@@ -433,14 +332,140 @@ int safe_memcmp(const void *s1, const void *s2, size_t n) {
     return r;
 }
 
-/**************************************** hook the OpenSSL allocator */
+/**************************************** thread local storage */
 
-NOEXPORT void crypto_init() {
+/* this has to be the first function called by main() */
+void tls_init() {
+    tls_platform_init();
+    tls_initialized=1;
+    tls_alloc(NULL); /* for the main thread */
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
     CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
         str_realloc_debug, str_free_function);
 #endif
 }
+
+/* this has to be the first function called by a new thread */
+TLS_DATA *tls_alloc(CLI *c) {
+    TLS_DATA *tls_data;
+
+    if(c && c->tls) { /* reuse the thread-local storage after fork() */
+        tls_set(c->tls);
+        return c->tls;
+    }
+    tls_data=calloc(1, sizeof(TLS_DATA));
+    if(!tls_data)
+        fatal("Out of memory");
+    if(c)
+        c->tls=tls_data;
+
+    tls_data->alloc_head=NULL;
+    tls_data->alloc_bytes=tls_data->alloc_blocks=0;
+    tls_data->id="unconfigured";
+    tls_data->c=c;
+    tls_data->opt=c?c->opt:&service_options;
+    tls_set(tls_data);
+
+    /* str.c functions can be used below this point */
+    tls_data->id=log_id(c); /* c is NULL unless in a client thread */
+    str_detach(tls_data->id); /* it is deallocated after str_stats() */
+
+    return tls_data;
+}
+
+/* per-thread thread-local storage cleanup */
+void tls_free() {
+    TLS_DATA *tls_data;
+
+    tls_data=tls_get();
+    if(!tls_data)
+        return;
+
+    str_free(tls_data->id);
+    while(tls_data->alloc_head) /* str_free macro requires an lvalue parameter */
+        str_free_expression(tls_data->alloc_head+1);
+
+    tls_set(NULL);
+    free(tls_data);
+}
+
+#ifdef USE_UCONTEXT
+
+static TLS_DATA *global_tls=NULL;
+
+NOEXPORT void tls_platform_init() {
+}
+
+NOEXPORT void tls_set(TLS_DATA *tls_data) {
+    if(ready_head)
+        ready_head->tls=tls_data;
+    else /* ucontext threads not initialized */
+        global_tls=tls;
+}
+
+TLS_DATA *tls_get() {
+    if(ready_head)
+        return ready_head->tls;
+    else /* ucontext threads not initialized */
+        return global_tls;
+}
+
+#endif /* USE_UCONTEXT */
+
+#ifdef USE_FORK
+
+static TLS_DATA *global_tls=NULL;
+
+NOEXPORT void tls_platform_init() {
+}
+
+NOEXPORT void tls_set(TLS_DATA *tls_data) {
+    global_tls=tls_data;
+}
+
+TLS_DATA *tls_get() {
+    return global_tls;
+}
+
+#endif /* USE_FORK */
+
+#ifdef USE_PTHREAD
+
+static pthread_key_t pthread_key;
+
+NOEXPORT void tls_platform_init() {
+    pthread_key_create(&pthread_key, NULL);
+}
+
+NOEXPORT void tls_set(TLS_DATA *tls_data) {
+    pthread_setspecific(pthread_key, tls_data);
+}
+
+TLS_DATA *tls_get() {
+    return pthread_getspecific(pthread_key);
+}
+
+#endif /* USE_PTHREAD */
+
+#ifdef USE_WIN32
+
+static DWORD tls_index;
+
+NOEXPORT void tls_platform_init() {
+    tls_index=TlsAlloc();
+}
+
+NOEXPORT void tls_set(TLS_DATA *tls_data) {
+    TlsSetValue(tls_index, tls_data);
+}
+
+TLS_DATA *tls_get() {
+    return TlsGetValue(tls_index);
+}
+
+#endif /* USE_WIN32 */
+
+/**************************************** OpenSSL allocator hook */
 
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
 NOEXPORT void str_free_function(void *ptr) {

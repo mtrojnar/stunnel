@@ -400,7 +400,7 @@ tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
 
 # OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 # WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-OPENSSLDIR = /usr/src/openssl-1.0.2-i686
+OPENSSLDIR = /usr/src/openssl-1.0.2a-i686
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wpedantic \
 	-Wformat=2 -Wconversion -Wno-long-long -D_FORTIFY_SOURCE=2 \

@@ -80,6 +80,8 @@ CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
 void *client_thread(void *arg) {
     CLI *c=arg;
 
+    c->tls=NULL; /* do not reuse */
+    tls_alloc(c);
 #ifdef DEBUG_STACK_SIZE
     stack_info(1); /* initialize */
 #endif
@@ -88,8 +90,8 @@ void *client_thread(void *arg) {
     stack_info(0); /* display computed value */
 #endif
     str_stats(); /* client thread allocation tracking */
-    str_cleanup();
-    /* s_log() is not allowed after str_cleanup() */
+    tls_free();
+    /* s_log() is not allowed after tls_free() */
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
     _endthread();
 #endif
@@ -120,8 +122,8 @@ void client_main(CLI *c) {
             c->fds=NULL;
             str_stats(); /* client thread allocation tracking */
             /* c allocation is detached, so it is safe to call str_stats() */
-            if(service_options.next) /* don't str_cleanup in inetd mode */
-                str_cleanup();
+            if(service_options.next) /* no tls_free() in inetd mode */
+                tls_free();
         }
     } else
         client_run(c);
@@ -943,7 +945,7 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
     const COMP_METHOD *compression, *expansion;
 #endif
 
-    if(global_options.debug_level<LOG_INFO) /* performance optimization */
+    if(c->opt->log_level<LOG_INFO) /* performance optimization */
         return;
     cipher=(SSL_CIPHER *)SSL_get_current_cipher(c->ssl);
     s_log(LOG_INFO, "Negotiated %s ciphersuite %s (%d-bit encryption)",
@@ -1103,6 +1105,7 @@ NOEXPORT int connect_local(CLI *c) { /* spawn local process */
         ioerror("fork");
         longjmp(c->err, 1);
     case  0:    /* child */
+        tls_alloc(c); /* reuse the current thread-local storage */
         closesocket(fd[0]);
         set_nonblock(fd[1], 0); /* switch back to blocking mode */
         /* dup2() does not copy FD_CLOEXEC flag */
@@ -1313,7 +1316,7 @@ NOEXPORT void print_bound_address(CLI *c) {
     SOCKADDR_UNION addr;
     socklen_t addrlen=sizeof addr;
 
-    if(global_options.debug_level<LOG_NOTICE) /* performance optimization */
+    if(c->opt->log_level<LOG_NOTICE) /* performance optimization */
         return;
     memset(&addr, 0, addrlen);
     if(getsockname(c->fd, (struct sockaddr *)&addr, &addrlen)) {

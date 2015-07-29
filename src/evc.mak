@@ -26,7 +26,7 @@
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=C:\Users\pdelaage\Dvts\Contrib\openssl\v1.0.2-stable-SNAP-20121213\patch3
+SSLDIR=C:\Users\pdelaage\Dvts\Contrib\openssl
 
 # Note that we currently use a multi-target customized version of legacy Essemer/wcecompat lib
 COMPATDIR=C:\Users\pdelaage\Dvts\Contrib\wcecompat\v12\patched3emu

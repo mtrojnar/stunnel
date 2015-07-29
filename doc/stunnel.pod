@@ -478,6 +478,47 @@ To get a list of supported cuves use:
 
 default: prime256v1
 
+=item B<logId> = TYPE
+
+connection identifier type
+
+This identifier allows to distinguish log entries generated for each of the
+connections.
+
+Currently supported types:
+
+=over 4
+
+=item I<sequential>
+
+The numeric sequential identifier is only unique within a single instance of
+B<stunnel>, but very compact.  It is most useful for manual log analysis.
+
+=item I<unique>
+
+This alphanumeric identifier is globally unique, but longer than the sequential
+number.  It is most useful for automated log analysis.
+
+=item I<thread>
+
+The operating system thread identifier is neither unique (even within a single
+instance of B<stunnel>) nor short.  It is most useful for debugging software
+or configuration issues.
+
+=back
+
+default: sequential
+
+=item B<debug> = LEVEL
+
+debugging level
+
+Level is a one of the syslog level names or numbers
+emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
+info (6), or debug (7).  All logs for the specified level and
+all levels numerically less than it will be shown.  Use I<debug = debug> or
+I<debug = 7> for greatest debugging output.  The default is notice (5).
+
 =item B<delay> = yes | no
 
 delay DNS lookup for I<connect> option

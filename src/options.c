@@ -60,7 +60,7 @@ NOEXPORT char *parse_service_option(CMD, SERVICE_OPTIONS *, char *, char *);
 NOEXPORT char *sni_init(SERVICE_OPTIONS *);
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 
-NOEXPORT int parse_debug_level(char *);
+NOEXPORT char *parse_debug_level(char *, SERVICE_OPTIONS *);
 
 #ifndef OPENSSL_NO_PSK
 NOEXPORT PSK_KEYS *psk_read(char *);
@@ -339,9 +339,12 @@ int options_parse(CONF_TYPE type) {
             config_opt[i]='\0'; /* remove trailing whitespaces */
         while(isspace((unsigned char)*config_arg))
             ++config_arg; /* remove initial whitespaces */
-        errstr=parse_service_option(CMD_EXEC, section, config_opt, config_arg);
-        if(!new_service_options.next && errstr==option_not_found)
+        errstr=option_not_found;
+        /* try global options first (e.g. for 'debug') */
+        if(!new_service_options.next)
             errstr=parse_global_option(CMD_EXEC, config_opt, config_arg);
+        if(errstr==option_not_found)
+            errstr=parse_service_option(CMD_EXEC, section, config_opt, config_arg);
         if(errstr) {
             s_log(LOG_ERR, "Line %d: \"%s\": %s", line_number, line_text, errstr);
             file_close(df);
@@ -463,17 +466,15 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* debug */
     switch(cmd) {
     case CMD_BEGIN:
-        new_global_options.debug_level=LOG_NOTICE;
+        new_service_options.log_level=LOG_NOTICE;
 #if !defined (USE_WIN32) && !defined (__vms)
-        new_global_options.facility=LOG_DAEMON;
+        new_global_options.log_facility=LOG_DAEMON;
 #endif
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "debug"))
             break;
-        if(parse_debug_level(arg))
-            return "Illegal debug argument";
-        return NULL; /* OK */
+        return parse_debug_level(arg, &new_service_options);
     case CMD_END:
         break;
     case CMD_FREE:
@@ -1370,6 +1371,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
 #endif /* !defined(OPENSSL_NO_ECDH) */
 
+    /* debug */
+    switch(cmd) {
+    case CMD_BEGIN:
+        new_service_options.log_level=LOG_NOTICE;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "debug"))
+            break;
+        return parse_debug_level(arg, section);
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        s_log(LOG_NOTICE, "%-22s = %s", "debug", "notice");
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = level (e.g. info)", "debug");
+        break;
+    }
+
     /* delay */
     switch(cmd) {
     case CMD_BEGIN:
@@ -1633,6 +1655,36 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-22s = IP address to be used as source for remote"
             " connections", "local");
+        break;
+    }
+
+    /* logId */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->log_id=LOG_ID_SEQENTIAL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "logId"))
+            break;
+        if(!strcasecmp(arg, "sequential"))
+            section->log_id=LOG_ID_SEQENTIAL;
+        else if(!strcasecmp(arg, "unique"))
+            section->log_id=LOG_ID_UNIQUE;
+        else if(!strcasecmp(arg, "thread"))
+            section->log_id=LOG_ID_THREAD;
+        else
+            return "Invalid connection identifier type";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        s_log(LOG_NOTICE, "%-22s = %s", "logId", "sequential");
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = connection identifier type",
+            "logId");
         break;
     }
 
@@ -2569,7 +2621,7 @@ typedef struct {
     int value;
 } facilitylevel;
 
-NOEXPORT int parse_debug_level(char *arg) {
+NOEXPORT char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
     char *arg_copy;
     char *string;
     facilitylevel *fl;
@@ -2584,7 +2636,7 @@ NOEXPORT int parse_debug_level(char *arg) {
         {"local2", LOG_LOCAL2}, {"local3", LOG_LOCAL3}, {"local4", LOG_LOCAL4},
         {"local5", LOG_LOCAL5}, {"local6", LOG_LOCAL6}, {"local7", LOG_LOCAL7},
 
-        /* some that are not on all unicies */
+        /* some facilities are not defined on all Unices */
 #ifdef LOG_AUTHPRIV
         {"authpriv", LOG_AUTHPRIV},
 #endif
@@ -2611,37 +2663,38 @@ NOEXPORT int parse_debug_level(char *arg) {
 
 /* facilities only make sense on Unix */
 #if !defined (USE_WIN32) && !defined (__vms)
-    if(strchr(string, '.')) { /* we have a facility specified */
-        new_global_options.facility=-1;
+    if(section==&new_service_options && strchr(string, '.')) {
+        /* a facility was specified in the global options */
+        new_global_options.log_facility=-1;
         string=strtok(arg_copy, "."); /* break it up */
 
         for(fl=facilities; fl->name; ++fl) {
             if(!strcasecmp(fl->name, string)) {
-                new_global_options.facility=fl->value;
+                new_global_options.log_facility=fl->value;
                 break;
             }
         }
-        if(new_global_options.facility==-1)
-            return 1; /* FAILED */
+        if(new_global_options.log_facility==-1)
+            return "Illegal syslog facility";
         string=strtok(NULL, ".");    /* set to the remainder */
     }
 #endif /* USE_WIN32, __vms */
 
     /* time to check the syslog level */
     if(string && strlen(string)==1 && *string>='0' && *string<='7') {
-        new_global_options.debug_level=*string-'0';
-        return 0; /* OK */
+        section->log_level=*string-'0';
+        return NULL; /* OK */
     }
-    new_global_options.debug_level=8;    /* illegal level */
+    section->log_level=8;    /* illegal level */
     for(fl=levels; fl->name; ++fl) {
         if(!strcasecmp(fl->name, string)) {
-            new_global_options.debug_level=fl->value;
+            section->log_level=fl->value;
             break;
         }
     }
-    if(new_global_options.debug_level==8)
-        return 1; /* FAILED */
-    return 0; /* OK */
+    if(section->log_level==8)
+        return "Illegal debug level"; /* FAILED */
+    return NULL; /* OK */
 }
 
 /**************************************** SSL options */

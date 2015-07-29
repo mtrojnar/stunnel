@@ -61,7 +61,6 @@
 /* additional diagnostic messages */
 /* #define DEBUG_FD_ALLOC */
 
-#define DEBUG_INFO
 #ifdef DEBUG_INFO
 #define NOEXPORT
 #else

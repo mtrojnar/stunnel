@@ -618,7 +618,7 @@ NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *c,
         goto cleanup;
     if(s_connect(c, &addr, addr_len(&addr)))
         goto cleanup;
-    bio=BIO_new_fd(c->fd, BIO_NOCLOSE);
+    bio=BIO_new_socket(c->fd, BIO_NOCLOSE);
     if(!bio)
         goto cleanup;
     s_log(LOG_DEBUG, "OCSP: response retrieved");

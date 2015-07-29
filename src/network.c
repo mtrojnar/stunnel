@@ -243,9 +243,9 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     ready_head=ready_head->next;
     if(!ready_head) /* the queue is empty */
         ready_tail=NULL;
-    /* it it safe to s_log() after new ready_head is set */
+    /* it is safe to s_log() after new ready_head is set */
 
-    /* it's illegal to deallocate the stack of the current context */
+    /* it is illegal to deallocate the stack of the current context */
     if(to_free) { /* a delayed deallocation is scheduled */
 #ifdef DEBUG_UCONTEXT
         s_log(LOG_DEBUG, "Releasing context %ld", to_free->id);

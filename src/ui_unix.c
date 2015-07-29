@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
 #ifdef M_MMAP_THRESHOLD
     mallopt(M_MMAP_THRESHOLD, 4096);
 #endif
-    str_init(); /* initialize per-thread string management */
+    tls_init(); /* initialize thread-local storage */
     retval=main_unix(argc, argv);
     main_cleanup();
     return retval;
@@ -153,6 +153,7 @@ NOEXPORT int daemonize(int fd) { /* go to background */
         exit(0);
     }
 #endif
+    tls_alloc(NULL); /* for the main thread */
 #ifdef HAVE_SETSID
     setsid(); /* ignore the error */
 #endif
