@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -80,7 +80,7 @@
 #else /* defined USE_WIN32 */
 
 /* Must be included before sys/stat.h for Ultrix */
-#include <sys/types.h>   /* u_short, u_long */
+#include <sys/types.h>   /* u_short, u32 */
 
 /* General headers */
 #include <errno.h>       /* errno */
@@ -443,7 +443,7 @@ void client(int local)
     SSL *ssl;
     int remote;
     struct linger l;
-    u_long ip;
+    u32 ip;
 #ifdef USE_LIBWRAP
     struct request_info request;
 #endif

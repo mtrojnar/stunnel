@@ -1,10 +1,10 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.11                  (stunnel.c)
- *   Date:         2000.12.21
+ *   Version:      3.12                  (stunnel.c)
+ *   Date:         2001.01.24
  *   
  *   Author:   		Michal Trojnara  <Michal.Trojnara@mirt.net>
  *   SSL support:  	Adam Hernik      <adas@infocentrum.com>
@@ -91,10 +91,10 @@ static struct WSAData wsa_state;
 #include <sys/select.h>  /* for aix */
 #endif
 #ifndef INADDR_ANY
-#define INADDR_ANY       (u_long)0x00000000
+#define INADDR_ANY       (u32)0x00000000
 #endif
 #ifndef INADDR_LOOPBACK
-#define INADDR_LOOPBACK  (u_long)0x7F000001
+#define INADDR_LOOPBACK  (u32)0x7F000001
 #endif
 
 #endif /* defined USE_WIN32 */
@@ -124,6 +124,7 @@ void sockerror(char *);
 static void sigchld_handler(int);
 #endif
 #ifndef USE_WIN32
+static void local_handler(int);
 static void signal_handler(int);
 #endif
 #ifndef HAVE_GETOPT
@@ -198,7 +199,7 @@ int main(int argc, char* argv[])
         (options.option & OPT_PROGRAM)) {
         /* client, program mode */
         int local;
-        u_long ip = 0; /* local program or stdin/stdout */
+        u32 ip = 0; /* local program or stdin/stdout */
         if ((local = connect_local(ip)) >= 0) {
             options.clients = 1;
             client(local);
@@ -444,9 +445,11 @@ static void daemon_loop()
     options.clients=0;
 #ifndef USE_WIN32
 #ifdef USE_FORK
+    /* Main process will receive signals about dead children */
     signal(SIGCHLD, sigchld_handler);
 #else /* defined USE_FORK */
-    signal(SIGCHLD, SIG_IGN);
+    /* Main process will receive signals about dead children of it's threads */
+    signal(SIGCHLD, local_handler);
 #endif /* defined USE_FORK */
 #endif /* ndefined USE_WIN32 */
     while(1) {
@@ -642,7 +645,7 @@ static int listen_local() /* bind and listen on local interface */
     return ls;
 }
 
-int connect_local(u_long ip) /* connect to local host */
+int connect_local(u32 ip) /* spawn local process */
 {
 #ifdef USE_WIN32
     log(LOG_ERR, "LOCAL MODE NOT SUPPORTED ON WIN32 PLATFORM");
@@ -663,6 +666,12 @@ int connect_local(u_long ip) /* connect to local host */
         if(make_sockets(fd))
             return -1;
     }
+#ifdef USE_FORK
+    /* Each child has to take care of its own dead children */
+    signal(SIGCHLD, local_handler);
+#endif /* defined USE_FORK */
+    /* With USE_PTHREAD main thread does the work */
+    /* and SIGCHLD is blocked in other theads */
     switch (fork()) {
     case -1:    /* error */
         closesocket(fd[0]);
@@ -693,7 +702,7 @@ int connect_local(u_long ip) /* connect to local host */
 #endif /* USE_WIN32 */
 }
 
-int connect_remote(u_long ip) /* connect to remote host */
+int connect_remote(u32 ip) /* connect to remote host */
 {
     struct sockaddr_in addr;
     int s; /* destination socket */
@@ -875,7 +884,7 @@ static u_short port2num(char *portname) /* get port number */
 static void host2num(u32 **hostlist, char *hostname)
 { /* get list of host addresses */
     struct hostent *h;
-    u_long ip;
+    u32 ip;
     int i;
     char **tab;
 
@@ -942,11 +951,21 @@ static void sigchld_handler(int sig) /* Dead children detected */
 #endif
 
 #ifndef USE_WIN32
-static void signal_handler(int sig) /* Signal handler */
-{
+
+static void local_handler(int sig) { /* sigchld handler for -l processes */
+    int pid, status;
+
+    pid=wait(&status);
+    log(LOG_DEBUG, "Local process %s[%d] finished with code %d)",
+        options.servname, pid, status);
+    signal(SIGCHLD, local_handler);
+}
+
+static void signal_handler(int sig) { /* Signal handler */
     log(LOG_ERR, "Received signal %d; terminating.", sig);
     exit(3);
 }
+
 #endif /* !defined USE_WIN32 */
 
 #ifndef HAVE_GETOPT

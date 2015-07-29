@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -77,15 +77,15 @@ int parse_debug_level( char *optarg ) {
 	  {"local5",LOG_LOCAL5}, {"local6",LOG_LOCAL6}, {"local7",LOG_LOCAL7},
 
 		/* Some that are not on all unicies */
-	#ifdef LOG_AUTHPRIV
+#ifdef LOG_AUTHPRIV
 		{ "authpriv", LOG_AUTHPRIV },
-	#endif
-	#ifdef LOG_FTP
+#endif
+#ifdef LOG_FTP
 		{ "ftp", LOG_FTP },
-	#endif
-	#ifdef LOG_NTP
+#endif
+#ifdef LOG_NTP
 		{ "ntp", LOG_NTP },
-	#endif
+#endif
 	  { NULL, 0 }
 	};
 

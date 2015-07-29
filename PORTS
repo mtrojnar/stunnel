@@ -3,7 +3,7 @@ stunnel         Universal SSL tunnel
 Stunnel ports maintainers:
 
 FreeBSD:
-	Martti Kuparinen <martti.kuparinen@ericsson.com>
+	Martti Kuparinen <martti.kuparinen@iki.fi>
 
 Debian Linux:
 	Paolo Molaro <lupus@debian.org>

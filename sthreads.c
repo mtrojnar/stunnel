@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -33,6 +33,7 @@
 
 #include <pthread.h>
 #include <unistd.h> /* for getpid() */
+#include <signal.h> /* for sigemptyset(), sigaddset() */
 
 pthread_mutex_t stunnel_cs[MAX_CRIT_SECTIONS];
 
@@ -86,11 +87,17 @@ unsigned long thread_id() {
 
 int create_client(int ls, int s, void (*cli)(int)) {
      pthread_t thread;
+     sigset_t mask, oldmask;
 
+     sigemptyset(&mask);
+     sigaddset(&mask, SIGCHLD);
+     pthread_sigmask(SIG_BLOCK, &mask, &oldmask); /* block SIGCHLD */
      if(pthread_create(&thread, &pth_attr, (void *)cli, (void *)s)) {
+         /* SIGCHLD will remain blocked here */
          closesocket(s);
          return -1;
      }
+     pthread_sigmask(SIG_UNBLOCK, &oldmask, NULL); /* unblock SIGCHLD */
      return 0;
 }
 

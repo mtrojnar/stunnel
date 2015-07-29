@@ -1,5 +1,11 @@
 stunnel         Universal SSL tunnel
 
+Version 3.12, 2001.01.24, urgency: LOW:
+* Attempted to fix problem with zombies in local mode.
+* Patch for 64-bit machines by Nalin Dahyabhai <nalin@redhat.com> applied.
+* Tiny bugfix for OSF cc by Dobrica Pavlinusic <dpavlin@rot13.org> added.
+* PORTS file updated
+
 Version 3.11, 2000.12.21, urgency: MEDIUM:
 * New problem with zombies fixed.
 * Attempt to be integer-size independed.

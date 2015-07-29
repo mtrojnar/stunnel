@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -54,7 +54,7 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.11"
+#define VERSION "3.12"
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else
@@ -131,6 +131,7 @@ typedef unsigned long long u64;
 #endif
 
 #include <syslog.h>
+#include <sys/types.h>
 
 #endif /* USE_WIN32 */
 
@@ -204,8 +205,8 @@ typedef struct {
 /* Prototypes for stunnel.c */
 
 void sockerror(char *);
-int connect_local(unsigned long);
-int connect_remote(unsigned long);
+int connect_local(u32);
+int connect_remote(u32);
 
 /* Prototypes for ssl.c */
 
