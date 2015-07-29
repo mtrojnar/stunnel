@@ -122,8 +122,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     LPSTR command_line;
 
-    /* system("c:\\start.bat"); */
-
 #ifdef _WIN32_WCE
     command_line=tstr2str(lpCmdLine);
 #else
@@ -283,6 +281,10 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     MSG msg;
     LPTSTR classname=win32_name;
 
+    (void)hPrevInstance; /* skip warning about unused parameter */
+    (void)command_line; /* skip warning about unused parameter */
+    (void)nCmdShow; /* skip warning about unused parameter */
+
     /* register the class */
 #ifndef _WIN32_WCE
     wc.cbSize=sizeof wc;
@@ -364,6 +366,8 @@ static void update_taskbar(void) { /* create the taskbar icon */
 }
 
 static void ThreadFunc(void *arg) {
+    (void)arg; /* skip warning about unused parameter */
+
     if(!setjmp(jump_buf)) {
         main_execute();
     } else {
@@ -513,6 +517,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 
 static LRESULT CALLBACK about_proc(HWND hDlg, UINT message,
         WPARAM wParam, LPARAM lParam) {
+    (void)lParam; /* skip warning about unused parameter */
+
     switch(message) {
         case WM_INITDIALOG:
             return TRUE;
@@ -537,7 +543,7 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
 
     switch(message) {
     case WM_INITDIALOG:
-        /* set the default push button to "Cancel." */
+        /* set the default push button to "Cancel" */
         SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDCANCEL, (LPARAM) 0);
 
         keyFileName = str2tstr(ui_data->section->key);
@@ -589,6 +595,8 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
 }
 
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
+    (void)rwflag; /* skip warning about unused parameter */
+
     ui_data=userdata;
     if(!DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc))
         return 0; /* error */
@@ -599,7 +607,11 @@ int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
 
 #ifdef HAVE_OSSL_ENGINE_H
 int pin_cb(UI *ui, UI_STRING *uis) {
-    ui_data=UI_get_app_data(ui);
+    ui_data=UI_get0_user_data(ui); /* was: ui_data=UI_get_app_data(ui); */
+    if(!ui_data) {
+        s_log(LOG_ERR, "INTERNAL ERROR: user data data pointer");
+        return 0;
+    }
     if(!DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc))
         return 0; /* error */
     UI_set_result(ui, uis, ui_data->pass);
@@ -728,7 +740,9 @@ static void set_visible(int i) {
         ShowWindow(hwnd, SW_HIDE); /* hide window */
 }
 
-void exit_win32(int code) { /* used instead of exit() on Win32 */
+void exit_win32(int exit_code) { /* used instead of exit() on Win32 */
+    (void)exit_code; /* skip warning about unused parameter */
+
     win_log("");
     s_log(LOG_ERR, "Server is down");
     MessageBox(hwnd, TEXT("Stunnel server is down due to an error.\n")
@@ -756,11 +770,10 @@ static void error_box(const LPTSTR text) {
 #ifndef _WIN32_WCE
 
 static int service_initialize(void) {
-    SERVICE_TABLE_ENTRY serviceTable[]={
-        {global_options.win32_service, service_main},
-        {0, 0}
-    };
+    SERVICE_TABLE_ENTRY serviceTable[]={{0, 0}, {0, 0}};
 
+    serviceTable[0].lpServiceName=global_options.win32_service;
+    serviceTable[0].lpServiceProc=service_main;
     global_options.option.taskbar=0; /* disable taskbar for security */
     if(!StartServiceCtrlDispatcher(serviceTable)) {
         error_box(TEXT("StartServiceCtrlDispatcher"));
@@ -950,6 +963,9 @@ static int service_stop(void) {
 }
 
 static void WINAPI service_main(DWORD argc, LPTSTR* argv) {
+    (void)argc; /* skip warning about unused parameter */
+    (void)argv; /* skip warning about unused parameter */
+
     /* initialise service status */
     serviceStatus.dwServiceType=SERVICE_WIN32;
     serviceStatus.dwCurrentState=SERVICE_STOPPED;

@@ -3,8 +3,8 @@
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you?)
-SSLDIR=..\..\openssl-1.0.0
-VERSION=4.33
+SSLDIR=..\..\openssl-1.0.0a
+VERSION=4.34
 
 OBJS=stunnel.obj ssl.obj ctx.obj verify.obj file.obj client.obj \
 	protocol.obj sthreads.obj log.obj options.obj network.obj \
@@ -20,8 +20,8 @@ LINK=link
 LDFLAGS=/INCREMENTAL:NO /NOLOGO /SUBSYSTEM:WINDOWS /OPT:REF \
 	/OPT:ICF /LTCG /MACHINE:X86 /ERRORREPORT:PROMPT
 LIBS=/LIBPATH:"$(SSLDIR)\out32dll" wsock32.lib ssleay32.lib \
-	libeay32.lib user32.lib gdi32.lib shell32.lib comdlg32.lib \
-	advapi32.lib
+	libeay32.lib user32.lib gdi32.lib crypt32 shell32.lib \
+	comdlg32.lib advapi32.lib
 
 all: stunnel.exe
 

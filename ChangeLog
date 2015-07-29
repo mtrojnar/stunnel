@@ -1,5 +1,21 @@
 stunnel         Universal SSL tunnel
 
+Version 4.34, 2010.09.19, urgency: LOW:
+* New features
+  - Updated Win32 DLLs for OpenSSL 1.0.0a.
+  - Updated Win32 DLLs for zlib 1.2.5.
+  - Updated automake to version 1.11.1
+  - Updated libtool to version 2.2.6b
+  - Added ECC support with a new service-level "curve" option.
+  - DH support is now enabled by default.
+  - Added support for OpenSSL builds with some algorithms disabled.
+  - ./configure modified to support cross-compilation.
+  - Sample stunnel.init updated based on Debian init script.
+* Bugfixes
+  - Implemented fixes in user interface to enter engine PIN.
+  - Fixed a transfer() loop issue on socket errors.
+  - Fixed missing WIN32 taskbar icon while displaying a global option error.
+
 Version 4.33, 2010.04.05, urgency: MEDIUM:
 * New features
   - Win32 DLLs for OpenSSL 1.0.0.
@@ -8,7 +24,7 @@ Version 4.33, 2010.04.05, urgency: MEDIUM:
   - Experimental support for local mode on WIN32 platform.
     Try "exec = c:\windows\system32\cmd.exe".
 * Bugfixes
-  - Inetd mode fixed
+  - Inetd mode fixed.
 
 Version 4.32, 2010.03.24, urgency: MEDIUM:
 * New features

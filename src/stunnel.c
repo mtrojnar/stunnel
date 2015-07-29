@@ -136,7 +136,7 @@ void main_initialize(char *arg1, char *arg2) {
     }
 #endif /* standard Unix */
 
-    stunnel_info();
+    stunnel_info(LOG_NOTICE);
 }
 
 void main_execute(void) {
@@ -425,10 +425,10 @@ static void signal_handler(int sig) { /* signal handler */
 
 #endif /* standard Unix */
 
-void stunnel_info(void) {
+void stunnel_info(int level) {
     char line[STRLEN];
 
-    s_log(LOG_NOTICE, "stunnel " VERSION " on " HOST " with %s",
+    s_log(level, "stunnel " VERSION " on " HOST " with %s",
         SSLeay_version(SSLEAY_VERSION));
 
     safecopy(line, "Threading:");
@@ -478,7 +478,7 @@ void stunnel_info(void) {
     safeconcat(line, " Auth:LIBWRAP");
 #endif
 
-    s_log(LOG_NOTICE, "%s", line);
+    s_log(level, "%s", line);
 }
 
 void die(int status) { /* some cleanup and exit */

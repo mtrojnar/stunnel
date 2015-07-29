@@ -108,7 +108,7 @@ void libwrap_init(int num) {
 void libwrap_auth(CLI *c) {
     int result=0; /* deny by default */
 #ifdef USE_PTHREAD
-    volatile static int num_busy=0, roundrobin=0;
+    static volatile int num_busy=0, roundrobin=0;
     int retval, my_process;
     static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
     static pthread_cond_t cond=PTHREAD_COND_INITIALIZER;

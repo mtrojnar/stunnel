@@ -1,42 +1,118 @@
-#!/bin/sh
-# Sample stunnel SysV startup file
-# Copyright by Michal Trojnara 2002,2007,2008
+#! /bin/sh -e
+### BEGIN INIT INFO
+# Provides:          stunnel
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Should-Start:      $syslog
+# Should-Stop:       $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start or stop stunnel 4.x (SSL tunnel for network daemons)
+### END INIT INFO
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DEFAULTPIDFILE="/var/run/stunnel.pid"
 DAEMON=@prefix@/bin/stunnel
-PIDFILE=@prefix@/var/run/stunnel/stunnel.pid
+NAME=stunnel
+DESC="SSL tunnels"
+FILES="/etc/stunnel/*.conf"
+OPTIONS=""
+ENABLED=0
 
-test -f $DAEMON || exit 0
+get_pids() {
+   local file=$1
+   if test -f $file; then
+     CHROOT=`grep "^chroot" $file|sed "s;.*= *;;"`
+     PIDFILE=`grep "^pid" $file|sed "s;.*= *;;"`
+     if [ "$PIDFILE" = "" ]; then
+       PIDFILE=$DEFAULTPIDFILE
+     fi
+     if test -f $CHROOT/$PIDFILE; then
+       cat $CHROOT/$PIDFILE
+     fi
+   fi
+}
+
+startdaemons() {
+  if ! [ -d /var/run/stunnel ]; then
+    rm -rf /var/run/stunnel
+    install -d -o stunnel -g stunnel /var/run/stunnel
+  fi
+  for file in $FILES; do 
+    if test -f $file; then
+      ARGS="$file $OPTIONS"
+      PROCLIST=`get_pids $file`
+      if [ "$PROCLIST" ] && kill -s 0 $PROCLIST 2>/dev/null; then
+        echo -n "[Already running: $file] "
+      elif $DAEMON $ARGS; then
+	echo -n "[Started: $file] "
+      else
+	echo "[Failed: $file]"
+	echo "You should check that you have specified the pid= in you configuration file"
+	exit 1
+      fi
+    fi
+  done;
+}
+
+killdaemons()
+{
+  SIGNAL=${$1:-TERM}
+  for file in $FILES; do
+    PROCLIST=`get_pids $file`
+    if [ "$PROCLIST" ] && kill -s 0 $PROCLIST 2>/dev/null; then
+       kill -s $SIGNAL $PROCLIST
+       echo -n "[stopped: $file] "
+    fi
+  done
+}
+
+if [ "x$OPTIONS" != "x" ]; then
+  OPTIONS="-- $OPTIONS"
+fi
+
+test -f /etc/default/stunnel && . /etc/default/stunnel
+if [ "$ENABLED" = "0" ] ; then
+  echo "$DESC disabled, see /etc/default/stunnel"
+  exit 0
+fi
+
+test -x $DAEMON || exit 0
+
+set -e
 
 case "$1" in
-    start)
-        echo -n "Starting universal SSL tunnel: stunnel"
-        $DAEMON || echo -n " failed"
-        echo "."
+  start)
+        echo -n "Starting $DESC: "
+        startdaemons
+        echo "$NAME."
         ;;
-    stop)
-        echo -n "Stopping universal SSL tunnel: stunnel"
-        if test -r $PIDFILE; then
-            kill `cat $PIDFILE` 2> /dev/null || echo -n " failed"
-        else
-            echo -n " no PID file"
-        fi
-        echo "."
+  stop)
+        echo -n "Stopping $DESC: "
+        killdaemons
+        echo "$NAME."
         ;;
-     restart|force-reload)
-        echo "Restarting universal SSL tunnel"
-        $0 stop
-        sleep 1
-        $0 start
-        echo "done."
+  reopen-logs)
+        echo -n "Reopening log files $DESC: "
+        killdaemons USR1
+        echo "$NAME."
         ;;
-    *)
-        N=${0##*/}
-        N=${N#[SK]??}
-        echo "Usage: $N {start|stop|restart|force-reload}" >&2
+  force-reload|reload)
+        echo -n "Reloading configuration $DESC: "
+        killdaemons HUP
+        echo "$NAME."
+        ;;  
+  restart)
+        echo -n "Restarting $DESC: "
+        killdaemons
+        sleep 5
+        startdaemons
+        echo "$NAME."
+        ;;
+  *)
+        N=/etc/init.d/$NAME
+        echo "Usage: $N {start|stop|reload|reopen-logs|restart}" >&2
         exit 1
         ;;
 esac
 
 exit 0
-

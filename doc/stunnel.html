@@ -399,6 +399,12 @@ be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.</p>
 <p>Certificate Revocation Lists file</p>
 <p>This file contains multiple CRLs, used with the <em>verify</em>.</p>
 </dd>
+<dt><strong><a name="curve_nid" class="item"><strong>curve</strong> = nid</a></strong></dt>
+
+<dd>
+<p>specify ECDH curve name</p>
+<p>default: sect163r2</p>
+</dd>
 <dt><strong><a name="delay_yes_no" class="item"><strong>delay</strong> = yes | no</a></strong></dt>
 
 <dd>
@@ -412,13 +418,13 @@ stunnel startup (road warrior VPN, dial-up configurations).</p>
 <p>select engine number to read private key</p>
 <p>The engines are numbered starting from 1.</p>
 </dd>
-<dt><strong><a name="executable_path" class="item"><strong>exec</strong> = executable_path (Unix only)</a></strong></dt>
+<dt><strong><a name="exec_executable_path" class="item"><strong>exec</strong> = executable_path</a></strong></dt>
 
 <dd>
 <p>execute local inetd-type program</p>
 <p><em>exec</em> path is relative to <em>chroot</em> directory if specified.</p>
 </dd>
-<dt><strong><a name="execargs_0_1_2_unix_only" class="item"><strong>execargs</strong> = $0 $1 $2 ... (Unix only)</a></strong></dt>
+<dt><strong><a name="execargs_0_1_2" class="item"><strong>execargs</strong> = $0 $1 $2 ...</a></strong></dt>
 
 <dd>
 <p>arguments for <em>exec</em> including program name ($0)</p>
@@ -819,11 +825,6 @@ OpenSSLs.</p>
 
 <dd>
 <p><strong>stunnel</strong> configuration file</p>
-</dd>
-<dt><strong><a name="stunnel_pem" class="item"><em class="file">stunnel.pem</em></a></strong></dt>
-
-<dd>
-<p><strong>stunnel</strong> certificate and private key</p>
 </dd>
 </dl>
 <p>

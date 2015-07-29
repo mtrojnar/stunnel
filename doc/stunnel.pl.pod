@@ -374,6 +374,12 @@ plik List Odwo³anych Certyfikatów (CRL)
 Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy CRL u¿ywane
 przez opcjê I<verify>.
 
+=item B<curve> = nid
+
+krzywa dla ECDH
+
+domy¶lnie: sect163r2
+
 =item B<delay> = yes | no
 
 opó¼nij rozwiniêcie adresu DNS podanego w opcji I<connect>
@@ -387,14 +393,14 @@ wybierz urz±dzenie do odczyta klucza prywatnego
 
 Urz±dzenia s± numerowane od 1 w górê.
 
-=item B<exec> = ¶cie¿ka_do_programu (tylko Unix)
+=item B<exec> = ¶cie¿ka_do_programu
 
 wykonaj lokalny program przystosowany do pracy z superdemonem inetd
 
 Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<exec> jest okre¶lona
 wzglêdem tego katalogu.
 
-=item B<execargs> = $0 $1 $2 ... (tylko Unix)
+=item B<execargs> = $0 $1 $2 ...
 
 argumenty do opcji I<exec> w³±cznie z nazw± programu ($0)
 
@@ -815,10 +821,6 @@ I<stunnel>.
 =item F<stunnel.conf>
 
 plik konfiguracyjny programu
-
-=item F<stunnel.pem>
-
-certyfikat i klucz prywatny
 
 =back
 

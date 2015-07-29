@@ -23,7 +23,7 @@ install-data-local:
 		$(openssl) req -new -x509 -days 365 -nodes $$RND \
 			-config $(srcdir)/stunnel.cnf \
 			-out stunnel.pem -keyout stunnel.pem; \
-		test -z "$(USE_DH)" || $(openssl) gendh $$RND 512 >> stunnel.pem; \
+		$(openssl) gendh $$RND 512 >> stunnel.pem; \
 		$(openssl) x509 -subject -dates -fingerprint -noout -in stunnel.pem; \
 		${INSTALL} -m 600 stunnel.pem $(DESTDIR)$(confdir)/stunnel.pem; \
 		rm stunnel.pem; \

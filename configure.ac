@@ -1,9 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.33])
+AC_INIT([stunnel],[4.34])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.33)
+AC_CONFIG_MACRO_DIR([m4])
+AM_INIT_AUTOMAKE(stunnel, 4.34)
 AC_CONFIG_SRCDIR([src/stunnel.c])
 
 AC_CANONICAL_HOST
@@ -16,21 +17,20 @@ AC_DEFINE_UNQUOTED(esc(OS_$host_os))
 
 AC_PROG_CC
 if test "$GCC" = "yes"
-then CFLAGS="$CFLAGS -Wall -Wshadow -Wcast-align -Wpointer-arith"
+then CFLAGS="$CFLAGS -Wall -Wextra -pedantic -Wno-long-long"
 fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
 # Checks for typedefs, structures, and compiler characteristics
 # AC_C_CONST
-# AC_TYPE_SIGNAL
 # AC_TYPE_SIZE_T
 # AC_TYPE_PID_T
 # AC_HEADER_TIME
 
 AC_MSG_NOTICE([**************************************** libtool])
-AC_DISABLE_STATIC
-AC_PROG_LIBTOOL
+LT_INIT([disable-static])
+AC_SUBST([LIBTOOL_DEPS])
 
 AC_MSG_NOTICE([**************************************** types])
 AC_CHECK_SIZEOF(unsigned char)
@@ -45,37 +45,53 @@ AC_EGREP_HEADER(socklen_t, sys/socket.h,
     AC_DEFINE(socklen_t, int))
 
 AC_MSG_NOTICE([**************************************** PTY device files])
-AC_CHECK_FILE("/dev/ptmx", AC_DEFINE(HAVE_DEV_PTMX))
-AC_CHECK_FILE("/dev/ptc", AC_DEFINE(HAVE_DEV_PTS_AND_PTC))
-
-AC_MSG_NOTICE([**************************************** entropy])
-
-AC_ARG_WITH(egd-socket,
-    [  --with-egd-socket=FILE  Entropy Gathering Daemon socket pathname],
-    [EGD_SOCKET="$withval"]
-)
-if test -n "$EGD_SOCKET"
-then AC_DEFINE_UNQUOTED(EGD_SOCKET, "$EGD_SOCKET")
+if test "$cross_compiling" = no
+then
+    AC_CHECK_FILE("/dev/ptmx", AC_DEFINE(HAVE_DEV_PTMX))
+    AC_CHECK_FILE("/dev/ptc", AC_DEFINE(HAVE_DEV_PTS_AND_PTC))
+else
+    AC_MSG_WARN([cross-compilation: assuming /dev/ptmx and /dev/ptc are not available])
 fi
 
-# Check for user-specified random device
-AC_ARG_WITH(random,
-[  --with-random=FILE      read randomness from FILE (default=/dev/urandom)],
-    [RANDOM_FILE="$withval"],
-    [
-        # Check for random device
-        AC_CHECK_FILE("/dev/urandom", RANDOM_FILE="/dev/urandom")
-    ]
-)
-if test -n "$RANDOM_FILE"
-then AC_SUBST(RANDOM_FILE)
-    AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE")
+AC_MSG_NOTICE([**************************************** entropy sources])
+
+if test "$cross_compiling" = no
+then
+    AC_ARG_WITH(egd-socket,
+        [  --with-egd-socket=FILE  Entropy Gathering Daemon socket pathname],
+        [EGD_SOCKET="$withval"]
+    )
+    if test -n "$EGD_SOCKET"
+    then
+        AC_DEFINE_UNQUOTED(EGD_SOCKET, "$EGD_SOCKET")
+    fi
+
+    # Check for user-specified random device
+    AC_ARG_WITH(random,
+    [  --with-random=FILE      read randomness from FILE (default=/dev/urandom)],
+        [RANDOM_FILE="$withval"],
+        [
+            # Check for random device
+            AC_CHECK_FILE("/dev/urandom", RANDOM_FILE="/dev/urandom")
+        ]
+    )
+    if test -n "$RANDOM_FILE"
+    then AC_SUBST(RANDOM_FILE)
+        AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE")
+    fi
+else
+    AC_MSG_WARN([cross-compilation: assuming entropy sources are not available])
 fi
 
 AC_MSG_NOTICE([**************************************** default group])
-AC_MSG_CHECKING([for default group])
 DEFAULT_GROUP=nobody
-grep '^nogroup:' /etc/group >/dev/null && DEFAULT_GROUP=nogroup
+if test "$cross_compiling" = no
+then
+    grep '^nogroup:' /etc/group >/dev/null && DEFAULT_GROUP=nogroup
+else
+    AC_MSG_WARN([cross-compilation: assuming nogroup is not available])
+fi
+AC_MSG_CHECKING([for default group])
 AC_MSG_RESULT([$DEFAULT_GROUP])
 AC_SUBST(DEFAULT_GROUP)
 
@@ -278,48 +294,9 @@ AC_LINK_IFELSE(
 
 AC_CHECK_HEADER([$ssldir/include/openssl/engine.h],
     [AC_DEFINE([HAVE_OSSL_ENGINE_H])],
-    [AC_MSG_WARN([Openssl engine header not found])])
+    [AC_MSG_WARN([OpenSSL engine header not found])])
 
 AC_MSG_NOTICE([**************************************** optional features])
-# Use RSA?
-AC_MSG_CHECKING([whether to disable RSA support])
-AC_ARG_ENABLE(rsa,
-[  --disable-rsa           Disable RSA support],
-    [
-        case "$enableval" in
-            yes) AC_MSG_RESULT([no])
-                ;;
-            no) AC_MSG_RESULT([yes])
-                AC_DEFINE(NO_RSA)
-                ;;
-            *) AC_MSG_ERROR([bad value ${enableval}])
-                ;;
-        esac
-    ],
-    [AC_MSG_RESULT([no])]
-)
-
-# Use DH?
-AC_MSG_CHECKING([whether to enable DH support])
-AC_ARG_ENABLE(dh,
-[  --enable-dh             Enable DH support],
-    [
-        case "$enableval" in
-            yes)
-                AC_MSG_RESULT([yes])
-                USE_DH=1
-                AC_DEFINE(USE_DH)
-                ;;
-            no) AC_MSG_RESULT([no])
-                ;;
-            *) AC_MSG_ERROR([bad value ${enableval}])
-                ;;
-        esac
-    ],
-    [AC_MSG_RESULT([no])]
-)
-AC_SUBST(USE_DH)
-
 # Use IPv6?
 AC_MSG_CHECKING([whether to enable IPv6 support])
 AC_ARG_ENABLE(ipv6,

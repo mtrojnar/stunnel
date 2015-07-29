@@ -356,6 +356,12 @@ Certificate Revocation Lists file
 
 This file contains multiple CRLs, used with the I<verify>.
 
+=item B<curve> = nid
+
+specify ECDH curve name
+
+default: sect163r2
+
 =item B<delay> = yes | no
 
 delay DNS lookup for 'connect' option
@@ -369,13 +375,13 @@ select engine number to read private key
 
 The engines are numbered starting from 1.
 
-=item B<exec> = executable_path (Unix only)
+=item B<exec> = executable_path
 
 execute local inetd-type program 
 
 I<exec> path is relative to I<chroot> directory if specified.
 
-=item B<execargs> = $0 $1 $2 ... (Unix only)
+=item B<execargs> = $0 $1 $2 ...
 
 arguments for I<exec> including program name ($0)
 
@@ -776,10 +782,6 @@ OpenSSLs.
 =item F<stunnel.conf>
 
 B<stunnel> configuration file
-
-=item F<stunnel.pem>
-
-B<stunnel> certificate and private key
 
 =back
 

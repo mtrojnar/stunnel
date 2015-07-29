@@ -197,9 +197,6 @@ typedef unsigned long u32;
 #include <process.h>     /* _beginthread */
 #include <tchar.h>
 
-#define NO_IDEA
-#define OPENSSL_NO_IDEA
-
 /**************************************** non-WIN32 headers */
 
 #else /* USE_WIN32 */
@@ -359,16 +356,20 @@ extern char *sys_errlist[];
 #include <openssl/err.h>
 #include <openssl/crypto.h> /* for CRYPTO_* and SSLeay_version */
 #include <openssl/rand.h>
+#ifndef OPENSSL_NO_MD4
 #include <openssl/md4.h>
+#endif
 #include <openssl/des.h>
 
 #ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
+#else
+#undef HAVE_OSSL_ENGINE_H
+#endif
 #endif /* HAVE_OSSL_ENGINE_H */
 
-#if SSLEAY_VERSION_NUMBER >= 0x00907000L
 #include <openssl/ocsp.h>
-#endif /* OpenSSL-0.9.7 */
 
 #ifdef USE_FIPS
 #include <openssl/fips.h>

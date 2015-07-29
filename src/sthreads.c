@@ -140,10 +140,16 @@ void sthreads_init(void) {
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     CONTEXT *context;
 
+    (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new context");
     context=new_context(arg->opt->stack_size);
-    if(!context)
+    if(!context) {
+        if(arg)
+            free(arg);
+        if(s>=0)
+            closesocket(s);
         return -1;
+    }
     s_log(LOG_DEBUG, "Context %ld created", context->id);
     makecontext(&context->context, (void(*)(void))cli, ARGC, arg);
     return 0;
@@ -212,6 +218,8 @@ static void locking_callback(int mode, int type,
     const /* callback definition has been changed in openssl 0.9.3 */
 #endif
     char *file, int line) {
+    (void)file; /* skip warning about unused parameter */
+    (void)line; /* skip warning about unused parameter */
     if(mode&CRYPTO_LOCK)
         pthread_mutex_lock(lock_cs+type);
     else
@@ -226,6 +234,8 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
         int line) {
     struct CRYPTO_dynlock_value *value;
 
+    (void)file; /* skip warning about unused parameter */
+    (void)line; /* skip warning about unused parameter */
     value=malloc(sizeof(struct CRYPTO_dynlock_value));
     if(!value)
         return NULL;
@@ -235,6 +245,8 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
 static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
+    (void)file; /* skip warning about unused parameter */
+    (void)line; /* skip warning about unused parameter */
     if(mode&CRYPTO_LOCK)
         pthread_mutex_lock(&value->mutex);
     else
@@ -243,6 +255,8 @@ static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
 
 static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
+    (void)file; /* skip warning about unused parameter */
+    (void)line; /* skip warning about unused parameter */
     pthread_mutex_destroy(&value->mutex);
     free(value);
 }
@@ -280,6 +294,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 #ifdef HAVE_PTHREAD_SIGMASK
     sigset_t newmask, oldmask;
 
+    (void)ls; /* this parameter is only used with USE_FORK */
     /* initialize attributes for creating new threads */
     pthread_attr_init(&pth_attr);
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
@@ -299,6 +314,8 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 #ifdef HAVE_PTHREAD_SIGMASK
         pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
 #endif /* HAVE_PTHREAD_SIGMASK */
+        if(arg)
+            free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -329,6 +346,8 @@ static void locking_callback(int mode, int type,
     const /* callback definition has been changed in openssl 0.9.3 */
 #endif
     char *file, int line) {
+    (void)file; /* skip warning about unused parameter */
+    (void)line; /* skip warning about unused parameter */
     if(mode&CRYPTO_LOCK)
         EnterCriticalSection(lock_cs+type);
     else
@@ -343,6 +362,8 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
         int line) {
     struct CRYPTO_dynlock_value *value;
 
+    (void)file; /* skip warning about unused parameter */
+    (void)line; /* skip warning about unused parameter */
     value=malloc(sizeof(struct CRYPTO_dynlock_value));
     if(!value)
         return NULL;
@@ -352,6 +373,8 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
 static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
+    (void)file; /* skip warning about unused parameter */
+    (void)line; /* skip warning about unused parameter */
     if(mode&CRYPTO_LOCK)
         EnterCriticalSection(&value->mutex);
     else
@@ -360,6 +383,8 @@ static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
 
 static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
+    (void)file; /* skip warning about unused parameter */
+    (void)line; /* skip warning about unused parameter */
     DeleteCriticalSection(&value->mutex);
     free(value);
 }
@@ -391,9 +416,14 @@ void sthreads_init(void) {
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
+    (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
-    if(_beginthread((void(*)(void *))cli, arg->opt->stack_size, arg)==-1) {
+    if((long)_beginthread((void(*)(void *))cli, arg->opt->stack_size, arg)==-1) {
         ioerror("_beginthread");
+        if(arg)
+            free(arg);
+        if(s>=0)
+            closesocket(s);
         return -1;
     }
     s_log(LOG_DEBUG, "New thread created");
@@ -428,9 +458,14 @@ unsigned long stunnel_thread_id(void) {
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
+    (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
-    if(_beginthread((void(*)(void *))cli, NULL, arg->opt->stack_size, arg)==-1) {
+    if((long)_beginthread((void(*)(void *))cli, NULL, arg->opt->stack_size, arg)==-1L) {
         ioerror("_beginthread");
+        if(arg)
+            free(arg);
+        if(s>=0)
+            closesocket(s);
         return -1;
     }
     s_log(LOG_DEBUG, "New thread created");
@@ -441,15 +476,16 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 
 #ifdef _WIN32_WCE
 
-int _beginthread(void (*start_address)(void *),
+long _beginthread(void (*start_address)(void *),
         int stack_size, void *arglist) {
     DWORD thread_id;
     HANDLE handle;
 
     handle=CreateThread(NULL, stack_size,
-        (LPTHREAD_START_ROUTINE)start_address, arglist, 0, &thread_id);
+        (LPTHREAD_START_ROUTINE)start_address, arglist,
+        STACK_SIZE_PARAM_IS_A_RESERVATION, &thread_id);
     if(!handle)
-        return -1;
+        return -1L;
     CloseHandle(handle);
     return 0;
 }

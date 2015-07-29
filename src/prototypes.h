@@ -135,12 +135,11 @@ typedef struct service_options_struct {
     long session_timeout;
     int verify_level;
     int verify_use_only_my;
+    int curve;
     long ssl_options;
-#if SSLEAY_VERSION_NUMBER >= 0x00907000L
     SOCKADDR_LIST ocsp_addr;
     char *ocsp_path;
     unsigned long ocsp_flags;
-#endif /* OpenSSL-0.9.7 */
     SSL_METHOD *client_method, *server_method;
     SOCKADDR_LIST sessiond_addr;
 
@@ -170,7 +169,6 @@ typedef struct service_options_struct {
 
         /* on/off switches */
     struct {
-        unsigned int cert:1;
         unsigned int client:1;
         unsigned int delayed_lookup:1;
         unsigned int accept:1;
@@ -182,9 +180,7 @@ typedef struct service_options_struct {
         unsigned int pty:1;
         unsigned int transparent:1;
 #endif
-#if SSLEAY_VERSION_NUMBER >= 0x00907000L
         unsigned int ocsp:1;
-#endif
 #ifdef USE_LIBWRAP
         unsigned int libwrap:1;
 #endif
@@ -252,7 +248,7 @@ int bind_ports(void);
 #if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
 void drop_privileges(void);
 #endif
-void stunnel_info(void);
+void stunnel_info(int);
 void die(int);
 
 /**************************************** prototypes for log.c */
@@ -273,15 +269,15 @@ void s_log(int, const char *, ...)
 void ioerror(const char *);
 void sockerror(const char *);
 void log_error(int, int, const char *);
-char *my_strerror(int);
+char *s_strerror(int);
 
 /**************************************** prototypes for pty.c */
 
-int pty_allocate(int *, int *, char *, int);
+int pty_allocate(int *, int *, char *);
 
 /**************************************** prototypes for ssl.c */
 
-extern int cli_index, opt_index;;
+extern int cli_index, opt_index;
 
 void ssl_init(void);
 int ssl_configure(void);
@@ -295,7 +291,7 @@ ENGINE *get_engine(int);
 /**************************************** prototypes for options.c */
 
 void parse_commandline(char *, char *);
-int parse_conf(char *, CONF_TYPE);
+void parse_conf(char *, CONF_TYPE);
 
 /**************************************** prototypes for ctx.c */
 
@@ -312,22 +308,21 @@ void s_poll_init(s_poll_set *);
 void s_poll_add(s_poll_set *, int, int, int);
 int s_poll_canread(s_poll_set *, int);
 int s_poll_canwrite(s_poll_set *, int);
+int s_poll_error(s_poll_set *, int);
 int s_poll_wait(s_poll_set *, int, int);
-
 #ifndef USE_WIN32
 int signal_pipe_init(void);
 void child_status(void);  /* dead libwrap or 'exec' process detected */
 #endif
 int set_socket_options(int, int);
 int alloc_fd(int);
-void setnonblock(int, unsigned long);
+void set_nonblock(int, unsigned long);
+int get_socket_error(const int);
 
 /**************************************** prototypes for client.c */
 
 typedef struct {
     int fd; /* file descriptor */
-    int rd; /* open for read */
-    int wr; /* open for write */
     int is_socket; /* file descriptor is a socket */
 } FD;
 

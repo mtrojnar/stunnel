@@ -420,6 +420,12 @@ wzglêdem tego katalogu.</p>
 <p>Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy CRL u¿ywane
 przez opcjê <em>verify</em>.</p>
 </dd>
+<dt><strong><a name="curve_nid" class="item"><strong>curve</strong> = nid</a></strong></dt>
+
+<dd>
+<p>krzywa dla ECDH</p>
+<p>domy¶lnie: sect163r2</p>
+</dd>
 <dt><strong><a name="delay_yes_no" class="item"><strong>delay</strong> = yes | no</a></strong></dt>
 
 <dd>
@@ -433,14 +439,14 @@ dostêpna przy starcie programu stunnel (klient VPN, po³±czenie wdzwaniane).</p>
 <p>wybierz urz±dzenie do odczyta klucza prywatnego</p>
 <p>Urz±dzenia s± numerowane od 1 w górê.</p>
 </dd>
-<dt><strong><a name="ka_do_programu" class="item"><strong>exec</strong> = ¶cie¿ka_do_programu (tylko Unix)</a></strong></dt>
+<dt><strong><a name="exec_cie_ka_do_programu" class="item"><strong>exec</strong> = ¶cie¿ka_do_programu</a></strong></dt>
 
 <dd>
 <p>wykonaj lokalny program przystosowany do pracy z superdemonem inetd</p>
 <p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>exec</em> jest okre¶lona
 wzglêdem tego katalogu.</p>
 </dd>
-<dt><strong><a name="execargs_0_1_2_tylko_unix" class="item"><strong>execargs</strong> = $0 $1 $2 ... (tylko Unix)</a></strong></dt>
+<dt><strong><a name="execargs_0_1_2" class="item"><strong>execargs</strong> = $0 $1 $2 ...</a></strong></dt>
 
 <dd>
 <p>argumenty do opcji <em>exec</em> w³±cznie z nazw± programu ($0)</p>
@@ -861,11 +867,6 @@ powy¿szej listy.  Jest to w³a¶ciwo¶æ biblioteki <em>OpenSSL</em>, a nie programu
 
 <dd>
 <p>plik konfiguracyjny programu</p>
-</dd>
-<dt><strong><a name="stunnel_pem" class="item"><em class="file">stunnel.pem</em></a></strong></dt>
-
-<dd>
-<p>certyfikat i klucz prywatny</p>
 </dd>
 </dl>
 <p>

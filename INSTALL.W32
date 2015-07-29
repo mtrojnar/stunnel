@@ -5,22 +5,34 @@ Building stunnel from source (optional):
 
  1) Install mingw32 cross-compiler o a Unix/Linux machine.
     In Debian all you need is:
-    apt-get install mingw32
+      apt-get install mingw32
     Native compilation on a Windows machine is possible, but not supported.
 
- 2) Download the recent OpenSSL in unpack it to /usr/src/ directory.
-    cd /usr/src && tar zvxf ~/openssl-(version).tar.gz
+ 2) Download the recent zlib from http://www.zlib.net/
+    Update the following definitions in win32/Makefile.gcc file:
+      SHARED_MODE=1
+      PREFIX = i586-mingw32msvc-
+    then build zlib with:
+      make -f win32/Makefile.gcc
+    and install it in mingw32 tree:
+      sudo BINARY_PATH=~/ \
+        INCLUDE_PATH=/usr/i586-mingw32msvc/include/ \
+        LIBRARY_PATH=/usr/i586-mingw32msvc/lib/ \
+        make -f win32/Makefile.gcc install
 
- 3) Build OpenSSL with cross_mingw32.sh script.
-    ftp://stunnel.mirt.net/stunnel/openssl/cross_mingw32.sh
+ 3) Download the recent OpenSSL in unpack it to /usr/src/ directory.
+      cd /usr/src && tar zvxf ~/openssl-(version).tar.gz
 
- 4) Download and unpack stunnel-(version).tar.gz.
+ 4) Build OpenSSL with cross_mingw32.sh script.
+      ftp://stunnel.mirt.net/stunnel/openssl/cross_mingw32.sh
 
- 5) Configure stunnel.
-    cd stunnel-(version) && ./configure --with-ssl=/path/to/openssl-(version)
+ 5) Download and unpack stunnel-(version).tar.gz.
 
- 6) Build windows executable.
-    cd src && make stunnel.exe
+ 6) Configure stunnel.
+      cd stunnel-(version) && ./configure --with-ssl=/path/to/openssl-(version)
+
+ 7) Build windows executable.
+      cd src && make stunnel.exe
 
 
 Installing stunnel:

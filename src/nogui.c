@@ -56,8 +56,8 @@ void win_log(LPSTR line) { /* also used in log.c */
     free(tstr);
 }
 
-void exit_win32(int code) {
-    exit(code);
+void exit_win32(int exit_code) {
+    exit(exit_code);
 }
 
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {

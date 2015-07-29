@@ -107,18 +107,24 @@ int file_getline(DISK_FILE *df, char *line, int len) {
 #endif /* USE_WIN32 */
 
     if(!df) /* not opened */
-        return 0;
+        return -1;
 
     for(i=0; i<len-1; i++) {
-        if(i>0 && line[i-1]=='\n')
-            break;
 #ifdef USE_WIN32
         ReadFile(df->fh, line+i, 1, &num, NULL);
 #else /* USE_WIN32 */
         num=read(df->fd, line+i, 1);
 #endif /* USE_WIN32 */
-        if(num!=1)
+        if(num!=1) { /* EOF */
+            if(i) /* any previously retrieved data */
+                break;
+            else
+                return -1;
+        }
+        if(line[i]=='\n') /* LF */
             break;
+        if(line[i]=='\r') /* CR */
+            --i; /* ignore - it must be the last check */
     }
     line[i]='\0';
     return i;
@@ -134,14 +140,14 @@ int file_putline(DISK_FILE *df, char *line) {
 #endif /* USE_WIN32 */
 
     len=strlen(line);
-    buff=calloc(len+2, 1); /* +2 for \r\n */
+    buff=calloc(len+2, 1); /* +2 for CR+LF */
     if(!buff)
         return 0;
     strcpy(buff, line);
 #ifdef USE_WIN32
-    buff[len++]='\r';
+    buff[len++]='\r'; /* CR */
 #endif /* USE_WIN32 */
-    buff[len++]='\n';
+    buff[len++]='\n'; /* LF */
 #ifdef USE_WIN32
     WriteFile(df->fh, buff, len, &num, NULL);
 #else /* USE_WIN32 */

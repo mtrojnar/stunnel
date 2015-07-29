@@ -72,7 +72,7 @@
  * the buffer must be able to hold at least 64 characters
  */
 
-int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
+int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf) {
 #if defined(HAVE_OPENPTY) || defined(BSD4_4) && !defined(__INNOTEK_LIBC__)
     /* openpty(3) exists in OSF/1 and some other os'es */
     char buf[64];
@@ -195,7 +195,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
         if(*ptyfd<0)
             continue;
 #ifdef HAVE_SNPRINTF
-        snprintf(namebuf, namebuflen,
+        snprintf(namebuf, STRLEN,
 #else
         sprintf(namebuf,
 #endif

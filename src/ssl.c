@@ -41,7 +41,6 @@
     /* global OpenSSL initalization: compression, engine, entropy */
 static int init_compression(void);
 static int init_prng(void);
-static int prng_seeded(int);
 static int add_rand_file(char *);
 #ifdef HAVE_OSSL_ENGINE_H
 static char *init_engine(void);
@@ -125,7 +124,7 @@ static int init_prng(void) {
        assume that they really do want it, so try it first */
     if(global_options.rand_file) {
         totbytes+=add_rand_file(global_options.rand_file);
-        if(prng_seeded(totbytes))
+        if(RAND_status())
             return 1;
     }
 
@@ -134,26 +133,24 @@ static int init_prng(void) {
     if(filename[0]) {
         filename[STRLEN-1]='\0';        /* just in case */
         totbytes+=add_rand_file(filename);
-        if(prng_seeded(totbytes))
+        if(RAND_status())
             return 1;
     }
 
 #ifdef RANDOM_FILE
     totbytes+=add_rand_file(RANDOM_FILE);
-    if(prng_seeded(totbytes))
+    if(RAND_status())
         return 1;
 #endif
 
 #ifdef USE_WIN32
     RAND_screen();
-    if(prng_seeded(totbytes)) {
+    if(RAND_status()) {
         s_log(LOG_DEBUG, "Seeded PRNG with RAND_screen");
         return 1;
     }
     s_log(LOG_DEBUG, "RAND_screen failed to sufficiently seed PRNG");
 #else
-
-#if SSLEAY_VERSION_NUMBER>=0x0090581fL
     if(global_options.egd_sock) {
         if((bytes=RAND_egd(global_options.egd_sock))==-1) {
             s_log(LOG_WARNING, "EGD Socket %s failed", global_options.egd_sock);
@@ -166,46 +163,17 @@ static int init_prng(void) {
                          so no need to check if seeded sufficiently */
         }
     }
-#ifdef EGD_SOCKET
-    if((bytes=RAND_egd(EGD_SOCKET))==-1) {
-        s_log(LOG_WARNING, "EGD Socket %s failed", EGD_SOCKET);
-    } else {
-        totbytes+=bytes;
-        s_log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
-            bytes, EGD_SOCKET);
-        return 1;
-    }
-#endif /* EGD_SOCKET */
-
-#endif /* OpenSSL-0.9.5a */
 #endif /* USE_WIN32 */
 
     /* try the good-old default /dev/urandom, if available  */
     totbytes+=add_rand_file("/dev/urandom");
-    if(prng_seeded(totbytes))
+    if(RAND_status())
         return 1;
 
     /* random file specified during configure */
     s_log(LOG_ERR, "PRNG seeded with %d bytes total", totbytes);
     s_log(LOG_ERR, "PRNG was not seeded with enough random bytes");
     return 0; /* FAILED */
-}
-
-/* shortcut to determine if sufficient entropy for PRNG is present */
-static int prng_seeded(int bytes) {
-#if SSLEAY_VERSION_NUMBER>=0x0090581fL
-    if(RAND_status()){
-        s_log(LOG_DEBUG, "RAND_status claims sufficient entropy for the PRNG");
-        return 1;
-    }
-#else
-    if(bytes>=global_options.random_bytes) {
-        s_log(LOG_DEBUG, "Sufficient entropy in PRNG assumed (>= %d)",
-            global_options.random_bytes);
-        return 1;
-    }
-#endif
-    return 0; /* assume we don't have enough */
 }
 
 static int add_rand_file(char *filename) {

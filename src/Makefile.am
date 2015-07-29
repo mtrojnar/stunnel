@@ -35,15 +35,15 @@ EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak nogui.c os
 EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES =  $(common_headers) $(common_sources) $(win32_sources)
 
-OPENSSLDIR=/usr/src/openssl-1.0.0
-WINCFLAGS=-O2 -Wall -I$(OPENSSLDIR)/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
+OPENSSLDIR=/usr/src/openssl-1.0.0a
+WINCFLAGS=-O2 -Wall -Wextra -pedantic -Wno-long-long -I$(OPENSSLDIR)/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
 WINLIBS=-L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lws2_32 -lgdi32 -mwindows
 
 # OPENSSLDIR=/usr/src/openssl-0.9.7m-fips
-# WINCFLAGS=-O2 -Wall -I$(OPENSSLDIR)/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
+# WINCFLAGS=-O2 -Wall -Wextra -pedantic -Wno-long-long -I$(OPENSSLDIR)/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
 # WINLIBS=-L$(OPENSSLDIR) -lzdll -lcrypto -lssl -lws2_32 -lgdi32 -mwindows
 
-# WINCFLAGS=-O2 -Wall -I/usr/src/openssl-0.9.7m/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
+# WINCFLAGS=-O2 -Wall -Wextra -pedantic -Wno-long-long -I/usr/src/openssl-0.9.7m/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
 # WINLIBS=-L../../FIPS -leay32 -lssl32 -lws2_32 -lgdi32 -mwindows
 
 WINOBJ=file.obj client.obj log.obj options.obj protocol.obj network.obj resolver.obj ssl.obj ctx.obj verify.obj sthreads.obj stunnel.obj gui.obj resources.obj

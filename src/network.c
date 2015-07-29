@@ -65,7 +65,7 @@ void s_poll_init(s_poll_set *fds) {
 }
 
 void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
-    int i;
+    unsigned int i;
 
     for(i=0; i<fds->nfds && fds->ufds[i].fd!=fd; i++)
         ;
@@ -86,20 +86,30 @@ void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
 }
 
 int s_poll_canread(s_poll_set *fds, int fd) {
-    int i;
+    unsigned int i;
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&~POLLOUT; /* read or error */
+            return fds->ufds[i].revents&(POLLIN|POLLHUP); /* read or closed */
     return 0;
 }
 
 int s_poll_canwrite(s_poll_set *fds, int fd) {
-    int i;
+    unsigned int i;
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&POLLOUT; /* write */
+            return fds->ufds[i].revents&POLLOUT; /* it is possible to write */
+    return 0;
+}
+
+int s_poll_error(s_poll_set *fds, int fd) {
+    unsigned int i;
+
+    for(i=0; i<fds->nfds; i++)
+        if(fds->ufds[i].fd==fd)
+            return fds->ufds[i].revents&(POLLERR|POLLNVAL) ?
+                get_socket_error(fd) : 0;
     return 0;
 }
 
@@ -169,15 +179,15 @@ static void scan_waiting_queue(void) {
         for(i=0; i<context->fds->nfds; i++) {
             context->fds->ufds[i].revents=ufds[nfds].revents;
 #ifdef DEBUG_UCONTEXT
-            s_log(LOG_DEBUG, "CONTEXT %ld, FD=%d, (%s%s)->(%s%s%s%s%s)",
+            s_log(LOG_DEBUG, "CONTEXT %ld, FD=%d,%s%s ->%s%s%s%s%s",
                 context->id, ufds[nfds].fd,
-                ufds[nfds].events & POLLIN ? "IN" : "",
-                ufds[nfds].events & POLLOUT ? "OUT" : "",
-                ufds[nfds].revents & POLLIN ? "IN" : "",
-                ufds[nfds].revents & POLLOUT ? "OUT" : "",
-                ufds[nfds].revents & POLLERR ? "ERR" : "",
-                ufds[nfds].revents & POLLHUP ? "HUP" : "",
-                ufds[nfds].revents & POLLNVAL ? "NVAL" : "");
+                ufds[nfds].events & POLLIN ? " IN" : "",
+                ufds[nfds].events & POLLOUT ? " OUT" : "",
+                ufds[nfds].revents & POLLIN ? " IN" : "",
+                ufds[nfds].revents & POLLOUT ? " OUT" : "",
+                ufds[nfds].revents & POLLERR ? " ERR" : "",
+                ufds[nfds].revents & POLLHUP ? " HUP" : "",
+                ufds[nfds].revents & POLLNVAL ? " NVAL" : "");
 #endif
             if(ufds[nfds].revents)
                 context->ready++;
@@ -283,16 +293,16 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
 void s_poll_init(s_poll_set *fds) {
     FD_ZERO(&fds->irfds);
     FD_ZERO(&fds->iwfds);
-    fds->max = 0; /* no file descriptors */
+    fds->max=0; /* no file descriptors */
 }
 
 void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
     if(rd)
-        FD_SET(fd, &fds->irfds);
+        FD_SET((unsigned int)fd, &fds->irfds);
     if(wr)
-        FD_SET(fd, &fds->iwfds);
-    if(fd > fds->max)
-        fds->max = fd;
+        FD_SET((unsigned int)fd, &fds->iwfds);
+    if(fd>fds->max)
+        fds->max=fd;
 }
 
 int s_poll_canread(s_poll_set *fds, int fd) {
@@ -301,6 +311,12 @@ int s_poll_canread(s_poll_set *fds, int fd) {
 
 int s_poll_canwrite(s_poll_set *fds, int fd) {
     return FD_ISSET(fd, &fds->owfds);
+}
+
+int s_poll_error(s_poll_set *fds, int fd) {
+    if(!FD_ISSET(fd, &fds->orfds)) /* error conditions are signaled as read */
+        return 0;
+    return get_socket_error(fd); /* check if it's really an error */
 }
 
 int s_poll_wait(s_poll_set *fds, int sec, int msec) {
@@ -488,7 +504,7 @@ int alloc_fd(int sock) {
         closesocket(sock);
         return -1;
     }
-    setnonblock(sock, 1);
+    set_nonblock(sock, 1);
     return 0;
 }
 
@@ -497,7 +513,7 @@ int alloc_fd(int sock) {
 #define O_NONBLOCK O_NDELAY
 #endif
 
-void setnonblock(int sock, unsigned long l) {
+void set_nonblock(int sock, unsigned long l) {
 #if defined F_GETFL && defined F_SETFL && defined O_NONBLOCK && !defined __INNOTEK_LIBC__
     int retval, flags;
     do {
@@ -548,11 +564,19 @@ int set_socket_options(int s, int type) {
     return 0; /* OK */
 }
 
+int get_socket_error(const int fd) {
+    int err;
+    socklen_t optlen=sizeof err;
+
+    if(getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&err, &optlen))
+        return get_last_socket_error(); /* failed -> ask why */
+    return err;
+}
+
 /**************************************** simulate blocking I/O */
 
 int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     int error;
-    socklen_t optlen;
     char dst[IPLEN];
 
     s_ntop(dst, addr);
@@ -565,7 +589,7 @@ int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     error=get_last_socket_error();
     if(error!=EINPROGRESS && error!=EWOULDBLOCK) {
         s_log(LOG_ERR, "connect_blocking: connect %s: %s (%d)",
-            dst, my_strerror(error), error);
+            dst, s_strerror(error), error);
         return -1;
     }
 
@@ -577,22 +601,19 @@ int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     case -1:
         error=get_last_socket_error();
         s_log(LOG_ERR, "connect_blocking: s_poll_wait %s: %s (%d)",
-            dst, my_strerror(error), error);
+            dst, s_strerror(error), error);
         return -1;
     case 0:
         s_log(LOG_ERR, "connect_blocking: s_poll_wait %s: timeout", dst);
         return -1;
     default:
-        if(s_poll_canread(&c->fds, c->fd)) {
+        if(s_poll_canread(&c->fds, c->fd) || s_poll_error(&c->fds, c->fd)) {
             /* newly connected socket should not be ready for read */
             /* get the resulting error code, now */
-            optlen=sizeof error;
-            if(getsockopt(c->fd, SOL_SOCKET, SO_ERROR,
-                    (void *)&error, &optlen))
-                error=get_last_socket_error(); /* failed -> ask why */
+            error=get_socket_error(c->fd);
             if(error) { /* really an error? */
                 s_log(LOG_ERR, "connect_blocking: getsockopt %s: %s (%d)",
-                    dst, my_strerror(error), error);
+                    dst, s_strerror(error), error);
                 return -1;
             }
         }

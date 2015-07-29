@@ -41,7 +41,6 @@
 /* \n is not a character expected in the string */
 #define LINE "%[^\n]"
 #define isprefix(a, b) (strncasecmp((a), (b), strlen(b))==0)
-#define s_min(a, b) ((a)>(b)?(b):(a))
 
 /* protocol-specific function prototypes */
 static void cifs_client(CLI *);
@@ -56,9 +55,12 @@ static void imap_client(CLI *);
 static void imap_server(CLI *);
 static void nntp_client(CLI *);
 static void connect_client(CLI *);
+static void ntlm(CLI *);
+#ifndef OPENSSL_NO_MD4
 static char *ntlm1();
 static char *ntlm3(char *, char *, char *);
 static void crypt_DES(DES_cblock, DES_cblock, DES_cblock);
+#endif
 static char *base64(int, char *, int);
 
 void negotiate(CLI *c) {
@@ -397,9 +399,7 @@ static void nntp_client(CLI *c) {
 }
 
 static void connect_client(CLI *c) {
-    char line[STRLEN], ntlm2[STRLEN], *encoded;
-    long content_length;
-    char buf[BUFSIZ];
+    char line[STRLEN], *encoded;
 
     if(!c->opt->protocol_host) {
         s_log(LOG_ERR, "protocolHost not specified");
@@ -410,48 +410,7 @@ static void connect_client(CLI *c) {
     fdprintf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
     if(c->opt->protocol_username && c->opt->protocol_password) {
         if(!strcasecmp(c->opt->protocol_authentication, "NTLM")) {
-
-            /* send Proxy-Authorization (phase 1) */
-            fdprintf(c, c->remote_fd.fd, "Proxy-Connection: keep-alive");
-            fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s",
-                ntlm1());
-            fdputline(c, c->remote_fd.fd, ""); /* empty line */
-            fdgetline(c, c->remote_fd.fd, line);
-
-            /* receive Proxy-Authenticate (phase 2) */
-            if(line[9]!='4' || line[10]!='0' || line[11]!='7') { /* code 407 */
-                s_log(LOG_ERR, "NTLM authorization request rejected");
-                do { /* read all headers */
-                    fdgetline(c, c->remote_fd.fd, line);
-                } while(*line);
-                longjmp(c->err, 1);
-            }
-            *ntlm2='\0';
-            content_length=0; /* no HTTP content */
-            do { /* read all headers */
-                fdgetline(c, c->remote_fd.fd, line);
-                if(isprefix(line, "Proxy-Authenticate: NTLM "))
-                    safecopy(ntlm2, line+25);
-                else if(isprefix(line, "Content-Length: "))
-                    content_length=atol(line+16);
-            } while(*line);
-
-            /* read and ignore HTTP content (if any) */
-            while(content_length) {
-                read_blocking(c, c->remote_fd.fd, buf,
-                    s_min(content_length, BUFSIZ));
-                content_length-=s_min(content_length, BUFSIZ);
-            }
-
-            /* send Proxy-Authorization (phase 3) */
-            fdprintf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1",
-                c->opt->protocol_host);
-            fdprintf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
-            encoded=ntlm3(c->opt->protocol_username, c->opt->protocol_password,
-                ntlm2);
-            safecopy(line, encoded);
-            free(encoded);
-            fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", line);
+            ntlm(c);
         } else { /* basic authentication */
             safecopy(line, c->opt->protocol_username);
             safeconcat(line, ":");
@@ -484,6 +443,59 @@ static void connect_client(CLI *c) {
  * http://www.innovation.ch/personal/ronald/ntlm.html
  */
 
+#define s_min(a, b) ((a)>(b)?(b):(a))
+
+static void ntlm(CLI *c) {
+#ifndef OPENSSL_NO_MD4
+    char line[STRLEN], *encoded;
+    char buf[BUFSIZ], ntlm2[STRLEN];
+    long content_length;
+
+    /* send Proxy-Authorization (phase 1) */
+    fdprintf(c, c->remote_fd.fd, "Proxy-Connection: keep-alive");
+    fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", ntlm1());
+    fdputline(c, c->remote_fd.fd, ""); /* empty line */
+    fdgetline(c, c->remote_fd.fd, line);
+
+    /* receive Proxy-Authenticate (phase 2) */
+    if(line[9]!='4' || line[10]!='0' || line[11]!='7') { /* code 407 */
+        s_log(LOG_ERR, "NTLM authorization request rejected");
+        do { /* read all headers */
+            fdgetline(c, c->remote_fd.fd, line);
+        } while(*line);
+        longjmp(c->err, 1);
+    }
+    *ntlm2='\0';
+    content_length=0; /* no HTTP content */
+    do { /* read all headers */
+        fdgetline(c, c->remote_fd.fd, line);
+        if(isprefix(line, "Proxy-Authenticate: NTLM "))
+            safecopy(ntlm2, line+25);
+        else if(isprefix(line, "Content-Length: "))
+            content_length=atol(line+16);
+    } while(*line);
+
+    /* read and ignore HTTP content (if any) */
+    while(content_length) {
+        read_blocking(c, c->remote_fd.fd, buf, s_min(content_length, BUFSIZ));
+        content_length-=s_min(content_length, BUFSIZ);
+    }
+
+    /* send Proxy-Authorization (phase 3) */
+    fdprintf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1", c->opt->protocol_host);
+    fdprintf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
+    encoded=ntlm3(c->opt->protocol_username, c->opt->protocol_password, ntlm2);
+    safecopy(line, encoded);
+    free(encoded);
+    fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", line);
+#else
+    s_log(LOG_ERR, "NTLM authentication is not available");
+    longjmp(c->err, 1);
+#endif
+}
+
+#ifndef OPENSSL_NO_MD4
+
 static char *ntlm1() {
     char phase1[16];
 
@@ -500,8 +512,8 @@ static char *ntlm3(char *username, char *password, char *phase2) {
     char *decoded; /* decoded reply from proxy */
     char phase3[146];
     unsigned char md4_hash[21];
-    int userlen=strlen(username);
-    int phase3len=s_min(88+userlen, sizeof phase3);
+    unsigned int userlen=strlen(username);
+    unsigned int phase3len=s_min(88+userlen, sizeof phase3);
 
     /* setup phase3 structure */
     memset(phase3, 0, sizeof phase3);
@@ -564,6 +576,8 @@ static void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
     DES_ecb_encrypt((const_DES_cblock *)src,
         (DES_cblock *)dst, &sched, DES_ENCRYPT);
 }
+
+#endif
 
 static char *base64(int encode, char *in, int len) {
     BIO *bio, *b64;
