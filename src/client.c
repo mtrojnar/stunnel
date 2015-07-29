@@ -236,7 +236,7 @@ static void init_local(CLI *c) {
         if(set_socket_options(c->local_rfd.fd, 1)<0)
             longjmp(c->err, 1);
 #ifdef USE_LIBWRAP
-        auth_libwrap(c);
+        libwrap_auth(c);
 #endif /* USE_LIBWRAP */
         auth_user(c);
         s_log(LOG_NOTICE, "Service %s accepted connection from %s",
@@ -557,13 +557,15 @@ static void transfer(CLI *c) {
                         longjmp(c->err, 1); /* reset the socket */
                     }
                     s_log(LOG_DEBUG, "SSL socket closed on SSL_write");
-                    ssl_rd=ssl_wr=0; /* buggy or SSLv2 peer: no close_notify */
+                    ssl_rd=ssl_wr=0; /* buggy peer: no close_notify */
                 } else
                     parse_socket_error(c, "SSL_write");
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
                 s_log(LOG_DEBUG, "SSL closed on SSL_write");
                 ssl_rd=0;
+                if(!strcmp(SSL_get_version(c->ssl), "SSLv2"))
+                    ssl_wr=0;
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_write");
@@ -623,13 +625,15 @@ static void transfer(CLI *c) {
                         longjmp(c->err, 1); /* reset the socket */
                     }
                     s_log(LOG_DEBUG, "SSL socket closed on SSL_read");
-                    ssl_rd=ssl_wr=0; /* buggy or SSLv2 peer: no close_notify */
+                    ssl_rd=ssl_wr=0; /* buggy peer: no close_notify */
                 } else
                     parse_socket_error(c, "SSL_read");
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
                 s_log(LOG_DEBUG, "SSL closed on SSL_read");
                 ssl_rd=0;
+                if(!strcmp(SSL_get_version(c->ssl), "SSLv2"))
+                    ssl_wr=0;
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_read");
@@ -666,6 +670,8 @@ static void transfer(CLI *c) {
                 "transfer() loop executes not transferring any data");
             s_log(LOG_ERR,
                 "please report the problem to Michal.Trojnara@mirt.net");
+            s_log(LOG_ERR, "protocol=%s, check_SSL_pending=%s",
+                SSL_get_version(c->ssl), check_SSL_pending ? "yes" : "no");
             s_log(LOG_ERR, "socket open: rd=%s wr=%s, ssl open: rd=%s wr=%s",
                 sock_rd ? "yes" : "no", sock_wr ? "yes" : "no",
                 ssl_rd ? "yes" : "no", ssl_wr ? "yes" : "no");
@@ -684,7 +690,6 @@ static void transfer(CLI *c) {
                 SSL_shutdown_wants_write ? "yes" : "no");
             s_log(LOG_ERR, "socket input buffer: %d byte(s), "
                 "ssl input buffer: %d byte(s)", c->sock_ptr, c->ssl_ptr);
-            s_log(LOG_ERR, "check_SSL_pending=%d", check_SSL_pending);
             longjmp(c->err, 1);
         }
 
@@ -981,10 +986,12 @@ static void local_bind(CLI *c) {
 
 #ifdef IP_TRANSPARENT
     int on=1;
-    if(setsockopt(c->fd, SOL_IP, IP_TRANSPARENT, &on, sizeof on))
-        sockerror("setsockopt IP_TRANSPARENT");
-    /* ignore the error to retain Linux 2.2 compatibility */
-    /* the error will be handled by bind(), anyway */
+    if(c->opt->option.transparent) {
+        if(setsockopt(c->fd, SOL_IP, IP_TRANSPARENT, &on, sizeof on))
+            sockerror("setsockopt IP_TRANSPARENT");
+        /* ignore the error to retain Linux 2.2 compatibility */
+        /* the error will be handled by bind(), anyway */
+    }
 #endif /* IP_TRANSPARENT */
 
     memcpy(&addr, &c->bind_addr.addr[0], sizeof addr);

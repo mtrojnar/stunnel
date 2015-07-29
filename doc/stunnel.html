@@ -171,9 +171,6 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <p><strong>chroot</strong> keeps <strong>stunnel</strong> in chrooted jail.  <em>CApath</em>, <em>CRLpath</em>, <em>pid</em>
 and <em>exec</em> are located inside the jail and the patches have to be relative
 to the directory specified with <strong>chroot</strong>.</p>
-<p>To have libwrap (TCP Wrappers) control effective in a chrooted environment
-you also have to copy its configuration files (/etc/hosts.allow and
-/etc/hosts.deny) there.</p>
 </dd>
 <dt><strong><a name="compression_zlib_rle" class="item"><strong>compression</strong> = zlib | rle</a></strong></dt>
 
@@ -453,6 +450,12 @@ to its owner.  On Unix systems you can use the following command:</p>
     chmod 600 keyfile</pre>
 <p>default: value of <em>cert</em> option</p>
 </dd>
+<dt><strong><a name="libwrap_yes_no" class="item"><strong>libwrap</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>Enable or disable the use of /etc/hosts.allow and /etc/hosts.deny.</p>
+<p>default: yes</p>
+</dd>
 <dt><strong><a name="local_host" class="item"><strong>local</strong> = host</a></strong></dt>
 
 <dd>
@@ -488,6 +491,8 @@ the following option can be used:</p>
 
 <dd>
 <p>application protocol to negotiate SSL</p>
+<p>Specifically &quot;connect&quot; protocol is used in client mode to establish SSL
+connections via HTTP proxy.</p>
 <p>currently supported: cifs, connect, imap, nntp, pop3, smtp, pgsql</p>
 </dd>
 <dt><strong><a name="protocolauthentication_auth_type" class="item"><strong>protocolAuthentication</strong> = auth_type</a></strong></dt>
@@ -791,7 +796,7 @@ random data automatically when sufficient entropy has been gathered.
 With previous versions it will continue to gather from all the above
 sources since no SSL function exists to tell when enough data is available.</p>
 <p>Note that on Windows machines that do not have console user interaction
-(mouse movements, creating windows, etc) the screen contents are not
+(mouse movements, creating windows, etc.) the screen contents are not
 variable enough to be sufficient, and you should provide a random file
 for use with the <em>RNDfile</em> flag.</p>
 <p>Note that the file specified with the <em>RNDfile</em> flag should contain

@@ -63,6 +63,15 @@ void ssl_init(void) { /* init SSL before parsing configuration file */
 }
 
 int ssl_configure(void) { /* configure global SSL settings */
+#ifdef USE_FIPS
+    if(!FIPS_mode_set(global_options.option.fips)) {
+        ERR_load_crypto_strings();
+        sslerror("FIPS_mode_set");
+        return 0;
+    }
+    s_log(LOG_NOTICE, "FIPS mode %s",
+        global_options.option.fips ? "enabled" : "disabled");
+#endif /* USE_FIPS */
     if(global_options.compression!=COMP_NONE && !init_compression())
         return 0;
     if(!init_prng())

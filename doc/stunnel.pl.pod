@@ -114,11 +114,6 @@ po³±czeñ.  ¦cie¿ki podane w opcjach I<CApath>, I<CRLpath>, I<pid>
 oraz I<exec> musz± byæ umieszczone wewn±trz katalogu podanego w opcji
 I<chroot> i okre¶lone wzglêdem tego katalogu.
 
-W przypadku wykorzystania kontroli dostêpu przy pomocy biblioteki
-libwrap (TCP wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
-/etc/hosts.deny) musz± zostaæ skopiowane do podkatalogu etc/
-umieszczonego wewn±trz katalogu podanego w opcji I<chroot>.
-
 =item B<compression> = zlib | rle
 
 wybór algorytmu kompresji przesy³anych danych
@@ -432,6 +427,12 @@ komend±:
 
 domy¶lnie: warto¶æ opcji I<cert>
 
+=item B<libwrap> = yes | no
+
+w³±cz lub wy³±cz korzystanie z /etc/hosts.allow i /etc/hosts.deny.
+
+domy¶lnie: yes
+
 =item B<local> = serwer
 
 IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
@@ -468,6 +469,8 @@ w programie Eudora mo¿na u¿yæ opcji:
 =item B<protocol> = protokó³
 
 negocjuj SSL podanym protoko³em aplikacyjnym
+
+Protokó³ "connect" pozwala na tworzenie po³±czeñ klienta SSL przez proxy HTTP.
 
 aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp, pgsql
 

@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2010.02.03" "4.31" "stunnel"
+.TH STUNNEL.PL 8 "2010.03.23" "4.32" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -147,11 +147,6 @@ Opcja określa katalog, w którym uwięziony zostanie proces programu
 połączeń.  Ścieżki podane w opcjach \fICApath\fR, \fICRLpath\fR, \fIpid\fR
 oraz \fIexec\fR muszą być umieszczone wewnątrz katalogu podanego w opcji
 \&\fIchroot\fR i określone względem tego katalogu.
-.Sp
-W przypadku wykorzystania kontroli dostępu przy pomocy biblioteki
-libwrap (\s-1TCP\s0 wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
-/etc/hosts.deny) muszą zostać skopiowane do podkatalogu etc/
-umieszczonego wewnątrz katalogu podanego w opcji \fIchroot\fR.
 .IP "\fBcompression\fR = zlib | rle" 4
 .IX Item "compression = zlib | rle"
 wybór algorytmu kompresji przesyłanych danych
@@ -432,6 +427,11 @@ komendą:
 .Ve
 .Sp
 domyślnie: wartość opcji \fIcert\fR
+.IP "\fBlibwrap\fR = yes | no" 4
+.IX Item "libwrap = yes | no"
+włącz lub wyłącz korzystanie z /etc/hosts.allow i /etc/hosts.deny.
+.Sp
+domyślnie: yes
 .IP "\fBlocal\fR = serwer" 4
 .IX Item "local = serwer"
 \&\s-1IP\s0 źródła do nawiązywania zdalnych połączeń
@@ -466,6 +466,8 @@ w programie Eudora można użyć opcji:
 .IP "\fBprotocol\fR = protokół" 4
 .IX Item "protocol = protokół"
 negocjuj \s-1SSL\s0 podanym protokołem aplikacyjnym
+.Sp
+Protokół \*(L"connect\*(R" pozwala na tworzenie połączeń klienta \s-1SSL\s0 przez proxy \s-1HTTP\s0.
 .Sp
 aktualnie wspierane protokoły: cifs, connect, imap, nntp, pop3, smtp, pgsql
 .IP "\fBprotocolAuthentication\fR = uwierzytelnienie" 4

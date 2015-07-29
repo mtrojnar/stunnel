@@ -1,5 +1,18 @@
 stunnel         Universal SSL tunnel
 
+Version 4.32, 2010.03.25, urgency: MEDIUM:
+* New features
+  - New service-level "libwrap" option for run-time control whether
+    /etc/hosts.allow and /etc/hosts.deny are used for access control.
+    Disabling libwrap significantly increases performance of stunnel.
+  - Win32 DLLs for OpenSSL 0.9.8m.
+* Bugfixes
+  - Fixed a transfer() loop issue with SSLv2 connections.
+  - Fixed a "setsockopt IP_TRANSPARENT" warning with "local" option.
+  - Logging subsystem bugfixes and cleanup.
+  - Installer bugfixes for Vista and later versions of Windows.
+  - FIPS mode can be enabled/disabled at runtime.
+
 Version 4.31, 2010.02.03, urgency: MEDIUM:
 * New features
   - Log file reopen on USR1 signal was added.

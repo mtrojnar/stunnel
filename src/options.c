@@ -896,6 +896,30 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
+#ifdef USE_LIBWRAP
+    switch(cmd) {
+    case CMD_INIT:
+        section->option.libwrap=1; /* enable libwrap by default */
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "libwrap"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.libwrap=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.libwrap=0;
+        else
+            return "Argument should be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-15s = yes|no use /etc/hosts.allow and /etc/hosts.deny",
+            "libwrap");
+        break;
+    }
+#endif /* USE_LIBWRAP */
+
     /* local */
     switch(cmd) {
     case CMD_INIT:

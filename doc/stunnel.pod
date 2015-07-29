@@ -111,10 +111,6 @@ B<chroot> keeps B<stunnel> in chrooted jail.  I<CApath>, I<CRLpath>, I<pid>
 and I<exec> are located inside the jail and the patches have to be relative
 to the directory specified with B<chroot>.
 
-To have libwrap (TCP Wrappers) control effective in a chrooted environment
-you also have to copy its configuration files (/etc/hosts.allow and
-/etc/hosts.deny) there.
-
 =item B<compression> = zlib | rle
 
 select data compression algorithm
@@ -411,6 +407,12 @@ to its owner.  On Unix systems you can use the following command:
 
 default: value of I<cert> option
 
+=item B<libwrap> = yes | no
+
+Enable or disable the use of /etc/hosts.allow and /etc/hosts.deny.
+
+default: yes
+
 =item B<local> = host
 
 IP of the outgoing interface is used as source for remote connections.
@@ -445,6 +447,9 @@ the following option can be used:
 =item B<protocol> = proto
 
 application protocol to negotiate SSL
+
+Specifically "connect" protocol is used in client mode to establish SSL
+connections via HTTP proxy.
 
 currently supported: cifs, connect, imap, nntp, pop3, smtp, pgsql
 
@@ -746,7 +751,7 @@ With previous versions it will continue to gather from all the above
 sources since no SSL function exists to tell when enough data is available.
 
 Note that on Windows machines that do not have console user interaction
-(mouse movements, creating windows, etc) the screen contents are not
+(mouse movements, creating windows, etc.) the screen contents are not
 variable enough to be sufficient, and you should provide a random file
 for use with the I<RNDfile> flag.
 

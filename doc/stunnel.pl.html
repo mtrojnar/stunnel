@@ -175,10 +175,6 @@ odinstalowaniu</p>
 po³±czeñ.  ¦cie¿ki podane w opcjach <em>CApath</em>, <em>CRLpath</em>, <em>pid</em>
 oraz <em>exec</em> musz± byæ umieszczone wewn±trz katalogu podanego w opcji
 <em>chroot</em> i okre¶lone wzglêdem tego katalogu.</p>
-<p>W przypadku wykorzystania kontroli dostêpu przy pomocy biblioteki
-libwrap (TCP wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
-/etc/hosts.deny) musz± zostaæ skopiowane do podkatalogu etc/
-umieszczonego wewn±trz katalogu podanego w opcji <em>chroot</em>.</p>
 </dd>
 <dt><strong><a name="compression_zlib_rle" class="item"><strong>compression</strong> = zlib | rle</a></strong></dt>
 
@@ -477,6 +473,12 @@ komend±:</p>
     chmod 600 keyfile</pre>
 <p>domy¶lnie: warto¶æ opcji <em>cert</em></p>
 </dd>
+<dt><strong><a name="libwrap_yes_no" class="item"><strong>libwrap</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>w³±cz lub wy³±cz korzystanie z /etc/hosts.allow i /etc/hosts.deny.</p>
+<p>domy¶lnie: yes</p>
+</dd>
 <dt><strong><a name="local_serwer" class="item"><strong>local</strong> = serwer</a></strong></dt>
 
 <dd>
@@ -513,6 +515,7 @@ w programie Eudora mo¿na u¿yæ opcji:</p>
 
 <dd>
 <p>negocjuj SSL podanym protoko³em aplikacyjnym</p>
+<p>Protokó³ &quot;connect&quot; pozwala na tworzenie po³±czeñ klienta SSL przez proxy HTTP.</p>
 <p>aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp, pgsql</p>
 </dd>
 <dt><strong><a name="protocolauthentication_uwierzytelnienie" class="item"><strong>protocolAuthentication</strong> = uwierzytelnienie</a></strong></dt>

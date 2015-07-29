@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2010.02.03" "4.31" "stunnel"
+.TH STUNNEL 8 "2010.03.23" "4.32" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -145,10 +145,6 @@ directory to chroot \fBstunnel\fR process
 \&\fBchroot\fR keeps \fBstunnel\fR in chrooted jail.  \fICApath\fR, \fICRLpath\fR, \fIpid\fR
 and \fIexec\fR are located inside the jail and the patches have to be relative
 to the directory specified with \fBchroot\fR.
-.Sp
-To have libwrap (\s-1TCP\s0 Wrappers) control effective in a chrooted environment
-you also have to copy its configuration files (/etc/hosts.allow and
-/etc/hosts.deny) there.
 .IP "\fBcompression\fR = zlib | rle" 4
 .IX Item "compression = zlib | rle"
 select data compression algorithm
@@ -411,6 +407,11 @@ to its owner.  On Unix systems you can use the following command:
 .Ve
 .Sp
 default: value of \fIcert\fR option
+.IP "\fBlibwrap\fR = yes | no" 4
+.IX Item "libwrap = yes | no"
+Enable or disable the use of /etc/hosts.allow and /etc/hosts.deny.
+.Sp
+default: yes
 .IP "\fBlocal\fR = host" 4
 .IX Item "local = host"
 \&\s-1IP\s0 of the outgoing interface is used as source for remote connections.
@@ -443,6 +444,9 @@ the following option can be used:
 .IP "\fBprotocol\fR = proto" 4
 .IX Item "protocol = proto"
 application protocol to negotiate \s-1SSL\s0
+.Sp
+Specifically \*(L"connect\*(R" protocol is used in client mode to establish \s-1SSL\s0
+connections via \s-1HTTP\s0 proxy.
 .Sp
 currently supported: cifs, connect, imap, nntp, pop3, smtp, pgsql
 .IP "\fBprotocolAuthentication\fR = auth_type" 4
@@ -721,7 +725,7 @@ With previous versions it will continue to gather from all the above
 sources since no \s-1SSL\s0 function exists to tell when enough data is available.
 .PP
 Note that on Windows machines that do not have console user interaction
-(mouse movements, creating windows, etc) the screen contents are not
+(mouse movements, creating windows, etc.) the screen contents are not
 variable enough to be sufficient, and you should provide a random file
 for use with the \fIRNDfile\fR flag.
 .PP
