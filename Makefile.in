@@ -2,7 +2,7 @@
 # Makefile for stunnel by Michal Trojnara 1998 #
 ################################################
 
-VERSION=2.0
+VERSION=2.1
 HOST=@host@
 SBINDIR=/usr/sbin
 MANDIR=/usr/man/man8

@@ -3,8 +3,8 @@
  *   Copyright (c) 1998 Michal Trojnara <mtrojnar@ddc.daewoo.com.pl>
  *                 All Rights Reserved
  *
- *   Version:      2.0a             (stunnel.c)
- *   Date:         1998.05.26
+ *   Version:      2.1              (stunnel.c)
+ *   Date:         1998.06.01
  *   Author:       Michal Trojnara  <mtrojnar@ddc.daewoo.com.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
@@ -24,8 +24,12 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-/* Change to 0 if you have problems with make_sockets() */
-#define INET_SOCKET_PAIR 1
+/* Undefine if you have problems with make_sockets() */
+#define INET_SOCKET_PAIR
+
+/* DH is still a little bit experimental code */
+/* feel free to undefine this macro */
+#define USE_DH
 
 #define BUFFSIZE 8192    /* I/O buffer size */
 #define HOSTNAME_SIZE 256
@@ -77,9 +81,6 @@
 #define USE_LIBWRAP 1
 #endif
 
-/* DH requires some more hacking ;) -pk */
-#undef USE_DH
-
 /* Correct callback definitions overriding ssl.h */
 #ifdef SSL_CTX_set_tmp_rsa_callback
     #undef SSL_CTX_set_tmp_rsa_callback
@@ -125,6 +126,7 @@ int main(int argc, char* argv[]) /* execution begins here 8-) */
 
     openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
     signal(SIGPIPE, SIG_IGN); /* avoid 'broken pipe' signal */
+    signal(SIGCHLD, SIG_IGN); /* avoid zombie */
     signal(SIGTERM, signal_handler);
     signal(SIGQUIT, signal_handler);
     signal(SIGSEGV, signal_handler);
@@ -427,7 +429,7 @@ char **host2num(char *hostname) /* get list of host addresses */
 
 void make_sockets(int fd[2]) /* make pair of connected sockets */
 {
-#if INET_SOCKET_PAIR
+#ifdef INET_SOCKET_PAIR
     struct sockaddr_in addr;
     int addrlen;
     int s; /* temporary socket awaiting for connection */

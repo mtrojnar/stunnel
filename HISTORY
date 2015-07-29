@@ -1,5 +1,7 @@
 stunnel         Universal SSL tunnel for network daemons
 
+2.1 1995.06.01	Few bugs fixed.
+
 2.0 1995.05.25	Remote mode added!
                 Standalone mode added!
 		tcpd functionality added by libwrap utilization.
