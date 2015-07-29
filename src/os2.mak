@@ -1,11 +1,11 @@
 prefix=.
 DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DPACKAGE_TARNAME=\"stunnel\" \
-	-DPACKAGE_VERSION=\"4.17\" \
-	-DPACKAGE_STRING=\"stunnel\ 4.17\" \
+	-DPACKAGE_VERSION=\"4.18\" \
+	-DPACKAGE_STRING=\"stunnel\ 4.18\" \
 	-DPACKAGE_BUGREPORT=\"\" \
 	-DPACKAGE=\"stunnel\" \
-	-DVERSION=\"4.17\" \
+	-DVERSION=\"4.18\" \
 	-DSTDC_HEADERS=1 \
 	-DHAVE_SYS_TYPES_H=1 \
 	-DHAVE_SYS_STAT_H=1 \
@@ -36,13 +36,13 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DSIZEOF_UNSIGNED_LONG=4 \
       	-DLIBDIR=\"$(prefix)/lib\" \
         -DCONFDIR=\"$(prefix)/etc\" \
-        -DPIDFILE=\"$(prefix)/stunnel.pid\" 
+        -DPIDFILE=\"$(prefix)/stunnel.pid\"
 
 CC = gcc
 .SUFFIXES = .c .o
 openssldir = u:/extras
 #syslogdir = /unixos2/workdir/syslog
-INCLUDES = -I$(openssldir)/outinc 
+INCLUDES = -I$(openssldir)/outinc
 LIBS = -lsocket -L$(openssldir)/out -lssl -lcrypto -lz -lsyslog
 OBJS = file.o client.o log.o options.o protocol.o network.o ssl.o ctx.o sthreads.o stunnel.o pty.o resolver.o
 libdir = .

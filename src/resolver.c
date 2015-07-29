@@ -382,7 +382,7 @@ static int getnameinfo(const struct sockaddr *sa, int salen,
 #endif
     if(host && hostlen) {
 #if defined(USE_IPv6) && !defined(USE_WIN32)
-        inet_ntop(sa->sa_family, sa->sa_family==AF_INET6 ? 
+        inet_ntop(sa->sa_family, sa->sa_family==AF_INET6 ?
                 (void *)&((struct sockaddr_in6 *)sa)->sin6_addr :
                 (void *)&((struct sockaddr_in *)sa)->sin_addr,
             host, hostlen);
@@ -409,7 +409,7 @@ void debug_sockaddr_union(SOCKADDR_UNION *addr) {
     int i;
     char t[3*sizeof(SOCKADDR_UNION)];
     const char hex[16]="0123456789abcdef";
-    
+
     for(i=0; i<sizeof(SOCKADDR_UNION); i++) {
         t[3*i]=hex[((u8 *)addr)[i]/16];
         t[3*i+1]=hex[((u8 *)addr)[i]%16];

@@ -946,7 +946,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
 
     /* sslVersion */
     switch(cmd) {
-    case CMD_INIT: 
+    case CMD_INIT:
         section->client_method=SSLv3_client_method;
         section->server_method=SSLv23_server_method;
         break;
@@ -1171,7 +1171,7 @@ void parse_config(char *name, char *parameter) {
     int sections=0;
 #endif
     LOCAL_OPTIONS *section, *new_section;
-    
+
     memset(&options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
 
     memset(&local_options, 0, sizeof(LOCAL_OPTIONS)); /* reset local options */
@@ -1335,7 +1335,7 @@ static void config_error(char *name, int num, char *str) {
 
 static char *stralloc(char *str) { /* Allocate static string */
     char *retval;
-    
+
     retval=calloc(strlen(str)+1, 1);
     if(!retval) {
         log_raw("Fatal memory allocation error");

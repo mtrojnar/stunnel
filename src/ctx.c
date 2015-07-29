@@ -330,6 +330,8 @@ static void load_certificate(LOCAL_OPTIONS *section) {
     UI_METHOD *uim;
 #endif
 
+    ui_data.section=section; /* setup current section for callbacks */
+
     s_log(LOG_DEBUG, "Certificate: %s", section->cert);
     if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
         s_log(LOG_ERR, "Error reading certificate file: %s", section->cert);

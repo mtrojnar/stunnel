@@ -232,7 +232,7 @@ static int initialize_winsock() {
 #ifndef _WIN32_WCE
     HINSTANCE handle;
 #endif
-    
+
     if(WSAStartup(MAKEWORD( 2, 2 ), &wsa_state)) {
         MessageBox(hwnd, TEXT("Failed to initialize winsock"),
             TEXT("stunnel"), MB_ICONERROR);
@@ -707,15 +707,15 @@ void exit_stunnel(int code) { /* used instead of exit() on Win32 */
 }
 
 static void error_box(const LPTSTR text) {
-    TCHAR to_print[STRLEN]; 
+    TCHAR to_print[STRLEN];
     LPTSTR buff;
     long dw;
-    
-    dw=GetLastError(); 
+
+    dw=GetLastError();
     FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM,
         NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
         (LPTSTR) &buff, 0, NULL);
-    _sntprintf(to_print, STRLEN, TEXT("%s: error %ld: %s"), text, dw, buff); 
+    _sntprintf(to_print, STRLEN, TEXT("%s: error %ld: %s"), text, dw, buff);
     MessageBox(hwnd, to_print, win32_name, MB_ICONERROR);
     LocalFree(buff);
 }

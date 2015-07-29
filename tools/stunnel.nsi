@@ -1,5 +1,5 @@
-!define VERSION "4.17"
-!define DLLS "/home/ftp/stunnel/openssl/binary-0.9.7i-zdll/"
+!define VERSION "4.18"
+!define DLLS "/home/ftp/stunnel/openssl/binary-0.9.8c-zdll/"
 !define WIN32 "/home/ftp/stunnel/obsolete/"
 
 Name "stunnel ${VERSION}"

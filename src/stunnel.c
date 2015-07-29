@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.17             (stunnel.c)
- *   Date:         2006.09.10
+ *   Version:      4.18             (stunnel.c)
+ *   Date:         2006.09.26
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -40,7 +40,7 @@
 static void daemon_loop(void);
 static void accept_connection(LOCAL_OPTIONS *);
 static void get_limits(void); /* setup global max_clients and max_fds */
-#if !defined (USE_WIN32) && !defined (__vms) 
+#if !defined (USE_WIN32) && !defined (__vms)
 static void drop_privileges(void);
 static void daemonize(void);
 static void create_pid(void);

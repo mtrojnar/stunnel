@@ -24,7 +24,7 @@
 /**************************************** Common constants */
 
 #ifndef VERSION
-#define VERSION "4.17"
+#define VERSION "4.18"
 #endif
 
 #ifdef OPTIMIZE_SCALABILITY

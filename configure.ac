@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel], [4.17])
+AC_INIT([stunnel], [4.18])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.17)
+AM_INIT_AUTOMAKE(stunnel, 4.18)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -317,7 +317,7 @@ AC_ARG_ENABLE(libwrap,
                 [[hosts_access()]]
             )],
             [AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_LIBWRAP)],
-            [AC_MSG_RESULT([no]), LIBS="$saved_LIBS"]
+            [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"]
         )
     ]
 )

@@ -320,7 +320,7 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
 }
 
 #endif
- 
+
 #ifdef USE_OS2
 
 void enter_critical_section(SECTION_CODE i) {

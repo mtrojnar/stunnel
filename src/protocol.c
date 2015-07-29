@@ -132,7 +132,7 @@ static void cifs_server(CLI *c) {
 
 static void smtp_client(CLI *c) {
     char line[STRLEN];
-    
+
     do { /* Copy multiline greeting */
         fdgetline(c, c->remote_fd.fd, line);
         fdputline(c, c->local_wfd.fd, line);

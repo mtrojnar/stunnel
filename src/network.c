@@ -109,7 +109,7 @@ static void scan_waiting_queue(void) {
     short *signal_revents;
     static int max_nfds=0;
     static struct pollfd *ufds=NULL;
-    
+
     time(&now);
     /* count file descriptors */
     min_timeout=-1;

@@ -96,7 +96,7 @@ static int init_prng(void) {
     int totbytes=0;
     char filename[STRLEN];
     int bytes;
-    
+
     bytes=0; /* avoid warning if #ifdef'd out for windows */
 
     filename[0]='\0';

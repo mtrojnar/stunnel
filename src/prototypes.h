@@ -78,7 +78,7 @@ void ioerror(const char *);
 void sockerror(const char *);
 void log_error(int, int, const char *);
 char *my_strerror(int);
-    
+
 /**************************************** Prototypes for pty.c */
 /* Based on Public Domain code by Tatu Ylonen <ylo@cs.hut.fi>  */
 

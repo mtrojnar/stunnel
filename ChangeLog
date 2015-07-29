@@ -1,5 +1,11 @@
 stunnel         Universal SSL tunnel
 
+Version 4.18, 2006.09.26, urgency: MEDIUM:
+* Bugfixes
+  - GPF on entering private key pass phrase on Win32 fixed.
+  - Updated Win32 DLLs.
+  - Minor configure script update.
+
 Version 4.17, 2006.09.10, urgency: MEDIUM:
 * New features
   - Win32 DLLs for OpenSSL 0.9.8c.
