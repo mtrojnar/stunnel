@@ -80,7 +80,7 @@ int log_open(void) {
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
         if(!outfile) {
             char appdata[MAX_PATH], *path;
-            if(SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA|CSIDL_FLAG_CREATE, 
+            if(SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA|CSIDL_FLAG_CREATE,
                     NULL, 0, appdata)==S_OK) {
                 path=str_printf("%s\\%s", appdata, global_options.output_file);
                 outfile=file_open(path, global_options.log_file_mode);

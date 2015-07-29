@@ -1452,16 +1452,18 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* protocol */
     switch(cmd) {
     case CMD_BEGIN:
-        section->protocol=-1;
+        section->protocol=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "protocol"))
             break;
-        section->protocol=find_protocol_id(arg);
-        if(section->protocol<0)
-            return "Unknown protocol";
+        section->protocol=str_dup(arg);
         return NULL; /* OK */
     case CMD_END:
+        /* this also sets section->option.connect_before_ssl */
+        tmpstr=protocol(NULL, section, PROTOCOL_CHECK);
+        if(tmpstr)
+            return tmpstr;
         break;
     case CMD_FREE:
         break;
@@ -2476,7 +2478,9 @@ NOEXPORT int parse_ssl_option(char *arg) {
             SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG},
         {"SSLREF2_REUSE_CERT_TYPE_BUG", SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG},
         {"MICROSOFT_BIG_SSLV3_BUFFER", SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER},
+#ifdef SSL_OP_MSIE_SSLV2_RSA_PADDING
         {"MSIE_SSLV2_RSA_PADDING", SSL_OP_MSIE_SSLV2_RSA_PADDING},
+#endif
         {"SSLEAY_080_CLIENT_DH_BUG", SSL_OP_SSLEAY_080_CLIENT_DH_BUG},
         {"TLS_D5_BUG", SSL_OP_TLS_D5_BUG},
         {"TLS_BLOCK_PADDING_BUG", SSL_OP_TLS_BLOCK_PADDING_BUG},

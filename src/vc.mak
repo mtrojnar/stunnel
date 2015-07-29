@@ -24,7 +24,7 @@ TARGET=win64
 #FIPSDIR=$(SSLDIR)\include
 #LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-SSLDIR=..\..\openssl-1.0.1g-$(TARGET)
+SSLDIR=..\..\openssl-1.0.1h-$(TARGET)
 INCDIR=$(SSLDIR)\inc32
 FIPSDIR=$(SSLDIR)\inc32
 LIBDIR=$(SSLDIR)\out32dll
@@ -67,7 +67,9 @@ SSLLIBS=/LIBPATH:"$(LIBDIR)" libeay32.lib ssleay32.lib
 {$(SRC)\}.rc{$(OBJ)\}.res:
 	$(RC) -fo$@ -r $<
 	
-all: makedirs $(BIN)\stunnel.exe $(BIN)\tstunnel.exe
+all: build
+
+build: makedirs $(BIN)\stunnel.exe $(BIN)\tstunnel.exe
 
 clean:
 	-@ del $(SHAREDOBJS) >NUL 2>&1

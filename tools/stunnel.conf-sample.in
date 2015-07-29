@@ -9,15 +9,15 @@
 
 ; A copy of some devices and system files is needed within the chroot jail
 ; Chroot conflicts with configuration file reload and many other features
-chroot = @prefix@/var/lib/stunnel/
+;chroot = @prefix@/var/lib/stunnel/
 ; Chroot jail can be escaped if setuid option is not used
 setuid = nobody
 setgid = @DEFAULT_GROUP@
 
-; PID is created inside the chroot jail
-pid = /stunnel.pid
+; PID file is created inside the chroot jail (if enabled)
+;pid = @prefix@/var/run/stunnel.pid
 
-; Debugging stuff (may useful for troubleshooting)
+; Debugging stuff (may be useful for troubleshooting)
 ;debug = 7
 ;output = stunnel.log
 

@@ -1011,6 +1011,14 @@ Funkcja ta może zostać użyta w skrypcie rotującym log programu <strong>stunn
     [imapd]
     accept = 993
     connect = 143</pre>
+<p>Aby umożliwić lokalnemu klientowi poczty elektronicznej korzystanie z serwera
+<em>imapd</em> przez SSL należy skonfigurować pobieranie poczty z adresu localhost i
+portu 119, oraz użyć następującej konfiguracji:</p>
+<pre>
+    [imap]
+    client = yes
+    accept = 143
+    connect = serwer:993</pre>
 <p>W połączeniu z programem <em>pppd</em> <strong>stunnel</strong> pozwala zestawić prosty VPN.
 Po stronie serwera nasłuchującego na porcie 2020 jego konfiguracja
 może wyglądać następująco:</p>

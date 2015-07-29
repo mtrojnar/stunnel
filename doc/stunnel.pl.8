@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2014.03.09" "5.01" "stunnel"
+.TH STUNNEL.PL 8 "2014.05.08" "5.02" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -906,6 +906,17 @@ albo w trybie zdalnym:
 \&    [imapd]
 \&    accept = 993
 \&    connect = 143
+.Ve
+.PP
+Aby umożliwić lokalnemu klientowi poczty elektronicznej korzystanie z serwera
+\&\fIimapd\fR przez \s-1SSL\s0 należy skonfigurować pobieranie poczty z adresu localhost i
+portu 119, oraz użyć następującej konfiguracji:
+.PP
+.Vb 4
+\&    [imap]
+\&    client = yes
+\&    accept = 143
+\&    connect = serwer:993
 .Ve
 .PP
 W połączeniu z programem \fIpppd\fR \fBstunnel\fR pozwala zestawić prosty \s-1VPN\s0.

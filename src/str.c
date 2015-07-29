@@ -283,18 +283,26 @@ void *str_alloc_debug(size_t size, char *file, int line) {
 }
 
 void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
-    ALLOC_LIST *previous_alloc_list, *alloc_list;
+    ALLOC_LIST *prev_alloc_list, *alloc_list;
 
     if(!ptr)
         return str_alloc_debug(size, file, line);
-    previous_alloc_list=get_alloc_list_ptr(ptr, file, line);
-    alloc_list=realloc(previous_alloc_list,
+    prev_alloc_list=get_alloc_list_ptr(ptr, file, line);
+    if(prev_alloc_list->size>size) /* shrinking the allocation */
+        memset((u8 *)ptr+size, 0, prev_alloc_list->size-size); /* paranoia */
+    alloc_list=realloc(prev_alloc_list,
         sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
         fatal_debug("Out of memory", file, line);
+    ptr=alloc_list+1;
+    if(size>alloc_list->size) /* growing the allocation */
+        memset((u8 *)ptr+alloc_list->size, 0, size-alloc_list->size);
+    alloc_list->size=size;
+    alloc_list->file=file;
+    alloc_list->line=line;
     if(alloc_list->tls) { /* not detached */
         /* refresh possibly invalidated linked list pointers */
-        if(alloc_list->tls->head==previous_alloc_list)
+        if(alloc_list->tls->head==prev_alloc_list)
             alloc_list->tls->head=alloc_list;
         if(alloc_list->next)
             alloc_list->next->prev=alloc_list;
@@ -303,12 +311,9 @@ void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
         /* update statistics */
         alloc_list->tls->bytes+=size-alloc_list->size;
     }
-    alloc_list->size=size;
-    alloc_list->file=file;
-    alloc_list->line=line;
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
-    memcpy((u8 *)(alloc_list+1)+size, canary, sizeof canary);
-    return alloc_list+1;
+    memcpy((u8 *)ptr+size, canary, sizeof canary);
+    return ptr;
 }
 
 /* detach from thread automatic deallocation list */
@@ -345,6 +350,7 @@ void str_free_debug(void *ptr, char *file, int line) {
     str_detach_debug(ptr, file, line);
     alloc_list=(ALLOC_LIST *)ptr-1;
     alloc_list->magic=0xdefec8ed; /* to detect double free attempts */
+    memset(ptr, 0, alloc_list->size); /* paranoia */
     free(alloc_list);
 }
 
@@ -363,9 +369,18 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, char *file, int line) {
     if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls())
         fatal_debug("Memory allocated in a different thread", file, line);
     if(alloc_list->valid_canary &&
-            memcmp((u8 *)ptr+alloc_list->size, canary, sizeof canary))
+            safe_memcmp((u8 *)ptr+alloc_list->size, canary, sizeof canary))
         fatal_debug("Dead canary", file, line); /* LOL */
     return alloc_list;
+}
+
+/* a version of memcmp() with execution time not dependent on data values */
+/* it does *not* allow to test wheter s1 is greater or lesser than s2  */
+int safe_memcmp(const void *s1, const void *s2, size_t n) {
+    u8 *p1=(u8 *)s1, *p2=(u8 *)s2, r=0;
+    while(n--)
+        r|=*p1++^*p2++;
+    return r;
 }
 
 /* end of str.c */

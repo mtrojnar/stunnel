@@ -219,21 +219,17 @@ NOEXPORT void client_run(CLI *c) {
 
 NOEXPORT void client_try(CLI *c) {
     init_local(c);
-    if(!c->opt->option.client && c->opt->protocol<0
-#ifndef OPENSSL_NO_TLSEXT
-            && !c->opt->servername_list_head
-#endif
-            ) {
-        /* server mode and no protocol negotiation needed */
-        init_ssl(c);
+    protocol(c, c->opt, PROTOCOL_EARLY);
+    if(c->opt->option.connect_before_ssl) {
         init_remote(c);
-    } else { /* client mode or protocol negotiation enabled */
-        protocol(c, PROTOCOL_PRE_CONNECT);
-        init_remote(c);
-        protocol(c, PROTOCOL_PRE_SSL);
+        protocol(c, c->opt, PROTOCOL_MIDDLE);
         init_ssl(c);
-        protocol(c, PROTOCOL_POST_SSL);
+    } else {
+        init_ssl(c);
+        protocol(c, c->opt, PROTOCOL_MIDDLE);
+        init_remote(c);
     }
+    protocol(c, c->opt, PROTOCOL_LATE);
     transfer(c);
 }
 
@@ -540,7 +536,7 @@ NOEXPORT void transfer(CLI *c) {
         /* poll SSL file descriptors unless SSL shutdown was completed */
         if(SSL_get_shutdown(c->ssl)!=
                 (SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN)) {
-            s_poll_add(c->fds, c->ssl_rfd->fd, 
+            s_poll_add(c->fds, c->ssl_rfd->fd,
                 read_wants_read || write_wants_read || shutdown_wants_read, 0);
             s_poll_add(c->fds, c->ssl_wfd->fd, 0,
                 read_wants_write || write_wants_write || shutdown_wants_write);
@@ -718,6 +714,7 @@ NOEXPORT void transfer(CLI *c) {
             default:
                 memmove(c->ssl_buff, c->ssl_buff+num, c->ssl_ptr-num);
                 c->ssl_ptr-=num;
+                memset(c->ssl_buff+c->ssl_ptr, 0, num); /* paranoia */
                 c->sock_bytes+=num;
                 watchdog=0; /* reset watchdog */
             }
@@ -797,6 +794,7 @@ NOEXPORT void transfer(CLI *c) {
                     s_log(LOG_DEBUG, "SSL_write returned 0");
                 memmove(c->sock_buff, c->sock_buff+num, c->sock_ptr-num);
                 c->sock_ptr-=num;
+                memset(c->sock_buff+c->sock_ptr, 0, num); /* paranoia */
                 c->ssl_bytes+=num;
                 watchdog=0; /* reset watchdog */
                 break;
@@ -1168,10 +1166,10 @@ NOEXPORT int connect_remote(CLI *c) {
     int fd, ind_start, ind_try, ind_cur;
 
     setup_connect_addr(c);
-    ind_start=c->connect_addr.cur;
+    ind_start=*c->connect_addr.rr_ptr;
     /* the race condition here can be safely ignored */
     if(c->opt->failover==FAILOVER_RR)
-        c->connect_addr.cur=(ind_start+1)%c->connect_addr.num;
+        *c->connect_addr.rr_ptr=(ind_start+1)%c->connect_addr.num;
 
     /* try to connect each host from the list */
     for(ind_try=0; ind_try<c->connect_addr.num; ind_try++) {

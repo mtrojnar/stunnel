@@ -188,7 +188,7 @@ NOEXPORT int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
     }
     if(verify_checks(preverify_ok, callback_ctx))
         return 1; /* accept */
-    if(c->opt->option.client || c->opt->protocol>=0)
+    if(c->opt->option.client || c->opt->protocol)
         return 0; /* reject */
     if(c->opt->redirect_addr.num) { /* pre-resolved addresses */
         addrlist_dup(&c->connect_addr, &c->opt->redirect_addr);
@@ -302,7 +302,7 @@ NOEXPORT int compare_pubkeys(X509 *c1, X509 *c2) {
     ASN1_BIT_STRING *k1=X509_get0_pubkey_bitstr(c1);
     ASN1_BIT_STRING *k2=X509_get0_pubkey_bitstr(c2);
     if(!k1 || !k2 || k1->length!=k2->length ||
-            memcmp(k1->data, k2->data, k1->length)) {
+            safe_memcmp(k1->data, k2->data, k1->length)) {
         s_log(LOG_INFO, "CERT: Public keys do not match");
         return 0; /* fail */
     }

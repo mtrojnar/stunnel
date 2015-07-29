@@ -659,7 +659,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     /* parse results */
     if(len<(int)sizeof(CACHE_PACKET)-MAX_VAL_LEN || /* too short */
             packet->version!=1 || /* wrong version */
-            memcmp(packet->key, key, key_len)) { /* wrong session id */
+            safe_memcmp(packet->key, key, key_len)) { /* wrong session id */
         s_log(LOG_DEBUG, "cache_transfer: malformed packet received");
         str_free(packet);
         return;

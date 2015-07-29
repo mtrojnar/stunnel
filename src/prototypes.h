@@ -86,7 +86,7 @@ typedef struct name_list_struct {
 
 typedef struct sockaddr_list {                          /* list of addresses */
     SOCKADDR_UNION *addr;                           /* the list of addresses */
-    u16 cur;                              /* current address for round-robin */
+    u16 *rr_ptr, rr_val;                  /* current address for round-robin */
     u16 num;                                  /* how many addresses are used */
 } SOCKADDR_LIST;
 
@@ -211,7 +211,7 @@ typedef struct service_options_struct {
     char *username;
 
         /* service-specific data for protocol.c */
-    int protocol;
+    char * protocol;
     char *protocol_host;
     char *protocol_username;
     char *protocol_password;
@@ -251,6 +251,7 @@ typedef struct service_options_struct {
 #endif
         unsigned int reset:1;           /* reset sockets on error */
         unsigned int renegotiation:1;
+        unsigned int connect_before_ssl:1;
     } option;
 } SERVICE_OPTIONS;
 
@@ -472,7 +473,7 @@ void client_main(CLI *);
 /**************************************** prototypes for network.c */
 
 int s_connect(CLI *, SOCKADDR_UNION *, socklen_t);
-void s_write(CLI *, int fd, void *, int);
+void s_write(CLI *, int fd, const void *, int);
 void s_read(CLI *, int fd, void *, int);
 void fd_putline(CLI *, int, const char *);
 char *fd_getline(CLI *, int);
@@ -487,14 +488,13 @@ void fd_printf(CLI *, int, const char *, ...)
 /**************************************** prototype for protocol.c */
 
 typedef enum {
-    PROTOCOL_NONE,
-    PROTOCOL_PRE_CONNECT,
-    PROTOCOL_PRE_SSL,
-    PROTOCOL_POST_SSL
-} PROTOCOL_PHASE;
+    PROTOCOL_CHECK,
+    PROTOCOL_EARLY,
+    PROTOCOL_MIDDLE,
+    PROTOCOL_LATE
+} PHASE;
 
-int find_protocol_id(const char *);
-void protocol(CLI *, const PROTOCOL_PHASE);
+char *protocol(CLI *, SERVICE_OPTIONS *opt, const PHASE);
 
 /**************************************** prototypes for resolver.c */
 
@@ -621,6 +621,7 @@ char *str_printf(const char *, ...)
 #else
     ;
 #endif
+int safe_memcmp(const void *, const void *, size_t);
 
 /**************************************** prototypes for ui_*.c */
 

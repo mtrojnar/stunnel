@@ -49,7 +49,7 @@
 #define DEFAULT_STACK_SIZE 65536
 /* #define DEBUG_STACK_SIZE */
 
-/* I/O buffer size - 18432 is the maximum size of SSL record payload */
+/* I/O buffer size: 18432 (0x4800) is the maximum size of SSL record payload */
 #define BUFFSIZE 18432
 
 /* how many bytes of random input to read from files for PRNG */

@@ -530,8 +530,9 @@ int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     return -1; /* should not be possible */
 }
 
-void s_write(CLI *c, int fd, void *ptr, int len) {
+void s_write(CLI *c, int fd, const void *buf, int len) {
         /* simulate a blocking write */
+    u8 *ptr=(u8 *)buf;
     int num;
 
     while(len>0) {
@@ -551,13 +552,13 @@ void s_write(CLI *c, int fd, void *ptr, int len) {
             s_log(LOG_ERR, "s_write: s_poll_wait: unknown result");
             longjmp(c->err, 1); /* error */
         }
-        num=writesocket(fd, ptr, len);
+        num=writesocket(fd, (void *)ptr, len);
         switch(num) {
         case -1: /* error */
             sockerror("writesocket (s_write)");
             longjmp(c->err, 1);
         }
-        ptr=(u8 *)ptr+num;
+        ptr+=num;
         len-=num;
     }
 }

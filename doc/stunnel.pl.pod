@@ -1000,6 +1000,15 @@ albo w trybie zdalnym:
     accept = 993
     connect = 143
 
+Aby umożliwić lokalnemu klientowi poczty elektronicznej korzystanie z serwera
+I<imapd> przez SSL należy skonfigurować pobieranie poczty z adresu localhost i
+portu 119, oraz użyć następującej konfiguracji:
+
+    [imap]
+    client = yes
+    accept = 143
+    connect = serwer:993
+
 W połączeniu z programem I<pppd> B<stunnel> pozwala zestawić prosty VPN.
 Po stronie serwera nasłuchującego na porcie 2020 jego konfiguracja
 może wyglądać następująco:

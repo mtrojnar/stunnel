@@ -446,11 +446,15 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
 #ifdef _WIN32_WCE
         CommandBar_Destroy(command_bar_handle);
 #else
-        if(main_menu_handle)
+        if(main_menu_handle) {
             DestroyMenu(main_menu_handle);
+            main_menu_handle=NULL;
+        }
 #endif
-        if(tray_menu_handle)
+        if(tray_menu_handle) {
             DestroyMenu(tray_menu_handle);
+            tray_menu_handle=NULL;
+        }
         ZeroMemory(&nid, sizeof nid);
         nid.cbSize=sizeof nid;
         nid.hWnd=main_window_handle;
@@ -869,8 +873,7 @@ NOEXPORT void valid_config() {
         TEXT(STUNNEL_PLATFORM);
     SetWindowText(hwnd, win32_name);
 
-    if(global_options.option.taskbar) /* save menu resources */
-        update_tray_icon(num_clients); /* idle icon */
+    update_tray_icon(num_clients); /* idle icon */
 
     update_peer_menu();
 
@@ -996,6 +999,13 @@ NOEXPORT void update_tray_icon(const int num) {
     static ICON_TYPE previous_icon=ICON_NONE;
     ICON_TYPE current_icon;
 
+    if(!global_options.option.taskbar) { /* save menu resources */
+        if(tray_menu_handle) { /* disabled in the new configuration */
+            DestroyMenu(tray_menu_handle);
+            tray_menu_handle=NULL;
+        }
+        return;
+    }
     if(!tray_menu_handle) { /* initialize taskbar */
         tray_menu_handle=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
         SetTimer(hwnd, 0x29a, 1000, NULL); /* 1-second timer */

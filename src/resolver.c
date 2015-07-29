@@ -158,7 +158,10 @@ NOEXPORT int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_h
     char *tmp, *hostname, *portname;
     int retval;
 
-    addr_list->cur=0; /* reset round-robin counter */
+    addr_list->rr_val=0; /* reset round-robin counter */
+    /* allow structures created with sockaddr_dup() to modify
+     * the original rr_val rather than its local copy */
+    addr_list->rr_ptr=&addr_list->rr_val;
 
     /* first check if this is a UNIX socket */
 #ifdef HAVE_STRUCT_SOCKADDR_UN

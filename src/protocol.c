@@ -41,23 +41,23 @@
 #define is_prefix(a, b) (strncasecmp((a), (b), strlen(b))==0)
 
 /* protocol-specific function prototypes */
-NOEXPORT void proxy_server(CLI *c);
-NOEXPORT void cifs_client(CLI *);
-NOEXPORT void cifs_server(CLI *);
-NOEXPORT void pgsql_client(CLI *);
-NOEXPORT void pgsql_server(CLI *);
-NOEXPORT void smtp_client(CLI *);
-NOEXPORT void smtp_server(CLI *);
-NOEXPORT void pop3_client(CLI *);
-NOEXPORT void pop3_server(CLI *);
-NOEXPORT void imap_client(CLI *);
-NOEXPORT void imap_server(CLI *);
-NOEXPORT void nntp_client(CLI *);
-NOEXPORT void connect_server(CLI *);
-NOEXPORT void connect_client(CLI *);
+NOEXPORT char *proxy_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *cifs_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *cifs_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *pgsql_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *pgsql_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *smtp_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *smtp_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *pop3_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *pop3_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *imap_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *imap_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *nntp_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *connect_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *connect_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 
 #if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
-NOEXPORT void ntlm(CLI *);
+NOEXPORT void ntlm(CLI *, SERVICE_OPTIONS *);
 NOEXPORT char *ntlm1();
 NOEXPORT char *ntlm3(char *, char *, char *);
 NOEXPORT void crypt_DES(DES_cblock, DES_cblock, DES_cblock);
@@ -66,46 +66,44 @@ NOEXPORT char *base64(int, char *, int);
 
 /**************************************** framework */
 
-typedef void (*FUNCTION)(CLI *);
-
-static const struct {
-    char *name;
-    struct {
-        PROTOCOL_PHASE type;
-        FUNCTION func;
-    } handlers[2];
-} protocols[]={
-    {"proxy",   {{PROTOCOL_PRE_SSL,     proxy_server},      {PROTOCOL_PRE_SSL, NULL}}},
-    {"cifs",    {{PROTOCOL_PRE_CONNECT, cifs_server},       {PROTOCOL_PRE_SSL, cifs_client}}},
-    {"pgsql",   {{PROTOCOL_PRE_CONNECT, pgsql_server},      {PROTOCOL_PRE_SSL, pgsql_client}}},
-    {"smtp",    {{PROTOCOL_PRE_SSL,     smtp_server},       {PROTOCOL_PRE_SSL, smtp_client}}},
-    {"pop3",    {{PROTOCOL_PRE_SSL,     pop3_server},       {PROTOCOL_PRE_SSL, pop3_client}}},
-    {"imap",    {{PROTOCOL_PRE_SSL,     imap_server},       {PROTOCOL_PRE_SSL, imap_client}}},
-    {"nntp",    {{PROTOCOL_NONE,        NULL},              {PROTOCOL_PRE_SSL, nntp_client}}},
-    {"connect", {{PROTOCOL_PRE_CONNECT, connect_server},    {PROTOCOL_PRE_SSL, connect_client}}},
-    {NULL,      {{PROTOCOL_NONE,        NULL},              {PROTOCOL_NONE,    NULL}}}
-};
-
-int find_protocol_id(const char *name) {
-    int id;
-
-    for(id=0; protocols[id].name; ++id)
-        if(!strcmp(name, protocols[id].name))
-            return id;
-    return -1;
-}
-
-void protocol(CLI *c, const PROTOCOL_PHASE type) {
-    const int id=c->opt->protocol, mode=(unsigned int)c->opt->option.client;
-
-    if(id<0 || type!=protocols[id].handlers[mode].type ||
-            !protocols[id].handlers[mode].func)
-        return;
-    s_log(LOG_INFO, "%s-mode %s protocol negotiations started",
-        mode ? "Client" : "Server", protocols[id].name);
-    protocols[id].handlers[mode].func(c);
-    s_log(LOG_INFO, "%s-mode %s protocol negotiations succeeded",
-        mode ? "Client" : "Server", protocols[id].name);
+char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+    if(phase==PROTOCOL_CHECK) /* default to be overridden by protocols */
+        opt->option.connect_before_ssl=opt->option.client;
+    if(!opt->protocol) /* no protocol specified */
+        return NULL; /* skip further actions */
+    if(!strcasecmp(opt->protocol, "proxy"))
+        return opt->option.client ?
+            "The 'proxy' protocol is not supported in client mode" :
+            proxy_server(c, opt, phase);
+    if(!strcasecmp(opt->protocol, "cifs"))
+        return opt->option.client ?
+            cifs_client(c, opt, phase) :
+            cifs_server(c, opt, phase);
+    if(!strcasecmp(opt->protocol, "pgsql"))
+        return opt->option.client ?
+            pgsql_client(c, opt, phase) :
+            pgsql_server(c, opt, phase);
+    if(!strcasecmp(opt->protocol, "smtp"))
+        return opt->option.client ?
+            smtp_client(c, opt, phase) :
+            smtp_server(c, opt, phase);
+    if(!strcasecmp(opt->protocol, "pop3"))
+        return opt->option.client ?
+            pop3_client(c, opt, phase) :
+            pop3_server(c, opt, phase);
+    if(!strcasecmp(opt->protocol, "imap"))
+        return opt->option.client ?
+            imap_client(c, opt, phase) :
+            imap_server(c, opt, phase);
+    if(!strcasecmp(opt->protocol, "nntp"))
+        return opt->option.client ?
+            nntp_client(c, opt, phase) :
+            "The 'nntp' protocol is not supported in server mode";
+    if(!strcasecmp(opt->protocol, "connect"))
+        return opt->option.client ?
+            connect_client(c, opt, phase) :
+            connect_server(c, opt, phase);
+    return "Protocol not supported";
 }
 
 /**************************************** proxy */
@@ -122,13 +120,16 @@ void protocol(CLI *c, const PROTOCOL_PHASE type) {
 #define IP_LEN 40
 #define PORT_LEN 6
 
-NOEXPORT void proxy_server(CLI *c) {
+NOEXPORT char *proxy_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     SOCKADDR_UNION addr;
     socklen_t addrlen;
     char src_host[IP_LEN], dst_host[IP_LEN];
     char src_port[PORT_LEN], dst_port[PORT_LEN], *proto;
     int err;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_LATE)
+        return NULL;
     addrlen=sizeof addr;
     if(getpeername(c->local_rfd.fd, &addr.sa, &addrlen)) {
         sockerror("getpeername");
@@ -167,14 +168,18 @@ NOEXPORT void proxy_server(CLI *c) {
     }
     fd_printf(c, c->remote_fd.fd, "PROXY %s %s %s %s %s",
         proto, src_host, dst_host, src_port, dst_port);
+    return NULL;
 }
 
 /**************************************** cifs */
 
-NOEXPORT void cifs_client(CLI *c) {
+NOEXPORT char *cifs_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     u8 buffer[5];
     u8 request_dummy[4] = {0x81, 0, 0, 0}; /* a zero-length request */
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
     s_write(c, c->remote_fd.fd, request_dummy, 4);
     s_read(c, c->remote_fd.fd, buffer, 5);
     if(buffer[0]!=0x83) { /* NB_SSN_NEGRESP */
@@ -189,14 +194,18 @@ NOEXPORT void cifs_client(CLI *c) {
         s_log(LOG_ERR, "Remote server does not require SSL");
         longjmp(c->err, 1);
     }
+    return NULL;
 }
 
-NOEXPORT void cifs_server(CLI *c) {
+NOEXPORT char *cifs_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     u8 buffer[128];
     u8 response_access_denied[5] = {0x83, 0, 0, 1, 0x81};
     u8 response_use_ssl[5] = {0x83, 0, 0, 1, 0x8e};
     u16 len;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_EARLY)
+        return NULL;
     s_read(c, c->local_rfd.fd, buffer, 4) ;/* NetBIOS header */
     len=buffer[3];
     len|=(u16)(buffer[2]) << 8;
@@ -211,16 +220,20 @@ NOEXPORT void cifs_server(CLI *c) {
         longjmp(c->err, 1);
     }
     s_write(c, c->local_wfd.fd, response_use_ssl, 5);
+    return NULL;
 }
 
 /**************************************** pgsql */
 
 /* http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982 */
-u8 ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
+static const u8 ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
 
-NOEXPORT void pgsql_client(CLI *c) {
+NOEXPORT char *pgsql_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     u8 buffer[1];
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
     s_write(c, c->remote_fd.fd, ssl_request, sizeof ssl_request);
     s_read(c, c->remote_fd.fd, buffer, 1);
     /* S - accepted, N - rejected, non-SSL preferred */
@@ -228,26 +241,34 @@ NOEXPORT void pgsql_client(CLI *c) {
         s_log(LOG_ERR, "PostgreSQL server rejected SSL");
         longjmp(c->err, 1);
     }
+    return NULL;
 }
 
-NOEXPORT void pgsql_server(CLI *c) {
+NOEXPORT char *pgsql_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     u8 buffer[8], ssl_ok[1]={'S'};
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_EARLY)
+        return NULL;
     memset(buffer, 0, sizeof buffer);
     s_read(c, c->local_rfd.fd, buffer, sizeof buffer);
-    if(memcmp(buffer, ssl_request, sizeof ssl_request)) {
+    if(safe_memcmp(buffer, ssl_request, sizeof ssl_request)) {
         s_log(LOG_ERR, "PostgreSQL client did not request SSL, rejecting");
         /* no way to send error on startup, so just drop the client */
         longjmp(c->err, 1);
     }
     s_write(c, c->local_wfd.fd, ssl_ok, sizeof ssl_ok);
+    return NULL;
 }
 
 /**************************************** smtp */
 
-NOEXPORT void smtp_client(CLI *c) {
+NOEXPORT char *smtp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *line;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
     line=str_dup("");
     do { /* copy multiline greeting */
         str_free(line);
@@ -277,11 +298,17 @@ NOEXPORT void smtp_client(CLI *c) {
         longjmp(c->err, 1);
     }
     str_free(line);
+    return NULL;
 }
 
-NOEXPORT void smtp_server(CLI *c) {
+NOEXPORT char *smtp_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *line;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase==PROTOCOL_CHECK)
+        opt->option.connect_before_ssl=1; /* c->remote_fd needed */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
     s_poll_init(c->fds);
     s_poll_add(c->fds, c->local_rfd.fd, 1, 0);
     switch(s_poll_wait(c->fds, 0, 200)) { /* wait up to 200ms */
@@ -290,7 +317,7 @@ NOEXPORT void smtp_server(CLI *c) {
         break;
     case 1: /* fd ready to read */
         s_log(LOG_DEBUG, "RFC 2487 not detected");
-        return; /* return if RFC 2487 is not used */
+        return NULL; /* return if RFC 2487 is not used */
     default: /* -1 */
         sockerror("RFC2487 (s_poll_wait)");
         longjmp(c->err, 1);
@@ -321,13 +348,17 @@ NOEXPORT void smtp_server(CLI *c) {
     }
     fd_putline(c, c->local_wfd.fd, "220 Go ahead");
     str_free(line);
+    return NULL;
 }
 
 /**************************************** pop3 */
 
-NOEXPORT void pop3_client(CLI *c) {
+NOEXPORT char *pop3_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *line;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
     line=fd_getline(c, c->remote_fd.fd);
     if(!is_prefix(line, "+OK ")) {
         s_log(LOG_ERR, "Unknown server welcome");
@@ -344,11 +375,17 @@ NOEXPORT void pop3_client(CLI *c) {
         longjmp(c->err, 1);
     }
     str_free(line);
+    return NULL;
 }
 
-NOEXPORT void pop3_server(CLI *c) {
+NOEXPORT char *pop3_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *line;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase==PROTOCOL_CHECK)
+        opt->option.connect_before_ssl=1; /* c->remote_fd needed */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
     line=fd_getline(c, c->remote_fd.fd);
     fd_printf(c, c->local_wfd.fd, "%s + stunnel", line);
     str_free(line);
@@ -367,13 +404,17 @@ NOEXPORT void pop3_server(CLI *c) {
     }
     str_free(line);
     fd_putline(c, c->local_wfd.fd, "+OK Stunnel starts TLS negotiation");
+    return NULL;
 }
 
 /**************************************** imap */
 
-NOEXPORT void imap_client(CLI *c) {
+NOEXPORT char *imap_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *line;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
     line=fd_getline(c, c->remote_fd.fd);
     if(!is_prefix(line, "* OK")) {
         s_log(LOG_ERR, "Unknown server welcome");
@@ -392,11 +433,17 @@ NOEXPORT void imap_client(CLI *c) {
         longjmp(c->err, 2); /* don't reset */
     }
     str_free(line);
+    return NULL;
 }
 
-NOEXPORT void imap_server(CLI *c) {
+NOEXPORT char *imap_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *line, *id, *tail, *capa;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase==PROTOCOL_CHECK)
+        opt->option.connect_before_ssl=1; /* c->remote_fd needed */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
     s_poll_init(c->fds);
     s_poll_add(c->fds, c->local_rfd.fd, 1, 0);
     switch(s_poll_wait(c->fds, 0, 200)) {
@@ -405,7 +452,7 @@ NOEXPORT void imap_server(CLI *c) {
         break;
     case 1: /* fd ready to read */
         s_log(LOG_DEBUG, "RFC 2595 not detected");
-        return; /* return if RFC 2595 is not used */
+        return NULL; /* return if RFC 2595 is not used */
     default: /* -1 */
         sockerror("RFC2595 (s_poll_wait)");
         longjmp(c->err, 1);
@@ -442,7 +489,7 @@ NOEXPORT void imap_server(CLI *c) {
                 "%s OK Begin TLS negotiation now", id);
             str_free(line);
             str_free(id);
-            return; /* success */
+            return NULL; /* success */
         } else if(is_prefix(tail, "CAPABILITY")) {
             fd_putline(c, c->remote_fd.fd, line); /* send it to server */
             str_free(line);
@@ -492,9 +539,12 @@ NOEXPORT void imap_server(CLI *c) {
 
 /**************************************** nntp */
 
-NOEXPORT void nntp_client(CLI *c) {
+NOEXPORT char *nntp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *line;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
     line=fd_getline(c, c->remote_fd.fd);
     if(!is_prefix(line, "200 ") && !is_prefix(line, "201 ")) {
         s_log(LOG_ERR, "Unknown server welcome");
@@ -511,14 +561,18 @@ NOEXPORT void nntp_client(CLI *c) {
         longjmp(c->err, 1);
     }
     str_free(line);
+    return NULL;
 }
 
 /**************************************** connect */
 
-NOEXPORT void connect_server(CLI *c) {
+NOEXPORT char *connect_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *request, *proto, *header;
     NAME_LIST host_list;
 
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_EARLY)
+        return NULL;
     request=fd_getline(c, c->local_rfd.fd);
     if(!is_prefix(request, "CONNECT ")) {
         fd_putline(c, c->local_wfd.fd, "HTTP/1.0 400 Bad Request Method");
@@ -557,29 +611,32 @@ NOEXPORT void connect_server(CLI *c) {
     fd_putline(c, c->local_wfd.fd, "HTTP/1.0 200 OK");
     fd_putline(c, c->local_wfd.fd, "Server: stunnel/" STUNNEL_VERSION);
     fd_putline(c, c->local_wfd.fd, "");
+    return NULL;
 }
 
-NOEXPORT void connect_client(CLI *c) {
+NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *line, *encoded;
 
-    if(!c->opt->protocol_host) {
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
+    if(!opt->protocol_host) {
         s_log(LOG_ERR, "protocolHost not specified");
         longjmp(c->err, 1);
     }
     fd_printf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1",
-        c->opt->protocol_host);
-    fd_printf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
-    if(c->opt->protocol_username && c->opt->protocol_password) {
-        if(!strcasecmp(c->opt->protocol_authentication, "ntlm")) {
+        opt->protocol_host);
+    fd_printf(c, c->remote_fd.fd, "Host: %s", opt->protocol_host);
+    if(opt->protocol_username && opt->protocol_password) {
+        if(!strcasecmp(opt->protocol_authentication, "ntlm")) {
 #if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
-            ntlm(c);
+            ntlm(c, opt);
 #else
             s_log(LOG_ERR, "NTLM authentication is not available");
             longjmp(c->err, 1);
 #endif
         } else { /* basic authentication */
             line=str_printf("%s:%s",
-                c->opt->protocol_username, c->opt->protocol_password);
+                opt->protocol_username, opt->protocol_password);
             encoded=base64(1, line, strlen(line));
             str_free(line);
             if(!encoded) {
@@ -609,6 +666,7 @@ NOEXPORT void connect_client(CLI *c) {
         line=fd_getline(c, c->remote_fd.fd); /* read all headers */
     } while(*line);
     str_free(line);
+    return NULL;
 }
 
 #if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
@@ -621,7 +679,7 @@ NOEXPORT void connect_client(CLI *c) {
 
 #define s_min(a, b) ((a)>(b)?(b):(a))
 
-NOEXPORT void ntlm(CLI *c) {
+NOEXPORT void ntlm(CLI *c, SERVICE_OPTIONS *opt) {
     char *line, buf[BUFSIZ], *ntlm1_txt, *ntlm2_txt, *ntlm3_txt, *tmpstr;
     long content_length=0; /* no HTTP content */
 
@@ -675,9 +733,9 @@ NOEXPORT void ntlm(CLI *c) {
     }
 
     /* send Proxy-Authorization (phase 3) */
-    fd_printf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1", c->opt->protocol_host);
-    fd_printf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
-    ntlm3_txt=ntlm3(c->opt->protocol_username, c->opt->protocol_password, ntlm2_txt);
+    fd_printf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1", opt->protocol_host);
+    fd_printf(c, c->remote_fd.fd, "Host: %s", opt->protocol_host);
+    ntlm3_txt=ntlm3(opt->protocol_username, opt->protocol_password, ntlm2_txt);
     str_free(ntlm2_txt);
     if(!ntlm3_txt) {
         s_log(LOG_ERR, "Proxy-Authenticate: Failed to build NTLM response");

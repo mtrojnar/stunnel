@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2014.03.09" "5.01" "stunnel"
+.TH STUNNEL 8 "2014.05.08" "5.02" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -875,7 +875,7 @@ Shut \fBstunnel\fR down.
 The result of sending any other signals to the server is undefined.
 .SH "EXAMPLES"
 .IX Header "EXAMPLES"
-In order to provide \s-1SSL\s0 encapsulation to your local \fIimapd\fR service, use
+In order to provide \s-1SSL\s0 encapsulation to your local \fIimapd\fR service, use:
 .PP
 .Vb 4
 \&    [imapd]
@@ -884,8 +884,27 @@ In order to provide \s-1SSL\s0 encapsulation to your local \fIimapd\fR service, 
 \&    execargs = imapd
 .Ve
 .PP
+or in remote mode:
+.PP
+.Vb 3
+\&    [imapd]
+\&    accept = 993
+\&    connect = 143
+.Ve
+.PP
+In order to let your local e\-mail client connect to an SSL-enabled \fIimapd\fR
+service on another server, configure the e\-mail client to connect to localhost
+on port 119 and use:
+.PP
+.Vb 4
+\&    [imap]
+\&    client = yes
+\&    accept = 143
+\&    connect = servername:993
+.Ve
+.PP
 If you want to provide tunneling to your \fIpppd\fR daemon on port 2020,
-use something like
+use something like:
 .PP
 .Vb 5
 \&    [vpn]
@@ -909,7 +928,7 @@ Note there must be no \fI[service_name]\fR section.
 .IX Subsection "RESTRICTIONS"
 \&\fBstunnel\fR cannot be used for the \s-1FTP\s0 daemon because of the nature
 of the \s-1FTP\s0 protocol which utilizes multiple ports for data transfers.
-There are available \s-1SSL\s0 enabled versions of \s-1FTP\s0 and telnet daemons, however.
+There are available SSL-enabled versions of \s-1FTP\s0 and telnet daemons, however.
 .SS "\s-1INETD\s0 \s-1MODE\s0"
 .IX Subsection "INETD MODE"
 The most common use of \fBstunnel\fR is to listen on a network
@@ -936,7 +955,7 @@ will be present.  See the \fI\s-1EXAMPLES\s0\fR section for example
 configurations.
 .SS "\s-1CERTIFICATES\s0"
 .IX Subsection "CERTIFICATES"
-Each \s-1SSL\s0 enabled daemon needs to present a valid X.509 certificate
+Each SSL-enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
 generate them with the free \fBOpenSSL\fR package. You can find more

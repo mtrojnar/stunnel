@@ -982,14 +982,27 @@ This function can be used for log rotation.</p>
 </p>
 <hr />
 <h1><a name="examples">EXAMPLES</a></h1>
-<p>In order to provide SSL encapsulation to your local <em>imapd</em> service, use</p>
+<p>In order to provide SSL encapsulation to your local <em>imapd</em> service, use:</p>
 <pre>
     [imapd]
     accept = 993
     exec = /usr/sbin/imapd
     execargs = imapd</pre>
+<p>or in remote mode:</p>
+<pre>
+    [imapd]
+    accept = 993
+    connect = 143</pre>
+<p>In order to let your local e-mail client connect to an SSL-enabled <em>imapd</em>
+service on another server, configure the e-mail client to connect to localhost
+on port 119 and use:</p>
+<pre>
+    [imap]
+    client = yes
+    accept = 143
+    connect = servername:993</pre>
 <p>If you want to provide tunneling to your <em>pppd</em> daemon on port 2020,
-use something like</p>
+use something like:</p>
 <pre>
     [vpn]
     accept = 2020
@@ -1011,7 +1024,7 @@ Note there must be no <em>[service_name]</em> section.</p>
 <h2><a name="restrictions">RESTRICTIONS</a></h2>
 <p><strong>stunnel</strong> cannot be used for the FTP daemon because of the nature
 of the FTP protocol which utilizes multiple ports for data transfers.
-There are available SSL enabled versions of FTP and telnet daemons, however.</p>
+There are available SSL-enabled versions of FTP and telnet daemons, however.</p>
 <p>
 </p>
 <h2><a name="inetd_mode">INETD MODE</a></h2>
@@ -1036,7 +1049,7 @@ configurations.</p>
 <p>
 </p>
 <h2><a name="certificates">CERTIFICATES</a></h2>
-<p>Each SSL enabled daemon needs to present a valid X.509 certificate
+<p>Each SSL-enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
 generate them with the free <strong>OpenSSL</strong> package. You can find more
