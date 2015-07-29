@@ -1,5 +1,11 @@
 stunnel         Universal SSL tunnel
 
+Version 4.23, 2008.05.03, urgency: HIGH:
+* Bugfixes
+  - Local privilege escalation bug on Windows NT based
+    systems fixed.  A local user could exploit stunnel
+    running as a service to gain localsystem privileges.
+
 Version 4.22, 2008.03.28, urgency: MEDIUM:
 * New features
   - Makefile was updated to use standard autoconf variables:
