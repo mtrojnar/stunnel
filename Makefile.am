@@ -24,8 +24,9 @@ cert:
 	(cd tools; rm -f stunnel.pem; $(MAKE) stunnel.pem)
 
 sign: dist
-	mv -f $(distdir).tar.gz ../dist
+	cp -f $(distdir).tar.gz ../dist
 	cp -f src/stunnel.exe ../dist/$(distdir).exe
 	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir).tar.gz
 	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir).exe
+	sha1sum $(distdir).tar.gz
 

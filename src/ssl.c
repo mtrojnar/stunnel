@@ -659,16 +659,16 @@ static int crl_callback(X509_STORE_CTX *callback_ctx) {
     crl=obj.data.crl;
     if(rc>0 && crl) {
         /* Check if the current certificate is revoked by this CRL */
-#if SSL_LIBRARY_VERSION < 0x00904000
-        n=sk_num(X509_CRL_get_REVOKED(crl));
-#else
+#if SSLEAY_VERSION_NUMBER >= 0x00904000
         n=sk_X509_REVOKED_num(X509_CRL_get_REVOKED(crl));
+#else
+        n=sk_num(X509_CRL_get_REVOKED(crl));
 #endif
         for(i=0; i<n; i++) {
-#if SSL_LIBRARY_VERSION < 0x00904000
-            revoked=(X509_REVOKED *)sk_value(X509_CRL_get_REVOKED(crl), i);
-#else
+#if SSLEAY_VERSION_NUMBER >= 0x00904000
             revoked=sk_X509_REVOKED_value(X509_CRL_get_REVOKED(crl), i);
+#else
+            revoked=(X509_REVOKED *)sk_value(X509_CRL_get_REVOKED(crl), i);
 #endif
             if(ASN1_INTEGER_cmp(revoked->serialNumber,
                     X509_get_serialNumber(xs)) == 0) {

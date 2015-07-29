@@ -109,7 +109,7 @@ void s_log(int level, const char *format, ...) {
     FILE *out;
     time_t gmt;
     struct tm *timeptr;
-#ifdef HAVE_LOCALTIME_R
+#if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
     struct tm timestruct;
 #endif
 
@@ -130,7 +130,7 @@ void s_log(int level, const char *format, ...) {
 #endif /* USE_WIN32, __vms */
     out=outfile?outfile:stderr;
     time(&gmt);
-#ifdef HAVE_LOCALTIME_R
+#if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
     timeptr=localtime_r(&gmt, &timestruct);
 #else
     timeptr=localtime(&gmt);

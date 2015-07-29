@@ -27,7 +27,7 @@
 /* #define DEBUG_STACK_SIZE */
 
 #ifndef VERSION
-#define VERSION "4.10"
+#define VERSION "4.11"
 #endif
 
 #ifndef USE_WIN32
@@ -38,17 +38,17 @@
 #endif
 
 /* threads model */
-#if HAVE_UCONTEXT_H && HAVE_GETCONTEXT && HAVE_POLL
-#define USE_UCONTEXT
+#ifdef USE_UCONTEXT
+#define __MAKECONTEXT_V2_SOURCE
 #include <ucontext.h>
-#elif HAVE_PTHREAD_H && HAVE_LIBPTHREAD
-#define USE_PTHREAD
-#include <pthread.h>
+#define DEBUG_STACK_SIZE
+#endif
+
+#ifdef USE_PTHREAD
 #define THREADS
 #define _REENTRANT
 #define _THREAD_SAFE
-#else
-#define USE_FORK
+#include <pthread.h>
 #endif
 
 /* TCP wrapper */
@@ -113,10 +113,12 @@ int _vsnprintf(char *, int, char *, ...);
 /* #define FD_SETSIZE 4096 */
 /* #define Win32_Winsock */
 #define __USE_W32_SOCKETS
-#include <windows.h>
 
 /* Winsock2 header for IPv6 definitions */
+#include <winsock2.h>
 #include <ws2tcpip.h>
+
+#include <windows.h>
 
 #define ECONNRESET WSAECONNRESET
 #define ENOTSOCK WSAENOTSOCK

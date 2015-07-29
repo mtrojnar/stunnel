@@ -46,12 +46,10 @@ void leave_critical_section(SECTION_CODE i) {
 
 #ifdef USE_UCONTEXT
 
-CONTEXT *ready_head, *ready_tail;       /* ready to execute */
 /* first context on the ready list is the active context */
-CONTEXT *waiting_head, *waiting_tail;   /* waiting on poll() */
-ucontext_t ctx_cleanup;                             /* cleanup context */
-char cleanup_stack[8192];
-int next_id;
+CONTEXT *ready_head=NULL, *ready_tail=NULL;         /* ready to execute */
+CONTEXT *waiting_head=NULL, *waiting_tail=NULL;     /* waiting on poll() */
+int next_id=1;
 
 unsigned long stunnel_process_id(void) {
     return (unsigned long)getpid();
@@ -59,11 +57,6 @@ unsigned long stunnel_process_id(void) {
 
 unsigned long stunnel_thread_id(void) {
     return ready_head ? ready_head->id : 0;
-}
-
-static void ctx_cleanup_func(void) { /* cleanup the active thread */
-    s_log(LOG_DEBUG, "Context %ld closed", ready_head->id);
-    s_poll_wait(NULL, 0); /* wait on poll() */
 }
 
 static CONTEXT *new_context(void) {
@@ -84,9 +77,14 @@ static CONTEXT *new_context(void) {
         ioerror("getcontext");
         return NULL;
     }
-    ctx->ctx.uc_link=&ctx_cleanup;
+    ctx->ctx.uc_link=NULL; /* it should never happen */
+#if defined(__sparc) && !defined(HAVE___MAKECONTEXT_V2)
+    ctx->ctx.uc_stack.ss_sp=ctx->stack+STACK_SIZE-8;
+#else /* not an old and buggy Solaris on Sparc */
     ctx->ctx.uc_stack.ss_sp=ctx->stack;
+#endif
     ctx->ctx.uc_stack.ss_size=STACK_SIZE;
+    ctx->ctx.uc_stack.ss_flags=0;
 
     /* attach to the tail of the ready queue */
     ctx->next=NULL;
@@ -98,24 +96,11 @@ static CONTEXT *new_context(void) {
     return ctx;
 }
 
+/* s_log is not initialized here, but we can use log_raw */
 void sthreads_init(void) {
-    next_id=1;
-    ready_head=ready_tail=NULL;
-    waiting_head=waiting_tail=NULL;
-
-    /* alocate cleanup context */
-    if(getcontext(&ctx_cleanup)<0) {
-        ioerror("getcontext");
-        exit(1);
-    }
-    ctx_cleanup.uc_link=NULL; /* it should never happen */
-    ctx_cleanup.uc_stack.ss_sp=cleanup_stack;
-    ctx_cleanup.uc_stack.ss_size=sizeof(cleanup_stack);
-    makecontext(&ctx_cleanup, ctx_cleanup_func, 0);
-
     /* create the first (listening) context and put it in the running queue */
     if(!new_context()) {
-        s_log(LOG_ERR, "Unable create the listening context");
+        log_raw("Unable create the listening context");
         exit(1);
     }
 }
@@ -318,28 +303,44 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
 
 #ifdef DEBUG_STACK_SIZE
 
-#define STACK_RESERVE (STACK_SIZE/2)
-#define TEST_VALUE 44
+#define STACK_RESERVE (STACK_SIZE/4)
+#define VERIFY_AREA ((STACK_SIZE-STACK_RESERVE)/sizeof(u32))
+#define TEST_VALUE 0xdeadbeef
 
-/* Some heuristic to determine the usage of client stack size.  It can
- * fail on some platforms and/or OSes, so it'is not enabled by default. */
-
+/* some heuristic to determine the usage of client stack size */
 void stack_info(int init) { /* 1-initialize, 0-display */
-    char table[STACK_SIZE-STACK_RESERVE];
-    int i;
+    u32 table[VERIFY_AREA];
+    int i, num;
+    static int min_num=VERIFY_AREA;
 
     if(init) {
-        memset(table, TEST_VALUE, STACK_SIZE-STACK_RESERVE);
+        for(i=0; i<VERIFY_AREA; i++)
+            table[i]=TEST_VALUE;
     } else {
-        i=0;
-        while(i<STACK_SIZE-STACK_RESERVE && table[i]==TEST_VALUE)
-            i++;
-        if(i<64)
-            s_log(LOG_ERR, "STACK_RESERVE is to high");
-        else
-            s_log(LOG_NOTICE, "stack_info: %d of %d bytes used (%d%%)",
-                STACK_SIZE-STACK_RESERVE-i, STACK_SIZE,
-                (STACK_SIZE-STACK_RESERVE-i)*100/STACK_SIZE);
+        /* the stack is growing down */
+        for(i=0; i<VERIFY_AREA; i++)
+            if(table[i]!=TEST_VALUE)
+                break;
+        num=i;
+        /* the stack is growing up */
+        for(i=0; i<VERIFY_AREA; i++)
+            if(table[VERIFY_AREA-i-1]!=TEST_VALUE)
+                break;
+        if(i>num) /* use the higher value */
+            num=i;
+        if(num<64) {
+            s_log(LOG_ERR, "STACK_RESERVE is too high");
+            return;
+        }
+        if(num<min_num)
+            min_num=num;
+        s_log(LOG_NOTICE,
+            "stack_info: size=%d, current=%d (%d%%), maximum=%d (%d%%)",
+            STACK_SIZE,
+            (VERIFY_AREA-num)*sizeof(u32),
+            (VERIFY_AREA-num)*sizeof(u32)*100/STACK_SIZE,
+            (VERIFY_AREA-min_num)*sizeof(u32),
+            (VERIFY_AREA-min_num)*sizeof(u32)*100/STACK_SIZE);
     }
 }
 

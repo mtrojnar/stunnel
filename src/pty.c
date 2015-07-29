@@ -50,6 +50,10 @@
 #include <pty.h>
 #endif /* HAVE_PTY_H */
 
+#ifdef HAVE_LIBUTIL_H
+#include <libutil.h>
+#endif /* HAVE_LIBUTIL_H */
+
 #ifndef O_NOCTTY
 #define O_NOCTTY 0
 #endif /* O_NOCTTY */

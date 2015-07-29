@@ -1,5 +1,23 @@
 stunnel         Universal SSL tunnel
 
+Version 4.11, 2005.07.09, urgency: MEDIUM:
+* New features
+  - New ./configure option --with-threads to select thread model.
+  - ./configure option --with-tcp-wrappers renamed to --disable-libwrap.
+    I hope the meaning of the option is much more clear, now.
+* Bugfixes
+  - Workaround for non-standard makecontext() uc_stack.ss_sp parameter
+    semantics on Sparc/Solaris 9 and earlier.
+  - scan_waiting_queue() no longer drops contexts.
+  - Inetd mode coredumps with UCONTEXT fixed.
+  - Cleanup context is no longer used.
+  - Releasing memory of the current context is delayed.
+  - Win32 headers reordered for Visual Studio 7.
+  - Some Solaris compilation warnings fixed.
+  - Rejected inetd mode without 'connect' or 'exec'.
+* Release notes
+  - UCONTEXT threading seems stable, now.  Upgrade is recommended.
+
 Version 4.10, 2005.04.23, urgency: LOW/EXPERIMENTAL:
 * DLLs for OpenSSL 0.9.7g.
 * Bugfixes

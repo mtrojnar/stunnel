@@ -4,7 +4,8 @@ stunnel         Universal SSL tunnel
   - Add service-level SSL contexts.
   - Add service-level logging.
   - Optional use of syslog in foreground mode.
-  - Provide transparent proxy for Linux 2.6.x.
+  - Provide transparent proxy for Linux 2.6.x with TPROXY patch.
+    http://www.balabit.com/products/oss/tproxy/
   - In transparent proxy mode bind source port (not only IP).
   - In transparent proxy mode add an option to connect destination address
     of the the original connection instead of a fixed IP list.
@@ -24,7 +25,7 @@ stunnel         Universal SSL tunnel
     http://www.ietf.org/rfc/rfc2817.txt
   - Graceful configuration reload with a signal on Unix and with GUI on Windows.
 
-* Features waiting for a wealthy sponsor:
+* Features I'd prefer NOT to support (waiting for a wealthy sponsor):
   - HTTP protocol support (X-Forwarded-For header).
   - SMTP protocol support (X-Forwarded-For header).
 

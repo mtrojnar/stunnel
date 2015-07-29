@@ -54,7 +54,8 @@ typedef enum {
     CMD_HELP
 } CMD;
 
-static char *option_not_found="Specified option name is not valid here";
+static char *option_not_found=
+    "Specified option name is not valid here";
 
 static char *global_options(CMD cmd, char *opt, char *arg) {
 
@@ -1086,9 +1087,9 @@ void parse_config(char *name, char *parameter) {
     while(fgets(confline, CONFLINELEN, fp)) {
         line_number++;
         opt=confline;
-        while(isspace(*opt))
+        while(isspace((unsigned char)*opt))
             opt++; /* remove initial whitespaces */
-        for(i=strlen(opt)-1; i>=0 && isspace(opt[i]); i--)
+        for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); i--)
             opt[i]='\0'; /* remove trailing whitespaces */
         if(opt[0]=='\0' || opt[0]=='#' || opt[0]==';') /* empty or comment */
             continue;
@@ -1119,9 +1120,9 @@ void parse_config(char *name, char *parameter) {
             exit(1);
         }
         *arg++='\0'; /* split into option name and argument value */
-        for(i=strlen(opt)-1; i>=0 && isspace(opt[i]); i--)
+        for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); i--)
             opt[i]='\0'; /* remove trailing whitespaces */
-        while(isspace(*arg))
+        while(isspace((unsigned char)*arg))
             arg++; /* remove initial whitespaces */
         errstr=service_options(CMD_EXEC, section, opt, arg);
         if(section==&local_options && errstr==option_not_found)
@@ -1137,10 +1138,16 @@ void parse_config(char *name, char *parameter) {
         exit(1);
     }
     fclose(fp);
-    if(!local_options.next && section->option.accept) {
-        log_raw("accept option is not allowed in inetd mode");
-        log_raw("remove accept option or define a [section]");
-        exit(1);
+    if(!local_options.next) {
+        if (section->option.accept) {
+            log_raw("accept option is not allowed in inetd mode");
+            log_raw("remove accept option or define a [section]");
+            exit(1);
+        }
+        if (!section->option.remote && !section->execname) {
+            log_raw("inetd mode must define a remote host or an executable");
+            exit(1);
+        }
     }
     if(!options.option.client)
         options.option.cert=1; /* Server always needs a certificate */
@@ -1189,9 +1196,9 @@ static char **argalloc(char *str) { /* Allocate 'exec' argumets */
     i=0;
     while(*ptr && i<max_arg) {
         retval[i++]=ptr;
-        while(*ptr && !isspace(*ptr))
+        while(*ptr && !isspace((unsigned char)*ptr))
             ptr++;
-        while(*ptr && isspace(*ptr))
+        while(*ptr && isspace((unsigned char)*ptr))
             *ptr++='\0';
     }
     retval[i]=NULL;

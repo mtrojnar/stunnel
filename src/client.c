@@ -134,6 +134,11 @@ void *client(void *arg) {
 #ifdef USE_WIN32
     _endthread();
 #endif
+#ifdef USE_UCONTEXT
+    s_log(LOG_DEBUG, "Context %ld closed", ready_head->id);
+    s_poll_wait(NULL, 0); /* wait on poll() */
+    s_log(LOG_ERR, "INTERNAL ERROR: failed to drop context");
+#endif
     return NULL;
 }
 

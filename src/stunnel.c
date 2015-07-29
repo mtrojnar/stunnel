@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.10             (stunnel.c)
- *   Date:         2005.04.23
+ *   Version:      4.11             (stunnel.c)
+ *   Date:         2005.07.09
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
