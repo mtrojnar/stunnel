@@ -9,8 +9,7 @@ libdir=@libdir@
 man8dir=@mandir@/man8
 piddir=@localstatedir@/stunnel
 ssldir=@ssldir@
-sslcnf=@sslcnf@
-certdir=$(sslcnf)/certs
+certdir=$(ssldir)/certs
 @SET_MAKE@
 VERSION=stunnel-@VERSION@
 RANDOM_OPT=@RANDOM_OPT@
@@ -18,14 +17,14 @@ CC=@CC@
 INSTALL=@INSTALL@
 CFLAGS=@CFLAGS@ @DEFS@ -Dcertdir=\"$(certdir)\" -Dlibdir=\"$(libdir)\" -Dpiddir=\"$(piddir)\"
 LIBS=@LIBS@
-OBJS=stunnel.o ssl.o protocol.o sthreads.o log.o
+OBJS=stunnel.o ssl.o protocol.o sthreads.o pty.o log.o
 DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(man8dir)/stunnel.8 $(certdir)/stunnel.pem
 
 # standard external rules
 
 all: stunnel stunnel.so stunnel.pem
 
-install: installdirs $(DESTFILES)
+install: all installdirs $(DESTFILES)
 
 uninstall:
 	rm -f $(DESTFILES)
@@ -43,12 +42,11 @@ mostlyclean: distclean
 
 maintainer-clean: distclean
 
-dist: distclean
-	./mkinstalldirs ../dist
-	cp -f stunnel.exe ../dist/$(VERSION).exe
+dist: distclean ../dist/$(VERSION).exe
 	cp -rp . ../dist/$(VERSION)
 	tar -cf - -C ../dist $(VERSION) | gzip > ../dist/$(VERSION).tar.gz
 	rm -rf ../dist/$(VERSION)
+	gpg --yes --armor --detach-sign ../dist/$(VERSION).tar.gz
 
 installdirs: mkinstalldirs
 	./mkinstalldirs $(sbindir) $(libdir) $(man8dir) $(certdir) $(piddir)
@@ -103,4 +101,9 @@ $(man8dir)/stunnel.8: stunnel.8
 
 $(certdir)/stunnel.pem: stunnel.pem
 	$(INSTALL) -m 600 stunnel.pem $(certdir)
+
+../dist/$(VERSION).exe: stunnel.exe
+	./mkinstalldirs ../dist
+	cp -f stunnel.exe ../dist/$(VERSION).exe
+	gpg --yes --armor --detach-sign ../dist/$(VERSION).exe
 

@@ -39,7 +39,7 @@ transparent proxy mode (on hosts that support it)
 .B -p pemfile
 certificate (*.pem) file name
 .RS
-default: @sslcnf@/certs/stunnel.pem for server mode,
+default: @ssldir@/certs/stunnel.pem for server mode,
 none for client mode
 .RE
 .PP
@@ -55,7 +55,7 @@ default: no verify
 .B -a directory
 client certificate directory for -v 3 option
 .RS
-default: @sslcnf@/certs/trusted
+default: @ssldir@/certs/trusted
 .RE
 .PP
 .B -t timeout
@@ -98,6 +98,11 @@ open local pty and execute program
 .B -s username
 .RS
 setuid() to username in daemon mode
+.RE
+.PP
+.B -g groupname
+.RS
+setgid() to groupname in daemon mode. Clears all other groups.
 .RE
 .PP
 .B -r [ip:]port

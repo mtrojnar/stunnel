@@ -73,6 +73,9 @@
 
 #else /* defined USE_WIN32 */
 
+/* Must be included before sys/stat.h for Ultrix */
+#include <sys/types.h>   /* u_short, u_long */
+
 /* General headers */
 #include <errno.h>       /* errno */
 #include <sys/stat.h>    /* stat */
@@ -90,7 +93,6 @@
 #endif
 
 /* Networking headers */
-#include <sys/types.h>   /* u_short, u_long */
 #include <netinet/in.h>  /* struct sockaddr_in */
 #include <sys/socket.h>  /* getpeername */
 #include <arpa/inet.h>   /* inet_ntoa */
@@ -521,6 +523,7 @@ done:
 #ifndef NO_RSA
 static RSA *tmp_rsa_cb(SSL *s, int export, int keylength)
 { /* temporary RSA key callback */
+    log(LOG_DEBUG, "Returned temporary RSA callback");
     return rsa_tmp;
 }
 #endif /* NO_RSA */
@@ -618,5 +621,5 @@ static void sslerror(char *txt) /* SSL Error handler */
     log(LOG_ERR, "%s: %s", txt, string);
 }
 
-/* End of stunnel.c */
+/* End of ssl.c */
 

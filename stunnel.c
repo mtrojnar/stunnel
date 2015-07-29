@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
- *   Version:      3.7              (stunnel.c)
- *   Date:         2000.02.10
+ *   Version:      3.8              (stunnel.c)
+ *   Date:         2000.02.24
  *   Author:       Michal Trojnara  <Michal.Trojnara@centertel.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
@@ -33,6 +33,9 @@
 
 #include "common.h"
 
+    /* Must be included before sys/stat.h for Ultrix */
+#include <sys/types.h>   /* u_short, u_long */
+
     /* General headers */
 #include <stdio.h>
 #include <errno.h>       /* errno */
@@ -60,19 +63,16 @@ static struct WSAData wsa_state;
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>      /* getpid, fork, execvp, exit */
 #endif
-#ifdef HAVE_PTY_H
-#include <pty.h>
-#endif
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif
 
 #include <pwd.h>
+#include <grp.h>
 
 #include <fcntl.h>
 
     /* Networking headers */
-#include <sys/types.h>   /* u_short, u_long */
 #include <netinet/in.h>  /* struct sockaddr_in */
 #include <sys/socket.h>  /* getpeername */
 #include <arpa/inet.h>   /* inet_ntoa */
@@ -125,13 +125,6 @@ static void alloc(u_long **, int);
 static void print_help();
 
 server_options options;
-
-    /* Macros */
-/* Safe copy for strings declarated as char[STRLEN] */
-#define safecopy(dst, src) \
-    (dst[STRLEN-1]='\0', strncpy((dst), (src), STRLEN-1))
-#define safeconcat(dst, src) \
-    (dst[STRLEN-1]='\0', strncat((dst), (src), STRLEN-strlen(dst)-1))
 
     /* Functions */
 int main(int argc, char* argv[])
@@ -222,8 +215,9 @@ static void get_options(int argc, char *argv[]) {
     options.username=NULL;
     options.protocol=NULL;
     options.setuid_user=NULL;
+    options.setgid_group=NULL;
     opterr=0;
-    while ((c = getopt(argc, argv, "a:cp:v:d:fTl:L:r:s:t:u:n:hC:D:V")) != EOF)
+    while ((c = getopt(argc, argv, "a:cp:v:d:fTl:L:r:s:g:t:u:n:hC:D:V")) != EOF)
         switch (c) {
             case 'a':
                 safecopy(options.clientdir, optarg);
@@ -298,6 +292,9 @@ static void get_options(int argc, char *argv[]) {
                 break;
             case 's':
                 options.setuid_user=optarg;
+                break;
+            case 'g':
+                options.setgid_group=optarg;
                 break;
             case 't':
                 if(!(options.session_timeout=atoi(optarg))) {
@@ -495,12 +492,34 @@ static int listen_local() /* bind and listen on local interface */
     }
 
 #ifndef USE_WIN32
+    if(options.setgid_group) {
+        struct group *gr;
+        gid_t gr_list[1];
+
+        gr=getgrnam(options.setgid_group);
+        if(!gr) {
+            log(LOG_ERR, "Failed to get GID for group %s",
+                options.setgid_group);
+            exit(1);
+        }
+        if(setgid(gr->gr_gid)) {
+            sockerror("setgid");
+            exit(1);
+        }
+        gr_list[0]=gr->gr_gid;
+        if(setgroups(1, gr_list)) {
+            sockerror("setgroups");
+            exit(1);
+        }
+    }
+
     if(options.setuid_user) {
         struct passwd *pw;
 
         pw=getpwnam(options.setuid_user);
-        if (!pw) {
-            log(LOG_ERR, "Failed to get UID for user %s", options.setuid_user);
+        if(!pw) {
+            log(LOG_ERR, "Failed to get UID for user %s",
+                options.setuid_user);
             exit(1);
         }
         if(setuid(pw->pw_uid)) {
@@ -523,61 +542,14 @@ int connect_local(u_long ip) /* connect to local host */
     char text[STRLEN];
     int fd[2];
 
-#ifdef HAVE_LIBUTIL
     if (options.option & OPT_PTY) {
         char tty[STRLEN];
 
-        if(openpty(fd, fd+1, tty, NULL, NULL)<0) {
-            ioerror("openpty");
+        if(pty_allocate(fd, fd+1, tty, STRLEN)) {
             return -1;
         }
         log(LOG_DEBUG, "%s allocated", tty);
-    } else
-#else
-#ifdef I_PUSH
-    if (options.option & OPT_PTY) {
-        extern char *ptsname();
-        char *tty;
-
-        if((fd[0]=open("/dev/ptmx", O_RDWR | O_NOCTTY))<0) { /* open master */
-            ioerror("master tty open");
-            return -1;
-        }
-        if(grantpt(fd[0])<0) {      /* change permission of  slave */
-            ioerror("grantpt");
-#if 0
-            return -1;
-#endif
-        }
-        if(unlockpt(fd[0])<0) {     /* unlock slave */
-            ioerror("unlockpt");
-            return -1;
-        }
-        if(!(tty=ptsname(fd[0]))) { /* get name of slave */
-            log(LOG_ERR, "Slave pty side name could not be obtained.");
-            return -1;
-        }
-        if((fd[1]=open(tty, O_RDWR | O_NOCTTY))<0) { /* open slave */
-            ioerror("slave tty open");
-            return -1;
-        }
-        if(ioctl(fd[1], I_PUSH, "ptem")<0) {
-            ioerror("push ptem");
-            return -1;
-        }
-        if(ioctl(fd[1], I_PUSH, "ldterm")<0) {
-            ioerror("push ldterm");
-            return -1;
-        }
-        if(ioctl(fd[1], I_PUSH, "ttcompat")<0) {
-            ioerror("push ttcompat");
-            return -1;
-        }
-        log(LOG_DEBUG, "%s allocated", tty);
-    } else
-#endif /* I_PUSH */
-#endif /* HAVE_LIBUTIL */
-    {
+    } else {
         if(make_sockets(fd))
             return -1;
     }
@@ -943,6 +915,7 @@ static void print_help()
         "\n  -l program\texecute local inetd-type program"
         "\n  -L program\topen local pty and execute program"
         "\n  -s username\tsetuid() to username in daemon mode"
+        "\n  -g groupname\tsetgid() to groupname in daemon mode"
 #endif
         "\n  -r [ip:]port\tconnect to remote service"
         " (ip defaults to INADDR_LOOPBACK)"

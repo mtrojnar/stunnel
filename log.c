@@ -38,7 +38,11 @@ void log_close()
 
 void log_open()
 {
+#ifdef __ultrix__
+    openlog("stunnel", LOG_PID);
+#else
     openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+#endif /* __ultrix__ */
 }
 
 void log_close()

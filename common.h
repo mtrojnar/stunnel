@@ -47,13 +47,13 @@
 #define CA_DIR certdir "/trusted"
 
 /* certificate used for signing our client certs */
-#define CLIENT_CA sslcnf "/localCA/cacert.pem"
+#define CLIENT_CA ssldir "/localCA/cacert.pem"
 
 #endif /* USE_WIN32 */
 
 #ifdef USE_WIN32
 
-#define VERSION "3.7"
+#define VERSION "3.8"
 #define HOST "i586-pc-mingw32-gnu"
 
 #define HAVE_VSNPRINTF
@@ -100,6 +100,14 @@ int _vsnprintf(char *, int, char *, ...);
 
 #endif /* USE_WIN32 */
 
+#if defined(sun) && !defined(__svr4__)  /* ie. SunOS 4 */
+#define atexit(a) on_exit((a), NULL)
+extern int sys_nerr;
+extern char *sys_errlist[];
+#define strerror(num) ((num)==0 ? "No error" : \
+    ((num)>=sys_nerr ? "Unknown error" : sys_errlist[num]))
+#endif /* SunOS 4 */
+
 #ifdef USE_PTHREAD
 #define STUNNEL_TMP "stunnel " VERSION " on " HOST " PTHREAD"
 #endif
@@ -117,6 +125,12 @@ int _vsnprintf(char *, int, char *, ...);
 
 /* Length of strings (including the terminating '\0' character) */
 #define STRLEN         1024
+
+/* Safe copy for strings declarated as char[STRLEN] */
+#define safecopy(dst, src) \
+    (dst[STRLEN-1]='\0', strncpy((dst), (src), STRLEN-1))
+#define safeconcat(dst, src) \
+    (dst[STRLEN-1]='\0', strncat((dst), (src), STRLEN-strlen(dst)-1))
 
 typedef struct {
     char certfile[STRLEN];  /* name of the certificate */
@@ -138,6 +152,7 @@ typedef struct {
     char *username;
     char *protocol;
     char *setuid_user;
+    char *setgid_group;
 } server_options;
 
 /* Prototypes for stunnel.c */
@@ -168,6 +183,13 @@ void sthreads_init(void);
 unsigned long process_id(void);
 unsigned long thread_id(void);
 int create_client(int, int, void (*)(int));
+
+/* Prototypes for pty.c */
+/* Based on Public Domain code by Tatu Ylonen <ylo@cs.hut.fi> */
+
+int pty_allocate(int *ptyfd, int *ttyfd, char *ttyname, int ttynamelen);
+void pty_release(char *ttyname);
+void pty_make_controlling_tty(int *ttyfd, char *ttyname);
 
 /* End of common.h */
 

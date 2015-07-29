@@ -1,5 +1,18 @@
 stunnel         Universal SSL tunnel
 
+Version 3.8, 2000.02.24:
+* Checking for threads in c_r library for FreeBSD.
+* Some compatibility fixes for Ultrix.
+* configure.in has been cleaned up.
+  Separate directories for SSL certs and SSL libraries/headers
+  are no longer supported.  SSL ports maintainers should create
+  softlinks in the main openssl directory if necessary.
+* Added --with-ssl option to specify SSL directory.
+* Added setgid (-g) option.
+  (Special thanks to Brian Hatch for his feedback and support)
+* Added pty.c based on a Public Domain code by Tatu Ylonen
+* Distribution files are now signed with GnuPG
+
 Version 3.7, 2000.02.10:
 * /usr/pkg added to list of possible SSL directories for pkgsrc installs
   of OpenSSL under NetBSD.

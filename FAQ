@@ -1,5 +1,7 @@
 stunnel         Universal SSL tunnel
 
+See another FAQ at http://www.onsight.com/faq/stunnel/
+
 Q: Is there a mailing list for stunnel?
 A: Sure.  You can subscribe the list in two simple steps:
    1. Send an empty e-mail to stunnel-users-subscribe@mike.daewoo.com.pl
@@ -9,7 +11,7 @@ Q: What do I need to build stunnel on a UNIX machine?
 A: You need:
     - ANSI C compiler;
     - Openssl or SSLeay library.
-   You shoud have (not nessesery):
+   You shoud have (not necessary):
     - POSIX threads (make sure your SSL library is built with -DTHREADS);
     - libwrap if you want to have tcp wrappers functionality.
 
@@ -88,6 +90,11 @@ Q: SMTP with SSL doesn't work with Netscape 4.5 (or better).
    What should I do?
 A: Netscape uses specific protocol for SMTP - it's not just tunneling.
    You need to use '-n smtp' option.
+
+Q: With my Windows 2000 Build 2195 I have the following errors:
+     SSL_accept:error:140760F8:SSL routines:SSL23_GET_CLIENT_HELLO:unknown protocol
+     SSL_accept:error:1409B0AB:SSL routines:SSL3_SEND_SERVER_KEY_EXCHANGE:missing tmp rsa key
+A: Install 'Critical Updates' for Win2K.  8-)
 
 Q: I have a strange error message:
      SSL_accept: error:00000000::lib(0) :func(0) :reason(0)

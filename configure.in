@@ -8,40 +8,70 @@ if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.7"
+VERSION="3.8"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
-AC_MSG_CHECKING([for SSL config directory])
-# The next line specifies default
-sslcnf="/usr/local/stunnel"
-for dir in /usr/local/openssl /usr/local/ssl /usr/lib/openssl /var/openssl /usr/pkg; do
-    if test -d "$dir/certs"; then
-        sslcnf="$dir"
-        break
-    fi
-done
-AC_MSG_RESULT($sslcnf)
-AC_SUBST(sslcnf)
-AC_DEFINE_UNQUOTED(sslcnf, "$sslcnf")
-
 dnl Check for user-specified random device
 AC_ARG_WITH(random,
-  [  --with-random=FILE      read randomness from FILE (default=/dev/urandom)],
-  [
-    RANDOM_OPT="-rand $withval";
-  ],
-  [
-    dnl Check for random device
-    AC_CHECK_FILE("/dev/urandom",
-      [
-        RANDOM_OPT="-rand /dev/urandom";
-        AC_SUBST(RANDOM_OPT)
-      ]
-    )
-  ]
+    [  --with-random=FILE      read randomness from FILE (default=/dev/urandom)],
+    [ RANDOM_OPT="-rand $withval" ],
+    [
+        dnl Check for random device
+        AC_CHECK_FILE("/dev/urandom",
+            [
+                RANDOM_OPT="-rand /dev/urandom";
+                AC_SUBST(RANDOM_OPT)
+            ]
+        )
+    ]
 )
 
+checkssldir() { :
+    if test -d "$1/certs"; then
+        if test -f "$1/include/openssl/ssl.h"; then
+            AC_DEFINE(HAVE_OPENSSL)
+            ssldir="$1"
+            return 0
+        fi
+        if test -f "$1/include/ssl.h"; then
+            ssldir="$1"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+dnl Check for SSL directory
+AC_MSG_CHECKING([for SSL directory])
+AC_ARG_WITH(ssl,
+    [  --with-ssl=DIR          location of installed SSL libraries/include files],
+    [
+        dnl Check the specified localtion only
+        checkssldir "$withval"
+    ],
+    [
+        dnl Search default localtions of SSL library
+        for maindir in /usr/local /usr/lib /usr/pkg /usr; do
+            for dir in $maindir $maindir/openssl $maindir/ssl; do
+                checkssldir $dir && break 2
+            done
+        done
+    ]
+)
+if test -z "$ssldir"; then
+    AC_MSG_RESULT(Not found)
+    echo
+    echo "Couldn't find your SSL library installation dir"
+    echo "Use --with-ssl option to fix this problem"
+    echo
+    exit 1
+fi
+AC_MSG_RESULT($ssldir)
+AC_SUBST(ssldir)
+AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
+
+dnl Substitute host.
 AC_SUBST(host)
 AC_DEFINE_UNQUOTED(HOST, "$host")
 
@@ -49,6 +79,7 @@ dnl Checks for standard libraries.
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(pthread, pthread_create)
+AC_CHECK_LIB(c_r, pthread_create)
 AC_CHECK_LIB(util, openpty)
 
 dnl Check for libwrap library.
@@ -60,21 +91,7 @@ AC_TRY_LINK([int hosts_access(); int allow_severity, deny_severity;],
 [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBWRAP)],
 [AC_MSG_RESULT(no)]; LIBS="$saved_LIBS")
 
-dnl Check for SSL directories.
-AC_MSG_CHECKING([for SSL directory])
-for dir in ${prefix} /usr/local/ssl /usr/lib/ssl /usr/ssl /usr/pkg /usr/local /usr; do
-    ssldir="$dir"
-    if test -f "$dir/include/openssl/ssl.h"; then
-        AC_DEFINE(HAVE_OPENSSL)
-        break
-    fi
-    if test -f "$dir/include/ssl.h"; then
-        break
-    fi
-done
-AC_MSG_RESULT($ssldir)
-AC_SUBST(ssldir)
-AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
+dnl Add SSL includes and libraries
 CFLAGS="$CFLAGS -I$ssldir/include"
 LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
 
@@ -85,6 +102,10 @@ LIBS="$saved_LIBS -lRSAglue -lrsaref"
 AC_TRY_LINK([], [],
 [AC_MSG_RESULT(yes); ],
 [AC_MSG_RESULT(no)]; LIBS="$saved_LIBS")
+
+dnl Check PTY device files.
+AC_CHECK_FILE("/dev/ptmx", AC_DEFINE_UNQUOTED(HAVE_DEV_PTMX))
+AC_CHECK_FILE("/dev/ptc", AC_DEFINE_UNQUOTED(HAVE_DEV_PTS_AND_PTC))
 
 dnl Checks for header files.
 # AC_HEADER_DIRENT
@@ -100,7 +121,7 @@ AC_CHECK_HEADERS(getopt.h unistd.h sys/select.h tcpd.h pthread.h pty.h stropts.h
 # AC_HEADER_TIME
 
 dnl Checks for library functions.
-AC_CHECK_FUNCS(getopt snprintf vsnprintf)
+AC_CHECK_FUNCS(getopt snprintf vsnprintf openpty _getpty)
 
 AC_OUTPUT(Makefile stunnel.8)
 
