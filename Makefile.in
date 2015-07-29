@@ -1,0 +1,43 @@
+################################################
+# Makefile for stunnel by Michal Trojnara 1998 #
+################################################
+
+VERSION=1.4
+HOST=@host@
+SBINDIR=/usr/sbin
+MANDIR=/usr/man/man8
+
+CC=@CC@
+INSTALL=@INSTALL@
+CFLAGS=@CFLAGS@ -Wall -I/usr/local/ssl/include
+LIBS=@LIBS@ -L/usr/local/ssl/lib -lssl -lcrypto
+
+stunnel: stunnel.o
+	$(CC) $(LDFLAGS) -s -o stunnel stunnel.o $(LIBS)
+	mkdir -p ../distrib
+	gzip < stunnel > ../distrib/stunnel-$(VERSION)-$(HOST).gz
+
+stunnel.o: stunnel.c
+	$(CC) -c $(CFLAGS) stunnel.c
+
+$(SBINDIR)/stunnel: stunnel
+	$(INSTALL) -m 711 stunnel $(SBINDIR)
+
+$(MANDIR)/stunnel.8: stunnel.8
+	$(INSTALL) -m 644 stunnel.8 $(MANDIR)
+
+install: $(SBINDIR)/stunnel $(MANDIR)/stunnel.8
+
+cert:
+	/usr/local/ssl/bin/ssleay req -new -x509 -nodes \
+		-out server.pem -days 365 -keyout server.pem
+
+clean:
+	rm -f stunnel stunnel.o config.log core
+
+dist_clean: clean
+	rm -f config.cache Makefile config.h
+
+distrib: dist_clean
+	mkdir -p ../distrib
+	tar -cf - -C .. stunnel | gzip > ../distrib/stunnel-$(VERSION).tar.gz

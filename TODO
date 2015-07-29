@@ -1,5 +1,5 @@
-1. Implement make_sockets implemented with Internet sockets
-   instead of Unix sockets for better compatibility.
+1. Implement make_sockets with Internet sockets instead of Unix
+   sockets for better compatibility.
    (i.e. to avoid random data returned by getpeername(2)).
 
 2. If possible add certificate signed by a thrusted CA.

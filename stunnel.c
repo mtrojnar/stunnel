@@ -3,7 +3,7 @@
  *   Copyright (c) 1998 Michal Trojnara <mtrojnar@ddc.daewoo.com.pl>
  *                 All Rights Reserved
  *
- *   Version:      1.3              (stunnel.c)
+ *   Version:      1.4              (stunnel.c)
  *   Date:         1998.02.14
  *   Author:       Michal Trojnara  <mtrojnar@ddc.daewoo.com.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
@@ -26,27 +26,49 @@
 
 #define BUFFSIZE 8192	/* I/O buffer size */
 
+#include "config.h"
+
+/* General headers */
 #include <stdio.h>
-#include <unistd.h>	/* for fork, execvp, exit */
-#include <errno.h>	/* for errno */
-#include <string.h>	/* for strerror */
-#include <sys/stat.h>	/* for stat */
-#include <netinet/in.h>	/* for struct sockaddr_in */
-#include <arpa/inet.h>	/* for inet_ntoa */
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/time.h>	/* for select */
-#include <signal.h>	/* for signal */
-#include <syslog.h>	/* for openlog, syslog */
+#include <errno.h>	/* errno */
+#include <sys/stat.h>	/* stat */
+#include <signal.h>	/* signal */
+#include <syslog.h>	/* openlog, syslog */
+#include <string.h>	/* strerror */
+#ifdef HAVE_STRINGS_H
+#include <strings.h>	/* rindex */
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>	/* fork, execvp, exit */
+
+/* Networking headers */
+#include <sys/types.h>  /* u_short, u_long */
+#include <netinet/in.h>	/* struct sockaddr_in */
+#include <sys/socket.h> /* getpeername */
+#include <arpa/inet.h>	/* inet_ntoa */
+#include <sys/time.h>	/* select */
+#endif
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>	/* for aix */
+#endif
+
+/* SSL headers */
 #include <ssl.h>
 #include <err.h>
 
 /* Correct callback definitions overriding ssl.h */
+#ifdef SSL_CTX_set_tmp_rsa_callback
+    #undef SSL_CTX_set_tmp_rsa_callback
+#endif
 #define SSL_CTX_set_tmp_rsa_callback(ctx,cb) \
-        SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_RSA_CB,0,(char *)cb)
+    SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_RSA_CB,0,(char *)cb)
+#ifdef SSL_CTX_set_tmp_dh_callback
+    #undef SSL_CTX_set_tmp_dh_callback
+#endif
 #define SSL_CTX_set_tmp_dh_callback(ctx,dh) \
-        SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_DH_CB,0,(char *)dh)
+    SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_DH_CB,0,(char *)dh)
 
+/* Prototypes */
 void transfer(SSL *, int);
 void make_sockets(int [2]);
 static RSA *tmp_rsa_cb(SSL *, int);
