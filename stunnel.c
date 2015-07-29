@@ -1,10 +1,10 @@
 /*
- *   stunnel       Universal SSL tunnel for daemons invoked by inetd
+ *   stunnel       Universal SSL tunnel for standard network daemons
  *   Copyright (c) 1998 Michal Trojnara <mtrojnar@ddc.daewoo.com.pl>
  *                 All Rights Reserved
  *
- *   Version:      1.6              (stunnel.c)
- *   Date:         1998.03.02
+ *   Version:      2.0a             (stunnel.c)
+ *   Date:         1998.05.26
  *   Author:       Michal Trojnara  <mtrojnar@ddc.daewoo.com.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
@@ -27,37 +27,58 @@
 /* Change to 0 if you have problems with make_sockets() */
 #define INET_SOCKET_PAIR 1
 
-#define BUFFSIZE 8192	/* I/O buffer size */
+#define BUFFSIZE 8192    /* I/O buffer size */
+#define HOSTNAME_SIZE 256
 
 #include "config.h"
 
 /* General headers */
 #include <stdio.h>
-#include <errno.h>	/* errno */
-#include <sys/stat.h>	/* stat */
-#include <signal.h>	/* signal */
-#include <syslog.h>	/* openlog, syslog */
-#include <string.h>	/* strerror */
+#include <errno.h>       /* errno */
+#include <sys/stat.h>    /* stat */
+#include <signal.h>      /* signal */
+#include <syslog.h>      /* openlog, syslog */
+#include <string.h>      /* strerror */
+#include <ctype.h>
+#include <stdlib.h>
+#include <netdb.h>
 #ifdef HAVE_STRINGS_H
-#include <strings.h>	/* rindex */
+#include <strings.h>     /* rindex */
 #endif
 #ifdef HAVE_UNISTD_H
-#include <unistd.h>	/* fork, execvp, exit */
+#include <unistd.h>      /* fork, execvp, exit */
 #endif
 
 /* Networking headers */
-#include <sys/types.h>  /* u_short, u_long */
-#include <netinet/in.h>	/* struct sockaddr_in */
-#include <sys/socket.h> /* getpeername */
-#include <arpa/inet.h>	/* inet_ntoa */
-#include <sys/time.h>	/* select */
+#include <sys/types.h>   /* u_short, u_long */
+#include <netinet/in.h>  /* struct sockaddr_in */
+#include <sys/socket.h>  /* getpeername */
+#include <arpa/inet.h>   /* inet_ntoa */
+#include <sys/time.h>    /* select */
 #ifdef HAVE_SYS_SELECT_H
-#include <sys/select.h>	/* for aix */
+#include <sys/select.h>  /* for aix */
+#endif
+#ifndef INADDR_ANY
+#define INADDR_ANY       (u_long)0x00000000
+#endif
+#ifndef INADDR_LOOPBACK
+#define INADDR_LOOPBACK  (u_long)0x7F000001
 #endif
 
 /* SSL headers */
 #include <ssl.h>
 #include <err.h>
+#include <bio.h>
+#include <pem.h>
+
+/* libwrap header */
+#if HAVE_TCPD_H && HAVE_LIBWRAP
+#include <tcpd.h>
+#define USE_LIBWRAP 1
+#endif
+
+/* DH requires some more hacking ;) -pk */
+#undef USE_DH
 
 /* Correct callback definitions overriding ssl.h */
 #ifdef SSL_CTX_set_tmp_rsa_callback
@@ -72,24 +93,35 @@
     SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_DH_CB,0,(char *)dh)
 
 /* Prototypes */
+void daemon_loop(char **, SSL_CTX *);
+void client(struct sockaddr_in *, char **, int, SSL_CTX *);
 void transfer(SSL *, int);
+int listen_local(char *);
+int connect_remote(char *);
+u_short port2num(char *);
+char **host2num(char *);
 void make_sockets(int [2]);
+void daemonize();
 static RSA *tmp_rsa_cb(SSL *, int);
+#ifdef USE_DH
 static DH *tmp_dh_cb(SSL *, int);
+#endif
 void ioerror(char *);
 void sslerror(char *);
 void signal_handler(int);
 
+/* certfile needs to be global - tmp_dh_cb() uses it */
+char certfile[128]; /* server certificate */
+
 int main(int argc, char* argv[]) /* execution begins here 8-) */
 {
-    int fd[2];
-    SSL *ssl;
-    SSL_CTX *ctx;
     char *name; /* name of service */
-    char certfile[128]; /* server certificate */
     struct stat st; /* buffer for stat */
     struct sockaddr_in addr;
     int addrlen;
+    SSL_CTX *ctx;
+    int inetd_mode;
+    char **parameters;
 
     openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
     signal(SIGPIPE, SIG_IGN); /* avoid 'broken pipe' signal */
@@ -97,61 +129,166 @@ int main(int argc, char* argv[]) /* execution begins here 8-) */
     signal(SIGQUIT, signal_handler);
     signal(SIGSEGV, signal_handler);
 
-    if((name=rindex(argv[0], '/')))
-        name++; /* first character after '/' */
-    else
-        name=argv[0]; /* relative name - no '/' */
+    /* check if started from inetd */
     addrlen=sizeof(addr);
     memset(&addr, 0, addrlen);
-    if(getpeername(0, (struct sockaddr *)&addr, &addrlen))
-        ioerror("getpeername");
-    syslog(LOG_NOTICE, "%s connected from %s:%d", name,
-        inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+    if(getpeername(0, (struct sockaddr *)&addr, &addrlen)) {
+        if(argc<3) {
+            fprintf(stderr, "ERROR: Not enough parameters for daemon mode\n");
+            exit(2);
+        }
+        syslog(LOG_NOTICE, "Daemon started for %s", argv[1]);
+        parameters=argv+2;
+        inetd_mode=0;
+    } else { /* started from inetd */
+        parameters=argv;
+        inetd_mode=1;
+    }
+
+    /* find server certificate filename */
+    if(*parameters[0]=='@') {
+        name=parameters[0]+1;
+    } else {
+        if((name=rindex(parameters[0], '/')))
+            name++; /* first character after '/' */
+        else
+            name=parameters[0]; /* relative name - no '/' */
+    }
     sprintf(certfile, "%s/%s.pem", X509_get_default_cert_dir(), name);
     if(stat(certfile, &st))
         ioerror(certfile);
     if(st.st_mode & 7)
         syslog(LOG_WARNING, "WARNING: Wrong permissions on %s", certfile);
 
-    make_sockets(fd);
-    switch(fork()) {
-    case -1:	/* error */
-        ioerror("fork");
-    case  0:	/* child */
-        close(fd[0]);
-        dup2(fd[1], 0);
-        dup2(fd[1], 1);
-        dup2(fd[1], 2);
-        close(fd[1]);
-        execvp(argv[0], argv);
-        ioerror("execvp"); /* execvp failed */
-    default:	/* parent */
-        close(fd[1]);
-        SSL_load_error_strings();
-        SSLeay_add_ssl_algorithms();
-        ctx=SSL_CTX_new(SSLv23_server_method());
-        if(!SSL_CTX_use_RSAPrivateKey_file(ctx, certfile, SSL_FILETYPE_PEM))
-            sslerror("SSL_CTX_use_RSAPrivateKey_file");
-        if(!SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM))
-            sslerror("SSL_CTX_use_certificate_file");
-        if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb))
-            sslerror("SSL_CTX_set_tmp_rsa_callback");
-        if(!SSL_CTX_set_tmp_dh_callback(ctx, tmp_dh_cb))
-            sslerror("SSL_CTX_set_tmp_dh_callback");
-        ssl=SSL_new(ctx);
-        SSL_set_fd(ssl, 0);
-        if(!SSL_accept(ssl))
-            sslerror("SSL_accept");
-        syslog(LOG_INFO, "SSLv%d opened for %s, cipher %s",
-            ssl->session->ssl_version, name, SSL_get_cipher(ssl));
-        transfer(ssl, fd[0]);
-        SSL_free(ssl);
-        SSL_CTX_free(ctx);
+    /* init SSL */
+    SSL_load_error_strings();
+    SSLeay_add_ssl_algorithms();
+    ctx=SSL_CTX_new(SSLv23_server_method());
+    if(!SSL_CTX_use_RSAPrivateKey_file(ctx, certfile, SSL_FILETYPE_PEM))
+        sslerror("SSL_CTX_use_RSAPrivateKey_file");
+    if(!SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM))
+        sslerror("SSL_CTX_use_certificate_file");
+    if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb))
+        sslerror("SSL_CTX_set_tmp_rsa_callback");
+#ifdef USE_DH
+    if(!SSL_CTX_set_tmp_dh_callback(ctx, tmp_dh_cb))
+    sslerror("SSL_CTX_set_tmp_dh_callback");
+#endif
+
+    /* accept client(s) */
+    if(inetd_mode) {
+        client(&addr, argv, 0, ctx);
+    } else {
+        daemonize();
+        daemon_loop(argv+1, ctx);
     }
+
+    /* close SSL */
+    SSL_CTX_free(ctx);
     return 0; /* success */
 }
 
-void transfer(SSL *ssl, int tunnel) /* main loop */
+void daemon_loop(char **parameters, SSL_CTX *ctx)
+{
+    int ls, s;
+    struct sockaddr_in addr;
+    int addrlen;
+
+    ls=listen_local(parameters[0]);
+    while(1) {
+        addrlen=sizeof(addr);
+        if((s=accept(ls, (struct sockaddr *)&addr, &addrlen))<0)
+            ioerror("accept");
+        switch(fork()) {
+        case -1:    /* error */
+            ioerror("fork");
+        case  0:    /* child */
+            close(ls);
+            client(&addr, parameters+1, s, ctx);
+            _exit(0);
+        default:    /* parent */
+            close(s);
+        }
+    }
+}
+
+void client(struct sockaddr_in *addr, char **parameters, int s, SSL_CTX *ctx)
+{
+    SSL *ssl;
+    int fd[2], remote; /* sockets */
+#if SSLEAY_VERSION_NUMBER > 0x0800
+    SSL_CIPHER *c;
+    char *ver;
+    int bits;
+#endif
+
+#ifdef USE_LIBWRAP
+    struct request_info request;
+
+    request_init(&request, RQ_DAEMON, parameters[0], RQ_FILE, s, 0);
+    fromhost(&request);
+    if (!hosts_access(&request)) {
+        syslog(LOG_ERR, "%s connection refused from %s:%d", parameters[0],
+            inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
+	exit(2);
+    }
+#endif
+
+    syslog(LOG_NOTICE, "%s connected from %s:%d", parameters[0],
+        inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
+
+/* create connection to remote host/service */
+    if(*parameters[0]=='@') {
+        remote=connect_remote(parameters[0]+1);
+    } else {
+        make_sockets(fd);
+        switch(fork()) {
+        case -1:    /* error */
+            ioerror("fork");
+        case  0:    /* child */
+            close(fd[0]);
+            dup2(fd[1], 0);
+            dup2(fd[1], 1);
+            dup2(fd[1], 2);
+            close(fd[1]);
+            execvp(parameters[0], parameters);
+            ioerror("execvp"); /* execvp failed */
+        }
+        close(fd[1]);
+        remote=fd[0];
+    }
+
+    /* do the job */
+    ssl=SSL_new(ctx);
+    SSL_set_fd(ssl, s);
+    if(SSL_accept(ssl)<=0)
+        sslerror("SSL_accept");
+#if SSLEAY_VERSION_NUMBER <= 0x0800
+    syslog(LOG_INFO, "SSLv%d opened for %s, cipher %s",
+        ssl->session->ssl_version,
+        parameters[0],
+        SSL_get_cipher(ssl));
+#else
+    switch(ssl->session->ssl_version) {
+    case SSL2_VERSION:
+        ver="SSLv2"; break;
+    case SSL3_VERSION:
+        ver="SSLv3"; break;
+    case TLS1_VERSION:
+        ver="TLSv1"; break;
+    default:
+        ver="UNKNOWN";
+    }
+    c=SSL_get_current_cipher(ssl);
+    SSL_CIPHER_get_bits(c, &bits);
+    syslog(LOG_INFO, "%s opened for %s, cipher %s (%u bits)",
+        ver, parameters[0], SSL_CIPHER_get_name(c), bits);
+#endif
+    transfer(ssl, remote);
+    SSL_free(ssl);
+}
+
+void transfer(SSL *ssl, int tunnel) /* transfer data */
 {
     fd_set rin, rout;
     int num, fdno, fd_ssl, bytes_in=0, bytes_out=0;
@@ -199,7 +336,95 @@ void transfer(SSL *ssl, int tunnel) /* main loop */
         bytes_in, bytes_out);
 }
 
-/* Should be done with AF_INET instead of AF_UNIX */
+int listen_local(char *name) /* bind and listen on local interface */
+{
+    char hostname[HOSTNAME_SIZE], *portname;
+    struct sockaddr_in addr;
+    int ls;
+
+    if((ls=socket(AF_INET, SOCK_STREAM, 0))<0)
+        ioerror("socket");
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family=AF_INET;
+    strncpy(hostname, name, HOSTNAME_SIZE-1);
+    hostname[HOSTNAME_SIZE-1]='\0';
+    if((portname=rindex(hostname, ':'))) {
+        *portname++='\0';
+        memcpy((char *)&addr.sin_addr, *host2num(hostname),
+            sizeof(struct in_addr));
+        addr.sin_port=port2num(portname);
+    } else {
+        addr.sin_addr.s_addr=htonl(INADDR_ANY);
+        addr.sin_port=port2num(hostname);
+    }
+    if(bind(ls, (struct sockaddr *)&addr, sizeof(addr)))
+        ioerror("bind");
+    if(listen(ls, 5))
+        ioerror("listen");
+    return ls;
+}
+
+int connect_remote(char *name) /* connect to remote host */
+{
+    char hostname[HOSTNAME_SIZE], *portname;
+    struct sockaddr_in addr;
+    int s; /* destination socket */
+    char **list; /* destination addresses list */
+
+    if((s=socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        ioerror("remote socket");
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family=AF_INET;
+    strncpy(hostname, name, HOSTNAME_SIZE-1);
+    hostname[HOSTNAME_SIZE-1]='\0';
+    if(!(portname=rindex(hostname, ':'))) {
+        syslog(LOG_ERR, "no port specified: \"%s\"", hostname);
+        exit(2);
+    }
+    *portname++='\0';
+    addr.sin_port=port2num(portname);
+
+    /* connect each host from the list*/
+    for(list=host2num(hostname); *list; list++) {
+        memcpy((char *)&addr.sin_addr, *list, sizeof(struct in_addr));
+        if(!connect(s, (struct sockaddr *) &addr, sizeof(addr))) {
+            return s; /* success */
+        }
+    }
+    ioerror("remote connect");
+    return 0; /* to satisfy compiler */
+}
+
+u_short port2num(char *portname) /* get port number */
+{
+    struct servent *p;
+    u_short port;
+
+    if((p=getservbyname(portname, "tcp")))
+        port=p->s_port;
+    else
+        port=htons(atoi(portname));
+    if(!port) {
+        syslog(LOG_ERR, "invalid port: %s", portname);
+        exit(2);
+    }
+    return port;
+}
+
+char **host2num(char *hostname) /* get list of host addresses */
+{
+    struct hostent *h;
+    static struct in_addr ip;
+    static char *table[]={(char *)&ip, NULL};
+
+    if((ip.s_addr=inet_addr(hostname))!=-1) /* dotted decimal */
+        return table;
+    /* not dotted decimal - we have to call resolver */
+    if(!(h=gethostbyname(hostname))) /* get list of addresses */
+        ioerror("gethostbyname");
+    return h->h_addr_list;
+}
+
 void make_sockets(int fd[2]) /* make pair of connected sockets */
 {
 #if INET_SOCKET_PAIR
@@ -214,7 +439,7 @@ void make_sockets(int fd[2]) /* make pair of connected sockets */
     addrlen=sizeof(addr);
     memset(&addr, 0, addrlen);
     addr.sin_family=AF_INET;
-    addr.sin_addr.s_addr=INADDR_LOOPBACK;
+    addr.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
     addr.sin_port=0; /* dynamic port allocation */
     if(bind(s, (struct sockaddr *)&addr, addrlen))
         syslog(LOG_DEBUG, "bind#1: %s (%d)", strerror(errno), errno);
@@ -235,35 +460,69 @@ void make_sockets(int fd[2]) /* make pair of connected sockets */
 #endif
 }
 
+void daemonize() /* go to background */
+{
+    switch (fork()) {
+    case -1:
+        ioerror("fork");
+    case 0:
+        break;
+    default:
+        _exit(0);
+    }
+    if (setsid() == -1)
+        ioerror("setsid");
+    chdir("/");
+    close(0);
+    close(1);
+    close(2);
+}
+
 static RSA *tmp_rsa_cb(SSL *s, int export) /* temporary RSA key callback */
 {
     static RSA *rsa_tmp = NULL;
- 
+
+    if(rsa_tmp)
+        return(rsa_tmp);
+    syslog(LOG_DEBUG, "Generating 512 bit RSA key...");
+#if SSLEAY_VERSION_NUMBER <= 0x0800
+    rsa_tmp=RSA_generate_key(512, RSA_F4, NULL);
+#else
+    rsa_tmp=RSA_generate_key(512, RSA_F4, NULL, NULL);
+#endif
     if(rsa_tmp == NULL)
-    {
-        syslog(LOG_DEBUG, "Generating 512 bit RSA key...");
-        rsa_tmp=RSA_generate_key(512, RSA_F4, NULL);
-        if(rsa_tmp == NULL)
-            sslerror("tmp_rsa_cb");
-    }
+        sslerror("tmp_rsa_cb");
     return(rsa_tmp);
 }
 
+#ifdef USE_DH
 static DH *tmp_dh_cb(SSL *s, int export) /* temporary DH key callback */
 {
     static DH *dh_tmp = NULL;
+    BIO *in=NULL;
 
-    if(dh_tmp == NULL)
-    {
-        syslog(LOG_DEBUG, "Generating Diffie-Hellman key...");
-        if((dh_tmp = DH_new()) == NULL)
-            sslerror("DH_new");
-        if(!DH_generate_key(dh_tmp))
-            sslerror("DH_generate_key");
-        syslog(LOG_DEBUG, "Diffie-Hellman length: %d", DH_size(dh_tmp));
+    if(dh_tmp)
+        return(dh_tmp);
+    syslog(LOG_DEBUG, "Generating Diffie-Hellman key...");
+    in=BIO_new_file(certfile, "r");
+    if(in == NULL) {
+        syslog(LOG_ERR, "DH: could not read %s: %s", certfile, strerror(errno));
+        return(NULL);
     }
+    dh_tmp=PEM_read_bio_DHparams(in,NULL,NULL);
+    if(dh_tmp==NULL) {
+        syslog(LOG_ERR, "could not load DH parameters");
+        return(NULL);
+    }
+    if(!DH_generate_key(dh_tmp)) {
+        syslog(LOG_ERR, "could not generate DH keys");
+        return(NULL);
+    }
+    syslog(LOG_DEBUG, "Diffie-Hellman length: %d", DH_size(dh_tmp));
+    if(in != NULL) BIO_free(in);
     return(dh_tmp);
 }
+#endif
 
 void ioerror(char *fun) /* Input/Output Error handler */
 {

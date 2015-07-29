@@ -1,4 +1,11 @@
-stunnel         Universal SSL tunnel for daemons invoked by inetd
+stunnel         Universal SSL tunnel for network daemons
+
+2.0 1995.05.25	Remote mode added!
+                Standalone mode added!
+		tcpd functionality added by libwrap utilization.
+		DH callbacks removed by kravietZ.
+		bind loopback on Intel and other bugs fixed by kravietZ.
+		New manual page by kravietZ & myself.
 
 1.6 1998.02.24	Linux bind fix.
 		New TODO ideas!

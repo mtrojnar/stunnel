@@ -40,7 +40,7 @@ s%@CPPFLAGS@%%g
 s%@CXXFLAGS@%%g
 s%@DEFS@%-DHAVE_CONFIG_H%g
 s%@LDFLAGS@%%g
-s%@LIBS@%-lsocket -lnsl %g
+s%@LIBS@%-lwrap -lsocket -lnsl %g
 s%@exec_prefix@%${prefix}%g
 s%@prefix@%/usr/local%g
 s%@program_transform_name@%s,x,x,%g
@@ -201,54 +201,27 @@ ${ac_eA}HAVE_LIBNSL${ac_eB}HAVE_LIBNSL${ac_eC}1${ac_eD}
 ${ac_dA}HAVE_LIBSOCKET${ac_dB}HAVE_LIBSOCKET${ac_dC}1${ac_dD}
 ${ac_uA}HAVE_LIBSOCKET${ac_uB}HAVE_LIBSOCKET${ac_uC}1${ac_uD}
 ${ac_eA}HAVE_LIBSOCKET${ac_eB}HAVE_LIBSOCKET${ac_eC}1${ac_eD}
-${ac_dA}HAVE_DIRENT_H${ac_dB}HAVE_DIRENT_H${ac_dC}1${ac_dD}
-${ac_uA}HAVE_DIRENT_H${ac_uB}HAVE_DIRENT_H${ac_uC}1${ac_uD}
-${ac_eA}HAVE_DIRENT_H${ac_eB}HAVE_DIRENT_H${ac_eC}1${ac_eD}
-${ac_dA}STDC_HEADERS${ac_dB}STDC_HEADERS${ac_dC}1${ac_dD}
-${ac_uA}STDC_HEADERS${ac_uB}STDC_HEADERS${ac_uC}1${ac_uD}
-${ac_eA}STDC_HEADERS${ac_eB}STDC_HEADERS${ac_eC}1${ac_eD}
+${ac_dA}HAVE_LIBWRAP${ac_dB}HAVE_LIBWRAP${ac_dC}1${ac_dD}
+${ac_uA}HAVE_LIBWRAP${ac_uB}HAVE_LIBWRAP${ac_uC}1${ac_uD}
+${ac_eA}HAVE_LIBWRAP${ac_eB}HAVE_LIBWRAP${ac_eC}1${ac_eD}
+${ac_dA}HAVE_STRINGS_H${ac_dB}HAVE_STRINGS_H${ac_dC}1${ac_dD}
+${ac_uA}HAVE_STRINGS_H${ac_uB}HAVE_STRINGS_H${ac_uC}1${ac_uD}
+${ac_eA}HAVE_STRINGS_H${ac_eB}HAVE_STRINGS_H${ac_eC}1${ac_eD}
 CEOF
   sed -f conftest.frag conftest.in > conftest.out
   rm -f conftest.in
   mv conftest.out conftest.in
 
   cat > conftest.frag <<CEOF
-${ac_dA}HAVE_SYS_WAIT_H${ac_dB}HAVE_SYS_WAIT_H${ac_dC}1${ac_dD}
-${ac_uA}HAVE_SYS_WAIT_H${ac_uB}HAVE_SYS_WAIT_H${ac_uC}1${ac_uD}
-${ac_eA}HAVE_SYS_WAIT_H${ac_eB}HAVE_SYS_WAIT_H${ac_eC}1${ac_eD}
-${ac_dA}HAVE_STRINGS_H${ac_dB}HAVE_STRINGS_H${ac_dC}1${ac_dD}
-${ac_uA}HAVE_STRINGS_H${ac_uB}HAVE_STRINGS_H${ac_uC}1${ac_uD}
-${ac_eA}HAVE_STRINGS_H${ac_eB}HAVE_STRINGS_H${ac_eC}1${ac_eD}
 ${ac_dA}HAVE_UNISTD_H${ac_dB}HAVE_UNISTD_H${ac_dC}1${ac_dD}
 ${ac_uA}HAVE_UNISTD_H${ac_uB}HAVE_UNISTD_H${ac_uC}1${ac_uD}
 ${ac_eA}HAVE_UNISTD_H${ac_eB}HAVE_UNISTD_H${ac_eC}1${ac_eD}
 ${ac_dA}HAVE_SYS_SELECT_H${ac_dB}HAVE_SYS_SELECT_H${ac_dC}1${ac_dD}
 ${ac_uA}HAVE_SYS_SELECT_H${ac_uB}HAVE_SYS_SELECT_H${ac_uC}1${ac_uD}
 ${ac_eA}HAVE_SYS_SELECT_H${ac_eB}HAVE_SYS_SELECT_H${ac_eC}1${ac_eD}
-CEOF
-  sed -f conftest.frag conftest.in > conftest.out
-  rm -f conftest.in
-  mv conftest.out conftest.in
-
-  cat > conftest.frag <<CEOF
-${ac_dA}RETSIGTYPE${ac_dB}RETSIGTYPE${ac_dC}void${ac_dD}
-${ac_uA}RETSIGTYPE${ac_uB}RETSIGTYPE${ac_uC}void${ac_uD}
-${ac_eA}RETSIGTYPE${ac_eB}RETSIGTYPE${ac_eC}void${ac_eD}
-${ac_dA}TIME_WITH_SYS_TIME${ac_dB}TIME_WITH_SYS_TIME${ac_dC}1${ac_dD}
-${ac_uA}TIME_WITH_SYS_TIME${ac_uB}TIME_WITH_SYS_TIME${ac_uC}1${ac_uD}
-${ac_eA}TIME_WITH_SYS_TIME${ac_eB}TIME_WITH_SYS_TIME${ac_eC}1${ac_eD}
-${ac_dA}HAVE_SELECT${ac_dB}HAVE_SELECT${ac_dC}1${ac_dD}
-${ac_uA}HAVE_SELECT${ac_uB}HAVE_SELECT${ac_uC}1${ac_uD}
-${ac_eA}HAVE_SELECT${ac_eB}HAVE_SELECT${ac_eC}1${ac_eD}
-${ac_dA}HAVE_STRERROR${ac_dB}HAVE_STRERROR${ac_dC}1${ac_dD}
-${ac_uA}HAVE_STRERROR${ac_uB}HAVE_STRERROR${ac_uC}1${ac_uD}
-${ac_eA}HAVE_STRERROR${ac_eB}HAVE_STRERROR${ac_eC}1${ac_eD}
-CEOF
-  sed -f conftest.frag conftest.in > conftest.out
-  rm -f conftest.in
-  mv conftest.out conftest.in
-
-  cat > conftest.frag <<CEOF
+${ac_dA}HAVE_TCPD_H${ac_dB}HAVE_TCPD_H${ac_dC}1${ac_dD}
+${ac_uA}HAVE_TCPD_H${ac_uB}HAVE_TCPD_H${ac_uC}1${ac_uD}
+${ac_eA}HAVE_TCPD_H${ac_eB}HAVE_TCPD_H${ac_eC}1${ac_eD}
 s%^[ 	]*#[ 	]*undef[ 	][ 	]*[a-zA-Z_][a-zA-Z_0-9]*%/* & */%
 CEOF
   sed -f conftest.frag conftest.in > conftest.out

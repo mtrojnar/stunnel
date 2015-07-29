@@ -1,31 +1,52 @@
 .TH STUNNEL 8
 .SH NAME
-stunnel \- SSL encryption wrapper for \fIinetd\fR services
+stunnel \- SSL encryption wrapper for standard network daemons
+.SH SYNTAX
+.SH inetd mode
+.br
+.B stunnel
+\fIdaemon\fI \fI[parameters...]\fR
+.br
+.B stunnel
+\fI[address:]port\fR \fIdaemon [parameters...]\fR
+.br
+.SH daemon mode
+.br
+.B stunnel
+\fI@hostname:port\fR
+.br
+.B stunnel
+\fI[address:]port\fR \fI@hostname:port\fR
 .SH DESCRIPTION
 .PP
-The \fIstunnel\fR program is designed to intercept incoming
-connections to particular daemons started by 
-.BR inetd "(8)"
-super-deamon and perform \fISSL\fR (Secure Sockets Layer)
-handshake with the peer. After succesful handshake any incoming
-data is passed to the daemon in unencrypted form. Any outgoind
-data produced by the daemon and written to the network is encrypted.
+The \fBstunnel\fR program is designed to work as \fISSL\fR encryption wrapper 
+between remote client and local (\fIinetd\fR-startable) or remote
+server. The concept is that having non-SSL aware daemons running on
+your system you can easily setup them to communicate with clients over
+secure SSL channel.
 .PP
-.I stunnel
+.B stunnel
 can be used to add SSL functionality to commonly used \fIinetd\fR
 daemons like POP-2, POP-3 and IMAP servers without any changes
-in the programs' code. It cannot
-be used for FTP daemon because of the nature of FTP protocol which
-utilizes multiple ports for data transfers. There are available
-SSL enabled versions of FTP and telnet daemons, however.
+in the programs' code. The same applies for standalone daemons like
+NNTP and SMTP. 
+It cannot be used for FTP daemon because of the nature
+of FTP protocol which utilizes multiple ports for data transfers.
+There are available SSL enabled versions of FTP and telnet daemons, however.
 .PP
-.I stunnel
+.B stunnel
 is based on \fISSLeay\fR, free implementation of SSL protocol
 developed by Eric Young <eay@cryptsoft.com> and Tim Hudson <tjh@cryptsoft.com>.
-.SH INSTALLATION
-In order to run \fIstunnel\fR for a particular service you
+.SH USAGE 
+\fBstunnel\fR can work in two modes: inetd or standalone, it can also
+perform two types of tunneling: local and remote. This gives four
+combinations of the command line, covered above in \fBSYNTAX\fR section.
+All are described below.
+.SH INETD MODE
+.SH Wrapping other inetd daemon
+In order to wrap particular \fIinetd\fR service you
 will need to change \fIinetd\fR configuration file, usually
-\fI/etc/inetd.conf\fR. Assuming that you have the following
+\fI/etc/inetd.conf\fR. Assume that you have the following
 line starting POP-3 server: 
 .nf
 .sp
@@ -39,11 +60,61 @@ the \fI/etc/inetd.conf\fR:
 spop3  stream  tcp  nowait  root  /usr/sbin/stunnel  qpopper -s
 .sp
 .fi
+.SH INETD MODE
+.SH Wrapping remote server
+Wrapping standalone servers is done by supplying the server's hostname
+and listening port in the command line, starting with '@' character:
+.nf
+.sp
+.ti +5
+pop-3  stream  tcp  nowait  root /usr/sbin/stunnel  @hostname:port
+.sp
+.fi
+The \fIhostname\fR parameter can be given either as IP address or canonical
+name. It can be localhost or any remote machine of course.
+The \fIport\fR can be either port number or service name from 
+\fI/etc/services\fR file. Following example shows how to set up a wrapper
+for a news server:
+.nf
+.sp
+.ti +5
+snews  stream  tcp  nowait  root /usr/sbin/stunnel  @news.company.com:nntp
+.sp
+.fi
 .PP
-As you may have noticed, this is done mostly like \fItcpd\fR
-wrapper.
-.PP
-You will also need definitions of those new services in your
+.SH STANDALONE MODE 
+.SH Wrapping inetd daemons
+In standalone mode \fBstunnel\fR is started from system boot files
+and accepting connections from remote clients. You can still wrap only
+inetd daemons. The syntax is:
+.nf
+.sp
+.ti +5
+\fI[address:]port\fR \fIdaemon [parameters...]\fR
+.sp
+.fi
+The last parameters are the daemon to wrap and its parameters.
+The \fIport\fR parameter is port \fBstunnel\fR will listed on.
+On systems with multiple interfaces you should specify \fIaddress\fR
+of the interface \fBstunnel\fR will listen on. The default is to listen
+on all available interfaces.
+.SH STANDALONE MODE 
+.SH Wrapping remote server
+In this mode \fBstunnel\fR will run as standalone daemon listening
+on given port and tunneling all incoming connections to a remote
+server. The syntax is:
+.nf
+.sp
+.ti +5
+\fI[address:]port\fR \fI@hostname:port\fR
+.sp
+.fi
+The \fIhostname\fR parameter is described in section \fBINETD MODE\fR,
+subsection \fIWrapping remote servers\fR. The \fIport\fR and optional
+\fIaddress\fR parameters are described above, in section about wrapping
+inetd daemons in standalone mode.
+.SH COMMON SSL PORTS
+You will also need definitions of SSL services in your
 \fI/etc/services\fR file. Some commonly used SSL services are
 listed below:
 .RS
@@ -66,20 +137,43 @@ data. The easiest way to obtain a certificate and a key is to
 generate the with free \fISSLeay\fR package. You can find more
 information on certificates generation on pages listed below.
 .PP
-When starting a daemon \fIstunnel\fR will try to load the certificate
+When starting a daemon \fBstunnel\fR will try to load the certificate
 and key from the same file, whose name is the daemon's name
 with \fI.pem\fR extension. For example, with the above example
-of \fIinetd\fR service, \fIstunnel\fR will look for file \fIqpopper.pem\fR.
+of \fIinetd\fR service, \fBstunnel\fR will look for file \fIqpopper.pem\fR.
+When tunelling connections to remote servers, \fBstunnel\fR will look
+for file \fIport.pem\fR, e.g. \fInntp.pem\fR.
 Default directory for certificate files is \fI/usr/local/ssl/certs\fR.
+.PP
+Two things are important when generating certificate-key pair for \fBstunnel\fR.
+The private key cannot be encrypted, because the server has no way to obtain
+password from the user. To produce an unencrypted key add \fI-nodes\fR option
+when running \fIreq\fR command from \fISSLeay\fR kit.
+.PP
+Order of contents of the \fI.pem\fR file is also important. It should contain
+unencrypted private key first, then
+a signed certificate (not certificate request).
+There should be also empty lines after certificate and private key.
+Plaintext certificate information appended on the top of generated certificate
+should be discarded. So the file should look like this:
+.sp
+.nf
+-----BEGIN RSA PRIVATE KEY-----
+[encoded key]
+-----END RSA PRIVATE KEY-----
+[empty line]
+-----BEGIN CERTIFICATE-----
+[encoded certificate]
+-----END CERTIFICATE-----
+[empty line]
+.fi
+.sp
 .SH LIMITATIONS
-\fIstunnel\fR won't work with 
-.BR tcpd "(8)"
-so there is no way
-to set any access control for daemons started from \fIstunnel\fR.
-It also ignores any client certificates presented by the peer, that
+\fIstunnel\fR ignores any client certificates presented by the peer, that
 could be used for authentication by underlying daemons.
 .SH SEE ALSO
-.BR tcpd (8)
+.BR tcpd (8),
+.BR inetd (8)
 .TP
 .BI http://www.psy.uq.oz.au/~ftp/Crypto/
 SSLeay FAQ
@@ -92,4 +186,4 @@ overview of SSL certification using SSLeay package
 Michal Trojnara <mtrojnar@ddc.daewoo.com.pl>
 Adam Hernik <adas@infocentrum.com>
 Pawel Krawczyk <kravietz@ceti.com.pl>
-\" last updated 14.02.1998
+\" last updated 20.05.1998

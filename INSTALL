@@ -1,4 +1,4 @@
-stunnel         Universal SSL tunnel for daemons invoked by inetd
+stunnel         Universal SSL tunnel for network daemons
 
 1. Compile the software:
 
@@ -20,7 +20,7 @@ stunnel         Universal SSL tunnel for daemons invoked by inetd
        make
        make install
 
-2. Modify /etc/inetd.conf and /etc/services
+2. Modify /etc/services and /etc/inetd.conf startup file.
 
    See stunnel manual for details.
 
