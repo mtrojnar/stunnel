@@ -578,8 +578,7 @@ void s_write(CLI *c, int fd, const void *buf, int len) {
             longjmp(c->err, 1); /* error */
         }
         num=writesocket(fd, (void *)ptr, len);
-        switch(num) {
-        case -1: /* error */
+        if(num==-1) { /* error */
             sockerror("writesocket (s_write)");
             longjmp(c->err, 1);
         }
@@ -643,50 +642,23 @@ char *fd_getline(CLI *c, int fd) {
 
     line=str_alloc(allocated);
     for(;;) {
-        s_poll_init(c->fds);
-        s_poll_add(c->fds, fd, 1, 0); /* read */
-        switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
-        case -1:
-            sockerror("fd_getline: s_poll_wait");
+        if(ptr>65536) { /* >64KB --> DoS protection */
+            s_log(LOG_ERR, "fd_getline: Line too long");
             str_free(line);
-            longjmp(c->err, 1); /* error */
-        case 0:
-            s_log(LOG_INFO, "fd_getline: s_poll_wait:"
-                " TIMEOUTbusy exceeded: sending reset");
-            str_free(line);
-            longjmp(c->err, 1); /* timeout */
-        case 1:
-            break; /* OK */
-        default:
-            s_log(LOG_ERR, "fd_getline: s_poll_wait: Unknown result");
-            str_free(line);
-            longjmp(c->err, 1); /* error */
+            longjmp(c->err, 1);
         }
         if(allocated<ptr+1) {
             allocated*=2;
             line=str_realloc(line, allocated);
         }
-        switch(readsocket(fd, line+ptr, 1)) {
-        case -1: /* error */
-            sockerror("fd_getline: readsocket");
-            str_free(line);
-            longjmp(c->err, 1);
-        case 0: /* EOF */
-            s_log(LOG_ERR, "fd_getline: Unexpected socket close");
-            str_free(line);
-            longjmp(c->err, 1);
-        }
+        s_read(c, fd, line+ptr, 1);
         if(line[ptr]=='\r')
             continue;
         if(line[ptr]=='\n')
             break;
         if(line[ptr]=='\0')
             break;
-        if(++ptr>65536) { /* >64KB --> DoS protection */
-            s_log(LOG_ERR, "fd_getline: Line too long");
-            str_free(line);
-            longjmp(c->err, 1);
-        }
+        ++ptr;
     }
     line[ptr]='\0';
     tmpline=str_dup(line);
@@ -709,6 +681,98 @@ void fd_printf(CLI *c, int fd, const char *format, ...) {
     }
     fd_putline(c, fd, line);
     str_free(line);
+}
+
+void s_ssl_write(CLI *c, const void *buf, int len) {
+        /* simulate a blocking SSL_write */
+    u8 *ptr=(u8 *)buf;
+    int num;
+
+    while(len>0) {
+        s_poll_init(c->fds);
+        s_poll_add(c->fds, c->ssl_wfd->fd, 0, 1); /* write */
+        switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
+        case -1:
+            sockerror("s_write: s_poll_wait");
+            longjmp(c->err, 1); /* error */
+        case 0:
+            s_log(LOG_INFO, "s_write: s_poll_wait:"
+                " TIMEOUTbusy exceeded: sending reset");
+            longjmp(c->err, 1); /* timeout */
+        case 1:
+            break; /* OK */
+        default:
+            s_log(LOG_ERR, "s_write: s_poll_wait: unknown result");
+            longjmp(c->err, 1); /* error */
+        }
+        num=SSL_write(c->ssl, (void *)ptr, len);
+        if(num==-1) { /* error */
+            sockerror("SSL_write (s_ssl_write)");
+            longjmp(c->err, 1);
+        }
+        ptr+=num;
+        len-=num;
+    }
+}
+
+void s_ssl_read(CLI *c, void *ptr, int len) {
+        /* simulate a blocking SSL_read */
+    int num;
+
+    while(len>0) {
+        if(!SSL_pending(c->ssl)) {
+            s_poll_init(c->fds);
+            s_poll_add(c->fds, c->ssl_rfd->fd, 1, 0); /* read */
+            switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
+            case -1:
+                sockerror("s_read: s_poll_wait");
+                longjmp(c->err, 1); /* error */
+            case 0:
+                s_log(LOG_INFO, "s_read: s_poll_wait:"
+                    " TIMEOUTbusy exceeded: sending reset");
+                longjmp(c->err, 1); /* timeout */
+            case 1:
+                break; /* OK */
+            default:
+                s_log(LOG_ERR, "s_read: s_poll_wait: unknown result");
+                longjmp(c->err, 1); /* error */
+            }
+        }
+        num=SSL_read(c->ssl, ptr, len);
+        switch(num) {
+        case -1: /* error */
+            sockerror("SSL_read (s_ssl_read)");
+            longjmp(c->err, 1);
+        case 0: /* EOF */
+            s_log(LOG_ERR, "Unexpected socket close (s_ssl_read)");
+            longjmp(c->err, 1);
+        }
+        ptr=(u8 *)ptr+num;
+        len-=num;
+    }
+}
+
+char *ssl_getstring(CLI *c) { /* get null-terminated string */
+    char *line;
+    int ptr=0, allocated=32;
+
+    line=str_alloc(allocated);
+    for(;;) {
+        if(ptr>65536) { /* >64KB --> DoS protection */
+            s_log(LOG_ERR, "fd_getline: Line too long");
+            str_free(line);
+            longjmp(c->err, 1);
+        }
+        if(allocated<ptr+1) {
+            allocated*=2;
+            line=str_realloc(line, allocated);
+        }
+        s_ssl_read(c, line+ptr, 1);
+        if(line[ptr]=='\0')
+            break;
+        ++ptr;
+    }
+    return line;
 }
 
     /* replace non-UTF-8 and non-printable control characters with '.' */

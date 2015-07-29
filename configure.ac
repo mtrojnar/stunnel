@@ -1,12 +1,12 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.07])
+AC_INIT([stunnel],[5.08])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 5.07)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
+AM_INIT_AUTOMAKE
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
 
 AC_CANONICAL_HOST
@@ -29,7 +29,7 @@ AC_PROG_MAKE_SET
 # AC_HEADER_TIME
 
 AC_MSG_NOTICE([**************************************** compiler/linker flags])
-AC_SUBST([stunnel_LDFLAGS])
+# AC_SUBST([stunnel_LDFLAGS])
 
 AC_MSG_CHECKING([whether $CC accepts -pthread])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -pthread"
@@ -38,7 +38,7 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [
         AC_MSG_RESULT([yes])
         AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -pthread"])
-        AC_SUBST([stunnel_LDFLAGF], ["$stunnel_LDFLAGF -pthread"])
+        AC_SUBST([stunnel_LDFLAGS], ["$stunnel_LDFLAGS -pthread"])
     ], [
         AC_MSG_RESULT([no])
     ])
@@ -51,7 +51,7 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [
         AC_MSG_RESULT([yes])
         AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -fstack-protector"])
-        AC_SUBST([stunnel_LDFLAGF], ["$stunnel_LDFLAGF -fstack-protector"])
+        AC_SUBST([stunnel_LDFLAGS], ["$stunnel_LDFLAGS -fstack-protector"])
     ], [
         AC_MSG_RESULT([no])
     ])
@@ -64,7 +64,7 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [
         AC_MSG_RESULT([yes])
         AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -fPIE"])
-        AC_SUBST([stunnel_LDFLAGF], ["$stunnel_LDFLAGF -pie -fPIE"])
+        AC_SUBST([stunnel_LDFLAGS], ["$stunnel_LDFLAGS -pie -fPIE"])
     ], [
         AC_MSG_RESULT([no])
     ])
@@ -458,6 +458,16 @@ AC_ARG_ENABLE(libwrap,
 )
 
 AC_MSG_NOTICE([**************************************** SSL])
+
+AC_MSG_CHECKING([for compiler sysroot])
+if test "$GCC" = yes; then
+    SYSROOT=`$CC --print-sysroot 2>/dev/null`
+else
+    SYSROOT="/"
+fi
+AC_MSG_RESULT([$SYSROOT])
+
+# Check for SSL directory
 check_ssl_dir() { :
     SSLDIR="$1"
     if test -f "$1/include/openssl/ssl.h"; then
@@ -466,7 +476,6 @@ check_ssl_dir() { :
     return 1
 }
 
-# Check for SSL directory
 AC_MSG_CHECKING([for SSL directory])
 AC_ARG_WITH(ssl,
 [  --with-ssl=DIR          location of installed SSL libraries/include files],
@@ -474,14 +483,14 @@ AC_ARG_WITH(ssl,
         check_ssl_dir "$withval"
     ],
     [
-        for main_dir in /usr/local /usr/lib /usr/pkg /opt/local /opt /usr; do
-            for sub_dir in /ssl /openssl /; do
-                check_ssl_dir "$main_dir$sub_dir" && break 2
+        for main_dir in usr/local usr/lib usr/pkg opt/local opt usr ""; do
+            for sub_dir in /ssl /openssl ""; do
+                check_ssl_dir "$SYSROOT$main_dir$sub_dir" && break 2
             done
         done
     ]
 )
-if test ! -d "$SSLDIR"; then
+if test ! -f "$SSLDIR/include/openssl/ssl.h"; then
 AC_MSG_RESULT([not found])
 AC_MSG_ERROR([
 Couldn't find your SSL library installation dir

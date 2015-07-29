@@ -1249,7 +1249,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_BEGIN:
         section->option.remote=0;
         section->connect_list=NULL;
-        section->connect_addr.num=0;
+        addrlist_init(&section->connect_addr);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "connect"))
@@ -1724,6 +1724,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         tmpstr=protocol(NULL, section, PROTOCOL_CHECK);
         if(tmpstr)
             return tmpstr;
+        if(section->protocol && !strcasecmp(section->protocol, "socks")) {
+            section->option.remote=1;
+            ++endpoints;
+        }
         break;
     case CMD_FREE:
         break;
@@ -1858,7 +1862,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     switch(cmd) {
     case CMD_BEGIN:
         section->redirect_list=NULL;
-        section->redirect_addr.num=0;
+        addrlist_init(&section->redirect_addr);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "redirect"))

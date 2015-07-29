@@ -6,8 +6,6 @@ A sponsor could allocate my time to get them faster.
 * Add an Apparmor profile.
 * Optional line-buffering of the log file.
 * Configuration file option to limit the number of concurrent connections.
-* SOCKS 4 protocol support.
-  http://archive.socks.permeo.com/protocol/socks4.protocol
 * Implement reference counting of the SERVICE_OPTIONS structure
   - Add 'leastconn' failover strategy to order defined 'connect' targets
     by the number of active connections.
@@ -35,11 +33,10 @@ Low priority features.  They will unlikely ever be supported.
 * Generic scripting engine instead or static protocol.c.
 
 Features I won't support, unless convinced otherwise by a wealthy sponsor.
-* Protocol support *after* SSL is negotiated:
-  - Support for adding X-Forwarded-For to HTTP request headers.
-    This feature is less useful since PROXY protocol support is available.
-  - Support for adding X-Forwarded-For to SMTP email headers.
-    This feature is most likely to be implemented as a separate proxy.
+* Support for adding X-Forwarded-For to HTTP request headers.
+  This feature is less useful since PROXY protocol support is available.
+* Support for adding X-Forwarded-For to SMTP email headers.
+  This feature is most likely to be implemented as a separate proxy.
 * Additional certificate checks (including wildcard comparison) based on:
   - CN (Common Name);
   - SAN (Subject Alternative Name);

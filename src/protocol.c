@@ -41,6 +41,10 @@
 #define is_prefix(a, b) (strncasecmp((a), (b), strlen(b))==0)
 
 /* protocol-specific function prototypes */
+NOEXPORT char *socks_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT void socks4_server(CLI *);
+NOEXPORT void socks5_server_method(CLI *);
+NOEXPORT void socks5_server(CLI *);
 NOEXPORT char *proxy_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *cifs_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *cifs_server(CLI *, SERVICE_OPTIONS *, const PHASE);
@@ -55,7 +59,6 @@ NOEXPORT char *imap_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *nntp_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *connect_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *connect_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-
 #if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
 NOEXPORT void ntlm(CLI *, SERVICE_OPTIONS *);
 NOEXPORT char *ntlm1();
@@ -71,6 +74,10 @@ char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         opt->option.connect_before_ssl=opt->option.client;
     if(!opt->protocol) /* no protocol specified */
         return NULL; /* skip further actions */
+    if(!strcasecmp(opt->protocol, "socks"))
+        return opt->option.client ?
+            "The 'socks' protocol is not supported in client mode" :
+            socks_server(c, opt, phase);
     if(!strcasecmp(opt->protocol, "proxy"))
         return opt->option.client ?
             "The 'proxy' protocol is not supported in client mode" :
@@ -104,6 +111,251 @@ char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
             connect_client(c, opt, phase) :
             connect_server(c, opt, phase);
     return "Protocol not supported";
+}
+
+/**************************************** socks */
+
+/* SOCKS over SSL (SOCKS protocol itself is also encrypted) */
+/* FIXME: connect() failures are not currently reported with SOCKS protocol */
+
+NOEXPORT char *socks_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+    unsigned char version;
+
+    (void)opt; /* skip warning about unused parameter */
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
+
+    s_log(LOG_DEBUG, "Waiting for the SOCKS request");
+    s_ssl_read(c, &version, sizeof version);
+    switch(version) {
+    case 4:
+        socks4_server(c);
+        break;
+    case 5:
+        socks5_server_method(c);
+        socks5_server(c);
+        break;
+    default:
+        s_log(LOG_ERR, "Unsupported SOCKS version %u", version);
+        longjmp(c->err, 1);
+    }
+    return NULL;
+}
+
+/* SOCKS4 or SOCKS4a */
+/* BIND command is not supported */
+/* USERID parameter is ignored */
+
+NOEXPORT void socks4_server(CLI *c) {
+    struct {
+        unsigned char vn, cd;
+        u_short sin_port;
+        struct in_addr sin_addr;
+    } socks;
+    char *user_name, *host_name, *port_name;
+    SOCKADDR_UNION addr;
+    int close_connection=1;
+
+    s_ssl_read(c, &socks.cd, sizeof socks-sizeof socks.vn);
+    socks.vn=0; /* response version 0 */
+    user_name=ssl_getstring(c); /* ignore the username */
+    str_free(user_name);
+
+    if(socks.cd==0x01) { /* CONNECT */
+        if(ntohl(socks.sin_addr.s_addr)>0 &&
+                ntohl(socks.sin_addr.s_addr)<256) { /* 0.0.0.x */
+            host_name=ssl_getstring(c);
+            port_name=str_printf("%u", ntohs(socks.sin_port));
+            hostport2addrlist(&c->connect_addr, host_name, port_name);
+            str_free(port_name);
+            safestring(host_name);
+            if(c->connect_addr.num) {
+                s_log(LOG_INFO, "SOCKS4a resolved '%s' to %u host(s)",
+                    host_name, c->connect_addr.num);
+                socks.cd=90;
+                close_connection=0;
+            } else {
+                s_log(LOG_ERR, "SOCKS4a failed to resolve '%s'", host_name);
+                socks.cd=91;
+            }
+            str_free(host_name);
+        } else {
+            c->connect_addr.num=1;
+            c->connect_addr.addr=str_alloc(sizeof(SOCKADDR_UNION));
+            c->connect_addr.addr[0].in.sin_family=AF_INET;
+            c->connect_addr.addr[0].in.sin_port=socks.sin_port;
+            c->connect_addr.addr[0].in.sin_addr.s_addr=socks.sin_addr.s_addr;
+            s_log(LOG_INFO, "SOCKS4 address received");
+            socks.cd=90;
+            close_connection=0;
+        }
+    } else if(socks.cd==0xf0) { /* RESOLVE (a TOR extension) */
+        host_name=ssl_getstring(c);
+        if(hostport2addr(&addr, host_name, "0") && addr.sa.sa_family==AF_INET) {
+            memcpy(&socks.sin_addr, &addr.in.sin_addr, 4);
+            safestring(host_name);
+            s_log(LOG_INFO, "SOCKS4a/TOR resolved '%s'", host_name);
+            socks.cd=90;
+        } else {
+            safestring(host_name);
+            s_log(LOG_ERR, "SOCKS4a/TOR failed to resolve '%s'", host_name);
+            socks.cd=91;
+        }
+        str_free(host_name);
+    } else {
+        s_log(LOG_ERR, "Unsupported SOCKS4/SOCKS4a command %u", socks.cd);
+        socks.cd=91;
+    }
+    s_ssl_write(c, &socks, sizeof socks);
+    if(close_connection)
+        longjmp(c->err, 2); /* don't reset */
+}
+
+NOEXPORT void socks5_server_method(CLI *c) {
+    unsigned char nmethods, *methods;
+    struct {
+        unsigned char ver, method;
+    } response;
+    int i;
+
+    response.ver=0x05;
+    response.method=0xff; /* NO ACCEPTABLE METHODS */
+    s_ssl_read(c, &nmethods, sizeof nmethods);
+    methods=str_alloc(nmethods);
+    s_ssl_read(c, methods, nmethods);
+    for(i=0; i<nmethods; ++i)
+        if(methods[i]==0x00) { /* NO AUTHENTICATION REQUIRED */
+            response.method=0x00; /* use this method */
+            break;
+        }
+    str_free(methods);
+    s_ssl_write(c, &response, sizeof response);
+    if(response.method) { /* request failed */
+        s_log(LOG_ERR, "No supported SOCKS5 authentication method received");
+        longjmp(c->err, 2); /* don't reset */
+    }
+}
+
+/* CONNECT does not return valid BND.ADDR and BND.PORT values */
+
+NOEXPORT void socks5_server(CLI *c) {
+    union {
+        struct {
+            unsigned char ver, cmd, rsv, atyp;
+        } req;
+        struct {
+            unsigned char ver, cmd, rsv, atyp, addr[4], port[2];
+        } v4;
+        struct {
+            unsigned char ver, cmd, rsv, atyp, addr[16], port[2];
+        } v6;
+        struct {
+            unsigned char ver, rep, rsv, atyp;
+        } resp;
+    } socks;
+    unsigned char host_len;
+    char *host_name, *port_name;
+    u_short port_number;
+    SOCKADDR_UNION addr;
+    int close_connection=1;
+
+    /* parse request */
+    memset(&socks, 0, sizeof socks);
+    s_ssl_read(c, &socks, sizeof socks.req);
+    if(socks.req.ver!=0x05) {
+        s_log(LOG_ERR, "Invalid SOCKS5 message version %u", socks.req.ver);
+        socks.resp.ver=0x05; /* response version 5 */
+        socks.resp.rep=0x01; /* general SOCKS server failure */
+    } else if(socks.req.cmd==0x01) { /* CONNECT */
+        if(socks.req.atyp==0x01) { /* IP v4 address */
+            c->connect_addr.num=1;
+            c->connect_addr.addr=str_alloc(sizeof(SOCKADDR_UNION));
+            c->connect_addr.addr[0].in.sin_family=AF_INET;
+            s_ssl_read(c, &socks.v4.addr, 4+2);
+            memcpy(&c->connect_addr.addr[0].in.sin_addr, &socks.v4.addr, 4);
+            memcpy(&c->connect_addr.addr[0].in.sin_port, &socks.v4.port, 2);
+            s_log(LOG_INFO, "SOCKS5 IPv4 address received");
+            socks.resp.rep=0x00; /* succeeded */
+            close_connection=0;
+        } else if(socks.req.atyp==0x03) { /* DOMAINNAME */
+            s_ssl_read(c, &host_len, sizeof host_len);
+            host_name=str_alloc(host_len+1);
+            s_ssl_read(c, host_name, host_len);
+            host_name[host_len]='\0';
+            s_ssl_read(c, &port_number, 2);
+            port_name=str_printf("%u", ntohs(port_number));
+            hostport2addrlist(&c->connect_addr, host_name, port_name);
+            str_free(port_name);
+            safestring(host_name);
+            if(c->connect_addr.num) {
+                s_log(LOG_INFO, "SOCKS5 resolved '%s' to %u host(s)",
+                    host_name, c->connect_addr.num);
+                socks.resp.rep=0x00; /* succeeded */
+                close_connection=0;
+            } else {
+                s_log(LOG_ERR, "SOCKS5 failed to resolve '%s'", host_name);
+                socks.resp.rep=0x04; /* Host unreachable */
+            }
+            str_free(host_name);
+#ifdef USE_IPv6
+        } else if(socks.req.atyp==0x04) { /* IP v6 address */
+            c->connect_addr.num=1;
+            c->connect_addr.addr=str_alloc(sizeof(SOCKADDR_UNION));
+            c->connect_addr.addr[0].in6.sin6_family=AF_INET6;
+            s_ssl_read(c, &socks.v6.addr, 16+2);
+            memcpy(&c->connect_addr.addr[0].in6.sin6_addr, &socks.v6.addr, 16);
+            memcpy(&c->connect_addr.addr[0].in6.sin6_port, &socks.v6.port, 2);
+            s_log(LOG_INFO, "SOCKS5 IPv6 address received");
+            socks.resp.rep=0x00; /* succeeded */
+            close_connection=0;
+#endif
+        } else {
+            s_log(LOG_ERR, "Unsupported SOCKS5 address type %u", socks.req.atyp);
+            socks.resp.rep=0x07; /* Address type not supported */
+        }
+    } else if(socks.req.cmd==0xf0) { /* RESOLVE (a TOR extension) */
+        host_name=ssl_getstring(c);
+        if(hostport2addr(&addr, host_name, "0")) {
+            safestring(host_name);
+            if(addr.sa.sa_family==AF_INET) {
+                s_log(LOG_INFO, "SOCKS5/TOR resolved '%s' to IPv4", host_name);
+                memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
+                socks.resp.atyp=0x01; /* IP v4 address */
+                socks.resp.rep=0x00; /* succeeded */
+#ifdef USE_IPv6
+            } else if(addr.sa.sa_family==AF_INET6) {
+                s_log(LOG_INFO, "SOCKS5/TOR resolved '%s' to IPv6", host_name);
+                memcpy(&socks.v6.addr, &addr.in6.sin6_addr, 16);
+                socks.resp.atyp=0x04; /* IP v6 address */
+                socks.resp.rep=0x00; /* succeeded */
+#endif
+            } else {
+                s_log(LOG_ERR, "SOCKS5/TOR unsupported address family for '%s'",
+                    host_name);
+                socks.resp.rep=0x04; /* Host unreachable */
+            }
+        } else {
+            safestring(host_name);
+            s_log(LOG_ERR, "SOCKS5/TOR failed to resolve '%s'", host_name);
+            socks.resp.rep=0x04; /* Host unreachable */
+        }
+        str_free(host_name);
+    } else {
+        s_log(LOG_ERR, "Unsupported SOCKS5 command %u", socks.req.cmd);
+        socks.resp.rep=0x07; /* Command not supported */
+    }
+
+    /* send response */
+    /* broken clients tend to expect the same address family for response,
+     * so stunnel tries to preserve the address family if possible */
+    if(socks.resp.atyp==0x04) { /* IP V6 address */
+        s_ssl_write(c, &socks, sizeof socks.v6);
+    } else {
+        socks.resp.atyp=0x01; /* IP v4 address */
+        s_ssl_write(c, &socks, sizeof socks.v4);
+    }
+    if(close_connection) /* request failed */
+        longjmp(c->err, 2); /* don't reset */
 }
 
 /**************************************** proxy */

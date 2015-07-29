@@ -1,6 +1,18 @@
 stunnel change log
 
 
+Version 5.08, 2014.12.09, urgency: MEDIUM:
+* New features
+  - Added SOCKS4/SOCKS4a protocol support.
+  - Added SOCKS5 protocol support.
+  - Added SOCKS RESOLVE [F0] TOR extension support.
+  - Updated automake to version 1.14.1.
+  - OpenSSL directory searching is now relative to the sysroot.
+* Bugfixes
+  - Fixed improper hangup condition handling.
+  - Fixed missing -pic linker option.  This is required for
+    Android 5.0 and improves security.
+
 Version 5.07, 2014.11.01, urgency: MEDIUM:
 * New features
   - Several SMTP server protocol negotiation improvements.

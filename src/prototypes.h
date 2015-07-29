@@ -451,7 +451,7 @@ typedef struct {
     SOCKADDR_UNION peer_addr; /* peer address */
     socklen_t peer_addr_len;
     SOCKADDR_UNION *bind_addr; /* address to bind() the socket */
-    SOCKADDR_LIST connect_addr; /* for dynamically assigned addresses */
+    SOCKADDR_LIST connect_addr; /* either copied or resolved dynamically */
     FD local_rfd, local_wfd; /* read and write local descriptors */
     FD remote_fd; /* remote file descriptor */
         /* IP for explicit local bind or transparent proxy */
@@ -487,6 +487,9 @@ void fd_printf(CLI *, int, const char *, ...)
 #else
     ;
 #endif
+void s_ssl_write(CLI *, const void *, int);
+void s_ssl_read(CLI *, void *, int);
+char *ssl_getstring(CLI *c);
 
 /**************************************** prototype for protocol.c */
 
@@ -505,6 +508,8 @@ void resolver_init();
 int name2addr(SOCKADDR_UNION *, char *, char *);
 int hostport2addr(SOCKADDR_UNION *, char *, char *);
 int namelist2addrlist(SOCKADDR_LIST *, NAME_LIST *, char *);
+int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
+void addrlist_init(SOCKADDR_LIST *);
 void addrlist_dup(SOCKADDR_LIST *, const SOCKADDR_LIST *);
 char *s_ntop(SOCKADDR_UNION *, socklen_t);
 socklen_t addr_len(const SOCKADDR_UNION *);

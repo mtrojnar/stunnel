@@ -1,6 +1,6 @@
 #!/bin/sh
 set -ev
-VERSION=5.07
+VERSION=5.08
 DST=stunnel-$VERSION-android
 
 # to build Zlib:
@@ -17,14 +17,15 @@ DST=stunnel-$VERSION-android
 
 mkdir -p bin/android
 cd bin/android
-../../configure --build=i686-pc-linux-gnu --host=arm-linux-androideabi --prefix=/data/local --with-ssl=/opt/androideabi/sysroot
+../../configure --with-sysroot --build=i686-pc-linux-gnu --host=arm-linux-androideabi --prefix=/data/local
 make clean
 make
 cd ../..
 mkdir $DST
-cp bin/android/src/stunnel /opt/androideabi/sysroot/bin/openssl $DST
+cp bin/android/src/stunnel $DST
 # arm-linux-androideabi-strip $DST/stunnel $DST/openssl
-arm-linux-androideabi-strip $DST/openssl
+# cp /opt/androideabi/sysroot/bin/openssl $DST
+# arm-linux-androideabi-strip $DST/openssl
 zip -r $DST.zip $DST
 rm -rf $DST
 # sha256sum $DST.zip

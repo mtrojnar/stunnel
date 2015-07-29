@@ -655,7 +655,8 @@ This protocol is only supported in client mode.
 
 =item I<pgsql>
 
-Based on http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
+Based on
+F<http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982>
 
 =item I<pop3>
 
@@ -663,11 +664,28 @@ Based on RFC 2449 - I<POP3 Extension Mechanism>
 
 =item I<proxy>
 
-Haproxy client IP address http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
+Haproxy client IP address
+F<http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt>
 
 =item I<smtp>
 
 Based on RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
+
+=item I<socks>
+
+SOCKS versions 4, 4a, and 5 are supported.  The SOCKS protocol itself
+is encapsulated within SSL/TLS encryption layer to protect the final
+destination address.
+
+F<http://www.openssh.com/txt/socks4.protocol>
+
+F<http://www.openssh.com/txt/socks4a.protocol>
+
+The BIND command of the SOCKS protocol is not supported.
+The USERID parameter is ignored.
+
+See Examples section for sample configuration files for VPN based on SOCKS
+encryption.
 
 =back
 
@@ -717,7 +735,7 @@ or re-keying long lasting connections.
 On the other hand this feature can facilitate a trivial CPU-exhaustion
 DoS attack:
 
-http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html
+F<http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html>
 
 Please note that disabling SSL renegotiation does not fully mitigate
 this issue.
@@ -1037,6 +1055,26 @@ Note there must be no I<[service_name]> section.
     exec = /usr/sbin/imapd
     execargs = imapd
 
+To setup SOCKS VPN configure the following client service:
+
+    [socks_client]
+    client = yes
+    accept = 127.0.0.1:1080
+    connect = vpn_server:9080
+    verify = 4
+    CAfile = stunnel.pem
+
+The corresponding configuration on the vpn_server host:
+
+    [socks_server]
+    protocol = socks
+    accept = 9080
+    cert = stunnel.pem
+    key = stunnel.key
+
+Now test your configuration on the client machine with:
+
+    curl --socks4a localhost http://www.example.com/
 
 =head1 NOTES
 

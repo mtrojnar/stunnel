@@ -686,6 +686,22 @@ Przekazywanie adresu IP haproxy http://haproxy.1wt.eu/download/1.5/doc/proxy-pro
 
 Negocjacja RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
 
+=item I<socks>
+
+Wspierany jest protokół SOCKS w wersjach 4, 4a i 5.
+Protokół SOCKS enkapsulowany jest w protokole SSL/TLS, więc adres serwera
+docelowego nie jest widoczny dla napastnika przechwytującego ruch sieciowy.
+
+F<http://www.openssh.com/txt/socks4.protocol>
+
+F<http://www.openssh.com/txt/socks4a.protocol>
+
+Nie jest wspierana komenda BIND protokołu SOCKS.
+Przesłana wartość parametru USERID jest ignorowana.
+
+Sekcja PRZYKŁADY zawiera przykładowe pliki konfiguracyjne VPNa zbudowanego
+w oparciu o szyfrowany protokół SOCKS.
+
 =back
 
 =item B<protocolAuthentication> = basic | ntlm
@@ -1050,6 +1066,26 @@ konfiguracyjnym nie ma sekcji I<[nazwa_usługi]>.
     exec = /usr/sbin/imapd
     execargs = imapd
 
+Aby skonfigurować VPN można użyć następującej konfiguracji klienta:
+
+    [socks_client]
+    client = yes
+    accept = 127.0.0.1:1080
+    connect = vpn_server:9080
+    verify = 4
+    CAfile = stunnel.pem
+
+Odpowiadająca jej konfiguracja serwera vpn_server:
+
+    [socks_server]
+    protocol = socks
+    accept = 9080
+    cert = stunnel.pem
+    key = stunnel.key
+
+Do przetestowania konfiguracji można wydać na maszynie klienckiej komendę:
+
+    curl --socks4a localhost http://www.example.com/
 
 =head1 NOTKI
 
