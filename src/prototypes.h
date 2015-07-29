@@ -266,7 +266,7 @@ void daemon_loop(void);
 void unbind_ports(void);
 int bind_ports(void);
 #if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
-void drop_privileges(void);
+void drop_privileges(int);
 #endif
 int s_socket(int, int, int, int, char *);
 int s_pipe(int [2], int, char *);
@@ -398,7 +398,7 @@ void read_blocking(CLI *, int fd, void *, int);
 void fdputline(CLI *, int, const char *);
 char *fdgetline(CLI *, int);
 /* descriptor versions of fprintf/fscanf */
-int fdprintf(CLI *, int, const char *, ...)
+void fdprintf(CLI *, int, const char *, ...)
 #ifdef __GNUC__
        __attribute__ ((format (printf, 3, 4)));
 #else
@@ -511,6 +511,7 @@ void libwrap_auth(CLI *);
 /**************************************** prototypes for str.c */
 
 void str_init();
+void str_canary();
 void str_cleanup();
 void str_stats();
 void *str_alloc(size_t);

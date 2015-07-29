@@ -1,6 +1,17 @@
 stunnel change log
 
 
+Version 4.44, 2011.09.17, urgency: MEDIUM:
+* New features
+  - Major automake/autoconf cleanup.
+  - Heap buffer overflow protection with canaries.
+  - Stack buffer overflow protection with -fstack-protector.
+* Bugfixes
+  - Fixed garbled error messages on errors with setuid/setgid options.
+  - SNI fixes (thx to Alexey Drozdov).
+  - Use after free in fdprintf() (thx to Alexey Drozdov).
+    This issue might cause GPF with "protocol" or "ident" options.
+
 Version 4.43, 2011.09.07, urgency: MEDIUM:
 * New features
   - Updated Win32 DLLs for OpenSSL 1.0.0e.

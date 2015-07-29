@@ -114,8 +114,8 @@ typedef int socklen_t;
 #endif
 
 /* TCP wrapper */
-#if HAVE_TCPD_H && HAVE_LIBWRAP
-#define USE_LIBWRAP
+#if defined HAVE_TCPD_H && defined HAVE_LIBWRAP
+#define USE_LIBWRAP 1
 #endif
 
 /* must be included before sys/stat.h for Ultrix */
@@ -231,7 +231,7 @@ typedef unsigned long u32;
 
     /* OpenVMS compatibility */
 #ifdef __vms
-#define libdir "__NA__"
+#define LIBDIR "__NA__"
 #define PIDFILE "SYS$LOGIN:STUNNEL.PID"
 #ifdef __alpha
 #define HOST "alpha-openvms"

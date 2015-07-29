@@ -1,22 +1,24 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.43])
+AC_INIT([stunnel],[4.44])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.43)
+AM_INIT_AUTOMAKE(stunnel, 4.44)
+AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
-AC_DEFINE(_GNU_SOURCE)
+AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
 
 AC_CANONICAL_HOST
-AC_SUBST(host)
-AC_DEFINE_UNQUOTED(HOST, "$host")
+AC_SUBST([host])
+AC_DEFINE_UNQUOTED([HOST], ["$host"], [Host description])
 define([esc], [`echo ]$1[ | tr abcdefghijklmnopqrstuvwxyz.- ABCDEFGHIJKLMNOPQRSTUVWXYZ__ | tr -dc ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_`])
 AC_DEFINE_UNQUOTED(esc(CPU_$host_cpu))
 AC_DEFINE_UNQUOTED(esc(VENDOR_$host_vendor))
 AC_DEFINE_UNQUOTED(esc(OS_$host_os))
 
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
@@ -26,12 +28,34 @@ AC_PROG_MAKE_SET
 # AC_TYPE_PID_T
 # AC_HEADER_TIME
 
-AC_MSG_NOTICE([**************************************** C compiler flags])
+AC_MSG_NOTICE([**************************************** compiler/linker flags])
+AC_SUBST([stunnel_LDFLAGS])
+
 AC_MSG_CHECKING([whether $CC accepts -pthread])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -pthread"
+valid_LDFLAGS="$LDFLAGS"; LDFLAGS="$LDFLAGS -pthread"
 AC_LINK_IFELSE([int main() {return 0;}],
-    [AC_MSG_RESULT([yes])],
-    [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
+    [
+        AC_MSG_RESULT([yes])
+        AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -pthread"])
+        AC_SUBST([stunnel_LDLAGS], ["$stunnel_LDLAGS -pthread"])
+    ], [
+        AC_MSG_RESULT([no])
+    ])
+CFLAGS="$valid_CFLAGS"; LDFLAGS="$valid_LDFLAGS"
+
+AC_MSG_CHECKING([whether $CC accepts -fstack-protector])
+valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -fstack-protector"
+valid_LDFLAGS="$LDFLAGS"; LDFLAGS="$LDFLAGS -fstack-protector"
+AC_LINK_IFELSE([int main() {return 0;}],
+    [
+        AC_MSG_RESULT([yes])
+        AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -fstack-protector"])
+        AC_SUBST([stunnel_LDLAGS], ["$stunnel_LDLAGS -fstack-protector"])
+    ], [
+        AC_MSG_RESULT([no])
+    ])
+CFLAGS="$valid_CFLAGS"; LDFLAGS="$valid_LDFLAGS"
 
 AC_MSG_CHECKING([whether $CC accepts -Wall])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wall"
@@ -45,14 +69,14 @@ AC_LINK_IFELSE([int main() {return 0;}],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
-AC_MSG_CHECKING([whether $CC accepts -pedantic])
-valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -pedantic"
+AC_MSG_CHECKING([whether $CC accepts -Wno-long-long])
+valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wno-long-long"
 AC_LINK_IFELSE([int main() {return 0;}],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
-AC_MSG_CHECKING([whether $CC accepts -Wno-long-long])
-valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wno-long-long"
+AC_MSG_CHECKING([whether $CC accepts -pedantic])
+valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -pedantic"
 AC_LINK_IFELSE([int main() {return 0;}],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
@@ -71,12 +95,12 @@ AC_MSG_CHECKING([for socklen_t])
 AC_EGREP_HEADER(socklen_t, sys/socket.h,
     AC_MSG_RESULT([yes]),
     AC_MSG_RESULT([no (defined as int)])
-    AC_DEFINE(socklen_t, int))
+    AC_DEFINE([socklen_t], [int], [Type of socklen_t]))
 
 AC_MSG_NOTICE([**************************************** PTY device files])
 if test "$cross_compiling" = "no"; then
-    AC_CHECK_FILE("/dev/ptmx", AC_DEFINE(HAVE_DEV_PTMX))
-    AC_CHECK_FILE("/dev/ptc", AC_DEFINE(HAVE_DEV_PTS_AND_PTC))
+    AC_CHECK_FILE("/dev/ptmx", AC_DEFINE([HAVE_DEV_PTMX], [1], [Define to 1 if you have '/dev/ptmx' device.]))
+    AC_CHECK_FILE("/dev/ptc", AC_DEFINE([HAVE_DEV_PTS_AND_PTC], [1], [Define to 1 if you have '/dev/ptc' device.]))
 else
     AC_MSG_WARN([cross-compilation: assuming /dev/ptmx and /dev/ptc are not available])
 fi
@@ -85,16 +109,16 @@ AC_MSG_NOTICE([**************************************** entropy sources])
 
 if test "$cross_compiling" = "no"; then
     AC_ARG_WITH(egd-socket,
-        [  --with-egd-socket=FILE  Entropy Gathering Daemon socket pathname],
+        [  --with-egd-socket=FILE  Entropy Gathering Daemon socket path],
         [EGD_SOCKET="$withval"]
     )
     if test -n "$EGD_SOCKET"; then
-        AC_DEFINE_UNQUOTED(EGD_SOCKET, "$EGD_SOCKET")
+        AC_DEFINE_UNQUOTED([EGD_SOCKET], ["$EGD_SOCKET"], [Entropy Gathering Daemon socket path])
     fi
 
     # Check for user-specified random device
     AC_ARG_WITH(random,
-    [  --with-random=FILE      read randomness from FILE (default=/dev/urandom)],
+    [  --with-random=FILE      read randomness from file (default=/dev/urandom)],
         [RANDOM_FILE="$withval"],
         [
             # Check for random device
@@ -102,8 +126,8 @@ if test "$cross_compiling" = "no"; then
         ]
     )
     if test -n "$RANDOM_FILE"; then
-        AC_SUBST(RANDOM_FILE)
-        AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE")
+        AC_SUBST([RANDOM_FILE])
+        AC_DEFINE_UNQUOTED([RANDOM_FILE], ["$RANDOM_FILE"], [Random file path])
     fi
 else
     AC_MSG_WARN([cross-compilation: assuming entropy sources are not available])
@@ -118,7 +142,7 @@ else
 fi
 AC_MSG_CHECKING([for default group])
 AC_MSG_RESULT([$DEFAULT_GROUP])
-AC_SUBST(DEFAULT_GROUP)
+AC_SUBST([DEFAULT_GROUP])
 
 AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_DIRENT
@@ -130,8 +154,8 @@ AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h stropts.h)
 AC_CHECK_HEADERS(grp.h unistd.h util.h libutil.h sys/resource.h pty.h)
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
-  [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL])], [],
-  [@%:@include <sys/socket.h>])
+  [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1], [Define to 1 if you have 'msghdr.msg_control' structure.])],
+  [], [@%:@include <sys/socket.h>])
 AC_CHECK_HEADERS([linux/netfilter_ipv4.h], , , 
   [[
 #include <limits.h>
@@ -164,14 +188,14 @@ checkpthreadlib() { :
         [
             LIBS="$LIBS -pthread"
             HAVE_LIBPTHREAD="yes"
-            AC_DEFINE(HAVE_LIBPTHREAD)
+            AC_DEFINE([HAVE_LIBPTHREAD], [1], [Define to 1 if you have 'libpthread' library.])
         ]
     )
 
     # OSF hack instead of simple AC_CHECK_LIB here
     AC_MSG_CHECKING([for pthread_create in -lpthread])
-    saved_LIBS="$LIBS"
-    LIBS="$saved_LIBS -lpthread"
+    valid_LIBS="$LIBS"
+    LIBS="$valid_LIBS -lpthread"
     AC_LINK_IFELSE(
         [AC_LANG_PROGRAM(
             [[#include <pthread.h>]],
@@ -180,10 +204,10 @@ checkpthreadlib() { :
         [
             AC_MSG_RESULT([yes])
             HAVE_LIBPTHREAD="yes"
-            AC_DEFINE(HAVE_LIBPTHREAD)
+            AC_DEFINE([HAVE_LIBPTHREAD], [1], [Define to 1 if you have 'libpthread' library.])
         ], [
             AC_MSG_RESULT([no])
-            LIBS="$saved_LIBS"
+            LIBS="$valid_LIBS"
         ]
     )
 }
@@ -194,16 +218,16 @@ AC_ARG_WITH(threads,
     case "$withval" in
         ucontext)
             AC_MSG_NOTICE([UCONTEXT mode selected])
-            AC_DEFINE(USE_UCONTEXT)
+            AC_DEFINE([USE_UCONTEXT], [1], [Define to 1 to select UCONTEXT mode])
             ;;
         pthread)
             checkpthreadlib
             AC_MSG_NOTICE([PTHREAD mode selected])
-            AC_DEFINE(USE_PTHREAD)
+            AC_DEFINE([USE_PTHREAD], [1], [Define to 1 to select PTHREAD mode])
             ;;
         fork)
             AC_MSG_NOTICE([FORK mode selected])
-            AC_DEFINE(USE_FORK)
+            AC_DEFINE([USE_FORK], [1], [Define to 1 to select FORK mode])
             ;;
         *)
             AC_MSG_ERROR([Unknown thread model \"${withval}\"])
@@ -213,13 +237,13 @@ AC_ARG_WITH(threads,
     checkpthreadlib
     if test "$HAVE_LIBPTHREAD" = "yes" -a "$ac_cv_header_pthread_h" = "yes"; then
         AC_MSG_NOTICE([PTHREAD thread model detected])
-        AC_DEFINE(USE_PTHREAD)
+        AC_DEFINE([USE_PTHREAD], [1], [Define to 1 to select PTHREAD mode])
     elif test "$ac_cv_func_getcontext" = "yes" -a "$ac_cv_header_ucontext_h" = "yes"; then
         AC_MSG_NOTICE([UCONTEXT thread model detected])
-        AC_DEFINE(USE_UCONTEXT)
+        AC_DEFINE([USE_UCONTEXT], [1], [Define to 1 to select UCONTEXT mode])
     else
         AC_MSG_NOTICE([FORK thread model detected])
-        AC_DEFINE(USE_FORK)
+        AC_DEFINE([USE_FORK], [1], [Define to 1 to select FORK mode])
     fi
 ])
 
@@ -249,14 +273,14 @@ AC_LINK_IFELSE(
 #include <sys/socket.h>
 #include <netdb.h>]],
         [[getaddrinfo(NULL, NULL, NULL, NULL);]],)],
-    [AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_GETADDRINFO)],
+    [AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_GETADDRINFO], [1], [Define to 1 if you have 'getaddrinfo' function.])],
     [AC_MSG_RESULT([no])])
 # poll() is not recommended on Mac OS X <=10.3 and broken on Mac OS X >=10.4
 AC_MSG_CHECKING([for broken poll() implementation])
 case "$host_os" in
 darwin*)
     AC_MSG_RESULT([yes (poll() disabled)])
-    AC_DEFINE(BROKEN_POLL)
+    AC_DEFINE([BROKEN_POLL], [1], [Define to 1 if you have a broken 'poll' implementation.])
     ;;
 *)
     AC_MSG_RESULT([no])
@@ -273,7 +297,7 @@ AC_ARG_ENABLE(ipv6,
     [
         case "$enableval" in
             yes) AC_MSG_RESULT([yes])
-                 AC_DEFINE(USE_IPv6)
+                 AC_DEFINE([USE_IPv6], [1], [Define to 1 to enable IPv6 support])
                  ;;
             no)  AC_MSG_RESULT([no])
                  ;;
@@ -282,7 +306,7 @@ AC_ARG_ENABLE(ipv6,
                  ;;
         esac
     ],
-    [AC_MSG_RESULT([yes]); AC_DEFINE(USE_IPv6)],
+    [AC_MSG_RESULT([yes]); AC_DEFINE([USE_IPv6], [1], [Define to 1 to enable IPv6 support])],
     [AC_MSG_RESULT([no])]
 )
 
@@ -294,7 +318,7 @@ AC_ARG_ENABLE(libwrap,
     [
         case "$enableval" in
             yes) AC_MSG_RESULT([no])
-                 AC_DEFINE(HAVE_LIBWRAP)
+                 AC_DEFINE([HAVE_LIBWRAP], [1], [Define to 1 if you have 'libwrap' library.])
                  LIBS="$LIBS -lwrap"
                  ;;
             no)  AC_MSG_RESULT([yes])
@@ -307,15 +331,15 @@ AC_ARG_ENABLE(libwrap,
     [
         AC_MSG_RESULT([autodetecting])
         AC_MSG_CHECKING([for hosts_access in -lwrap])
-        saved_LIBS="$LIBS"
-        LIBS="$saved_LIBS -lwrap"
+        valid_LIBS="$LIBS"
+        LIBS="$valid_LIBS -lwrap"
         AC_LINK_IFELSE(
             [AC_LANG_PROGRAM(
                 [[int hosts_access(); int allow_severity, deny_severity;]],
                 [[hosts_access()]]
             )],
-            [AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_LIBWRAP)],
-            [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"]
+            [AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_LIBWRAP], [1], [Define to 1 if you have 'libwrap' library.])],
+            [AC_MSG_RESULT([no]); LIBS="$valid_LIBS"]
         )
     ]
 )
@@ -329,7 +353,7 @@ AC_ARG_ENABLE(fips,
             yes) AC_MSG_RESULT([yes])
                  sub_dirs="/ssl/fips /ssl/fips-1.0 /"
                  fips="yes"
-                 AC_DEFINE(USE_FIPS)
+                 AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS mode])
                  ;;
             no)  AC_MSG_RESULT([no])
                  sub_dirs="/ssl /openssl /"
@@ -349,9 +373,9 @@ AC_ARG_ENABLE(fips,
 
 AC_MSG_NOTICE([**************************************** SSL])
 check_ssl_dir() { :
-    ssldir="$1"
+    SSLDIR="$1"
     if test -f "$1/include/openssl/ssl.h"; then
-        AC_DEFINE(HAVE_OPENSSL)
+        AC_DEFINE([HAVE_OPENSSL], [1], [Define to 1 if you have OpenSSL library.])
         return 0
     fi
     if test -f "$1/include/ssl.h"; then
@@ -375,31 +399,22 @@ AC_ARG_WITH(ssl,
         done
     ]
 )
-if test ! -d "$ssldir"; then
+if test ! -d "$SSLDIR"; then
 AC_MSG_RESULT([not found])
 AC_MSG_ERROR([
 Couldn't find your SSL library installation dir
 Use --with-ssl option to fix this problem
 ]) 
 fi
-AC_MSG_RESULT([$ssldir])
-AC_SUBST(ssldir)
-AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
+AC_MSG_RESULT([$SSLDIR])
+AC_SUBST([SSLDIR])
+AC_DEFINE_UNQUOTED([SSLDIR], ["$SSLDIR"], [SSL directory])
 
-CFLAGS="$CFLAGS -I$ssldir/include"
-LIBS="$LIBS -L$ssldir/lib64 -L$ssldir/lib -lssl -lcrypto"
+valid_CPPFLAGS="$CPPFLAGS"; CPPFLAGS="$CPPFLAGS -I$SSLDIR/include"
+valid_LIBS="$LIBS"; LIBS="$LIBS -L$SSLDIR/lib64 -L$SSLDIR/lib -lssl -lcrypto"
 
-AC_MSG_CHECKING([for obsolete RSAref library])
-saved_LIBS="$LIBS"
-LIBS="$saved_LIBS -lRSAglue -L$libdir -lrsaref"
-AC_LINK_IFELSE(
-    [AC_LANG_PROGRAM([[]], [[]])],
-    [AC_MSG_RESULT([yes])],
-    [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"]
-)
-
-AC_CHECK_HEADER([$ssldir/include/openssl/engine.h],
-    [AC_DEFINE([HAVE_OSSL_ENGINE_H])],
+AC_CHECK_HEADER([$SSLDIR/include/openssl/engine.h],
+    [AC_DEFINE([HAVE_OSSL_ENGINE_H], [1], [Define to 1 if you have <engine.h> header file.])],
     [AC_MSG_WARN([OpenSSL engine header not found])])
 
 AC_MSG_CHECKING([for FIPS_mode_set])
@@ -410,7 +425,7 @@ if test "$fips" = "auto"; then
             [[FIPS_mode_set(1);]],
         )],
         [AC_MSG_RESULT([yes])
-            AC_DEFINE(USE_FIPS)
+            AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS mode.])
         ], [
             AC_MSG_RESULT([no])
         ]
@@ -418,6 +433,9 @@ if test "$fips" = "auto"; then
 else
     AC_MSG_RESULT([test skipped])
 fi
+
+CPPFLAGS="$valid_CPPFLAGS"
+LIBS="$valid_LIBS"
 
 AC_MSG_NOTICE([**************************************** write the results])
 AC_CONFIG_FILES([Makefile src/Makefile src/stunnel3 doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init tools/stunnel.service])

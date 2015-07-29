@@ -37,21 +37,9 @@
 
 #ifndef VERSION_MAJOR
 
-/* START CUSTOMIZE */
-#define VERSION_MAJOR 4
-#define VERSION_MINOR 43
-/* END CUSTOMIZE */
-
-/* all the following macros are ABSOLUTELY NECESSARY to have proper string
-   construction with VARIOUS C preprocessors (EVC, VC, BCC, GCC) */
-#define STRINGIZE0(x) #x
-#define STRINGIZE(x) STRINGIZE0(x)
-#define STRZCONCAT30(a,b,c) a##b##c
-#define STRZCONCAT3(a,b,c) STRZCONCAT30(a,b,c)
- 
-/* for resource.rc, stunnel.c, gui.c */
-#define STUNNEL_VERSION0 STRZCONCAT3(VERSION_MAJOR, . , VERSION_MINOR)
-#define STUNNEL_VERSION STRINGIZE(STUNNEL_VERSION0)
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 /* HOST may be undefined on Win32 platform */
 #ifndef HOST
@@ -66,7 +54,23 @@
 #define HOST "x86-pc-unknown"
 #endif /* _MSC_VER */
 #endif /* __MINGW32__ */
-#endif /* !HOST */
+#endif /* HOST */
+
+/* START CUSTOMIZE */
+#define VERSION_MAJOR 4
+#define VERSION_MINOR 44
+/* END CUSTOMIZE */
+
+/* all the following macros are ABSOLUTELY NECESSARY to have proper string
+   construction with VARIOUS C preprocessors (EVC, VC, BCC, GCC) */
+#define STRINGIZE0(x) #x
+#define STRINGIZE(x) STRINGIZE0(x)
+#define STRZCONCAT30(a,b,c) a##b##c
+#define STRZCONCAT3(a,b,c) STRZCONCAT30(a,b,c)
+ 
+/* for resource.rc, stunnel.c, gui.c */
+#define STUNNEL_VERSION0 STRZCONCAT3(VERSION_MAJOR, . , VERSION_MINOR)
+#define STUNNEL_VERSION STRINGIZE(STUNNEL_VERSION0)
 
 /* for resources.rc */
 #define STUNNEL_VERSION_FIELDS VERSION_MAJOR,VERSION_MINOR,0,0
@@ -79,6 +83,6 @@
 #pragma message ( "VERSION.H: STUNNEL_PRODUCTNAME is " STUNNEL_PRODUCTNAME )
 #endif
 
-#endif
+#endif /* VERSION_MAJOR */
 
 /* end of version.h */

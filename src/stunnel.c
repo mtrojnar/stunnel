@@ -90,6 +90,7 @@ void main_initialize(char *arg1, char *arg2) {
 
     stunnel_info(LOG_NOTICE);
     parse_commandline(arg1, arg2);
+    str_canary(); /* needs prng initialization from parse_commandline */
 #ifdef USE_LIBWRAP
     /* spawn LIBWRAP_CLIENTS processes unless inetd mode is configured
      * execute after parse_commandline() to know service_options.next,
@@ -111,7 +112,7 @@ void main_initialize(char *arg1, char *arg2) {
 #endif /* HAVE_CHROOT */
 
 #if !defined(USE_WIN32) && !defined(__vms) && !defined(USE_OS2)
-    drop_privileges();
+    drop_privileges(1);
 #endif /* standard Unix */
 
     /* log_open() must be be called after drop_privileges()
@@ -322,27 +323,27 @@ static void change_root(void) {
 
 #if !defined(USE_WIN32) && !defined(__vms) && !defined(USE_OS2)
 
-void drop_privileges(void) {
+void drop_privileges(int critical) {
 #ifdef HAVE_SETGROUPS
     gid_t gr_list[1];
 #endif
 
     /* set uid and gid */
     if(global_options.gid) {
-        if(setgid(global_options.gid)) {
+        if(setgid(global_options.gid) && critical) {
             sockerror("setgid");
             die(1);
         }
 #ifdef HAVE_SETGROUPS
         gr_list[0]=global_options.gid;
-        if(setgroups(1, gr_list)) {
+        if(setgroups(1, gr_list) && critical) {
             sockerror("setgroups");
             die(1);
         }
 #endif
     }
     if(global_options.uid) {
-        if(setuid(global_options.uid)) {
+        if(setuid(global_options.uid) && critical) {
             sockerror("setuid");
             die(1);
         }

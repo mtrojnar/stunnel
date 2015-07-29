@@ -46,6 +46,8 @@
 #endif /* __va_copy */
 #endif /* va_copy */
 
+static u8 canary[10]; /* 80-bit canary value */
+
 typedef struct alloc_list ALLOC_LIST;
 
 typedef struct alloc_tls {
@@ -201,6 +203,19 @@ static ALLOC_TLS *get_alloc_tls() {
 
 #endif /* USE_WIN32 */
 
+void str_canary() {
+    ALLOC_TLS *alloc_tls;
+    ALLOC_LIST *tmp;
+
+    RAND_bytes(canary, sizeof canary);
+    /* str_canary() is executed with only one thread,
+       so it is enough to process only one list */
+    alloc_tls=get_alloc_tls();
+    if(alloc_tls) /* need to rewrite existing canaries */
+        for(tmp=alloc_tls->head; tmp; tmp=tmp->next)
+            memcpy((u8 *)(tmp+1)+tmp->size, canary, sizeof canary);
+}
+
 void str_cleanup() {
     ALLOC_TLS *alloc_tls;
 
@@ -218,8 +233,10 @@ void str_stats() {
 
     alloc_tls=get_alloc_tls();
     if(alloc_tls)
-        s_log(LOG_DEBUG, "str_stats: %d block(s), %d byte(s)",
-            alloc_tls->blocks, alloc_tls->bytes);
+        s_log(LOG_DEBUG,
+            "str_stats: %d block(s), %d data byte(s), %d control byte(s)",
+            alloc_tls->blocks, alloc_tls->bytes,
+            alloc_tls->blocks*(sizeof(ALLOC_LIST)+sizeof canary));
     else
         s_log(LOG_DEBUG, "str_stats: alloc_tls not initialized");
 }
@@ -239,9 +256,10 @@ void *str_alloc(size_t size) {
         alloc_tls->bytes=alloc_tls->blocks=0;
         set_alloc_tls(alloc_tls);
     }
-    alloc_list=calloc(1, sizeof(ALLOC_LIST)+size);
+    alloc_list=calloc(1, sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
         return NULL;
+    memcpy((u8 *)(alloc_list+1)+size, canary, sizeof canary);
     alloc_list->prev=NULL;
     alloc_list->next=alloc_tls->head;
     alloc_list->tls=alloc_tls;
@@ -263,7 +281,9 @@ void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
     if(size>=1024*1024) /* huge allocations are not allowed */
         return NULL;
     previous_alloc_list=get_alloc_list_ptr(ptr, file, line);
-    alloc_list=realloc(previous_alloc_list, sizeof(ALLOC_LIST)+size);
+    alloc_list=realloc(previous_alloc_list,
+        sizeof(ALLOC_LIST)+size+sizeof canary);
+    memcpy((u8 *)(alloc_list+1)+size, canary, sizeof canary);
     if(!alloc_list)
         return NULL;
     if(alloc_list->tls) { /* not detached */
@@ -329,6 +349,11 @@ static ALLOC_LIST *get_alloc_list_ptr(void *ptr, char *file, int line) {
     }
     if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls()) {
         s_log(LOG_CRIT, "INTERNAL ERROR: Wrong thread at %s, line %d",
+            file, line);
+        die(1);
+    }
+    if(memcmp((u8 *)ptr+alloc_list->size, canary, sizeof canary)) {
+        s_log(LOG_CRIT, "INTERNAL ERROR: Dead canary at %s, line %d",
             file, line);
         die(1);
     }

@@ -156,6 +156,8 @@ static int servername_cb(SSL *ssl, int *ad, void *arg) {
             c=SSL_get_ex_data(ssl, cli_index);
             c->opt=list->opt;
             SSL_set_SSL_CTX(ssl, c->opt->ctx);
+            SSL_set_verify(ssl, SSL_CTX_get_verify_mode(c->opt->ctx),
+                SSL_CTX_get_verify_callback(c->opt->ctx));
             s_log(LOG_NOTICE, "SNI: switched to section %s",
                 c->opt->servname);
 #ifdef USE_LIBWRAP

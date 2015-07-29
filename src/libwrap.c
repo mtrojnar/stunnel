@@ -78,7 +78,7 @@ void libwrap_init(int num) {
             ioerror("fork");
             die(1);
         case  0:    /* child */
-            drop_privileges(); /* libwrap processes are not chrooted */
+            drop_privileges(0); /* libwrap processes are not chrooted */
             close(0); /* stdin */
             close(1); /* stdout */
             if(!global_options.option.foreground) /* for logging in read_fd */

@@ -763,7 +763,7 @@ char *fdgetline(CLI *c, int fd) {
     return line;
 }
 
-int fdprintf(CLI *c, int fd, const char *format, ...) {
+void fdprintf(CLI *c, int fd, const char *format, ...) {
     va_list ap;
     char *line;
 
@@ -776,7 +776,6 @@ int fdprintf(CLI *c, int fd, const char *format, ...) {
     }
     fdputline(c, fd, line);
     str_free(line);
-    return strlen(line)+2;
 }
 
 #define INET_SOCKET_PAIR

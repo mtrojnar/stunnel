@@ -1,11 +1,11 @@
 prefix=.
 DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DPACKAGE_TARNAME=\"stunnel\" \
-	-DPACKAGE_VERSION=\"4.43\" \
-	-DPACKAGE_STRING=\"stunnel\ 4.43\" \
+	-DPACKAGE_VERSION=\"4.44\" \
+	-DPACKAGE_STRING=\"stunnel\ 4.44\" \
 	-DPACKAGE_BUGREPORT=\"\" \
 	-DPACKAGE=\"stunnel\" \
-	-DVERSION=\"4.43\" \
+	-DVERSION=\"4.44\" \
 	-DSTDC_HEADERS=1 \
 	-DHAVE_SYS_TYPES_H=1 \
 	-DHAVE_SYS_STAT_H=1 \
@@ -16,7 +16,7 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DHAVE_UNISTD_H=1 \
 	-DHAVE_OPENSSL=1 \
 	-DHAVE_OSSL_ENGINE_H=1 \
-	-Dssldir=\"/usr\" \
+	-DSSLDIR=\"/usr\" \
 	-DHOST=\"i386-pc-os2-emx\" \
 	-DHAVE_LIBSOCKET=1 \
 	-DHAVE_GRP_H=1 \
@@ -40,21 +40,21 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 
 CC = gcc
 .SUFFIXES = .c .o
-openssldir = u:/extras
-#syslogdir = /unixos2/workdir/syslog
-INCLUDES = -I$(openssldir)/outinc
-LIBS = -lsocket -L$(openssldir)/out -lssl -lcrypto -lz -lsyslog
+OPENSSLDIR = u:/extras
+#SYSLOGDIR = /unixos2/workdir/syslog
+INCLUDES = -I$(OPENSSLDIR)/outinc
+LIBS = -lsocket -L$(OPENSSLDIR)/out -lssl -lcrypto -lz -lsyslog
 OBJS = file.o client.o log.o options.o protocol.o network.o ssl.o ctx.o verify.o sthreads.o stunnel.o pty.o resolver.o str.o
-libdir = .
-cflags = -O2 -Wall -Wshadow -Wcast-align -Wpointer-arith
+LIBDIR = .
+CFLAGS = -O2 -Wall -Wshadow -Wcast-align -Wpointer-arith
 
 all: stunnel.exe
 
 stunnel.exe: $(OBJS)
-	$(CC) -Zmap $(cflags) -o $@ $(OBJS) $(LIBS)
+	$(CC) -Zmap $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
 .c.o:
-	$(CC) $(cflags) $(DEFS) $(INCLUDES) -o $@ -c $<
+	$(CC) $(CFLAGS) $(DEFS) $(INCLUDES) -o $@ -c $<
 
 client.o: client.c common.h prototypes.h
 #env.o: env.c common.h prototypes.h
