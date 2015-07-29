@@ -39,22 +39,27 @@
 #define UWM_SYSTRAY (WM_USER + 1) /* sent to us by the systray */
 #define LOG_LINES 250
 
-HMENU hpopup;
-HWND hwnd=NULL;
-
-LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
-DWORD WINAPI ThreadFunc(LPVOID);
+/* Externals */
 int unix_main(int, char *[]);
 
-int win_main(HINSTANCE, HINSTANCE, LPSTR, int);
-void save_file(HWND);
-LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
-char *log_txt(void);
-void set_visible(int);
-void WINAPI service_main(DWORD, LPTSTR *);
-int install_service(void);
-int uninstall_service(void);
+/* Prototypes */
+static DWORD WINAPI ThreadFunc(LPVOID);
+static LRESULT CALLBACK wndProc(HWND, UINT, WPARAM, LPARAM);
 
+static int win_main(HINSTANCE, HINSTANCE, LPSTR, int);
+static void save_file(HWND);
+static LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
+static char *log_txt(void);
+static void set_visible(int);
+
+/* NT Service related function */
+static int start_service(void);
+static int install_service(void);
+static int uninstall_service(void);
+static void WINAPI service_main(DWORD, LPTSTR *);
+static void WINAPI control_handler(DWORD);
+
+/* Global variables */
 static struct LIST {
   struct LIST *next;
   int len;
@@ -63,6 +68,8 @@ static struct LIST {
 static HINSTANCE ghInst;
 static HWND EditControl=NULL;
 static HMENU htraymenu, hmainmenu;
+static HMENU hpopup;
+static HWND hwnd=NULL;
 
 static char service_path[MAX_PATH];
 static SERVICE_STATUS serviceStatus;
@@ -93,44 +100,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         return 1;
     }
 
-    if(WSAStartup(0x0101, &wsa_state)) {
-        win_log("Failed to initialize winsock");
-        error_mode=1;
-    }
-
-    if(!setjmp(jump_buf)) {
-        main_initialize(lpszCmdLine[0] ? lpszCmdLine : NULL);
-    }
-
-    if(!strcmpi(lpszCmdLine, "-service")) {
-        SERVICE_TABLE_ENTRY serviceTable[]={
-            {options.win32_service, service_main},
-            {0, 0}
-        };
-
-        if(!StartServiceCtrlDispatcher(serviceTable)) {
-            MessageBox(hwnd, "Unable to start the service",
-                options.win32_service, MB_ICONERROR);
-            return 1;
-        }
-        return 0; /* NT service started */
-    }
-
     /* setup service_path for CreateService() */
     strcpy(service_path, "\"");
     strcat(service_path, exe_file_name);
     strcat(service_path, "\" -service");
     /* strcat(service_path, lpszCmdLine); */
 
-    if(!strcmpi(lpszCmdLine, "-install"))
-        return install_service();
-    if(!strcmpi(lpszCmdLine, "-uninstall"))
-        return uninstall_service();
+    if(WSAStartup(0x0101, &wsa_state)) {
+        win_log("Failed to initialize winsock");
+        error_mode=1;
+    }
+
+    if(!strcmpi(lpszCmdLine, "-service")) {
+        if(!setjmp(jump_buf))
+            main_initialize(NULL);
+        return start_service(); /* Always start service with -service option */
+    }
+
+    if(!error_mode && !setjmp(jump_buf)) { /* TRY */
+        if(!strcmpi(lpszCmdLine, "-install")) {
+            main_initialize(NULL);
+            return install_service();
+        } else if(!strcmpi(lpszCmdLine, "-uninstall")) {
+            main_initialize(NULL);
+            return uninstall_service();
+        } else { /* not -service, -install or -uninstall */
+            main_initialize(lpszCmdLine[0] ? lpszCmdLine : NULL);
+        }
+    }
+
+    /* CATCH */
     return win_main(hInstance, hPrevInstance, lpszCmdLine, nCmdShow);
 }
 
-
-int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         LPSTR lpszCmdLine, int nCmdShow) {
     WNDCLASSEX wc;
     MSG msg;
@@ -209,7 +212,7 @@ static void update_systray(void) { /* create the systray icon */
     Shell_NotifyIcon(NIM_ADD, &nid); /* this adds the icon */
 }
 
-DWORD WINAPI ThreadFunc(LPVOID arg) {
+static DWORD WINAPI ThreadFunc(LPVOID arg) {
     if(!setjmp(jump_buf))
         main_execute();
     else
@@ -217,7 +220,7 @@ DWORD WINAPI ThreadFunc(LPVOID arg) {
     return 0;
 }
 
-LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     POINT pt;
     NOTIFYICONDATA nid;
     RECT rect;
@@ -307,7 +310,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
 
-LRESULT CALLBACK about_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+static LRESULT CALLBACK about_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
     switch(message) {
         case WM_INITDIALOG:
             return TRUE;
@@ -322,7 +325,7 @@ LRESULT CALLBACK about_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
     return FALSE;
 }
 
-void save_file(HWND hwnd) {
+static void save_file(HWND hwnd) {
     char szFileName[MAX_PATH];
     OPENFILENAME ofn;
     HANDLE hFile;
@@ -363,7 +366,7 @@ void save_file(HWND hwnd) {
     CloseHandle(hFile);
 }
 
-void win_log(char *line) {
+void win_log(char *line) { /* Also used in log.c */
     struct LIST *curr;
     int len;
     static int log_len=0;
@@ -397,7 +400,7 @@ void win_log(char *line) {
     }
 }
 
-char *log_txt(void) {
+static char *log_txt(void) {
     char *buff;
     int ptr=0, len=0;
     struct LIST *curr;
@@ -420,7 +423,7 @@ char *log_txt(void) {
     return buff;
 }
 
-void set_visible(int i) {
+static void set_visible(int i) {
     char *txt;
 
     visible=i; /* setup global variable */
@@ -436,43 +439,101 @@ void set_visible(int i) {
         ShowWindow(hwnd, SW_HIDE); /* hide window */
 }
 
-void exit_stunnel(int code) {
+void exit_stunnel(int code) { /* used instead of exit() on Win32 */
     win_log("");
     win_log("Server is down");
     error_mode=1;
     longjmp(jump_buf, 1);
 }
 
-void WINAPI control_handler(DWORD controlCode) {
-    switch (controlCode) {
-    case SERVICE_CONTROL_INTERROGATE:
-        break;
+static int start_service(void) {
+    SERVICE_TABLE_ENTRY serviceTable[]={
+        {options.win32_service, service_main},
+        {0, 0}
+    };
 
-    case SERVICE_CONTROL_SHUTDOWN:
-    case SERVICE_CONTROL_STOP:
-        serviceStatus.dwCurrentState=SERVICE_STOP_PENDING;
-        SetServiceStatus(serviceStatusHandle, &serviceStatus);
-        PostMessage(hwnd, WM_COMMAND, IDM_EXIT, 0);
-        SetEvent(stopServiceEvent);
-        return;
-
-    case SERVICE_CONTROL_PAUSE:
-        break;
-
-    case SERVICE_CONTROL_CONTINUE:
-        break;
-
-    default:
-        if(controlCode >= 128 && controlCode <= 255)
-            break; /* user defined control code */
-        else
-            break; /* unrecognised control code */
+    if(!StartServiceCtrlDispatcher(serviceTable)) {
+        MessageBox(hwnd, "Unable to start the service",
+            options.win32_service, MB_ICONERROR);
+        return 1;
     }
-
-    SetServiceStatus(serviceStatusHandle, &serviceStatus);
+    return 0; /* NT service started */
 }
 
-void WINAPI service_main(DWORD argc, LPTSTR* argv) {
+static int install_service(void) {
+    SC_HANDLE scm, service;
+    
+    scm=OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
+    if(!scm) {
+        MessageBox(hwnd, "Failed to open service control manager",
+            options.win32_service, MB_ICONERROR);
+        return 1;
+    }
+    service=CreateService(scm,
+        options.win32_service, options.win32_service, SERVICE_ALL_ACCESS,
+        SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
+        SERVICE_AUTO_START, SERVICE_ERROR_NORMAL, service_path,
+        NULL, NULL, NULL, NULL, NULL);
+    if(!service) {
+        MessageBox(hwnd, "Failed to create a new service",
+            options.win32_service, MB_ICONERROR);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    MessageBox(hwnd, "Service installed", options.win32_service,
+        MB_ICONINFORMATION);
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+    return 0;
+}
+
+static int uninstall_service(void) {
+    SC_HANDLE scm, service;
+    SERVICE_STATUS serviceStatus;
+    
+    scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
+    if(!scm) {
+        MessageBox(hwnd, "Failed to open service control manager",
+            options.win32_service, MB_ICONERROR);
+        return 1;
+    }
+    service=OpenService(scm, options.win32_service,
+        SERVICE_QUERY_STATUS | DELETE);
+    if(!service) {
+        MessageBox(hwnd, "Failed to open the service",
+            options.win32_service, MB_ICONERROR);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(!QueryServiceStatus(service, &serviceStatus)) {
+        MessageBox(hwnd, "Failed to query service status",
+            options.win32_service, MB_ICONERROR);
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(serviceStatus.dwCurrentState!=SERVICE_STOPPED) {
+        MessageBox(hwnd, "The service is still running",
+            options.win32_service, MB_ICONERROR);
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(!DeleteService(service)) {
+        MessageBox(hwnd, "Failed to delete the service",
+            options.win32_service, MB_ICONERROR);
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    MessageBox(hwnd, "Service uninstalled", options.win32_service,
+        MB_ICONINFORMATION);
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+    return 0;
+}
+
+static void WINAPI service_main(DWORD argc, LPTSTR* argv) {
     /* initialise service status */
     serviceStatus.dwServiceType=SERVICE_WIN32;
     serviceStatus.dwCurrentState=SERVICE_STOPPED;
@@ -517,77 +578,33 @@ void WINAPI service_main(DWORD argc, LPTSTR* argv) {
     }
 }
 
-int install_service(void) {
-    SC_HANDLE scm, service;
-    
-    scm=OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
-    if(!scm) {
-        MessageBox(hwnd, "Failed to open service control manager",
-            options.win32_service, MB_ICONERROR);
-        return 1;
-    }
-    service=CreateService(scm,
-        options.win32_service, options.win32_service, SERVICE_ALL_ACCESS,
-        SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
-        SERVICE_AUTO_START, SERVICE_ERROR_NORMAL, service_path,
-        NULL, NULL, NULL, NULL, NULL);
-    if(!service) {
-        MessageBox(hwnd, "Failed to create a new service",
-            options.win32_service, MB_ICONERROR);
-        CloseServiceHandle(scm);
-        return 1;
-    }
-    MessageBox(hwnd, "Service installed", options.win32_service,
-        MB_ICONINFORMATION);
-    CloseServiceHandle(service);
-    CloseServiceHandle(scm);
-    return 0;
-}
+static void WINAPI control_handler(DWORD controlCode) {
+    switch (controlCode) {
+    case SERVICE_CONTROL_INTERROGATE:
+        break;
 
-int uninstall_service() {
-    SC_HANDLE scm, service;
-    SERVICE_STATUS serviceStatus;
-    
-    scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
-    if(!scm) {
-        MessageBox(hwnd, "Failed to open service control manager",
-            options.win32_service, MB_ICONERROR);
-        return 1;
+    case SERVICE_CONTROL_SHUTDOWN:
+    case SERVICE_CONTROL_STOP:
+        serviceStatus.dwCurrentState=SERVICE_STOP_PENDING;
+        SetServiceStatus(serviceStatusHandle, &serviceStatus);
+        PostMessage(hwnd, WM_COMMAND, IDM_EXIT, 0);
+        SetEvent(stopServiceEvent);
+        return;
+
+    case SERVICE_CONTROL_PAUSE:
+        break;
+
+    case SERVICE_CONTROL_CONTINUE:
+        break;
+
+    default:
+        if(controlCode >= 128 && controlCode <= 255)
+            break; /* user defined control code */
+        else
+            break; /* unrecognised control code */
     }
-    service=OpenService(scm, options.win32_service,
-        SERVICE_QUERY_STATUS | DELETE);
-    if(!service) {
-        MessageBox(hwnd, "Failed to open the service",
-            options.win32_service, MB_ICONERROR);
-        CloseServiceHandle(scm);
-        return 1;
-    }
-    if(!QueryServiceStatus(service, &serviceStatus)) {
-        MessageBox(hwnd, "Failed to query service status",
-            options.win32_service, MB_ICONERROR);
-        CloseServiceHandle(service);
-        CloseServiceHandle(scm);
-        return 1;
-    }
-    if(serviceStatus.dwCurrentState!=SERVICE_STOPPED) {
-        MessageBox(hwnd, "The service is still running",
-            options.win32_service, MB_ICONERROR);
-        CloseServiceHandle(service);
-        CloseServiceHandle(scm);
-        return 1;
-    }
-    if(!DeleteService(service)) {
-        MessageBox(hwnd, "Failed to delete the service",
-            options.win32_service, MB_ICONERROR);
-        CloseServiceHandle(service);
-        CloseServiceHandle(scm);
-        return 1;
-    }
-    MessageBox(hwnd, "Service uninstalled", options.win32_service,
-        MB_ICONINFORMATION);
-    CloseServiceHandle(service);
-    CloseServiceHandle(scm);
-    return 0;
+
+    SetServiceStatus(serviceStatusHandle, &serviceStatus);
 }
 
 /* End of gui.c */

@@ -80,6 +80,14 @@ Print stunnel version and compile time defaults
 <DT><STRONG><A NAME="item_%2Dsockets"><STRONG>-sockets</STRONG></A></STRONG><BR>
 <DD>
 Print default socket options
+<P></P>
+<DT><STRONG><A NAME="item_install"><STRONG>-install</STRONG> (NT/2000/XP only)</A></STRONG><BR>
+<DD>
+Install NT Service
+<P></P>
+<DT><STRONG><A NAME="item_uninstall"><STRONG>-uninstall</STRONG> (NT/2000/XP only)</A></STRONG><BR>
+<DD>
+Uninstall NT Service
 <P></P></DL>
 <P>
 <HR>
@@ -122,7 +130,7 @@ as a client side certificate chain.  Using client side certs is optional.
 The certificates must be in PEM format and must be sorted starting with the
 certificate to the highest level (root CA).</P>
 <P></P>
-<DT><STRONG><A NAME="item_chroot_%3D_directory"><STRONG>chroot</STRONG> = directory</A></STRONG><BR>
+<DT><STRONG><A NAME="item_directory"><STRONG>chroot</STRONG> = directory (Unix only)</A></STRONG><BR>
 <DD>
 directory to chroot stunnel process
 <P><STRONG>chroot</STRONG> keeps stunnel in chrooted jail.  <EM>CApath</EM>, <EM>pid</EM> and <EM>exec</EM>
@@ -155,13 +163,13 @@ all levels numerically less than it will be shown.  Use <STRONG>debug = debug</S
 (Facilities are not supported on Win32.)</P>
 <P>Case is ignored for both facilities and levels.</P>
 <P></P>
-<DT><STRONG><A NAME="item_EGD_%3D_egd_path"><STRONG>EGD</STRONG> = egd path</A></STRONG><BR>
+<DT><STRONG><A NAME="item_path"><STRONG>EGD</STRONG> = egd path (Unix only)</A></STRONG><BR>
 <DD>
 path to Entropy Gathering Daemon socket
 <P>Entropy Gathering Daemon socket to use to feed OpenSSL random number
 generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)</P>
 <P></P>
-<DT><STRONG><A NAME="item_foreground_%3D_yes_%7C_no"><STRONG>foreground</STRONG> = yes | no</A></STRONG><BR>
+<DT><STRONG><A NAME="item_no"><STRONG>foreground</STRONG> = yes | no (Unix only)</A></STRONG><BR>
 <DD>
 foreground mode
 <P>Stay in foreground (don't fork) and log to stderr
@@ -182,7 +190,7 @@ to its owner.  On Unix systems you can use the following command:</P>
 <DD>
 append log messages to a file instead of using syslog
 <P></P>
-<DT><STRONG><A NAME="item_pid_%3D_file"><STRONG>pid</STRONG> = file</A></STRONG><BR>
+<DT><STRONG><A NAME="item_file"><STRONG>pid</STRONG> = file (Unix only)</A></STRONG><BR>
 <DD>
 pid file location
 <P>If the argument is empty, then no pid file will be created.</P>
@@ -206,15 +214,20 @@ number generator.</P>
 overwrite the random seed files with new random data
 <P>default: yes</P>
 <P></P>
+<DT><STRONG><A NAME="item_servicename"><STRONG>service</STRONG> = servicename (NT/2000/XP only)</A></STRONG><BR>
+<DD>
+use specified string as NT service name in control panel
+<P>default: stunnel</P>
+<P></P>
 <DT><STRONG><A NAME="item_session_%3D_timeout"><STRONG>session</STRONG> = timeout</A></STRONG><BR>
 <DD>
 session cache timeout
 <P></P>
-<DT><STRONG><A NAME="item_setgid_%3D_groupname"><STRONG>setgid</STRONG> = groupname</A></STRONG><BR>
+<DT><STRONG><A NAME="item_groupname"><STRONG>setgid</STRONG> = groupname (Unix only)</A></STRONG><BR>
 <DD>
 <CODE>setgid()</CODE> to groupname in daemon mode and clears all other groups
 <P></P>
-<DT><STRONG><A NAME="item_setuid_%3D_username"><STRONG>setuid</STRONG> = username</A></STRONG><BR>
+<DT><STRONG><A NAME="item_username"><STRONG>setuid</STRONG> = username (Unix only)</A></STRONG><BR>
 <DD>
 <CODE>setuid()</CODE> to username in daemon mode
 <P></P>
@@ -266,11 +279,11 @@ connect to remote host:port
 <DD>
 delay DNS lookup for 'connect' option
 <P></P>
-<DT><STRONG><A NAME="item_exec_%3D_executable_path"><STRONG>exec</STRONG> = executable_path</A></STRONG><BR>
+<DT><STRONG><A NAME="item_executable_path"><STRONG>exec</STRONG> = executable_path (Unix only)</A></STRONG><BR>
 <DD>
 execute local inetd-type program
 <P></P>
-<DT><STRONG><A NAME="item_execargs_%3D_%240_%241_%242_%2E%2E%2E"><STRONG>execargs</STRONG> = $0 $1 $2 ...</A></STRONG><BR>
+<DT><STRONG><A NAME="item_execargs_%3D_%240_%241_%242_%2E%2E%2E_%28Unix_only"><STRONG>execargs</STRONG> = $0 $1 $2 ... (Unix only)</A></STRONG><BR>
 <DD>
 arguments for <EM>exec</EM> including program name ($0)
 <P>Quoting is currently not supported.
@@ -290,11 +303,23 @@ Use this option to bind a static local IP address, instead.
 Negotiate SSL with specified protocol
 <P>currently supported: smtp, pop3, nntp</P>
 <P></P>
-<DT><STRONG><A NAME="item_pty_%3D_yes_%7C_no"><STRONG>pty</STRONG> = yes | no</A></STRONG><BR>
+<DT><STRONG><STRONG>pty</STRONG> = yes | no (Unix only)</STRONG><BR>
 <DD>
 allocate pseudo terminal for 'exec' option
 <P></P>
-<DT><STRONG><A NAME="item_transparent_%3D_yes_%7C_no"><STRONG>transparent</STRONG> = yes | no</A></STRONG><BR>
+<DT><STRONG><A NAME="item_TIMEOUTbusy_%3D_seconds"><STRONG>TIMEOUTbusy</STRONG> = seconds</A></STRONG><BR>
+<DD>
+time to wait for expected data
+<P></P>
+<DT><STRONG><A NAME="item_TIMEOUTclose_%3D_seconds"><STRONG>TIMEOUTclose</STRONG> = seconds</A></STRONG><BR>
+<DD>
+time to wait for close_notify (set to 0 for buggy MSIE)
+<P></P>
+<DT><STRONG><A NAME="item_TIMEOUTidle_%3D_seconds"><STRONG>TIMEOUTidle</STRONG> = seconds</A></STRONG><BR>
+<DD>
+time to keep an idle connection
+<P></P>
+<DT><STRONG><STRONG>transparent</STRONG> = yes | no (Unix only)</STRONG><BR>
 <DD>
 transparent proxy mode
 <P>Re-write address to appear as if wrapped daemon is connecting

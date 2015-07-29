@@ -78,6 +78,14 @@ drukuj wersjê programu i domy¶lne warto¶ci parametrów
 <DT><STRONG><A NAME="item_%2Dsockets"><STRONG>-sockets</STRONG></A></STRONG><BR>
 <DD>
 drukuj domy¶lne opcje gniazd
+<P></P>
+<DT><STRONG><A NAME="item_install"><STRONG>-install</STRONG> (tylko NT/2000/XP)</A></STRONG><BR>
+<DD>
+instaluj serwis NT
+<P></P>
+<DT><STRONG><A NAME="item_uninstall"><STRONG>-uninstall</STRONG> (tylko NT/2000/XP)</A></STRONG><BR>
+<DD>
+odinstaluj serwis NT
 <P></P></DL>
 <P>
 <HR>
@@ -121,7 +129,7 @@ program stunnel do uwierzytelnienia siê przed drug± stron± po³±czenia.
 Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.</P>
 <P></P>
-<DT><STRONG><A NAME="item_chroot_%3D_katalog"><STRONG>chroot</STRONG> = katalog</A></STRONG><BR>
+<DT><STRONG><A NAME="item_katalog"><STRONG>chroot</STRONG> = katalog (tylko Unix)</A></STRONG><BR>
 <DD>
 katalog roboczego korzenia systemu plików
 <P>Opcja okre¶la katalog, w którym uwiêziony zostanie proces programu
@@ -158,14 +166,14 @@ Do uzyskania najwy¿szego poziomu szczegó³owo¶ci mo¿na u¿yæ opcji
 Podsystemy nie s± wspierane przez platformê Win32.</P>
 <P>Wielko¶æ liter jest ignorowana zarówno dla poziomu jak podsystemu.</P>
 <P></P>
-<DT><STRONG><A NAME="item_EGD_%3D_¶cie¿ka_do_EGD"><STRONG>EGD</STRONG> = ¶cie¿ka_do_EGD</A></STRONG><BR>
+<DT><STRONG><A NAME="item_¶cie¿ka_do_EGD"><STRONG>EGD</STRONG> = ¶cie¿ka_do_EGD (tylko Unix)</A></STRONG><BR>
 <DD>
 ¶cie¿ka do gniazda programu Entropy Gathering Daemon
 <P>Opcja pozwala okre¶liæ ¶cie¿kê do gniazda programu Entropy Gathering Daemon
 u¿ywanego do zainicjalizowania generatora ci±gów pseudolosowych biblioteki
 OpenSSL.  Opcja jest dostêpna z bibliotek± OpenSSL 0.9.5a lub nowsz±.</P>
 <P></P>
-<DT><STRONG><A NAME="item_foreground_%3D_yes_%7C_no"><STRONG>foreground</STRONG> = yes | no</A></STRONG><BR>
+<DT><STRONG><A NAME="item_no"><STRONG>foreground</STRONG> = yes | no (tylko Unix)</A></STRONG><BR>
 <DD>
 tryb pierwszoplanowy
 <P>U¿ycie tej opcji powoduje, ¿e <EM>stunnel</EM> nie przechodzi w t³o loguj±æ
@@ -189,7 +197,7 @@ plik, do którego dopisane zostan± logi
 <P>U¿ycie tej opcji zmienia domy¶lne zachowanie programu polegaj±ce
 na logowaniu swoich komunikatów poprzez syslog.</P>
 <P></P>
-<DT><STRONG><A NAME="item_pid_%3D_plik"><STRONG>pid</STRONG> = plik</A></STRONG><BR>
+<DT><STRONG><A NAME="item_plik"><STRONG>pid</STRONG> = plik (tylko Unix)</A></STRONG><BR>
 <DD>
 po³o¿enie pliku z numerem procesu
 <P>Je¿eli argument jest pusty plik nie zostanie stworzony.</P>
@@ -213,15 +221,20 @@ generatora pseudolosowego.</P>
 nadpisz plik nowymi warto¶ciami pseudolosowymi
 <P>domy¶lnie: yes (nadpisz)</P>
 <P></P>
+<DT><STRONG><A NAME="item_nazwa_serwisu"><STRONG>service</STRONG> = nazwa_serwisu (tylko NT/2000/XP)</A></STRONG><BR>
+<DD>
+nazwa serwisu NT, która pojawi siê w Panelu Sterowania
+<P>domy¶lnie: stunnel</P>
+<P></P>
 <DT><STRONG><A NAME="item_session_%3D_przeterminowanie_pamiêci_podrêcznej_se"><STRONG>session</STRONG> = przeterminowanie_pamiêci_podrêcznej_sesji</A></STRONG><BR>
 <DD>
 czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
 <P></P>
-<DT><STRONG><A NAME="item_setgid_%3D_identyfikator_grupy"><STRONG>setgid</STRONG> = identyfikator_grupy</A></STRONG><BR>
+<DT><STRONG><A NAME="item_identyfikator_grupy"><STRONG>setgid</STRONG> = identyfikator_grupy (tylko Unix)</A></STRONG><BR>
 <DD>
 grupa z której prawami pracowa³ bêdzie <EM>stunnel</EM>
 <P></P>
-<DT><STRONG><A NAME="item_setuid_%3D_identyfikator_u¿ytkownika"><STRONG>setuid</STRONG> = identyfikator_u¿ytkownika</A></STRONG><BR>
+<DT><STRONG><A NAME="item_identyfikator_u¿ytkownika"><STRONG>setuid</STRONG> = identyfikator_u¿ytkownika (tylko Unix)</A></STRONG><BR>
 <DD>
 u¿ytkownik, z którego prawami pracowa³ bêdzie <EM>stunnel</EM>
 <P></P>
@@ -284,11 +297,11 @@ z lokalnym serwerem.</P>
 <DD>
 opó¼nij rozwiniêcie adresu DNS podanego w opcji <EM>connect</EM>
 <P></P>
-<DT><STRONG><A NAME="item_exec_%3D_¶cie¿ka_do_programu"><STRONG>exec</STRONG> = ¶cie¿ka_do_programu</A></STRONG><BR>
+<DT><STRONG><A NAME="item_¶cie¿ka_do_programu"><STRONG>exec</STRONG> = ¶cie¿ka_do_programu (tylko Unix)</A></STRONG><BR>
 <DD>
 wykonaj lokalny program przystosowany do pracy z superdemonem inetd
 <P></P>
-<DT><STRONG><A NAME="item_execargs_%3D_%240_%241_%242_%2E%2E%2E"><STRONG>execargs</STRONG> = $0 $1 $2 ...</A></STRONG><BR>
+<DT><STRONG><A NAME="item_execargs_%3D_%240_%241_%242_%2E%2E%2E_%28tylko_Uni"><STRONG>execargs</STRONG> = $0 $1 $2 ... (tylko Unix)</A></STRONG><BR>
 <DD>
 argumenty do opcji <EM>exec</EM> w³±cznie z nazw± programu ($0)
 <P>Cytowanie nie jest wspierane w obecnej wersji programu.
@@ -309,11 +322,23 @@ serwera, do którego nawi±zywane jest po³±czenie.</P>
 negocjuj SSL podanym protoko³em aplikacyjnym
 <P>aktualnie wspierane protoko³y: smtp, pop3, nntp</P>
 <P></P>
-<DT><STRONG><A NAME="item_pty_%3D_yes_%7C_no"><STRONG>pty</STRONG> = yes | no</A></STRONG><BR>
+<DT><STRONG><STRONG>pty</STRONG> = yes | no (tylko Unix)</STRONG><BR>
 <DD>
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
 <P></P>
-<DT><STRONG><A NAME="item_transparent_%3D_yes_%7C_no"><STRONG>transparent</STRONG> = yes | no</A></STRONG><BR>
+<DT><STRONG><A NAME="item_TIMEOUTbusy_%3D_liczba_sekund"><STRONG>TIMEOUTbusy</STRONG> = liczba_sekund</A></STRONG><BR>
+<DD>
+czas oczekiwania na spodziewane dane
+<P></P>
+<DT><STRONG><A NAME="item_TIMEOUTclose_%3D_liczba_sekund"><STRONG>TIMEOUTclose</STRONG> = liczba_sekund</A></STRONG><BR>
+<DD>
+czas oczekiwania na close_notify (ustaw na 0, je¿eli klientem jest MSIE)
+<P></P>
+<DT><STRONG><A NAME="item_TIMEOUTidle_%3D_liczba_sekund"><STRONG>TIMEOUTidle</STRONG> = liczba_sekund</A></STRONG><BR>
+<DD>
+maksymalny czas utrzymywania bezczynnego po³±czenia
+<P></P>
+<DT><STRONG><STRONG>transparent</STRONG> = yes | no (tylko Unix)</STRONG><BR>
 <DD>
 tryb przezroczystego proxy
 <P>Przepisz adres, aby nawi±zywane po³±czenie wydawa³o siê pochodziæ

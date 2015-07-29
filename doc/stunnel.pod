@@ -45,6 +45,14 @@ Print stunnel version and compile time defaults
 
 Print default socket options
 
+=item B<-install> (NT/2000/XP only)
+
+Install NT Service
+
+=item B<-uninstall> (NT/2000/XP only)
+
+Uninstall NT Service
+
 =back
 
 
@@ -100,7 +108,7 @@ as a client side certificate chain.  Using client side certs is optional.
 The certificates must be in PEM format and must be sorted starting with the
 certificate to the highest level (root CA).
 
-=item B<chroot> = directory
+=item B<chroot> = directory (Unix only)
 
 directory to chroot stunnel process
 
@@ -140,14 +148,14 @@ The syslog facility 'daemon' will be used unless a facility name is supplied.
 
 Case is ignored for both facilities and levels.
 
-=item B<EGD> = egd path
+=item B<EGD> = egd path (Unix only)
 
 path to Entropy Gathering Daemon socket
 
 Entropy Gathering Daemon socket to use to feed OpenSSL random number
 generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)
 
-=item B<foreground> = yes | no
+=item B<foreground> = yes | no (Unix only)
 
 foreground mode
 
@@ -172,7 +180,7 @@ default: value of I<cert> option
 
 append log messages to a file instead of using syslog
 
-=item B<pid> = file
+=item B<pid> = file (Unix only)
 
 pid file location
 
@@ -200,15 +208,21 @@ overwrite the random seed files with new random data
 
 default: yes
 
+=item B<service> = servicename (NT/2000/XP only)
+
+use specified string as NT service name in control panel
+
+default: stunnel
+
 =item B<session> = timeout
 
 session cache timeout
 
-=item B<setgid> = groupname
+=item B<setgid> = groupname (Unix only)
 
 setgid() to groupname in daemon mode and clears all other groups
 
-=item B<setuid> = username
+=item B<setuid> = username (Unix only)
 
 setuid() to username in daemon mode
 
@@ -269,11 +283,11 @@ If no host specified, defaults to localhost.
 
 delay DNS lookup for 'connect' option
 
-=item B<exec> = executable_path
+=item B<exec> = executable_path (Unix only)
 
 execute local inetd-type program 
 
-=item B<execargs> = $0 $1 $2 ...
+=item B<execargs> = $0 $1 $2 ... (Unix only)
 
 arguments for I<exec> including program name ($0)
 
@@ -295,11 +309,23 @@ Negotiate SSL with specified protocol
 
 currently supported: smtp, pop3, nntp
 
-=item B<pty> = yes | no
+=item B<pty> = yes | no (Unix only)
 
 allocate pseudo terminal for 'exec' option
 
-=item B<transparent> = yes | no
+=item B<TIMEOUTbusy> = seconds
+
+time to wait for expected data
+
+=item B<TIMEOUTclose> = seconds
+
+time to wait for close_notify (set to 0 for buggy MSIE)
+
+=item B<TIMEOUTidle> = seconds
+
+time to keep an idle connection
+
+=item B<transparent> = yes | no (Unix only)
 
 transparent proxy mode
 

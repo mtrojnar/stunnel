@@ -185,6 +185,8 @@ unsigned long thread_id(void) {
 int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
     switch(fork()) {
     case -1:    /* error */
+        if(arg)
+            free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -195,6 +197,8 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
         cli(arg);
         exit(0);
     default:    /* parent */
+        if(arg)
+            free(arg);
         if(s>=0)
             closesocket(s);
     }

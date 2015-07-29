@@ -1,5 +1,13 @@
 stunnel         Universal SSL tunnel
 
+Version 4.03, 2002.10.27, urgency: HIGH:
+* NT Service (broken since 4.01) is operational again.
+* Memory leak in FORK environments fixed.
+* sigprocmask() mistake corrected.
+* struct timeval is reinitialized before select().
+* EAGAIN handled in client.c for AIX.
+* Manual page updated.
+
 Version 4.02, 2002.10.21, urgency: HIGH:
 * Serious bug in ECONNRESET handling fixed.
 

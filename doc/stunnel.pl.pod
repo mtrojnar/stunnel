@@ -42,6 +42,14 @@ drukuj wersjê programu i domy¶lne warto¶ci parametrów
 
 drukuj domy¶lne opcje gniazd
 
+=item B<-install> (tylko NT/2000/XP)
+
+instaluj serwis NT
+
+=item B<-uninstall> (tylko NT/2000/XP)
+
+odinstaluj serwis NT
+
 =back
 
 
@@ -98,7 +106,7 @@ program stunnel do uwierzytelnienia siê przed drug± stron± po³±czenia.
 Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
 
-=item B<chroot> = katalog
+=item B<chroot> = katalog (tylko Unix)
 
 katalog roboczego korzenia systemu plików
 
@@ -142,7 +150,7 @@ Podsystemy nie s± wspierane przez platformê Win32.
 
 Wielko¶æ liter jest ignorowana zarówno dla poziomu jak podsystemu.
 
-=item B<EGD> = ¶cie¿ka_do_EGD
+=item B<EGD> = ¶cie¿ka_do_EGD (tylko Unix)
 
 ¶cie¿ka do gniazda programu Entropy Gathering Daemon
 
@@ -150,7 +158,7 @@ Opcja pozwala okre¶liæ ¶cie¿kê do gniazda programu Entropy Gathering Daemon
 u¿ywanego do zainicjalizowania generatora ci±gów pseudolosowych biblioteki
 OpenSSL.  Opcja jest dostêpna z bibliotek± OpenSSL 0.9.5a lub nowsz±.
 
-=item B<foreground> = yes | no
+=item B<foreground> = yes | no (tylko Unix)
 
 tryb pierwszoplanowy
 
@@ -178,7 +186,7 @@ plik, do którego dopisane zostan± logi
 U¿ycie tej opcji zmienia domy¶lne zachowanie programu polegaj±ce
 na logowaniu swoich komunikatów poprzez syslog.
 
-=item B<pid> = plik
+=item B<pid> = plik (tylko Unix)
 
 po³o¿enie pliku z numerem procesu
 
@@ -206,15 +214,21 @@ nadpisz plik nowymi warto¶ciami pseudolosowymi
 
 domy¶lnie: yes (nadpisz)
 
+=item B<service> = nazwa_serwisu (tylko NT/2000/XP)
+
+nazwa serwisu NT, która pojawi siê w Panelu Sterowania
+
+domy¶lnie: stunnel
+
 =item B<session> = przeterminowanie_pamiêci_podrêcznej_sesji
 
 czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
 
-=item B<setgid> = identyfikator_grupy
+=item B<setgid> = identyfikator_grupy (tylko Unix)
 
 grupa z której prawami pracowa³ bêdzie I<stunnel>
 
-=item B<setuid> = identyfikator_u¿ytkownika
+=item B<setuid> = identyfikator_u¿ytkownika (tylko Unix)
 
 u¿ytkownik, z którego prawami pracowa³ bêdzie I<stunnel>
 
@@ -286,11 +300,11 @@ z lokalnym serwerem.
 
 opó¼nij rozwiniêcie adresu DNS podanego w opcji I<connect>
 
-=item B<exec> = ¶cie¿ka_do_programu
+=item B<exec> = ¶cie¿ka_do_programu (tylko Unix)
 
 wykonaj lokalny program przystosowany do pracy z superdemonem inetd
 
-=item B<execargs> = $0 $1 $2 ...
+=item B<execargs> = $0 $1 $2 ... (tylko Unix)
 
 argumenty do opcji I<exec> w³±cznie z nazw± programu ($0)
 
@@ -314,11 +328,23 @@ negocjuj SSL podanym protoko³em aplikacyjnym
 
 aktualnie wspierane protoko³y: smtp, pop3, nntp
 
-=item B<pty> = yes | no
+=item B<pty> = yes | no (tylko Unix)
 
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
 
-=item B<transparent> = yes | no
+=item B<TIMEOUTbusy> = liczba_sekund
+
+czas oczekiwania na spodziewane dane
+
+=item B<TIMEOUTclose> = liczba_sekund
+
+czas oczekiwania na close_notify (ustaw na 0, je¿eli klientem jest MSIE)
+
+=item B<TIMEOUTidle> = liczba_sekund
+
+maksymalny czas utrzymywania bezczynnego po³±czenia
+
+=item B<transparent> = yes | no (tylko Unix)
 
 tryb przezroczystego proxy
 

@@ -99,7 +99,9 @@ void *alloc_client_session(LOCAL_OPTIONS *opt, int rfd, int wfd) {
 
 void *client(void *arg) {
     CLI *c=arg;
+#ifndef USE_FORK
     extern int num_clients; /* defined in stunnel.c */
+#endif
 
     log(LOG_DEBUG, "%s started", c->opt->servname);
 #ifndef USE_WIN32
@@ -288,6 +290,13 @@ static int init_ssl(CLI *c) {
                 continue; /* ok -> retry */
             return -1; /* timeout or error */
         }
+        if(err==SSL_ERROR_SYSCALL) {
+            switch(get_last_socket_error()) {
+            case EINTR:
+            case EAGAIN:
+                continue; 
+            }
+        }
         if(options.option.client)
             sslerror("SSL_connect");
         else
@@ -339,11 +348,11 @@ static int transfer(CLI *c) { /* transfer data */
             FD_SET(c->ssl_wfd->fd, &wr_set);
         }
 
-        tv.tv_sec=sock_rd || (ssl_wr&&c->sock_ptr) || (sock_wr&&c->ssl_ptr) ?
-            c->opt->timeout_idle : c->opt->timeout_close;
-        tv.tv_usec=0;
-
         do { /* Skip "Interrupted system call" errors */
+            tv.tv_sec=sock_rd ||
+                (ssl_wr&&c->sock_ptr) || (sock_wr&&c->ssl_ptr) ?
+                c->opt->timeout_idle : c->opt->timeout_close;
+            tv.tv_usec=0;
             ready=select(fdno, &rd_set, &wr_set, NULL, &tv);
         } while(ready<0 && get_last_socket_error()==EINTR);
         if(ready<0) { /* Break the connection for others */
@@ -725,7 +734,7 @@ static int connect_local(CLI *c) { /* spawn local process */
         }
 #ifdef HAVE_PTHREAD_SIGMASK
         sigemptyset(&newmask);
-        sigprocmask(SIG_SETMASK, NULL, &newmask);
+        sigprocmask(SIG_SETMASK, &newmask, NULL);
 #endif
         execvp(c->opt->execname, c->opt->execargs);
         ioerror(c->opt->execname); /* execv failed */
@@ -942,14 +951,14 @@ static int waitforsocket(int fd, int dir, int timeout) {
     fd_set set;
     int ready;
 
-    tv.tv_sec=timeout;
-    tv.tv_usec=0;
     log(LOG_DEBUG, "waitforsocket: FD=%d, DIR=%s", fd, dir ? "write" : "read");
     FD_ZERO(&set);
     FD_SET(fd, &set);
     do { /* Skip "Interrupted system call" errors */
+        tv.tv_sec=timeout;
+        tv.tv_usec=0;
         ready=select(fd+1, dir ? NULL : &set, dir ? &set : NULL, NULL, &tv);
-    } while(ready<0 && get_last_socket_error()==EINTR);
+    } while(ready<0 && get_last_socket_error()==EINTR );
     switch(ready) {
     case -1:
         sockerror("waitforsocket");
