@@ -1,6 +1,16 @@
 stunnel         Universal SSL tunnel
 
-Version 4.32, 2010.03.25, urgency: MEDIUM:
+Version 4.33, 2010.04.05, urgency: MEDIUM:
+* New features
+  - Win32 DLLs for OpenSSL 1.0.0.
+    This library requires to c_rehash CApath/CRLpath directories on upgrade.
+  - Win32 DLLs for zlib 1.2.4. 
+  - Experimental support for local mode on WIN32 platform.
+    Try "exec = c:\windows\system32\cmd.exe".
+* Bugfixes
+  - Inetd mode fixed
+
+Version 4.32, 2010.03.24, urgency: MEDIUM:
 * New features
   - New service-level "libwrap" option for run-time control whether
     /etc/hosts.allow and /etc/hosts.deny are used for access control.

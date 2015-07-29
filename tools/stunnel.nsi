@@ -1,5 +1,5 @@
-!define VERSION "4.32"
-!define DLLS "/home/ftp/openssl/binary-0.9.8m-zdll/"
+!define VERSION "4.33"
+!define DLLS "/home/ftp/openssl/binary-1.0.0-zdll/"
 !define WIN32 "/home/ftp/stunnel/obsolete/"
 
 Name "stunnel ${VERSION}"
@@ -31,7 +31,7 @@ Section "stunnel (required)"
   SetOverwrite on
   File "src/stunnel.exe"
   File "${DLLS}libeay32.dll"
-  File "${DLLS}libssl32.dll"
+  File "${DLLS}ssleay32.dll"
   File "${DLLS}zlib1.dll"
   File "${SRCDIR}doc/stunnel.html"
   WriteUninstaller "uninstall.exe"

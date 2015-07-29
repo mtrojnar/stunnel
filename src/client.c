@@ -67,9 +67,7 @@ static void parse_socket_error(CLI *, const char *);
 static void print_cipher(CLI *);
 static void auth_user(CLI *);
 static int connect_local(CLI *);
-#ifndef USE_WIN32
 static void make_sockets(CLI *, int [2]);
-#endif
 static int connect_remote(CLI *);
 static void local_bind(CLI *c);
 static void print_bound_address(CLI *);
@@ -795,12 +793,38 @@ static void auth_user(CLI *c) {
     s_log(LOG_INFO, "IDENT authentication passed");
 }
 
+#ifdef USE_WIN32
+
 static int connect_local(CLI *c) { /* spawn local process */
-#if defined (USE_WIN32) || defined (__vms)
-    s_log(LOG_ERR, "LOCAL MODE NOT SUPPORTED ON WIN32 and OpenVMS PLATFORM");
+    int fd[2];
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+
+    make_sockets(c, fd);
+    ZeroMemory(&si, sizeof si);
+    si.cb=sizeof si;
+    si.wShowWindow=SW_HIDE;
+    si.dwFlags=STARTF_USESHOWWINDOW|STARTF_USESTDHANDLES;
+    si.hStdInput=si.hStdOutput=si.hStdError=(HANDLE)fd[1];
+    ZeroMemory(&pi, sizeof pi);
+    CreateProcess(c->opt->execname, c->opt->execargs, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    closesocket(fd[1]);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return fd[0];
+}
+
+#elif defined(__vms)
+
+static int connect_local(CLI *c) { /* spawn local process */
+    s_log(LOG_ERR, "Local mode not supported on OpenVMS");
     longjmp(c->err, 1);
     return -1; /* some C compilers require a return value */
-#else /* USE_WIN32, __vms */
+}
+
+#else /* not USE_WIN32 or __vms */
+
+static int connect_local(CLI *c) { /* spawn local process */
     char env[3][STRLEN], name[STRLEN], *portname;
     int fd[2], pid;
     X509 *peer;
@@ -875,10 +899,9 @@ static int connect_local(CLI *c) { /* spawn local process */
     fcntl(fd[0], F_SETFD, FD_CLOEXEC);
 #endif
     return fd[0];
-#endif /* USE_WIN32,__vms */
 }
 
-#ifndef USE_WIN32
+#endif /* not USE_WIN32 or __vms */
 
 static void make_sockets(CLI *c, int fd[2]) { /* make a pair of connected sockets */
 #ifdef INET_SOCKET_PAIR
@@ -927,7 +950,6 @@ static void make_sockets(CLI *c, int fd[2]) { /* make a pair of connected socket
     }
 #endif
 }
-#endif
 
 static int connect_remote(CLI *c) { /* connect to remote host */
     SOCKADDR_UNION addr;

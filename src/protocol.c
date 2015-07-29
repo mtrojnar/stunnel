@@ -583,7 +583,9 @@ static char *base64(int encode, char *in, int len) {
         bio=BIO_push(b64, bio);
     }
     len=BIO_pending(bio);
-    out=calloc(len+1, 1);
+    /* 32 bytes as a safety precaution for passing decoded data to crypt_DES */
+    /* len+1 to get null-terminated string on encode */
+    out=calloc(len<32?32:len+1, 1);
     if(!out) {
         s_log(LOG_ERR, "Fatal memory allocation error");
         die(2);

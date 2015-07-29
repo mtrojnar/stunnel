@@ -146,7 +146,12 @@ typedef struct service_options_struct {
 
         /* service-specific data for client.c */
     int fd;        /* file descriptor accepting connections for this service */
-    char *execname, **execargs; /* program name and arguments for local mode */
+    char *execname; /* program name for local mode */
+#ifdef USE_WIN32
+    char *execargs; /* program arguments for local mode */
+#else
+    char **execargs; /* program arguments for local mode */
+#endif
     SOCKADDR_LIST local_addr, remote_addr, source_addr;
     char *username;
     char *remote_address;
@@ -172,8 +177,8 @@ typedef struct service_options_struct {
         unsigned int remote:1;
         unsigned int retry:1; /* loop remote+program */
         unsigned int sessiond:1;
-#ifndef USE_WIN32
         unsigned int program:1;
+#ifndef USE_WIN32
         unsigned int pty:1;
         unsigned int transparent:1;
 #endif
