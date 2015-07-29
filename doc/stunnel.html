@@ -166,42 +166,6 @@ an 'option_name = option_value' pair
 </p>
 <h2><a name="global_options">GLOBAL OPTIONS</a></h2>
 <dl>
-<dt><strong><a name="item_capath__3d_directory"><strong>CApath</strong> = directory</a></strong><br />
-</dt>
-<dd>
-Certificate Authority directory
-</dd>
-<dd>
-<p>This is the directory in which <strong>stunnel</strong> will look for certificates when
-using the <em>verify</em>. Note that the certificates in this directory
-should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.</p>
-</dd>
-<dd>
-<p><em>CApath</em> path is relative to <em>chroot</em> directory if specified.</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_cafile__3d_certfile"><strong>CAfile</strong> = certfile</a></strong><br />
-</dt>
-<dd>
-Certificate Authority file
-</dd>
-<dd>
-<p>This file contains multiple CA certificates, used with the <em>verify</em>.</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_cert__3d_pemfile"><strong>cert</strong> = pemfile</a></strong><br />
-</dt>
-<dd>
-certificate chain PEM file name
-</dd>
-<dd>
-<p>A PEM is always needed in server mode.
-Specifying this flag in client mode will use this certificate chain
-as a client side certificate chain.  Using client side certs is optional.
-The certificates must be in PEM format and must be sorted starting with the
-certificate to the highest level (root CA).</p>
-</dd>
-<p></p>
 <dt><strong><a name="item_directory"><strong>chroot</strong> = directory (Unix only)</a></strong><br />
 </dt>
 <dd>
@@ -218,25 +182,6 @@ you also have to copy its configuration files (/etc/hosts.allow and
 /etc/hosts.deny) there.</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_ciphers__3d_cipherlist"><strong>ciphers</strong> = cipherlist</a></strong><br />
-</dt>
-<dd>
-Select permitted SSL ciphers
-</dd>
-<dd>
-<p>A colon delimited list of the ciphers to allow in the SSL connection.
-For example DES-CBC3-SHA:IDEA-CBC-MD5</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_client__3d_yes__7c_no"><strong>client</strong> = yes | no</a></strong><br />
-</dt>
-<dd>
-client mode (remote service uses SSL)
-</dd>
-<dd>
-<p>default: no (server mode)</p>
-</dd>
-<p></p>
 <dt><strong><a name="item_compression__3d_zlib__7c_rle"><strong>compression</strong> = zlib | rle</a></strong><br />
 </dt>
 <dd>
@@ -244,29 +189,6 @@ select data compression algorithm
 </dd>
 <dd>
 <p>default: no compression</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_crlpath__3d_directory"><strong>CRLpath</strong> = directory</a></strong><br />
-</dt>
-<dd>
-Certificate Revocation Lists directory
-</dd>
-<dd>
-<p>This is the directory in which <strong>stunnel</strong> will look for CRLs when
-using the <em>verify</em>. Note that the CRLs in this directory should
-be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.</p>
-</dd>
-<dd>
-<p><em>CRLpath</em> path is relative to <em>chroot</em> directory if specified.</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_crlfile__3d_certfile"><strong>CRLfile</strong> = certfile</a></strong><br />
-</dt>
-<dd>
-Certificate Revocation Lists file
-</dd>
-<dd>
-<p>This file contains multiple CRLs, used with the <em>verify</em>.</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_debug__3d__5bfacility_2e_5dlevel"><strong>debug</strong> = [facility.]level</a></strong><br />
@@ -319,43 +241,6 @@ instead of via syslog (unless <strong>output</strong> is specified).</p>
 </dd>
 <dd>
 <p>default: background in daemon mode</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_key__3d_keyfile"><strong>key</strong> = keyfile</a></strong><br />
-</dt>
-<dd>
-private key for certificate specified with <em>cert</em> option
-</dd>
-<dd>
-<p>Private key is needed to authenticate certificate owner.
-Since this file should be kept secret it should only be readable
-to its owner.  On Unix systems you can use the following command:</p>
-</dd>
-<dd>
-<pre>
-    chmod 600 keyfile</pre>
-</dd>
-<dd>
-<p>default: value of <em>cert</em> option</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_options__3d_ssl_options"><strong>options</strong> = SSL_options</a></strong><br />
-</dt>
-<dd>
-OpenSSL library options
-</dd>
-<dd>
-<p>The parameter is the OpenSSL option name as described in the
-<em>SSL_CTX_set_options(3ssl)</em> manual, but without <em>SSL_OP_</em> prefix.
-Several <em>options</em> can be used to specify multiple options.</p>
-</dd>
-<dd>
-<p>For example for compatibility with erroneous Eudora SSL implementation
-the following option can be used:</p>
-</dd>
-<dd>
-<pre>
-    options = DONT_INSERT_EMPTY_FRAGMENTS</pre>
 </dd>
 <p></p>
 <dt><strong><a name="item_output__3d_file"><strong>output</strong> = file</a></strong><br />
@@ -426,12 +311,6 @@ use specified string as the service name
 <p>default: stunnel</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_session__3d_timeout"><strong>session</strong> = timeout</a></strong><br />
-</dt>
-<dd>
-session cache timeout
-</dd>
-<p></p>
 <dt><strong><a name="item_groupname"><strong>setgid</strong> = groupname (Unix only)</a></strong><br />
 </dt>
 <dd>
@@ -479,19 +358,6 @@ enable the taskbar icon
 <dd>
 <p>default: yes</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_verify__3d_level"><strong>verify</strong> = level</a></strong><br />
-</dt>
-<dd>
-verify peer certificate
-</dd>
-<dd>
-<pre>
-    level 1 - verify peer certificate if present
-    level 2 - verify peer certificate
-    level 3 - verify peer with locally installed certificate
-    default - no verify</pre>
-</dd>
 <p></p></dl>
 <p>
 </p>
@@ -513,6 +379,61 @@ accept connections on specified host:port
 <p>If no host specified, defaults to all IP addresses for the local host.</p>
 </dd>
 <p></p>
+<dt><strong><a name="item_capath__3d_directory"><strong>CApath</strong> = directory</a></strong><br />
+</dt>
+<dd>
+Certificate Authority directory
+</dd>
+<dd>
+<p>This is the directory in which <strong>stunnel</strong> will look for certificates when
+using the <em>verify</em>. Note that the certificates in this directory
+should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.</p>
+</dd>
+<dd>
+<p><em>CApath</em> path is relative to <em>chroot</em> directory if specified.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_cafile__3d_certfile"><strong>CAfile</strong> = certfile</a></strong><br />
+</dt>
+<dd>
+Certificate Authority file
+</dd>
+<dd>
+<p>This file contains multiple CA certificates, used with the <em>verify</em>.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_cert__3d_pemfile"><strong>cert</strong> = pemfile</a></strong><br />
+</dt>
+<dd>
+certificate chain PEM file name
+</dd>
+<dd>
+<p>A PEM is always needed in server mode.
+Specifying this flag in client mode will use this certificate chain
+as a client side certificate chain.  Using client side certs is optional.
+The certificates must be in PEM format and must be sorted starting with the
+certificate to the highest level (root CA).</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_ciphers__3d_cipherlist"><strong>ciphers</strong> = cipherlist</a></strong><br />
+</dt>
+<dd>
+Select permitted SSL ciphers
+</dd>
+<dd>
+<p>A colon delimited list of the ciphers to allow in the SSL connection.
+For example DES-CBC3-SHA:IDEA-CBC-MD5</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_client__3d_yes__7c_no"><strong>client</strong> = yes | no</a></strong><br />
+</dt>
+<dd>
+client mode (remote service uses SSL)
+</dd>
+<dd>
+<p>default: no (server mode)</p>
+</dd>
+<p></p>
 <dt><strong><a name="item_connect__3d__5bhost_3a_5dport"><strong>connect</strong> = [host:]port</a></strong><br />
 </dt>
 <dd>
@@ -520,6 +441,29 @@ connect to remote host:port
 </dd>
 <dd>
 <p>If no host specified, defaults to localhost.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_crlpath__3d_directory"><strong>CRLpath</strong> = directory</a></strong><br />
+</dt>
+<dd>
+Certificate Revocation Lists directory
+</dd>
+<dd>
+<p>This is the directory in which <strong>stunnel</strong> will look for CRLs when
+using the <em>verify</em>. Note that the CRLs in this directory should
+be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.</p>
+</dd>
+<dd>
+<p><em>CRLpath</em> path is relative to <em>chroot</em> directory if specified.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_crlfile__3d_certfile"><strong>CRLfile</strong> = certfile</a></strong><br />
+</dt>
+<dd>
+Certificate Revocation Lists file
+</dd>
+<dd>
+<p>This file contains multiple CRLs, used with the <em>verify</em>.</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_delay__3d_yes__7c_no"><strong>delay</strong> = yes | no</a></strong><br />
@@ -553,6 +497,24 @@ Arguments are separated with arbitrary number of whitespaces.</p>
 use IDENT (RFC 1413) username checking
 </dd>
 <p></p>
+<dt><strong><a name="item_key__3d_keyfile"><strong>key</strong> = keyfile</a></strong><br />
+</dt>
+<dd>
+private key for certificate specified with <em>cert</em> option
+</dd>
+<dd>
+<p>Private key is needed to authenticate certificate owner.
+Since this file should be kept secret it should only be readable
+to its owner.  On Unix systems you can use the following command:</p>
+</dd>
+<dd>
+<pre>
+    chmod 600 keyfile</pre>
+</dd>
+<dd>
+<p>default: value of <em>cert</em> option</p>
+</dd>
+<p></p>
 <dt><strong><a name="item_local__3d_host"><strong>local</strong> = host</a></strong><br />
 </dt>
 <dd>
@@ -560,19 +522,56 @@ IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
 </dd>
 <p></p>
+<dt><strong><a name="item_options__3d_ssl_options"><strong>options</strong> = SSL_options</a></strong><br />
+</dt>
+<dd>
+OpenSSL library options
+</dd>
+<dd>
+<p>The parameter is the OpenSSL option name as described in the
+<em>SSL_CTX_set_options(3ssl)</em> manual, but without <em>SSL_OP_</em> prefix.
+Several <em>options</em> can be used to specify multiple options.</p>
+</dd>
+<dd>
+<p>For example for compatibility with erroneous Eudora SSL implementation
+the following option can be used:</p>
+</dd>
+<dd>
+<pre>
+    options = DONT_INSERT_EMPTY_FRAGMENTS</pre>
+</dd>
+<p></p>
 <dt><strong><a name="item_protocol__3d_proto"><strong>protocol</strong> = proto</a></strong><br />
 </dt>
 <dd>
-Negotiate SSL with specified protocol
+application protocol to negotiate SSL
 </dd>
 <dd>
-<p>currently supported: cifs, nntp, pop3, smtp</p>
+<p>currently supported: cifs, connect, nntp, pop3, smtp</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_protocolcredentials__3d_username_3apassword"><strong>protocolCredentials</strong> = username:password</a></strong><br />
+</dt>
+<dd>
+credentials for protocol negotiations
+</dd>
+<p></p>
+<dt><strong><a name="item_protocolhost__3d_host_3aport"><strong>protocolHost</strong> = host:port</a></strong><br />
+</dt>
+<dd>
+destination address for protocol negotiations
 </dd>
 <p></p>
 <dt><strong><strong>pty</strong> = yes | no (Unix only)</strong><br />
 </dt>
 <dd>
 allocate pseudo terminal for 'exec' option
+</dd>
+<p></p>
+<dt><strong><a name="item_session__3d_timeout"><strong>session</strong> = timeout</a></strong><br />
+</dt>
+<dd>
+session cache timeout
 </dd>
 <p></p>
 <dt><strong><a name="item_timeoutbusy__3d_seconds"><strong>TIMEOUTbusy</strong> = seconds</a></strong><br />
@@ -613,6 +612,19 @@ option) on Linux 2.2 kernel compiled with <em>transparent proxy</em> option
 and then only in server mode. Note that this option will not combine
 with proxy mode (<em>connect</em>) unless the client's default route to the target
 machine lies through the host running <strong>stunnel</strong>, which cannot be localhost.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_verify__3d_level"><strong>verify</strong> = level</a></strong><br />
+</dt>
+<dd>
+verify peer certificate
+</dd>
+<dd>
+<pre>
+    level 1 - verify peer certificate if present
+    level 2 - verify peer certificate
+    level 3 - verify peer with locally installed certificate
+    default - no verify</pre>
 </dd>
 <p></p></dl>
 <p>

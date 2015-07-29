@@ -1,14 +1,18 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel], [4.14])
+AC_INIT([stunnel], [4.15])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.14)
+AM_INIT_AUTOMAKE(stunnel, 4.15)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
 AC_SUBST(host)
 AC_DEFINE_UNQUOTED(HOST, "$host")
+define([esc], [`echo ]$1[ | tr abcdefghijklmnopqrstuvwxyz.- ABCDEFGHIJKLMNOPQRSTUVWXYZ__ | tr -dc ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_`])
+AC_DEFINE_UNQUOTED(esc(CPU_$host_cpu))
+AC_DEFINE_UNQUOTED(esc(VENDOR_$host_vendor))
+AC_DEFINE_UNQUOTED(esc(OS_$host_os))
 
 AC_PROG_CC
 if test "$GCC" = "yes"
@@ -28,11 +32,17 @@ AC_MSG_NOTICE([**************************************** libtool])
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
-AC_MSG_NOTICE([**************************************** integer sizes])
+AC_MSG_NOTICE([**************************************** types])
 AC_CHECK_SIZEOF(unsigned char)
 AC_CHECK_SIZEOF(unsigned short)
 AC_CHECK_SIZEOF(unsigned int)
 AC_CHECK_SIZEOF(unsigned long)
+
+AC_MSG_CHECKING([for socklen_t])
+AC_EGREP_HEADER(socklen_t, sys/socket.h,
+    AC_MSG_RESULT([yes]),
+    AC_MSG_RESULT([no (defined as int)])
+    AC_DEFINE(socklen_t, int))
 
 AC_MSG_NOTICE([**************************************** PTY device files])
 AC_CHECK_FILE("/dev/ptmx", AC_DEFINE(HAVE_DEV_PTMX))
@@ -231,14 +241,13 @@ AC_ARG_WITH(threads,
             ;;
     esac
 ], [
-    if test "$ac_cv_func_getcontext" = "yes" -a "$ac_cv_header_ucontext_h" = "yes"
-    then AC_MSG_NOTICE([UCONTEXT thread model detected])
-        AC_DEFINE(USE_UCONTEXT)
-    else
-        checkpthreadlib
-        if test "$HAVE_LIBPTHREAD" = "yes" -a "$ac_cv_header_pthread_h" = "yes"
-        then AC_MSG_NOTICE([PTHREAD thread model detected])
-            AC_DEFINE(USE_PTHREAD)
+    checkpthreadlib
+    if test "$HAVE_LIBPTHREAD" = "yes" -a "$ac_cv_header_pthread_h" = "yes"
+    then AC_MSG_NOTICE([PTHREAD thread model detected])
+        AC_DEFINE(USE_PTHREAD)
+    else if test "$ac_cv_func_getcontext" = "yes" -a "$ac_cv_header_ucontext_h" = "yes"
+        then AC_MSG_NOTICE([UCONTEXT thread model detected])
+            AC_DEFINE(USE_UCONTEXT)
         else AC_MSG_NOTICE([FORK thread model detected])
             AC_DEFINE(USE_FORK)
         fi
@@ -259,7 +268,7 @@ AC_ARG_ENABLE(rsa,
 AC_MSG_CHECKING([whether to enable DH support])
 AC_ARG_ENABLE(dh,
 [  --enable-dh             Enable DH support],
-    [AC_MSG_RESULT([yes]); AC_DEFINE(USE_DH)],
+    [AC_MSG_RESULT([yes]); USE_DH=1; AC_DEFINE(USE_DH)],
     [AC_MSG_RESULT([no])]
 )
 AC_SUBST(USE_DH)
@@ -271,7 +280,6 @@ AC_ARG_ENABLE(ipv6,
     [AC_MSG_RESULT([yes]); AC_DEFINE(USE_IPv6)],
     [AC_MSG_RESULT([no])]
 )
-AC_SUBST(USE_IPv6)
 
 # Disable use of libwrap (TCP wrappers)
 # it should be the last check!
@@ -296,7 +304,6 @@ AC_ARG_ENABLE(libwrap,
 )
 
 AC_MSG_NOTICE([**************************************** write the results])
-CPPFLAGS="$CPPFLAGS -DLIBDIR=\\\"$libdir\\\" -DCONFDIR=\\\"$sysconfdir/stunnel\\\" -DPIDFILE=\\\"$localstatedir/stunnel/stunnel.pid\\\""
 AC_CONFIG_FILES([Makefile src/Makefile src/stunnel3 doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init])
 AC_OUTPUT
 

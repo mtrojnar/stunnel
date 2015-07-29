@@ -1,7 +1,6 @@
 stunnel         Universal SSL tunnel
 
 * High priority features I'm going to support (sponsorship welcomed):
-  - Add service-level SSL contexts.
   - Add service-level logging.
   - Optional use of syslog in foreground mode.
   - Provide transparent proxy for Linux 2.6.x with TPROXY patch.
@@ -22,8 +21,6 @@ stunnel         Universal SSL tunnel
     http://www.ietf.org/rfc/rfc2595.txt
   - SOCKS 4 protocol support.
     http://archive.socks.permeo.com/protocol/socks4.protocol
-  - CONNECT protocol support (RFC 2817 section 5.2).
-    http://www.ietf.org/rfc/rfc2817.txt
   - Graceful configuration reload with a signal on Unix and with GUI on Windows.
 
 * Features I'd prefer NOT to support (waiting for a wealthy sponsor):

@@ -1,5 +1,34 @@
 stunnel         Universal SSL tunnel
 
+Version 4.15, 2006.03.11, urgency: LOW:
+* Release notes
+  - There are a lot of new features in this version.  I recommend
+    to test it well before upgrading your mission-critical systems.
+* Bugfixes
+  - Fix for pthreads on Solaris 10 (thx to Hans Werner Strube
+    <strube@physik3.gwdg.de>).
+  - Attempt to autodetect socklen_t type in configure script.
+  - Default threading model changed to pthread for better portability.
+  - DH parameters are not included in the certificate by default.
+* New features sponsored by Software House http://www.swhouse.com/
+  - Most SSL-related options (including client, cert, key) are now
+    available on service level, so it is possible to have an SSL
+    client and an SSL server in a single stunnel process.
+  - Windows CE (version 3.0 and higher) support.
+* New features
+  - Client mode CONNECT protocol support (RFC 2817 section 5.2).
+    http://www.ietf.org/rfc/rfc2817.txt
+  - Retrying exec+connect services added.
+* File locations are more compliant to Filesystem Hierarchy Standard 2.3
+  - configuration and certificates are in $prefix/etc/stunnel/
+  - binaries are in $prefix/sbin/
+  - default pid file is $prefix/var/run/stunnel.pid
+  - manual is $prefix/man/man8/stunnel.8
+  - other docs are in $prefix/share/doc/stunnel/
+  - libstunnel is in $prefix/lib
+  - chroot directory is setup in $prefix/var/lib/stunnel/
+    this directory is chmoded 1770 and group nogroup
+
 Version 4.14, 2005.11.02, urgency: HIGH:
 * Bugfixes
   - transfer() fixed to avoid random stalls introduced in version 4.12.

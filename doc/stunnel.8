@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2005.09.29" "4.08" "stunnel"
+.TH STUNNEL 8 "2005.11.17" "4.08" "stunnel"
 .SH "NAME"
 stunnel \- universal SSL tunnel
 .SH "SYNOPSIS"
@@ -201,29 +201,6 @@ an 'option_name = option_value' pair
 \&'[service_name]' indicating a start of a service definition
 .Sh "\s-1GLOBAL\s0 \s-1OPTIONS\s0"
 .IX Subsection "GLOBAL OPTIONS"
-.IP "\fBCApath\fR = directory" 4
-.IX Item "CApath = directory"
-Certificate Authority directory
-.Sp
-This is the directory in which \fBstunnel\fR will look for certificates when
-using the \fIverify\fR. Note that the certificates in this directory
-should be named \s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the cert.
-.Sp
-\&\fICApath\fR path is relative to \fIchroot\fR directory if specified.
-.IP "\fBCAfile\fR = certfile" 4
-.IX Item "CAfile = certfile"
-Certificate Authority file
-.Sp
-This file contains multiple \s-1CA\s0 certificates, used with the \fIverify\fR.
-.IP "\fBcert\fR = pemfile" 4
-.IX Item "cert = pemfile"
-certificate chain \s-1PEM\s0 file name
-.Sp
-A \s-1PEM\s0 is always needed in server mode.
-Specifying this flag in client mode will use this certificate chain
-as a client side certificate chain.  Using client side certs is optional.
-The certificates must be in \s-1PEM\s0 format and must be sorted starting with the
-certificate to the highest level (root \s-1CA\s0).
 .IP "\fBchroot\fR = directory (Unix only)" 4
 .IX Item "chroot = directory (Unix only)"
 directory to chroot \fBstunnel\fR process
@@ -235,36 +212,11 @@ to the directory specified with \fBchroot\fR.
 To have libwrap (\s-1TCP\s0 Wrappers) control effective in a chrooted environment
 you also have to copy its configuration files (/etc/hosts.allow and
 /etc/hosts.deny) there.
-.IP "\fBciphers\fR = cipherlist" 4
-.IX Item "ciphers = cipherlist"
-Select permitted \s-1SSL\s0 ciphers
-.Sp
-A colon delimited list of the ciphers to allow in the \s-1SSL\s0 connection.
-For example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
-.IP "\fBclient\fR = yes | no" 4
-.IX Item "client = yes | no"
-client mode (remote service uses \s-1SSL\s0)
-.Sp
-default: no (server mode)
 .IP "\fBcompression\fR = zlib | rle" 4
 .IX Item "compression = zlib | rle"
 select data compression algorithm
 .Sp
 default: no compression
-.IP "\fBCRLpath\fR = directory" 4
-.IX Item "CRLpath = directory"
-Certificate Revocation Lists directory
-.Sp
-This is the directory in which \fBstunnel\fR will look for CRLs when
-using the \fIverify\fR. Note that the CRLs in this directory should
-be named \s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1CRL\s0.
-.Sp
-\&\fICRLpath\fR path is relative to \fIchroot\fR directory if specified.
-.IP "\fBCRLfile\fR = certfile" 4
-.IX Item "CRLfile = certfile"
-Certificate Revocation Lists file
-.Sp
-This file contains multiple CRLs, used with the \fIverify\fR.
 .IP "\fBdebug\fR = [facility.]level" 4
 .IX Item "debug = [facility.]level"
 debugging level
@@ -298,33 +250,6 @@ Stay in foreground (don't fork) and log to stderr
 instead of via syslog (unless \fBoutput\fR is specified).
 .Sp
 default: background in daemon mode
-.IP "\fBkey\fR = keyfile" 4
-.IX Item "key = keyfile"
-private key for certificate specified with \fIcert\fR option
-.Sp
-Private key is needed to authenticate certificate owner.
-Since this file should be kept secret it should only be readable
-to its owner.  On Unix systems you can use the following command:
-.Sp
-.Vb 1
-\&    chmod 600 keyfile
-.Ve
-.Sp
-default: value of \fIcert\fR option
-.IP "\fBoptions\fR = SSL_options" 4
-.IX Item "options = SSL_options"
-OpenSSL library options
-.Sp
-The parameter is the OpenSSL option name as described in the
-\&\fI\fISSL_CTX_set_options\fI\|(3ssl)\fR manual, but without \fI\s-1SSL_OP_\s0\fR prefix.
-Several \fIoptions\fR can be used to specify multiple options.
-.Sp
-For example for compatibility with erroneous Eudora \s-1SSL\s0 implementation
-the following option can be used:
-.Sp
-.Vb 1
-\&    options = DONT_INSERT_EMPTY_FRAGMENTS
-.Ve
 .IP "\fBoutput\fR = file" 4
 .IX Item "output = file"
 append log messages to a file instead of using syslog
@@ -366,9 +291,6 @@ use specified string as the service name
 \&\fBOn \s-1NT/2000/XP:\s0\fR \s-1NT\s0 service name in the Control Panel.
 .Sp
 default: stunnel
-.IP "\fBsession\fR = timeout" 4
-.IX Item "session = timeout"
-session cache timeout
 .IP "\fBsetgid\fR = groupname (Unix only)" 4
 .IX Item "setgid = groupname (Unix only)"
 \&\fIsetgid()\fR to groupname in daemon mode and clears all other groups
@@ -402,16 +324,6 @@ Examples:
 enable the taskbar icon
 .Sp
 default: yes
-.IP "\fBverify\fR = level" 4
-.IX Item "verify = level"
-verify peer certificate
-.Sp
-.Vb 4
-\&    level 1 \- verify peer certificate if present
-\&    level 2 \- verify peer certificate
-\&    level 3 \- verify peer with locally installed certificate
-\&    default \- no verify
-.Ve
 .Sh "SERVICE-LEVEL \s-1OPTIONS\s0"
 .IX Subsection "SERVICE-LEVEL OPTIONS"
 Each configuration section begins with service name in square brackets.
@@ -427,11 +339,59 @@ below.
 accept connections on specified host:port
 .Sp
 If no host specified, defaults to all \s-1IP\s0 addresses for the local host.
+.IP "\fBCApath\fR = directory" 4
+.IX Item "CApath = directory"
+Certificate Authority directory
+.Sp
+This is the directory in which \fBstunnel\fR will look for certificates when
+using the \fIverify\fR. Note that the certificates in this directory
+should be named \s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the cert.
+.Sp
+\&\fICApath\fR path is relative to \fIchroot\fR directory if specified.
+.IP "\fBCAfile\fR = certfile" 4
+.IX Item "CAfile = certfile"
+Certificate Authority file
+.Sp
+This file contains multiple \s-1CA\s0 certificates, used with the \fIverify\fR.
+.IP "\fBcert\fR = pemfile" 4
+.IX Item "cert = pemfile"
+certificate chain \s-1PEM\s0 file name
+.Sp
+A \s-1PEM\s0 is always needed in server mode.
+Specifying this flag in client mode will use this certificate chain
+as a client side certificate chain.  Using client side certs is optional.
+The certificates must be in \s-1PEM\s0 format and must be sorted starting with the
+certificate to the highest level (root \s-1CA\s0).
+.IP "\fBciphers\fR = cipherlist" 4
+.IX Item "ciphers = cipherlist"
+Select permitted \s-1SSL\s0 ciphers
+.Sp
+A colon delimited list of the ciphers to allow in the \s-1SSL\s0 connection.
+For example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
+.IP "\fBclient\fR = yes | no" 4
+.IX Item "client = yes | no"
+client mode (remote service uses \s-1SSL\s0)
+.Sp
+default: no (server mode)
 .IP "\fBconnect\fR = [host:]port" 4
 .IX Item "connect = [host:]port"
 connect to remote host:port
 .Sp
 If no host specified, defaults to localhost.
+.IP "\fBCRLpath\fR = directory" 4
+.IX Item "CRLpath = directory"
+Certificate Revocation Lists directory
+.Sp
+This is the directory in which \fBstunnel\fR will look for CRLs when
+using the \fIverify\fR. Note that the CRLs in this directory should
+be named \s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1CRL\s0.
+.Sp
+\&\fICRLpath\fR path is relative to \fIchroot\fR directory if specified.
+.IP "\fBCRLfile\fR = certfile" 4
+.IX Item "CRLfile = certfile"
+Certificate Revocation Lists file
+.Sp
+This file contains multiple CRLs, used with the \fIverify\fR.
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
 delay \s-1DNS\s0 lookup for 'connect' option
@@ -450,18 +410,54 @@ Arguments are separated with arbitrary number of whitespaces.
 .IP "\fBident\fR = username" 4
 .IX Item "ident = username"
 use \s-1IDENT\s0 (\s-1RFC\s0 1413) username checking
+.IP "\fBkey\fR = keyfile" 4
+.IX Item "key = keyfile"
+private key for certificate specified with \fIcert\fR option
+.Sp
+Private key is needed to authenticate certificate owner.
+Since this file should be kept secret it should only be readable
+to its owner.  On Unix systems you can use the following command:
+.Sp
+.Vb 1
+\&    chmod 600 keyfile
+.Ve
+.Sp
+default: value of \fIcert\fR option
 .IP "\fBlocal\fR = host" 4
 .IX Item "local = host"
 \&\s-1IP\s0 of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local \s-1IP\s0 address, instead.
+.IP "\fBoptions\fR = SSL_options" 4
+.IX Item "options = SSL_options"
+OpenSSL library options
+.Sp
+The parameter is the OpenSSL option name as described in the
+\&\fI\fISSL_CTX_set_options\fI\|(3ssl)\fR manual, but without \fI\s-1SSL_OP_\s0\fR prefix.
+Several \fIoptions\fR can be used to specify multiple options.
+.Sp
+For example for compatibility with erroneous Eudora \s-1SSL\s0 implementation
+the following option can be used:
+.Sp
+.Vb 1
+\&    options = DONT_INSERT_EMPTY_FRAGMENTS
+.Ve
 .IP "\fBprotocol\fR = proto" 4
 .IX Item "protocol = proto"
-Negotiate \s-1SSL\s0 with specified protocol
+application protocol to negotiate \s-1SSL\s0
 .Sp
-currently supported: cifs, nntp, pop3, smtp
+currently supported: cifs, connect, nntp, pop3, smtp
+.IP "\fBprotocolCredentials\fR = username:password" 4
+.IX Item "protocolCredentials = username:password"
+credentials for protocol negotiations
+.IP "\fBprotocolHost\fR = host:port" 4
+.IX Item "protocolHost = host:port"
+destination address for protocol negotiations
 .IP "\fBpty\fR = yes | no (Unix only)" 4
 .IX Item "pty = yes | no (Unix only)"
 allocate pseudo terminal for 'exec' option
+.IP "\fBsession\fR = timeout" 4
+.IX Item "session = timeout"
+session cache timeout
 .IP "\fBTIMEOUTbusy\fR = seconds" 4
 .IX Item "TIMEOUTbusy = seconds"
 time to wait for expected data
@@ -486,6 +482,16 @@ option) on Linux 2.2 kernel compiled with \fItransparent proxy\fR option
 and then only in server mode. Note that this option will not combine
 with proxy mode (\fIconnect\fR) unless the client's default route to the target
 machine lies through the host running \fBstunnel\fR, which cannot be localhost.
+.IP "\fBverify\fR = level" 4
+.IX Item "verify = level"
+verify peer certificate
+.Sp
+.Vb 4
+\&    level 1 \- verify peer certificate if present
+\&    level 2 \- verify peer certificate
+\&    level 3 \- verify peer with locally installed certificate
+\&    default \- no verify
+.Ve
 .SH "RETURN VALUE"
 .IX Header "RETURN VALUE"
 \&\fBstunnel\fR returns zero on success, non-zero on error.

@@ -1,4 +1,4 @@
-# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-2005
+# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-2006
 #
 # Modified by Brian Hatch  (bri@stunnel.org)
 
@@ -12,14 +12,14 @@ SSLDIR=../openssl-0.9.7i
 
 DEFINES=-DUSE_WIN32 -DHAVE_OPENSSL
 
-# CC=gcc
+CC=gcc
 CFLAGS=-g -O2 -Wall $(DEFINES) -I$(SSLDIR)/outinc
 LDFLAGS=-s
 
 # LIBS=-L$(SSLDIR)/out -lssl -lcrypto -lwsock32 -lgdi32
 
 LIBS=-L$(SSLDIR)/out -lzdll -leay32 -lssl32 -lwsock32 -lgdi32
-OBJS=stunnel.o ssl.o client.o protocol.o sthreads.o log.o options.o network.o resolver.o gui.o resources.o
+OBJS=stunnel.o ssl.o ctx.o file.o client.o protocol.o sthreads.o log.o options.o network.o resolver.o gui.o resources.o
 
 stunnel.exe: $(OBJS)
 	$(CC) $(LDFLAGS) -o stunnel.exe $(OBJS) $(LIBS) -mwindows

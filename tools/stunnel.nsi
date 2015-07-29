@@ -1,6 +1,6 @@
-!define VERSION "4.14"
+!define VERSION "4.15"
 !define DLLS "/home/ftp/stunnel/openssl/binary-0.9.7i-zdll/"
-!define WIN32 "/home/ftp/stunnel/Win32/"
+!define WIN32 "/home/ftp/stunnel/win32/"
 
 Name "stunnel ${VERSION}"
 OutFile "stunnel-${VERSION}-installer.exe" 

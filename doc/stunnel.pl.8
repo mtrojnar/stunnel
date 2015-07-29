@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2005.09.29" "4.08" "stunnel"
+.TH STUNNEL.PL 8 "2005.11.17" "4.08" "stunnel"
 .SH "NAZWA"
 .IX Header "NAZWA"
 stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
@@ -201,31 +201,6 @@ par± 'nazwa_opcji = warto¶æ_opcji'
 tekstem '[nazwa_us³ugi]' wskazuj±cym pocz±tek definicji us³ugi
 .Sh "\s-1OPCJE\s0 \s-1GLOBALNE\s0"
 .IX Subsection "OPCJE GLOBALNE"
-.IP "\fBCApath\fR = katalog_CA" 4
-.IX Item "CApath = katalog_CA"
-katalog Centrum Certyfikacji
-.Sp
-Opcja okre¶la katalog, w którym \fBstunnel\fR bêdzie szuka³ certyfikatów,
-je¿eli u¿yta zosta³a opcja \fIverify\fR.  Pliki z certyfikatami musz±
-posiadaæ specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
-certyfikatu.
-.Sp
-Je¿eli zdefiniowano katalog \fIchroot\fR, to ¶cie¿ka do \fICApath\fR jest okre¶lona
-wzglêdem tego katalogu.
-.IP "\fBCAfile\fR = plik_CA" 4
-.IX Item "CAfile = plik_CA"
-plik Centrum Certyfikacji
-.Sp
-Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
-przez opcjê \fIverify\fR.
-.IP "\fBcert\fR = plik_pem" 4
-.IX Item "cert = plik_pem"
-plik z ³añcuchem certyfikatów
-.Sp
-Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
-program \fBstunnel\fR do uwierzytelnienia siê przed drug± stron± po³±czenia.
-Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
-W trybie klienta certyfikat jest opcjonalny.
 .IP "\fBchroot\fR = katalog (tylko Unix)" 4
 .IX Item "chroot = katalog (tylko Unix)"
 katalog roboczego korzenia systemu plików
@@ -240,39 +215,11 @@ W przypadku wykorzystania kontroli dostêpu przy pomocy biblioteki
 libwrap (\s-1TCP\s0 wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
 /etc/hosts.deny) musz± zostaæ skopiowane do podkatalogu etc/
 umieszczonego wewn±trz katalogu podanego w opcji \fIchroot\fR.
-.IP "\fBciphers\fR = lista_szyfrów" 4
-.IX Item "ciphers = lista_szyfrów"
-lista dozwolonych szyfrów \s-1SSL\s0
-.Sp
-Parametrem tej opcji jest lista szyfrów, które bêd± u¿yte przy
-otwieraniu nowych po³±czeñ \s-1SSL\s0, np.:  \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
-.IP "\fBclient\fR = yes | no" 4
-.IX Item "client = yes | no"
-tryb kliencki (zdalna us³uga u¿ywa \s-1SSL\s0)
-.Sp
-domy¶lnie: no (tryb serwerowy)
 .IP "\fBcompression\fR = zlib | rle" 4
 .IX Item "compression = zlib | rle"
 wybór algorytmu kompresji przesy³anych danych
 .Sp
 domy¶lnie: bez kompresji
-.IP "\fBCRLpath\fR = katalog_CRL" 4
-.IX Item "CRLpath = katalog_CRL"
-katalog List Odwo³anych Certyfikatów (\s-1CRL\s0)
-.Sp
-Opcja okre¶la katalog, w którym \fBstunnel\fR bêdzie szuka³ list \s-1CRL\s0,
-je¿eli u¿yta zosta³a opcja \fIverify\fR.  Pliki z listami \s-1CRL\s0 musz±
-posiadaæ specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
-listy \s-1CRL\s0.
-.Sp
-Je¿eli zdefiniowano katalog \fIchroot\fR, to ¶cie¿ka do \fICRLpath\fR jest okre¶lona
-wzglêdem tego katalogu.
-.IP "\fBCRLfile\fR = plik_CRL" 4
-.IX Item "CRLfile = plik_CRL"
-plik List Odwo³anych Certyfikatów (\s-1CRL\s0)
-.Sp
-Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy \s-1CRL\s0 u¿ywane
-przez opcjê \fIverify\fR.
 .IP "\fBdebug\fR = poziom[.podsystem]" 4
 .IX Item "debug = poziom[.podsystem]"
 szczegó³owo¶æ logowania
@@ -307,34 +254,6 @@ tryb pierwszoplanowy
 U¿ycie tej opcji powoduje, ¿e \fIstunnel\fR nie przechodzi w t³o loguj±c
 swoje komunikaty na konsolê zamiast przez \fIsyslog\fR (o ile nie u¿yto
 opcji \fIoutput\fR).
-.IP "\fBkey\fR = plik_klucza" 4
-.IX Item "key = plik_klucza"
-klucz prywatny do certyfikatu podanego w opcji \fIcert\fR
-.Sp
-Klucz prywatny jest potrzebny do uwierzytelnienia w³a¶ciciela certyfikatu.
-Poniewa¿ powinien on byæ zachowany w tajemnicy, prawa do jego odczytu
-powinien mieæ wy³±cznie w³a¶ciciel pliku.  W systemie Unix mo¿na to osi±gn±æ
-komend±:
-.Sp
-.Vb 1
-\&    chmod 600 keyfile
-.Ve
-.Sp
-domy¶lnie: warto¶æ opcji \fIcert\fR
-.IP "\fBoptions\fR = opcje_SSL" 4
-.IX Item "options = opcje_SSL"
-opcje biblioteki OpenSSL
-.Sp
-Parametrem jest nazwa opcji zgodnie z opisem w \fI\fISSL_CTX_set_options\fI\|(3ssl)\fR,
-ale bez przedrostka \fI\s-1SSL_OP_\s0\fR.
-Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ \fIoptions\fR wielokrotnie.
-.Sp
-Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji \s-1SSL\s0
-w programie Eudora mo¿na u¿yæ opcji:
-.Sp
-.Vb 1
-\&    options = DONT_INSERT_EMPTY_FRAGMENTS
-.Ve
 .IP "\fBoutput\fR = plik" 4
 .IX Item "output = plik"
 plik, do którego dopisane zostan± logi
@@ -381,9 +300,6 @@ u¿yj parametru jako nazwy serwisu
 \&\fB\s-1NT/2000/XP:\s0\fR nazwa serwisu \s-1NT\s0 w Panelu Sterowania.
 .Sp
 domy¶lnie: stunnel
-.IP "\fBsession\fR = przeterminowanie_pamiêci_podrêcznej_sesji" 4
-.IX Item "session = przeterminowanie_pamiêci_podrêcznej_sesji"
-czas w sekundach, po którym sesja \s-1SSL\s0 zostanie usuniêta z pamiêci podrêcznej
 .IP "\fBsetgid\fR = identyfikator_grupy (tylko Unix)" 4
 .IX Item "setgid = identyfikator_grupy (tylko Unix)"
 grupa z której prawami pracowa³ bêdzie \fIstunnel\fR
@@ -422,19 +338,6 @@ Przyk³ady:
 w³±cz ikonkê w prawym dolnym rogu ekranu
 .Sp
 domy¶lnie: yes (w³±cz)
-.IP "\fBverify\fR = poziom" 4
-.IX Item "verify = poziom"
-weryfikuj certyfikat drugiej strony po³±czenia
-.Sp
-.Vb 7
-\&    poziom 1 \- weryfikuj, je¿eli zosta³
-\&        przedstawiony
-\&    poziom 2 \- weryfikuj z zainstalowanym
-\&        certyfikatem Centrum Certyfikacji
-\&    poziom 3 \- weryfikuj z lokalnie
-\&        zainstalowanym certyfikatem drugiej strony
-\&    domy¶lnie \- nie weryfikuj
-.Ve
 .Sh "\s-1OPCJE\s0 US£UG"
 .IX Subsection "OPCJE US£UG"
 Ka¿da sekcja konfiguracji us³ugi zaczyna siê jej nazw± ujêt± w nawias
@@ -451,12 +354,65 @@ nas³uchuje na po³±czenia na podanym adresie i porcie
 .Sp
 Je¿eli nie zosta³ podany adres, \fIstunnel\fR domy¶lnie nas³uchuje
 na wszystkich adresach \s-1IP\s0 lokalnych interfejsów.
+.IP "\fBCApath\fR = katalog_CA" 4
+.IX Item "CApath = katalog_CA"
+katalog Centrum Certyfikacji
+.Sp
+Opcja okre¶la katalog, w którym \fBstunnel\fR bêdzie szuka³ certyfikatów,
+je¿eli u¿yta zosta³a opcja \fIverify\fR.  Pliki z certyfikatami musz±
+posiadaæ specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
+certyfikatu.
+.Sp
+Je¿eli zdefiniowano katalog \fIchroot\fR, to ¶cie¿ka do \fICApath\fR jest okre¶lona
+wzglêdem tego katalogu.
+.IP "\fBCAfile\fR = plik_CA" 4
+.IX Item "CAfile = plik_CA"
+plik Centrum Certyfikacji
+.Sp
+Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
+przez opcjê \fIverify\fR.
+.IP "\fBcert\fR = plik_pem" 4
+.IX Item "cert = plik_pem"
+plik z ³añcuchem certyfikatów
+.Sp
+Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
+program \fBstunnel\fR do uwierzytelnienia siê przed drug± stron± po³±czenia.
+Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
+W trybie klienta certyfikat jest opcjonalny.
+.IP "\fBciphers\fR = lista_szyfrów" 4
+.IX Item "ciphers = lista_szyfrów"
+lista dozwolonych szyfrów \s-1SSL\s0
+.Sp
+Parametrem tej opcji jest lista szyfrów, które bêd± u¿yte przy
+otwieraniu nowych po³±czeñ \s-1SSL\s0, np.:  \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
+.IP "\fBclient\fR = yes | no" 4
+.IX Item "client = yes | no"
+tryb kliencki (zdalna us³uga u¿ywa \s-1SSL\s0)
+.Sp
+domy¶lnie: no (tryb serwerowy)
 .IP "\fBconnect\fR = [adres:]port" 4
 .IX Item "connect = [adres:]port"
 po³±cz siê ze zdalnym serwerem na podany port
 .Sp
 Je¿eli nie zosta³ podany adres, \fIstunnel\fR domy¶lnie ³±czy siê
 z lokalnym serwerem.
+.IP "\fBCRLpath\fR = katalog_CRL" 4
+.IX Item "CRLpath = katalog_CRL"
+katalog List Odwo³anych Certyfikatów (\s-1CRL\s0)
+.Sp
+Opcja okre¶la katalog, w którym \fBstunnel\fR bêdzie szuka³ list \s-1CRL\s0,
+je¿eli u¿yta zosta³a opcja \fIverify\fR.  Pliki z listami \s-1CRL\s0 musz±
+posiadaæ specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
+listy \s-1CRL\s0.
+.Sp
+Je¿eli zdefiniowano katalog \fIchroot\fR, to ¶cie¿ka do \fICRLpath\fR jest okre¶lona
+wzglêdem tego katalogu.
+.IP "\fBCRLfile\fR = plik_CRL" 4
+.IX Item "CRLfile = plik_CRL"
+plik List Odwo³anych Certyfikatów (\s-1CRL\s0)
+.Sp
+Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy \s-1CRL\s0 u¿ywane
+przez opcjê \fIverify\fR.
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
 opó¼nij rozwiniêcie adresu \s-1DNS\s0 podanego w opcji \fIconnect\fR
@@ -476,20 +432,57 @@ Argumenty s± rozdzielone dowoln± liczb± bia³ych znaków.
 .IP "\fBident\fR = nazwa_u¿ytkownika" 4
 .IX Item "ident = nazwa_u¿ytkownika"
 weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z protoko³u \s-1IDENT\s0 (\s-1RFC\s0 1413)
+.IP "\fBkey\fR = plik_klucza" 4
+.IX Item "key = plik_klucza"
+klucz prywatny do certyfikatu podanego w opcji \fIcert\fR
+.Sp
+Klucz prywatny jest potrzebny do uwierzytelnienia w³a¶ciciela certyfikatu.
+Poniewa¿ powinien on byæ zachowany w tajemnicy, prawa do jego odczytu
+powinien mieæ wy³±cznie w³a¶ciciel pliku.  W systemie Unix mo¿na to osi±gn±æ
+komend±:
+.Sp
+.Vb 1
+\&    chmod 600 keyfile
+.Ve
+.Sp
+domy¶lnie: warto¶æ opcji \fIcert\fR
 .IP "\fBlocal\fR = serwer" 4
 .IX Item "local = serwer"
 \&\s-1IP\s0 ¼ród³a do nawi±zywania zdalnych po³±czeñ
 .Sp
 Domy¶lnie u¿ywane jest \s-1IP\s0 najbardziej zewnêtrznego interfejsu w stronê
 serwera, do którego nawi±zywane jest po³±czenie.
+.IP "\fBoptions\fR = opcje_SSL" 4
+.IX Item "options = opcje_SSL"
+opcje biblioteki OpenSSL
+.Sp
+Parametrem jest nazwa opcji zgodnie z opisem w \fI\fISSL_CTX_set_options\fI\|(3ssl)\fR,
+ale bez przedrostka \fI\s-1SSL_OP_\s0\fR.
+Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ \fIoptions\fR wielokrotnie.
+.Sp
+Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji \s-1SSL\s0
+w programie Eudora mo¿na u¿yæ opcji:
+.Sp
+.Vb 1
+\&    options = DONT_INSERT_EMPTY_FRAGMENTS
+.Ve
 .IP "\fBprotocol\fR = protokó³" 4
 .IX Item "protocol = protokó³"
 negocjuj \s-1SSL\s0 podanym protoko³em aplikacyjnym
 .Sp
-aktualnie wspierane protoko³y: cifs, nntp, pop3, smtp
+aktualnie wspierane protoko³y: cifs, connect, nntp, pop3, smtp
+.IP "\fBprotocolCredentials\fR = u¿ytkownik:has³o" 4
+.IX Item "protocolCredentials = u¿ytkownik:has³o"
+dane uwierzytelniaj±ce do negocjacji protoko³u
+.IP "\fBprotocolHost\fR = adres:port" 4
+.IX Item "protocolHost = adres:port"
+adres docelowy do negocjacji protoko³u
 .IP "\fBpty\fR = yes | no (tylko Unix)" 4
 .IX Item "pty = yes | no (tylko Unix)"
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
+.IP "\fBsession\fR = przeterminowanie_pamiêci_podrêcznej_sesji" 4
+.IX Item "session = przeterminowanie_pamiêci_podrêcznej_sesji"
+czas w sekundach, po którym sesja \s-1SSL\s0 zostanie usuniêta z pamiêci podrêcznej
 .IP "\fBTIMEOUTbusy\fR = liczba_sekund" 4
 .IX Item "TIMEOUTbusy = liczba_sekund"
 czas oczekiwania na spodziewane dane
@@ -511,6 +504,19 @@ bezpo¶rednio od klienta, a nie od programu \fIstunnel\fR.
 Opcja dzia³a tylko w trybie lokalnym (opcja \fIexec\fR) przez za³adowanie
 przy pomocy \s-1LD_PRELOAD\s0 biblioteki env.so, albo w trybie zdalnym (opcja
 \&\fIconnect\fR) na systemie Linux 2.2 z w³±czon± opcj± \fItransparent proxy\fR.
+.IP "\fBverify\fR = poziom" 4
+.IX Item "verify = poziom"
+weryfikuj certyfikat drugiej strony po³±czenia
+.Sp
+.Vb 7
+\&    poziom 1 \- weryfikuj, je¿eli zosta³
+\&        przedstawiony
+\&    poziom 2 \- weryfikuj z zainstalowanym
+\&        certyfikatem Centrum Certyfikacji
+\&    poziom 3 \- weryfikuj z lokalnie
+\&        zainstalowanym certyfikatem drugiej strony
+\&    domy¶lnie \- nie weryfikuj
+.Ve
 .SH "ZWRACANA WARTO¦Æ"
 .IX Header "ZWRACANA WARTO¦Æ"
 \&\fBstunnel\fR zwraca zero w przypadku sukcesu, lub warto¶æ niezerow±

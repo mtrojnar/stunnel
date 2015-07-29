@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #
 # stunnel3      Perl wrapper to use stunnel 3.x syntax in stunnel >=4.05
-# Copyright (c) 2004-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
+# Copyright (c) 2004-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
 #               All Rights Reserved
 #
 # Version:      2.00

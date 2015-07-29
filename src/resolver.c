@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -42,12 +42,12 @@
 #define EAI_NONAME 2
 #endif
 
-#ifdef USE_WIN32
+#if defined(USE_WIN32) && defined(USE_IPv6)
 /* rename some locally shadowed declarations */
 #define getaddrinfo     local_getaddrinfo
 #define freeaddrinfo    local_freeaddrinfo
 #define getnameinfo     local_getnameinfo
-#else /* defined(USE_WIN32) */
+#else /* defined(USE_WIN32) && defined(USE_IPv6) */
 struct addrinfo {
     int ai_flags;
     int ai_family;
@@ -58,7 +58,7 @@ struct addrinfo {
     char *ai_canonname;
     struct addrinfo *ai_next;
 };
-#endif /* defined(USE_WIN32) */
+#endif /* defined(USE_WIN32) && defined(USE_IPv6) */
 
 static int getaddrinfo(const char *, const char *,
     const struct addrinfo *, struct addrinfo **);
@@ -162,22 +162,28 @@ char *s_ntop(char *text, SOCKADDR_UNION *addr) {
 static int getaddrinfo(const char *node, const char *service,
         const struct addrinfo *hints, struct addrinfo **res) {
     struct hostent *h;
+#ifndef _WIN32_WCE
     struct servent *p;
+#endif
     u_short port;
     struct addrinfo *ai;
     int retval;
 
-#ifdef USE_WIN32
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
     if(s_getaddrinfo)
         return s_getaddrinfo(node, service, hints, res);
 #endif
     /* decode service name */
     port=htons((u_short)atoi(service));
     if(!port) { /* zero is an illegal value for port number */
+#ifdef _WIN32_WCE
+        return EAI_NONAME;
+#else /* defined(_WIN32_WCE) */
         p=getservbyname(service, "tcp");
         if(!p)
             return EAI_NONAME;
         port=p->s_port;
+#endif /* defined(_WIN32_WCE) */
     }
 
     /* allocate addrlist structure */
@@ -297,9 +303,11 @@ static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
 static void freeaddrinfo(struct addrinfo *current) {
     struct addrinfo *next;
 
-#ifdef USE_WIN32
-    if(s_freeaddrinfo)
-        return s_freeaddrinfo(current);
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+    if(s_freeaddrinfo) {
+        s_freeaddrinfo(current);
+	return;
+    }
 #endif
     while(current) {
         if(current->ai_addr)
@@ -368,12 +376,12 @@ static const char *s_gai_strerror(int err) {
 static int getnameinfo(const struct sockaddr *sa, int salen,
     char *host, int hostlen, char *serv, int servlen, int flags) {
 
-#ifdef USE_WIN32
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
     if(s_getnameinfo)
         return s_getnameinfo(sa, salen, host, hostlen, serv, servlen, flags);
 #endif
     if(host && hostlen) {
-#ifdef USE_IPv6
+#if defined(USE_IPv6) && !defined(USE_WIN32)
         inet_ntop(sa->sa_family, sa->sa_family==AF_INET6 ? 
                 (void *)&((struct sockaddr_in6 *)sa)->sin6_addr :
                 (void *)&((struct sockaddr_in *)sa)->sin_addr,

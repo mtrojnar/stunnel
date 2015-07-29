@@ -110,34 +110,6 @@ tekstem '[nazwa_us³ugi]' wskazuj±cym pocz±tek definicji us³ugi
 
 =over 4
 
-=item B<CApath> = katalog_CA
-
-katalog Centrum Certyfikacji
-
-Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ certyfikatów,
-je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z certyfikatami musz±
-posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
-certyfikatu.
-
-Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<CApath> jest okre¶lona
-wzglêdem tego katalogu.
-
-=item B<CAfile> = plik_CA
-
-plik Centrum Certyfikacji
-
-Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
-przez opcjê I<verify>.
-
-=item B<cert> = plik_pem
-
-plik z ³añcuchem certyfikatów
-
-Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
-program B<stunnel> do uwierzytelnienia siê przed drug± stron± po³±czenia.
-Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
-W trybie klienta certyfikat jest opcjonalny.
-
 =item B<chroot> = katalog (tylko Unix)
 
 katalog roboczego korzenia systemu plików
@@ -153,43 +125,11 @@ libwrap (TCP wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
 /etc/hosts.deny) musz± zostaæ skopiowane do podkatalogu etc/
 umieszczonego wewn±trz katalogu podanego w opcji I<chroot>.
 
-=item B<ciphers> = lista_szyfrów
-
-lista dozwolonych szyfrów SSL
-
-Parametrem tej opcji jest lista szyfrów, które bêd± u¿yte przy
-otwieraniu nowych po³±czeñ SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5
-
-=item B<client> = yes | no
-
-tryb kliencki (zdalna us³uga u¿ywa SSL)
-
-domy¶lnie: no (tryb serwerowy)
-
 =item B<compression> = zlib | rle
 
 wybór algorytmu kompresji przesy³anych danych
 
 domy¶lnie: bez kompresji
-
-=item B<CRLpath> = katalog_CRL
-
-katalog List Odwo³anych Certyfikatów (CRL)
-
-Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ list CRL,
-je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z listami CRL musz±
-posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
-listy CRL.
-
-Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<CRLpath> jest okre¶lona
-wzglêdem tego katalogu.
-
-=item B<CRLfile> = plik_CRL
-
-plik List Odwo³anych Certyfikatów (CRL)
-
-Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy CRL u¿ywane
-przez opcjê I<verify>.
 
 =item B<debug> = poziom[.podsystem]
 
@@ -228,32 +168,6 @@ tryb pierwszoplanowy
 U¿ycie tej opcji powoduje, ¿e I<stunnel> nie przechodzi w t³o loguj±c
 swoje komunikaty na konsolê zamiast przez I<syslog> (o ile nie u¿yto
 opcji I<output>).
-
-=item B<key> = plik_klucza
-
-klucz prywatny do certyfikatu podanego w opcji I<cert>
-
-Klucz prywatny jest potrzebny do uwierzytelnienia w³a¶ciciela certyfikatu.
-Poniewa¿ powinien on byæ zachowany w tajemnicy, prawa do jego odczytu
-powinien mieæ wy³±cznie w³a¶ciciel pliku.  W systemie Unix mo¿na to osi±gn±æ
-komend±:
-
-    chmod 600 keyfile
-
-domy¶lnie: warto¶æ opcji I<cert>
-
-=item B<options> = opcje_SSL
-
-opcje biblioteki OpenSSL
-
-Parametrem jest nazwa opcji zgodnie z opisem w I<SSL_CTX_set_options(3ssl)>,
-ale bez przedrostka I<SSL_OP_>.
-Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ I<options> wielokrotnie.
-
-Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji SSL
-w programie Eudora mo¿na u¿yæ opcji:
-
-    options = DONT_INSERT_EMPTY_FRAGMENTS
 
 =item B<output> = plik
 
@@ -307,10 +221,6 @@ B<NT/2000/XP:> nazwa serwisu NT w Panelu Sterowania.
 
 domy¶lnie: stunnel
 
-=item B<session> = przeterminowanie_pamiêci_podrêcznej_sesji
-
-czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
-
 =item B<setgid> = identyfikator_grupy (tylko Unix)
 
 grupa z której prawami pracowa³ bêdzie I<stunnel>
@@ -351,18 +261,6 @@ w³±cz ikonkê w prawym dolnym rogu ekranu
 
 domy¶lnie: yes (w³±cz)
 
-=item B<verify> = poziom
-
-weryfikuj certyfikat drugiej strony po³±czenia
-
-    poziom 1 - weryfikuj, je¿eli zosta³
-        przedstawiony
-    poziom 2 - weryfikuj z zainstalowanym
-        certyfikatem Centrum Certyfikacji
-    poziom 3 - weryfikuj z lokalnie
-        zainstalowanym certyfikatem drugiej strony
-    domy¶lnie - nie weryfikuj
-
 =back
 
 
@@ -386,12 +284,72 @@ nas³uchuje na po³±czenia na podanym adresie i porcie
 Je¿eli nie zosta³ podany adres, I<stunnel> domy¶lnie nas³uchuje
 na wszystkich adresach IP lokalnych interfejsów.
 
+=item B<CApath> = katalog_CA
+
+katalog Centrum Certyfikacji
+
+Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ certyfikatów,
+je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z certyfikatami musz±
+posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
+certyfikatu.
+
+Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<CApath> jest okre¶lona
+wzglêdem tego katalogu.
+
+=item B<CAfile> = plik_CA
+
+plik Centrum Certyfikacji
+
+Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
+przez opcjê I<verify>.
+
+=item B<cert> = plik_pem
+
+plik z ³añcuchem certyfikatów
+
+Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
+program B<stunnel> do uwierzytelnienia siê przed drug± stron± po³±czenia.
+Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
+W trybie klienta certyfikat jest opcjonalny.
+
+=item B<ciphers> = lista_szyfrów
+
+lista dozwolonych szyfrów SSL
+
+Parametrem tej opcji jest lista szyfrów, które bêd± u¿yte przy
+otwieraniu nowych po³±czeñ SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5
+
+=item B<client> = yes | no
+
+tryb kliencki (zdalna us³uga u¿ywa SSL)
+
+domy¶lnie: no (tryb serwerowy)
+
 =item B<connect> = [adres:]port
 
 po³±cz siê ze zdalnym serwerem na podany port
 
 Je¿eli nie zosta³ podany adres, I<stunnel> domy¶lnie ³±czy siê
 z lokalnym serwerem.
+
+=item B<CRLpath> = katalog_CRL
+
+katalog List Odwo³anych Certyfikatów (CRL)
+
+Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ list CRL,
+je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z listami CRL musz±
+posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
+listy CRL.
+
+Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<CRLpath> jest okre¶lona
+wzglêdem tego katalogu.
+
+=item B<CRLfile> = plik_CRL
+
+plik List Odwo³anych Certyfikatów (CRL)
+
+Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy CRL u¿ywane
+przez opcjê I<verify>.
 
 =item B<delay> = yes | no
 
@@ -415,6 +373,19 @@ Argumenty s± rozdzielone dowoln± liczb± bia³ych znaków.
 
 weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z protoko³u IDENT (RFC 1413)
 
+=item B<key> = plik_klucza
+
+klucz prywatny do certyfikatu podanego w opcji I<cert>
+
+Klucz prywatny jest potrzebny do uwierzytelnienia w³a¶ciciela certyfikatu.
+Poniewa¿ powinien on byæ zachowany w tajemnicy, prawa do jego odczytu
+powinien mieæ wy³±cznie w³a¶ciciel pliku.  W systemie Unix mo¿na to osi±gn±æ
+komend±:
+
+    chmod 600 keyfile
+
+domy¶lnie: warto¶æ opcji I<cert>
+
 =item B<local> = serwer
 
 IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
@@ -422,15 +393,40 @@ IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
 Domy¶lnie u¿ywane jest IP najbardziej zewnêtrznego interfejsu w stronê
 serwera, do którego nawi±zywane jest po³±czenie.
 
+=item B<options> = opcje_SSL
+
+opcje biblioteki OpenSSL
+
+Parametrem jest nazwa opcji zgodnie z opisem w I<SSL_CTX_set_options(3ssl)>,
+ale bez przedrostka I<SSL_OP_>.
+Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ I<options> wielokrotnie.
+
+Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji SSL
+w programie Eudora mo¿na u¿yæ opcji:
+
+    options = DONT_INSERT_EMPTY_FRAGMENTS
+
 =item B<protocol> = protokó³
 
 negocjuj SSL podanym protoko³em aplikacyjnym
 
-aktualnie wspierane protoko³y: cifs, nntp, pop3, smtp
+aktualnie wspierane protoko³y: cifs, connect, nntp, pop3, smtp
+
+=item B<protocolCredentials> = u¿ytkownik:has³o
+
+dane uwierzytelniaj±ce do negocjacji protoko³u
+
+=item B<protocolHost> = adres:port
+
+adres docelowy do negocjacji protoko³u
 
 =item B<pty> = yes | no (tylko Unix)
 
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
+
+=item B<session> = przeterminowanie_pamiêci_podrêcznej_sesji
+
+czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
 
 =item B<TIMEOUTbusy> = liczba_sekund
 
@@ -457,6 +453,18 @@ bezpo¶rednio od klienta, a nie od programu I<stunnel>.
 Opcja dzia³a tylko w trybie lokalnym (opcja I<exec>) przez za³adowanie
 przy pomocy LD_PRELOAD biblioteki env.so, albo w trybie zdalnym (opcja
 I<connect>) na systemie Linux 2.2 z w³±czon± opcj± I<transparent proxy>.
+
+=item B<verify> = poziom
+
+weryfikuj certyfikat drugiej strony po³±czenia
+
+    poziom 1 - weryfikuj, je¿eli zosta³
+        przedstawiony
+    poziom 2 - weryfikuj z zainstalowanym
+        certyfikatem Centrum Certyfikacji
+    poziom 3 - weryfikuj z lokalnie
+        zainstalowanym certyfikatem drugiej strony
+    domy¶lnie - nie weryfikuj
 
 =back
 

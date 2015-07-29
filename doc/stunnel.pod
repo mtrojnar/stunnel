@@ -111,32 +111,6 @@ an 'option_name = option_value' pair
 
 =over 4
 
-=item B<CApath> = directory
-
-Certificate Authority directory
-
-This is the directory in which B<stunnel> will look for certificates when
-using the I<verify>. Note that the certificates in this directory
-should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.
-
-I<CApath> path is relative to I<chroot> directory if specified.
-
-=item B<CAfile> = certfile
-
-Certificate Authority file
-
-This file contains multiple CA certificates, used with the I<verify>.
-
-=item B<cert> = pemfile
-
-certificate chain PEM file name
-
-A PEM is always needed in server mode.
-Specifying this flag in client mode will use this certificate chain
-as a client side certificate chain.  Using client side certs is optional.
-The certificates must be in PEM format and must be sorted starting with the
-certificate to the highest level (root CA).
-
 =item B<chroot> = directory (Unix only)
 
 directory to chroot B<stunnel> process
@@ -149,40 +123,11 @@ To have libwrap (TCP Wrappers) control effective in a chrooted environment
 you also have to copy its configuration files (/etc/hosts.allow and
 /etc/hosts.deny) there.
 
-=item B<ciphers> = cipherlist
-
-Select permitted SSL ciphers
-
-A colon delimited list of the ciphers to allow in the SSL connection.
-For example DES-CBC3-SHA:IDEA-CBC-MD5
-
-=item B<client> = yes | no
-
-client mode (remote service uses SSL)
-
-default: no (server mode)
-
 =item B<compression> = zlib | rle
 
 select data compression algorithm
 
 default: no compression
-
-=item B<CRLpath> = directory
-
-Certificate Revocation Lists directory
-
-This is the directory in which B<stunnel> will look for CRLs when
-using the I<verify>. Note that the CRLs in this directory should
-be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.
-
-I<CRLpath> path is relative to I<chroot> directory if specified.
-
-=item B<CRLfile> = certfile
-
-Certificate Revocation Lists file
-
-This file contains multiple CRLs, used with the I<verify>.
 
 =item B<debug> = [facility.]level
 
@@ -220,31 +165,6 @@ Stay in foreground (don't fork) and log to stderr
 instead of via syslog (unless B<output> is specified).
 
 default: background in daemon mode
-
-=item B<key> = keyfile
-
-private key for certificate specified with I<cert> option
-
-Private key is needed to authenticate certificate owner.
-Since this file should be kept secret it should only be readable
-to its owner.  On Unix systems you can use the following command:
-
-    chmod 600 keyfile
-
-default: value of I<cert> option
-
-=item B<options> = SSL_options
-
-OpenSSL library options
-
-The parameter is the OpenSSL option name as described in the
-I<SSL_CTX_set_options(3ssl)> manual, but without I<SSL_OP_> prefix.
-Several I<options> can be used to specify multiple options.
-
-For example for compatibility with erroneous Eudora SSL implementation
-the following option can be used:
-
-    options = DONT_INSERT_EMPTY_FRAGMENTS
 
 =item B<output> = file
 
@@ -293,10 +213,6 @@ B<On NT/2000/XP:> NT service name in the Control Panel.
 
 default: stunnel
 
-=item B<session> = timeout
-
-session cache timeout
-
 =item B<setgid> = groupname (Unix only)
 
 setgid() to groupname in daemon mode and clears all other groups
@@ -332,15 +248,6 @@ enable the taskbar icon
 
 default: yes
 
-=item B<verify> = level
-
-verify peer certificate
-
-    level 1 - verify peer certificate if present
-    level 2 - verify peer certificate
-    level 3 - verify peer with locally installed certificate
-    default - no verify
-
 =back
 
 
@@ -364,11 +271,66 @@ accept connections on specified host:port
 
 If no host specified, defaults to all IP addresses for the local host.
 
+=item B<CApath> = directory
+
+Certificate Authority directory
+
+This is the directory in which B<stunnel> will look for certificates when
+using the I<verify>. Note that the certificates in this directory
+should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.
+
+I<CApath> path is relative to I<chroot> directory if specified.
+
+=item B<CAfile> = certfile
+
+Certificate Authority file
+
+This file contains multiple CA certificates, used with the I<verify>.
+
+=item B<cert> = pemfile
+
+certificate chain PEM file name
+
+A PEM is always needed in server mode.
+Specifying this flag in client mode will use this certificate chain
+as a client side certificate chain.  Using client side certs is optional.
+The certificates must be in PEM format and must be sorted starting with the
+certificate to the highest level (root CA).
+
+=item B<ciphers> = cipherlist
+
+Select permitted SSL ciphers
+
+A colon delimited list of the ciphers to allow in the SSL connection.
+For example DES-CBC3-SHA:IDEA-CBC-MD5
+
+=item B<client> = yes | no
+
+client mode (remote service uses SSL)
+
+default: no (server mode)
+
 =item B<connect> = [host:]port
 
 connect to remote host:port
 
 If no host specified, defaults to localhost.
+
+=item B<CRLpath> = directory
+
+Certificate Revocation Lists directory
+
+This is the directory in which B<stunnel> will look for CRLs when
+using the I<verify>. Note that the CRLs in this directory should
+be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.
+
+I<CRLpath> path is relative to I<chroot> directory if specified.
+
+=item B<CRLfile> = certfile
+
+Certificate Revocation Lists file
+
+This file contains multiple CRLs, used with the I<verify>.
 
 =item B<delay> = yes | no
 
@@ -391,20 +353,57 @@ Arguments are separated with arbitrary number of whitespaces.
 
 use IDENT (RFC 1413) username checking
 
+=item B<key> = keyfile
+
+private key for certificate specified with I<cert> option
+
+Private key is needed to authenticate certificate owner.
+Since this file should be kept secret it should only be readable
+to its owner.  On Unix systems you can use the following command:
+
+    chmod 600 keyfile
+
+default: value of I<cert> option
+
 =item B<local> = host
 
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
 
+=item B<options> = SSL_options
+
+OpenSSL library options
+
+The parameter is the OpenSSL option name as described in the
+I<SSL_CTX_set_options(3ssl)> manual, but without I<SSL_OP_> prefix.
+Several I<options> can be used to specify multiple options.
+
+For example for compatibility with erroneous Eudora SSL implementation
+the following option can be used:
+
+    options = DONT_INSERT_EMPTY_FRAGMENTS
+
 =item B<protocol> = proto
 
-Negotiate SSL with specified protocol
+application protocol to negotiate SSL
 
-currently supported: cifs, nntp, pop3, smtp
+currently supported: cifs, connect, nntp, pop3, smtp
+
+=item B<protocolCredentials> = username:password
+
+credentials for protocol negotiations
+
+=item B<protocolHost> = host:port
+
+destination address for protocol negotiations
 
 =item B<pty> = yes | no (Unix only)
 
 allocate pseudo terminal for 'exec' option
+
+=item B<session> = timeout
+
+session cache timeout
 
 =item B<TIMEOUTbusy> = seconds
 
@@ -434,6 +433,15 @@ option) on Linux 2.2 kernel compiled with I<transparent proxy> option
 and then only in server mode. Note that this option will not combine
 with proxy mode (I<connect>) unless the client's default route to the target
 machine lies through the host running B<stunnel>, which cannot be localhost.
+
+=item B<verify> = level
+
+verify peer certificate
+
+    level 1 - verify peer certificate if present
+    level 2 - verify peer certificate
+    level 3 - verify peer with locally installed certificate
+    default - no verify
 
 =back
 

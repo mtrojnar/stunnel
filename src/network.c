@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-#define DEBUG_UCONTEXT
+/* #define DEBUG_UCONTEXT */
 
 #ifndef USE_WIN32
 static int signal_pipe[2]={-1, -1};
@@ -328,7 +328,7 @@ static void sigchld_handler(int sig) { /* SIGCHLD detected */
     while(wait_for_pid(-1, &status, WNOHANG)>0) {
         /* no logging is possible in a signal handler */
 #ifdef USE_FORK
-        num_clients--; /* one client less */
+        --num_clients; /* one client less */
 #endif /* USE_FORK */
     }
 #else /* __sgi */
@@ -370,10 +370,10 @@ static void client_status(void) { /* dead children detected */
 
 #ifdef HAVE_WAIT_FOR_PID
     while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
-        num_clients--; /* one client less */
+        --num_clients; /* one client less */
 #else
     if((pid=wait(&status))>0) {
-        num_clients--; /* one client less */
+        --num_clients; /* one client less */
 #endif
 #ifdef WIFSIGNALED
         if(WIFSIGNALED(status)) {
@@ -486,9 +486,8 @@ int set_socket_options(int s, int type) {
     return 0; /* OK */
 }
 
-int write_blocking(CLI *c, int fd, u8 *ptr, int len) {
+void write_blocking(CLI *c, int fd, u8 *ptr, int len) {
         /* simulate a blocking write */
-        /* returns 0 on success, -1 on failure */
     s_poll_set fds;
     int num;
 
@@ -498,31 +497,29 @@ int write_blocking(CLI *c, int fd, u8 *ptr, int len) {
         switch(s_poll_wait(&fds, c->opt->timeout_busy)) {
         case -1:
             sockerror("write_blocking: s_poll_wait");
-            return -1; /* error */
+            longjmp(c->err, 1); /* error */
         case 0:
             s_log(LOG_INFO, "write_blocking: s_poll_wait timeout");
-            return -1; /* timeout */
+            longjmp(c->err, 1); /* timeout */
         case 1:
             break; /* OK */
         default:
             s_log(LOG_ERR, "write_blocking: s_poll_wait unknown result");
-            return -1; /* error */
+            longjmp(c->err, 1); /* error */
         }
         num=writesocket(fd, ptr, len);
         switch(num) {
         case -1: /* error */
             sockerror("writesocket (write_blocking)");
-            return -1;
+            longjmp(c->err, 1);
         }
         ptr+=num;
         len-=num;
     }
-    return 0; /* OK */
 }
 
-int read_blocking(CLI *c, int fd, u8 *ptr, int len) {
+void read_blocking(CLI *c, int fd, u8 *ptr, int len) {
         /* simulate a blocking read */
-        /* returns 0 on success, -1 on failure */
     s_poll_set fds;
     int num;
 
@@ -532,99 +529,121 @@ int read_blocking(CLI *c, int fd, u8 *ptr, int len) {
         switch(s_poll_wait(&fds, c->opt->timeout_busy)) {
         case -1:
             sockerror("read_blocking: s_poll_wait");
-            return -1; /* error */
+            longjmp(c->err, 1); /* error */
         case 0:
             s_log(LOG_INFO, "read_blocking: s_poll_wait timeout");
-            return -1; /* timeout */
+            longjmp(c->err, 1); /* timeout */
         case 1:
             break; /* OK */
         default:
             s_log(LOG_ERR, "read_blocking: s_poll_wait unknown result");
-            return -1; /* error */
+            longjmp(c->err, 1); /* error */
         }
         num=readsocket(fd, ptr, len);
         switch(num) {
         case -1: /* error */
             sockerror("readsocket (read_blocking)");
-            return -1;
+            longjmp(c->err, 1);
         case 0: /* EOF */
             s_log(LOG_ERR, "Unexpected socket close (read_blocking)");
-            return -1;
+            longjmp(c->err, 1);
         }
         ptr+=num;
         len-=num;
     }
-    return 0; /* OK */
 }
 
-int fdprintf(CLI *c, int fd, const char *format, ...) {
-    va_list arglist;
-    char line[STRLEN], logline[STRLEN];
-    char crlf[]="\r\n";
-    int len;
+void fdputline(CLI *c, int fd, char *line) {
+    char logline[STRLEN];
+    const char crlf[]="\r\n";
 
-    va_start(arglist, format);
-#ifdef HAVE_VSNPRINTF
-    len=vsnprintf(line, STRLEN, format, arglist);
-#else
-    len=vsprintf(line, format, arglist);
-#endif
-    va_end(arglist);
-    len+=2;
-    if(len>=STRLEN) {
-        s_log(LOG_ERR, "Line too long in fdprintf");
-        return -1;
+    if(strlen(line)+2>=STRLEN) { /* 2 for crlf */
+        s_log(LOG_ERR, "Line too long in fdputline");
+        longjmp(c->err, 1);
     }
-    safecopy(logline, line); /* The line without crlf */
+    safecopy(logline, line); /* the line without crlf */
     safeconcat(line, crlf);
-    if(write_blocking(c, fd, line, len)<0)
-        return -1;
+    write_blocking(c, fd, line, strlen(line));
     safestring(logline);
     s_log(LOG_DEBUG, " -> %s", logline);
-    return len;
 }
 
-int fdscanf(CLI *c, int fd, const char *format, char *buffer) {
-    char line[STRLEN], logline[STRLEN], lformat[STRLEN];
+void fdgetline(CLI *c, int fd, char *line) {
+    char logline[STRLEN];
     s_poll_set fds;
-    int ptr, retval;
+    int ptr;
 
-    for(ptr=0; ptr<STRLEN-1; ptr++) {
+    for(ptr=0;;) {
         s_poll_zero(&fds);
         s_poll_add(&fds, fd, 1, 0); /* read */
         switch(s_poll_wait(&fds, c->opt->timeout_busy)) {
         case -1:
-            sockerror("fdscanf: s_poll_wait");
-            return -1; /* error */
+            sockerror("fdgetline: s_poll_wait");
+            longjmp(c->err, 1); /* error */
         case 0:
-            s_log(LOG_INFO, "fdscanf: s_poll_wait timeout");
-            return -1; /* timeout */
+            s_log(LOG_INFO, "fdgetline: s_poll_wait timeout");
+            longjmp(c->err, 1); /* timeout */
         case 1:
             break; /* OK */
         default:
-            s_log(LOG_ERR, "fdscanf: s_poll_wait unknown result");
-            return -1; /* error */
+            s_log(LOG_ERR, "fdgetline: s_poll_wait unknown result");
+            longjmp(c->err, 1); /* error */
         }
         switch(readsocket(fd, line+ptr, 1)) {
         case -1: /* error */
-            sockerror("readsocket (fdscanf)");
-            return -1;
+            sockerror("readsocket (fdgetline)");
+            longjmp(c->err, 1);
         case 0: /* EOF */
-            s_log(LOG_ERR, "Unexpected socket close (fdscanf)");
-            return -1;
+            s_log(LOG_ERR, "Unexpected socket close (fdgetline)");
+            longjmp(c->err, 1);
         }
         if(line[ptr]=='\r')
             continue;
         if(line[ptr]=='\n')
             break;
+        if(!line[ptr])
+            break;
+        if(++ptr==STRLEN) {
+            s_log(LOG_ERR, "Input line too long");
+            longjmp(c->err, 1);
+        }
     }
     line[ptr]='\0';
     safecopy(logline, line);
     safestring(logline);
     s_log(LOG_DEBUG, " <- %s", logline);
+}
+
+int fdprintf(CLI *c, int fd, const char *format, ...) {
+    va_list arglist;
+    char line[STRLEN];
+    int len;
+
+    va_start(arglist, format);
+#ifdef HAVE_VSNPRINTF
+    len=vsnprintf(line, STRLEN-2, format, arglist);
+#else
+    len=vsprintf(line, format, arglist);
+#endif
+    va_end(arglist);
+    if(len<0) {
+        s_log(LOG_ERR, "fdprintf: vs(n)printf failed");
+        longjmp(c->err, 1);
+    }
+    fdputline(c, fd, line);
+    return len+2;
+}
+
+int fdscanf(CLI *c, int fd, const char *format, char *buffer) {
+    char line[STRLEN], lformat[STRLEN];
+    int ptr, retval;
+
+    fdgetline(c, fd, line);
+
     retval=sscanf(line, format, buffer);
     if(retval>=0)
         return retval;
+
     s_log(LOG_DEBUG, "fdscanf falling back to lowercase");
     safecopy(lformat, format);
     for(ptr=0; lformat[ptr]; ptr++)

@@ -1,4 +1,4 @@
-; Sample stunnel configuration file by Michal Trojnara 2002-2005
+; Sample stunnel configuration file by Michal Trojnara 2002-2006
 ; Some options used here may not be adequate for your particular configuration
 ; Please make sure you understand them (especially the effect of chroot jail)
 
@@ -7,7 +7,7 @@ cert = @prefix@/etc/stunnel/mail.pem
 ;key = @prefix@/etc/stunnel/mail.pem
 
 ; Some security enhancements for UNIX systems - comment them out on Win32
-chroot = @prefix@/var/stunnel/
+chroot = @prefix@/var/lib/stunnel/
 setuid = nobody
 setgid = nogroup
 ; PID is created inside chroot jail

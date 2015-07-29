@@ -3,8 +3,8 @@
 # File lists
 
 common_headers = common.h prototypes.h
-common_sources = client.c log.c options.c protocol.c \
-    network.c resolver.c ssl.c sthreads.c stunnel.c
+common_sources = file.c client.c log.c options.c protocol.c \
+    network.c resolver.c ssl.c ctx.c sthreads.c stunnel.c
 unix_sources = pty.c
 shared_sources = env.c
 win32_sources = gui.c resources.h resources.rc stunnel.ico
@@ -26,9 +26,13 @@ libstunnel_la_LDFLAGS = -avoid-version
 
 INCLUDES = -I/usr/kerberos/include
 
+# Additional compiler flags
+
+AM_CPPFLAGS = -DLIBDIR='"$(libdir)"' -DCONFDIR='"$(sysconfdir)/stunnel"' -DPIDFILE='"$(prefix)/var/run/stunnel/stunnel.pid"'
+
 # Win32 executable
 
-EXTRA_DIST = stunnel.exe make.bat Makefile.w32
+EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak nogui.c
 EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES =  $(common_headers) $(common_sources) $(win32_sources)
 # dist-hook: stunnel.exe
@@ -36,10 +40,10 @@ stunnel_exe_SOURCES =  $(common_headers) $(common_sources) $(win32_sources)
 
 OPENSSLDIR=/usr/src/openssl-0.9.7i
 WINCFLAGS=-O2 -Wall -I$(OPENSSLDIR)/outinc \
-	-DUSE_WIN32=1 -DHAVE_OPENSSL=1 -DVERSION=\"@VERSION@\"
+	-DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
 WINLIBS=-L$(OPENSSLDIR)/out -lzdll -leay32 -lssl32 -lws2_32 -lgdi32 -mwindows
-WINOBJ=client.obj log.obj options.obj protocol.obj network.obj \
-    resolver.obj ssl.obj sthreads.obj stunnel.obj gui.obj resources.obj
+WINOBJ=file.obj client.obj log.obj options.obj protocol.obj network.obj \
+	resolver.obj ssl.obj ctx.obj sthreads.obj stunnel.obj gui.obj resources.obj
 WINGCC=i586-mingw32msvc-gcc
 WINDRES=i586-mingw32msvc-windres
 

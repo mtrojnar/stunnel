@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,21 @@ void leave_critical_section(SECTION_CODE i) {
 
 #ifdef USE_UCONTEXT
 
+#if defined(CPU_SPARC) && ( \
+        defined(OS_SOLARIS2_0) || \
+        defined(OS_SOLARIS2_1) || \
+        defined(OS_SOLARIS2_2) || \
+        defined(OS_SOLARIS2_3) || \
+        defined(OS_SOLARIS2_4) || \
+        defined(OS_SOLARIS2_5) || \
+        defined(OS_SOLARIS2_6) || \
+        defined(OS_SOLARIS2_7) || \
+        defined(OS_SOLARIS2_8))
+#define ARGC 2
+#else
+#define ARGC 1
+#endif
+
 /* first context on the ready list is the active context */
 CONTEXT *ready_head=NULL, *ready_tail=NULL;         /* ready to execute */
 CONTEXT *waiting_head=NULL, *waiting_tail=NULL;     /* waiting on poll() */
@@ -78,9 +93,9 @@ static CONTEXT *new_context(void) {
         return NULL;
     }
     ctx->ctx.uc_link=NULL; /* it should never happen */
-#if defined(__sgi) || (defined(__sparc) && !defined(HAVE___MAKECONTEXT_V2))
+#if defined(__sgi) || ARGC==2 /* obsolete ss_sp semantics */
     ctx->ctx.uc_stack.ss_sp=ctx->stack+STACK_SIZE-8;
-#else /* not an IRIX or old and buggy Solaris on Sparc */
+#else
     ctx->ctx.uc_stack.ss_sp=ctx->stack;
 #endif
     ctx->ctx.uc_stack.ss_size=STACK_SIZE;
@@ -113,7 +128,7 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
     if(!ctx)
         return -1;
     s_log(LOG_DEBUG, "Context %ld created", ctx->id);
-    makecontext(&ctx->ctx, (void(*)(void))cli, 1, arg);
+    makecontext(&ctx->ctx, (void(*)(void))cli, ARGC, arg);
     return 0;
 }
 
@@ -299,11 +314,32 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
     return 0;
 }
 
+#ifdef _WIN32_WCE
+
+int _beginthread(void (*start_address)(void *),
+        int stack_size, void *arglist) {
+    DWORD thread_id;
+    HANDLE handle;
+
+    handle=CreateThread(NULL, stack_size,
+        (LPTHREAD_START_ROUTINE)start_address, arglist, 0, &thread_id);
+    if(!handle)
+        return -1;
+    CloseHandle(handle);
+    return 0;
+}
+
+void _endthread(void) {
+    ExitThread(0);
+}
+
+#endif /* !defined(_WIN32_WCE) */
+
 #endif /* USE_WIN32 */
 
 #ifdef DEBUG_STACK_SIZE
 
-#define STACK_RESERVE (STACK_SIZE/4)
+#define STACK_RESERVE (STACK_SIZE/8)
 #define VERIFY_AREA ((STACK_SIZE-STACK_RESERVE)/sizeof(u32))
 #define TEST_VALUE 0xdeadbeef
 
@@ -329,7 +365,7 @@ void stack_info(int init) { /* 1-initialize, 0-display */
         if(i>num) /* use the higher value */
             num=i;
         if(num<64) {
-            s_log(LOG_ERR, "STACK_RESERVE is too high");
+            s_log(LOG_NOTICE, "STACK_RESERVE is too high");
             return;
         }
         if(num<min_num)

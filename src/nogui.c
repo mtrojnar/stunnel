@@ -28,34 +28,34 @@
  *   do so, delete this exception statement from your version.
  */
 
-/* getpeername() can't be declared in the following includes */
-#define getpeername no_getpeername
-#include <sys/types.h>
-#include <sys/socket.h> /* for AF_INET */
-#include <netinet/in.h>
-#include <arpa/inet.h>  /* for inet_addr() */
-#include <stdlib.h>     /* for getenv() */
-#ifdef __BEOS__
-#include <be/bone/arpa/inet.h> /* for AF_INET */
-#include <be/bone/sys/socket.h> /* for AF_INET */
-#else
-#include <sys/socket.h> /* for AF_INET */
-#endif
-#undef getpeername
+#include "common.h"
+#include "prototypes.h"
+#undef exit
 
-int getpeername(int s, struct sockaddr_in *name, int *len) {
-    char *value;
+int main(int argc, char *argv[]) {
+    static struct WSAData wsa_state;
 
-    name->sin_family=AF_INET;
-    if((value=getenv("REMOTE_HOST")))
-        name->sin_addr.s_addr=inet_addr(value);
-    else
-        name->sin_addr.s_addr=htonl(INADDR_ANY);
-    if((value=getenv("REMOTE_PORT")))
-        name->sin_port=htons(atoi(value));
-    else
-        name->sin_port=htons(0);
+    if(WSAStartup(MAKEWORD(1, 1), &wsa_state))
+        return 1;
+    main_initialize(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL);
+    main_execute();
     return 0;
 }
 
-/* End of env.c */
+void win_log(LPSTR line) { /* Also used in log.c */
+    LPTSTR tstr;
+
+    tstr=str2tstr(line);
+    RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
+    free(tstr);
+}
+
+void exit_stunnel(int code) {
+    exit(code);
+}
+
+int pem_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
+    return 0; /* not implemented */
+}
+
+/* End of nogui.c */

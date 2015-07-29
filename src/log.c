@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -31,56 +31,15 @@
 #include "common.h"
 #include "prototypes.h"
 
-static FILE *outfile=NULL; /* Logging to file disabled by default */
-
-#if defined (USE_WIN32) || defined (__vms)
-
-/* HANDLE evt=NULL; */
-
-void log_open(void) { /* Win32 version */
-#if 0
-    AllocConsole();
-    /* reopen stdin handle as console window input */
-    freopen("CONIN$", "rb", stdin);
-    /* reopen stout handle as console window output */
-    freopen("CONOUT$", "wb", stdout);
-    /* reopen stderr handle as console window output */
-    freopen("CONOUT$", "wb", stderr);
-    printf("Close this window to exit stunnel\n\n");
-#endif
-    if(options.output_file)
-        outfile=fopen(options.output_file, "a");
-    if(outfile)
-        return; /* It was possible to open a log file */
-    /* TODO: Register NT EventLog source here */
-    /* evt=RegisterEventSource(NULL, "stunnel"); */
-    if(options.output_file)
-        s_log(LOG_ERR, "Unable to open output file: %s", options.output_file);
-}
-
-void log_close(void) {
-    if(outfile)
-        fclose(outfile);
-#if 0
-    else
-        FreeConsole();
-#endif
-}
-
-#else /* USE_WIN32, __vms */
+static DISK_FILE *outfile=NULL; /* Logging to file disabled by default */
 
 void log_open(void) { /* Unix version */
-    int fd;
-
     if(options.output_file) { /* 'output' option specified */
-        fd=open(options.output_file, O_CREAT|O_WRONLY|O_APPEND, 0640);
-        if(fd>=0) { /* file opened or created */
-            fcntl(fd, F_SETFD, FD_CLOEXEC);
-            outfile=fdopen(fd, "a");
-            if(outfile)
-                return; /* no need to setup syslog */
-        }
+        outfile=file_open(options.output_file, 1);
+        if(outfile) /* file opened or created */
+            return; /* no need to setup syslog */
     }
+#if !defined(USE_WIN32) && !defined (__vms)
     if(options.option.syslog) {
 #ifdef __ultrix__
         openlog("stunnel", 0);
@@ -88,25 +47,25 @@ void log_open(void) { /* Unix version */
         openlog("stunnel", LOG_CONS | LOG_NDELAY, options.facility);
 #endif /* __ultrix__ */
     }
+#endif /* !defined (USE_WIN32) && !defined (__vms) */
     if(options.output_file)
         s_log(LOG_ERR, "Unable to open output file: %s", options.output_file);
 }
 
 void log_close(void) {
     if(outfile) {
-        fclose(outfile);
+        file_close(outfile);
         return;
     }
+#ifndef USE_WIN32
     if(options.option.syslog)
         closelog();
+#endif
 }
-
-#endif /* USE_WIN32, __vms */
 
 void s_log(int level, const char *format, ...) {
     va_list arglist;
     char text[STRLEN], timestamped[STRLEN];
-    FILE *out;
     time_t gmt;
     struct tm *timeptr;
 #if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
@@ -129,7 +88,6 @@ void s_log(int level, const char *format, ...) {
         return;
     }
 #endif /* USE_WIN32, __vms */
-    out=outfile?outfile:stderr;
     time(&gmt);
 #if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
     timeptr=localtime_r(&gmt, &timestruct);
@@ -146,19 +104,15 @@ void s_log(int level, const char *format, ...) {
         timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec,
         level, stunnel_process_id(), stunnel_thread_id(), text);
 #ifdef USE_WIN32
-    win_log(timestamped); /* Always log to the GUI window */
-    if(outfile) /* to the file - only if it exists */
+    win_log(timestamped); /* always log to the GUI window */
+    if(outfile) /* fallback to stderr is not available on WIN32 */
 #endif
-    {
-        fprintf(out, "%s\n", timestamped);
-        fflush(out);
-    }
+        file_putline(outfile, timestamped);
 }
 
 void log_raw(const char *format, ...) {
     va_list arglist;
     char text[STRLEN];
-    FILE *out;
 
     va_start(arglist, format);
 #ifdef HAVE_VSNPRINTF
@@ -167,12 +121,10 @@ void log_raw(const char *format, ...) {
     vsprintf(text, format, arglist);
 #endif
     va_end(arglist);
-    out=outfile?outfile:stderr;
 #ifdef USE_WIN32
     win_log(text);
 #else
-    fprintf(out, "%s\n", text);
-    fflush(out);
+    file_putline(outfile, text);
 #endif
 }
 

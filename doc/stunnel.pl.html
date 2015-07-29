@@ -167,44 +167,6 @@ tekstem '[nazwa_us³ugi]' wskazuj±cym pocz±tek definicji us³ugi
 </p>
 <h2><a name="opcje_globalne">OPCJE GLOBALNE</a></h2>
 <dl>
-<dt><strong><a name="item_capath__3d_katalog_ca"><strong>CApath</strong> = katalog_CA</a></strong><br />
-</dt>
-<dd>
-katalog Centrum Certyfikacji
-</dd>
-<dd>
-<p>Opcja okre¶la katalog, w którym <strong>stunnel</strong> bêdzie szuka³ certyfikatów,
-je¿eli u¿yta zosta³a opcja <em>verify</em>.  Pliki z certyfikatami musz±
-posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
-certyfikatu.</p>
-</dd>
-<dd>
-<p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>CApath</em> jest okre¶lona
-wzglêdem tego katalogu.</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_cafile__3d_plik_ca"><strong>CAfile</strong> = plik_CA</a></strong><br />
-</dt>
-<dd>
-plik Centrum Certyfikacji
-</dd>
-<dd>
-<p>Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
-przez opcjê <em>verify</em>.</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_cert__3d_plik_pem"><strong>cert</strong> = plik_pem</a></strong><br />
-</dt>
-<dd>
-plik z ³añcuchem certyfikatów
-</dd>
-<dd>
-<p>Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
-program <strong>stunnel</strong> do uwierzytelnienia siê przed drug± stron± po³±czenia.
-Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
-W trybie klienta certyfikat jest opcjonalny.</p>
-</dd>
-<p></p>
 <dt><strong><a name="item_katalog"><strong>chroot</strong> = katalog (tylko Unix)</a></strong><br />
 </dt>
 <dd>
@@ -224,25 +186,6 @@ libwrap (TCP wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
 umieszczonego wewn±trz katalogu podanego w opcji <em>chroot</em>.</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_ciphers__3d_lista_szyfr_f3w"><strong>ciphers</strong> = lista_szyfrów</a></strong><br />
-</dt>
-<dd>
-lista dozwolonych szyfrów SSL
-</dd>
-<dd>
-<p>Parametrem tej opcji jest lista szyfrów, które bêd± u¿yte przy
-otwieraniu nowych po³±czeñ SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_client__3d_yes__7c_no"><strong>client</strong> = yes | no</a></strong><br />
-</dt>
-<dd>
-tryb kliencki (zdalna us³uga u¿ywa SSL)
-</dd>
-<dd>
-<p>domy¶lnie: no (tryb serwerowy)</p>
-</dd>
-<p></p>
 <dt><strong><a name="item_compression__3d_zlib__7c_rle"><strong>compression</strong> = zlib | rle</a></strong><br />
 </dt>
 <dd>
@@ -250,32 +193,6 @@ wybór algorytmu kompresji przesy³anych danych
 </dd>
 <dd>
 <p>domy¶lnie: bez kompresji</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_crlpath__3d_katalog_crl"><strong>CRLpath</strong> = katalog_CRL</a></strong><br />
-</dt>
-<dd>
-katalog List Odwo³anych Certyfikatów (CRL)
-</dd>
-<dd>
-<p>Opcja okre¶la katalog, w którym <strong>stunnel</strong> bêdzie szuka³ list CRL,
-je¿eli u¿yta zosta³a opcja <em>verify</em>.  Pliki z listami CRL musz±
-posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
-listy CRL.</p>
-</dd>
-<dd>
-<p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>CRLpath</em> jest okre¶lona
-wzglêdem tego katalogu.</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_crlfile__3d_plik_crl"><strong>CRLfile</strong> = plik_CRL</a></strong><br />
-</dt>
-<dd>
-plik List Odwo³anych Certyfikatów (CRL)
-</dd>
-<dd>
-<p>Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy CRL u¿ywane
-przez opcjê <em>verify</em>.</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_debug__3d_poziom_5b_2epodsystem_5d"><strong>debug</strong> = poziom[.podsystem]</a></strong><br />
@@ -328,44 +245,6 @@ tryb pierwszoplanowy
 <p>U¿ycie tej opcji powoduje, ¿e <em>stunnel</em> nie przechodzi w t³o loguj±c
 swoje komunikaty na konsolê zamiast przez <em>syslog</em> (o ile nie u¿yto
 opcji <em>output</em>).</p>
-</dd>
-<p></p>
-<dt><strong><a name="item_key__3d_plik_klucza"><strong>key</strong> = plik_klucza</a></strong><br />
-</dt>
-<dd>
-klucz prywatny do certyfikatu podanego w opcji <em>cert</em>
-</dd>
-<dd>
-<p>Klucz prywatny jest potrzebny do uwierzytelnienia w³a¶ciciela certyfikatu.
-Poniewa¿ powinien on byæ zachowany w tajemnicy, prawa do jego odczytu
-powinien mieæ wy³±cznie w³a¶ciciel pliku.  W systemie Unix mo¿na to osi±gn±æ
-komend±:</p>
-</dd>
-<dd>
-<pre>
-    chmod 600 keyfile</pre>
-</dd>
-<dd>
-<p>domy¶lnie: warto¶æ opcji <em>cert</em></p>
-</dd>
-<p></p>
-<dt><strong><a name="item_options__3d_opcje_ssl"><strong>options</strong> = opcje_SSL</a></strong><br />
-</dt>
-<dd>
-opcje biblioteki OpenSSL
-</dd>
-<dd>
-<p>Parametrem jest nazwa opcji zgodnie z opisem w <em>SSL_CTX_set_options(3ssl)</em>,
-ale bez przedrostka <em>SSL_OP_</em>.
-Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ <em>options</em> wielokrotnie.</p>
-</dd>
-<dd>
-<p>Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji SSL
-w programie Eudora mo¿na u¿yæ opcji:</p>
-</dd>
-<dd>
-<pre>
-    options = DONT_INSERT_EMPTY_FRAGMENTS</pre>
 </dd>
 <p></p>
 <dt><strong><a name="item_output__3d_plik"><strong>output</strong> = plik</a></strong><br />
@@ -442,12 +321,6 @@ u¿yj parametru jako nazwy serwisu
 <p>domy¶lnie: stunnel</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_session__3d_przeterminowanie_pami_eaci_podr_eaczne"><strong>session</strong> = przeterminowanie_pamiêci_podrêcznej_sesji</a></strong><br />
-</dt>
-<dd>
-czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
-</dd>
-<p></p>
 <dt><strong><a name="item_identyfikator_grupy"><strong>setgid</strong> = identyfikator_grupy (tylko Unix)</a></strong><br />
 </dt>
 <dd>
@@ -500,22 +373,6 @@ w³±cz ikonkê w prawym dolnym rogu ekranu
 <dd>
 <p>domy¶lnie: yes (w³±cz)</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_verify__3d_poziom"><strong>verify</strong> = poziom</a></strong><br />
-</dt>
-<dd>
-weryfikuj certyfikat drugiej strony po³±czenia
-</dd>
-<dd>
-<pre>
-    poziom 1 - weryfikuj, je¿eli zosta³
-        przedstawiony
-    poziom 2 - weryfikuj z zainstalowanym
-        certyfikatem Centrum Certyfikacji
-    poziom 3 - weryfikuj z lokalnie
-        zainstalowanym certyfikatem drugiej strony
-    domy¶lnie - nie weryfikuj</pre>
-</dd>
 <p></p></dl>
 <p>
 </p>
@@ -538,6 +395,63 @@ nas³uchuje na po³±czenia na podanym adresie i porcie
 na wszystkich adresach IP lokalnych interfejsów.</p>
 </dd>
 <p></p>
+<dt><strong><a name="item_capath__3d_katalog_ca"><strong>CApath</strong> = katalog_CA</a></strong><br />
+</dt>
+<dd>
+katalog Centrum Certyfikacji
+</dd>
+<dd>
+<p>Opcja okre¶la katalog, w którym <strong>stunnel</strong> bêdzie szuka³ certyfikatów,
+je¿eli u¿yta zosta³a opcja <em>verify</em>.  Pliki z certyfikatami musz±
+posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
+certyfikatu.</p>
+</dd>
+<dd>
+<p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>CApath</em> jest okre¶lona
+wzglêdem tego katalogu.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_cafile__3d_plik_ca"><strong>CAfile</strong> = plik_CA</a></strong><br />
+</dt>
+<dd>
+plik Centrum Certyfikacji
+</dd>
+<dd>
+<p>Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
+przez opcjê <em>verify</em>.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_cert__3d_plik_pem"><strong>cert</strong> = plik_pem</a></strong><br />
+</dt>
+<dd>
+plik z ³añcuchem certyfikatów
+</dd>
+<dd>
+<p>Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
+program <strong>stunnel</strong> do uwierzytelnienia siê przed drug± stron± po³±czenia.
+Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
+W trybie klienta certyfikat jest opcjonalny.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_ciphers__3d_lista_szyfr_f3w"><strong>ciphers</strong> = lista_szyfrów</a></strong><br />
+</dt>
+<dd>
+lista dozwolonych szyfrów SSL
+</dd>
+<dd>
+<p>Parametrem tej opcji jest lista szyfrów, które bêd± u¿yte przy
+otwieraniu nowych po³±czeñ SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_client__3d_yes__7c_no"><strong>client</strong> = yes | no</a></strong><br />
+</dt>
+<dd>
+tryb kliencki (zdalna us³uga u¿ywa SSL)
+</dd>
+<dd>
+<p>domy¶lnie: no (tryb serwerowy)</p>
+</dd>
+<p></p>
 <dt><strong><a name="item_connect__3d__5badres_3a_5dport"><strong>connect</strong> = [adres:]port</a></strong><br />
 </dt>
 <dd>
@@ -546,6 +460,32 @@ po³±cz siê ze zdalnym serwerem na podany port
 <dd>
 <p>Je¿eli nie zosta³ podany adres, <em>stunnel</em> domy¶lnie ³±czy siê
 z lokalnym serwerem.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_crlpath__3d_katalog_crl"><strong>CRLpath</strong> = katalog_CRL</a></strong><br />
+</dt>
+<dd>
+katalog List Odwo³anych Certyfikatów (CRL)
+</dd>
+<dd>
+<p>Opcja okre¶la katalog, w którym <strong>stunnel</strong> bêdzie szuka³ list CRL,
+je¿eli u¿yta zosta³a opcja <em>verify</em>.  Pliki z listami CRL musz±
+posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
+listy CRL.</p>
+</dd>
+<dd>
+<p>Je¿eli zdefiniowano katalog <em>chroot</em>, to ¶cie¿ka do <em>CRLpath</em> jest okre¶lona
+wzglêdem tego katalogu.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_crlfile__3d_plik_crl"><strong>CRLfile</strong> = plik_CRL</a></strong><br />
+</dt>
+<dd>
+plik List Odwo³anych Certyfikatów (CRL)
+</dd>
+<dd>
+<p>Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy CRL u¿ywane
+przez opcjê <em>verify</em>.</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_delay__3d_yes__7c_no"><strong>delay</strong> = yes | no</a></strong><br />
@@ -580,6 +520,25 @@ Argumenty s± rozdzielone dowoln± liczb± bia³ych znaków.</p>
 weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z protoko³u IDENT (RFC 1413)
 </dd>
 <p></p>
+<dt><strong><a name="item_key__3d_plik_klucza"><strong>key</strong> = plik_klucza</a></strong><br />
+</dt>
+<dd>
+klucz prywatny do certyfikatu podanego w opcji <em>cert</em>
+</dd>
+<dd>
+<p>Klucz prywatny jest potrzebny do uwierzytelnienia w³a¶ciciela certyfikatu.
+Poniewa¿ powinien on byæ zachowany w tajemnicy, prawa do jego odczytu
+powinien mieæ wy³±cznie w³a¶ciciel pliku.  W systemie Unix mo¿na to osi±gn±æ
+komend±:</p>
+</dd>
+<dd>
+<pre>
+    chmod 600 keyfile</pre>
+</dd>
+<dd>
+<p>domy¶lnie: warto¶æ opcji <em>cert</em></p>
+</dd>
+<p></p>
 <dt><strong><a name="item_local__3d_serwer"><strong>local</strong> = serwer</a></strong><br />
 </dt>
 <dd>
@@ -590,19 +549,56 @@ IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
 serwera, do którego nawi±zywane jest po³±czenie.</p>
 </dd>
 <p></p>
+<dt><strong><a name="item_options__3d_opcje_ssl"><strong>options</strong> = opcje_SSL</a></strong><br />
+</dt>
+<dd>
+opcje biblioteki OpenSSL
+</dd>
+<dd>
+<p>Parametrem jest nazwa opcji zgodnie z opisem w <em>SSL_CTX_set_options(3ssl)</em>,
+ale bez przedrostka <em>SSL_OP_</em>.
+Aby wyspecyfikowaæ kilka opcji nale¿y u¿yæ <em>options</em> wielokrotnie.</p>
+</dd>
+<dd>
+<p>Na przyk³ad dla zachowania kompatybilno¶ci z b³êdami implementacji SSL
+w programie Eudora mo¿na u¿yæ opcji:</p>
+</dd>
+<dd>
+<pre>
+    options = DONT_INSERT_EMPTY_FRAGMENTS</pre>
+</dd>
+<p></p>
 <dt><strong><a name="item_protocol__3d_protok_f3_b3"><strong>protocol</strong> = protokó³</a></strong><br />
 </dt>
 <dd>
 negocjuj SSL podanym protoko³em aplikacyjnym
 </dd>
 <dd>
-<p>aktualnie wspierane protoko³y: cifs, nntp, pop3, smtp</p>
+<p>aktualnie wspierane protoko³y: cifs, connect, nntp, pop3, smtp</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_protocolcredentials__3d_u_bfytkownik_3ahas_b3o"><strong>protocolCredentials</strong> = u¿ytkownik:has³o</a></strong><br />
+</dt>
+<dd>
+dane uwierzytelniaj±ce do negocjacji protoko³u
+</dd>
+<p></p>
+<dt><strong><a name="item_protocolhost__3d_adres_3aport"><strong>protocolHost</strong> = adres:port</a></strong><br />
+</dt>
+<dd>
+adres docelowy do negocjacji protoko³u
 </dd>
 <p></p>
 <dt><strong><strong>pty</strong> = yes | no (tylko Unix)</strong><br />
 </dt>
 <dd>
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
+</dd>
+<p></p>
+<dt><strong><a name="item_session__3d_przeterminowanie_pami_eaci_podr_eaczne"><strong>session</strong> = przeterminowanie_pamiêci_podrêcznej_sesji</a></strong><br />
+</dt>
+<dd>
+czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
 </dd>
 <p></p>
 <dt><strong><a name="item_timeoutbusy__3d_liczba_sekund"><strong>TIMEOUTbusy</strong> = liczba_sekund</a></strong><br />
@@ -640,6 +636,22 @@ bezpo¶rednio od klienta, a nie od programu <em>stunnel</em>.
 Opcja dzia³a tylko w trybie lokalnym (opcja <em>exec</em>) przez za³adowanie
 przy pomocy LD_PRELOAD biblioteki env.so, albo w trybie zdalnym (opcja
 <em>connect</em>) na systemie Linux 2.2 z w³±czon± opcj± <em>transparent proxy</em>.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_verify__3d_poziom"><strong>verify</strong> = poziom</a></strong><br />
+</dt>
+<dd>
+weryfikuj certyfikat drugiej strony po³±czenia
+</dd>
+<dd>
+<pre>
+    poziom 1 - weryfikuj, je¿eli zosta³
+        przedstawiony
+    poziom 2 - weryfikuj z zainstalowanym
+        certyfikatem Centrum Certyfikacji
+    poziom 3 - weryfikuj z lokalnie
+        zainstalowanym certyfikatem drugiej strony
+    domy¶lnie - nie weryfikuj</pre>
 </dd>
 <p></p></dl>
 <p>

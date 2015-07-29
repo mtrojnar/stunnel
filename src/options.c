@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -31,6 +31,16 @@
 #include "common.h"
 #include "prototypes.h"
 
+#if defined(_WIN32_WCE) && !defined(CONFDIR)
+#define CONFDIR "\\stunnel"
+#endif
+
+#ifdef USE_WIN32
+#define CONFSEPARATOR "\\"
+#else
+#define CONFSEPARATOR "/"
+#endif
+
 #define CONFLINELEN (16*1024)
 
 static int parse_debug_level(char *);
@@ -38,8 +48,10 @@ static int parse_ssl_option(char *);
 static int print_socket_options(void);
 static void print_option(char *, int, OPT_UNION *);
 static int parse_socket_option(char *);
-static char *section_validate(LOCAL_OPTIONS *);
+static void section_validate(char *, int, LOCAL_OPTIONS *, int);
+static void config_error(char *, int, char *);
 static char *stralloc(char *);
+static char *base64(char *);
 #ifndef USE_WIN32
 static char **argalloc(char *);
 #endif
@@ -58,88 +70,10 @@ static char *option_not_found=
     "Specified option name is not valid here";
 
 static char *global_options(CMD cmd, char *opt, char *arg) {
+    char *tmpstr;
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         log_raw("Global options");
-    }
-
-    /* CApath */
-    switch(cmd) {
-    case CMD_INIT:
-#if 0
-        options.ca_dir=(char *)X509_get_default_cert_dir();
-#endif
-        options.ca_dir=NULL;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "CApath"))
-            break;
-        if(arg[0]) /* not empty */
-            options.ca_dir=stralloc(arg);
-        else
-            options.ca_dir=NULL;
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-#if 0
-        log_raw("%-15s = %s", "CApath",
-            options.ca_dir ? options.ca_dir : "(none)");
-#endif
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = CA certificate directory for 'verify' option",
-            "CApath");
-        break;
-    }
-
-    /* CAfile */
-    switch(cmd) {
-    case CMD_INIT:
-#if 0
-        options.ca_file=(char *)X509_get_default_certfile();
-#endif
-        options.ca_file=NULL;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "CAfile"))
-            break;
-        if(arg[0]) /* not empty */
-            options.ca_file=stralloc(arg);
-        else
-            options.ca_file=NULL;
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-#if 0
-        log_raw("%-15s = %s", "CAfile",
-            options.ca_file ? options.ca_file : "(none)");
-#endif
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = CA certificate file for 'verify' option",
-            "CAfile");
-        break;
-    }
-
-    /* cert */
-    switch(cmd) {
-    case CMD_INIT:
-#ifdef CONFDIR
-        options.cert=CONFDIR "/stunnel.pem";
-#else
-        options.cert="stunnel.pem";
-#endif
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "cert"))
-            break;
-        options.cert=stralloc(arg);
-        options.option.cert=1;
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-        log_raw("%-15s = %s", "cert", options.cert);
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = certificate chain", "cert");
-        break;
     }
 
     /* chroot */
@@ -161,47 +95,6 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     }
 #endif /* HAVE_CHROOT */
 
-    /* ciphers */
-    switch(cmd) {
-    case CMD_INIT:
-        options.cipher_list=SSL_DEFAULT_CIPHER_LIST;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "ciphers"))
-            break;
-        options.cipher_list=stralloc(arg);
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-        log_raw("%-15s = %s", "ciphers", SSL_DEFAULT_CIPHER_LIST);
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = list of permitted SSL ciphers", "ciphers");
-        break;
-    }
-
-    /* client */
-    switch(cmd) {
-    case CMD_INIT:
-        options.option.client=0;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "client"))
-            break;
-        if(!strcasecmp(arg, "yes"))
-            options.option.client=1;
-        else if(!strcasecmp(arg, "no"))
-            options.option.client=0;
-        else
-            return "argument should be either 'yes' or 'no'";
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = yes|no client mode (remote service uses SSL)",
-            "client");
-        break;
-    }
-
     /* compression */
     switch(cmd) {
     case CMD_INIT:
@@ -222,46 +115,6 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     case CMD_HELP:
         log_raw("%-15s = zlib|rle compression type",
             "compression");
-        break;
-    }
-
-    /* CRLpath */
-    switch(cmd) {
-    case CMD_INIT:
-        options.crl_dir=NULL;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "CRLpath"))
-            break;
-        if(arg[0]) /* not empty */
-            options.crl_dir=stralloc(arg);
-        else
-            options.crl_dir=NULL;
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = CRL directory", "CRLpath");
-        break;
-    }
-
-    /* CRLfile */
-    switch(cmd) {
-    case CMD_INIT:
-        options.crl_file=NULL;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "CRLfile"))
-            break;
-        if(arg[0]) /* not empty */
-            options.crl_file=stralloc(arg);
-        else
-            options.crl_file=NULL;
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = CRL file", "CRLfile");
         break;
     }
 
@@ -309,22 +162,41 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     }
 #endif /* OpenSSL 0.9.5a */
 
-#if (SSLEAY_VERSION_NUMBER >= 0x00907000L) && defined(HAVE_OSSL_ENGINE_H)
+#ifdef HAVE_OSSL_ENGINE_H
     /* engine */
     switch(cmd) {
     case CMD_INIT:
-        options.engine=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "engine"))
             break;
-        options.engine=stralloc(arg);
+        open_engine(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
         log_raw("%-15s = auto|engine_id",
             "engine");
+        break;
+    }
+
+    /* engineCtrl */
+    switch(cmd) {
+    case CMD_INIT:
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "engineCtrl"))
+            break;
+        tmpstr=strchr(arg, ':');
+        if(tmpstr)
+            *tmpstr++='\0';
+        ctrl_engine(arg, tmpstr);
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = cmd[:arg]",
+            "engineCtrl");
         break;
     }
 #endif
@@ -354,43 +226,6 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         break;
     }
 #endif
-
-    /* key */
-    switch(cmd) {
-    case CMD_INIT:
-        options.key=NULL;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "key"))
-            break;
-        options.key=stralloc(arg);
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-        log_raw("%-15s = %s", "key", options.cert); /* set in stunnel.c */
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = certificate private key", "key");
-        break;
-    }
-
-    /* options */
-    switch(cmd) {
-    case CMD_INIT:
-        options.ssl_options=0;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "options"))
-            break;
-        if(!parse_ssl_option(arg))
-            return "Illegal SSL option";
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = SSL option", "options");
-        log_raw("%18sset an SSL option", "");
-        break;
-    }
 
     /* output */
     switch(cmd) {
@@ -498,55 +333,25 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     switch(cmd) {
     case CMD_INIT:
         local_options.servname=stralloc("stunnel");
-#ifdef USE_WIN32
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
         options.win32_service="stunnel";
-        options.win32_name="stunnel " VERSION " on Win32";
 #endif
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "service"))
             break;
         local_options.servname=stralloc(arg);
-#ifdef USE_WIN32
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
         options.win32_service=stralloc(arg);
-        {
-            char tmpstr[STRLEN];
-
-            safecopy(tmpstr, "stunnel " VERSION " on Win32 (");
-            safeconcat(tmpstr, arg);
-            safeconcat(tmpstr, ")");
-            options.win32_name=stralloc(tmpstr);
-        }
 #endif
         return NULL; /* OK */
     case CMD_DEFAULT:
-#ifdef USE_WIN32
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
         log_raw("%-15s = %s", "service", options.win32_service);
 #endif
         break;
     case CMD_HELP:
         log_raw("%-15s = service name", "service");
-        break;
-    }
-
-    /* session */
-    switch(cmd) {
-    case CMD_INIT:
-        options.session_timeout=300;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "session"))
-            break;
-        if(atoi(arg)>0)
-            options.session_timeout=atoi(arg);
-        else
-            return "Illegal session timeout";
-        return NULL; /* OK */
-    case CMD_DEFAULT:
-        log_raw("%-15s = %ld seconds", "session", options.session_timeout);
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = session cache timeout (in seconds)", "session");
         break;
     }
 
@@ -631,40 +436,6 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     }
 #endif
 
-    /* verify */
-    switch(cmd) {
-    case CMD_INIT:
-        options.verify_level=-1;
-        options.verify_use_only_my=0;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "verify"))
-            break;
-        options.verify_level=SSL_VERIFY_NONE;
-        switch(atoi(arg)) {
-        case 3:
-            options.verify_use_only_my=1;
-        case 2:
-            options.verify_level|=SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-        case 1:
-            options.verify_level|=SSL_VERIFY_PEER;
-        case 0:
-            return NULL; /* OK */
-        default:
-            return "Bad verify level";
-        }
-    case CMD_DEFAULT:
-        log_raw("%-15s = none", "verify");
-        break;
-    case CMD_HELP:
-        log_raw("%-15s = level of peer certificate verification", "verify");
-        log_raw("%18slevel 1 - verify peer certificate if present", "");
-        log_raw("%18slevel 2 - require valid peer certificate always", "");
-        log_raw("%18slevel 3 - verify peer with locally installed certificate",
-        "");
-        break;
-    }
-
     if(cmd==CMD_EXEC)
         return option_not_found;
     return NULL; /* OK */
@@ -672,6 +443,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
 
 static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         char *opt, char *arg) {
+    int tmp;
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         log_raw(" ");
@@ -700,6 +472,126 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         break;
     }
 
+    /* CApath */
+    switch(cmd) {
+    case CMD_INIT:
+#if 0
+        section->ca_dir=(char *)X509_get_default_cert_dir();
+#endif
+        section->ca_dir=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "CApath"))
+            break;
+        if(arg[0]) /* not empty */
+            section->ca_dir=stralloc(arg);
+        else
+            section->ca_dir=NULL;
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+#if 0
+        log_raw("%-15s = %s", "CApath",
+            section->ca_dir ? section->ca_dir : "(none)");
+#endif
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = CA certificate directory for 'verify' option",
+            "CApath");
+        break;
+    }
+
+    /* CAfile */
+    switch(cmd) {
+    case CMD_INIT:
+#if 0
+        section->ca_file=(char *)X509_get_default_certfile();
+#endif
+        section->ca_file=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "CAfile"))
+            break;
+        if(arg[0]) /* not empty */
+            section->ca_file=stralloc(arg);
+        else
+            section->ca_file=NULL;
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+#if 0
+        log_raw("%-15s = %s", "CAfile",
+            section->ca_file ? section->ca_file : "(none)");
+#endif
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = CA certificate file for 'verify' option",
+            "CAfile");
+        break;
+    }
+
+    /* cert */
+    switch(cmd) {
+    case CMD_INIT:
+#ifdef CONFDIR
+        section->cert=CONFDIR CONFSEPARATOR "stunnel.pem";
+#else
+        section->cert="stunnel.pem";
+#endif
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "cert"))
+            break;
+        section->cert=stralloc(arg);
+        section->option.cert=1;
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        log_raw("%-15s = %s", "cert", section->cert);
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = certificate chain", "cert");
+        break;
+    }
+
+    /* ciphers */
+    switch(cmd) {
+    case CMD_INIT:
+        section->cipher_list=SSL_DEFAULT_CIPHER_LIST;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "ciphers"))
+            break;
+        section->cipher_list=stralloc(arg);
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        log_raw("%-15s = %s", "ciphers", SSL_DEFAULT_CIPHER_LIST);
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = list of permitted SSL ciphers", "ciphers");
+        break;
+    }
+
+    /* client */
+    switch(cmd) {
+    case CMD_INIT:
+        section->option.client=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "client"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.client=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.client=0;
+        else
+            return "argument should be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = yes|no client mode (remote service uses SSL)",
+            "client");
+        break;
+    }
+
     /* connect */
     switch(cmd) {
     case CMD_INIT:
@@ -723,6 +615,46 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_HELP:
         log_raw("%-15s = [host:]port connect remote host:port",
             "connect");
+        break;
+    }
+
+    /* CRLpath */
+    switch(cmd) {
+    case CMD_INIT:
+        section->crl_dir=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "CRLpath"))
+            break;
+        if(arg[0]) /* not empty */
+            section->crl_dir=stralloc(arg);
+        else
+            section->crl_dir=NULL;
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = CRL directory", "CRLpath");
+        break;
+    }
+
+    /* CRLfile */
+    switch(cmd) {
+    case CMD_INIT:
+        section->crl_file=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "CRLfile"))
+            break;
+        if(arg[0]) /* not empty */
+            section->crl_file=stralloc(arg);
+        else
+            section->crl_file=NULL;
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = CRL file", "CRLfile");
         break;
     }
 
@@ -808,6 +740,24 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         break;
     }
 
+    /* key */
+    switch(cmd) {
+    case CMD_INIT:
+        section->key=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "key"))
+            break;
+        section->key=stralloc(arg);
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        log_raw("%-15s = %s", "key", section->cert); /* set in stunnel.c */
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = certificate private key", "key");
+        break;
+    }
+
     /* local */
     switch(cmd) {
     case CMD_INIT:
@@ -828,6 +778,27 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         break;
     }
 
+    /* options */
+    switch(cmd) {
+    case CMD_INIT:
+        section->ssl_options=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "options"))
+            break;
+        tmp=parse_ssl_option(arg);
+        if(!tmp)
+            return "Illegal SSL option";
+        section->ssl_options|=tmp;
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = SSL option", "options");
+        log_raw("%18sset an SSL option", "");
+        break;
+    }
+
     /* protocol */
     switch(cmd) {
     case CMD_INIT:
@@ -843,7 +814,43 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_HELP:
         log_raw("%-15s = protocol to negotiate before SSL initialization",
             "protocol");
-        log_raw("%18scurrently supported: cifs, nntp, pop3, smtp", "");
+        log_raw("%18scurrently supported: cifs, connect, nntp, pop3, smtp", "");
+        break;
+    }
+
+    /* protocolCredentials */
+    switch(cmd) {
+    case CMD_INIT:
+        section->protocol_credentials=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "protocolCredentials"))
+            break;
+        section->protocol_credentials=base64(arg);
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = username:password for protocol negotiations",
+            "protocolCredentials");
+        break;
+    }
+
+    /* protocolHost */
+    switch(cmd) {
+    case CMD_INIT:
+        section->protocol_host=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "protocolHost"))
+            break;
+        section->protocol_host=stralloc(arg);
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = host:port for protocol negotiations",
+            "protocolHost");
         break;
     }
 
@@ -871,6 +878,27 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         break;
     }
 #endif
+
+    /* session */
+    switch(cmd) {
+    case CMD_INIT:
+        section->session_timeout=300;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "session"))
+            break;
+        if(atoi(arg)>0)
+            section->session_timeout=atoi(arg);
+        else
+            return "Illegal session timeout";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        log_raw("%-15s = %ld seconds", "session", section->session_timeout);
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = session cache timeout (in seconds)", "session");
+        break;
+    }
 
     /* TIMEOUTbusy */
     switch(cmd) {
@@ -983,6 +1011,40 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     }
 #endif
 
+    /* verify */
+    switch(cmd) {
+    case CMD_INIT:
+        section->verify_level=-1;
+        section->verify_use_only_my=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "verify"))
+            break;
+        section->verify_level=SSL_VERIFY_NONE;
+        switch(atoi(arg)) {
+        case 3:
+            section->verify_use_only_my=1;
+        case 2:
+            section->verify_level|=SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+        case 1:
+            section->verify_level|=SSL_VERIFY_PEER;
+        case 0:
+            return NULL; /* OK */
+        default:
+            return "Bad verify level";
+        }
+    case CMD_DEFAULT:
+        log_raw("%-15s = none", "verify");
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = level of peer certificate verification", "verify");
+        log_raw("%18slevel 1 - verify peer certificate if present", "");
+        log_raw("%18slevel 2 - require valid peer certificate always", "");
+        log_raw("%18slevel 3 - verify peer with locally installed certificate",
+        "");
+        break;
+    }
+
     if(cmd==CMD_EXEC)
         return option_not_found;
     return NULL; /* OK */
@@ -991,17 +1053,25 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
 static void syntax(char *confname) {
     log_raw(" ");
     log_raw("Syntax:");
+    log_raw("stunnel "
 #ifdef USE_WIN32
-    log_raw("stunnel [ [-install | -uninstall] [-quiet] [<filename>] ]"
-        " | -help | -version | -sockets");
-#else
-    log_raw("stunnel [<filename>] | -fd <n> | -help | -version | -sockets");
+#ifndef _WIN32_WCE
+        "[ [-install | -uninstall] "
 #endif
+        "[-quiet] "
+#endif
+	"[<filename>] ] "
+#ifndef USE_WIN32
+        "-fd <n> "
+#endif
+	"| -help | -version | -sockets");
     log_raw("    <filename>  - use specified config file instead of %s",
         confname);
 #ifdef USE_WIN32
+#ifndef _WIN32_WCE
     log_raw("    -install    - install NT service");
     log_raw("    -uninstall  - uninstall NT service");
+#endif
     log_raw("    -quiet      - don't display a message box on success");
 #else
     log_raw("    -fd <n>     - read the config file from a file descriptor");
@@ -1014,11 +1084,11 @@ static void syntax(char *confname) {
 
 void parse_config(char *name, char *parameter) {
 #ifdef CONFDIR
-    char *default_config_file=CONFDIR "/stunnel.conf";
+    char *default_config_file=CONFDIR CONFSEPARATOR "stunnel.conf";
 #else
     char *default_config_file="stunnel.conf";
 #endif
-    FILE *fp;
+    DISK_FILE *df;
     char confline[CONFLINELEN], *arg, *opt, *errstr, *filename;
     int line_number, i;
     LOCAL_OPTIONS *section, *new_section;
@@ -1039,7 +1109,7 @@ void parse_config(char *name, char *parameter) {
         exit(1);
     }
     if(!strcasecmp(name, "-version")) {
-        log_raw("%s", stunnel_info());
+        stunnel_info(1);
         log_raw(" ");
         global_options(CMD_DEFAULT, NULL, NULL);
         service_options(CMD_DEFAULT, section, NULL, NULL);
@@ -1062,8 +1132,8 @@ void parse_config(char *name, char *parameter) {
             }
             i=10*i+*arg-'0';
         }
-        fp=fdopen(i, "r");
-        if(!fp) {
+        df=file_fdopen(i);
+        if(!df) {
             log_raw("Invalid file descriptor %s", parameter);
             syntax(default_config_file);
         }
@@ -1071,20 +1141,13 @@ void parse_config(char *name, char *parameter) {
     } else
 #endif
     {
-        fp=fopen(name, "r");
-        if(!fp) {
-#ifdef USE_WIN32
-            /* fopen() does not return the error via GetLastError() on Win32 */
-            log_raw("Failed to open configuration file %s", name);
-#else
-            ioerror(name);
-#endif
+        df=file_open(name, 0);
+        if(!df)
             syntax(default_config_file);
-        }
         filename=name;
     }
     line_number=0;
-    while(fgets(confline, CONFLINELEN, fp)) {
+    while(file_getline(df, confline, CONFLINELEN)) {
         line_number++;
         opt=confline;
         while(isspace((unsigned char)*opt))
@@ -1094,11 +1157,7 @@ void parse_config(char *name, char *parameter) {
         if(opt[0]=='\0' || opt[0]=='#' || opt[0]==';') /* empty or comment */
             continue;
         if(opt[0]=='[' && opt[strlen(opt)-1]==']') { /* new section */
-            errstr=section_validate(section);
-            if(errstr) {
-                log_raw("file %s line %d: %s", filename, line_number, errstr);
-                exit(1);
-            }
+            section_validate(filename, line_number, section, 0);
             opt++;
             opt[strlen(opt)-1]='\0';
             new_section=calloc(1, sizeof(LOCAL_OPTIONS));
@@ -1115,10 +1174,8 @@ void parse_config(char *name, char *parameter) {
             continue;
         }
         arg=strchr(confline, '=');
-        if(!arg) {
-            log_raw("file %s line %d: No '=' found", filename, line_number);
-            exit(1);
-        }
+        if(!arg)
+            config_error(filename, line_number, "No '=' found");
         *arg++='\0'; /* split into option name and argument value */
         for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); i--)
             opt[i]='\0'; /* remove trailing whitespaces */
@@ -1127,17 +1184,10 @@ void parse_config(char *name, char *parameter) {
         errstr=service_options(CMD_EXEC, section, opt, arg);
         if(section==&local_options && errstr==option_not_found)
             errstr=global_options(CMD_EXEC, opt, arg);
-        if(errstr) {
-            log_raw("file %s line %d: %s", filename, line_number, errstr);
-            exit(1);
-        }
+        config_error(filename, line_number, errstr);
     }
-    errstr=section_validate(section);
-    if(errstr) {
-        log_raw("file %s line %d: %s", filename, line_number, errstr);
-        exit(1);
-    }
-    fclose(fp);
+    section_validate(filename, line_number, section, 1);
+    file_close(df);
     if(!local_options.next) { /* inetd mode */
         if (section->option.accept) {
             log_raw("accept option is not allowed in inetd mode");
@@ -1149,15 +1199,38 @@ void parse_config(char *name, char *parameter) {
             exit(1);
         }
     }
-    if(!options.option.client)
-        options.option.cert=1; /* Server always needs a certificate */
     if(!options.option.foreground)
         options.option.syslog=1;
 }
 
-static char *section_validate(LOCAL_OPTIONS *section) {
-    if(section==&local_options)
-        return NULL; /* No need to validate defaults */
+static void section_validate(char *filename, int line_number,
+        LOCAL_OPTIONS *section, int final) {
+    if(section==&local_options) { /* global options just configured */
+#ifdef HAVE_OSSL_ENGINE_H
+        close_engine();
+#endif
+        ssl_configure(); /* configure global SSL settings */
+        if(!final) /* no need to validate defaults */
+            return;
+    }
+    if(!section->option.client)
+        section->option.cert=1; /* Server always needs a certificate */
+    section->ctx=context_init(section); /* initialize SSL context */
+
+    if(section==&local_options) { /* inetd mode */
+        if(section->option.accept)
+            config_error(filename, line_number,
+                "accept is not allowed in inetd mode");
+        /* TODO: some additional checks could be useful
+        if((unsigned int)section->option.program +
+                (unsigned int)section->option.remote != 1)
+            config_error(filename, line_number,
+                "Single endpoint is required in inetd mode");
+        */
+        return;
+    }
+
+    /* standalone mode */
 #ifdef USE_WIN32
     if(!section->option.accept || !section->option.remote)
 #else
@@ -1165,8 +1238,16 @@ static char *section_validate(LOCAL_OPTIONS *section) {
             (unsigned int)section->option.program +
             (unsigned int)section->option.remote != 2)
 #endif
-        return "Each service section must define exactly two endpoints";
-    return NULL; /* All tests passed -- continue program execution */
+        config_error(filename, line_number,
+            "Each service section must define exactly two endpoints");
+    return; /* All tests passed -- continue program execution */
+}
+
+static void config_error(char *name, int num, char *str) {
+    if(!str) /* NULL -> no error */
+        return;
+    log_raw("file %s line %d: %s", name, num, str);
+    exit(1);
 }
 
 static char *stralloc(char *str) { /* Allocate static string */
@@ -1178,6 +1259,30 @@ static char *stralloc(char *str) { /* Allocate static string */
         exit(2);
     }
     strcpy(retval, str);
+    return retval;
+}
+
+static char *base64(char *str) { /* Allocate base64-encoded string */
+    BIO *bio, *b64;
+    char *retval;
+    int len;
+
+    b64=BIO_new(BIO_f_base64());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bio=BIO_new(BIO_s_mem());
+    bio=BIO_push(b64, bio);
+    BIO_write(bio, str, strlen(str));
+    BIO_flush(bio);
+    bio=BIO_pop(bio);
+    BIO_free(b64);
+    len=BIO_pending(bio);
+    retval=calloc(len+1, 1);
+    if(!retval) {
+        log_raw("Fatal memory allocation error");
+        exit(2);
+    }
+    BIO_read(bio, retval, len);
+    BIO_free(bio);
     return retval;
 }
 
@@ -1328,8 +1433,7 @@ static int parse_ssl_option(char *arg) {
 
     for(option=ssl_opts; option->name; option++)
         if(!strcasecmp(option->name, arg)) {
-            options.ssl_options|=option->value;
-            return 1; /* OK */
+            return option->value;
         }
     return 0; /* FAILED */
 }

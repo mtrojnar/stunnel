@@ -1,10 +1,10 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.14             (stunnel.c)
- *   Date:         2005.11.02
+ *   Version:      4.15             (stunnel.c)
+ *   Date:         2006.03.11
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -52,7 +52,7 @@ static void delete_pid(void);
 static void signal_handler(int);
 #endif
 
-int num_clients=0; /* Current number of clients */
+int volatile num_clients=0; /* Current number of clients */
 
     /* Functions */
 
@@ -79,32 +79,14 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
 #endif
 
 void main_initialize(char *arg1, char *arg2) {
-    struct stat st; /* buffer for stat */
-
     ssl_init(); /* initialize SSL library */
     sthreads_init(); /* initialize critical sections & SSL callbacks */
     parse_config(arg1, arg2);
     log_open();
-    s_log(LOG_NOTICE, "%s", stunnel_info());
-
-    /* check if certificate exists */
-    if(!options.key) /* key file not specified */
-        options.key=options.cert;
-    if(options.option.cert) {
-        if(stat(options.key, &st)) {
-            ioerror(options.key);
-            exit(1);
-        }
-#ifndef USE_WIN32
-        if(st.st_mode & 7)
-            s_log(LOG_WARNING, "Wrong permissions on %s", options.key);
-#endif /* defined USE_WIN32 */
-    }
+    stunnel_info(0);
 }
 
 void main_execute(void) {
-    ssl_configure(); /* configure global SSL settings */
-    context_init(); /* initialize global SSL context */
     /* check if started from inetd */
     if(local_options.next) { /* there are service sections -> daemon mode */
         daemon_loop();
@@ -116,8 +98,6 @@ void main_execute(void) {
         num_clients=1;
         client(alloc_client_session(&local_options, 0, 1));
     }
-    /* close SSL */
-    context_free(); /* free global SSL context */
     log_close();
 }
 
@@ -182,19 +162,21 @@ static void daemon_loop(void) {
         if(opt->option.accept) /* skip ordinary (accepting) services */
             continue;
         enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
-        num_clients++;
+        ++num_clients;
         leave_critical_section(CRIT_CLIENTS);
         create_client(-1, -1, alloc_client_session(opt, -1, -1), client);
     }
 
     while(1) {
-        if(s_poll_wait(&fds, -1)<0) /* non-critical error */
+        if(s_poll_wait(&fds, -1)<0) { /* non-critical error */
             log_error(LOG_INFO, get_last_socket_error(),
                 "daemon_loop: s_poll_wait");
-        else 
+            sleep(1); /* to avoid log trashing */
+        } else {
             for(opt=local_options.next; opt; opt=opt->next)
                 if(s_poll_canread(&fds, opt->fd))
                     accept_connection(opt);
+        }
     }
     s_log(LOG_ERR, "INTERNAL ERROR: End of infinite loop 8-)");
 }
@@ -211,7 +193,9 @@ static void accept_connection(LOCAL_OPTIONS *opt) {
             case EINTR:
                 break; /* retry */
             case EMFILE:
+#ifdef ENFILE
             case ENFILE:
+#endif
 #ifdef ENOBUFS
             case ENOBUFS:
 #endif
@@ -240,7 +224,7 @@ static void accept_connection(LOCAL_OPTIONS *opt) {
         return;
     }
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
-    num_clients++;
+    ++num_clients;
     leave_critical_section(CRIT_CLIENTS);
 }
 
@@ -431,45 +415,61 @@ static void signal_handler(int sig) { /* signal handler */
 }
 #endif /* !defined USE_WIN32 */
 
-char *stunnel_info(void) {
-    static char retval[STRLEN];
+void stunnel_info(int raw) {
+    char line[STRLEN];
 
-    safecopy(retval, "stunnel " VERSION " on " HOST);
+    sprintf(line, "stunnel " VERSION " on " HOST " with %s",
+        SSLeay_version(SSLEAY_VERSION));
+    if(raw)
+        log_raw("%s", line);
+    else
+        s_log(LOG_NOTICE, "%s", line);
+
+    safecopy(line, "Threading:");
 #ifdef USE_UCONTEXT
-    safeconcat(retval, " UCONTEXT");
+    safeconcat(line, "UCONTEXT");
 #endif
 #ifdef USE_PTHREAD
-    safeconcat(retval, " PTHREAD");
+    safeconcat(line, "PTHREAD");
 #endif
 #ifdef USE_WIN32
-    safeconcat(retval, " WIN32");
+    safeconcat(line, "WIN32");
 #endif
 #ifdef USE_FORK
-    safeconcat(retval, " FORK");
+    safeconcat(line, "FORK");
 #endif
+
+#ifdef HAVE_OSSL_ENGINE_H
+    safeconcat(line, " SSL:ENGINE");
+#endif
+
+    safeconcat(line, " Sockets:");
 #ifdef USE_POLL
-    safeconcat(retval, "+POLL");
+    safeconcat(line, "POLL");
 #else /* defined(USE_POLL) */
-    safeconcat(retval, "+SELECT");
+    safeconcat(line, "SELECT");
 #endif /* defined(USE_POLL) */
-#ifdef USE_WIN32
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
     if(s_getaddrinfo)
-        safeconcat(retval, "+IPv6");
+        safeconcat(line, ",IPv6");
     else
-        safeconcat(retval, "+IPv4");
+        safeconcat(line, ",IPv4");
 #else /* defined(USE_WIN32) */
 #if defined(USE_IPv6)
-    safeconcat(retval, "+IPv6");
+    safeconcat(line, ",IPv6");
 #else /* defined(USE_IPv6) */
-    safeconcat(retval, "+IPv4");
+    safeconcat(line, ",IPv4");
 #endif /* defined(USE_IPv6) */
 #endif /* defined(USE_WIN32) */
+
 #ifdef USE_LIBWRAP
-    safeconcat(retval, "+LIBWRAP");
+    safeconcat(line, " Auth:LIBWRAP");
 #endif
-    safeconcat(retval, " with ");
-    safeconcat(retval, SSLeay_version(SSLEAY_VERSION));
-    return retval;
+
+    if(raw)
+        log_raw("%s", line);
+    else
+        s_log(LOG_NOTICE, "%s", line);
 }
 
 /* End of stunnel.c */

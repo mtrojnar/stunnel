@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -30,7 +30,7 @@
 typedef union sockaddr_union {
     struct sockaddr sa;
     struct sockaddr_in in;
-#if defined(USE_IPv6) || defined(USE_WIN32)
+#if defined(USE_IPv6)
     struct sockaddr_in6 in6;
 #endif
 } SOCKADDR_UNION;
@@ -43,23 +43,11 @@ typedef struct sockaddr_list {      /* list of addresses */
 
 /**************************************** Prototypes for stunnel.c */
 
-extern int num_clients;
+extern volatile int num_clients;
 
 void main_initialize(char *, char *);
 void main_execute(void);
-char *stunnel_info(void);
-
-/**************************************** Prototypes for ssl.c */
-
-typedef enum {
-    COMP_NONE, COMP_ZLIB, COMP_RLE
-} COMP_TYPE;
-
-void ssl_init(void);
-void ssl_configure(void);
-void context_init(void);
-void context_free(void);
-void sslerror(char *);
+void stunnel_info(int);
 
 /**************************************** Prototypes for log.c */
 
@@ -91,29 +79,30 @@ void pty_release(char *);
 void pty_make_controlling_tty(int *, char *);
 #endif
 
+/**************************************** Prototypes for ssl.c */
+
+typedef enum {
+    COMP_NONE, COMP_ZLIB, COMP_RLE
+} COMP_TYPE;
+
+extern int cli_index;
+
+void ssl_init(void);
+void ssl_configure(void);
+#ifdef HAVE_OSSL_ENGINE_H
+void open_engine(const char *);
+void ctrl_engine(const char *, const char *);
+void close_engine(void);
+#endif
+
 /**************************************** Prototypes for options.c */
 
 typedef struct {
         /* some data for SSL initialization in ssl.c */
     COMP_TYPE compression;                               /* compression type */
-
-#if (SSLEAY_VERSION_NUMBER >= 0x00907000L) && defined(HAVE_OSSL_ENGINE_H)
-    char *engine;                                     /* hardware SSL engine */
-#endif
-    char *ca_dir;                              /* directory for hashed certs */
-    char *ca_file;                       /* file containing bunches of certs */
-    char *crl_dir;                              /* directory for hashed CRLs */
-    char *crl_file;                       /* file containing bunches of CRLs */
-    char *cipher_list;
-    char *cert;                                             /* cert filename */
     char *egd_sock;                       /* entropy gathering daemon socket */
-    char *key;                               /* pem (priv key/cert) filename */
     char *rand_file;                                /* file with random data */
     int random_bytes;                       /* how many random bytes to read */
-    long session_timeout;
-    int verify_level;
-    int verify_use_only_my;
-    long ssl_options;
 
         /* some global data for stunnel.c */
 #ifndef USE_WIN32
@@ -127,9 +116,8 @@ typedef struct {
 #endif
 
         /* Win32 specific data for gui.c */
-#ifdef USE_WIN32
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
     char *win32_service;
-    char *win32_name;
 #endif
 
         /* logging-support data for log.c */
@@ -141,8 +129,6 @@ typedef struct {
 
         /* on/off switches */
     struct {
-        unsigned int cert:1;
-        unsigned int client:1;
         unsigned int foreground:1;
         unsigned int syslog:1;                              /* log to syslog */
         unsigned int rand_write:1;                    /* overwrite rand_file */
@@ -155,10 +141,24 @@ typedef struct {
 extern GLOBAL_OPTIONS options;
 
 typedef struct local_options {
+    SSL_CTX *ctx; /*  SSL context */
     struct local_options *next; /* next node in the services list */
-    char *servname; /* service name for loggin & permission checking */
+    char *servname; /* service name for logging & permission checking */
     SSL_SESSION *session; /* Recently used session */
     char local_address[IPLEN]; /* Dotted-decimal address to bind */
+
+        /* service-specific data for ctx.c */
+    char *ca_dir;                              /* directory for hashed certs */
+    char *ca_file;                       /* file containing bunches of certs */
+    char *crl_dir;                              /* directory for hashed CRLs */
+    char *crl_file;                       /* file containing bunches of CRLs */
+    char *cipher_list;
+    char *cert;                                             /* cert filename */
+    char *key;                               /* pem (priv key/cert) filename */
+    long session_timeout;
+    int verify_level;
+    int verify_use_only_my;
+    long ssl_options;
 
         /* service-specific data for client.c */
     int fd;        /* file descriptor accepting connections for this service */
@@ -174,9 +174,13 @@ typedef struct local_options {
 
         /* protocol name for protocol.c */
     char *protocol;
+    char *protocol_host;
+    char *protocol_credentials;
 
         /* on/off switches */
     struct {
+        unsigned int cert:1;
+        unsigned int client:1;
         unsigned int delayed_lookup:1;
         unsigned int accept:1;
         unsigned int remote:1;
@@ -211,6 +215,12 @@ typedef struct {
 } SOCK_OPT;
 
 void parse_config(char *, char *);
+
+/**************************************** Prototypes for ctx.c */
+
+SSL_CTX *context_init(LOCAL_OPTIONS *);
+void context_free(SSL_CTX *);
+void sslerror(char *);
 
 /**************************************** Prototypes for network.c */
 
@@ -253,10 +263,12 @@ typedef struct {
     char accepting_address[IPLEN], connecting_address[IPLEN]; /* text */
     SOCKADDR_LIST peer_addr; /* Peer address */
     FD local_rfd, local_wfd; /* Read and write local descriptors */
-    FD remote_fd; /* Remote descriptor */
+    FD remote_fd; /* Remote file descriptor */
     SSL *ssl; /* SSL Connection */
     SOCKADDR_LIST bind_addr; /* IP for explicit local bind or transparent proxy */
     unsigned long pid; /* PID of local process */
+    int fd; /* Temporary file descriptor */
+    jmp_buf err;
 
     char sock_buff[BUFFSIZE]; /* Socket read buffer */
     char ssl_buff[BUFFSIZE]; /* SSL read buffer */
@@ -277,8 +289,10 @@ void *client(void *);
 
 /**************************************** Prototypes for network.c */
 
-int write_blocking(CLI *, int fd, u8 *, int);
-int read_blocking(CLI *, int fd, u8 *, int);
+void write_blocking(CLI *, int fd, u8 *, int);
+void read_blocking(CLI *, int fd, u8 *, int);
+void fdputline(CLI *, int, char *);
+void fdgetline(CLI *, int, char *);
 /* descriptor versions of fprintf/fscanf */
 int fdprintf(CLI *, int, const char *, ...)
 #ifdef __GNUC__
@@ -295,7 +309,7 @@ int fdscanf(CLI *, int, const char *, char *)
 
 /**************************************** Prototype for protocol.c */
 
-int negotiate(CLI *c);
+void negotiate(CLI *c);
 
 /**************************************** Prototypes for resolver.c */
 
@@ -329,6 +343,10 @@ typedef struct CONTEXT_STRUCTURE {
 extern CONTEXT *ready_head, *ready_tail;
 extern CONTEXT *waiting_head, *waiting_tail;
 #endif
+#ifdef _WIN32_WCE
+int _beginthread(void (*)(void *), int, void *);
+void _endthread(void);
+#endif
 #ifdef DEBUG_STACK_SIZE
 void stack_info(int);
 #endif
@@ -340,15 +358,40 @@ void win_log(char *);
 void exit_stunnel(int);
 int pem_passwd_cb(char *, int, int, void *);
 
+#ifndef _WIN32_WCE
 typedef int (CALLBACK * GETADDRINFO) (const char *,
     const char *, const struct addrinfo *, struct addrinfo **);
 typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo FAR *);
 typedef int (CALLBACK * GETNAMEINFO) (const struct sockaddr *, socklen_t,
     char *, size_t, char *, size_t, int);
-
 extern GETADDRINFO s_getaddrinfo;
 extern FREEADDRINFO s_freeaddrinfo;
 extern GETNAMEINFO s_getnameinfo;
+#endif /* ! _WIN32_WCE */
+#endif /* USE_WIN32 */
+
+/**************************************** Prototypes for file.c */
+
+typedef struct disk_file {
+#ifdef USE_WIN32
+    HANDLE fh;
+#else
+    int fd;
+#endif
+    /* the inteface is prepared to easily implement buffering if needed */
+} DISK_FILE;
+
+#ifndef USE_WIN32
+DISK_FILE *file_fdopen(int);
+#endif
+DISK_FILE *file_open(char *, int);
+void file_close(DISK_FILE *);
+int file_getline(DISK_FILE *, char *, int);
+int file_putline(DISK_FILE *, char *);
+
+#ifdef USE_WIN32
+LPTSTR str2tstr(const LPSTR);
+LPSTR tstr2str(const LPTSTR);
 #endif
 
 #endif /* defined PROTOTYPES_H */

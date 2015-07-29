@@ -2,17 +2,11 @@
 
 SUBDIRS = src doc tools
 
-# extra_src = src/gui.c src/resources.rc src/stunnel.ico src/stunnel.exe
-# extra_doc = doc/stunnel.pod doc/stunnel.8 doc/stunnel.html doc/en doc/pl
-# extra_tools = tools/ca.html tools/ca.pl tools/importCA.html tools/importCA.sh \
-# 	tools/stunnel.spec tools/make.bat tools/stunnel.mak tools/stunnel.cnf
-# EXTRA_DIST = auto PORTS $(extra_src) $(extra_doc) $(extra_tools)
-
-EXTRA_DIST = PORTS BUGS COPYRIGHT.GPL CREDITS INSTALL.W32
+EXTRA_DIST = PORTS BUGS COPYRIGHT.GPL CREDITS INSTALL.W32 INSTALL.WCE
 
 docdir = $(datadir)/doc/stunnel
 doc_DATA = AUTHORS BUGS ChangeLog COPYING COPYRIGHT.GPL CREDITS \
-	INSTALL INSTALL.W32 NEWS PORTS README TODO
+	INSTALL INSTALL.W32 INSTALL.WCE NEWS PORTS README TODO
 
 distcleancheck_listfiles = \
 	find -type f -exec sh -c 'test -f $(srcdir)/{} || echo {}' ';'

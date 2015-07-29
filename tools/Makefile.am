@@ -23,18 +23,16 @@ install-data-local:
 		$(openssl) req -new -x509 -days 365 -nodes $$RND \
 			-config $(srcdir)/stunnel.cnf \
 			-out stunnel.pem -keyout stunnel.pem; \
-		test $(USE_DH) -eq 0 || $(openssl) gendh $$RND 512 >> stunnel.pem; \
+		test -z "$(USE_DH)" || $(openssl) gendh $$RND 512 >> stunnel.pem; \
 		$(openssl) x509 -subject -dates -fingerprint -noout -in stunnel.pem; \
 		${INSTALL} -m 600 stunnel.pem $(DESTDIR)$(confdir)/stunnel.pem; \
 		rm stunnel.pem; \
 	fi
-	mkdir -p $(DESTDIR)$(localstatedir)/stunnel
-	-chmod a=rwx,+t $(DESTDIR)$(localstatedir)/stunnel
+	${INSTALL} -d -m 1770 -g nogroup $(DESTDIR)$(prefix)/var/lib/stunnel
 	if uname | grep SunOS; then \
-		mkdir -p $(DESTDIR)$(localstatedir)/stunnel/dev; \
-		chmod u=rwx,go=rx $(DESTDIR)$(localstatedir)/stunnel/dev; \
-		mknod $(DESTDIR)$(localstatedir)/stunnel/dev/zero c 13 12; \
-		chmod a=rw $(DESTDIR)$(localstatedir)/stunnel/dev/zero; \
+		${INSTALL} -d -m 755 $(DESTDIR)$(prefix)/var/lib/stunnel/dev; \
+		mknod $(DESTDIR)$(prefix)/var/lib/stunnel/dev/zero c 13 12; \
+		chmod 666 $(DESTDIR)$(prefix)/var/lib/stunnel/dev/zero; \
 	fi
 
 clean-local:
