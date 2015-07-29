@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 #
 # stunnel3      Perl wrapper to use stunnel 3.x syntax in stunnel >=4.05
-# Copyright (C) 2004-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
-# Version:      2.02
-# Date:         2008.03.26
+# Copyright (C) 2004-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+# Version:      2.03
+# Date:         2011.10.22
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -67,8 +67,7 @@ print("setgid = $opt_g\n") if defined $opt_g;
 print("pid = $opt_P\n") if defined $opt_P;
 print("connect = $opt_r\n") if defined $opt_r;
 print("pty = yes\n"), $opt_l=$opt_L if defined $opt_L;
-print("exec = $opt_l\n") if defined $opt_l;
-print("execargs = " . join(' ', @ARGV) . "\n") if @ARGV;
+print("exec = $opt_l\nexecargs = " . join(' ', $opt_l, @ARGV) . "\n") if defined $opt_l;
 print("[stunnel3]\n") if defined $opt_d;
 
 close(STUNNEL);

@@ -299,7 +299,11 @@ below.
 
 accept connections on specified host:port
 
-If no host specified, defaults to all IP addresses for the local host.
+If no host specified, defaults to all IPv4 addresses for the local host.
+
+To listen on all IPv6 addresses use:
+
+    connect = :::port
 
 =item B<CApath> = directory
 
@@ -522,17 +526,21 @@ Based on RFC 4642 - I<Using Transport Layer Security (TLS) with Network News Tra
 
 This protocol is only supported in client mode.
 
+=item I<pgsql>
+
+Based on http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
+
 =item I<pop3>
 
 Based on RFC 2449 - I<POP3 Extension Mechanism>
 
+=item I<proxy>
+
+Haproxy client IP address http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
+
 =item I<smtp>
 
 Based on RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
-
-=item I<pgsql>
-
-Based on http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
 
 =back
 

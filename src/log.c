@@ -89,7 +89,7 @@ void log_flush(LOG_MODE new_mode) {
 
     /* prevent changing LOG_MODE_CONFIGURED to LOG_MODE_ERROR
      * once stderr file descriptor is closed */
-    if(mode==LOG_MODE_NONE)
+    if(mode!=LOG_MODE_CONFIGURED)
         mode=new_mode;
 
     while(head) {
@@ -134,8 +134,6 @@ void s_log(int level, const char *format, ...) {
 
     if(mode==LOG_MODE_NONE) { /* save the text to log it later */
         tmp=str_alloc(sizeof(struct LIST));
-        if(!tmp) /* out of memory */
-            return;
         tmp->next=NULL;
         tmp->level=level;
         tmp->stamp=stamp;
@@ -187,6 +185,50 @@ static void log_raw(const int level, const char *stamp,
 #endif
 
     str_free(line);
+}
+
+/* memory allocation failed - it is not allowed to use any str.c functions */
+void out_of_memory(char *file, int line) {
+    char text[80];
+#ifdef USE_WIN32
+    DWORD num;
+#endif /* USE_WIN32 */
+
+    snprintf(text, sizeof text, /* with newline */
+        "INTERNAL ERROR: Out of memory at %s, line %d\n", file, line);
+
+    if(outfile) {
+#ifdef USE_WIN32
+        WriteFile(outfile->fh, text, strlen(text), &num, NULL);
+#else /* USE_WIN32 */
+        /* no file -> write to stderr */
+        write(outfile ? outfile->fd : 2, text, strlen(text));
+#endif /* USE_WIN32 */
+    }
+
+#ifndef USE_WIN32
+    if(mode!=LOG_MODE_CONFIGURED || global_options.option.foreground)
+        fputs(text, stderr);
+#endif /* !USE_WIN32 */
+
+    snprintf(text, sizeof text, /* without newline */
+        "INTERNAL ERROR: Out of memory at %s, line %d", file, line);
+
+#if !defined(USE_WIN32) && !defined(__vms)
+    if(global_options.option.syslog)
+        syslog(LOG_CRIT, "%s", text);
+#endif /* USE_WIN32, __vms */
+
+#ifdef USE_WIN32
+#ifdef _WIN32_WCE
+    MessageBox(NULL, TEXT("INTERNAL ERROR: Out of memory"),
+        TEXT("stunnel"), MB_ICONERROR);
+#else /* _WIN32_WCE */
+    MessageBox(NULL, text, "stunnel", MB_ICONERROR);
+#endif /* _WIN32_WCE */
+#endif /* USE_WIN32 */
+
+    abort();
 }
 
 void ioerror(const char *txt) { /* input/output error */

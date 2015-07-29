@@ -48,7 +48,9 @@ static int add_dir_lookup(X509_STORE *, char *);
 static int verify_callback(int, X509_STORE_CTX *);
 static int cert_check(CLI *c, X509_STORE_CTX *, int);
 static int crl_check(CLI *c, X509_STORE_CTX *);
+#ifdef HAVE_OSSL_OCSP_H
 static int ocsp_check(CLI *c, X509_STORE_CTX *);
+#endif
 
 /* utility functions */
 static void log_time(const int, const char *, ASN1_TIME *);
@@ -183,12 +185,14 @@ static int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         OPENSSL_free(subject_name);
         return 0; /* reject connection */
     }
+#ifdef HAVE_OSSL_OCSP_H
     if(c->opt->option.ocsp && !ocsp_check(c, callback_ctx)) {
         s_log(LOG_WARNING, "OCSP check failed: depth=%d, %s",
             callback_ctx->error_depth, subject_name);
         OPENSSL_free(subject_name);
         return 0; /* reject connection */
     }
+#endif /* HAVE_OSSL_OCSP_H */
     /* errnum=X509_STORE_CTX_get_error(ctx); */
     s_log(LOG_NOTICE, "Certificate accepted: depth=%d, %s",
         callback_ctx->error_depth, subject_name);
@@ -200,7 +204,9 @@ static int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
 
 static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
     X509_OBJECT obj;
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
     ASN1_BIT_STRING *local_key, *peer_key;
+#endif
 
     if(c->opt->verify_level<1) {
         s_log(LOG_INFO, "CERT: Verification not enabled");
@@ -218,6 +224,7 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
             s_log(LOG_WARNING, "CERT: Certificate not found in local repository");
             return 0; /* reject connection */
         }
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
         peer_key=X509_get0_pubkey_bitstr(callback_ctx->current_cert);
         local_key=X509_get0_pubkey_bitstr(obj.data.x509);
         if(!peer_key || !local_key || peer_key->length!=local_key->length ||
@@ -225,6 +232,7 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
             s_log(LOG_WARNING, "CERT: Public keys do not match");
             return 0; /* reject connection */
         }
+#endif
         s_log(LOG_INFO, "CERT: Locally installed certificate matched");
     }
     return 1; /* accept connection */
@@ -327,6 +335,8 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     }
     return 1; /* accept connection */
 }
+
+#ifdef HAVE_OSSL_OCSP_H
 
 /**************************************** OCSP checking */
 /* TODO: check OCSP server specified in the certificate */
@@ -450,6 +460,8 @@ cleanup:
     c->fd=-1; /* avoid double close on cleanup */
     return retval;
 }
+
+#endif /* HAVE_OSSL_OCSP_H */
 
 static void log_time(const int level, const char *txt, ASN1_TIME *t) {
     char *cp;

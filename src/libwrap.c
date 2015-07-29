@@ -56,20 +56,24 @@ int num_processes=0;
 static int *ipc_socket, *busy;
 #endif /* USE_PTHREAD */
 
-void libwrap_init(int num) {
+void libwrap_init() {
 #ifdef USE_PTHREAD
     int i, j, rfd, result;
     char servname[SERVNAME_LEN];
+    static int initialized=0;
+    SERVICE_OPTIONS *opt;
 
-    num_processes=num;
-    if(!num_processes) /* no extra processes to spawn */
+    if(initialized) /* during startup or previous configuration file reload */
         return;
+    for(opt=service_options.next; opt; opt=opt->next)
+        if(opt->option.libwrap) /* libwrap is enabled for this service */
+            break;
+    if(!opt) /* disabled for all sections or inetd mode (no sections) */
+        return;
+
+    num_processes=LIBWRAP_CLIENTS;
     ipc_socket=str_alloc(2*num_processes*sizeof(int));
     busy=str_alloc(num_processes*sizeof(int));
-    if(!ipc_socket || !busy) {
-        s_log(LOG_ERR, "Memory allocation failed");
-        die(1);
-    }
     for(i=0; i<num_processes; ++i) { /* spawn a child */
         if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, ipc_socket+2*i, 0, "libwrap_init"))
             die(1);
@@ -97,6 +101,7 @@ void libwrap_init(int num) {
             close(ipc_socket[2*i+1]); /* child-side socket */
         }
     }
+    initialized=1;
 #endif /* USE_PTHREAD */
 }
 

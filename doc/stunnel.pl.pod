@@ -312,7 +312,11 @@ lub I<tcpserver>), nale¿y przeczytaæ sekcjê I<TRYB INETD> poni¿ej.
 nas³uchuje na po³±czenia na podanym adresie i porcie
 
 Je¿eli nie zosta³ podany adres, I<stunnel> domy¶lnie nas³uchuje
-na wszystkich adresach IP lokalnych interfejsów.
+na wszystkich adresach IPv4 lokalnych interfejsów.
+
+Aby nas³uchiwaæ na wszystkich adresach IPv6 nale¿y u¿yæ:
+
+    accept = :::port
 
 =item B<CApath> = katalog_CA
 
@@ -545,17 +549,21 @@ Negocjacja RFC 4642 - I<Using Transport Layer Security (TLS) with Network News T
 
 Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.
 
+=item I<pgsql>
+
+Negocjacja http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
+
 =item I<pop3>
 
 Negocjacja RFC 2449 - I<POP3 Extension Mechanism>
 
+=item I<proxy>
+
+Przekazywanie adresu IP haproxy http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
+
 =item I<smtp>
 
 Negocjacja RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
-
-=item I<pgsql>
-
-Negocjacja http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
 
 =back
 

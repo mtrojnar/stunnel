@@ -54,11 +54,10 @@ OBJ=$(OBJROOT)/$(TARGETCPU)
 BINROOT=../bin
 BIN=$(BINROOT)/$(TARGETCPU)
 
-#OBJS=stunnel.o ssl.o ctx.o verify.o file.o client.o protocol.o sthreads.o log.o options.o network.o resolver.o gui.o resources.o str.c
-
-OBJS=$(OBJ)/stunnel.o $(OBJ)/ssl.o $(OBJ)/ctx.o $(OBJ)/verify.o $(OBJ)/file.o $(OBJ)/client.o   \
-	$(OBJ)/protocol.o $(OBJ)/sthreads.o $(OBJ)/log.o $(OBJ)/options.o $(OBJ)/network.o \
-	$(OBJ)/resolver.o $(OBJ)/gui.o $(OBJ)/resources.o $(OBJ)\str.obj
+OBJS=$(OBJ)/stunnel.o $(OBJ)/ssl.o $(OBJ)/ctx.o $(OBJ)/verify.o \
+	$(OBJ)/file.o $(OBJ)/client.o $(OBJ)/protocol.o $(OBJ)/sthreads.o \
+	$(OBJ)/log.o $(OBJ)/options.o $(OBJ)/network.o $(OBJ)/resolver.o \
+	$(OBJ)/gui.o $(OBJ)/resources.o $(OBJ)/str.obj
 
 CC=gcc
 RC=windres
@@ -67,7 +66,7 @@ RC=windres
 # "use a temp file instead of popen" option between cpp and windres!
 RCP=gcc -E -xc-header -DRC_INVOKED
 
-DEFINES=-DUSE_WIN32 -DHAVE_OPENSSL -D_WIN32_WINNT=0x0501
+DEFINES=-D_WIN32_WINNT=0x0501
 
 # some preprocessing debug : $(info  DEFINES is $(DEFINES) )
 
@@ -77,13 +76,6 @@ CFLAGS=-g -O2 -Wall $(DEFINES) -I$(SSLDIR)/inc32
 
 # RFLAGS, note of pdelaage: windres accepts -fo for compatibility with ms tools
 # default options : -J rc -O coff, input rc file, output coff file.
-# pdelaage BUG windres : does not understand correctly the -DHOST=\"XXX\", the dbl quotes ARE LOST
-# at the interface between the gcc preprocessor and the windres compilation !
-# a solution is to avoid popen for this interface! so use_temp_file in RFLAGS
-# I did not find any trick at source level...except suppressing the <"> here and add them in the source with "QUOTME" or "STRINGIZE"
-# but then it breaks some rules in common.h where the quotes are embedded in HOST symbol. and I did not want to break common.h...
-# OTHER definitive solution if use-temp-file option does not exist anymore: proceed in two steps, pre-processing first,
-# output in an intermediate file, and then windres, all this with 2 make inference rules.
 
 RFLAGS=-v --use-temp-file $(DEFINES)
 # following RFLAGS2 useful if one day use-temp-file does not exist anymore 
@@ -93,7 +85,7 @@ LDFLAGS=-s
 # LIBS=-L$(SSLDIR)/out -lssl -lcrypto -lwsock32 -lgdi32 -lcrypt32
 #20101030 pdelaage fix winsock2 and BAD sslpath  ! LIBS=-L$(SSLDIR)/out -lzdll -leay32 -lssl32 -lwsock32 -lgdi32 -lcrypt32
 # added libeay instead of eay, ssleay instead of ssl32, suppressed zdll useless.
-LIBS=-L$(SSLDIR)/out32dll  -lssleay32 -llibeay32  -lws2_32 -lgdi32 -lcrypt32
+LIBS=-L$(SSLDIR)/out32dll -lssleay32 -llibeay32 -lws2_32 -lpsapi -lgdi32 -lcrypt32
 # IMPORTANT pdelaage : restore this if you need (but I do not see why) -lzdll
 
 $(OBJ)/%.o: $(SRC)/%.c
@@ -129,7 +121,8 @@ ifdef windir
 testenv:
 	-@ echo OFF
 	-@ true >$(NULLDEV) 2>&1 || echo You MUST install Gnu-Win32 coreutils \
-	from http://gnuwin32.sourceforge.net/downlinks/coreutils.php and set PATH to include C:\Program Files\GnuWin32\bin
+	from http://gnuwin32.sourceforge.net/downlinks/coreutils.php \
+	and set PATH to include C:\Program Files\GnuWin32\bin
 	@true >$(NULLDEV) 2>&1
 else
 testenv:

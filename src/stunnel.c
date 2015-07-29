@@ -42,8 +42,10 @@
 
 static void accept_connection(SERVICE_OPTIONS *);
 static void get_limits(void); /* setup global max_clients and max_fds */
-#if !defined(USE_WIN32) && !defined(__vms)
+#ifdef HAVE_CHROOT
 static void change_root(void);
+#endif
+#if !defined(USE_WIN32) && !defined(__vms)
 static void daemonize(void);
 static void create_pid(void);
 static void delete_pid(void);
@@ -66,6 +68,15 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
     str_init(); /* initialize per-thread string management */
     main_initialize(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL);
     if(service_options.next) { /* there are service sections -> daemon mode */
+#if !defined(__vms) && !defined(USE_OS2)
+        if(!(global_options.option.foreground))
+            daemonize();
+        /* create_pid() must be called after drop_privileges()
+         * or it won't be possible to remove the file on exit */
+        /* create_pid() must be called after daemonize()
+         * since the final pid is not known beforehand */
+        create_pid();
+#endif /* standard Unix */
         num_clients=0;
         daemon_loop();
     } else { /* inetd mode */
@@ -91,12 +102,6 @@ void main_initialize(char *arg1, char *arg2) {
     stunnel_info(LOG_NOTICE);
     parse_commandline(arg1, arg2);
     str_canary(); /* needs prng initialization from parse_commandline */
-#ifdef USE_LIBWRAP
-    /* spawn LIBWRAP_CLIENTS processes unless inetd mode is configured
-     * execute after parse_commandline() to know service_options.next,
-     * but as early as possible to avoid leaking file descriptors */
-    libwrap_init(service_options.next ? LIBWRAP_CLIENTS : 0);
-#endif /* USE_LIBWRAP */
 #if !defined(USE_WIN32) && !defined(__vms)
     /* syslog_open() must be called before change_root()
      * to be able to access /dev/log socket */
@@ -120,18 +125,6 @@ void main_initialize(char *arg1, char *arg2) {
     /* log_open() must be be called before daemonize()
      * since daemonize() invalidates stderr */
     log_open();
-
-#if !defined(USE_WIN32) && !defined(__vms) && !defined(USE_OS2)
-    if(service_options.next) { /* there are service sections -> daemon mode */
-        if(!(global_options.option.foreground))
-            daemonize();
-        /* create_pid() must be called after drop_privileges()
-         * or it won't be possible to remove the file on exit */
-        /* create_pid() must be called after daemonize()
-         * since the final pid is not known beforehand */
-        create_pid();
-    }
-#endif /* standard Unix */
 }
 
 /**************************************** main loop */
@@ -164,16 +157,18 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
         if(s>=0) /* success! */
             break;
         switch(get_last_socket_error()) {
-            case EINTR:
+            case S_EINTR:
                 break; /* retry */
-            case EMFILE:
-#ifdef ENFILE
-            case ENFILE:
+            case S_EMFILE:
+#ifdef S_ENFILE
+            case S_ENFILE:
 #endif
-#ifdef ENOBUFS
-            case ENOBUFS:
+#ifdef S_ENOBUFS
+            case S_ENOBUFS:
 #endif
-            case ENOMEM:
+#ifdef S_ENOMEM
+            case S_ENOMEM:
+#endif
                 sleep(1); /* temporarily out of resources - short delay */
             default:
                 sockerror("accept");
@@ -227,6 +222,14 @@ int bind_ports(void) {
     SOCKADDR_UNION addr;
     char local_address[IPLEN];
 
+#ifdef USE_LIBWRAP
+    /* execute after parse_commandline() to know service_options.next,
+     * but as early as possible to avoid leaking file descriptors */
+    /* retry on each bind_ports() in case stunnel.conf was reloaded
+       without "libwrap = no" */
+    libwrap_init();
+#endif /* USE_LIBWRAP */
+
     s_poll_init(&fds);
     s_poll_add(&fds, signal_fd, 1, 0);
     for(opt=service_options.next; opt; opt=opt->next) {
@@ -269,32 +272,34 @@ int bind_ports(void) {
 }
 
 static void get_limits(void) {
-#if defined(USE_WIN32) || defined(USE_POLL)
-    max_fds=0; /* unlimited */
-#elif defined(USE_OS2) && defined(__INNOTEK_LIBC__)
-    max_fds=0; /* unlimited */
-    /* OS/2 with the Innotek LIBC does not share the same
-       handles between files and socket connections */
-#else /* Unix */
-    max_fds=FD_SETSIZE; /* start with select() limit */
+    /* start with current ulimit */
 #if defined(HAVE_SYSCONF)
-    int open_max;
-
-    open_max=sysconf(_SC_OPEN_MAX);
-    if(open_max<0)
+    errno=0;
+    max_fds=sysconf(_SC_OPEN_MAX);
+    if(errno)
         ioerror("sysconf");
-    if(open_max<max_fds)
-        max_fds=open_max;
+    if(max_fds<0)
+        max_fds=0; /* unlimited */
 #elif defined(HAVE_GETRLIMIT)
     struct rlimit rlim;
 
-    if(getrlimit(RLIMIT_NOFILE, &rlim)<0)
+    if(getrlimit(RLIMIT_NOFILE, &rlim)<0) {
         ioerror("getrlimit");
-    if(rlim.rlim_cur!=RLIM_INFINITY && rlim.rlim_cur<max_fds)
-        max_fds=rlim.rlim_cur;
+        max_fds=0; /* unlimited */
+    } else
+        max_fds=rlim.rlim_cur!=RLIM_INFINITY ? rlim.rlim_cur : 0;
+#else
+    max_fds=0; /* unlimited */
 #endif /* HAVE_SYSCONF || HAVE_GETRLIMIT */
-#endif /* Unix */
-    if(max_fds && max_fds<16) /* stunnel needs at least 16 file desriptors */
+
+#if !defined(USE_WIN32) && !defined(USE_POLL) && !defined(__INNOTEK_LIBC__)
+    /* apply FD_SETSIZE if select() is used on Unix */
+    if(!max_fds || max_fds>FD_SETSIZE)
+        max_fds=FD_SETSIZE; /* start with select() limit */
+#endif /* select() on Unix */
+
+    /* stunnel needs at least 16 file desriptors */
+    if(max_fds && max_fds<16)
         max_fds=16;
 
     if(max_fds) {
@@ -528,7 +533,7 @@ static int setup_fd(int fd, int nonblock, char *msg) {
 #ifdef FD_CLOEXEC
     do {
         err=fcntl(fd, F_SETFD, FD_CLOEXEC);
-    } while(err<0 && get_last_socket_error()==EINTR);
+    } while(err<0 && get_last_socket_error()==S_EINTR);
     if(err<0)
         sockerror("fcntl SETFD"); /* non-critical */
 #endif /* FD_CLOEXEC */
@@ -544,7 +549,7 @@ void set_nonblock(int fd, unsigned long nonblock) {
 
     do {
         flags=fcntl(fd, F_GETFL, 0);
-    } while(flags<0 && get_last_socket_error()==EINTR);
+    } while(flags<0 && get_last_socket_error()==S_EINTR);
     if(flags<0) {
         sockerror("fcntl GETFL"); /* non-critical */
         return;
@@ -555,7 +560,7 @@ void set_nonblock(int fd, unsigned long nonblock) {
         flags&=~O_NONBLOCK;
     do {
         err=fcntl(fd, F_SETFL, flags);
-    } while(err<0 && get_last_socket_error()==EINTR);
+    } while(err<0 && get_last_socket_error()==S_EINTR);
     if(err<0)
         sockerror("fcntl SETFL"); /* non-critical */
 #else /* use fcntl() */

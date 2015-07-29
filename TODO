@@ -2,7 +2,7 @@ stunnel TODO
 
 
 High priority features I'm going to support (sponsorship welcomed)
-* Windows GUI option to save peer certificate for selected service.
+* Indirect CRL support (RFC 3280, section 5).
 * Separate GUI process running as current user on Windows.
 * Separate control process running as root user on Unix.
 * Features depending on replacing MinGW compiler with MSVC:
@@ -15,15 +15,14 @@ Low priority features I'm going to support (sponsorship welcomed)
   http://archive.socks.permeo.com/protocol/socks4.protocol
 * Key renegotiation (re-handshake) for long connections.
 * Logging to NT EventLog on Windows.
-* Log file rotation with with GUI on Windows.
 * Internationalization of logged messages (i18n).
 * Generic scripting engine instead or static protocol.c.
 
 Features I prefer *not* to support (waiting for a wealthy sponsor)
-* Additional certificate checks (including wildcard comparison) based on
-  CN and X509v3 Subject Alternative Name.
 * Protocol support *after* SSL is negotiated:
   - Support for adding X-Forwarded-For to HTTP request headers.
   - Support for adding X-Forwarded-For to SMTP email headers.
+* Additional certificate checks (including wildcard comparison) based on
+  CN and X509v3 Subject Alternative Name.
 * Set processes title that appear on the ps(1) and top(1) commands.
 

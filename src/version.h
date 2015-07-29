@@ -58,11 +58,11 @@
 
 /* START CUSTOMIZE */
 #define VERSION_MAJOR 4
-#define VERSION_MINOR 44
+#define VERSION_MINOR 45
 /* END CUSTOMIZE */
 
 /* all the following macros are ABSOLUTELY NECESSARY to have proper string
-   construction with VARIOUS C preprocessors (EVC, VC, BCC, GCC) */
+ * construction with VARIOUS C preprocessors (EVC, VC, BCC, GCC) */
 #define STRINGIZE0(x) #x
 #define STRINGIZE(x) STRINGIZE0(x)
 #define STRZCONCAT30(a,b,c) a##b##c

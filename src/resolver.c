@@ -80,17 +80,6 @@ static void freeaddrinfo(struct addrinfo *);
 
 static const char *s_gai_strerror(int);
 
-#ifndef HAVE_GETNAMEINFO
-#ifndef NI_NUMERICHOST
-#define NI_NUMERICHOST  2
-#endif
-#ifndef NI_NUMERICSERV
-#define NI_NUMERICSERV  8
-#endif
-static int getnameinfo(const struct sockaddr *, int,
-    char *, int , char *, int , int );
-#endif
-
 int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
     char *tmp, *hostname, *portname;
     int retval;
@@ -164,10 +153,10 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
 }
 
 char *s_ntop(char *text, SOCKADDR_UNION *addr) {
-    char host[IPLEN-6], port[6];
+    char host[IPLEN-5], port[6];
 
     if(getnameinfo(&addr->sa, addr_len(*addr),
-            host, IPLEN-6, port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
+            host, IPLEN-5, port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
         sockerror("getnameinfo");
         strcpy(text, "unresolvable IP");
         return text;
@@ -397,7 +386,7 @@ static const char *s_gai_strerror(int err) {
 }
 
 #ifndef HAVE_GETNAMEINFO
-static int getnameinfo(const struct sockaddr *sa, int salen,
+int getnameinfo(const struct sockaddr *sa, int salen,
     char *host, int hostlen, char *serv, int servlen, int flags) {
 
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)

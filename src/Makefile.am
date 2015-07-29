@@ -37,7 +37,7 @@ EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_sources)
 
 OPENSSLDIR = /usr/src/openssl-1.0.0e-i586
-WINCPPFLAGS = -I$(OPENSSLDIR)/include -DUSE_WIN32=1
+WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wno-long-long -pedantic
 WINLDFLAGS = -mthreads -fstack-protector -mwindows -s
 WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lpsapi -lws2_32 -lgdi32
@@ -59,7 +59,7 @@ stunnel.exe: $(WINOBJ)
 	$(WINGCC) -c $(WINCPPFLAGS) $(WINCFLAGS) -o $@ $<
 
 resources.obj: resources.rc resources.h version.h
-	$(WINDRES) --include-dir $(srcdir) -DUSE_WIN32=1 $< $@
+	$(WINDRES) --include-dir $(srcdir) $< $@
 
 mostlyclean-local:
 	-rm -f *.obj

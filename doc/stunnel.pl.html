@@ -364,7 +364,10 @@ lub <em>tcpserver</em>), nale¿y przeczytaæ sekcjê <em>TRYB INETD</em> poni¿ej.</
 <dd>
 <p>nas³uchuje na po³±czenia na podanym adresie i porcie</p>
 <p>Je¿eli nie zosta³ podany adres, <em>stunnel</em> domy¶lnie nas³uchuje
-na wszystkich adresach IP lokalnych interfejsów.</p>
+na wszystkich adresach IPv4 lokalnych interfejsów.</p>
+<p>Aby nas³uchiwaæ na wszystkich adresach IPv6 nale¿y u¿yæ:</p>
+<pre>
+    accept = :::port</pre>
 </dd>
 <dt><strong><a name="capath_katalog_ca" class="item"><strong>CApath</strong> = katalog_CA</a></strong></dt>
 
@@ -587,20 +590,25 @@ Wsparcie dla tego rozrzeczenia zosta³o zarzucone w wersji 3.0.0 serwera Samba.</
 <p>Negocjacja <a href="http://www.ietf.org/rfc/rfc4642.txt" class="rfc">RFC 4642</a> - <em>Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)</em></p>
 <p>Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.</p>
 </dd>
+<dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
+
+<dd>
+<p>Negocjacja <a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
+</dd>
 <dt><strong><a name="pop3" class="item"><em>pop3</em></a></strong></dt>
 
 <dd>
 <p>Negocjacja <a href="http://www.ietf.org/rfc/rfc2449.txt" class="rfc">RFC 2449</a> - <em>POP3 Extension Mechanism</em></p>
 </dd>
+<dt><strong><a name="proxy" class="item"><em>proxy</em></a></strong></dt>
+
+<dd>
+<p>Przekazywanie adresu IP haproxy <a href="http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt">http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt</a></p>
+</dd>
 <dt><strong><a name="smtp" class="item"><em>smtp</em></a></strong></dt>
 
 <dd>
 <p>Negocjacja <a href="http://www.ietf.org/rfc/rfc2487.txt" class="rfc">RFC 2487</a> - <em>SMTP Service Extension for Secure SMTP over TLS</em></p>
-</dd>
-<dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
-
-<dd>
-<p>Negocjacja <a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
 </dd>
 </dl>
 </dd>

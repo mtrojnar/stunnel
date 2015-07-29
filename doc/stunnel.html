@@ -349,7 +349,10 @@ below.</p>
 
 <dd>
 <p>accept connections on specified host:port</p>
-<p>If no host specified, defaults to all IP addresses for the local host.</p>
+<p>If no host specified, defaults to all IPv4 addresses for the local host.</p>
+<p>To listen on all IPv6 addresses use:</p>
+<pre>
+    connect = :::port</pre>
 </dd>
 <dt><strong><a name="capath_directory" class="item"><strong>CApath</strong> = directory</a></strong></dt>
 
@@ -562,20 +565,25 @@ Support for this extension was dropped in Samba 3.0.0.</p>
 <p>Based on <a href="http://www.ietf.org/rfc/rfc4642.txt" class="rfc">RFC 4642</a> - <em>Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)</em></p>
 <p>This protocol is only supported in client mode.</p>
 </dd>
+<dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
+
+<dd>
+<p>Based on <a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
+</dd>
 <dt><strong><a name="pop3" class="item"><em>pop3</em></a></strong></dt>
 
 <dd>
 <p>Based on <a href="http://www.ietf.org/rfc/rfc2449.txt" class="rfc">RFC 2449</a> - <em>POP3 Extension Mechanism</em></p>
 </dd>
+<dt><strong><a name="proxy" class="item"><em>proxy</em></a></strong></dt>
+
+<dd>
+<p>Haproxy client IP address <a href="http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt">http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt</a></p>
+</dd>
 <dt><strong><a name="smtp" class="item"><em>smtp</em></a></strong></dt>
 
 <dd>
 <p>Based on <a href="http://www.ietf.org/rfc/rfc2487.txt" class="rfc">RFC 2487</a> - <em>SMTP Service Extension for Secure SMTP over TLS</em></p>
-</dd>
-<dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
-
-<dd>
-<p>Based on <a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
 </dd>
 </dl>
 </dd>

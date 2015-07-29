@@ -136,10 +136,6 @@ static void scan_waiting_queue(void) {
     /* setup ufds structure */
     if(nfds>max_nfds) { /* need to allocate more memory */
         ufds=str_realloc(ufds, nfds*sizeof(struct pollfd));
-        if(!ufds) {
-            s_log(LOG_CRIT, "Memory allocation failed");
-            die(1);
-        }
         max_nfds=nfds;
     }
     nfds=0;
@@ -164,7 +160,7 @@ static void scan_waiting_queue(void) {
             signal_pipe_empty(); /* no timeout -> main loop */
             retry=1;
         }
-    } while(retry || (retval<0 && get_last_socket_error()==EINTR));
+    } while(retry || (retval<0 && get_last_socket_error()==S_EINTR));
     time(&now);
     /* process the returned data */
     nfds=0;
@@ -284,7 +280,7 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
             signal_pipe_empty(); /* no timeout -> main loop */
             retry=1;
         }
-    } while(retry || (retval<0 && get_last_socket_error()==EINTR));
+    } while(retry || (retval<0 && get_last_socket_error()==S_EINTR));
     return retval;
 }
 
@@ -341,7 +337,7 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
             signal_pipe_empty(); /* no timeout -> main loop */
             retry=1;
         }
-    } while(retry || (retval<0 && get_last_socket_error()==EINTR));
+    } while(retry || (retval<0 && get_last_socket_error()==S_EINTR));
     return retval;
 }
 
@@ -425,17 +421,20 @@ static void signal_pipe_empty(void) {
 #endif /* !defind USE_WIN32 */
         case SIGNAL_RELOAD_CONFIG:
             s_log(LOG_DEBUG, "Processing SIGNAL_RELOAD_CONFIG");
-            unbind_ports();
-            log_close();
             err=parse_conf(NULL, CONF_RELOAD);
             if(err) {
-                log_flush(LOG_MODE_ERROR);
+                s_log(LOG_ERR, "Failed to reload the configuration file");
             } else {
+                unbind_ports();
+                log_close();
+                apply_conf();
                 log_open();
-                bind_ports();
+                if(bind_ports()) {
+                    /* FIXME: handle the error */
+                }
             }
 #ifdef USE_WIN32
-            win_newconfig(err);
+            win_newconfig();
 #endif
             break;
         case SIGNAL_REOPEN_LOG:
@@ -444,10 +443,13 @@ static void signal_pipe_empty(void) {
             log_open();
             s_log(LOG_NOTICE, "Log file reopened");
             break;
+        case SIGNAL_TERMINATE:
+            s_log(LOG_DEBUG, "Processing SIGNAL_TERMINATE");
+            s_log(LOG_NOTICE, "Terminated");
+            die(2);
         default:
-            s_log(sig==SIGNAL_TERMINATE ? LOG_NOTICE : LOG_ERR,
-                "Received signal %d; terminating", sig);
-            die(3);
+            s_log(LOG_ERR, "Received signal %d; terminating", sig);
+            die(1);
         }
     }
     s_log(LOG_DEBUG, "Signal pipe is empty");
@@ -543,7 +545,7 @@ int set_socket_options(int s, int type) {
         }
         if(setsockopt(s, ptr->opt_level, ptr->opt_name,
                 (void *)ptr->opt_val[type], opt_size)) {
-            if(get_last_socket_error()==EOPNOTSUPP) {
+            if(get_last_socket_error()==S_EOPNOTSUPP) {
                 s_log(LOG_NOTICE,
                     "Failed to set option %s set on %s socket (not a socket?)",
                     ptr->opt_str, type_str[type]);
@@ -582,7 +584,7 @@ int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
         return 0; /* no error -> success (on some OSes over the loopback) */
     }
     error=get_last_socket_error();
-    if(error!=EINPROGRESS && error!=EWOULDBLOCK) {
+    if(error!=S_EINPROGRESS && error!=S_EWOULDBLOCK) {
         s_log(LOG_ERR, "connect_blocking: connect %s: %s (%d)",
             dst, s_strerror(error), error);
         return -1;
@@ -728,22 +730,18 @@ char *fdgetline(CLI *c, int fd) {
         case 1:
             break; /* OK */
         default:
-            s_log(LOG_ERR, "fdgetline: s_poll_wait: unknown result");
+            s_log(LOG_ERR, "fdgetline: s_poll_wait: Unknown result");
             str_free(line);
             longjmp(c->err, 1); /* error */
         }
         line=str_realloc(line, ptr+1);
-        if(!line) {
-            s_log(LOG_CRIT, "Memory allocation failed");
-            longjmp(c->err, 1); /* error */
-        }
         switch(readsocket(fd, line+ptr, 1)) {
         case -1: /* error */
-            sockerror("readsocket (fdgetline)");
+            sockerror("fdgetline: readsocket");
             str_free(line);
             longjmp(c->err, 1);
         case 0: /* EOF */
-            s_log(LOG_ERR, "Unexpected socket close (fdgetline)");
+            s_log(LOG_ERR, "fdgetline: Unexpected socket close");
             str_free(line);
             longjmp(c->err, 1);
         }
@@ -751,9 +749,13 @@ char *fdgetline(CLI *c, int fd) {
             continue;
         if(line[ptr]=='\n')
             break;
-        if(!line[ptr])
+        if(line[ptr]=='\0')
             break;
-        ++ptr;
+        if(++ptr>65536) { /* >64KB --> DoS protection */
+            s_log(LOG_ERR, "fdgetline: Line too long");
+            str_free(line);
+            longjmp(c->err, 1);
+        }
     }
     line[ptr]='\0';
     tmpline=str_dup(line);

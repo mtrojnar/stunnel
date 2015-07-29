@@ -234,31 +234,31 @@ void str_stats() {
     alloc_tls=get_alloc_tls();
     if(alloc_tls)
         s_log(LOG_DEBUG,
-            "str_stats: %d block(s), %d data byte(s), %d control byte(s)",
-            alloc_tls->blocks, alloc_tls->bytes,
-            alloc_tls->blocks*(sizeof(ALLOC_LIST)+sizeof canary));
+            "str_stats: %lu block(s), %lu data byte(s), %lu control byte(s)",
+            (unsigned long int)alloc_tls->blocks,
+            (unsigned long int)alloc_tls->bytes,
+            (unsigned long int)(alloc_tls->blocks*
+                (sizeof(ALLOC_LIST)+sizeof canary)));
     else
         s_log(LOG_DEBUG, "str_stats: alloc_tls not initialized");
 }
 
-void *str_alloc(size_t size) {
+void *str_alloc_debug(size_t size, char *file, int line) {
     ALLOC_TLS *alloc_tls;
     ALLOC_LIST *alloc_list;
 
-    if(size>=1024*1024) /* huge allocations are not allowed */
-        return NULL;
     alloc_tls=get_alloc_tls();
     if(!alloc_tls) { /* first allocation in this thread */
         alloc_tls=calloc(1, sizeof(ALLOC_TLS));
         if(!alloc_tls)
-            return NULL;
+            out_of_memory(file, line);
         alloc_tls->head=NULL;
         alloc_tls->bytes=alloc_tls->blocks=0;
         set_alloc_tls(alloc_tls);
     }
     alloc_list=calloc(1, sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
-        return NULL;
+        out_of_memory(file, line);
     memcpy((u8 *)(alloc_list+1)+size, canary, sizeof canary);
     alloc_list->prev=NULL;
     alloc_list->next=alloc_tls->head;
@@ -278,14 +278,12 @@ void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
 
     if(!ptr)
         return str_alloc(size);
-    if(size>=1024*1024) /* huge allocations are not allowed */
-        return NULL;
     previous_alloc_list=get_alloc_list_ptr(ptr, file, line);
     alloc_list=realloc(previous_alloc_list,
         sizeof(ALLOC_LIST)+size+sizeof canary);
-    memcpy((u8 *)(alloc_list+1)+size, canary, sizeof canary);
     if(!alloc_list)
-        return NULL;
+        out_of_memory(file, line);
+    memcpy((u8 *)(alloc_list+1)+size, canary, sizeof canary);
     if(alloc_list->tls) { /* not detached */
         /* refresh possibly invalidated linked list pointers */
         if(alloc_list->tls->head==previous_alloc_list)

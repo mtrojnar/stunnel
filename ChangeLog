@@ -1,6 +1,30 @@
 stunnel change log
 
 
+Version 4.45, 2011.10.24, urgency: LOW:
+* New features
+  - "protocol = proxy" support to send original client IP address to haproxy:
+    http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
+    This requires accept-proxy bind option of haproxy 1.5-dev3 or later.
+  - Added Win32 configuration reload without a valid configuration loaded.
+  - Added compatibility with LTS OpenSSL versions 0.9.6 and 0.9.7.
+    Some features are only available in OpenSSL 1.0.0 and later.
+* Performance optimizations
+  - Use SSL_MODE_RELEASE_BUFFERS if supported by the OpenSSL library.
+  - Libwrap helper processes are no longer started if libwrap is disabled
+    in all sections of the configuration file.
+* Internal improvements
+  - Protocol negotiation framework was rewritten to support additional
+    code to be executed after SSL_accept()/SSL_connect().
+  - Handling of memory allocation errors was rewritten to gracefully
+    terminate the process (thx to regenrecht for the idea).
+* Bugfixes
+  - Fixed -l option handling in stunnel3 script (thx to Kai Gülzau).
+  - Script to build default stunnel.pem was fixed (thx to Sebastian Kayser).
+  - MinGW compilation script (mingw.mak) was fixed (thx to Jose Alf).
+  - MSVC compilation script (vc.mak) was fixed.
+  - A number of problems in WINSOCK error handling were fixed.
+
 Version 4.44, 2011.09.17, urgency: MEDIUM:
 * New features
   - Major automake/autoconf cleanup.

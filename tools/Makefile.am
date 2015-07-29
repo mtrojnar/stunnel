@@ -11,7 +11,7 @@ examplesdir = $(docdir)/examples
 examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
 	stunnel.spec stunnel.init stunnel.service
 
-openssl=$(ssldir)/bin/openssl
+OPENSSL=$(SSLDIR)/bin/openssl
 install-data-local:
 	if test ! -r $(DESTDIR)$(confdir)/stunnel.pem; then \
 		if test -r "$(RANDOM_FILE)"; then \
@@ -20,11 +20,11 @@ install-data-local:
 		else \
 			RND=""; \
 		fi; \
-		$(openssl) req -new -x509 -days 365 $$RND \
+		$(OPENSSL) req -new -x509 -days 365 $$RND \
 			-config $(srcdir)/stunnel.cnf \
 			-out stunnel.pem -keyout stunnel.pem; \
-		$(openssl) gendh $$RND 1024 >> stunnel.pem; \
-		$(openssl) x509 -subject -dates -fingerprint -noout -in stunnel.pem; \
+		$(OPENSSL) gendh $$RND 1024 >> stunnel.pem; \
+		$(OPENSSL) x509 -subject -dates -fingerprint -noout -in stunnel.pem; \
 		${INSTALL} -m 600 stunnel.pem $(DESTDIR)$(confdir)/stunnel.pem; \
 		rm stunnel.pem; \
 	fi

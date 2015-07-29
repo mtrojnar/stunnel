@@ -53,23 +53,38 @@
 static int section_init(int, SERVICE_OPTIONS *, int);
 
 static int parse_debug_level(char *);
+
 static int parse_ssl_option(char *);
+
 static int print_socket_options(void);
 static char *print_option(int, OPT_UNION *);
 static int parse_socket_option(char *);
+
+#ifdef HAVE_OSSL_OCSP_H
 static char *parse_ocsp_url(SERVICE_OPTIONS *, char *);
 static unsigned long parse_ocsp_flag(char *);
+#endif /* HAVE_OSSL_OCSP_H */
+
+#ifdef HAVE_OSSL_ENGINE_H
+static char *open_engine(const char *);
+static char *ctrl_engine(const char *, const char *);
+static char *init_engine(void);
+static void close_engine(void);
+static ENGINE *get_engine(int);
+#endif
 
 static void print_syntax(void);
 static void config_error(int, const char *, const char *);
 static void section_error(int, const char *, const char *);
-static char *str_dup_err(char *);
 #ifndef USE_WIN32
 static char **argalloc(char *);
 #endif
 
-GLOBAL_OPTIONS global_options, new_global_options;
-SERVICE_OPTIONS service_options, new_service_options;
+GLOBAL_OPTIONS global_options;
+SERVICE_OPTIONS service_options;
+
+static GLOBAL_OPTIONS new_global_options;
+static SERVICE_OPTIONS new_service_options;
 
 typedef enum {
     CMD_INIT, /* initialize */
@@ -104,7 +119,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "chroot"))
             break;
-        new_global_options.chroot_dir=str_dup_err(arg);
+        new_global_options.chroot_dir=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -148,7 +163,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "debug"))
             break;
-        if(!parse_debug_level(arg))
+        if(parse_debug_level(arg))
             return "Illegal debug argument";
         return NULL; /* OK */
     case CMD_DEFAULT:
@@ -175,7 +190,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "EGD"))
             break;
-        new_global_options.egd_sock=str_dup_err(arg);
+        new_global_options.egd_sock=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
 #ifdef EGD_SOCKET
@@ -282,7 +297,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "output"))
             break;
-        new_global_options.output_file=str_dup_err(arg);
+        new_global_options.output_file=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -301,7 +316,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
         if(strcasecmp(opt, "pid"))
             break;
         if(arg[0]) /* is argument not empty? */
-            new_global_options.pidfile=str_dup_err(arg);
+            new_global_options.pidfile=str_dup(arg);
         else
             new_global_options.pidfile=NULL; /* empty -> do not create a pid file */
         return NULL; /* OK */
@@ -342,7 +357,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "RNDfile"))
             break;
-        new_global_options.rand_file=str_dup_err(arg);
+        new_global_options.rand_file=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
 #ifdef RANDOM_FILE
@@ -381,12 +396,12 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* service */
     switch(cmd) {
     case CMD_INIT:
-        new_service_options.servname=str_dup_err("stunnel");
+        new_service_options.servname=str_dup("stunnel");
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "service"))
             break;
-        new_service_options.servname=str_dup_err(arg);
+        new_service_options.servname=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -454,7 +469,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "socket"))
             break;
-        if(!parse_socket_option(arg))
+        if(parse_socket_option(arg))
             return "Illegal socket option";
         return NULL; /* OK */
     case CMD_DEFAULT:
@@ -570,7 +585,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "CApath"))
             break;
         if(arg[0]) /* not empty */
-            section->ca_dir=str_dup_err(arg);
+            section->ca_dir=str_dup(arg);
         else
             section->ca_dir=NULL;
         return NULL; /* OK */
@@ -598,7 +613,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "CAfile"))
             break;
         if(arg[0]) /* not empty */
-            section->ca_file=str_dup_err(arg);
+            section->ca_file=str_dup(arg);
         else
             section->ca_file=NULL;
         return NULL; /* OK */
@@ -622,7 +637,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "cert"))
             break;
-        section->cert=str_dup_err(arg);
+        section->cert=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break; /* no default certificate */
@@ -644,7 +659,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "ciphers"))
             break;
-        section->cipher_list=str_dup_err(arg);
+        section->cipher_list=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         s_log(LOG_NOTICE, "%-15s = %s", "ciphers", STUNNEL_CIPHER_LIST);
@@ -688,7 +703,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "connect"))
             break;
         section->option.remote=1;
-        section->remote_address=str_dup_err(arg);
+        section->remote_address=str_dup(arg);
         if(!section->option.delayed_lookup &&
                 !name2addrlist(&section->remote_addr, arg, DEFAULT_LOOPBACK)) {
             s_log(LOG_INFO, "Cannot resolve '%s' - delaying DNS lookup", arg);
@@ -712,7 +727,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "CRLpath"))
             break;
         if(arg[0]) /* not empty */
-            section->crl_dir=str_dup_err(arg);
+            section->crl_dir=str_dup(arg);
         else
             section->crl_dir=NULL;
         return NULL; /* OK */
@@ -732,7 +747,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "CRLfile"))
             break;
         if(arg[0]) /* not empty */
-            section->crl_file=str_dup_err(arg);
+            section->crl_file=str_dup(arg);
         else
             section->crl_file=NULL;
         return NULL; /* OK */
@@ -742,6 +757,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         s_log(LOG_NOTICE, "%-15s = CRL file", "CRLfile");
         break;
     }
+
+#ifndef OPENSSL_NO_ECDH
 
     /* curve */
 #define DEFAULT_CURVE NID_X9_62_prime256v1
@@ -763,6 +780,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         s_log(LOG_NOTICE, "%-15s = ECDH curve name", "curve");
         break;
     }
+
+#endif /* !OPENSSL_NO_ECDH */
 
     /* delay */
     switch(cmd) {
@@ -821,9 +840,9 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "exec"))
             break;
         section->option.program=1;
-        section->execname=str_dup_err(arg);
+        section->execname=str_dup(arg);
 #ifdef USE_WIN32
-        section->execargs=str_dup_err(arg);
+        section->execargs=str_dup(arg);
 #else
         if(!section->execargs) {
             section->execargs=str_alloc(2*sizeof(char *));
@@ -849,7 +868,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "execargs"))
             break;
 #ifdef USE_WIN32
-        section->execargs=str_dup_err(arg);
+        section->execargs=str_dup(arg);
 #else
         section->execargs=argalloc(arg);
 #endif
@@ -893,7 +912,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "ident"))
             break;
-        section->username=str_dup_err(arg);
+        section->username=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -910,7 +929,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "key"))
             break;
-        section->key=str_dup_err(arg);
+        section->key=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -963,6 +982,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
+#ifdef HAVE_OSSL_OCSP_H
+
     /* OCSP */
     switch(cmd) {
     case CMD_INIT:
@@ -1002,6 +1023,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
+#endif /* HAVE_OSSL_OCSP_H */
+
     /* options */
     switch(cmd) {
     case CMD_INIT:
@@ -1026,19 +1049,21 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* protocol */
     switch(cmd) {
     case CMD_INIT:
-        section->protocol=NULL;
+        section->protocol=-1;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "protocol"))
             break;
-        section->protocol=str_dup_err(arg);
+        section->protocol=find_protocol_id(arg);
+        if(section->protocol<0)
+            return "Unknown protocol";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-15s = protocol to negotiate before SSL initialization",
             "protocol");
-        s_log(LOG_NOTICE, "%18scurrently supported: cifs, connect, nntp, pop3, smtp", "");
+        s_log(LOG_NOTICE, "%18scurrently supported: cifs, connect, imap, nntp, pgsql, pop3, proxy, smtp", "");
         break;
     }
 
@@ -1050,7 +1075,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "protocolAuthentication"))
             break;
-        section->protocol_authentication=str_dup_err(arg);
+        section->protocol_authentication=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -1068,7 +1093,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "protocolHost"))
             break;
-        section->protocol_host=str_dup_err(arg);
+        section->protocol_host=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -1086,7 +1111,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "protocolPassword"))
             break;
-        section->protocol_password=str_dup_err(arg);
+        section->protocol_password=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -1104,7 +1129,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "protocolUsername"))
             break;
-        section->protocol_username=str_dup_err(arg);
+        section->protocol_username=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -1240,11 +1265,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 str_alloc(sizeof(SERVERNAME_LIST));
             tmpsrv->ssl_options|=SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
         }
-        if(!tmpsrv->servername_list_tail) {
-            s_log(LOG_ERR, "Fatal memory allocation error");
-            die(2);
-        }
-        tmpsrv->servername_list_tail->servername=str_dup_err(tmpstr);
+        tmpsrv->servername_list_tail->servername=str_dup(tmpstr);
         tmpsrv->servername_list_tail->opt=section;
         tmpsrv->servername_list_tail->next=NULL;
         section->option.sni=1;
@@ -1558,6 +1579,7 @@ void parse_commandline(char *name, char *parameter) {
 #endif
         if(parse_conf(name, CONF_FILE))
             die(1);
+    apply_conf();
 }
 
 /**************************************** parse configuration file */
@@ -1578,7 +1600,7 @@ int parse_conf(char *name, CONF_TYPE type) {
 #endif
 
     if(name) /* not reload */
-        filename=str_dup_err(name);
+        filename=str_dup(name);
 
     s_log(LOG_NOTICE, "Reading configuration from %s %s",
         type==CONF_FD ? "descriptor" : "file", filename);
@@ -1627,20 +1649,15 @@ int parse_conf(char *name, CONF_TYPE type) {
         if(config_opt[0]=='\0' || config_opt[0]=='#' || config_opt[0]==';') /* empty or comment */
             continue;
         if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
-            if(!section_init(line_number-1, section, 0)) {
+            if(section_init(line_number-1, section, 0)) {
                 file_close(df);
                 return 1;
             }
             ++config_opt;
             config_opt[strlen(config_opt)-1]='\0';
             new_section=str_alloc(sizeof(SERVICE_OPTIONS));
-            if(!new_section) {
-                s_log(LOG_ERR, "Fatal memory allocation error");
-                file_close(df);
-                return 1;
-            }
             memcpy(new_section, &new_service_options, sizeof(SERVICE_OPTIONS));
-            new_section->servname=str_dup_err(config_opt);
+            new_section->servname=str_dup(config_opt);
             new_section->session=NULL;
             new_section->next=NULL;
             section->next=new_section;
@@ -1677,7 +1694,7 @@ int parse_conf(char *name, CONF_TYPE type) {
     file_close(df);
 
     /* initialize the last section */
-    if(!section_init(line_number, section, 1))
+    if(section_init(line_number, section, 1))
         return 1;
 
     /* final checks */
@@ -1692,9 +1709,15 @@ int parse_conf(char *name, CONF_TYPE type) {
             return 1;
         }
     }
-    memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
     s_log(LOG_NOTICE, "Configuration successful");
     return 0;
+}
+
+void apply_conf() { /* can be used once the configuration was validated */
+    /* FIXME: this operation may be unsafe, as client() threads use it */
+    memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
+    /* service_options are used for inetd mode and to enumerate services */
+    memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
 }
 
 /**************************************** validate and initialize section */
@@ -1704,9 +1727,9 @@ static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
 
     /* setup host_name for SNI, prefer protocolHost if specified */
     if(section->protocol_host) /* 'protocolHost' option */
-        section->host_name=str_dup_err(section->protocol_host);
+        section->host_name=str_dup(section->protocol_host);
     else if(section->remote_address) /* 'connect' option */
-        section->host_name=str_dup_err(section->remote_address);
+        section->host_name=str_dup(section->remote_address);
     else
         section->host_name=NULL;
     if(section->host_name) { /* either 'protocolHost' or 'connect' specified */
@@ -1715,34 +1738,33 @@ static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
             *tmpstr='\0';
         } else { /* 'port' -> default to 'localhost' */
             str_free(section->host_name);
-            section->host_name=str_dup_err("localhost");
+            section->host_name=str_dup("localhost");
         }
     }
 
     if(section==&new_service_options) { /* global options just configured */
-        memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
 #ifdef HAVE_OSSL_ENGINE_H
         close_engine();
 #endif
-        if(!ssl_configure()) /* configure global SSL settings */
-            return 0;
+        if(ssl_configure(&new_global_options)) /* configure global SSL settings */
+            return 1;
         if(!final) /* no need to validate defaults */
-            return 1; /* OK */
+            return 0; /* OK */
     }
 
     if(!section->option.client && !section->cert) {
         section_error(last_line, section->servname,
             "SSL server needs a certificate");
-        return 0;
+        return 1;
     }
     if(context_init(section)) /* initialize SSL context */
-        return 0;
+        return 1;
 
     if(section==&new_service_options) { /* inetd mode checks */
         if(section->option.accept) {
             section_error(last_line, section->servname,
                 "'accept' is not allowed in inetd mode");
-            return 0;
+            return 1;
         }
 #if 0
         /* TODO: some additional checks could be useful */
@@ -1755,22 +1777,26 @@ static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
         if((unsigned int)section->option.accept
                 + (unsigned int)section->option.program
                 + (unsigned int)section->option.remote
+#ifndef OPENSSL_NO_TLSEXT
                 + (unsigned int)section->option.sni
+#endif /* OPENSSL_NO_TLSEXT */
 #ifndef USE_WIN32
                 + (unsigned int)section->option.transparent_dst
 #endif /* USE_WIN32 */
                 !=2) {
             section_error(last_line, section->servname,
                 "Each service must define two endpoints");
-            return 0;
+            return 1;
         }
+#ifndef OPENSSL_NO_TLSEXT
         if(section->option.sni && section->option.client) {
             section_error(last_line, section->servname,
                 "SNI slave service is a TLS client");
-            return 0;
+            return 1;
         }
+#endif /* OPENSSL_NO_TLSEXT */
     }
-    return 1; /* all tests passed -- continue program execution */
+    return 0; /* all tests passed -- continue program execution */
 }
 
 /**************************************** facility/debug level */
@@ -1817,7 +1843,7 @@ static int parse_debug_level(char *arg) {
         {NULL, -1}
     };
 
-    arg_copy=str_dup_err(arg);
+    arg_copy=str_dup(arg);
     string=arg_copy;
 
 /* facilities only make sense on Unix */
@@ -1833,7 +1859,7 @@ static int parse_debug_level(char *arg) {
             }
         }
         if(new_global_options.facility==-1)
-            return 0; /* FAILED */
+            return 1; /* FAILED */
         string=strtok(NULL, ".");    /* set to the remainder */
     }
 #endif /* USE_WIN32, __vms */
@@ -1841,7 +1867,7 @@ static int parse_debug_level(char *arg) {
     /* time to check the syslog level */
     if(string && strlen(string)==1 && *string>='0' && *string<='7') {
         new_global_options.debug_level=*string-'0';
-        return 1; /* OK */
+        return 0; /* OK */
     }
     new_global_options.debug_level=8;    /* illegal level */
     for(fl=levels; fl->name; ++fl) {
@@ -1851,8 +1877,8 @@ static int parse_debug_level(char *arg) {
         }
     }
     if(new_global_options.debug_level==8)
-        return 0; /* FAILED */
-    return 1; /* OK */
+        return 1; /* FAILED */
+    return 0; /* OK */
 }
 
 /**************************************** SSL options */
@@ -1864,6 +1890,9 @@ static int parse_ssl_option(char *arg) {
     } ssl_opts[] = {
         {"MICROSOFT_SESS_ID_BUG", SSL_OP_MICROSOFT_SESS_ID_BUG},
         {"NETSCAPE_CHALLENGE_BUG", SSL_OP_NETSCAPE_CHALLENGE_BUG},
+#ifdef SSL_OP_LEGACY_SERVER_CONNECT
+        {"LEGACY_SERVER_CONNECT", SSL_OP_LEGACY_SERVER_CONNECT},
+#endif
         {"NETSCAPE_REUSE_CIPHER_CHANGE_BUG",
             SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG},
         {"SSLREF2_REUSE_CERT_TYPE_BUG", SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG},
@@ -1872,7 +1901,10 @@ static int parse_ssl_option(char *arg) {
         {"SSLEAY_080_CLIENT_DH_BUG", SSL_OP_SSLEAY_080_CLIENT_DH_BUG},
         {"TLS_D5_BUG", SSL_OP_TLS_D5_BUG},
         {"TLS_BLOCK_PADDING_BUG", SSL_OP_TLS_BLOCK_PADDING_BUG},
+#ifdef SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         {"DONT_INSERT_EMPTY_FRAGMENTS", SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS},
+#endif
+        {"ALL", SSL_OP_ALL},
 #ifdef SSL_OP_NO_QUERY_MTU
         {"NO_QUERY_MTU", SSL_OP_NO_QUERY_MTU},
 #endif
@@ -1882,17 +1914,28 @@ static int parse_ssl_option(char *arg) {
 #ifdef SSL_OP_NO_TICKET
         {"NO_TICKET", SSL_OP_NO_TICKET},
 #endif
+#ifdef SSL_OP_CISCO_ANYCONNECT
+        {"CISCO_ANYCONNECT", SSL_OP_CISCO_ANYCONNECT},
+#endif
+#ifdef SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION
         {"NO_SESSION_RESUMPTION_ON_RENEGOTIATION",
             SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION},
+#endif
 #ifdef SSL_OP_NO_COMPRESSION
         {"NO_COMPRESSION", SSL_OP_NO_COMPRESSION},
+#endif
+#ifdef SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
+        {"ALLOW_UNSAFE_LEGACY_RENEGOTIATION",
+            SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION},
 #endif
 #ifdef SSL_OP_SINGLE_ECDH_USE
         {"SINGLE_ECDH_USE", SSL_OP_SINGLE_ECDH_USE},
 #endif
         {"SINGLE_DH_USE", SSL_OP_SINGLE_DH_USE},
         {"EPHEMERAL_RSA", SSL_OP_EPHEMERAL_RSA},
+#ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
         {"CIPHER_SERVER_PREFERENCE", SSL_OP_CIPHER_SERVER_PREFERENCE},
+#endif
         {"TLS_ROLLBACK_BUG", SSL_OP_TLS_ROLLBACK_BUG},
         {"NO_SSLv2", SSL_OP_NO_SSLv2},
         {"NO_SSLv3", SSL_OP_NO_SSLv3},
@@ -1905,7 +1948,6 @@ static int parse_ssl_option(char *arg) {
 #ifdef SSL_OP_CRYPTOPRO_TLSEXT_BUG
         {"CRYPTOPRO_TLSEXT_BUG", SSL_OP_CRYPTOPRO_TLSEXT_BUG},
 #endif
-        {"ALL", SSL_OP_ALL},
         {NULL, 0}
     }, *option;
 
@@ -1986,10 +2028,10 @@ static int print_socket_options(void) {
         optlen=sizeof val;
         if(getsockopt(fd, ptr->opt_level,
                 ptr->opt_name, (void *)&val, &optlen)) {
-            if(get_last_socket_error()!=ENOPROTOOPT) {
+            if(get_last_socket_error()!=S_ENOPROTOOPT) {
                 s_log(LOG_ERR, "Failed to get %s OS default", ptr->opt_str);
                 sockerror("getsockopt");
-                return 0; /* FAILED */
+                return 1; /* FAILED */
             }
             td=str_dup("write-only");
         } else
@@ -2003,7 +2045,7 @@ static int print_socket_options(void) {
             ptr->opt_str, ta, tl, tr, td);
         str_free(ta); str_free(tl); str_free(tr); str_free(td);
     }
-    return 1; /* OK */
+    return 0; /* OK */
 }
 
 static char *print_option(int type, OPT_UNION *val) {
@@ -2032,7 +2074,7 @@ static int parse_socket_option(char *arg) {
     SOCK_OPT *ptr;
 
     if(arg[1]!=':')
-        return 0; /* FAILED */
+        return 1; /* FAILED */
     switch(arg[0]) {
     case 'a':
         socket_type=0; break;
@@ -2041,17 +2083,17 @@ static int parse_socket_option(char *arg) {
     case 'r':
         socket_type=2; break;
     default:
-        return 0; /* FAILED */
+        return 1; /* FAILED */
     }
     arg+=2;
     opt_val_str=strchr(arg, '=');
     if(!opt_val_str) /* no '='? */
-        return 0; /* FAILED */
+        return 1; /* FAILED */
     *opt_val_str++='\0';
     ptr=sock_opts;
     for(;;) {
         if(!ptr->opt_str)
-            return 0; /* FAILED */
+            return 1; /* FAILED */
         if(!strcmp(arg, ptr->opt_str))
             break; /* option name found */
         ++ptr;
@@ -2061,18 +2103,18 @@ static int parse_socket_option(char *arg) {
     case TYPE_FLAG:
         if(!strcasecmp(opt_val_str, "yes") || !strcmp(opt_val_str, "1")) {
             ptr->opt_val[socket_type]->i_val=1;
-            return 1; /* OK */
+            return 0; /* OK */
         }
         if(!strcasecmp(opt_val_str, "no") || !strcmp(opt_val_str, "0")) {
             ptr->opt_val[socket_type]->i_val=0;
-            return 1; /* OK */
+            return 0; /* OK */
         }
-        return 0; /* FAILED */
+        return 1; /* FAILED */
     case TYPE_INT:
         ptr->opt_val[socket_type]->i_val=strtol(opt_val_str, &tmpstr, 10);
         if(tmpstr==arg || *tmpstr) /* not a number */
-            return 0; /* FAILED */
-        return 1; /* OK */
+            return 1; /* FAILED */
+        return 0; /* OK */
     case TYPE_LINGER:
         opt_val2_str=strchr(opt_val_str, ':');
         if(opt_val2_str) {
@@ -2080,41 +2122,43 @@ static int parse_socket_option(char *arg) {
             ptr->opt_val[socket_type]->linger_val.l_linger=
                 (u_short)strtol(opt_val2_str, &tmpstr, 10);
             if(tmpstr==arg || *tmpstr) /* not a number */
-                return 0; /* FAILED */
+                return 1; /* FAILED */
         } else {
             ptr->opt_val[socket_type]->linger_val.l_linger=0;
         }
         ptr->opt_val[socket_type]->linger_val.l_onoff=
             (u_short)strtol(opt_val_str, &tmpstr, 10);
         if(tmpstr==arg || *tmpstr) /* not a number */
-            return 0; /* FAILED */
-        return 1; /* OK */
+            return 1; /* FAILED */
+        return 0; /* OK */
     case TYPE_TIMEVAL:
         opt_val2_str=strchr(opt_val_str, ':');
         if(opt_val2_str) {
             *opt_val2_str++='\0';
             ptr->opt_val[socket_type]->timeval_val.tv_usec=strtol(opt_val2_str, &tmpstr, 10);
             if(tmpstr==arg || *tmpstr) /* not a number */
-                return 0; /* FAILED */
+                return 1; /* FAILED */
         } else {
             ptr->opt_val[socket_type]->timeval_val.tv_usec=0;
         }
         ptr->opt_val[socket_type]->timeval_val.tv_sec=strtol(opt_val_str, &tmpstr, 10);
         if(tmpstr==arg || *tmpstr) /* not a number */
-            return 0; /* FAILED */
-        return 1; /* OK */
+            return 1; /* FAILED */
+        return 0; /* OK */
     case TYPE_STRING:
         if(strlen(opt_val_str)+1>sizeof(OPT_UNION))
-            return 0; /* FAILED */
+            return 1; /* FAILED */
         strcpy(ptr->opt_val[socket_type]->c_val, opt_val_str);
-        return 1; /* OK */
+        return 0; /* OK */
     default:
         ; /* ANSI C compiler needs it */
     }
-    return 0; /* FAILED */
+    return 1; /* FAILED */
 }
 
 /**************************************** OCSP */
+
+#ifdef HAVE_OSSL_OCSP_H
 
 static char *parse_ocsp_url(SERVICE_OPTIONS *section, char *arg) {
     char *host, *port, *path;
@@ -2127,7 +2171,7 @@ static char *parse_ocsp_url(SERVICE_OPTIONS *section, char *arg) {
             " - additional stunnel service needs to be defined";
     if(!hostport2addrlist(&section->ocsp_addr, host, port))
         return "Failed to resolve OCSP server address";
-    section->ocsp_path=str_dup_err(path);
+    section->ocsp_path=str_dup(path);
     if(host)
         OPENSSL_free(host);
     if(port)
@@ -2163,6 +2207,91 @@ static unsigned long parse_ocsp_flag(char *arg) {
     return 0; /* FAILED */
 }
 
+#endif /* HAVE_OSSL_OCSP_H */
+
+/**************************************** engine */
+
+#ifdef HAVE_OSSL_ENGINE_H
+
+#define MAX_ENGINES 256
+static ENGINE *engines[MAX_ENGINES]; /* table of engines */
+static int current_engine=0;
+static int engine_initialized;
+
+static char *open_engine(const char *name) {
+    s_log(LOG_DEBUG, "Enabling support for engine '%s'", name);
+    if(!strcasecmp(name, "auto")) {
+        ENGINE_register_all_complete();
+        s_log(LOG_DEBUG, "Auto engine support enabled");
+        return NULL; /* OK */
+    }
+
+    close_engine(); /* close the previous one (if specified) */
+    engines[current_engine]=ENGINE_by_id(name);
+    engine_initialized=0;
+    if(!engines[current_engine]) {
+        sslerror("ENGINE_by_id");
+        return "Failed to open the engine";
+    }
+    return NULL; /* OK */
+}
+
+static char *ctrl_engine(const char *cmd, const char *arg) {
+    if(!strcasecmp(cmd, "INIT")) { /* special control command */
+        return init_engine();
+    }
+    if(arg)
+        s_log(LOG_DEBUG, "Executing engine control command %s:%s", cmd, arg);
+    else
+        s_log(LOG_DEBUG, "Executing engine control command %s", cmd);
+    if(!ENGINE_ctrl_cmd_string(engines[current_engine], cmd, arg, 0)) {
+        sslerror("ENGINE_ctrl_cmd_string");
+        return "Failed to execute the engine control command";
+    }
+    return NULL; /* OK */
+}
+
+static char *init_engine(void) {
+    if(engine_initialized)
+        return NULL; /* OK */
+    engine_initialized=1;
+    s_log(LOG_DEBUG, "Initializing engine %d", current_engine+1);
+    if(!ENGINE_init(engines[current_engine])) {
+        if(ERR_peek_last_error()) /* really an error */
+            sslerror("ENGINE_init");
+        else
+            s_log(LOG_ERR, "Engine %d not initialized", current_engine+1);
+        return "Engine initialization failed";
+    }
+    if(!ENGINE_set_default(engines[current_engine], ENGINE_METHOD_ALL)) {
+        sslerror("ENGINE_set_default");
+        return "Selecting default engine failed";
+    }
+    s_log(LOG_DEBUG, "Engine %d initialized", current_engine+1);
+    return NULL; /* OK */
+}
+
+static void close_engine(void) {
+    if(!engines[current_engine])
+        return; /* no engine was opened -> nothing to do */
+    init_engine();
+    ++current_engine;
+#if 0
+    ENGINE_finish(e);
+    ENGINE_free(e);
+    e=NULL;
+    s_log(LOG_DEBUG, "Engine closed");
+#endif
+}
+
+static ENGINE *get_engine(int i) {
+    if(i<1 || i>current_engine)
+        return NULL;
+    return engines[i-1];
+}
+
+#endif /* HAVE_OSSL_ENGINE_H */
+
 /**************************************** fatal error */
 
 static void print_syntax(void) {
@@ -2195,7 +2324,7 @@ static void print_syntax(void) {
     s_log(LOG_NOTICE, "    -sockets    - display default socket options");
 }
 
-/**************************************** various supporting funstions */
+/**************************************** various supporting functions */
 
 static void config_error(int num, const char *line, const char *str) {
     s_log(LOG_ERR, "Line %d: \"%s\": %s", num, line, str);
@@ -2205,17 +2334,6 @@ static void section_error(int num, const char *name, const char *str) {
     s_log(LOG_ERR, "Line %d: End of section %s: %s", num, name, str);
 }
 
-static char *str_dup_err(char *str) { /* str_dup() with error checking */
-    char *retval;
-
-    retval=str_dup(str);
-    if(!retval) {
-        s_log(LOG_ERR, "Fatal memory allocation error");
-        die(2);
-    }
-    return retval;
-}
-
 #ifndef USE_WIN32
 
 static char **argalloc(char *str) { /* allocate 'exec' argumets */
@@ -2223,12 +2341,8 @@ static char **argalloc(char *str) { /* allocate 'exec' argumets */
     char *ptr, **retval;
 
     max_arg=strlen(str)/2+1;
-    ptr=str_dup_err(str);
+    ptr=str_dup(str);
     retval=str_alloc((max_arg+1)*sizeof(char *));
-    if(!retval) {
-        s_log(LOG_ERR, "Fatal memory allocation error");
-        die(2);
-    }
     i=0;
     while(*ptr && i<max_arg) {
         retval[i++]=ptr;

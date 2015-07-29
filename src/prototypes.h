@@ -129,9 +129,11 @@ typedef struct service_options_struct {
     char *crl_file;                       /* file containing bunches of CRLs */
     int verify_level;
     X509_STORE *revocation_store;             /* cert store for CRL checking */
+#ifdef HAVE_OSSL_OCSP_H
     SOCKADDR_LIST ocsp_addr;
     char *ocsp_path;
     unsigned long ocsp_flags;
+#endif
 
         /* service-specific data for ctx.c */
     char *cipher_list;
@@ -142,7 +144,9 @@ typedef struct service_options_struct {
     SSL_METHOD *client_method, *server_method;
     SOCKADDR_LIST sessiond_addr;
     SERVERNAME_LIST *servername_list_head, *servername_list_tail;
+#ifndef OPENSSL_NO_ECDH
     int curve;
+#endif
 #ifdef HAVE_OSSL_ENGINE_H
     ENGINE *engine;                        /* engine to read the private key */
 #endif
@@ -167,7 +171,7 @@ typedef struct service_options_struct {
     enum {FAILOVER_RR, FAILOVER_PRIO} failover;         /* failover strategy */
 
         /* service-specific data for protocol.c */
-    char *protocol;
+    int protocol;
     char *protocol_host;
     char *protocol_username;
     char *protocol_password;
@@ -190,13 +194,17 @@ typedef struct service_options_struct {
         unsigned int retry:1;           /* loop remote+program */
         unsigned int sessiond:1;
         unsigned int program:1;         /* endpoint: exec */
+#ifndef OPENSSL_NO_TLSEXT
         unsigned int sni:1;             /* endpoint: sni */
+#endif
 #ifndef USE_WIN32
         unsigned int pty:1;
         unsigned int transparent_src:1;
         unsigned int transparent_dst:1; /* endpoint: transparent destination */
 #endif
+#ifdef HAVE_OSSL_OCSP_H
         unsigned int ocsp:1;
+#endif
     } option;
 } SERVICE_OPTIONS;
 
@@ -291,6 +299,7 @@ void s_log(int, const char *, ...)
 #else
     ;
 #endif
+void out_of_memory(char *, int);
 void ioerror(const char *);
 void sockerror(const char *);
 void log_error(int, int, const char *);
@@ -305,18 +314,13 @@ int pty_allocate(int *, int *, char *);
 extern int cli_index, opt_index;
 
 void ssl_init(void);
-int ssl_configure(void);
-#ifdef HAVE_OSSL_ENGINE_H
-char *open_engine(const char *);
-char *ctrl_engine(const char *, const char *);
-void close_engine(void);
-ENGINE *get_engine(int);
-#endif
+int ssl_configure(GLOBAL_OPTIONS *);
 
 /**************************************** prototypes for options.c */
 
 void parse_commandline(char *, char *);
 int parse_conf(char *, CONF_TYPE);
+void apply_conf(void);
 
 /**************************************** prototypes for ctx.c */
 
@@ -407,7 +411,8 @@ void fdprintf(CLI *, int, const char *, ...)
 
 /**************************************** prototype for protocol.c */
 
-void negotiate(CLI *c);
+int find_protocol_id(const char *);
+void protocol(CLI *c, const int);
 
 /**************************************** prototypes for resolver.c */
 
@@ -415,11 +420,28 @@ int name2addrlist(SOCKADDR_LIST *, char *, char *);
 int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
 char *s_ntop(char *, SOCKADDR_UNION *);
 
+#if defined(USE_WIN32) && defined(USE_IPv6)
+/* rename some locally shadowed declarations */
+#define getaddrinfo     local_getaddrinfo
+#define freeaddrinfo    local_freeaddrinfo
+#define getnameinfo     local_getnameinfo
+#endif
+
+#ifndef HAVE_GETNAMEINFO
+#ifndef NI_NUMERICHOST
+#define NI_NUMERICHOST  2
+#endif
+#ifndef NI_NUMERICSERV
+#define NI_NUMERICSERV  8
+#endif
+int getnameinfo(const struct sockaddr *, int, char *, int, char *, int, int);
+#endif
+
 /**************************************** prototypes for sthreads.c */
 
 typedef enum {
     CRIT_CLIENTS, CRIT_SESSION, /* client.c */
-#if OPENSSL_VERSION_NUMBER<0x1000002f
+#if OPENSSL_VERSION_NUMBER<0x1000002fL
     CRIT_SSL,                   /* client.c */
 #endif /* OpenSSL version < 1.0.0b */
     CRIT_INET,                  /* resolver.c */
@@ -468,8 +490,8 @@ typedef struct {
 
 #ifdef USE_WIN32
 void win_log(char *);
-void win_exit(int);
-void win_newconfig(int);
+void win_exit(const int);
+void win_newconfig();
 void win_newcert(SSL *, SERVICE_OPTIONS *);
 int passwd_cb(char *, int, int, void *);
 #ifdef HAVE_OSSL_ENGINE_H
@@ -505,7 +527,7 @@ LPSTR tstr2str(const LPTSTR);
 
 /**************************************** prototypes for libwrap.c */
 
-void libwrap_init(int);
+void libwrap_init();
 void libwrap_auth(CLI *);
 
 /**************************************** prototypes for str.c */
@@ -514,7 +536,8 @@ void str_init();
 void str_canary();
 void str_cleanup();
 void str_stats();
-void *str_alloc(size_t);
+void *str_alloc_debug(size_t, char *, int);
+#define str_alloc(a) str_alloc_debug((a), __FILE__, __LINE__)
 void *str_realloc_debug(void *, size_t, char *, int);
 #define str_realloc(a, b) str_realloc_debug((a), (b), __FILE__, __LINE__)
 void str_detach_debug(void *, char *, int);

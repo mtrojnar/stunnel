@@ -38,11 +38,10 @@
 #include "common.h"
 #include "prototypes.h"
 
-/* \n is not a character expected in the string */
-#define LINE "%[^\n]"
 #define isprefix(a, b) (strncasecmp((a), (b), strlen(b))==0)
 
 /* protocol-specific function prototypes */
+static void proxy_server(CLI *c);
 static void cifs_client(CLI *);
 static void cifs_server(CLI *);
 static void pgsql_client(CLI *);
@@ -55,60 +54,116 @@ static void imap_client(CLI *);
 static void imap_server(CLI *);
 static void nntp_client(CLI *);
 static void connect_client(CLI *);
+
+#if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
 static void ntlm(CLI *);
-#ifndef OPENSSL_NO_MD4
 static char *ntlm1();
 static char *ntlm3(char *, char *, char *);
 static void crypt_DES(DES_cblock, DES_cblock, DES_cblock);
 #endif
 static char *base64(int, char *, int);
 
-void negotiate(CLI *c) {
-    if(!c->opt->protocol)
-        return; /* no protocol negotiations */
+/**************************************** framework */
 
-    s_log(LOG_NOTICE, "Negotiations for %s (%s side) started", c->opt->protocol,
-        c->opt->option.client ? "client" : "server");
+typedef void (*FUNCTION)(CLI *);
 
-    if(c->opt->option.client) {
-        if(!strcmp(c->opt->protocol, "cifs"))
-            cifs_client(c);
-        else if(!strcmp(c->opt->protocol, "smtp"))
-            smtp_client(c);
-        else if(!strcmp(c->opt->protocol, "pop3"))
-            pop3_client(c);
-        else if(!strcmp(c->opt->protocol, "imap"))
-            imap_client(c);
-        else if(!strcmp(c->opt->protocol, "nntp"))
-            nntp_client(c);
-        else if(!strcmp(c->opt->protocol, "connect"))
-            connect_client(c);
-        else if(!strcmp(c->opt->protocol, "pgsql"))
-            pgsql_client(c);
-        else {
-            s_log(LOG_ERR, "Protocol %s not supported in client mode",
-                c->opt->protocol);
-            longjmp(c->err, 1);
-        }
-    } else {
-        if(!strcmp(c->opt->protocol, "cifs"))
-            cifs_server(c);
-        else if(!strcmp(c->opt->protocol, "smtp"))
-            smtp_server(c);
-        else if(!strcmp(c->opt->protocol, "pop3"))
-            pop3_server(c);
-        else if(!strcmp(c->opt->protocol, "imap"))
-            imap_server(c);
-        else if(!strcmp(c->opt->protocol, "pgsql"))
-            pgsql_server(c);
-        else {
-            s_log(LOG_ERR, "Protocol %s not supported in server mode",
-                c->opt->protocol);
-            longjmp(c->err, 1);
-        }
-    }
-    s_log(LOG_NOTICE, "Protocol negotiations succeeded");
+static const struct {
+    char *name;
+    FUNCTION f[2][2];
+} protocols[]={
+    {"proxy",   {{proxy_server, NULL},           {NULL, NULL}}},
+    {"cifs",    {{cifs_server,  cifs_client},    {NULL, NULL}}},
+    {"pgsql",   {{pgsql_server, pgsql_client},   {NULL, NULL}}},
+    {"smtp",    {{smtp_server,  smtp_client},    {NULL, NULL}}},
+    {"pop3",    {{pop3_server,  pop3_client},    {NULL, NULL}}},
+    {"imap",    {{imap_server,  imap_client},    {NULL, NULL}}},
+    {"nntp",    {{NULL,         nntp_client},    {NULL, NULL}}},
+    {"connect", {{NULL,         connect_client}, {NULL, NULL}}},
+    {NULL,      {{NULL,         NULL},           {NULL, NULL}}}
+};
+
+int find_protocol_id(const char *name) {
+    int id;
+
+    for(id=0; protocols[id].name; ++id)
+        if(!strcmp(name, protocols[id].name))
+            return id;
+    return -1;
 }
+
+void protocol(CLI *c, const int phase) {
+    const int id=c->opt->protocol, mode=(unsigned int)c->opt->option.client;
+
+    if(id<0)
+        return;
+    if(!protocols[id].f[phase][mode]) {
+        s_log(protocols[id].f[phase][mode^1] ? LOG_NOTICE : LOG_DEBUG,
+            "No %s-SSL %s-mode %s protocol negotiation supported",
+            phase ? "post" : "pre", mode ? "client" : "server",
+            protocols[id].name);
+        return;
+    }
+    s_log(LOG_INFO, "%s-SSL %s-mode %s protocol negotiations started",
+        phase ? "Post" : "Pre", mode ? "client" : "server",
+        protocols[id].name);
+    protocols[id].f[phase][mode](c);
+    s_log(LOG_INFO, "%s-SSL %s-mode %s protocol negotiations succeeded",
+        phase ? "Post" : "Pre", mode ? "client" : "server",
+        protocols[id].name);
+}
+
+/**************************************** proxy */
+
+/*
+ * PROXY protocol: http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
+ * this is a protocol client support for stunnel acting as an SSL server 
+ * I don't think anything else is useful, but feel free to discuss on the
+ * stunnel-users mailing list if you disagree
+ */
+
+static void proxy_server(CLI *c) {
+    SOCKADDR_UNION addr;
+    socklen_t addrlen;
+    char src_host[IPLEN-5], dst_host[IPLEN-5];
+    char src_port[6], dst_port[6], *proto;
+
+    addrlen=sizeof addr;
+    if(getpeername(c->local_rfd.fd, &addr.sa, &addrlen)) {
+        sockerror("getpeername");
+        longjmp(c->err, 1);
+    }
+    if(getnameinfo(&addr.sa, addr_len(addr), src_host, IPLEN-5,
+            src_port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
+        sockerror("getnameinfo");
+        longjmp(c->err, 1);
+    }
+
+    addrlen=sizeof addr;
+    if(getsockname(c->local_rfd.fd, &addr.sa, &addrlen)) {
+        sockerror("getsockname");
+        longjmp(c->err, 1);
+    }
+    if(getnameinfo(&addr.sa, addr_len(addr), dst_host, IPLEN-5,
+            dst_port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
+        sockerror("getnameinfo");
+        longjmp(c->err, 1);
+    }
+
+    switch(addr.sa.sa_family) {
+    case AF_INET:
+        proto="TCP4";
+        break;
+    case AF_INET6:
+        proto="TCP6";
+        break;
+    default:
+        proto="UNKNOWN";
+    }
+    fdprintf(c, c->remote_fd.fd, "PROXY %s %s %s %s %s",
+        proto, src_host, dst_host, src_port, dst_port);
+}
+
+/**************************************** cifs */
 
 static void cifs_client(CLI *c) {
     u8 buffer[5];
@@ -152,6 +207,8 @@ static void cifs_server(CLI *c) {
     write_blocking(c, c->local_wfd.fd, response_use_ssl, 5);
 }
 
+/**************************************** pgsql */
+
 /* http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982 */
 u8 ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
 
@@ -179,6 +236,8 @@ static void pgsql_server(CLI *c) {
     }
     write_blocking(c, c->local_wfd.fd, ssl_ok, sizeof ssl_ok);
 }
+
+/**************************************** smtp */
 
 static void smtp_client(CLI *c) {
     char *line;
@@ -245,6 +304,8 @@ static void smtp_server(CLI *c) {
     fdputline(c, c->local_wfd.fd, "220 Go ahead");
 }
 
+/**************************************** pop3 */
+
 static void pop3_client(CLI *c) {
     char *line;
 
@@ -278,6 +339,8 @@ static void pop3_server(CLI *c) {
     }
     fdputline(c, c->local_wfd.fd, "+OK Stunnel starts TLS negotiation");
 }
+
+/**************************************** imap */
 
 static void imap_client(CLI *c) {
     char *line;
@@ -381,6 +444,8 @@ static void imap_server(CLI *c) {
     longjmp(c->err, 2); /* don't reset */
 }
 
+/**************************************** nntp */
+
 static void nntp_client(CLI *c) {
     char *line;
 
@@ -398,6 +463,8 @@ static void nntp_client(CLI *c) {
     }
 }
 
+/**************************************** connect */
+
 static void connect_client(CLI *c) {
     char *line, *encoded;
 
@@ -410,7 +477,12 @@ static void connect_client(CLI *c) {
     fdprintf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
     if(c->opt->protocol_username && c->opt->protocol_password) {
         if(!strcasecmp(c->opt->protocol_authentication, "NTLM")) {
+#if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
             ntlm(c);
+#else
+            s_log(LOG_ERR, "NTLM authentication is not available");
+            longjmp(c->err, 1);
+#endif
         } else { /* basic authentication */
             line=str_printf("%s:%s",
                 c->opt->protocol_username, c->opt->protocol_password);
@@ -441,6 +513,8 @@ static void connect_client(CLI *c) {
     } while(*line);
 }
 
+#if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
+
 /* 
  * NTLM code is based on the following documentation:
  * http://davenport.sourceforge.net/ntlm.html
@@ -450,7 +524,6 @@ static void connect_client(CLI *c) {
 #define s_min(a, b) ((a)>(b)?(b):(a))
 
 static void ntlm(CLI *c) {
-#ifndef OPENSSL_NO_MD4
     char *line, buf[BUFSIZ], *ntlm1_txt, *ntlm2_txt, *ntlm3_txt;
     long content_length=0; /* no HTTP content */
 
@@ -504,13 +577,7 @@ static void ntlm(CLI *c) {
     }
     fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", ntlm3_txt);
     str_free(ntlm3_txt);
-#else
-    s_log(LOG_ERR, "NTLM authentication is not available");
-    longjmp(c->err, 1);
-#endif
 }
-
-#ifndef OPENSSL_NO_MD4
 
 static char *ntlm1() {
     char phase1[16];
@@ -625,11 +692,6 @@ static char *base64(int encode, char *in, int len) {
     /* 32 bytes as a safety precaution for passing decoded data to crypt_DES */
     /* n+1 to get null-terminated string on encode */
     out=str_alloc(n<32?32:n+1);
-    if(!out) {
-        s_log(LOG_ERR, "Memory allocation error");
-        BIO_free_all(bio);
-        return NULL;
-    }
     n=BIO_read(bio, out, n);
     if(n<0) {
         BIO_free_all(bio);

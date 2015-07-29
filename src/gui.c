@@ -55,7 +55,7 @@
 #endif
 
 /* prototypes */
-static BOOL CALLBACK set_foreground(HWND, LPARAM);
+static BOOL CALLBACK enum_windows(HWND, LPARAM);
 static void parse_cmdline(LPSTR);
 static int initialize_winsock(void);
 static int start_gui();
@@ -107,13 +107,16 @@ static HWND command_bar_handle; /* command bar handle */
 #endif
 static HANDLE small_icon; /* 16x16 icon */
 static TCHAR *win32_name;
+static HANDLE daemon_handle=NULL;
 
 #ifndef _WIN32_WCE
 static SERVICE_STATUS serviceStatus;
 static SERVICE_STATUS_HANDLE serviceStatusHandle=0;
 #endif
 
-static volatile int visible=0, error_mode=0;
+static volatile int visible=0;
+static volatile int error_mode=1; /* no valid configuration was ever loaded */
+static HANDLE config_ready=NULL; /* reload without a valid configuration */
 static LONG new_logs=0;
 static jmp_buf jump_buf;
 
@@ -166,7 +169,7 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
     GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
 
     /* find previous instances of the same executable */
-    EnumWindows(set_foreground, (LPARAM)stunnel_exe_path);
+    EnumWindows(enum_windows, (LPARAM)stunnel_exe_path);
 
     /* change current working directory */
     c=strrchr(stunnel_exe_path, '\\'); /* last backslash */
@@ -203,7 +206,7 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
 
 #ifndef _WIN32_WCE
 
-static BOOL CALLBACK set_foreground(HWND other_window_handle, LPARAM lParam) {
+static BOOL CALLBACK enum_windows(HWND other_window_handle, LPARAM lParam) {
     DWORD dwProcessId;
     HINSTANCE hInstance;
     char window_exe_path[MAX_PATH];
@@ -215,18 +218,22 @@ static BOOL CALLBACK set_foreground(HWND other_window_handle, LPARAM lParam) {
     hInstance=(HINSTANCE)GetWindowLong(other_window_handle, GWL_HINSTANCE);
     GetWindowThreadProcessId(other_window_handle, &dwProcessId);
     hProcess=OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwProcessId);
-    if(!GetModuleFileNameEx(hProcess, hInstance, window_exe_path, MAX_PATH))
+    if(!GetModuleFileNameEx(hProcess, hInstance, window_exe_path, MAX_PATH)) {
+        CloseHandle(hProcess);
         return TRUE;
-    CloseHandle(hProcess);
-    if(strcmp(stunnel_exe_path, window_exe_path))
+    }
+    if(strcmp(stunnel_exe_path, window_exe_path)) {
+        CloseHandle(hProcess);
         return TRUE;
+    }
     if(cmdline.exit) {
         SendMessage(other_window_handle, WM_COMMAND, IDM_EXIT, 0);
-        Sleep(1000); /* give the other process some time to clean up */
+        WaitForSingleObject(hProcess, 3000);
     } else {
         ShowWindow(other_window_handle, SW_SHOWNORMAL); /* show window */
         SetForegroundWindow(other_window_handle); /* bring on top */
     }
+    CloseHandle(hProcess);
     exit(0);
     return FALSE; /* should never be executed */
 }
@@ -261,12 +268,11 @@ static void parse_cmdline(LPSTR command_line) {
         else if(!strcasecmp(opt+1, "exit"))
             cmdline.exit=1;
         else { /* option to be processed in options.c */
-            cmdline.config_file=str_dup(opt);
-            str_free(line);
-            return; /* no need to parse other options */
+            c=opt;
+            break;
         }
     }
-    cmdline.config_file=str_dup(c);
+    cmdline.config_file=*c ? str_dup(c) : NULL;
     str_free(line);
 }
 
@@ -359,7 +365,9 @@ static int start_gui() {
         }
     }
 #endif
-    _beginthread(daemon_thread, DEFAULT_STACK_SIZE, NULL);
+    /* auto-reset, non-signaled */
+    config_ready=CreateEvent(NULL, FALSE, FALSE, NULL);
+    daemon_handle=(HANDLE)_beginthread(daemon_thread, DEFAULT_STACK_SIZE, NULL);
 
     while(GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
@@ -372,15 +380,29 @@ static int start_gui() {
 static void daemon_thread(void *arg) {
     (void)arg; /* skip warning about unused parameter */
 
-    if(!setjmp(jump_buf)) { /* catch any die() calls */
-        main_initialize(
-            cmdline.config_file[0] ? cmdline.config_file : NULL, NULL);
+    /* get a valid configuration */
+    if(!setjmp(jump_buf)) {
+        main_initialize(cmdline.config_file, NULL);
+    } else {
+        unbind_ports(); /* in case initialization failed later */
+        global_options.option.taskbar=1;
+        do { /* wait for a first valid configuration */
+            log_flush(LOG_MODE_ERROR); /* otherwise logs are buffered */
+            win_newconfig(); /* display error */
+            WaitForSingleObject(config_ready, INFINITE);
+            log_close(); /* prevent parse_conf() from logging in error mode */
+        } while(parse_conf(NULL, CONF_RELOAD));
+        apply_conf();
+        log_open(); /* using newly configured level */
+        bind_ports(); /* FIXME: handle error here */
     }
-    if(!setjmp(jump_buf)) { /* catch any die() calls */
-        win_newconfig(error_mode);
+    error_mode=0; /* a valid configuration was loaded */
+    win_newconfig();
+
+    /* start the main loop */
+    if(!setjmp(jump_buf))
         daemon_loop();
-    }
-    _endthread(); /* after signal_post(SIGNAL_TERMINATE); */
+    _endthread(); /* SIGNAL_TERMINATE received */
 }
 
 static LRESULT CALLBACK window_proc(HWND main_window_handle,
@@ -506,7 +528,10 @@ static LRESULT CALLBACK window_proc(HWND main_window_handle,
             ShowWindow(main_window_handle, SW_HIDE); /* hide window */
             break;
         case IDM_EXIT:
-            signal_post(SIGNAL_TERMINATE);
+            if(!error_mode) { /* signal_pipe is active */
+                signal_post(SIGNAL_TERMINATE);
+                WaitForSingleObject(daemon_handle, 3000);
+            }
             DestroyWindow(main_window_handle);
             break;
         case IDM_SAVE_LOG:
@@ -522,7 +547,10 @@ static LRESULT CALLBACK window_proc(HWND main_window_handle,
 #endif
             break;
         case IDM_RELOAD_CONFIG:
-            signal_post(SIGNAL_RELOAD_CONFIG);
+            if(!error_mode) /* signal_pipe is active */
+                signal_post(SIGNAL_RELOAD_CONFIG);
+            else /* unlock daemon_thread */
+                SetEvent(config_ready);
             break;
         case IDM_REOPEN_LOG:
             signal_post(SIGNAL_REOPEN_LOG);
@@ -707,16 +735,8 @@ static void save_log() {
         return;
 
     txt=log_txt(); /* need to convert the result to plain ASCII */
-    if(!txt) {
-        s_log(LOG_CRIT, "Out of memory");
-        return;
-    }
     str=tstr2str(txt);
     str_free(txt);
-    if(!str) {
-        s_log(LOG_CRIT, "Out of memory");
-        return;
-    }
     save_text_file(file_name, str);
     str_free(str);
 }
@@ -817,7 +837,7 @@ static LPTSTR log_txt(void) {
 
 /* called from start_gui() on first load, and from network.c on reload */
 /* NOTE: initialization has to be completed or win_newcert() will fail */
-void win_newconfig(int err) { /* 0 - successs, 1 - error */
+void win_newconfig() {
     SERVICE_OPTIONS *section;
     MENUITEMINFO mii;
 #ifndef _WIN32_WCE
@@ -826,8 +846,6 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
     HMENU tray_peer_list=NULL;
     char *str;
     unsigned int section_number;
-
-    error_mode=err; /* only really used on reload */
 
     /* update the main window title */
     if(error_mode) {
@@ -843,7 +861,8 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
     }
     if(hwnd) {
         SetWindowText(hwnd, win32_name);
-        if(error_mode) { /* log window is hidden by default */
+        if(error_mode) {
+            /* log window is hidden by default */
             ShowWindow(hwnd, SW_SHOWNORMAL); /* show window */
             SetForegroundWindow(hwnd); /* bring on top */
         }
@@ -895,22 +914,10 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
     for(section=service_options.next; section; section=section->next) {
         /* setup peer_cert_table[section_number].file */
         str=str_printf("peer-%s.pem", section->servname);
-        if(!str) {
-            s_log(LOG_CRIT, "Out of memory");
-            return;
-        }
         peer_cert_table[section_number].file=str2tstr(str);
-        if(!peer_cert_table[section_number].file) {
-            s_log(LOG_CRIT, "Out of memory");
-            return;
-        }
         str_free(str);
         str_detach(peer_cert_table[section_number].file);
         str=str_printf("peer-%s.pem", section->servname);
-        if(!str) {
-            s_log(LOG_CRIT, "Out of memory");
-            return;
-        }
 
         /* setup peer_cert_table[section_number].help */
         peer_cert_table[section_number].file=str2tstr(str);
@@ -961,7 +968,6 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
         EnableMenuItem(tray_menu_handle, IDM_REOPEN_LOG,
             global_options.output_file ? MF_ENABLED : MF_GRAYED);
 
-    /* a message box indicating error mode */
     if(error_mode) {
         win_log("");
         s_log(LOG_ERR, "Server is down");
@@ -972,6 +978,7 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
     }
 }
 
+    /* a message box indicating error mode */
 static void update_taskbar(void) { /* create the taskbar icon */
     NOTIFYICONDATA nid;
 
@@ -1031,11 +1038,6 @@ void win_newcert(SSL *ssl, SERVICE_OPTIONS *section) {
         return;
     }
     peer_cert_table[section->section_number].chain=str_alloc(len+1);
-    if(!peer_cert_table[section->section_number].chain) {
-        s_log(LOG_CRIT, "Out of memory");
-        BIO_free(bio);
-        return;
-    }
     str_detach(peer_cert_table[section->section_number].chain);
     len=BIO_read(bio, peer_cert_table[section->section_number].chain, len);
     if(len<0) {
@@ -1059,14 +1061,10 @@ void win_newcert(SSL *ssl, SERVICE_OPTIONS *section) {
             MF_ENABLED);
 }
 
-void win_exit(int exit_code) { /* used instead of exit() on Win32 */
-    (void)exit_code; /* skip warning about unused parameter */
-
+void win_exit(const int exit_code) { /* used instead of exit() on Win32 */
     if(cmdline.quiet) /* e.g. uninstallation with broken config */
         exit(exit_code); /* just quit */
-    error_mode=1;
-    unbind_ports();
-    longjmp(jump_buf, 1);
+    longjmp(jump_buf, exit_code);
 }
 
 static void error_box(const LPSTR text) {

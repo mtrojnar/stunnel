@@ -57,7 +57,9 @@ static int init_ecdh(SERVICE_OPTIONS *);
 
 /* loading certificate */
 static int load_certificate(SERVICE_OPTIONS *);
+#if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
 static int password_cb(char *, int, int, void *);
+#endif
 
 /* session cache callbacks */
 static int sess_new_cb(SSL *, SSL_SESSION *);
@@ -69,7 +71,11 @@ static void cache_transfer(SSL_CTX *, const unsigned int, const unsigned,
     unsigned char **, unsigned int *);
 
 /* info callbacks */
-static void info_callback(const SSL *, int, int);
+static void info_callback(
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
+    const
+#endif
+    SSL *, int, int);
 
 static void sslerror_queue(void);
 static void sslerror_log(unsigned long, char *);
@@ -128,8 +134,16 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
         }
     s_log(LOG_DEBUG, "SSL options set: 0x%08lX",
         SSL_CTX_set_options(section->ctx, section->ssl_options));
+#ifdef SSL_MODE_RELEASE_BUFFERS
     SSL_CTX_set_mode(section->ctx,
-        SSL_MODE_ENABLE_PARTIAL_WRITE|SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+        SSL_MODE_ENABLE_PARTIAL_WRITE |
+        SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER |
+        SSL_MODE_RELEASE_BUFFERS);
+#else
+    SSL_CTX_set_mode(section->ctx,
+        SSL_MODE_ENABLE_PARTIAL_WRITE |
+        SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+#endif
     s_log(LOG_INFO, "SSL context initialized");
     return 0; /* OK */
 }
@@ -328,7 +342,9 @@ static int load_certificate(SERVICE_OPTIONS *section) {
     s_log(LOG_DEBUG, "Certificate loaded");
 
     s_log(LOG_DEBUG, "Key file: %s", section->key);
+#if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
     SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
+#endif
 #ifdef HAVE_OSSL_ENGINE_H
 #ifdef USE_WIN32
     ui_method=UI_create_method("stunnel WIN32 UI");
@@ -382,6 +398,7 @@ static int load_certificate(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 
+#if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
 static int password_cb(char *buf, int size, int rwflag, void *userdata) {
     static char cache[PEM_BUFSIZE];
     int len;
@@ -393,6 +410,7 @@ static int password_cb(char *buf, int size, int rwflag, void *userdata) {
 #ifdef USE_WIN32
         len=passwd_cb(buf, size, rwflag, userdata);
 #else
+        /* PEM_def_callback is defined in OpenSSL 0.9.7 and later */
         len=PEM_def_callback(buf, size, rwflag, NULL);
 #endif
         memcpy(cache, buf, size); /* save in cache */
@@ -404,6 +422,7 @@ static int password_cb(char *buf, int size, int rwflag, void *userdata) {
     }
     return len;
 }
+#endif
 
 /**************************************** session cache callbacks */
 
@@ -441,7 +460,11 @@ static SSL_SESSION *sess_get_cb(SSL *ssl,
     if(!val)
         return NULL;
     val_tmp=val;
-    sess=d2i_SSL_SESSION(NULL, (const unsigned char **)&val_tmp, val_len);
+    sess=d2i_SSL_SESSION(NULL,
+#if OPENSSL_VERSION_NUMBER>=0x0090800fL
+        (const unsigned char **)
+#endif /* OpenSSL version >= 0.8.0 */
+        &val_tmp, val_len);
     str_free(val);
     return sess;
 }
@@ -549,7 +572,8 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     len=recv(s, (void *)packet, sizeof(CACHE_PACKET), 0);
     closesocket(s);
     if(len<0) {
-        if(get_last_socket_error()==EAGAIN)
+        if(get_last_socket_error()==S_EWOULDBLOCK ||
+                get_last_socket_error()==S_EAGAIN)
             s_log(LOG_INFO, "cache_transfer: recv timeout");
         else
             sockerror("cache_transfer: recv");
@@ -584,7 +608,11 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
 
 /**************************************** informational callback */
 
-static void info_callback(const SSL *ssl, int where, int ret) {
+static void info_callback(
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
+        const
+#endif
+        SSL *ssl, int where, int ret) {
     if(where & SSL_CB_LOOP) {
         s_log(LOG_DEBUG, "SSL state (%s): %s",
             where & SSL_ST_CONNECT ? "connect" :

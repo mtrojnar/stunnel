@@ -2,10 +2,22 @@
 # with help of David Gillingham <dgillingham@gmail.com>
 # with help of Pierre Delaage <delaage.pierre@free.fr>
 
-# Modify this to point to your actual openssl compile directory
-# (You did already compile openssl, didn't you?)
+# the compilation requires:
+# - Visual C++ 2005 Express Edition with Platform SDK
+#   http://social.msdn.microsoft.com/forums/en-US/Vsexpressvc/thread/c5c3afad-f4c6-4d27-b471-0291e099a742/
+# - Visual C++ 2005 Professional Edition
+# - Visual C++ 2008 Express Edition
+
+# modify this to point to your OpenSSL directory
+# either install a precompiled version (*not* the "Light" one) from
+# http://www.slproweb.com/products/Win32OpenSSL.html
+SSLDIR=C:\OpenSSL-Win32
+INCDIR=$(SSLDIR)\include
+LIBDIR=$(SSLDIR)\lib
+# or compile one yourself
 #SSLDIR=..\..\openssl-1.0.0e
-SSLDIR=C:\Users\standard\Documents\Dvts\Contrib\openssl\v1.0.0c\patched3
+#INCDIR=$(SSLDIR)\inc32
+#LIBDIR=$(SSLDIR)\out32dll
 
 TARGETCPU=W32
 SRC=..\src
@@ -14,32 +26,29 @@ OBJ=$(OBJROOT)\$(TARGETCPU)
 BINROOT=..\bin
 BIN=$(BINROOT)\$(TARGETCPU)
 
-OBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj $(OBJ)\verify.obj $(OBJ)\file.obj $(OBJ)\client.obj \
-	$(OBJ)\protocol.obj $(OBJ)\sthreads.obj $(OBJ)\log.obj $(OBJ)\options.obj $(OBJ)\network.obj \
-	$(OBJ)\resolver.obj $(OBJ)\gui.obj $(OBJ)\resources.res $(OBJ)\str.obj
+OBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj \
+	$(OBJ)\verify.obj $(OBJ)\file.obj $(OBJ)\client.obj \
+	$(OBJ)\protocol.obj $(OBJ)\sthreads.obj $(OBJ)\log.obj \
+	$(OBJ)\options.obj $(OBJ)\network.obj $(OBJ)\resolver.obj \
+	$(OBJ)\gui.obj $(OBJ)\resources.res $(OBJ)\str.obj
 	
 CC=cl
-DEFINES=/DUSE_WIN32 /D_CRT_SECURE_NO_DEPRECATE \
-	/D_CRT_NONSTDC_NO_DEPRECATE /D_MBCS /DHOST=\"x86-pc-msvc-2008\"
-
-CFLAGS=/MD /W3 /Ox /O2 /Ob2 /Gs0 /GF /Gy /GL /nologo \
-	/I"$(SSLDIR)\inc32" $(DEFINES)
-
 LINK=link
-LDFLAGS=/INCREMENTAL:NO /NOLOGO /SUBSYSTEM:WINDOWS /OPT:REF \
-	/OPT:ICF /LTCG /MACHINE:X86 /ERRORREPORT:PROMPT
-LIBS=/LIBPATH:"$(SSLDIR)\out32dll" wsock32.lib ssleay32.lib \
-	libeay32.lib user32.lib gdi32.lib crypt32.lib shell32.lib \
-	comdlg32.lib advapi32.lib
+
+CFLAGS=/MD /W3 /O2 /nologo /I"$(INCDIR)"
+LDFLAGS=/NOLOGO
+
+LIBS=advapi32.lib comdlg32.lib crypt32.lib gdi32.lib \
+	psapi.lib shell32.lib user32.lib ws2_32.lib \
+	/LIBPATH:"$(LIBDIR)" libeay32.lib ssleay32.lib
+# static linking:
+#	/LIBPATH:"$(LIBDIR)\VC\static" libeay32MD.lib ssleay32MD.lib
 
 {$(SRC)\}.c{$(OBJ)\}.obj:
 	$(CC) $(CFLAGS) -Fo$@ -c $<
 
-{$(SRC)\}.cpp{$(OBJ)\}.obj:
-	$(CC) $(CFLAGS) -Fo$@ -c $<
-	
 {$(SRC)\}.rc{$(OBJ)\}.res:
-	$(RC) $(RFLAGS) -fo$@ -r $<
+	$(RC) -fo$@ -r $<
 	
 all: makedirs $(BIN)\stunnel.exe
 

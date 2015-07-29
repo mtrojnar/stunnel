@@ -84,11 +84,11 @@
 /* Define to 1 if you have the `openpty' function. */
 #undef HAVE_OPENPTY
 
-/* Define to 1 if you have OpenSSL library. */
-#undef HAVE_OPENSSL
-
 /* Define to 1 if you have <engine.h> header file. */
 #undef HAVE_OSSL_ENGINE_H
+
+/* Define to 1 if you have <ocsp.h> header file. */
+#undef HAVE_OSSL_OCSP_H
 
 /* Define to 1 if you have the `pipe2' function. */
 #undef HAVE_PIPE2

@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.44])
+AC_INIT([stunnel],[4.45])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.44)
+AM_INIT_AUTOMAKE(stunnel, 4.45)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -375,10 +375,6 @@ AC_MSG_NOTICE([**************************************** SSL])
 check_ssl_dir() { :
     SSLDIR="$1"
     if test -f "$1/include/openssl/ssl.h"; then
-        AC_DEFINE([HAVE_OPENSSL], [1], [Define to 1 if you have OpenSSL library.])
-        return 0
-    fi
-    if test -f "$1/include/ssl.h"; then
         return 0
     fi
     return 1
@@ -416,6 +412,10 @@ valid_LIBS="$LIBS"; LIBS="$LIBS -L$SSLDIR/lib64 -L$SSLDIR/lib -lssl -lcrypto"
 AC_CHECK_HEADER([$SSLDIR/include/openssl/engine.h],
     [AC_DEFINE([HAVE_OSSL_ENGINE_H], [1], [Define to 1 if you have <engine.h> header file.])],
     [AC_MSG_WARN([OpenSSL engine header not found])])
+
+AC_CHECK_HEADER([$SSLDIR/include/openssl/ocsp.h],
+    [AC_DEFINE([HAVE_OSSL_OCSP_H], [1], [Define to 1 if you have <ocsp.h> header file.])],
+    [AC_MSG_WARN([OpenSSL ocsp header not found])])
 
 AC_MSG_CHECKING([for FIPS_mode_set])
 if test "$fips" = "auto"; then

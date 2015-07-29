@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2011.09.07" "4.44" "stunnel"
+.TH STUNNEL 8 "2011.10.22" "4.45" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -311,7 +311,13 @@ below.
 .IX Item "accept = [host:]port"
 accept connections on specified host:port
 .Sp
-If no host specified, defaults to all \s-1IP\s0 addresses for the local host.
+If no host specified, defaults to all IPv4 addresses for the local host.
+.Sp
+To listen on all IPv6 addresses use:
+.Sp
+.Vb 1
+\&    connect = :::port
+.Ve
 .IP "\fBCApath\fR = directory" 4
 .IX Item "CApath = directory"
 Certificate Authority directory
@@ -514,15 +520,18 @@ Based on \s-1RFC\s0 2595 \- \fIUsing \s-1TLS\s0 with \s-1IMAP\s0, \s-1POP3\s0 an
 Based on \s-1RFC\s0 4642 \- \fIUsing Transport Layer Security (\s-1TLS\s0) with Network News Transfer Protocol (\s-1NNTP\s0)\fR
 .Sp
 This protocol is only supported in client mode.
-.IP "\fIpop3\fR" 4
-.IX Item "pop3"
-Based on \s-1RFC\s0 2449 \- \fI\s-1POP3\s0 Extension Mechanism\fR
-.IP "\fIsmtp\fR" 4
-.IX Item "smtp"
-Based on \s-1RFC\s0 2487 \- \fI\s-1SMTP\s0 Service Extension for Secure \s-1SMTP\s0 over \s-1TLS\s0\fR
 .IP "\fIpgsql\fR" 4
 .IX Item "pgsql"
 Based on http://www.postgresql.org/docs/8.3/static/protocol\-flow.html#AEN73982
+.IP "\fIpop3\fR" 4
+.IX Item "pop3"
+Based on \s-1RFC\s0 2449 \- \fI\s-1POP3\s0 Extension Mechanism\fR
+.IP "\fIproxy\fR" 4
+.IX Item "proxy"
+Haproxy client \s-1IP\s0 address http://haproxy.1wt.eu/download/1.5/doc/proxy\-protocol.txt
+.IP "\fIsmtp\fR" 4
+.IX Item "smtp"
+Based on \s-1RFC\s0 2487 \- \fI\s-1SMTP\s0 Service Extension for Secure \s-1SMTP\s0 over \s-1TLS\s0\fR
 .RE
 .RS 4
 .RE

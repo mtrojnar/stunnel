@@ -75,10 +75,6 @@ CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
     CLI *c;
 
     c=str_alloc(sizeof(CLI));
-    if(!c) {
-        s_log(LOG_ERR, "Memory allocation failed");
-        return NULL;
-    }
     str_detach(c);
     c->opt=opt;
     c->local_rfd.fd=rfd;
@@ -185,15 +181,16 @@ static void run_client(CLI *c) {
 
 static void do_client(CLI *c) {
     init_local(c);
-    if(!c->opt->option.client && !c->opt->protocol) {
+    if(!c->opt->option.client && c->opt->protocol<0) {
         /* server mode and no protocol negotiation needed */
         init_ssl(c);
         init_remote(c);
     } else {
         init_remote(c);
-        negotiate(c);
+        protocol(c, 0); /* pre-SSL protocol negotiations */
         init_ssl(c);
     }
+    protocol(c, 1); /* post-SSL protocol negotiations */
     transfer(c);
 }
 
@@ -207,14 +204,14 @@ static void init_local(CLI *c) {
         c->local_rfd.is_socket=0;
         c->local_wfd.is_socket=0; /* TODO: It's not always true */
 #ifdef USE_WIN32
-        if(get_last_socket_error()!=ENOTSOCK) {
+        if(get_last_socket_error()!=S_ENOTSOCK) {
 #else
-        if(c->opt->option.transparent_src || get_last_socket_error()!=ENOTSOCK) {
+        if(c->opt->option.transparent_src || get_last_socket_error()!=S_ENOTSOCK) {
 #endif
             sockerror("getpeerbyname");
             longjmp(c->err, 1);
         }
-        /* ignore ENOTSOCK error so 'local' doesn't have to be a socket */
+        /* ignore S_ENOTSOCK error so 'local' doesn't have to be a socket */
     } else { /* success */
         /* copy addr to c->peer_addr */
         memcpy(&c->peer_addr.addr[0], &addr, sizeof addr);
@@ -312,7 +309,7 @@ static void init_ssl(CLI *c) {
     }
 
     while(1) {
-#if OPENSSL_VERSION_NUMBER<0x1000002f
+#if OPENSSL_VERSION_NUMBER<0x1000002fL
         /* this critical section is a crude workaround for CVE-2010-3864 *
          * see http://www.securityfocus.com/bid/44884 for details        *
          * NOTE: this critical section also covers callbacks (e.g. OCSP) */
@@ -322,7 +319,7 @@ static void init_ssl(CLI *c) {
             i=SSL_connect(c->ssl);
         else
             i=SSL_accept(c->ssl);
-#if OPENSSL_VERSION_NUMBER<0x1000002f
+#if OPENSSL_VERSION_NUMBER<0x1000002fL
         leave_critical_section(CRIT_SSL);
 #endif /* OpenSSL version < 1.0.0b */
         err=SSL_get_error(c->ssl, i);
@@ -351,8 +348,11 @@ static void init_ssl(CLI *c) {
         }
         if(err==SSL_ERROR_SYSCALL) {
             switch(get_last_socket_error()) {
-            case EINTR:
-            case EAGAIN:
+            case S_EINTR:
+            case S_EWOULDBLOCK:
+#if S_EAGAIN!=S_EWOULDBLOCK
+            case S_EAGAIN:
+#endif
                 continue;
             }
         }
@@ -743,16 +743,16 @@ static void transfer(CLI *c) {
 
 static void parse_socket_error(CLI *c, const char *text) {
     switch(get_last_socket_error()) {
-    case EINTR:
+    case S_EINTR:
         s_log(LOG_DEBUG,
             "Function %s interrupted by a signal: retrying", text);
         return;
-    case EWOULDBLOCK:
+    case S_EWOULDBLOCK:
         s_log(LOG_NOTICE, "Function %s would block: retrying", text);
         sleep(1); /* Microsoft bug KB177346 */
         return;
-#if EAGAIN!=EWOULDBLOCK
-    case EAGAIN:
+#if S_EAGAIN!=S_EWOULDBLOCK
+    case S_EAGAIN:
         s_log(LOG_DEBUG,
             "Function %s temporary lack of resources: retrying", text);
         return;
@@ -1093,7 +1093,7 @@ static void local_bind(CLI *c) {
             s_log(LOG_INFO, "local_bind succeeded on the original port");
             return; /* success */
         }
-        if(get_last_socket_error()!=EADDRINUSE
+        if(get_last_socket_error()!=S_EADDRINUSE
 #ifndef USE_WIN32
                 || !c->opt->option.transparent_src
 #endif /* USE_WIN32 */
