@@ -1,4 +1,4 @@
-!define VERSION "4.23"
+!define VERSION "4.24"
 !define DLLS "/home/ftp/openssl/binary-0.9.8g-zdll/"
 # !define DLLS "../FIPS/"
 # !define DLLS "/usr/src/openssl-0.9.7m-fips/"

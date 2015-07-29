@@ -1,5 +1,9 @@
 stunnel         Universal SSL tunnel
 
+Version 4.24, 2008.05.19, urgency: HIGH:
+* Bugfixes
+  - OCSP code was fixed to properly reject revocated certificates.
+
 Version 4.23, 2008.05.03, urgency: HIGH:
 * Bugfixes
   - Local privilege escalation bug on Windows NT based

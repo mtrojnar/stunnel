@@ -50,6 +50,9 @@ static int cert_check(CLI *c, X509_STORE_CTX *, char *, int);
 static int crl_check(CLI *c, X509_STORE_CTX *, char *);
 static int ocsp_check(CLI *c, X509_STORE_CTX *, char *);
 
+/* utility functions */
+static void log_time(const int, const char *, ASN1_TIME *);
+
 /**************************************** verify initialization */
 
 void verify_init(LOCAL_OPTIONS *section) {
@@ -57,8 +60,8 @@ void verify_init(LOCAL_OPTIONS *section) {
         return; /* No certificate verification */
 
     if(section->verify_level>1 && !section->ca_file && !section->ca_dir) {
-        s_log(LOG_ERR, "Either CApath or CAfile "
-            "has to be used for authentication");
+        s_log(LOG_ERR,
+            "Either CApath or CAfile has to be used for authentication");
         die(1);
     }
 
@@ -183,7 +186,7 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx,
     X509_OBJECT ret;
 
     if(c->opt->verify_level==SSL_VERIFY_NONE) {
-        s_log(LOG_NOTICE, "VERIFY IGNORE: depth=%d, %s",
+        s_log(LOG_INFO, "VERIFY IGNORE: depth=%d, %s",
             callback_ctx->error_depth, subject_name);
         return 1; /* accept connection */
     }
@@ -219,11 +222,9 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx,
     X509_REVOKED *revoked;
     EVP_PKEY *pubkey;
     long serial;
-    BIO *bio;
     int i, n, rc;
     char *cp;
-    char *cp2;
-    ASN1_TIME *t;
+    ASN1_TIME *last_update=NULL, *next_update=NULL;
 
     /* determine certificate ingredients in advance */
     cert=X509_STORE_CTX_get_current_cert(callback_ctx);
@@ -238,22 +239,13 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx,
     X509_STORE_CTX_cleanup(&store_ctx);
     crl=obj.data.crl;
     if(rc>0 && crl) {
-        /* log information about CRL
-         * (a little bit complicated because of ASN.1 and BIOs...) */
-        bio=BIO_new(BIO_s_mem());
-        BIO_printf(bio, "lastUpdate: ");
-        ASN1_UTCTIME_print(bio, X509_CRL_get_lastUpdate(crl));
-        BIO_printf(bio, ", nextUpdate: ");
-        ASN1_UTCTIME_print(bio, X509_CRL_get_nextUpdate(crl));
-        n=BIO_pending(bio);
-        cp=malloc(n+1);
-        n=BIO_read(bio, cp, n);
-        cp[n]='\0';
-        BIO_free(bio);
-        cp2=X509_NAME_oneline(subject, NULL, 0);
-        s_log(LOG_NOTICE, "CA CRL: Issuer: %s, %s", cp2, cp);
-        OPENSSL_free(cp2);
-        free(cp);
+        cp=X509_NAME_oneline(subject, NULL, 0);
+        s_log(LOG_INFO, "CRL: issuer: %s", cp);
+        OPENSSL_free(cp);
+        last_update=X509_CRL_get_lastUpdate(crl);
+        next_update=X509_CRL_get_nextUpdate(crl);
+        log_time(LOG_INFO, "CRL: last update", last_update);
+        log_time(LOG_INFO, "CRL: next update", next_update);
 
         /* verify the signature on this CRL */
         pubkey=X509_get_pubkey(cert);
@@ -270,15 +262,14 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx,
             EVP_PKEY_free(pubkey);
 
         /* check date of CRL to make sure it's not expired */
-        t=X509_CRL_get_nextUpdate(crl);
-        if(!t) {
+        if(!next_update) {
             s_log(LOG_WARNING, "Found CRL has invalid nextUpdate field");
             X509_STORE_CTX_set_error(callback_ctx,
                 X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD);
             X509_OBJECT_free_contents(&obj);
             return 0; /* reject connection */
         }
-        if(X509_cmp_current_time(t)<0) {
+        if(X509_cmp_current_time(next_update)<0) {
             s_log(LOG_WARNING, "Found CRL is expired - "
                 "revoking all certificates until you get updated CRL");
             X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CRL_HAS_EXPIRED);
@@ -312,7 +303,7 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx,
                     X509_get_serialNumber(cert)) == 0) {
                 serial=ASN1_INTEGER_get(revoked->serialNumber);
                 cp=X509_NAME_oneline(issuer, NULL, 0);
-                s_log(LOG_NOTICE, "Certificate with serial %ld (0x%lX) "
+                s_log(LOG_WARNING, "Certificate with serial %ld (0x%lX) "
                     "revoked per CRL from issuer %s", serial, serial, cp);
                 OPENSSL_free(cp);
                 X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REVOKED);
@@ -322,6 +313,7 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx,
         }
         X509_OBJECT_free_contents(&obj);
     }
+    s_log(LOG_NOTICE, "CRL: verification passed");
     return 1; /* accept connection */
 }
 
@@ -339,11 +331,12 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx,
     OCSP_REQUEST *request=NULL;
     OCSP_RESPONSE *response=NULL;
     OCSP_BASICRESP *basicResponse=NULL;
-    ASN1_GENERALIZEDTIME *produced_at, *this_update, *next_update;
+    ASN1_GENERALIZEDTIME *revoked_at=NULL,
+        *this_update=NULL, *next_update=NULL;
     int status, reason;
 
     /* TODO: check OCSP server specified in the certificate */
-    s_log(LOG_DEBUG, "Starting OCSP verification");
+    s_log(LOG_DEBUG, "OCSP: starting verification");
 
     /* connect specified OCSP server (responder) */
     if((c->fd=
@@ -363,7 +356,7 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx,
         if(connect_wait(c))
             goto cleanup;
     }
-    s_log(LOG_DEBUG, "OCSP server connected");
+    s_log(LOG_DEBUG, "OCSP: server connected");
 
     /* get current certificate ID */
     cert=X509_STORE_CTX_get_current_cert(callback_ctx); /* get current cert */
@@ -402,11 +395,11 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx,
     }
     error=OCSP_response_status(response);
     if(error!=OCSP_RESPONSE_STATUS_SUCCESSFUL) {
-        s_log(LOG_ERR, "Responder Error: %s (%d)",
-            OCSP_response_status_str(error), error);
+        s_log(LOG_WARNING, "OCSP: responder error: %d: %s",
+            error, OCSP_response_status_str(error));
         goto cleanup;
     }
-    s_log(LOG_INFO, "OCSP response received");
+    s_log(LOG_DEBUG, "OCSP: response received");
 
     /* verify the response */
     basicResponse=OCSP_response_get1_basic(response);
@@ -423,15 +416,32 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx,
         sslerror("OCSP_basic_verify");
         goto cleanup;
     }
-    if(OCSP_resp_find_status(basicResponse, certID, &status, &reason,
-            &produced_at, &this_update, &next_update)==0) {
+    if(!OCSP_resp_find_status(basicResponse, certID, &status, &reason,
+            &revoked_at, &this_update, &next_update)) {
         sslerror("OCSP_resp_find_status");
+        goto cleanup;
+    }
+    s_log(LOG_NOTICE, "OCSP: status: %d: %s",
+        status, OCSP_cert_status_str(status));
+    log_time(LOG_INFO, "OCSP: this update", this_update);
+    log_time(LOG_INFO, "OCSP: next update", next_update);
+    /* check if the response is valid for at least one minute */
+    if(!OCSP_check_validity(this_update, next_update, 60, -1)) {
+        sslerror("OCSP_check_validity");
+        goto cleanup;
+    }
+    if(status==V_OCSP_CERTSTATUS_REVOKED) {
+        if(reason==-1)
+            s_log(LOG_WARNING, "OCSP: certificate revoked");
+        else
+            s_log(LOG_WARNING, "OCSP: certificate revoked: %d: %s",
+                reason, OCSP_crl_reason_str(reason));
+        log_time(LOG_NOTICE, "OCSP: revoked at", revoked_at);
         goto cleanup;
     }
 
     /* success */
-    s_log(LOG_INFO, "OCSP verification passed: status=%d, reason=%d",
-        status, reason);
+    s_log(LOG_NOTICE, "OCSP: verification passed");
     retval=1; /* accept connection */
 cleanup:
     if(bio)
@@ -449,5 +459,23 @@ cleanup:
     return retval;
 }
 #endif /* OpenSSL-0.9.7 */
+
+static void log_time(const int level, const char *txt, ASN1_TIME *t) {
+    char *cp;
+    BIO *bio;
+    int n;
+
+    if(!t)
+        return;
+    bio=BIO_new(BIO_s_mem());
+    ASN1_TIME_print(bio, t);
+    n=BIO_pending(bio);
+    cp=malloc(n+1);
+    n=BIO_read(bio, cp, n);
+    cp[n]='\0';
+    BIO_free(bio);
+    s_log(level, "%s: %s", txt, cp);
+    free(cp);
+}
 
 /* End of verify.c */
