@@ -40,9 +40,10 @@
 
 static int host2nums(char *, u32 **);
 static int parse_debug_level(char *);
-static int print_socket_options();
+static int print_socket_options(void);
 static void print_option(char *, int, OPT_UNION *);
 static int parse_socket_option(char *);
+static char *section_validate(LOCAL_OPTIONS *);
 static char *stralloc(char *);
 #ifndef USE_WIN32
 static char **argalloc(char *);
@@ -55,7 +56,7 @@ typedef enum {
     CMD_INIT, /* initialize */
     CMD_EXEC,
     CMD_DEFAULT,
-    CMD_HELP,
+    CMD_HELP
 } CMD;
 
 static char *option_not_found="Specified option name is not valid here";
@@ -209,7 +210,7 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     switch(cmd) {
     case CMD_INIT:
         options.debug_level=5;
-#ifndef USE_WIN32
+#if !defined (USE_WIN32) && !defined (__vms)
         options.facility=LOG_DAEMON;
 #endif
         break;
@@ -292,6 +293,35 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         log_raw("%-15s = certificate private key", "key");
         break;
     }
+
+    /* service */
+#ifdef USE_WIN32
+    switch(cmd) {
+    case CMD_INIT:
+        options.win32_service="stunnel";
+        options.win32_name="stunnel " VERSION " on Win32";
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "service"))
+            break;
+        options.win32_service=stralloc(arg);
+        {
+            char tmpstr[STRLEN];
+
+            safecopy(tmpstr, "stunnel " VERSION " on Win32 (");
+            safeconcat(tmpstr, arg);
+            safeconcat(tmpstr, ")");
+            options.win32_name=stralloc(tmpstr);
+        }
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        log_raw("%-15s = %s", "service", options.win32_service);
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = NT service name", "service");
+        break;
+    }
+#endif
 
     /* output */
     switch(cmd) {
@@ -515,19 +545,19 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         char *opt, char *arg) {
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
-        log_raw("");
+        log_raw(" ");
         log_raw("Service-level options");
     }
 
     /* accept */
     switch(cmd) {
     case CMD_INIT:
-        options.option.daemon=0;
+        section->option.accept=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "accept"))
             break;
-        options.option.daemon=1;
+        section->option.accept=1;
         if(!name2nums(arg, "0.0.0.0",
                 &section->localnames, &section->localport))
             exit(2);
@@ -820,8 +850,9 @@ void parse_config(char *name) {
     memset(&options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
 
     memset(&local_options, 0, sizeof(LOCAL_OPTIONS)); /* reset local options */
+    local_options.servname=stralloc("globals");
+    local_options.next=NULL;
     section=&local_options;
-    section->servname=stralloc("global options");
 
     global_options(CMD_INIT, NULL, NULL);
     service_options(CMD_INIT, section, NULL, NULL);
@@ -834,7 +865,7 @@ void parse_config(char *name) {
     }
     if(!strcasecmp(name, "-version")) {
         log_raw("%s", stunnel_info());
-        log_raw("");
+        log_raw(" ");
         global_options(CMD_DEFAULT, NULL, NULL);
         service_options(CMD_DEFAULT, section, NULL, NULL);
         exit(1);
@@ -845,8 +876,13 @@ void parse_config(char *name) {
     }
     fp=fopen(name, "r");
     if(!fp) {
+#ifdef USE_WIN32
+        /* Win32 doesn't seem to set errno in fopen() */
+        log_raw("Failed to open configuration file %s", name);
+#else
         ioerror(name);
-        log_raw("");
+#endif
+        log_raw(" ");
         log_raw("Syntax:");
 #ifdef USE_WIN32
         log_raw("stunnel [filename] | -help | -version | -sockets"
@@ -876,9 +912,18 @@ void parse_config(char *name) {
         if(opt[0]=='\0' || opt[0]=='#') /* empty line or comment */
             continue;
         if(opt[0]=='[' && opt[strlen(opt)-1]==']') { /* new section */
+            errstr=section_validate(section);
+            if(errstr) {
+                log_raw("file %s line %d: %s", name, line_number, errstr);
+                exit(1);
+            }
             opt++;
             opt[strlen(opt)-1]='\0';
             new_section=calloc(1, sizeof(LOCAL_OPTIONS));
+            if(!new_section) {
+                log_raw("Fatal memory allocation error");
+                exit(2);
+            }
             memcpy(new_section, &local_options, sizeof(LOCAL_OPTIONS));
             new_section->servname=stralloc(opt);
             new_section->next=NULL;
@@ -904,11 +949,29 @@ void parse_config(char *name) {
             exit(1);
         }
     }
+    errstr=section_validate(section);
+    if(errstr) {
+        log_raw("file %s line %d: %s", name, line_number, errstr);
+        exit(1);
+    }
     fclose(fp);
     if(!options.option.client)
         options.option.cert=1; /* Server always needs a certificate */
     if(!options.option.foreground)
         options.option.syslog=1;
+}
+
+static char *section_validate(LOCAL_OPTIONS *section) {
+    if(section==&local_options)
+        return NULL; /* No need to validate defaults */
+#ifdef USE_WIN32
+    if(!section->option.accept || !section->option.remote)
+#else
+    if(section->option.accept + section->option.program +
+            section->option.remote != 2)
+#endif
+        return "Each service section must define exactly two endpoints";
+    return NULL; /* All tests passed -- continue program execution */
 }
 
 static char *stralloc(char *str) { /* Allocate static string */
@@ -924,13 +987,17 @@ static char *stralloc(char *str) { /* Allocate static string */
 }
 
 #ifndef USE_WIN32
-static char **argalloc(char *str) { /* Alocate 'exec' argumets */
+static char **argalloc(char *str) { /* Allocate 'exec' argumets */
     int max_arg, i;
     char *ptr, **retval;
 
     max_arg=strlen(str)/2+1;
     ptr=stralloc(str);
     retval=calloc(max_arg+1, sizeof(char *));
+    if(!retval) {
+        log_raw("Fatal memory allocation error");
+        exit(2);
+    }
     i=0;
     while(*ptr && i<max_arg) {
         retval[i++]=ptr;
@@ -1023,7 +1090,7 @@ static int parse_debug_level(char *optarg) {
     facilitylevel *fl;
 
 /* Facilities only make sense on unix */
-#ifndef USE_WIN32
+#if !defined (USE_WIN32) && !defined (__vms)
     facilitylevel facilities[] = {
         {"auth", LOG_AUTH},     {"cron", LOG_CRON},     {"daemon", LOG_DAEMON},
         {"kern", LOG_KERN},     {"lpr", LOG_LPR},       {"mail", LOG_MAIL},
@@ -1044,7 +1111,7 @@ static int parse_debug_level(char *optarg) {
 #endif
         {NULL, 0}
     };
-#endif /* USE_WIN32 */
+#endif /* USE_WIN32, __vms */
 
     facilitylevel levels[] = {
         {"emerg", LOG_EMERG},     {"alert", LOG_ALERT},
@@ -1058,7 +1125,7 @@ static int parse_debug_level(char *optarg) {
     string = optarg_copy;
 
 /* Facilities only make sense on unix */
-#ifndef USE_WIN32
+#if !defined (USE_WIN32) && !defined (__vms)
     if(strchr(string, '.')) { /* We have a facility specified */
         options.facility=-1;
         string=strtok(optarg_copy, "."); /* break it up */
@@ -1073,7 +1140,7 @@ static int parse_debug_level(char *optarg) {
             return 0; /* FAILED */
         string=strtok(NULL, ".");    /* set to the remainder */
     }
-#endif /* USE_WIN32 */
+#endif /* USE_WIN32, __vms */
 
     /* Time to check the syslog level */
     if(strlen(string)==1 && *string>='0' && *string<='7') {
@@ -1136,7 +1203,7 @@ SOCK_OPT sock_opts[] = {
     {NULL,              0,           0,               TYPE_NONE,    DEF_VALS}
 };
 
-static int print_socket_options() {
+static int print_socket_options(void) {
     int fd, len;
     SOCK_OPT *ptr;
     OPT_UNION val;

@@ -2,8 +2,8 @@ stunnel         Universal SSL tunnel
 
 Distribution methods:
 
-    Source code is distributed under GPL license.
-    See COPYRIGHT.GPL file.
+    stunnel is distributed under GNU GPL version 2 license.
+    See COPYRIGHT.GPL file for the full text of the license.
 
     In addition, as a special exception, Michal Trojnara gives
     permission to link the code of this program with the OpenSSL
@@ -14,3 +14,4 @@ Distribution methods:
     this file, you may extend this exception to your version of the
     file, but you are not obligated to do so.  If you do not wish to
     do so, delete this exception statement from your version.
+

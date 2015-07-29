@@ -24,6 +24,10 @@
 /* For FormatGuard */
 /* #define __NO_FORMATGUARD_ */
 
+#ifndef VERSION
+#define VERSION "4.01"
+#endif
+
 #ifndef USE_WIN32
 
 /* POSIX threads */
@@ -41,9 +45,6 @@
 #define USE_LIBWRAP
 #endif
 
-/* For Sun C/C++ compiler */
-#define __svr4__
-
 #endif /* !USE_WIN32 */
 
 /* Must be included before sys/stat.h for Ultrix */
@@ -59,11 +60,18 @@
 #include <time.h>
 #include <sys/stat.h>    /* stat */
 
-#ifdef USE_WIN32
+#if defined (USE_WIN32) || defined (__vms)
+#define LOG_EMERG       0
+#define LOG_ALERT       1
+#define LOG_CRIT        2
+#define LOG_ERR         3
+#define LOG_WARNING     4
+#define LOG_NOTICE      5
+#define LOG_INFO        6
+#define LOG_DEBUG       7
+#endif /* defined (USE_WIN32) || defined (__vms) */
 
-#ifndef VERSION
-#define VERSION "4.00"
-#endif
+#ifdef USE_WIN32
 
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
@@ -82,22 +90,12 @@ int _vsnprintf(char *, int, char *, ...);
 */
 #define strcasecmp stricmp
 
-/* TODO: write my own exit fuction */
 #define exit(c) exit_stunnel(c)
 
 #define get_last_socket_error() WSAGetLastError()
 #define get_last_error()        GetLastError()
 #define readsocket(s,b,n)       recv((s),(b),(n),0)
 #define writesocket(s,b,n)      send((s),(b),(n),0)
-
-#define LOG_EMERG       0
-#define LOG_ALERT       1
-#define LOG_CRIT        2
-#define LOG_ERR         3
-#define LOG_WARNING     4
-#define LOG_NOTICE      5
-#define LOG_INFO        6
-#define LOG_DEBUG       7
 
 #define __USE_W32_SOCKETS
 
@@ -141,8 +139,22 @@ typedef unsigned long u32;
 #define closesocket(s)          close(s)
 #define ioctlsocket(a,b,c)      ioctl((a),(b),(c))
 
-    /* Unix-specific headers */
+    /* OpenVMS compatibility */
+#ifdef __vms
+#define libdir "__NA__"
+#define PIDFILE "SYS$LOGIN:STUNNEL.PID"
+#ifdef __alpha
+#define HOST "alpha-openvms"
+#else
+#define HOST "vax-openvms"
+#endif
+#include <inet.h>
+#include <unistd.h>
+#else   /* __vms */
 #include <syslog.h>
+#endif  /* __vms */
+
+    /* Unix-specific headers */
 #include <signal.h>      /* signal */
 #include <sys/wait.h>    /* wait */
 #ifdef HAVE_SYS_RESOURCE_H
@@ -161,7 +173,9 @@ typedef unsigned long u32;
 #include <sys/filio.h>   /* for FIONBIO */
 #endif
 #include <pwd.h>
+#ifdef HAVE_SETGROUPS
 #include <grp.h>
+#endif
 #include <fcntl.h>
 
     /* Networking headers */
@@ -189,7 +203,8 @@ typedef unsigned long u32;
 #define HAVE_WAIT_FOR_PID 1
 #endif
 
-#if defined(sun) && !defined(__svr4__)  /* ie. SunOS 4 */
+/* SunOS 4 */
+#if defined(sun) && !defined(__svr4__) && !defined(__SVR4)
 #define atexit(a) on_exit((a), NULL)
 extern int sys_nerr;
 extern char *sys_errlist[];

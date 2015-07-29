@@ -1,5 +1,27 @@
 stunnel         Universal SSL tunnel
 
+Version 4.01, 2002.10.20, urgency: MEDIUM:
+* New features
+  - OpenVMS support.
+  - Polish manual and some manual updates.
+  - 'service' option added on Win32 platform.
+  - Obsolete FAQ has been removed.
+  - Log file is created with 0640 mode.
+  - exec->connect service sections (need more testing).
+* Bugfixes
+  - EINTR ingored in main select() loop.
+  - Fixed problem with stunnel closing connections on
+    TIMEOUTclose before all the data is sent.
+  - Fixed EWOULDBLOCK on writesocket problem.
+  - Potential DOS in Win32 GUI fixed.
+  - Solaris compilation problem fixed.
+  - Libtool configuration problems fixed.
+  - Signal mask is cleared just before exec in local mode.
+  - Accepting sockets and log file descriptors are no longer
+    leaked to the child processes.
+Special thanks to Hans Werner Strube for his testing effort.
+Special thanks to Steve Grubb for the source code audit.
+
 Version 4.00, 2002.08.30, urgency: LOW:
 * New features sponsored by MAXIMUS http://www.maximus.com/
   - New user interface (config file).

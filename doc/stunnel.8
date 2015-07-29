@@ -130,7 +130,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2002.08.30" "4.0" "stunnel"
+.TH STUNNEL 8 "2002.10.10" "4.0" "stunnel"
 .UC
 .SH "NAME"
 stunnel \- universal \s-1SSL\s0 tunnel
@@ -168,6 +168,15 @@ Print stunnel version and compile time defaults
 Print default socket options
 .SH "CONFIGURATION FILE"
 .IX Header "CONFIGURATION FILE"
+Each line of the configuration file can be either:
+.IP "\(bu" 4
+an empty line (ignored)
+.IP "\(bu" 4
+a comment starting with \*(L"#\*(R" (ignored)
+.IP "\(bu" 4
+an \*(L"option_name = option_value\*(R" pair
+.IP "\(bu" 4
+\&\*(L"[service_name]\*(R" indicating a start of a service definition
 .Sh "\s-1GLOBAL\s0 \s-1OPTIONS\s0"
 .IX Subsection "GLOBAL OPTIONS"
 .IP "\fBCApath\fR = directory" 4
@@ -198,6 +207,10 @@ directory to chroot stunnel process
 \&\fBchroot\fR keeps stunnel in chrooted jail.  \fICApath\fR, \fIpid\fR and \fIexec\fR
 are located inside the jail and the patches have to be relative to the
 directory specified with \fBchroot\fR.
+.Sp
+To have libwrap (\s-1TCP\s0 wrappers) control effective in a chrooted environment
+you also have to copy its configuration files (/etc/hosts.allow and
+/etc/hosts.deny) there.
 .IP "\fBciphers\fR = cipherlist" 4
 .IX Item "ciphers = cipherlist"
 Select permitted \s-1SSL\s0 ciphers
@@ -276,8 +289,8 @@ number generator.
 overwrite the random seed files with new random data
 .Sp
 default: yes
-.IP "\fBtimeout\fR = timeout" 4
-.IX Item "timeout = timeout"
+.IP "\fBsession\fR = timeout" 4
+.IX Item "session = timeout"
 session cache timeout
 .IP "\fBsetgid\fR = groupname" 4
 .IX Item "setgid = groupname"
@@ -366,7 +379,9 @@ transparent proxy mode
 .Sp
 Re-write address to appear as if wrapped daemon is connecting
 from the \s-1SSL\s0 client machine instead of the machine running stunnel.
-Available only on some operating systems (Linux 2.2 only)
+This option is only available in local mode (\fIexec\fR option)
+by LD_PRELOADing env.so shared library or in remote mode (\fIconnect\fR
+option) on Linux 2.2 kernel compiled with \fItransparent proxy\fR option
 and then only in server mode. Note that this option will not combine
 with proxy mode (\fIconnect\fR) unless the client's default route to the target
 machine lies through the host running stunnel, which cannot be localhost.
@@ -403,9 +418,7 @@ stunnel configuration file
 stunnel certificate and private key
 .SH "BUGS"
 .IX Header "BUGS"
-Shared library to be LD_PRELOADed with \fItransparent\fR option is not too
-portable.  \fIstunnel\fR should support creating shared libraries on non-gcc
-compilers.
+Option \fIexecargs\fR does not support quoting.
 .SH "RESTRICTIONS"
 .IX Header "RESTRICTIONS"
 \&\fIstunnel\fR cannot be used for the \s-1FTP\s0 daemon because of the nature
@@ -418,14 +431,14 @@ There are available \s-1SSL\s0 enabled versions of \s-1FTP\s0 and telnet daemons
 Each \s-1SSL\s0 enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
-generate them with the free \fIopenssl\fR package. You can find more
+generate them with the free \fIOpenSSL\fR package. You can find more
 information on certificates generation on pages listed below.
 .PP
 Two things are important when generating certificate-key pairs for
 \&\fBstunnel\fR. The private key cannot be encrypted, because the server
 has no way to obtain the password from the user. To produce an
 unencrypted key add the \fI\-nodes\fR option when running the \fBreq\fR
-command from the \fIopenssl\fR kit.
+command from the \fIOpenSSL\fR kit.
 .PP
 The order of contents of the \fI.pem\fR file is also important.
 It should contain the unencrypted private key first, then a signed certificate

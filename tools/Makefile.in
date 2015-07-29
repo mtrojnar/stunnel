@@ -240,12 +240,12 @@ distclean-generic clean-generic maintainer-clean-generic clean \
 mostlyclean distclean maintainer-clean
 
 stunnel.pem: stunnel.cnf
-	$(openssl) req -new -x509 -days 365 -nodes \
-		-config $(srcdir)/stunnel.cnf -out stunnel.pem -keyout stunnel.pem
-	test $(USE_DH) -eq 0 || test ! -r $(RANDOM_FILE) || \
-		$(openssl) gendh -rand $(RANDOM_FILE) 512 >> stunnel.pem
-	test $(USE_DH) -eq 0 || test -r $(RANDOM_FILE) || \
-		$(openssl) gendh 512 >> stunnel.pem
+	if test -r "$(RANDOM_FILE)"; \
+		then RND="-rand $(RANDOM_FILE)"; \
+		else RND=""; fi; \
+	$(openssl) req -new -x509 -days 365 -nodes -config $(srcdir)/stunnel.cnf \
+		-out stunnel.pem -keyout stunnel.pem; \
+	test $(USE_DH) -eq 0 || $(openssl) gendh $$RND 512 >> stunnel.pem
 	$(openssl) x509 -subject -dates -fingerprint -noout \
 		-in stunnel.pem
 

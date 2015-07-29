@@ -1,0 +1,537 @@
+=head1 NAZWA
+
+stunnel - uniwersalny tunel protoko³u SSL
+
+
+=head1 SK£ADNIA
+
+B<stunnel> S<[filename]> | S<-help> | S<-version> | S<-sockets>
+
+
+=head1 OPIS
+
+Program B<stunnel> zosta³ zaprojektowany do opakowywania po³±czeñ
+pomiêdzy zdalnymi klientami a lokalnymi (startowalnymi przez I<inetd>)
+lub zdalnymi serwerami w protokó³ I<SSL>.  Pozwala to proste zestawinie
+komunikacji serwerów nie posiadaj±cych funkcjonalno¶ci I<SSL> poprzez
+bezpieczne kana³y I<SSL>.
+
+B<stunnel> pozwala dodaæ funkcjonalno¶æ I<SSL> do powszechnie stosowanych
+demonów I<inetd>, np. I<pop3> lub I<imap>, do samodzielnych demonów,
+np. I<nntp>, I<smtp> lub I<http>, a nawet tunelowaæ ppp poprzez gniazda sieciowe
+bez zmian w kodzie ¼ród³owym.
+
+
+=head1 OPCJE
+
+=over 4
+
+=item B<[plik]>
+
+u¿yj podanego pliku konfiguracyjnego
+
+=item B<-help>
+
+drukuj listê wspieranych opcji
+
+=item B<-version>
+
+drukuj wersjê programu i domy¶lne warto¶ci parametrów
+
+=item B<-sockets>
+
+drukuj domy¶lne opcje gniazd
+
+=back
+
+
+=head1 PLIK KONFIGURACYJNY
+
+Linia w pliku konfiguracyjnym mo¿e byæ:
+
+=over 4
+
+=item *
+
+pusta (ignorowana)
+
+=item *
+
+komentarzem rozpoczynaj±cym siê znakiem "#" (ignorowana)
+
+=item *
+
+par± "nazwa_opcji = warto¶æ_opcji"
+
+=item *
+
+tekstem "[nazwa_us³ugi]" wskazuj±cym pocz±tek definicji us³ugi
+
+=back
+
+=head2 OPCJE GLOBALNE
+
+=over 4
+
+=item B<CApath> = katalog_CA
+
+katalog Urzêdu d/s Certyfikatów
+
+Opcja okre¶la katalog, w którym stunnel bêdzie szuka³ certyfikatów,
+je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z certyfikatami musz±
+posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
+certyfikatu.
+
+=item B<CAfile> = plik_CA
+
+plik  Urzêdu d/s Certyfikatów
+
+Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
+przez opcjê I<verify>.
+
+=item B<cert> = plik_pem
+
+plik z ³añcuchem certyfikatów
+
+Opcja okre¶la po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane przez
+program stunnel do uwierzytelnienia siê przed drug± stron± po³±czenia.
+Certyfikat jest konieczny, aby u¿ywaæ programu w trybie serwera.
+W trybie klienta certyfikat jest opcjonalny.
+
+=item B<chroot> = katalog
+
+katalog roboczego korzenia systemu plików
+
+Opcja okre¶la katalog, w którym uwiêziony zostanie proces programu
+stunnel tu¿ po jego inicjalizacji, a przed rozpoczêciem odbierania
+po³±czeñ.  ¦cie¿ki podane w opcjach I<CApath>, I<pid> oraz I<exec>
+musz± byæ umieszczone wewn±trz katalogu podanego w opcji I<chroot>
+i okre¶lone wzlêdem tego katalogu.
+
+W przypadku wykorzystania kontroli dostêpu przy pomocy biblioteki
+libwrap (TCP wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
+/etc/hosts.deny) musz± zostaæ skopiowane do podkatalogu etc/
+umieszczonego wewn±trz katalogu podanego w opcji I<chroot>.
+
+=item B<ciphers> = lista_szyfrów
+
+lista dozwolonych szyfrów SSL
+
+Parametrem tej opcji jest lista szyfrów, które bêd± u¿yte przy
+otwieraniu nowych po³±czeñ SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5
+
+=item B<client> = yes | no
+
+tryb kliencki (dalna us³uga u¿ywa SSL)
+
+domy¶lnie: no (tryb serwerowy)
+
+=item B<debug> = poziom[.podsystem]
+
+szczegó³owo¶æ logowania
+
+Poziom logowania mo¿na okre¶liæ przy pomocy jednej z nazw lub liczb:
+emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
+info (6) lub debug (7).
+Zapisywane s± komunikaty o poziomie ni¿szym (numerycznie) lub równym podanemu.
+Do uzyskania najwy¿szego poziomu szczegó³owo¶ci mo¿na u¿yæ opcji
+B<debug = debug> lub B<debug = 7>.  Domy¶lnym poziomem jest notice (5).
+
+O ile nie wyspecyfikowano podsystemu u¿yty bêdzie domy¶lny: daemon.
+Podsystemy nie s± wspierane przez platformê Win32.
+
+Wielko¶æ liter jest ignorowana zarówno dla poziomu jak podsystemu.
+
+=item B<EGD> = ¶cie¿ka_do_EGD
+
+¶cie¿ka do gniazda programu Entropy Gathering Daemon
+
+Opcja pozwala okre¶liæ ¶cie¿kê do gniazda programu Entropy Gathering Daemon
+u¿ywanego do zainicjalizowania generatora ci±gów pseudolosowych biblioteki
+OpenSSL.  Opcja jest dostêpna z bibliotek± OpenSSL 0.9.5a lub nowsz±.
+
+=item B<foreground> = yes | no
+
+tryb pierwszoplanowy
+
+U¿ycie tej opcji powoduje, ¿e I<stunnel> nie przechodzi w t³o loguj±æ
+swoje komunikaty na konsolê zamiast przez I<syslog> (o ile nie u¿yto
+opcji I<output>).
+
+=item B<key> = plik_klucza
+
+klucz prywatny do certyfikatu podanego w opcji I<cert>
+
+Klucz prywatny jest potrzebny do uwierzytelnienia w³a¶ciciela certyfikatu.
+Poniewa¿ powinien on byæ zachowany w tajemnicy, prawa do jego odczytu
+powinien mieæ wy³±cznie w³a¶ciciel pliku.  W systemie Unix mo¿na to osi±gn±æ
+komend±:
+
+    chmod 600 keyfile
+
+domy¶lnie: warto¶æ opcji I<cert>
+
+=item B<output> = plik
+
+plik, do którego dopisane zostan± logi
+
+U¿ycie tej opcji zmienia domy¶lne zachowanie programu polegaj±ce
+na logowaniu swoich komunikatów poprzez syslog.
+
+=item B<pid> = plik
+
+po³o¿enie pliku z numerem procesu
+
+Je¿eli argument jest pusty plik nie zostanie stworzony.
+
+=item B<RNDbytes> = liczba_bajtów
+
+liczba bajtów do zainicjowania generatora pseudolosowego
+
+W wersjach biblioteki OpenSSL starszych ni¿ 0.9.5a opcja ta okre¶la
+równie¿ liczbê bajtów wystarczaj±cych do zainicjowania PRNG.
+Nowsze wersje biblioteki maj± wbudowan± funkcjê okre¶laj±c±, czy
+dostarczona ilo¶æ losowo¶ci jest wystarczaj±ca do zainicjowania generatora.
+
+=item B<RNDfile> = plik
+
+¶cie¿ka do pliku zawieraj±cego losowe dane
+
+Biblioteka OpenSSL u¿yje danych z tego pliku do zainicjowania
+generatora pseudolosowego.
+
+=item B<RNDoverwrite> = yes | no
+
+nadpisz plik nowymi warto¶ciami pseudolosowymi
+
+domy¶lnie: yes (nadpisz)
+
+=item B<session> = przeterminowanie_pamiêci_podrêcznej_sesji
+
+czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
+
+=item B<setgid> = identyfikator_grupy
+
+grupa z której prawami pracowa³ bêdzie I<stunnel>
+
+=item B<setuid> = identyfikator_u¿ytkownika
+
+u¿ytkownik, z którego prawami pracowa³ bêdzie I<stunnel>
+
+=item B<socket> = a|l|r:option=value[:value]
+
+ustaw opcjê na akceptuj±cym/lokalnym/zdalnym gnie¼dzie
+
+Dla opcji linger warto¶ci maj± postaæ l_onof:l_linger.
+Dla opcji time warto¶ci maj± postaæ tv_sec:tv_usec.
+
+Przyk³ady:
+
+    socket = l:SO_LINGER=1:60
+        ustaw jednominutowe przeterminowanie
+        przy zamykaniu lokalnego gniazda
+    socket = r:TCP_NODELAY=1
+        wy³±cz algortym Nagle'a na zdalnych
+        gniazdach
+    socket = r:SO_OOBINLINE=1
+        umie¶æ dane pozapasmowe (out-of-band)
+        bezpo¶rednio w strumieniu danych
+        wej¶ciowych dla zdalnych gniazd
+    socket = a:SO_REUSEADDR=0
+        zablokuj ponowne u¿ywanie portu
+        (domy¶lnie w³±czone)
+    socket = a:SO_BINDTODEVICE=lo
+        przyjmuj po³±czenia wy³±cznie na
+        interfejsie zwrotnym (ang. loopback)
+
+=item B<verify> = poziom
+
+weryfikuj certyfikat drugiej strony po³±czenia
+
+    poziom 1 - weryfikuj, je¿eli zosta³
+        przedstawiony
+    poziom 2 - weryfikuj z zainstalowanym
+        certyfikatem Urzêdu d/s Certyfikatów
+    poziom 3 - weryfikuj z lokalnie
+        zainstalowanym certyfikatem drugiej strony
+    domy¶lnie - nie weryfikuj
+
+=back
+
+
+=head2 OPCJE US£UG
+
+Ka¿da sekcja konfiguracji us³ugi zaczyna siê jej nazw± ujêt± w nawias
+kwadratowy.  Nazwa us³ugi u¿ywana jest do kontroli dostêpu przez
+bibliotekê libwrap (TCP wrappers) oraz pozwala rozró¿niæ poszczególne
+us³ugi w logach.
+
+=over 4
+
+=item B<accept> = [adres:]port
+
+nas³uchuje na po³±czenia na podanym adresie i porcie
+
+Je¿eli nie zosta³ podany adres, I<stunnel> domy¶lnie nas³uchuje
+na wszystkich adresach IP lokalnych interfejsów.
+
+=item B<connect> = [adres:]port
+
+po³±cz siê ze zdalnym serwerem na podany port
+
+Je¿eli nie zosta³ podany adres, I<stunnel> domy¶lnie ³±czy siê
+z lokalnym serwerem.
+
+=item B<delay> = yes | no
+
+opó¼nij rozwiniêcie adresu DNS podanego w opcji I<connect>
+
+=item B<exec> = ¶cie¿ka_do_programu
+
+wykonaj lokalny program przystosowany do pracy z superdemonem inetd
+
+=item B<execargs> = $0 $1 $2 ...
+
+argumenty do opcji I<exec> w³±cznie z nazw± programu ($0)
+
+Cytowanie nie jest wspierane w obecnej wersji programu.
+Argumenty s± rozdzielone dowoln± liczb± bia³ych znaków.
+
+=item B<ident> = nazwa_u¿ytkownika
+
+weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z proto³u IDENT (RFC 1413)
+
+=item B<local> = serwer
+
+IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
+
+Domy¶lnie u¿ywane jest IP najbardziej zewnêtrznego interfejsu w stronê
+serwera, do którego nawi±zywane jest po³±czenie.
+
+=item B<protocol> = protokó³
+
+negocjuj SSL podanym protoko³em aplikacyjnym
+
+aktualnie wspierane protoko³y: smtp, pop3, nntp
+
+=item B<pty> = yes | no
+
+alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
+
+=item B<transparent> = yes | no
+
+tryb przezroczystego proxy
+
+Przepisz adres, aby nawi±zywane po³±czenie wydawa³o siê pochodziæ
+z bezpo¶rednio od klienta, a nie od programu I<stunnel>.
+Opcja dzia³a tylko w trybie lokalnym (opcja I<exec>) przez za³adowanie
+przy pomocy LD_PRELOAD biblioteki env.so, albo w trybie zdalnym (opcja
+I<connect>) na systemie Linux 2.2 z w³±czon± opcj± I<transparent proxy>.
+
+=back
+
+
+=head1 ZWRACANA WARTO¦Æ
+
+B<stunnel> zwraca zero w przypadku sukcesu, lub warto¶æ niezerow±
+w przypadku b³êdu.
+
+
+=head1 PRZYK£ADY
+
+Szyfrowanie po³±czeñ do lokalnego serwera I<imapd> mo¿na u¿yæ:
+
+    [imapd]
+    accept = 993
+    exec = /usr/sbin/imapd
+    execargs = imapd
+
+albo w trybie zdalnym:
+
+    [imapd]
+    accept = 993
+    connect = 143
+
+W po³±czeniu z programem I<pppd> stunnel pozwala zestawiæ prosty VPN.
+Po stronie sewera nas³uchuj±cego na porcie 2020 jego konfiguracja
+mo¿e wygl±daæ nastêpuj±co:
+
+    [vpn]
+    accept = 2020
+    exec = /usr/sbin/pppd
+    execargs = pppd local
+    pty = yes
+
+
+=head1 PLIKI
+
+=over 4
+
+=item F<stunnel.conf>
+
+plik konfiguracyjny programu
+
+=item F<stunnel.pem>
+
+certyfikat i klucz prywatny
+
+=back
+
+
+=head1 B£ÊDY
+
+Opcja I<execargs> nie obs³uguje cytowania.
+
+
+=head1 OGRANICZENIA
+
+I<stunnel> nie mo¿e byæ u¿ywany do szyfrowania protoko³u I<FTP>,
+poniewa¿ do przesy³ania poszczególnych plików u¿ywa on dodatkowych
+po³±czeñ na otwieranych na dynamicznie przydzielanych portach.
+Istniej± jednak specjalne wersje klientów i serwerów FTP pozwalaj±ce
+na szyfrowanie przesy³anych danych przy pomocy protoko³u I<SSL>.
+
+
+=head1 NOTKI
+
+=head2 CERTYFIKATY
+
+Protokó³ SSL wymaga, aby ka¿dy serwer przedstawia³ siê nawi±zuj±cemu
+po³±czenie klientowi prawid³owym certyfikatem X.509.  Do potwierdzenia
+to¿samo¶ci w³a¶ciciela certyfikatu serwer musi mieæ odpowiadaj±cy mu
+klucz prywatny.  Najprostsz± metod± uzyskania certyfikatu jest wygenerowanie
+go przy pomocy wolnego pakietu I<OpenSSL>.  Wiêcej informacji na temat
+generowania certyfikatów mo¿na znale¼æ na umieszczonych poni¿ej stronach.
+
+Przy generowaniu par certyfikat-klucz dla programu I<stunnel> istotne
+s± dwie kwestie.  Po pierwsze klucz prywatny nie mo¿e byæ zaszyfrowany,
+poniewa¿ startuj±cy serwer nie ma w ogólnym przypadku mo¿liwo¶ci
+uzyskania has³a od u¿ytkownika.  Do wytworzenia niezaszyfrowanego
+klucza nale¿y przy uruchamianiu komendy I<openssl req>
+podaæ jej parametr I<-nodes>.
+
+Drug± istotn± kwesti± jest kolejno¶æ zawarto¶ci pliku I<.pem>.
+W pierwszej kolejno¶ci powinien on zawieraæ klucz prywatny,
+a dopiero za nim podpisany certyfikat (nie ¿±danie certyfikatu).
+Po certyfikacie i kluczu prywatnym powinny znajdowaæ siê puste linie.
+Je¿eli przed certyfikatem znajduj± siê dodatkowe informacje tekstowe,
+to powinny one zostaæ usuniête.  Otrzymany plik powinien mieæ
+nastêpuj±c± postaæ:
+
+    -----BEGIN RSA PRIVATE KEY-----
+    [zakodowany klucz]
+    -----END RSA PRIVATE KEY-----
+    [pusta linia]
+    -----BEGIN CERTIFICATE-----
+    [zakodowany certyfikat]
+    -----END CERTIFICATE-----
+    [pusta linia]
+
+=head2 LOSOWO¦Æ
+
+I<stunnel> potrzebuje zainicjowaæ PRNG (generator liczb pseudolosowych),
+gdy¿ protokó³ SSL wymaga do bezpieczeñstwa kryptograficznego ¼ród³a
+dobrej dosowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
+uzyskania  wystarczaj±cej ilo¶ci entropii:
+
+=over 4
+
+=item *
+
+Zawarto¶æ pliku podanego w opcji I<RNDfile>.
+
+=item *
+
+Zawarto¶æ pliku o nazwie okre¶lonej przez zmienn± ¶rodowiskow±
+RANDFILE, o ile jest ona ustawiona.
+
+=item *
+
+Plik .rnd umieszczony w katalogu domowym u¿ytkownika,
+je¿eli zmienna RANDFILE nie jest ustawiona.
+
+=item *
+
+Plik podany w opcji '--with-random' w czasie konfiguracji programu.
+
+=item *
+
+Zawarto¶æ ekranu w systemie Windows.
+
+=item *
+
+Gniazdo egd, je¿eli u¿yta zosta³a opcja I<EGD>.
+
+=item *
+
+Gniazdo egd podane w opcji '--with-egd-socket' w czasie konfiguracji programu.
+
+=item *
+
+Urz±dzenie /dev/urandom.
+
+=back
+
+Wspó³czesne (>=0.9.5a) wersje biblioteki I<OpenSSL> automatycznie
+zaprzestaj± ³adowania kolejnych danych w momencie uzyskania wystarczaj±cej
+ilo¶ci entropii.  Wcze¶niejsze wersje biblioteki wykorzystaj± wszystkie
+powy¿sze ¼ród³a, gdy¿ nie istnieje tam funkcja pozwalaj±ca okre¶liæ,
+czy uzyskano ju¿ wystarczaj±co du¿o danych.
+
+Warto zwróciæ uwagê, ¿e na maszynach z systemem Windows, na których
+konsoli nie pracuje u¿ytkownik, zawarto¶æ ekranu nie jest wystarczaj±co
+zmienna, aby zainicjowaæ PRNG.  W takim przypadku do zainicjowania
+generatora nale¿y u¿yæ opcji I<RNDfile>.
+
+Plik I<RNDfile> powinien zawieraæ dane losowe -- równie¿ w tym sensie,
+¿e powinny byæ one inne przy ka¿dym uruchomieniu programu I<stunnel>.
+O ile nie u¿yta zosta³a opcja I<RNDoverwrite> jest to robione
+automatycznie.  Do rêcznego uzyskania takiego pliku u¿yteczna
+mo¿e byæ komenda I<openssl rand> dostarczana ze wspó³czesnymi
+wersjami pakietu I<OpenSSL>.
+
+Jeszcze jedna istotna informacja -- je¿eli dostêpne jest urz±dzenie
+I</dev/urandom> biblioteka I<OpenSSL> ma zwyczaj zasilania nim PRNG w trakcie
+sprawdzania stanu generatora.  W systemach z I</dev/urandom> urz±dzenie
+to bêdzie najprawdopodobniej u¿yte, pomimo ¿e znajduje siê na samym koñcu
+powy¿szej listy.  Jest to w³a¶ciwo¶æ biblioteki I<OpenSSL>, a nie programu
+I<stunnel>.
+
+
+=head1 ZOBACZ RÓWNIE¯
+
+=over 4
+
+=item L<tcpd(8)>
+
+biblioteka kontroli dostêpu do us³ug internetowych
+
+=item L<inetd(8)>
+
+super-serwer internetowy
+
+=item F<http://stunnel.mirt.net/>
+
+strona domowa programu I<stunnel>
+
+=item F<http://www.stunnel.org/>
+
+najczê¶ciej zadawane pytania na temat programu I<stunnel>
+
+=item F<http://www.openssl.org/>
+
+strona projektu I<OpenSSL>
+
+=back
+
+
+=head1 AUTOR
+
+=over 4
+
+=item Micha³ Trojnara
+
+<F<Michal.Trojnara@mirt.net>>
+
+=back
+

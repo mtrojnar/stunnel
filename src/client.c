@@ -59,12 +59,12 @@ static unsigned char *sid_ctx=(unsigned char *)"stunnel SID";
 
 extern SSL_CTX *ctx; /* global SSL context defined in ssl.c */
 
-static void init_client(CLI *);
-static void init_local(CLI *);
-static void init_remote(CLI *);
-static void init_ssl(CLI *);
-static void transfer(CLI *);
-static void cleanup(CLI *);
+static int do_client(CLI *);
+static int init_local(CLI *);
+static int init_remote(CLI *);
+static int init_ssl(CLI *);
+static int transfer(CLI *);
+static void cleanup(CLI *, int);
 
 static void print_cipher(CLI *);
 static int auth_libwrap(CLI *);
@@ -105,20 +105,12 @@ void *client(void *arg) {
 #ifndef USE_WIN32
     if(c->opt->option.remote && c->opt->option.program)
         c->local_rfd.fd=c->local_wfd.fd=connect_local(c);
-            /* -r and -l options specified together */
+            /* connect and exec options specified together */
             /* spawn local program instead of stdio */
 #endif
-    c->error=0;
     c->remote_fd.fd=-1;
     c->ssl=NULL;
-    init_client(c);
-    if(!c->error) {
-        transfer(c);
-        log(LOG_NOTICE,
-            "Connection %s: %d bytes sent to SSL, %d bytes sent to socket",
-             c->error ? "reset" : "closed", c->ssl_bytes, c->sock_bytes);
-    }
-    cleanup(c);
+    cleanup(c, do_client(c));
 #ifndef USE_FORK
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
     log(LOG_DEBUG, "%s finished (%d left)", c->opt->servname,
@@ -129,36 +121,37 @@ void *client(void *arg) {
     return NULL;
 }
 
-static void init_client(CLI *c) {
-    init_local(c);
-    if(c->error)
-        return;
+static int do_client(CLI *c) {
+    int result;
+
+    if(init_local(c))
+        return -1;
     if(!c->opt->option.remote && !options.option.client
             && !c->opt->protocol) {
         /* Local process will to be spawned on the plain socket */
         /* No protocol negotiation needed */
-        init_ssl(c);
-        if(c->error)
-            return;
-        init_remote(c);
-        if(c->error)
-            return;
+        if(init_ssl(c))
+            return -1;
+        if(init_remote(c))
+            return -1;
     } else {
-        init_remote(c);
-        if(c->error)
-            return;
-        if(negotiate(c) <0) {
+        if(init_remote(c))
+            return -1;
+        if(negotiate(c)<0) {
             log(LOG_ERR, "Protocol negotiations failed");
-            c->error=1;
-            return;
+            return -1;
         }
-        init_ssl(c);
-        if(c->error)
-            return;
+        if(init_ssl(c))
+            return -1;
     }
+    result=transfer(c);
+    log(LOG_NOTICE,
+        "Connection %s: %d bytes sent to SSL, %d bytes sent to socket",
+         result ? "reset" : "closed", c->ssl_bytes, c->sock_bytes);
+    return result;
 }
 
-static void init_local(CLI *c) {
+static int init_local(CLI *c) {
     int addrlen;
 
     addrlen=sizeof(c->addr);
@@ -172,38 +165,33 @@ static void init_local(CLI *c) {
         if(c->opt->option.transparent || get_last_socket_error()!=ENOTSOCK) {
 #endif
             sockerror("getpeerbyname");
-            c->error=1;
-            return;
+            return -1;
         }
         /* Ignore ENOTSOCK error so 'local' doesn't have to be a socket */
     } else {
         c->local_rfd.is_socket=1;
         c->local_wfd.is_socket=1; /* TODO: It's not always true */
         /* It's a socket: lets setup options */
-        if(set_socket_options(c->local_rfd.fd, 1)<0) {
-            c->error=1;
-            return;
-        }
-        if(auth_libwrap(c)<0) {
-            c->error=1;
-            return;
-        }
+        if(set_socket_options(c->local_rfd.fd, 1)<0)
+            return -1;
+        if(auth_libwrap(c)<0)
+            return -1;
         if(auth_user(c)<0) {
             enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
             log(LOG_WARNING, "Connection from %s:%d REFUSED by IDENT",
                 inet_ntoa(c->addr.sin_addr), ntohs(c->addr.sin_port));
             leave_critical_section(CRIT_NTOA);
-            c->error=1;
-            return;
+            return -1;
         }
         enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
         log(LOG_NOTICE, "%s connected from %s:%d", c->opt->servname,
             inet_ntoa(c->addr.sin_addr), ntohs(c->addr.sin_port));
         leave_critical_section(CRIT_NTOA);
     }
+    return 0; /* OK */
 }
 
-static void init_remote(CLI *c) {
+static int init_remote(CLI *c) {
     int fd;
 
     /* create connection to host/service */
@@ -224,36 +212,31 @@ static void init_remote(CLI *c) {
     } else /* NOT in remote mode */
         fd=connect_local(c);
     if(fd<0) {
-        log(LOG_ERR, "Failed to initialize remote file descriptor");
-        closesocket(fd);
-        c->error=1;
-        return;
+        log(LOG_ERR, "Failed to initialize remote connection");
+        return -1;
     }
 #ifndef USE_WIN32
     if(fd>=max_fds) {
         log(LOG_ERR, "Remote file descriptor out of range (%d>=%d)",
             fd, max_fds);
         closesocket(fd);
-        c->error=1;
-        return;
+        return -1;
     }
 #endif
     log(LOG_DEBUG, "Remote FD=%d initialized", fd);
     c->remote_fd.fd=fd;
     c->remote_fd.is_socket=1; /* Always! */
-    if(set_socket_options(fd, 2)<0) {
-        c->error=1;
-        return;
-    }
+    if(set_socket_options(fd, 2)<0)
+        return -1;
+    return 0; /* OK */
 }
 
-static void init_ssl(CLI *c) {
+static int init_ssl(CLI *c) {
     int i, err;
 
     if(!(c->ssl=SSL_new(ctx))) {
         sslerror("SSL_new");
-        c->error=1;
-        return;
+        return -1;
     }
 #if SSLEAY_VERSION_NUMBER >= 0x0922
     SSL_set_session_id_context(c->ssl, sid_ctx, strlen(sid_ctx));
@@ -298,26 +281,24 @@ static void init_ssl(CLI *c) {
         if(err==SSL_ERROR_WANT_READ) {
             if(waitforsocket(c->ssl_rfd->fd, 0, c->opt->timeout_busy)==1)
                 continue; /* ok -> retry */
-            c->error=1; /* timeout or error */
-            return;
+            return -1; /* timeout or error */
         }
         if(err==SSL_ERROR_WANT_WRITE) {
             if(waitforsocket(c->ssl_wfd->fd, 1, c->opt->timeout_busy)==1)
                 continue; /* ok -> retry */
-            c->error=1; /* timeout or error */
-            return;
+            return -1; /* timeout or error */
         }
         if(options.option.client)
             sslerror("SSL_connect");
         else
             sslerror("SSL_accept");
-        c->error=1;
-        return;
+        return -1;
     }
     print_cipher(c);
+    return 0; /* OK */
 }
 
-static void transfer(CLI *c) { /* transfer data */
+static int transfer(CLI *c) { /* transfer data */
     fd_set rd_set, wr_set;
     int num, fdno;
     int check_SSL_pending;
@@ -358,7 +339,8 @@ static void transfer(CLI *c) { /* transfer data */
             FD_SET(c->ssl_wfd->fd, &wr_set);
         }
 
-        tv.tv_sec=sock_rd ? c->opt->timeout_idle : c->opt->timeout_close;
+        tv.tv_sec=sock_rd || (ssl_wr&&c->sock_ptr) || (sock_wr&&c->ssl_ptr) ?
+            c->opt->timeout_idle : c->opt->timeout_close;
         tv.tv_usec=0;
 
         do { /* Skip "Interrupted system call" errors */
@@ -366,14 +348,12 @@ static void transfer(CLI *c) { /* transfer data */
         } while(ready<0 && get_last_socket_error()==EINTR);
         if(ready<0) { /* Break the connection for others */
             sockerror("select");
-            c->error=1;
-            return;
+            return -1;
         }
         if(!ready) { /* Timeout */
             if(sock_rd) { /* No traffic for a long time */
                 log(LOG_DEBUG, "select timeout: connection reset");
-                c->error=1;
-                return;
+                return -1;
             } else { /* Timeout waiting for SSL close_notify */
                 log(LOG_DEBUG, "select timeout waiting for SSL close_notify");
                 break; /* Leave the while() loop */
@@ -387,15 +367,21 @@ static void transfer(CLI *c) { /* transfer data */
         if(sock_wr && FD_ISSET(c->sock_wfd->fd, &wr_set)) {
             switch(num=writesocket(c->sock_wfd->fd, c->ssl_buff, c->ssl_ptr)) {
             case -1: /* error */
-                if(get_last_socket_error()==EINTR) {
-                    log(LOG_DEBUG, "Socket write interrupted by a signal: retrying");
+                switch(get_last_socket_error()) {
+                case EINTR:
+                    log(LOG_DEBUG,
+                        "writesocket interrupted by a signal: retrying");
                     break;
+                case EWOULDBLOCK:
+                    log(LOG_NOTICE, "writesocket would block: retrying");
+                    break;
+                default:
+                    sockerror("writesocket");
+                    return -1;
                 }
-                sockerror("write");
-                c->error=1;
-                return;
             case 0:
-                return;
+                log(LOG_DEBUG, "No data written to the socket: retrying");
+                break;
             default:
                 memmove(c->ssl_buff, c->ssl_buff+num, c->ssl_ptr-num);
                 if(c->ssl_ptr==BUFFSIZE)
@@ -444,8 +430,7 @@ static void transfer(CLI *c) { /* transfer data */
                         break;
                     }
                     sockerror("SSL_write (ERROR_SYSCALL)");
-                    c->error=1;
-                    return;
+                    return -1;
                 }
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
@@ -454,30 +439,29 @@ static void transfer(CLI *c) { /* transfer data */
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_write");
-                c->error=1;
-                return;
+                return -1;
             }
         }
 
         if(sock_rd && FD_ISSET(c->sock_rfd->fd, &rd_set)) {
             switch(num=readsocket(c->sock_rfd->fd, c->sock_buff+c->sock_ptr, BUFFSIZE-c->sock_ptr)) {
             case -1:
-                if(get_last_socket_error()==EINTR) {
-                    log(LOG_DEBUG, "Socket read interrupted by a signal: retrying");
+                switch(get_last_socket_error()) {
+                case EINTR:
+                    log(LOG_DEBUG,
+                        "readsocket interrupted by a signal: retrying");
                     break;
-                }
-#if 0
-                if(get_last_socket_error()==EIO) {
-                    log(LOG_DEBUG, "I/O error: retrying");
-                    break;
-                }
-#endif
-                if(get_last_socket_error()==ECONNRESET)
+                case ECONNRESET:
                     log(LOG_NOTICE, "IPC reset (child died)");
-                else
-                    sockerror("read");
-                c->error=1;
-                return;
+                    break;
+                case EWOULDBLOCK:
+                    log(LOG_NOTICE, "readsocket would block: retrying");
+                    break;
+                default:
+                    sockerror("readsocket");
+                    return -1;
+                }
+                break;
             case 0: /* close */
                 log(LOG_DEBUG, "Socket closed on read");
                 sock_rd=0;
@@ -520,8 +504,7 @@ static void transfer(CLI *c) { /* transfer data */
                         break;
                     }
                     sockerror("SSL_read (SSL_ERROR_SYSCALL)");
-                    c->error=1;
-                    return;
+                    return -1;
                 }
                 log(LOG_DEBUG, "SSL socket closed on SSL_read");
                 ssl_rd=ssl_wr=0;
@@ -544,14 +527,14 @@ static void transfer(CLI *c) { /* transfer data */
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_read");
-                c->error=1;
-                return;
+                return -1;
             }
         }
     }
+    return 0; /* OK */
 }
 
-static void cleanup(CLI *c) {
+static void cleanup(CLI *c, int error) {
         /* Cleanup SSL */
     if(c->ssl) { /* SSL initialized */
         SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
@@ -560,20 +543,20 @@ static void cleanup(CLI *c) {
     }
         /* Cleanup remote socket */
     if(c->remote_fd.fd>=0) { /* Remote socket initialized */
-        if(c->error && c->remote_fd.is_socket)
+        if(error && c->remote_fd.is_socket)
             reset(c->remote_fd.fd, "linger (remote)");
         closesocket(c->remote_fd.fd);
     }
         /* Cleanup local socket */
     if(c->local_rfd.fd>=0) { /* Local socket initialized */
         if(c->local_rfd.fd==c->local_wfd.fd) {
-            if(c->error && c->local_rfd.is_socket)
+            if(error && c->local_rfd.is_socket)
                 reset(c->local_rfd.fd, "linger (local)");
             closesocket(c->local_rfd.fd);
         } else { /* STDIO */
-            if(c->error && c->local_rfd.is_socket)
+            if(error && c->local_rfd.is_socket)
                 reset(c->local_rfd.fd, "linger (local_rfd)");
-            if(c->error && c->local_wfd.is_socket)
+            if(error && c->local_wfd.is_socket)
                 reset(c->local_wfd.fd, "linger (local_wfd)");
        }
     }
@@ -603,10 +586,12 @@ static int auth_libwrap(CLI *c) {
     int result;
 
     enter_critical_section(CRIT_LIBWRAP); /* libwrap is not mt-safe */
-    request_init(&request, RQ_DAEMON, c->opt->servname, RQ_FILE, c->local_rfd.fd, 0);
+    request_init(&request,
+        RQ_DAEMON, c->opt->servname, RQ_FILE, c->local_rfd.fd, 0);
     fromhost(&request);
     result=hosts_access(&request);
     leave_critical_section(CRIT_LIBWRAP);
+
     if (!result) {
         enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
         log(LOG_WARNING, "Connection from %s:%d REFUSED by libwrap",
@@ -632,13 +617,7 @@ static int auth_user(CLI *c) {
         sockerror("socket (auth_user)");
         return -1;
     }
-#if defined FIONBIO && defined USE_NBIO
-    {
-        unsigned long l=1; /* ON */
-        if(ioctlsocket(fd, FIONBIO, &l)<0)
-            sockerror("ioctlsocket(FIONBIO)"); /* non-critical */
-    }
-#endif
+    alloc_fd(fd);
     memcpy(&ident, &c->addr, sizeof(ident));
     s_ent=getservbyname("auth", "tcp");
     if(!s_ent) {
@@ -683,15 +662,17 @@ static int auth_user(CLI *c) {
 }
 
 static int connect_local(CLI *c) { /* spawn local process */
-#ifdef USE_WIN32
-    log(LOG_ERR, "LOCAL MODE NOT SUPPORTED ON WIN32 PLATFORM");
+#if defined (USE_WIN32) || defined (__vms)
+    log(LOG_ERR, "LOCAL MODE NOT SUPPORTED ON WIN32 and OpenVMS PLATFORM");
     return -1;
-#else
+#else /* USE_WIN32, __vms */
     struct in_addr addr;
     char env[3][STRLEN], name[STRLEN];
-    int fd[2];
+    int fd[2], pid;
     X509 *peer;
-
+#ifdef HAVE_PTHREAD_SIGMASK
+    sigset_t newmask;
+#endif
     if (c->opt->option.pty) {
         char tty[STRLEN];
 
@@ -703,7 +684,9 @@ static int connect_local(CLI *c) { /* spawn local process */
         if(make_sockets(fd))
             return -1;
     }
-    switch(c->pid=(unsigned long)fork()) {
+    pid=fork();
+    c->pid=(unsigned long)pid;
+    switch(pid) {
     case -1:    /* error */
         closesocket(fd[0]);
         closesocket(fd[1]);
@@ -743,6 +726,10 @@ static int connect_local(CLI *c) { /* spawn local process */
                 X509_free(peer);
             }
         }
+#ifdef HAVE_PTHREAD_SIGMASK
+        sigemptyset(&newmask);
+        sigprocmask(SIG_SETMASK, NULL, &newmask);
+#endif
         execvp(c->opt->execname, c->opt->execargs);
         ioerror(c->opt->execname); /* execv failed */
         _exit(1);
@@ -754,7 +741,7 @@ static int connect_local(CLI *c) { /* spawn local process */
     fcntl(fd[0], F_SETFD, FD_CLOEXEC);
 #endif
     return fd[0];
-#endif /* USE_WIN32 */
+#endif /* USE_WIN32,__vms */
 }
 
 #ifndef USE_WIN32
@@ -811,33 +798,17 @@ static int make_sockets(int fd[2]) { /* make pair of connected sockets */
 
 static int connect_remote(CLI *c) { /* connect to remote host */
     struct sockaddr_in addr;
-    int s; /* destination socket */
     u32 *list;
+    int error;
+    int s; /* destination socket */
 
-    if((s=socket(AF_INET, SOCK_STREAM, 0))<0) {
-        sockerror("remote socket");
-        return -1;
-    }
-    if(alloc_fd(s))
-        return -1;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family=AF_INET;
-
-    if(c->ip) { /* transparent proxy */
-        addr.sin_addr.s_addr=c->ip;
-        addr.sin_port=htons(0);
-        if(bind(s, (struct sockaddr *)&addr, sizeof(addr))<0) {
-            sockerror("bind transparent");
-            closesocket(s);
-            return -1;
-        }
-    }
 
     if(c->opt->option.delayed_lookup) {
         if(name2nums(c->opt->remote_address, "127.0.0.1",
                 &c->resolved_addresses, &addr.sin_port)==0) {
             /* No host resolved */
-            closesocket(s);
             return -1;
         }
         list=c->resolved_addresses;
@@ -848,6 +819,24 @@ static int connect_remote(CLI *c) { /* connect to remote host */
 
     /* connect each host from the list */
     for(; *list!=-1; list++) {
+        if((s=socket(AF_INET, SOCK_STREAM, 0))<0) {
+            sockerror("remote socket");
+            return -1;
+        }
+        if(alloc_fd(s))
+            return -1;
+
+        if(c->ip) { /* transparent proxy */
+            addr.sin_addr.s_addr=c->ip;
+            addr.sin_port=htons(0);
+            if(bind(s, (struct sockaddr *)&addr, sizeof(addr))<0) {
+                sockerror("bind transparent");
+                closesocket(s);
+                return -1;
+            }
+        }
+
+        /* try to connect for the 1st time */
         addr.sin_addr.s_addr=*list;
         enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
         log(LOG_DEBUG, "%s connecting %s:%d", c->opt->servname,
@@ -855,7 +844,8 @@ static int connect_remote(CLI *c) { /* connect to remote host */
         leave_critical_section(CRIT_NTOA);
         if(!connect(s, (struct sockaddr *)&addr, sizeof(addr)))
             return s; /* no error -> success */
-        switch(get_last_socket_error()) {
+        error=get_last_socket_error();
+        switch(error) {
         case EINPROGRESS: /* retry */
             log(LOG_DEBUG, "remote connect #1: EINPROGRESS: retrying");
             break;
@@ -863,27 +853,36 @@ static int connect_remote(CLI *c) { /* connect to remote host */
             log(LOG_DEBUG, "remote connect #1: EWOULDBLOCK: retrying");
             break;
         default:
+            log_error_addr(LOG_ERR, error, &addr, "remote connect #1");
+            closesocket(s);
             continue; /* Next IP */
         }
-        if(waitforsocket(s, 1 /* write */, c->opt->timeout_busy)<1)
+
+        /* wait until the connecting socket is ready for write */
+        if(waitforsocket(s, 1 /* write */, c->opt->timeout_busy)<1) {
+            closesocket(s);
             continue; /* timeout or error */
+        }
+
+        /* try to connect for the 2nd time */
         if(!connect(s, (struct sockaddr *)&addr, sizeof(addr)))
             return s; /* no error -> success */
-        switch(get_last_socket_error()) {
+        error=get_last_socket_error();
+        switch(error) {
         case EINVAL: /* WIN32 is strange... */
             log(LOG_DEBUG, "remote connect #2: EINVAL: ok");
         case EISCONN: /* ok */
             return s; /* success */
         default:
+            log_error_addr(LOG_ERR, error, &addr, "remote connect #2");
+            closesocket(s);
             continue; /* Next IP */
         }
     }
-    sockerror("remote connect");
-    closesocket(s);
     return -1;
 }
 
-int fdprintf(CLI *c, int fd, char *format, ...) {
+int fdprintf(CLI *c, int fd, const char *format, ...) {
     va_list arglist;
     char line[STRLEN], logline[STRLEN];
     char crlf[]="\r\n";
@@ -913,7 +912,7 @@ int fdprintf(CLI *c, int fd, char *format, ...) {
     return len;
 }
 
-int fdscanf(CLI *c, int fd, char *format, char *buffer) {
+int fdscanf(CLI *c, int fd, const char *format, char *buffer) {
     char line[STRLEN], logline[STRLEN];
     int ptr;
 

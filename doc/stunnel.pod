@@ -50,6 +50,28 @@ Print default socket options
 
 =head1 CONFIGURATION FILE
 
+Each line of the configuration file can be either:
+
+=over 4
+
+=item *
+
+an empty line (ignored)
+
+=item *
+
+a comment starting with "#" (ignored)
+
+=item *
+
+an "option_name = option_value" pair
+
+=item *
+
+"[service_name]" indicating a start of a service definition
+
+=back
+
 =head2 GLOBAL OPTIONS
 
 =over 4
@@ -85,6 +107,10 @@ directory to chroot stunnel process
 B<chroot> keeps stunnel in chrooted jail.  I<CApath>, I<pid> and I<exec>
 are located inside the jail and the patches have to be relative to the
 directory specified with B<chroot>.
+
+To have libwrap (TCP wrappers) control effective in a chrooted environment
+you also have to copy its configuration files (/etc/hosts.allow and
+/etc/hosts.deny) there.
 
 =item B<ciphers> = cipherlist
 
@@ -174,7 +200,7 @@ overwrite the random seed files with new random data
 
 default: yes
 
-=item B<timeout> = timeout
+=item B<session> = timeout
 
 session cache timeout
 
@@ -279,7 +305,9 @@ transparent proxy mode
 
 Re-write address to appear as if wrapped daemon is connecting
 from the SSL client machine instead of the machine running stunnel.
-Available only on some operating systems (Linux 2.2 only)
+This option is only available in local mode (I<exec> option)
+by LD_PRELOADing env.so shared library or in remote mode (I<connect>
+option) on Linux 2.2 kernel compiled with I<transparent proxy> option
 and then only in server mode. Note that this option will not combine
 with proxy mode (I<connect>) unless the client's default route to the target
 machine lies through the host running stunnel, which cannot be localhost.
@@ -328,9 +356,7 @@ stunnel certificate and private key
 
 =head1 BUGS
 
-Shared library to be LD_PRELOADed with I<transparent> option is not too
-portable.  I<stunnel> should support creating shared libraries on non-gcc
-compilers.
+Option I<execargs> does not support quoting.
 
 
 =head1 RESTRICTIONS
@@ -347,14 +373,14 @@ There are available SSL enabled versions of FTP and telnet daemons, however.
 Each SSL enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
-generate them with the free I<openssl> package. You can find more
+generate them with the free I<OpenSSL> package. You can find more
 information on certificates generation on pages listed below.
 
 Two things are important when generating certificate-key pairs for
 B<stunnel>. The private key cannot be encrypted, because the server
 has no way to obtain the password from the user. To produce an
 unencrypted key add the I<-nodes> option when running the B<req>
-command from the I<openssl> kit.
+command from the I<OpenSSL> kit.
 
 The order of contents of the I<.pem> file is also important.
 It should contain the unencrypted private key first, then a signed certificate

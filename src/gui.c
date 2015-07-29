@@ -38,13 +38,6 @@
 
 #define UWM_SYSTRAY (WM_USER + 1) /* sent to us by the systray */
 #define LOG_LINES 250
-#if 0
-#define PROGRAM_NAME "SecureMAX 1.0"
-#define VERSION_TEXT PROGRAM_NAME " x86 by Mobi-Com Polska on WIN32"
-#else
-#define PROGRAM_NAME "stunnel " VERSION
-#define VERSION_TEXT PROGRAM_NAME " on WIN32"
-#endif
 
 HMENU hpopup;
 HWND hwnd=NULL;
@@ -55,16 +48,17 @@ int unix_main(int, char *[]);
 
 int win_main(HINSTANCE, HINSTANCE, LPSTR, int);
 void save_file(HWND);
-char *log_txt();
+LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
+char *log_txt(void);
 void set_visible(int);
 void WINAPI service_main(DWORD, LPTSTR *);
-int install_service();
-int uninstall_service();
+int install_service(void);
+int uninstall_service(void);
 
 static struct LIST {
   struct LIST *next;
   int len;
-  char txt[1]; /* single character for "\0" */
+  char txt[1]; /* single character for trailing '\0' */
 } *head=NULL, *tail=NULL;
 static HINSTANCE ghInst;
 static HWND EditControl=NULL;
@@ -81,11 +75,8 @@ static jmp_buf jump_buf;
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     LPSTR lpszCmdLine, int nCmdShow) {
 
-    SERVICE_TABLE_ENTRY serviceTable[]={
-        {PROGRAM_NAME, service_main},
-        {0, 0}
-    };
     char exe_file_name[MAX_PATH], dir[MAX_PATH], *ptr;
+    static struct WSAData wsa_state;
 
     ghInst=hInstance;
 
@@ -98,14 +89,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         ptr[1]='\0'; /* truncate program name */
     if(!SetCurrentDirectory(dir)) {
         MessageBox(hwnd, "Cannot set current directory",
-            PROGRAM_NAME, MB_ICONERROR);
+            options.win32_name, MB_ICONERROR);
         return 1;
     }
 
+    if(WSAStartup(0x0101, &wsa_state)) {
+        win_log("Failed to initialize winsock");
+        error_mode=1;
+    }
+
+    if(!setjmp(jump_buf)) {
+        main_initialize(lpszCmdLine[0] ? lpszCmdLine : NULL);
+    }
+
     if(!strcmpi(lpszCmdLine, "-service")) {
+        SERVICE_TABLE_ENTRY serviceTable[]={
+            {options.win32_service, service_main},
+            {0, 0}
+        };
+
         if(!StartServiceCtrlDispatcher(serviceTable)) {
             MessageBox(hwnd, "Unable to start the service",
-                PROGRAM_NAME, MB_ICONERROR);
+                options.win32_service, MB_ICONERROR);
             return 1;
         }
         return 0; /* NT service started */
@@ -129,17 +134,9 @@ int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         LPSTR lpszCmdLine, int nCmdShow) {
     WNDCLASSEX wc;
     MSG msg;
-    char *classname=PROGRAM_NAME;
+    char *classname=options.win32_name;
     DWORD iID;
     RECT rect;
-    static struct WSAData wsa_state;
-
-    if(WSAStartup(0x0101, &wsa_state)) {
-        win_log("Failed to initialize winsock");
-        error_mode=1;
-    } else if(!setjmp(jump_buf)) {
-        main_initialize(lpszCmdLine[0] ? lpszCmdLine : NULL);
-    }
 
     /* register the class */
     wc.cbSize=sizeof(WNDCLASSEX);
@@ -160,7 +157,7 @@ int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     htraymenu=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
     hpopup=GetSubMenu(htraymenu, 0);
     hmainmenu=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_MAINMENU));
-    hwnd=CreateWindow(classname, VERSION_TEXT, WS_TILEDWINDOW,
+    hwnd=CreateWindow(classname, options.win32_name, WS_TILEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
         NULL, hmainmenu, hInstance, NULL);
 
@@ -187,7 +184,7 @@ int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     return msg.wParam;
 }
 
-static void update_systray() { /* create the systray icon */
+static void update_systray(void) { /* create the systray icon */
     NOTIFYICONDATA nid;
     extern int num_clients; /* defined in stunnel.c */
 
@@ -224,6 +221,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
     POINT pt;
     NOTIFYICONDATA nid;
     RECT rect;
+    char *txt;
 
 #if 0
     if(message!=WM_CTLCOLORSTATIC && message!=WM_TIMER)
@@ -241,7 +239,9 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
         return TRUE;
 
     case WM_SETFOCUS:
-        SetWindowText(EditControl, log_txt());
+        txt=log_txt();
+        SetWindowText(EditControl, txt);
+        free(txt);
         SetFocus(EditControl);
         return TRUE;
 
@@ -268,8 +268,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
     case WM_COMMAND:
         switch(wParam) {
         case IDM_ABOUT:
-            MessageBox(hwnd, VERSION_TEXT,
-                "About " PROGRAM_NAME, MB_ICONINFORMATION);
+            DialogBox(ghInst, "AboutBox", hwnd, (DLGPROC)about_proc);
             break;
         case IDM_LOG:
             set_visible(!visible);
@@ -285,7 +284,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
             break;
         case IDM_SETUP:
             MessageBox(hwnd, "Function not implemented",
-                PROGRAM_NAME, MB_ICONERROR);
+                options.win32_name, MB_ICONERROR);
             break;
         };
         return TRUE;
@@ -308,6 +307,20 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
 
+LRESULT CALLBACK about_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch(message) {
+        case WM_INITDIALOG:
+            return TRUE;
+        case WM_COMMAND:
+            switch(wParam) {
+                case IDOK:
+                case IDCANCEL:
+                    EndDialog(hDlg, TRUE);
+                    return TRUE;
+            }
+    }
+    return FALSE;
+}
 
 void save_file(HWND hwnd) {
     char szFileName[MAX_PATH];
@@ -316,9 +329,6 @@ void save_file(HWND hwnd) {
     BOOL bResult;
     char *txt;
     DWORD nToWrite, nWritten;
-
-    txt=log_txt();
-    nToWrite=strlen(txt);
 
     ZeroMemory(&ofn, sizeof(ofn));
     szFileName[0]='\0';
@@ -340,25 +350,29 @@ void save_file(HWND hwnd) {
     if((hFile=CreateFile((LPCSTR)szFileName, GENERIC_WRITE,
             0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
             (HANDLE) NULL))==INVALID_HANDLE_VALUE) {
-        MessageBox(hwnd, "File open failed", PROGRAM_NAME, MB_ICONERROR);
+        MessageBox(hwnd, "File open failed", options.win32_name, MB_ICONERROR);
         return; 
     }
 
+    txt=log_txt();
+    nToWrite=strlen(txt);
     bResult=WriteFile(hFile, txt, nToWrite, &nWritten, NULL);
+    free(txt);
     if(!bResult)
-        MessageBox(hwnd, "File write failed", PROGRAM_NAME, MB_ICONERROR);
+        MessageBox(hwnd, "File write failed", options.win32_name, MB_ICONERROR);
     CloseHandle(hFile);
 }
 
-void win_log(char *txt) {
+void win_log(char *line) {
     struct LIST *curr;
     int len;
     static int log_len=0;
+    char *txt;
 
-    len=strlen(txt);
+    len=strlen(line);
     curr=malloc(sizeof(struct LIST)+len);
     curr->len=len;
-    strcpy(curr->txt, txt);
+    strcpy(curr->txt, line);
     curr->next=NULL;
 
     enter_critical_section(CRIT_WIN_LOG);
@@ -376,38 +390,46 @@ void win_log(char *txt) {
     }
     leave_critical_section(CRIT_WIN_LOG);
 
-    if(visible)
-        SetWindowText(EditControl, log_txt());
+    if(visible) {
+        txt=log_txt();
+        SetWindowText(EditControl, txt);
+        free(txt);
+    }
 }
 
-char *log_txt() {
-    static char buff[65536];
-    int len;
+char *log_txt(void) {
+    char *buff;
+    int ptr=0, len=0;
     struct LIST *curr;
  
-    len=0;
-
     enter_critical_section(CRIT_WIN_LOG);
+    for(curr=head; curr; curr=curr->next)
+        len+=curr->len+2; /* +2 for trailing '\r\n' */
+    buff=malloc(len+1); /* +1 for trailing '\0' */
     for(curr=head; curr; curr=curr->next) {
-        memcpy(buff+len, curr->txt, curr->len);
-        len+=curr->len;
+        memcpy(buff+ptr, curr->txt, curr->len);
+        ptr+=curr->len;
         if(curr->next) {
-            buff[len++]='\r';
-            buff[len++]='\n';
+            buff[ptr++]='\r';
+            buff[ptr++]='\n';
         }
     }
+    buff[ptr]='\0';
     leave_critical_section(CRIT_WIN_LOG);
 
-    buff[len]='\0';
     return buff;
 }
 
 void set_visible(int i) {
+    char *txt;
+
     visible=i; /* setup global variable */
     CheckMenuItem(hpopup, GetMenuItemID(hpopup, 1),
         visible?MF_CHECKED:MF_UNCHECKED); /* check or uncheck menu item */
     if(visible) {
-        SetWindowText(EditControl, log_txt()); /* setup window content */
+        txt=log_txt();
+        SetWindowText(EditControl, txt); /* setup window content */
+        free(txt);
         ShowWindow(hwnd, SW_SHOWNORMAL); /* show window */
         SetForegroundWindow(hwnd); /* bring on top */
     } else
@@ -461,7 +483,7 @@ void WINAPI service_main(DWORD argc, LPTSTR* argv) {
     serviceStatus.dwWaitHint=0;
 
     serviceStatusHandle=
-        RegisterServiceCtrlHandler(PROGRAM_NAME, control_handler);
+        RegisterServiceCtrlHandler(options.win32_service, control_handler);
 
     if(serviceStatusHandle) {
         /* service is starting */
@@ -495,27 +517,28 @@ void WINAPI service_main(DWORD argc, LPTSTR* argv) {
     }
 }
 
-int install_service() {
+int install_service(void) {
     SC_HANDLE scm, service;
     
     scm=OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
     if(!scm) {
         MessageBox(hwnd, "Failed to open service control manager",
-            PROGRAM_NAME, MB_ICONERROR);
+            options.win32_service, MB_ICONERROR);
         return 1;
     }
     service=CreateService(scm,
-        PROGRAM_NAME, PROGRAM_NAME, SERVICE_ALL_ACCESS,
+        options.win32_service, options.win32_service, SERVICE_ALL_ACCESS,
         SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
         SERVICE_AUTO_START, SERVICE_ERROR_NORMAL, service_path,
         NULL, NULL, NULL, NULL, NULL);
     if(!service) {
         MessageBox(hwnd, "Failed to create a new service",
-            PROGRAM_NAME, MB_ICONERROR);
+            options.win32_service, MB_ICONERROR);
         CloseServiceHandle(scm);
         return 1;
     }
-    MessageBox(hwnd, "Service installed", PROGRAM_NAME, MB_ICONINFORMATION);
+    MessageBox(hwnd, "Service installed", options.win32_service,
+        MB_ICONINFORMATION);
     CloseServiceHandle(service);
     CloseServiceHandle(scm);
     return 0;
@@ -528,38 +551,40 @@ int uninstall_service() {
     scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
     if(!scm) {
         MessageBox(hwnd, "Failed to open service control manager",
-            PROGRAM_NAME, MB_ICONERROR);
+            options.win32_service, MB_ICONERROR);
         return 1;
     }
-    service=OpenService(scm, PROGRAM_NAME, SERVICE_QUERY_STATUS | DELETE);
+    service=OpenService(scm, options.win32_service,
+        SERVICE_QUERY_STATUS | DELETE);
     if(!service) {
         MessageBox(hwnd, "Failed to open the service",
-            PROGRAM_NAME, MB_ICONERROR);
+            options.win32_service, MB_ICONERROR);
         CloseServiceHandle(scm);
         return 1;
     }
     if(!QueryServiceStatus(service, &serviceStatus)) {
         MessageBox(hwnd, "Failed to query service status",
-            PROGRAM_NAME, MB_ICONERROR);
+            options.win32_service, MB_ICONERROR);
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
         return 1;
     }
     if(serviceStatus.dwCurrentState!=SERVICE_STOPPED) {
         MessageBox(hwnd, "The service is still running",
-            PROGRAM_NAME, MB_ICONERROR);
+            options.win32_service, MB_ICONERROR);
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
         return 1;
     }
     if(!DeleteService(service)) {
         MessageBox(hwnd, "Failed to delete the service",
-            PROGRAM_NAME, MB_ICONERROR);
+            options.win32_service, MB_ICONERROR);
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
         return 1;
     }
-    MessageBox(hwnd, "Service uninstalled", PROGRAM_NAME, MB_ICONINFORMATION);
+    MessageBox(hwnd, "Service uninstalled", options.win32_service,
+        MB_ICONINFORMATION);
     CloseServiceHandle(service);
     CloseServiceHandle(scm);
     return 0;

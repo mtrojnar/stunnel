@@ -86,10 +86,10 @@ SUBDIRS = src doc tools
 # 	tools/stunnel.spec tools/make.bat tools/stunnel.mak tools/stunnel.cnf
 # EXTRA_DIST = auto PORTS $(extra_src) $(extra_doc) $(extra_tools)
 
-EXTRA_DIST = auto PORTS BUGS COPYRIGHT.GPL CREDITS FAQ INSTALL.W32
+EXTRA_DIST = auto PORTS BUGS COPYRIGHT.GPL CREDITS INSTALL.W32
 
 docdir = $(datadir)/doc/stunnel
-doc_DATA = AUTHORS BUGS ChangeLog COPYING COPYRIGHT.GPL CREDITS FAQ 	INSTALL INSTALL.W32 NEWS PORTS README TODO
+doc_DATA = AUTHORS BUGS ChangeLog COPYING COPYRIGHT.GPL CREDITS 	INSTALL INSTALL.W32 NEWS PORTS README TODO
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/auto/mkinstalldirs

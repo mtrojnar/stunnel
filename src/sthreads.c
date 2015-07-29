@@ -42,10 +42,10 @@
 
 #include <pthread.h>
 
-pthread_mutex_t stunnel_cs[CRIT_SECTIONS];
+static pthread_mutex_t stunnel_cs[CRIT_SECTIONS];
 
-pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
-pthread_attr_t pth_attr;
+static pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
+static pthread_attr_t pth_attr;
 
 void enter_critical_section(section_code i) {
     pthread_mutex_lock(stunnel_cs+i);
@@ -66,7 +66,7 @@ static void locking_callback(int mode, int type,
         pthread_mutex_unlock(lock_cs+type);
 }
 
-void sthreads_init() {
+void sthreads_init(void) {
     int i;
 
     /* Initialize stunnel critical sections */
@@ -83,11 +83,11 @@ void sthreads_init() {
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
 }
 
-unsigned long process_id() {
+unsigned long process_id(void) {
     return (unsigned long)getpid();
 }
 
-unsigned long thread_id() {
+unsigned long thread_id(void) {
     return (unsigned long)pthread_self();
 }
 
@@ -110,7 +110,8 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
 #ifdef HAVE_PTHREAD_SIGMASK
         pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
 #endif /* HAVE_PTHREAD_SIGMASK */
-        closesocket(s);
+        if(s>=0)
+            closesocket(s);
         return -1;
     }
 #ifdef HAVE_PTHREAD_SIGMASK
@@ -133,7 +134,7 @@ void leave_critical_section(section_code i) {
     LeaveCriticalSection(stunnel_cs+i);
 }
 
-void sthreads_init() {
+void sthreads_init(void) {
     int i;
 
     /* Initialize stunnel critical sections */
@@ -141,11 +142,11 @@ void sthreads_init() {
         InitializeCriticalSection(stunnel_cs+i);
 }
 
-unsigned long process_id() {
+unsigned long process_id(void) {
     return GetCurrentProcessId() & 0x00ffffff;
 }
 
-unsigned long thread_id() {
+unsigned long thread_id(void) {
     return GetCurrentThreadId() & 0x00ffffff;
 }
 
@@ -169,30 +170,33 @@ void leave_critical_section(section_code i) {
     /* empty */
 }
 
-void sthreads_init() {
+void sthreads_init(void) {
     /* empty */
 }
 
-unsigned long process_id() {
+unsigned long process_id(void) {
     return (unsigned long)getpid();
 }
 
-unsigned long thread_id() {
+unsigned long thread_id(void) {
     return 0L;
 }
 
 int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
     switch(fork()) {
     case -1:    /* error */
-        closesocket(s);
+        if(s>=0)
+            closesocket(s);
         return -1;
     case  0:    /* child */
-        closesocket(ls);
+        if(ls>=0)
+            closesocket(ls);
         signal(SIGCHLD, local_handler);
         cli(arg);
         exit(0);
     default:    /* parent */
-        closesocket(s);
+        if(s>=0)
+            closesocket(s);
     }
     return 0;
 }

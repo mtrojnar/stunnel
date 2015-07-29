@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.00             (stunnel.c)
- *   Date:         2002.08.30
+ *   Version:      4.01             (stunnel.c)
+ *   Date:         2002.10.20
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -44,31 +44,23 @@
 #endif
 
     /* Prototypes */
-static void daemon_loop();
+static void daemon_loop(void);
 static void accept_connection(LOCAL_OPTIONS *);
 static void get_limits(); /* setup max_clients and max_fds global variables */
-#ifndef USE_WIN32
-static void drop_privileges();
-static void daemonize();
-static void create_pid();
-static void delete_pid();
+#if !defined (USE_WIN32) && !defined (__vms)
+static void drop_privileges(void);
+static void daemonize(void);
+static void create_pid(void);
+static void delete_pid(void);
 #endif
 
     /* Error/exceptions handling functions */
-void ioerror(char *);
-void sockerror(char *);
-void log_error(int, int, char *);
 static char *my_strerror(int);
 #ifdef USE_FORK
 static void sigchld_handler(int);
 #endif
 #ifndef USE_WIN32
-void local_handler(int);
 static void signal_handler(int);
-#else
-#if 0
-static BOOL CtrlHandler(DWORD);
-#endif
 #endif
 
 int num_clients=0; /* Current number of clients */
@@ -117,12 +109,12 @@ void main_initialize(char *arguments) {
     context_init(); /* initialize global SSL context */
 }
 
-void main_execute() {
+void main_execute(void) {
     /* check if started from inetd */
-    if(options.option.daemon) { /* daemon mode */
+    if(local_options.next) { /* there are service sections -> daemon mode */
         daemon_loop();
     } else { /* inetd mode */
-#ifndef USE_WIN32
+#if !defined (USE_WIN32) && !defined (__vms)
         max_fds=16; /* just in case */
         drop_privileges();
 #endif
@@ -134,10 +126,10 @@ void main_execute() {
     log_close();
 }
 
-static void daemon_loop() {
+static void daemon_loop(void) {
     struct sockaddr_in addr;
     fd_set base_set, current_set;
-    int n;
+    int n, err;
     LOCAL_OPTIONS *opt;
 
     get_limits();
@@ -147,9 +139,13 @@ static void daemon_loop() {
         exit(1);
     }
 
+    num_clients=0;
+
     /* bind local ports */
     n=0;
     for(opt=local_options.next; opt; opt=opt->next) {
+        if(!opt->option.accept) /* no need to bind this service */
+            continue;
         if((opt->fd=socket(AF_INET, SOCK_STREAM, 0))<0) {
             sockerror("local socket");
             exit(1);
@@ -178,12 +174,15 @@ static void daemon_loop() {
             sockerror("listen");
             exit(1);
         }
+#ifdef FD_CLOEXEC
+        fcntl(opt->fd, F_SETFD, FD_CLOEXEC); /* close socket in child execvp */
+#endif
         FD_SET(opt->fd, &base_set);
         if(opt->fd > n)
             n=opt->fd;
     }
 
-#ifndef USE_WIN32
+#if !defined (USE_WIN32) && !defined (__vms)
     if(!(options.option.foreground))
         daemonize();
 #ifdef USE_FORK
@@ -196,14 +195,25 @@ static void daemon_loop() {
 #endif /* defined USE_PTHREAD */
     drop_privileges();
     create_pid();
-#endif /* !defined USE_WIN32 */
+#endif /* !defined USE_WIN32 && !defined (__vms) */
 
-    num_clients=0;
+    /* create exec+connect services */
+    for(opt=local_options.next; opt; opt=opt->next) {
+        if(opt->option.accept) /* skip ordinary (accepting) services */
+            continue;
+        enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
+        num_clients++;
+        leave_critical_section(CRIT_CLIENTS);
+        create_client(-1, -1, alloc_client_session(opt, -1, -1), client);
+    }
+
     while(1) {
         memcpy(&current_set, &base_set, sizeof(fd_set));
-        if(select(n+1, &current_set, NULL, NULL, NULL)<0)
-            sockerror("select"); /* non-critical error */
-        else 
+        if(select(n+1, &current_set, NULL, NULL, NULL)<0) {
+            err=get_last_socket_error();
+            if(err!=EINTR)
+                log_error(LOG_ERR, err, "select"); /* non-critical error */
+        } else 
             for(opt=local_options.next; opt; opt=opt->next)
                 if(FD_ISSET(opt->fd, &current_set))
                     accept_connection(opt);
@@ -247,7 +257,7 @@ static void accept_connection(LOCAL_OPTIONS *opt) {
     leave_critical_section(CRIT_CLIENTS);
 }
 
-static void get_limits() {
+static void get_limits(void) {
 #ifdef USE_WIN32
     max_clients=30000;
     log(LOG_NOTICE, "WIN32 platform: %d clients allowed", max_clients);
@@ -277,9 +287,9 @@ static void get_limits() {
 #endif
 }
 
-#ifndef USE_WIN32
+#if !defined (USE_WIN32) && !defined (__vms)
     /* chroot and set process user and group(s) id */
-static void drop_privileges() {
+static void drop_privileges(void) {
     int uid=0, gid=0;
     struct group *gr;
 #ifdef HAVE_SETGROUPS
@@ -347,7 +357,7 @@ static void drop_privileges() {
     }
 }
 
-static void daemonize() { /* go to background */
+static void daemonize(void) { /* go to background */
 #ifdef HAVE_DAEMON
     if(daemon(0,0)==-1){
         ioerror("daemon");
@@ -374,7 +384,7 @@ static void daemonize() { /* go to background */
 #endif
 }
 
-static void create_pid() {
+static void create_pid(void) {
     int pf;
     char pid[STRLEN];
 
@@ -405,7 +415,7 @@ static void create_pid() {
     atexit(delete_pid);
 }
 
-static void delete_pid() {
+static void delete_pid(void) {
     log(LOG_DEBUG, "removing pid file %s", options.pidfile);
     if((unsigned long)getpid()!=options.dpid)
         return; /* current process is not main daemon process */
@@ -456,6 +466,16 @@ void sockerror(char *txt) { /* socket error handler */
 void log_error(int level, int error, char *txt) { /* generic error logger */
     log(level, "%s: %s (%d)", txt, my_strerror(error), error);
 }
+
+void log_error_addr(int level, int error, struct sockaddr_in *addr, char *txt) {
+    /* IP error logger */
+    enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
+    log(level, "%s (%s:%d): %s (%d)", txt,
+        inet_ntoa(addr->sin_addr), ntohs(addr->sin_port),
+        my_strerror(error), error);
+    leave_critical_section(CRIT_NTOA);
+}
+
 
 static char *my_strerror(int errnum) {
     switch(errnum) {
@@ -611,14 +631,14 @@ void local_handler(int sig) { /* dead of local (-l) process detected */
 #endif
 #ifdef WIFSIGNALED
         if(WIFSIGNALED(status)) {
-            log(LOG_DEBUG, "Local process %lu terminated on signal %d",
+            log(LOG_DEBUG, "Local process %d terminated on signal %d",
                 pid, WTERMSIG(status));
         } else {
-            log(LOG_DEBUG, "Local process %lu finished with code %d",
+            log(LOG_DEBUG, "Local process %d finished with code %d",
                 pid, WEXITSTATUS(status));
         }
 #else
-        log(LOG_DEBUG, "Local process %lu finished with status %d",
+        log(LOG_DEBUG, "Local process %d finished with status %d",
             pid, status);
 #endif
     }
@@ -633,7 +653,7 @@ static void signal_handler(int sig) { /* signal handler */
 
 #endif /* !defined USE_WIN32 */
 
-char *stunnel_info() {
+char *stunnel_info(void) {
     static char retval[STRLEN];
 
     safecopy(retval, "stunnel " VERSION " on " HOST);
@@ -655,8 +675,6 @@ char *stunnel_info() {
 }
 
 int alloc_fd(int socket) {
-    unsigned long l=1;
-
 #ifndef USE_WIN32
     if(socket>=max_fds) {
         log(LOG_ERR,
@@ -665,13 +683,16 @@ int alloc_fd(int socket) {
         return -1;
     }
 #endif
+    setnonblock(socket, 1);
+    return 0;
+}
 
+void setnonblock(int socket, unsigned long l) {
     if(ioctlsocket(socket, FIONBIO, &l)<0)
         sockerror("nonblocking"); /* non-critical */
     else
-        log(LOG_DEBUG, "FD %d in non-blocking mode", socket);
-
-    return 0;
+        log(LOG_DEBUG, "FD %d in %sblocking mode", socket,
+            l ? "non-" : "");
 }
 
 /* End of stunnel.c */

@@ -1,15 +1,18 @@
-EXTRA_DIST = stunnel.pod stunnel.8 stunnel.html en pl
+EXTRA_DIST = stunnel.pod stunnel.pl.pod stunnel.8 stunnel.pl.8 \
+	stunnel.html stunnel.pl.html en pl
 
-man_MANS = stunnel.8
+man_MANS = stunnel.8 stunnel.pl.8
 
 docdir = $(datadir)/doc/stunnel
-doc_DATA = stunnel.html
+doc_DATA = stunnel.html stunnel.pl.html
 
-stunnel.8: stunnel.pod
+SUFFIXES = .pod .8 .html
+
+.pod.8:
 	pod2man --section=8 --release=4.0 --center=stunnel --date=`date +%Y.%m.%d` \
-	stunnel.pod stunnel.8
+	$< $@
 
-stunnel.html: stunnel.pod
-	pod2html --infile=stunnel.pod --outfile=stunnel.html --title stunnel.8
+.pod.html:
+	pod2html --infile=$< --outfile=$@ --title stunnel.8
 	rm -f pod2htmd.x~~ pod2htmi.x~~
 

@@ -27,6 +27,9 @@
  *   file, but you are not obligated to do so.  If you do not wish to
  *   do so, delete this exception statement from your version.
  */
+#ifdef __vms
+#include <starlet.h>
+#endif /* __vms */
 
 #ifndef NO_RSA
 
@@ -53,22 +56,22 @@
 #endif
 
     /* SSL functions */
-static int init_dh();
-static int init_prng();
+static int init_dh(void);
+static int init_prng(void);
 static int prng_seeded(int);
 static int add_rand_file(char *);
 #ifndef NO_RSA
 static RSA *tmp_rsa_cb(SSL *, int, int);
 static RSA *make_temp_key(int);
 #endif /* NO_RSA */
-static void verify_init();
+static void verify_init(void);
 static int verify_callback(int, X509_STORE_CTX *);
 static void info_callback(SSL *, int, int);
-static void print_stats();
+static void print_stats(void);
 
 SSL_CTX *ctx; /* global SSL context */
 
-void context_init() { /* init SSL */
+void context_init(void) { /* init SSL */
 
     if(!init_prng())
         log(LOG_INFO, "PRNG seeded successfully");
@@ -131,11 +134,11 @@ void context_init() { /* init SSL */
     }
 }
 
-void context_free() { /* free SSL */
+void context_free(void) { /* free SSL */
     SSL_CTX_free(ctx);
 }
 
-static int init_prng() {
+static int init_prng(void) {
     int totbytes=0;
     char filename[STRLEN];
     int bytes;
@@ -214,7 +217,7 @@ static int init_prng() {
     return -1; /* FAILED */
 }
 
-static int init_dh() {
+static int init_dh(void) {
 #ifdef USE_DH
     FILE *fp;
     DH *dh;
@@ -222,7 +225,12 @@ static int init_dh() {
 
     fp=fopen(options.cert, "r");
     if(!fp) {
+#ifdef USE_WIN32
+        /* Win32 doesn't seem to set errno in fopen() */
+        log(LOG_ERR, "Failed to open %s", options.cert);
+#else
         ioerror(options.cert);
+#endif
         return -1; /* FAILED */
     }
     bio=BIO_new_fp(fp, BIO_CLOSE|BIO_FP_TEXT);
@@ -353,7 +361,7 @@ static RSA *make_temp_key(int keylen) {
 
 #endif /* NO_RSA */
 
-static void verify_init() {
+static void verify_init(void) {
     if(options.verify_level<0)
         return; /* No certificate verification */
 
@@ -439,28 +447,28 @@ static void info_callback(SSL *s, int where, int ret) {
         print_stats();
 }
 
-static void print_stats() { /* print statistics */
+static void print_stats(void) { /* print statistics */
     log(LOG_DEBUG, "%4ld items in the session cache",
         SSL_CTX_sess_number(ctx));
-    log(LOG_DEBUG, "%4d client connects (SSL_connect())",
+    log(LOG_DEBUG, "%4ld client connects (SSL_connect())",
         SSL_CTX_sess_connect(ctx));
-    log(LOG_DEBUG, "%4d client connects that finished",
+    log(LOG_DEBUG, "%4ld client connects that finished",
         SSL_CTX_sess_connect_good(ctx));
 #if SSLEAY_VERSION_NUMBER >= 0x0922
-    log(LOG_DEBUG, "%4d client renegotiatations requested",
+    log(LOG_DEBUG, "%4ld client renegotiatations requested",
         SSL_CTX_sess_connect_renegotiate(ctx));
 #endif
-    log(LOG_DEBUG, "%4d server connects (SSL_accept())",
+    log(LOG_DEBUG, "%4ld server connects (SSL_accept())",
         SSL_CTX_sess_accept(ctx));
-    log(LOG_DEBUG, "%4d server connects that finished",
+    log(LOG_DEBUG, "%4ld server connects that finished",
         SSL_CTX_sess_accept_good(ctx));
 #if SSLEAY_VERSION_NUMBER >= 0x0922
-    log(LOG_DEBUG, "%4d server renegotiatiations requested",
+    log(LOG_DEBUG, "%4ld server renegotiatiations requested",
         SSL_CTX_sess_accept_renegotiate(ctx));
 #endif
-    log(LOG_DEBUG, "%4d session cache hits", SSL_CTX_sess_hits(ctx));
-    log(LOG_DEBUG, "%4d session cache misses", SSL_CTX_sess_misses(ctx));
-    log(LOG_DEBUG, "%4d session cache timeouts", SSL_CTX_sess_timeouts(ctx));
+    log(LOG_DEBUG, "%4ld session cache hits", SSL_CTX_sess_hits(ctx));
+    log(LOG_DEBUG, "%4ld session cache misses", SSL_CTX_sess_misses(ctx));
+    log(LOG_DEBUG, "%4ld session cache timeouts", SSL_CTX_sess_timeouts(ctx));
 }
 
 void sslerror(char *txt) { /* SSL Error handler */

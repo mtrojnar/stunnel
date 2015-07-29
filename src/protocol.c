@@ -48,8 +48,6 @@ static int RFC2487(int);
 int negotiate(CLI *c) {
     if(!c->opt->protocol)
         return 0; /* No protocol negotiations */
-    if(!c)
-        return 0; /* No client present */
     log(LOG_DEBUG, "Negotiations for %s(%s side) started", c->opt->protocol,
         options.option.client ? "client" : "server");
     if(!strcmp(c->opt->protocol, "smb")) {
@@ -155,7 +153,7 @@ static int smtp_server(CLI *c) {
         log(LOG_ERR, "STARTTLS expected");
         return -1;
     }
-    if(fdprintf(c, c->local_wfd.fd, "220 Go ahead", line)<0)
+    if(fdprintf(c, c->local_wfd.fd, "220 Go ahead")<0)
         return -1;
     return 0;
 }

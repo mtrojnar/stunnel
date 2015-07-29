@@ -15,7 +15,7 @@ stunnel_SOURCES = $(common_headers) $(common_sources) $(unix_sources)
 
 lib_LTLIBRARIES = libstunnel.la
 libstunnel_la_SOURCES = $(shared_sources)
-libstunnel_la_LDFLAGS = -version-info 0:0:0
+libstunnel_la_LDFLAGS = -avoid-version
 
 # Win32 executable
 
@@ -41,7 +41,7 @@ stunnel.exe: $(WINOBJ)
 	$(WINGCC) $(WINCFLAGS) -c $< -o $@
 
 .rc.obj:
-	$(WINDRES) --include-dir $(srcdir) $< $@
+	$(WINDRES) --define VERSION=\"@VERSION@\" --include-dir $(srcdir) $< $@
 
 mostlyclean-local:
 	-rm -f *.obj

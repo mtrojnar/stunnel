@@ -6,10 +6,10 @@ SUBDIRS = src doc tools
 # 	tools/stunnel.spec tools/make.bat tools/stunnel.mak tools/stunnel.cnf
 # EXTRA_DIST = auto PORTS $(extra_src) $(extra_doc) $(extra_tools)
 
-EXTRA_DIST = auto PORTS BUGS COPYRIGHT.GPL CREDITS FAQ INSTALL.W32
+EXTRA_DIST = auto PORTS BUGS COPYRIGHT.GPL CREDITS INSTALL.W32
 
 docdir = $(datadir)/doc/stunnel
-doc_DATA = AUTHORS BUGS ChangeLog COPYING COPYRIGHT.GPL CREDITS FAQ \
+doc_DATA = AUTHORS BUGS ChangeLog COPYING COPYRIGHT.GPL CREDITS \
 	INSTALL INSTALL.W32 NEWS PORTS README TODO
 
 distclean-local:

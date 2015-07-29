@@ -78,14 +78,22 @@ VERSION = @VERSION@
 host = @host@
 ssldir = @ssldir@
 
-EXTRA_DIST = stunnel.pod stunnel.8 stunnel.html en pl
+EXTRA_DIST = stunnel.pod stunnel.pl.pod stunnel.8 stunnel.pl.8 	stunnel.html stunnel.pl.html en pl
 
-man_MANS = stunnel.8
+
+man_MANS = stunnel.8 stunnel.pl.8
 
 docdir = $(datadir)/doc/stunnel
-doc_DATA = stunnel.html
+doc_DATA = stunnel.html stunnel.pl.html
+
+SUFFIXES = .pod .8 .html
 mkinstalldirs = $(SHELL) $(top_srcdir)/auto/mkinstalldirs
 CONFIG_CLEAN_FILES = 
+CFLAGS = @CFLAGS@
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 man8dir = $(mandir)/man8
 MANS = $(man_MANS)
 
@@ -101,6 +109,7 @@ TAR = tar
 GZIP_ENV = --best
 all: all-redirect
 .SUFFIXES:
+.SUFFIXES: .8 .html .pod
 $(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.ac $(ACLOCAL_M4) 
 	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps doc/Makefile
 
@@ -249,12 +258,12 @@ mostlyclean-generic distclean-generic clean-generic \
 maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 
-stunnel.8: stunnel.pod
+.pod.8:
 	pod2man --section=8 --release=4.0 --center=stunnel --date=`date +%Y.%m.%d` \
-	stunnel.pod stunnel.8
+	$< $@
 
-stunnel.html: stunnel.pod
-	pod2html --infile=stunnel.pod --outfile=stunnel.html --title stunnel.8
+.pod.html:
+	pod2html --infile=$< --outfile=$@ --title stunnel.8
 	rm -f pod2htmd.x~~ pod2htmi.x~~
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

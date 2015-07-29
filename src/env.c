@@ -28,12 +28,13 @@
  *   do so, delete this exception statement from your version.
  */
 
-/* getpeername() can't be declarated in the following includes */
+/* getpeername() can't be declared in the following includes */
 #define getpeername no_getpeername
 #include <sys/types.h>
 #include <sys/socket.h> /* for AF_INET */
 #include <netinet/in.h>
-#include <stdlib.h>     /* for getenv */
+#include <arpa/inet.h>  /* for inet_addr() */
+#include <stdlib.h>     /* for getenv() */
 #undef getpeername
 
 int getpeername(int s, struct sockaddr_in *name, int *len) {

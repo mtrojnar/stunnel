@@ -84,6 +84,20 @@ Print default socket options
 <P>
 <HR>
 <H1><A NAME="configuration file">CONFIGURATION FILE</A></H1>
+<P>Each line of the configuration file can be either:</P>
+<UL>
+<LI>
+an empty line (ignored)
+<P></P>
+<LI>
+a comment starting with ``#'' (ignored)
+<P></P>
+<LI>
+an ``option_name = option_value'' pair
+<P></P>
+<LI>
+``[service_name]'' indicating a start of a service definition
+<P></P></UL>
 <P>
 <H2><A NAME="global options">GLOBAL OPTIONS</A></H2>
 <DL>
@@ -114,6 +128,9 @@ directory to chroot stunnel process
 <P><STRONG>chroot</STRONG> keeps stunnel in chrooted jail.  <EM>CApath</EM>, <EM>pid</EM> and <EM>exec</EM>
 are located inside the jail and the patches have to be relative to the
 directory specified with <STRONG>chroot</STRONG>.</P>
+<P>To have libwrap (TCP wrappers) control effective in a chrooted environment
+you also have to copy its configuration files (/etc/hosts.allow and
+/etc/hosts.deny) there.</P>
 <P></P>
 <DT><STRONG><A NAME="item_ciphers_%3D_cipherlist"><STRONG>ciphers</STRONG> = cipherlist</A></STRONG><BR>
 <DD>
@@ -189,7 +206,7 @@ number generator.</P>
 overwrite the random seed files with new random data
 <P>default: yes</P>
 <P></P>
-<DT><STRONG><A NAME="item_timeout_%3D_timeout"><STRONG>timeout</STRONG> = timeout</A></STRONG><BR>
+<DT><STRONG><A NAME="item_session_%3D_timeout"><STRONG>session</STRONG> = timeout</A></STRONG><BR>
 <DD>
 session cache timeout
 <P></P>
@@ -282,7 +299,9 @@ allocate pseudo terminal for 'exec' option
 transparent proxy mode
 <P>Re-write address to appear as if wrapped daemon is connecting
 from the SSL client machine instead of the machine running stunnel.
-Available only on some operating systems (Linux 2.2 only)
+This option is only available in local mode (<EM>exec</EM> option)
+by LD_PRELOADing env.so shared library or in remote mode (<EM>connect</EM>
+option) on Linux 2.2 kernel compiled with <EM>transparent proxy</EM> option
 and then only in server mode. Note that this option will not combine
 with proxy mode (<EM>connect</EM>) unless the client's default route to the target
 machine lies through the host running stunnel, which cannot be localhost.</P>
@@ -323,9 +342,7 @@ stunnel certificate and private key
 <P>
 <HR>
 <H1><A NAME="bugs">BUGS</A></H1>
-<P>Shared library to be LD_PRELOADed with <EM>transparent</EM> option is not too
-portable.  <EM>stunnel</EM> should support creating shared libraries on non-gcc
-compilers.</P>
+<P>Option <EM>execargs</EM> does not support quoting.</P>
 <P>
 <HR>
 <H1><A NAME="restrictions">RESTRICTIONS</A></H1>
@@ -340,13 +357,13 @@ There are available SSL enabled versions of FTP and telnet daemons, however.</P>
 <P>Each SSL enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
-generate them with the free <EM>openssl</EM> package. You can find more
+generate them with the free <EM>OpenSSL</EM> package. You can find more
 information on certificates generation on pages listed below.</P>
 <P>Two things are important when generating certificate-key pairs for
 <STRONG>stunnel</STRONG>. The private key cannot be encrypted, because the server
 has no way to obtain the password from the user. To produce an
 unencrypted key add the <EM>-nodes</EM> option when running the <STRONG>req</STRONG>
-command from the <EM>openssl</EM> kit.</P>
+command from the <EM>OpenSSL</EM> kit.</P>
 <P>The order of contents of the <EM>.pem</EM> file is also important.
 It should contain the unencrypted private key first, then a signed certificate
 (not certificate request).

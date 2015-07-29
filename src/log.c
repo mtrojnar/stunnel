@@ -31,13 +31,13 @@
 #include "common.h"
 #include "prototypes.h"
 
-FILE *outfile=NULL; /* Logging to file disabled by default */
+static FILE *outfile=NULL; /* Logging to file disabled by default */
 
-#ifdef USE_WIN32
+#if defined (USE_WIN32) || defined (__vms)
 
 /* HANDLE evt=NULL; */
 
-void log_open() { /* Win32 version */
+void log_open(void) { /* Win32 version */
 #if 0
     AllocConsole();
     /* reopen stdin handle as console window input */
@@ -51,14 +51,14 @@ void log_open() { /* Win32 version */
     if(options.output_file)
         outfile=fopen(options.output_file, "a");
     if(outfile)
-        return; /* It was possible o open a log file */
+        return; /* It was possible to open a log file */
     /* TODO: Register NT EventLog source here */
     /* evt=RegisterEventSource(NULL, "stunnel"); */
     if(options.output_file)
         log(LOG_ERR, "Unable to open output file: %s", options.output_file);
 }
 
-void log_close() {
+void log_close(void) {
     if(outfile)
         fclose(outfile);
 #if 0
@@ -67,13 +67,20 @@ void log_close() {
 #endif
 }
 
-#else /* USE_WIN32 */
+#else /* USE_WIN32, __vms */
 
-void log_open() { /* Unix version */
-    if(options.output_file)
-        outfile=fopen(options.output_file, "a");
-    if(outfile)
-        return; /* It was possible o open a log file */
+void log_open(void) { /* Unix version */
+    int fd;
+
+    if(options.output_file) { /* 'output' option specified */
+        fd=open(options.output_file, O_CREAT|O_WRONLY|O_APPEND, 0640);
+        if(fd>=0) { /* file opened or created */
+            fcntl(fd, F_SETFD, FD_CLOEXEC);
+            outfile=fdopen(fd, "a");
+            if(outfile)
+                return; /* no need to setup syslog */
+        }
+    }
     if(options.option.syslog) {
 #ifdef __ultrix__
         openlog("stunnel", LOG_PID);
@@ -85,7 +92,7 @@ void log_open() { /* Unix version */
         log(LOG_ERR, "Unable to open output file: %s", options.output_file);
 }
 
-void log_close() {
+void log_close(void) {
     if(outfile) {
         fclose(outfile);
         return;
@@ -94,9 +101,9 @@ void log_close() {
         closelog();
 }
 
-#endif /* USE_WIN32 */
+#endif /* USE_WIN32, __vms */
 
-void log(int level, char *format, ...) {
+void log(int level, const char *format, ...) {
     va_list arglist;
     char text[STRLEN], timestamped[STRLEN];
     FILE *out;
@@ -115,12 +122,12 @@ void log(int level, char *format, ...) {
     vsprintf(text, format, arglist);
 #endif
     va_end(arglist);
-#ifndef USE_WIN32
+#if !defined (USE_WIN32) && !defined (__vms)
     if(!outfile && options.option.syslog) {
         syslog(level, "%s", text);
         return;
     }
-#endif
+#endif /* USE_WIN32, __vms */
     out=outfile?outfile:stderr;
     time(&gmt);
 #ifdef HAVE_LOCALTIME_R
@@ -128,7 +135,11 @@ void log(int level, char *format, ...) {
 #else
     timeptr=localtime(&gmt);
 #endif
+#ifdef HAVE_SNPRINTF
+    snprintf(timestamped, STRLEN,
+#else
     sprintf(timestamped,
+#endif
         "%04d.%02d.%02d %02d:%02d:%02d LOG%d[%lu:%lu]: %s",
         timeptr->tm_year+1900, timeptr->tm_mon+1, timeptr->tm_mday,
         timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec,
@@ -143,7 +154,7 @@ void log(int level, char *format, ...) {
     }
 }
 
-void log_raw(char *format, ...) {
+void log_raw(const char *format, ...) {
     va_list arglist;
     char text[STRLEN];
     FILE *out;

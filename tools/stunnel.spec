@@ -1,11 +1,11 @@
 Summary: Program that wraps normal socket connections with SSL/TLS
 Name: stunnel
-Version: 3.9
+Version: 3.22
 Release: 1
 Copyright: GPL
 Group: Applications/Networking
-Source: stunnel-%{version}.tgz
-Requires: openssl >= 0.9.3a
+Source: stunnel-%{version}.tar.gz
+Requires: openssl >= 0.9.6g
 Buildroot: /var/tmp/stunnel-root
 
 %description
@@ -29,7 +29,6 @@ if [ ! -x ./configure ]; then
     autoheader
 fi
 
-# !!! important settings !!!
 CFLAGS="${RPM_OPT_FLAGS}" ./configure
 
 make
@@ -56,11 +55,11 @@ ldconfig
 
 %files
 %defattr(-,root,root)
-%doc FAQ stunnel.html transproxy.txt
+%doc FAQ stunnel.html doc/english/transproxy.txt doc/english/VNC_StunnelHOWTO.html
 %doc ca.html ca.pl importCA.html importCA.sh stunnel.cnf
 /usr/sbin/stunnel
 /usr/lib/stunnel.so
-/usr/man/man8/stunnel.8
+/usr/man/man8/stunnel.8.gz
 
 %changelog
 * Sun Jun 24 2000 Brian Hatch <bri@stunnel.org>

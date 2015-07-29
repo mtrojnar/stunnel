@@ -37,20 +37,7 @@
 #include <err.h>
 #endif
 
-typedef enum {
-    STATE_NONE,         /* Not used */
-    STATE_ACCEPT,       /* On accept() */
-    STATE_CONNECT,      /* On connect() */
-    STATE_NEGOTIATE,    /* On negotiate() */
-    STATE_SSL_INIT,     /* On SSL_accept() or SSL_connect() */
-    STATE_SSL_SHUTDOWN, /* On SSL_shutdown() */
-    STATE_SSL,          /* On SSL_read or SSL_write */
-    STATE_PLAIN,        /* On readsocket() or writesocket() */
-    STATE_USER          /* On auth_user */
-} STATE;
-
 typedef struct {
-    STATE state;
     int fd; /* File descriptor */
     int rd; /* Open for read */
     int wr; /* Open for write */
@@ -59,7 +46,6 @@ typedef struct {
 
 typedef struct {
     LOCAL_OPTIONS *opt;
-    int error; /* Reset connections */
     struct sockaddr_in addr; /* Local address */
     FD local_rfd, local_wfd; /* Read and write local descriptors */
     FD remote_fd; /* Remote descriptor */
@@ -88,8 +74,19 @@ extern int max_fds;
 #define ssl_wr (c->ssl_wfd->wr)
 
 /* descriptor versions of fprintf/fscanf */
-int fdprintf(CLI *, int, char *, ...);
-int fdscanf(CLI *, int, char *, char *);
+int fdprintf(CLI *, int, const char *, ...)
+#ifdef __GNUC__
+       __attribute__ ((format (printf, 3, 4)));
+#else
+       ;
+#endif
+		      
+int fdscanf(CLI *, int, const char *, char *)
+#ifdef __GNUC__
+       __attribute__ ((format (scanf, 3, 0)));
+#else
+       ;
+#endif
 
 /* Prototype for protocol.c */
 int negotiate(CLI *c);

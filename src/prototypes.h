@@ -25,30 +25,47 @@
 
 /* Prototypes for stunnel.c */
 
-void main_config(char *);
-void main_initialize();
-void main_execute();
+void main_initialize(char *);
+void main_execute(void);
 void ioerror(char *);
 void sockerror(char *);
 void log_error(int, int, char *);
+void log_error_addr(int, int, struct sockaddr_in *, char *);
 int set_socket_options(int, int);
+#ifndef USE_WIN32
 void local_handler(int);
-char *stunnel_info();
+#endif
+char *stunnel_info(void);
 int alloc_fd(int);
+void setnonblock(int, unsigned long);
 
 /* Prototypes for ssl.c */
 
-void context_init();
-void context_free();
+void context_init(void);
+void context_free(void);
 void sslerror(char *);
 
 /* Prototypes for log.c */
 
-void log_open();
-void log_close();
-void log(int, char *, ...);
-void log_raw(char *, ...);
-
+void log_open(void);
+void log_close(void);
+#if defined (USE_WIN32) || defined (__vms)
+/* This conflicts with the "double log (double __x)" routine from math.h */
+#define log stunnel_log
+#endif
+void log(int, const char *, ...)
+#ifdef __GNUC__
+    __attribute__ ((format (printf, 2, 3)));
+#else
+    ;
+#endif
+void log_raw(const char *, ...)
+#ifdef __GNUC__
+    __attribute__ ((format (printf, 1, 2)));
+#else
+    ;
+#endif
+    
 /* Prototypes for sthreads.c */
 
 typedef enum {
@@ -95,6 +112,12 @@ typedef struct {
     char *setgid_group;
 #endif
 
+        /* Win32 specific data for gui.c */
+#ifdef USE_WIN32
+    char *win32_service;
+    char *win32_name;
+#endif
+
         /* logging-support data for log.c */
     int debug_level;                               /* debug level for syslog */
 #ifndef USE_WIN32
@@ -104,12 +127,11 @@ typedef struct {
 
         /* on/off switches */
     struct {
-        int cert:1;
-        int client:1;
-        int daemon:1;
-        int foreground:1;
-        int syslog:1;                                       /* log to syslog */
-        int rand_write;                               /* overwrite rand_file */
+        unsigned int cert:1;
+        unsigned int client:1;
+        unsigned int foreground:1;
+        unsigned int syslog:1;                              /* log to syslog */
+        unsigned int rand_write;                      /* overwrite rand_file */
     } option;
 } GLOBAL_OPTIONS;
 
@@ -138,12 +160,13 @@ typedef struct local_options {
 
         /* on/off switches */
     struct {
-        int delayed_lookup:1;
-        int remote:1;
+        unsigned int delayed_lookup:1;
+        unsigned int accept:1;
+        unsigned int remote:1;
 #ifndef USE_WIN32
-        int program:1;
-        int pty:1;
-        int transparent:1;
+        unsigned int program:1;
+        unsigned int pty:1;
+        unsigned int transparent:1;
 #endif
     } option;
 } LOCAL_OPTIONS;
@@ -178,8 +201,10 @@ void *alloc_client_session(LOCAL_OPTIONS *, int, int);
 void *client(void *);
 
 /* Prototypes for gui.c */
+#ifdef USE_WIN32
 void win_log(char *);
 void exit_stunnel(int);
+#endif
 
 #endif /* defined PROTOTYPES_H */
 

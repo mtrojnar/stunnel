@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT(stunnel, 4.00)
+AC_INIT(stunnel, 4.01)
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.00)
+AM_INIT_AUTOMAKE(stunnel, 4.01)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -10,6 +10,7 @@ AC_PROG_CC
 if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
 checkssldir() { :
@@ -194,7 +195,7 @@ AC_CHECK_SIZEOF(unsigned long)
 
 LIBS="$LIBS $wrap_LIB"
 
-CPPFLAGS="-DLIBDIR=\\\"$libdir\\\" -DCONFDIR=\\\"$sysconfdir/stunnel\\\" -DPIDFILE=\\\"$localstatedir/run/stunnel.pid\\\""
+CPPFLAGS="$CPPFLAGS -DLIBDIR=\\\"$libdir\\\" -DCONFDIR=\\\"$sysconfdir/stunnel\\\" -DPIDFILE=\\\"$localstatedir/run/stunnel.pid\\\""
 
 AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init])
 AC_OUTPUT
