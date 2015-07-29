@@ -257,11 +257,11 @@ INCLUDES = -I/usr/kerberos/include
 AM_CPPFLAGS = -DLIBDIR='"$(pkglibdir)"' -DCONFDIR='"$(sysconfdir)/stunnel"' -DPIDFILE='"$(localstatedir)/run/stunnel/stunnel.pid"'
 
 # Win32 executable
-EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak makew32.bat version.rc nogui.c os2.mak
+EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak makew32.bat nogui.c os2.mak
 stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_sources)
-OPENSSLDIR = /usr/src/openssl-1.0.0d
+OPENSSLDIR = /usr/src/openssl-1.0.0d-i586
 WINCFLAGS = -mthreads -O2 -Wall -Wextra -pedantic -Wno-long-long -I$(OPENSSLDIR)/include -DUSE_WIN32=1
-WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lws2_32 -lgdi32 -mwindows
+WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lpsapi -lws2_32 -lgdi32 -mwindows
 
 # OPENSSLDIR=/usr/src/openssl-0.9.7m-fips
 # WINCFLAGS=-mthreads -O2 -Wall -Wextra -pedantic -Wno-long-long -I$(OPENSSLDIR)/include -DUSE_WIN32=1

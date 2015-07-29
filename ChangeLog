@@ -1,6 +1,21 @@
 stunnel change log
 
 
+Version 4.40, 2011.07.23, urgency: LOW:
+* New Win32 features
+  - Added a GUI menu to save cached peer certificate chains.
+  - Added "-exit" option to stop stunnel *not* running as a service.
+    This option may be useful for scripts.
+  - Added file version information to stunnel.exe.
+  - A number of other GUI improvements.
+* Other new features
+  - Hardcoded 2048-bit DH parameters are used as a fallback if DH parameters
+    are not provided in stunnel.pem.
+  - Default "ciphers" value updated to prefer ECDH:
+    "ALL:!SSLv2:!aNULL:!EXP:!LOW:-MEDIUM:RC4:+HIGH".
+  - Default ECDH curve updated to "prime256v1".
+  - Removed support for temporary RSA keys (used in obsolete export ciphers).
+
 Version 4.39, 2011.07.06, urgency: LOW:
 * New features
   - New Win32 installer module to build self-signed stunnel.pem.

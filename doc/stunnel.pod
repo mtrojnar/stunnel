@@ -13,7 +13,7 @@ B<stunnel> [<S<filename>>] | S<-fd n> | S<-help> | S<-version> | S<-sockets>
 
 =item B<WIN32:>
 
-B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop>]
+B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop>] | S<-exit>]
     [S<-quiet>] [<S<filename>>] ] | S<-help> | S<-version> | S<-sockets>
 
 =back
@@ -75,6 +75,10 @@ Start NT Service
 =item B<-stop> (NT/2000/XP only)
 
 Stop NT Service
+
+=item B<-exit> (Win32 only)
+
+Exit an already started stunnel
 
 =item B<-quiet> (NT/2000/XP only)
 
@@ -377,7 +381,11 @@ This file contains multiple CRLs, used with the I<verify>.
 
 specify ECDH curve name
 
-default: sect163r2
+To get a list of supported cuves use:
+
+    openssl ecparam -list_curves
+
+default: prime256v1
 
 =item B<delay> = yes | no
 

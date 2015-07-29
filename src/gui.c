@@ -39,10 +39,11 @@
 #include "prototypes.h"
 #include <commdlg.h>
 #include <commctrl.h>
+#include <psapi.h>
 #include "resources.h"
 
 #define UWM_SYSTRAY (WM_USER + 1) /* sent to us by the taskbar */
-#define LOG_LINES 250
+#define LOG_LINES 1000
 
 #ifdef _WIN32_WCE
 #define STUNNEL_PLATFORM "WinCE"
@@ -51,19 +52,19 @@
 #endif
 
 /* prototypes */
+static BOOL CALLBACK set_foreground(HWND, LPARAM);
 static void parse_cmdline(LPSTR);
-#ifndef _WIN32_WCE
-static int set_cwd(void);
-#endif
 static int initialize_winsock(void);
 static void daemon_thread(void *);
-static LRESULT CALLBACK wndProc(HWND, UINT, WPARAM, LPARAM);
-static int win_main(HINSTANCE, HINSTANCE, LPSTR, int);
-static void save_file(HWND);
+static LRESULT CALLBACK window_proc(HWND, UINT, WPARAM, LPARAM);
+static int start_gui();
+static void save_log(void);
+static int save_text_file(LPTSTR, char *);
 static LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
 static LRESULT CALLBACK pass_proc(HWND, UINT, WPARAM, LPARAM);
 static void update_logs(void);
 static LPTSTR log_txt(void);
+static void update_peer_list(void);
 static void error_box(const LPTSTR);
 
 /* NT Service related function */
@@ -83,16 +84,22 @@ static struct LIST {
   int len;
   TCHAR txt[1]; /* single character for trailing '\0' */
 } *head=NULL, *tail=NULL;
+
+static struct PEER_CERT_TABLE {
+    LPTSTR file, help;
+    char *chain;
+} *peer_cert_table;
+static unsigned int number_of_sections=0;
+
 static HINSTANCE ghInst;
-static HWND EditControl=NULL;
-static HMENU htraymenu=NULL;
+static HWND edit_handle=NULL;
+static HMENU tray_menu_handle=NULL;
 #ifndef _WIN32_WCE
-static HMENU hmainmenu=NULL;
+static HMENU main_menu_handle=NULL;
 #endif
-static HMENU hpopup=NULL;
 static HWND hwnd=NULL;
 #ifdef _WIN32_WCE
-static HWND hwndCB; /* command bar handle */
+static HWND command_bar_handle; /* command bar handle */
 #endif
 static HANDLE small_icon; /* 16x16 icon */
 TCHAR *win32_name;
@@ -102,7 +109,8 @@ static SERVICE_STATUS serviceStatus;
 static SERVICE_STATUS_HANDLE serviceStatusHandle=0;
 #endif
 
-static int visible=0, error_mode=0;
+static volatile int visible=0, error_mode=0;
+static LONG new_logs=0;
 static jmp_buf jump_buf;
 
 static UI_DATA *ui_data=NULL;
@@ -115,10 +123,11 @@ GETNAMEINFO s_getnameinfo;
 
 static struct {
     char *config_file;
-    unsigned int install:1, uninstall:1, start:1, stop:1, service:1, quiet:1;
+    unsigned int install:1, uninstall:1, start:1, stop:1, service:1,
+        quiet:1, exit:1;
 } cmdline;
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
 #ifdef _WIN32_WCE
         LPWSTR lpCmdLine,
 #else
@@ -126,20 +135,39 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #endif
         int nCmdShow) {
     LPSTR command_line;
+#ifndef _WIN32_WCE
+    char *c, *errmsg;
+    char stunnel_exe_path[MAX_PATH];
+#endif
+
+    (void)prev_instance; /* skip warning about unused parameter */
+    (void)nCmdShow; /* skip warning about unused parameter */
 
     str_init(); /* initialize per-thread string management */
+    ghInst=this_instance;
 #ifdef _WIN32_WCE
     command_line=tstr2str(lpCmdLine);
 #else
     command_line=lpCmdLine;
 #endif
 
-    ghInst=hInstance;
-
     parse_cmdline(command_line); /* setup global cmdline structure */
 #ifndef _WIN32_WCE
-    if(set_cwd()) /* set current working directory */
+    GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
+    EnumWindows(set_foreground, (LPARAM)stunnel_exe_path);
+    c=strrchr(stunnel_exe_path, '\\'); /* last backslash */
+    if(c) /* found */
+        c[1]='\0'; /* truncate program name */
+    if(!SetCurrentDirectory(stunnel_exe_path)) {
+        errmsg=str_printf("Cannot set directory to %s", stunnel_exe_path);
+        MessageBox(hwnd, errmsg, TEXT("stunnel"), MB_ICONERROR);
+        str_free(errmsg);
         return 1;
+    }
+    if(c) /* found */
+        c[1]='\\'; /* restore the origianl value */
+    if(cmdline.exit)
+        return 0; /* in case EnumWindows didn't find a previous instance */
 #endif
 
     /* setup the initial window caption before reading the configuration file
@@ -170,10 +198,39 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #ifndef _WIN32_WCE
     if(cmdline.service)
         return service_initialize();
-    else
 #endif
-        return win_main(hInstance, hPrevInstance, command_line, nCmdShow);
+    return start_gui();
 }
+
+#ifndef _WIN32_WCE
+static BOOL CALLBACK set_foreground(HWND other_window_handle, LPARAM lParam) {
+    DWORD dwProcessId;
+    HINSTANCE hInstance;
+    char window_exe_path[MAX_PATH];
+    HANDLE hProcess;
+    char *stunnel_exe_path=(char *)lParam;
+
+    if(!other_window_handle)
+        return TRUE;
+    hInstance=(HINSTANCE)GetWindowLong(other_window_handle, GWL_HINSTANCE);
+    GetWindowThreadProcessId(other_window_handle, &dwProcessId);
+    hProcess=OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwProcessId);
+    if(!GetModuleFileNameEx(hProcess, hInstance, window_exe_path, MAX_PATH))
+        return TRUE;
+    CloseHandle(hProcess);
+    if(strcmp(stunnel_exe_path, window_exe_path))
+        return TRUE;
+    if(cmdline.exit) {
+        SendMessage(other_window_handle, WM_COMMAND, IDM_EXIT, 0);
+        Sleep(1000); /* give the other process some time to clean up */
+    } else {
+        ShowWindow(other_window_handle, SW_SHOWNORMAL); /* show window */
+        SetForegroundWindow(other_window_handle); /* bring on top */
+    }
+    exit(0);
+    return FALSE; /* should never be executed */
+}
+#endif
 
 static void parse_cmdline(LPSTR command_line) {
     char *line, *c, *opt;
@@ -200,6 +257,8 @@ static void parse_cmdline(LPSTR command_line) {
             cmdline.service=1;
         else if(!strcasecmp(opt+1, "quiet"))
             cmdline.quiet=1;
+        else if(!strcasecmp(opt+1, "exit"))
+            cmdline.exit=1;
         else { /* option to be processed in options.c */
             cmdline.config_file=str_dup(opt);
             str_free(line);
@@ -209,24 +268,6 @@ static void parse_cmdline(LPSTR command_line) {
     cmdline.config_file=str_dup(c);
     str_free(line);
 }
-
-#ifndef _WIN32_WCE
-static int set_cwd(void) {
-    char *c, *errmsg, exe_file_name[MAX_PATH];
-
-    GetModuleFileName(0, exe_file_name, MAX_PATH);
-    c=strrchr(exe_file_name, '\\'); /* last backslash */
-    if(c) /* found */
-        c[1]='\0'; /* truncate program name */
-    if(!SetCurrentDirectory(exe_file_name)) {
-        errmsg=str_printf("Cannot set directory to %s", exe_file_name);
-        MessageBox(hwnd, errmsg, TEXT("stunnel"), MB_ICONERROR);
-        str_free(errmsg);
-        return 1;
-    }
-    return 0;
-}
-#endif
 
 /* try to load winsock2 resolver functions from a specified dll name */
 static int initialize_winsock() {
@@ -266,8 +307,7 @@ static int initialize_winsock() {
     return 0; /* IPv4 detected -> OK */
 }
 
-static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-        LPSTR command_line, int nCmdShow) {
+static int start_gui() {
 #ifdef _WIN32_WCE
     WNDCLASS wc;
 #else
@@ -276,24 +316,20 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     MSG msg;
     LPTSTR classname=TEXT("stunnel_main_window_class");
 
-    (void)hPrevInstance; /* skip warning about unused parameter */
-    (void)command_line; /* skip warning about unused parameter */
-    (void)nCmdShow; /* skip warning about unused parameter */
-
     /* register the class */
 #ifndef _WIN32_WCE
     wc.cbSize=sizeof wc;
 #endif
     wc.style=CS_VREDRAW|CS_HREDRAW;
-    wc.lpfnWndProc=wndProc;
+    wc.lpfnWndProc=window_proc;
     wc.cbClsExtra=wc.cbWndExtra=0;
-    wc.hInstance=hInstance;
-    wc.hIcon=LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MYICON));
+    wc.hInstance=ghInst;
+    wc.hIcon=LoadIcon(ghInst, MAKEINTRESOURCE(IDI_MYICON));
     wc.hCursor=LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground=(HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszMenuName=NULL;
     wc.lpszClassName=classname;
-    small_icon=LoadImage(hInstance, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON,
+    small_icon=LoadImage(ghInst, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON,
         GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
 #ifdef _WIN32_WCE
     RegisterClass(&wc);
@@ -306,22 +342,24 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #ifdef _WIN32_WCE
     hwnd=CreateWindow(classname, win32_name, 0,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-        NULL, NULL, hInstance, NULL);
-    EnableMenuItem(hmainmenu, IDM_EDIT_CONFIG, MF_GRAYED);
-    EnableMenuItem(hpopup, IDM_EDIT_CONFIG, MF_GRAYED);
+        NULL, NULL, ghInst, NULL);
 #else
-    hmainmenu=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_MAINMENU));
+    main_menu_handle=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_MAINMENU));
     hwnd=CreateWindow(classname, win32_name, WS_TILEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-        NULL, hmainmenu, hInstance, NULL);
+        NULL, main_menu_handle, ghInst, NULL);
 
     if(cmdline.service) { /* block unsafe operations in the service mode */
-        EnableMenuItem(hmainmenu, IDM_EDIT_CONFIG, MF_GRAYED);
-        EnableMenuItem(hpopup, IDM_EDIT_CONFIG, MF_GRAYED);
-        EnableMenuItem(hmainmenu, IDM_SAVE_LOG, MF_GRAYED);
+        if(main_menu_handle) {
+            EnableMenuItem(main_menu_handle, IDM_EDIT_CONFIG, MF_GRAYED);
+            EnableMenuItem(main_menu_handle, IDM_SAVE_LOG, MF_GRAYED);
+        }
+        if(tray_menu_handle) {
+            EnableMenuItem(tray_menu_handle, IDM_EDIT_CONFIG, MF_GRAYED);
+        }
     }
 #endif
-
+    /* the GUI is fully initialized, so it's safe to update it with config */
     win_newconfig(error_mode);
 
     _beginthread(daemon_thread, DEFAULT_STACK_SIZE, NULL);
@@ -366,7 +404,8 @@ static void daemon_thread(void *arg) {
     _endthread(); /* after signal_post(SIGNAL_TERMINATE); */
 }
 
-static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+static LRESULT CALLBACK window_proc(HWND main_window_handle,
+        UINT message, WPARAM wParam, LPARAM lParam) {
     NOTIFYICONDATA nid;
     POINT pt;
     RECT rect;
@@ -379,108 +418,128 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
     case WM_CREATE:
 #ifdef _WIN32_WCE
         /* create command bar */
-        hwndCB=CommandBar_Create(ghInst, hwnd, 1);
-        if(!hwndCB)
+        command_bar_handle=CommandBar_Create(ghInst, main_window_handle, 1);
+        if(!command_bar_handle)
             error_box(TEXT("CommandBar_Create"));
-        if(!CommandBar_InsertMenubar(hwndCB, ghInst, IDM_MAINMENU, 0))
+        if(!CommandBar_InsertMenubar(command_bar_handle, ghInst, IDM_MAINMENU, 0))
             error_box(TEXT("CommandBar_InsertMenubar"));
-        if(!CommandBar_AddAdornments(hwndCB, 0, 0))
+        if(!CommandBar_AddAdornments(command_bar_handle, 0, 0))
             error_box(TEXT("CommandBar_AddAdornments"));
 #endif
 
         /* create child edit window */
-        EditControl=CreateWindow(TEXT("EDIT"), NULL,
+        edit_handle=CreateWindow(TEXT("EDIT"), NULL,
             WS_CHILD|WS_VISIBLE|WS_HSCROLL|WS_VSCROLL|ES_MULTILINE|ES_READONLY,
-            0, 0, 0, 0, hwnd, (HMENU)IDE_EDIT, ghInst, NULL);
+            0, 0, 0, 0, main_window_handle, (HMENU)IDE_EDIT, ghInst, NULL);
 #ifndef _WIN32_WCE
-        SendMessage(EditControl, WM_SETFONT,
-            (WPARAM)GetStockObject(OEM_FIXED_FONT),
-        MAKELPARAM(FALSE, 0)); /* no need to redraw right, now */
+        SendMessage(edit_handle, WM_SETFONT,
+            (WPARAM)CreateFont(-12, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE,
+                DEFAULT_CHARSET, OUT_RASTER_PRECIS, CLIP_DEFAULT_PRECIS,
+                PROOF_QUALITY, DEFAULT_PITCH, TEXT("Courier")),
+            MAKELPARAM(FALSE, 0)); /* no need to redraw right, now */
 #endif
         /* NOTE: there's no return statement here -> proceeding with resize */
 
     case WM_SIZE:
-        GetClientRect(hwnd, &rect);
+        GetClientRect(main_window_handle, &rect);
 #ifdef _WIN32_WCE
-        MoveWindow(EditControl, 0, CommandBar_Height(hwndCB),
-            rect.right, rect.bottom-CommandBar_Height(hwndCB), TRUE);
+        MoveWindow(edit_handle, 0, CommandBar_Height(command_bar_handle),
+            rect.right, rect.bottom-CommandBar_Height(command_bar_handle), TRUE);
 #else
-        MoveWindow(EditControl, 0, 0, rect.right, rect.bottom, TRUE);
+        MoveWindow(edit_handle, 0, 0, rect.right, rect.bottom, TRUE);
 #endif
-        UpdateWindow(EditControl);
-        /* CommandBar_Show(hwndCB, TRUE); */
+        UpdateWindow(edit_handle);
+        /* CommandBar_Show(command_bar_handle, TRUE); */
         return TRUE;
 
     case WM_SETFOCUS:
-        update_logs();
-        SetFocus(EditControl);
+        SetFocus(edit_handle);
         return TRUE;
 
     case WM_TIMER:
         update_taskbar();
+        if(visible)
+            update_logs();
         return TRUE;
 
     case WM_CLOSE:
-        ShowWindow(hwnd, SW_HIDE);
+        ShowWindow(main_window_handle, SW_HIDE);
         return TRUE;
 
     case WM_SHOWWINDOW:
         visible=wParam; /* setup global variable */
-        if(hpopup)
-            CheckMenuItem(hpopup, IDM_SHOW_LOG,
+        if(tray_menu_handle)
+            CheckMenuItem(tray_menu_handle, IDM_SHOW_LOG,
                 visible ? MF_CHECKED : MF_UNCHECKED);
         if(visible)
             update_logs();
-
         return TRUE;
 
     case WM_DESTROY:
 #ifdef _WIN32_WCE
-        CommandBar_Destroy(hwndCB);
+        CommandBar_Destroy(command_bar_handle);
 #else
-        if(hmainmenu)
-            DestroyMenu(hmainmenu);
+        if(main_menu_handle)
+            DestroyMenu(main_menu_handle);
 #endif
-        if(htraymenu)
-            DestroyMenu(htraymenu);
+        if(tray_menu_handle)
+            DestroyMenu(tray_menu_handle);
         ZeroMemory(&nid, sizeof nid);
         nid.cbSize=sizeof nid;
-        nid.hWnd=hwnd;
+        nid.hWnd=main_window_handle;
         nid.uID=1;
         nid.uFlags=NIF_TIP; /* not really sure what to put here, but it works */
         Shell_NotifyIcon(NIM_DELETE, &nid); /* this removes the icon */
         PostQuitMessage(0);
-        KillTimer(hwnd, 0x29a);
+        KillTimer(main_window_handle, 0x29a);
         return TRUE;
 
     case WM_COMMAND:
+        if(wParam>=IDM_PEER_MENU && wParam<IDM_PEER_MENU+number_of_sections) {
+            if(save_text_file(peer_cert_table[wParam-IDM_PEER_MENU].file,
+                    peer_cert_table[wParam-IDM_PEER_MENU].chain))
+                return TRUE;
+#ifndef _WIN32_WCE
+            if(main_menu_handle)
+                CheckMenuItem(main_menu_handle, wParam, MF_CHECKED);
+#endif
+            if(tray_menu_handle)
+                CheckMenuItem(tray_menu_handle, wParam, MF_CHECKED);
+            MessageBox(main_window_handle,
+                peer_cert_table[wParam-IDM_PEER_MENU].help,
+                win32_name, MB_ICONINFORMATION);
+            return TRUE;
+        }
         switch(wParam) {
         case IDM_ABOUT:
-            DialogBox(ghInst, TEXT("AboutBox"), hwnd, (DLGPROC)about_proc);
+            DialogBox(ghInst, TEXT("AboutBox"), main_window_handle,
+                (DLGPROC)about_proc);
             break;
         case IDM_SHOW_LOG:
             if(visible) {
-                ShowWindow(hwnd, SW_HIDE); /* hide window */
+                ShowWindow(main_window_handle, SW_HIDE); /* hide window */
             } else {
-                ShowWindow(hwnd, SW_SHOWNORMAL); /* show window */
-                SetForegroundWindow(hwnd); /* bring on top */
+                ShowWindow(main_window_handle, SW_SHOWNORMAL); /* show window */
+                SetForegroundWindow(main_window_handle); /* bring on top */
             }
             break;
         case IDM_CLOSE:
-            ShowWindow(hwnd, SW_HIDE); /* hide window */
+            ShowWindow(main_window_handle, SW_HIDE); /* hide window */
             break;
         case IDM_EXIT:
             signal_post(SIGNAL_TERMINATE);
-            DestroyWindow(hwnd);
+            DestroyWindow(main_window_handle);
             break;
         case IDM_SAVE_LOG:
             if(!cmdline.service) /* security */
-                save_file(hwnd);
+                save_log();
             break;
         case IDM_EDIT_CONFIG:
 #ifndef _WIN32_WCE
             if(!cmdline.service) /* security */
-                _spawnlp(_P_NOWAIT, "notepad.exe", "notepad.exe", "stunnel.conf", NULL);
+                /* ShellExecute would need ".conf" extension associated */
+                _spawnlp(_P_NOWAIT, "notepad.exe", "notepad.exe",
+                    "stunnel.conf", NULL);
 #endif
             break;
         case IDM_RELOAD_CONFIG:
@@ -488,6 +547,20 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
             break;
         case IDM_REOPEN_LOG:
             signal_post(SIGNAL_REOPEN_LOG);
+            break;
+        case IDM_MANPAGE:
+#ifndef _WIN32_WCE
+            if(!cmdline.service) /* security */
+                ShellExecute(main_window_handle, "open",
+                    "stunnel.html", NULL, NULL, SW_SHOWNORMAL);
+#endif
+            break;
+        case IDM_HOMEPAGE:
+#ifndef _WIN32_WCE
+            if(!cmdline.service) /* security */
+                ShellExecute(main_window_handle, "open",
+                    "http://www.stunnel.org/", NULL, NULL, SW_SHOWNORMAL);
+#endif
             break;
         }
         return TRUE;
@@ -503,27 +576,28 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
         case WM_RBUTTONDOWN:
             GetCursorPos(&pt);
 #endif
-            SetForegroundWindow(hwnd);
-            TrackPopupMenuEx(hpopup, TPM_BOTTOMALIGN, pt.x, pt.y, hwnd, NULL);
-            PostMessage(hwnd, WM_NULL, 0, 0);
+            SetForegroundWindow(main_window_handle);
+            TrackPopupMenuEx(GetSubMenu(tray_menu_handle, 0), TPM_BOTTOMALIGN,
+                pt.x, pt.y, main_window_handle, NULL);
+            PostMessage(main_window_handle, WM_NULL, 0, 0);
             break;
 #ifndef _WIN32_WCE
         case WM_LBUTTONDBLCLK: /* switch log window visibility */
             if(visible) {
-                ShowWindow(hwnd, SW_HIDE); /* hide window */
+                ShowWindow(main_window_handle, SW_HIDE); /* hide window */
             } else {
-                ShowWindow(hwnd, SW_SHOWNORMAL); /* show window */
-                SetForegroundWindow(hwnd); /* bring on top */
+                ShowWindow(main_window_handle, SW_SHOWNORMAL); /* show window */
+                SetForegroundWindow(main_window_handle); /* bring on top */
             }
             break;
 #endif
         }
         return TRUE;
     }
-    return DefWindowProc(hwnd, message, wParam, lParam);
+    return DefWindowProc(main_window_handle, message, wParam, lParam);
 }
 
-static LRESULT CALLBACK about_proc(HWND hDlg, UINT message,
+static LRESULT CALLBACK about_proc(HWND dialog_handle, UINT message,
         WPARAM wParam, LPARAM lParam) {
     (void)lParam; /* skip warning about unused parameter */
 
@@ -534,14 +608,14 @@ static LRESULT CALLBACK about_proc(HWND hDlg, UINT message,
             switch(wParam) {
                 case IDOK:
                 case IDCANCEL:
-                    EndDialog(hDlg, TRUE);
+                    EndDialog(dialog_handle, TRUE);
                     return TRUE;
             }
     }
     return FALSE;
 }
 
-static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
+static LRESULT CALLBACK pass_proc(HWND dialog_handle, UINT message,
         WPARAM wParam, LPARAM lParam) {
     char *titlebar;
     LPTSTR tstr;
@@ -555,26 +629,26 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
     switch(message) {
     case WM_INITDIALOG:
         /* set the default push button to "Cancel" */
-        SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDCANCEL, (LPARAM) 0);
+        SendMessage(dialog_handle, DM_SETDEFID, (WPARAM)IDCANCEL, (LPARAM)0);
 
-        titlebar=str_printf("Private key: %s", ui_data->opt->key);
+        titlebar=str_printf("Private key: %s", ui_data->section->key);
         tstr=str2tstr(titlebar);
         str_free(titlebar);
-        SetWindowText(hDlg, tstr);
+        SetWindowText(dialog_handle, tstr);
         str_free(tstr);
         return TRUE;
 
     case WM_COMMAND:
         /* set the default push button to "OK" when the user enters text */
         if(HIWORD(wParam)==EN_CHANGE && LOWORD(wParam)==IDE_PASSEDIT)
-            SendMessage(hDlg, DM_SETDEFID, (WPARAM)IDOK, (LPARAM)0);
+            SendMessage(dialog_handle, DM_SETDEFID, (WPARAM)IDOK, (LPARAM)0);
         switch(wParam) {
         case IDOK:
             /* get number of characters */
-            pass_len=(WORD)SendDlgItemMessage(hDlg,
+            pass_len=(WORD)SendDlgItemMessage(dialog_handle,
                 IDE_PASSEDIT, EM_LINELENGTH, (WPARAM)0, (LPARAM)0);
             if(!pass_len || pass_len>=PEM_BUFSIZE) {
-                EndDialog(hDlg, FALSE);
+                EndDialog(dialog_handle, FALSE);
                 return FALSE;
             }
 
@@ -582,7 +656,7 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
             pass_dialog.len=pass_len;
 
             /* get the characters */
-            SendDlgItemMessage(hDlg, IDE_PASSEDIT, EM_GETLINE,
+            SendDlgItemMessage(dialog_handle, IDE_PASSEDIT, EM_GETLINE,
                 (WPARAM)0 /* line 0 */, (LPARAM)pass_dialog.txt);
             pass_dialog.txt[pass_len]='\0'; /* null-terminate the string */
 
@@ -591,11 +665,11 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
             strcpy(ui_data->pass, pass_txt);
             str_free(pass_txt);
 
-            EndDialog(hDlg, TRUE);
+            EndDialog(dialog_handle, TRUE);
             return TRUE;
 
         case IDCANCEL:
-            EndDialog(hDlg, FALSE);
+            EndDialog(dialog_handle, FALSE);
             return TRUE;
         }
         return 0;
@@ -630,22 +704,19 @@ int pin_cb(UI *ui, UI_STRING *uis) {
 }
 #endif
 
-static void save_file(HWND hwnd) {
-    TCHAR szFileName[MAX_PATH];
+static void save_log() {
+    TCHAR file_name[MAX_PATH];
     OPENFILENAME ofn;
-    HANDLE hFile;
-    BOOL bResult;
     LPTSTR txt;
     LPSTR str;
-    DWORD nWritten;
 
     ZeroMemory(&ofn, sizeof ofn);
-    szFileName[0]='\0';
+    file_name[0]='\0';
 
     ofn.lStructSize=sizeof ofn;
     ofn.hwndOwner=hwnd;
     ofn.lpstrFilter=TEXT("Log Files (*.log)\0*.log\0All Files (*.*)\0*.*\0\0");
-    ofn.lpstrFile=szFileName;
+    ofn.lpstrFile=file_name;
     ofn.nMaxFile=MAX_PATH;
     ofn.lpstrDefExt=TEXT("LOG");
     ofn.lpstrInitialDir=TEXT(".");
@@ -656,29 +727,38 @@ static void save_file(HWND hwnd) {
     if(!GetSaveFileName(&ofn))
         return;
 
-    if((hFile=CreateFile(szFileName, GENERIC_WRITE,
-            0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
-            (HANDLE) NULL))==INVALID_HANDLE_VALUE) {
-        error_box(TEXT("CreateFile"));
-        return;
-    }
-
     txt=log_txt(); /* need to convert the result to plain ASCII */
     if(!txt) {
-        CloseHandle(hFile);
-        error_box(TEXT("Out of memory"));
+        s_log(LOG_CRIT, "Out of memory");
+        return;
     }
     str=tstr2str(txt);
     str_free(txt);
     if(!str) {
-        CloseHandle(hFile);
-        error_box(TEXT("Out of memory"));
+        s_log(LOG_CRIT, "Out of memory");
+        return;
     }
-    bResult=WriteFile(hFile, str, strlen(str), &nWritten, NULL);
+    save_text_file(file_name, str);
     str_free(str);
-    if(!bResult)
+}
+
+static int save_text_file(LPTSTR file_name, char *str) {
+    HANDLE file_handle;
+    DWORD ignore;
+
+    file_handle=CreateFile(file_name, GENERIC_WRITE, 0, NULL,
+        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if(file_handle==INVALID_HANDLE_VALUE) {
+        error_box(TEXT("CreateFile"));
+        return 1;
+    }
+    if(!WriteFile(file_handle, str, strlen(str), &ignore, NULL)) {
+        CloseHandle(file_handle);
         error_box(TEXT("WriteFile"));
-    CloseHandle(hFile);
+        return 1;
+    }
+    CloseHandle(file_handle);
+    return 0;
 }
 
 void win_log(LPSTR line) { /* also used in log.c */
@@ -690,7 +770,8 @@ void win_log(LPSTR line) { /* also used in log.c */
     txt=str2tstr(line);
     len=_tcslen(txt);
     /* this list is shared between threads */
-    curr=malloc(sizeof(struct LIST)+len*sizeof(TCHAR));
+    curr=str_alloc(sizeof(struct LIST)+len*sizeof(TCHAR));
+    str_detach(curr);
     curr->len=len;
     _tcscpy(curr->txt, txt);
     str_free(txt);
@@ -707,23 +788,25 @@ void win_log(LPSTR line) { /* also used in log.c */
         curr=head;
         head=head->next;
         /* this list is shared between threads */
-        free(curr);
+        str_free(curr);
         log_len--;
     }
     leave_critical_section(CRIT_WIN_LOG);
 
-    if(visible)
-        update_logs();
+    new_logs=1;
 }
 
 static void update_logs(void) {
     LPTSTR txt;
 
+    if(!InterlockedExchange(&new_logs, 0))
+        return;
     txt=log_txt();
-    if(txt) {
-        SetWindowText(EditControl, txt);
-        str_free(txt);
-    }
+    if(!txt)
+        return;
+    SetWindowText(edit_handle, txt);
+    str_free(txt);
+    SendMessage(edit_handle, WM_VSCROLL, (WPARAM)SB_BOTTOM, (LPARAM)0);
 }
 
 static LPTSTR log_txt(void) {
@@ -753,7 +836,7 @@ static LPTSTR log_txt(void) {
     return buff;
 }
 
-/* called from win_main() on first load, and from network.c on reload */
+/* called from start_gui() on first load, and from network.c on reload */
 void win_newconfig(int err) { /* 0 - successs, 1 - error */
     error_mode=err; /* only really used on reload */
     if(error_mode) {
@@ -777,19 +860,21 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
     }
 
     if(global_options.option.taskbar) { /* save menu resources */
-        if(!htraymenu)
-            htraymenu=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
-        if(!hpopup)
-            hpopup=GetSubMenu(htraymenu, 0);
+        if(!tray_menu_handle)
+            tray_menu_handle=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
         SetTimer(hwnd, 0x29a, 1000, NULL); /* 1-second timer */
         update_taskbar();
     }
-    if(hmainmenu)
-        EnableMenuItem(hmainmenu, IDM_REOPEN_LOG,
+    update_peer_list();
+#ifndef _WIN32_WCE
+    if(main_menu_handle)
+        EnableMenuItem(main_menu_handle, IDM_REOPEN_LOG,
             global_options.output_file ? MF_ENABLED : MF_GRAYED);
-    if(hpopup)
-        EnableMenuItem(hpopup, IDM_REOPEN_LOG,
+#endif
+    if(tray_menu_handle)
+        EnableMenuItem(tray_menu_handle, IDM_REOPEN_LOG,
             global_options.output_file ? MF_ENABLED : MF_GRAYED);
+
     if(error_mode) {
         win_log("");
         s_log(LOG_ERR, "Server is down");
@@ -798,6 +883,145 @@ void win_newconfig(int err) { /* 0 - successs, 1 - error */
             TEXT("Click OK to see the error log window."),
             win32_name, MB_ICONERROR);
     }
+}
+
+static void update_peer_list(void) {
+    SERVICE_OPTIONS *tmp_opt;
+    MENUITEMINFO mii;
+    HMENU main_peer_list=NULL, tray_peer_list=NULL;
+    char *str;
+    unsigned int section;
+
+#ifndef _WIN32_WCE
+    if(main_menu_handle)
+        main_peer_list=GetSubMenu(main_menu_handle, 2); /* 3rd submenu */
+#endif
+    if(tray_menu_handle)
+        tray_peer_list=GetSubMenu(GetSubMenu(tray_menu_handle, 0), 2);
+    if(!main_peer_list || !tray_peer_list) {
+        s_log(LOG_ERR, "Failed to get peer list menu");
+        return;
+    }
+    while(GetMenuItemCount(main_peer_list)) /* purge old menu */
+        DeleteMenu(main_peer_list, 0, MF_BYPOSITION); 
+    while(GetMenuItemCount(tray_peer_list)) /* purge old menu */
+        DeleteMenu(tray_peer_list, 0, MF_BYPOSITION); 
+    number_of_sections=0;
+    for(tmp_opt=service_options.next; tmp_opt; tmp_opt=tmp_opt->next)
+        ++number_of_sections;
+    peer_cert_table= /* str_realloc() not used due to different threads */
+        str_alloc(number_of_sections*sizeof(struct PEER_CERT_TABLE));
+    section=0;
+    for(tmp_opt=service_options.next; tmp_opt; tmp_opt=tmp_opt->next) {
+        str=str_printf("peer-%s.pem", tmp_opt->servname);
+        if(!str) {
+            s_log(LOG_CRIT, "Out of memory");
+            return;
+        }
+        peer_cert_table[section].file=str2tstr(str);
+        if(!peer_cert_table[section].file) {
+            s_log(LOG_CRIT, "Out of memory");
+            return;
+        }
+        str_free(str);
+        str_detach(peer_cert_table[section].file);
+
+        str=str_printf(
+            "Peer certificate chain has been saved.\n"
+            "Add the following lines to section [%s]:\n"
+            "\tCAfile = peer-%s.pem\n"
+            "\tverify = 3\n"
+            "to enable cryptographic authentication.\n"
+            "Then reload stunnel configuration file.",
+            tmp_opt->servname, tmp_opt->servname);
+        peer_cert_table[section].help=str2tstr(str);
+        str_free(str);
+        str_detach(peer_cert_table[section].help);
+
+        peer_cert_table[section].chain=NULL;
+
+        mii.cbSize=sizeof mii;
+        mii.fMask=MIIM_STRING|MIIM_DATA|MIIM_ID|MIIM_STATE;
+        mii.fType=MFT_STRING;
+        mii.dwTypeData=peer_cert_table[section].file;
+        mii.cch=_tcslen(mii.dwTypeData);
+        mii.wID=IDM_PEER_MENU+section;
+        mii.fState=MFS_GRAYED;
+        if(main_peer_list)
+            if(!InsertMenuItem(main_peer_list, section, TRUE, &mii)) {
+                ioerror("InsertMenuItem");
+                str_free(mii.dwTypeData);
+                return;
+            }
+        if(tray_peer_list)
+            if(!InsertMenuItem(tray_peer_list, section, TRUE, &mii)) {
+             ioerror("InsertMenuItem");
+                str_free(mii.dwTypeData);
+                return;
+            }
+        ++section;
+    }
+    DrawMenuBar(hwnd);
+}
+
+/* called from client.c when a new session is negotiated */
+void win_newcert(SSL *ssl, SERVICE_OPTIONS *opt) {
+    SERVICE_OPTIONS *tmp_opt;
+    unsigned int section=0;
+    BIO *bio;
+    int i, len;
+    X509 *peer=NULL;
+    STACK_OF(X509) *sk;
+
+    s_log(LOG_DEBUG, "A new certificate was received");
+    for(tmp_opt=service_options.next; tmp_opt; tmp_opt=tmp_opt->next) {
+        if(tmp_opt==opt)
+            break;
+        ++section;
+    }
+    if(peer_cert_table[section].chain)
+        return; /* a peer certificate was already cached */
+
+    bio=BIO_new(BIO_s_mem());
+    if(!bio)
+        return;
+
+    sk=SSL_get_peer_cert_chain(ssl);
+    for(i=0; sk && i<sk_X509_num(sk); i++) {
+        peer=sk_X509_value(sk, i);
+        PEM_write_bio_X509(bio, peer);
+    }
+    if(!sk || !opt->option.client) {
+        peer=SSL_get_peer_certificate(ssl);
+        if(peer) {
+            PEM_write_bio_X509(bio, peer);
+            X509_free(peer);
+        }
+    }
+
+    len=BIO_pending(bio);
+    peer_cert_table[section].chain=str_alloc(len+1);
+    if(!peer_cert_table[section].chain) {
+        BIO_free(bio);
+        return;
+    }
+    str_detach(peer_cert_table[section].chain);
+    len=BIO_read(bio, peer_cert_table[section].chain, len);
+    if(len<0) {
+        BIO_free(bio);
+        str_free(peer_cert_table[section].chain);
+        return;
+    }
+    peer_cert_table[section].chain[len]='\0';
+    BIO_free(bio);
+
+    s_log(LOG_DEBUG, "A new certificate was cached (%d bytes)", len);
+#ifndef _WIN32_WCE
+    if(main_menu_handle)
+        EnableMenuItem(main_menu_handle, IDM_PEER_MENU+section, MF_ENABLED);
+#endif
+    if(tray_menu_handle)
+        EnableMenuItem(tray_menu_handle, IDM_PEER_MENU+section, MF_ENABLED);
 }
 
 void win_exit(int exit_code) { /* used instead of exit() on Win32 */
@@ -846,15 +1070,15 @@ static int service_initialize(void) {
 
 static int service_install(LPSTR command_line) {
     SC_HANDLE scm, service;
-    char exe_file_name[MAX_PATH], *service_path;
+    char stunnel_exe_path[MAX_PATH], *service_path;
 
     scm=OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
     if(!scm) {
         error_box(TEXT("OpenSCManager"));
         return 1;
     }
-    GetModuleFileName(0, exe_file_name, MAX_PATH);
-    service_path=str_printf("\"%s\" -service %s", exe_file_name, command_line);
+    GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
+    service_path=str_printf("\"%s\" -service %s", stunnel_exe_path, command_line);
     service=CreateService(scm,
         global_options.win32_service,
         global_options.win32_service,
@@ -1050,7 +1274,7 @@ static void WINAPI service_main(DWORD argc, LPTSTR* argv) {
         serviceStatus.dwCurrentState=SERVICE_RUNNING;
         SetServiceStatus(serviceStatusHandle, &serviceStatus);
 
-        win_main(ghInst, NULL, "", 0);
+        start_gui();
 
         /* service was stopped */
         serviceStatus.dwCurrentState=SERVICE_STOP_PENDING;

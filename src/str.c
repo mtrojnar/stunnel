@@ -258,7 +258,9 @@ void *str_realloc(void *ptr, size_t size) {
     return tmp+1;
 }
 
-void str_free(void *ptr) {
+/* detach from thread automatic deallocation list */
+/* it has no effect if the allocation is already detached */
+void str_detach(void *ptr) {
     ALLOC_LIST *tmp;
 
     if(!ptr) /* do not attempt to free null pointers */
@@ -268,13 +270,26 @@ void str_free(void *ptr) {
         s_log(LOG_CRIT, "INTERNAL ERROR: str_free: Bad magic");
         die(1);
     }
-    tmp->magic=0xdefec8ed; /* to detect double free */
-    if(tmp->next)
-        tmp->next->prev=tmp->prev;
-    if(tmp->prev)
-        tmp->prev->next=tmp->next;
     if(get_alloc_head()==tmp)
         set_alloc_head(tmp->next);
+    if(tmp->next) {
+        tmp->next->prev=tmp->prev;
+        tmp->next=NULL;
+    }
+    if(tmp->prev) {
+        tmp->prev->next=tmp->next;
+        tmp->prev=NULL;
+    }
+}
+
+void str_free(void *ptr) {
+    ALLOC_LIST *tmp;
+
+    if(!ptr) /* do not attempt to free null pointers */
+        return;
+    str_detach(ptr);
+    tmp=(ALLOC_LIST *)ptr-1;
+    tmp->magic=0xdefec8ed; /* to detect double free */
     free(tmp);
 }
 

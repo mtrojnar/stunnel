@@ -15,7 +15,7 @@ B<stunnel> [<S<plik>>] | S<-fd n> | S<-help> | S<-version> | S<-sockets>
 
 =item B<WIN32:>
 
-B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop> ]
+B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop> ] | S<-exit>]
     [S<-quiet>] [<S<plik>>] ] | S<-help> | S<-version> | S<-sockets>
 
 =back
@@ -75,6 +75,10 @@ uruchom serwis NT
 =item B<-stop> (tylko NT/2000/XP)
 
 zatrzymaj serwis NT
+
+=item B<-exit> (tylko Win32)
+
+zatrzymaj uruchomiony program
 
 =item B<-quiet> (tylko NT/2000/XP)
 
@@ -393,7 +397,11 @@ przez opcjê I<verify>.
 
 krzywa dla ECDH
 
-domy¶lnie: sect163r2
+Listê dostêpnych krzywych mo¿na uzyskaæ poleceniem:
+
+    openssl ecparam -list_curves
+
+domy¶lnie: prime256v1
 
 =item B<delay> = yes | no
 

@@ -2,30 +2,43 @@
 #include "resources.h"
 #include "version.h"
 
-IDI_MYICON ICON "stunnel.ico"
-
-IDM_TRAYMENU MENU
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     STUNNEL_VERSION_FIELDS
+PRODUCTVERSION  STUNNEL_VERSION_FIELDS 
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS__WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
 BEGIN
-    POPUP "Ooops?"
+    BLOCK "StringFileInfo"
     BEGIN
-        MENUITEM "&About", IDM_ABOUT
-        MENUITEM SEPARATOR
-        MENUITEM "&Show log window", IDM_SHOW_LOG
-        MENUITEM "Reopen &log file", IDM_REOPEN_LOG
-        MENUITEM SEPARATOR
-        MENUITEM "&Edit stunnel.conf", IDM_EDIT_CONFIG
-        MENUITEM "&Reload stunnel.conf", IDM_RELOAD_CONFIG
-        MENUITEM SEPARATOR
-        MENUITEM "E&xit", IDM_EXIT
+        BLOCK "040904E4"
+        BEGIN
+            VALUE "CompanyName",      "Michal Trojnara"
+            VALUE "FileDescription",  "stunnel - multiplatform SSL tunneling proxy"
+            VALUE "FileVersion",      STUNNEL_VERSION
+            VALUE "InternalName",     "stunnel"
+            VALUE "LegalCopyright",   "© Michal Trojnara, GPLv2 with OpenSSL exception"
+            VALUE "OriginalFilename", "stunnel.exe"
+            VALUE "ProductName",      STUNNEL_PRODUCTNAME
+            VALUE "ProductVersion",   STUNNEL_VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1252
     END
 END
+
+IDI_MYICON ICON "stunnel.ico"
 
 IDM_MAINMENU MENU
 BEGIN
     POPUP "&File"
     BEGIN
         MENUITEM "&Save Log As", IDM_SAVE_LOG
-        MENUITEM "Reopen &log file", IDM_REOPEN_LOG
+        MENUITEM "Reopen &Log File", IDM_REOPEN_LOG
         MENUITEM SEPARATOR
         MENUITEM "&Close", IDM_CLOSE
     END
@@ -34,9 +47,39 @@ BEGIN
         MENUITEM "&Edit stunnel.conf", IDM_EDIT_CONFIG
         MENUITEM "&Reload stunnel.conf", IDM_RELOAD_CONFIG
     END
-    POPUP "&Help"
+    POPUP "&Save peer certificate"
+    BEGIN
+        MENUITEM "dummy", 0, GRAYED
+    END
+    POPUP "&Help", HELP
     BEGIN
         MENUITEM "&About", IDM_ABOUT
+        MENUITEM SEPARATOR
+        MENUITEM "&Manual", IDM_MANPAGE
+        MENUITEM "&Homepage", IDM_HOMEPAGE
+    END
+END
+
+IDM_TRAYMENU MENU
+BEGIN
+    POPUP "Ooops?"
+    BEGIN
+        MENUITEM "Show Log &Window", IDM_SHOW_LOG
+        MENUITEM SEPARATOR
+        POPUP "&Save peer certificate"
+        BEGIN
+            MENUITEM "dummy", 0, GRAYED
+        END
+        MENUITEM SEPARATOR
+        MENUITEM "&Edit stunnel.conf", IDM_EDIT_CONFIG
+        MENUITEM "&Reload stunnel.conf", IDM_RELOAD_CONFIG
+        MENUITEM "Reopen &Log File", IDM_REOPEN_LOG
+        MENUITEM SEPARATOR
+        MENUITEM "&Homepage", IDM_HOMEPAGE
+        MENUITEM "&Manual", IDM_MANPAGE
+        MENUITEM "&About", IDM_ABOUT
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit", IDM_EXIT
     END
 END
 

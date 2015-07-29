@@ -38,18 +38,6 @@
 #include "common.h"
 #include "prototypes.h"
 
-#ifndef OPENSSL_NO_RSA
-/* cache temporary keys up to 4096 bits */
-#define KEY_CACHE_LENGTH 4097
-/* cache temporary keys up to 1 hour */
-#define KEY_CACHE_TIME 3600
-static struct keytabstruct {
-    RSA *key;
-    time_t timeout;
-} key_table[KEY_CACHE_LENGTH];
-static BIGNUM *e_value;
-#endif /* OPENSSL_NO_RSA */
-
 /**************************************** prototypes */
 
 /* SNI */
@@ -57,20 +45,18 @@ static BIGNUM *e_value;
 static int servername_cb(SSL *, int *, void *);
 #endif
 
-/* RSA/DH initialization */
-#ifndef OPENSSL_NO_RSA
-static RSA *tmp_rsa_cb(SSL *, int, int);
-static RSA *make_temp_key(int);
-#endif /* OPENSSL_NO_RSA */
+/* DH/ECDH initialization */
 #ifndef OPENSSL_NO_DH
-static int init_dh(SSL_CTX *, SERVICE_OPTIONS *);
+static int init_dh(SERVICE_OPTIONS *);
+static DH *read_dh(char *);
+static DH *get_dh2048(void);
 #endif /* OPENSSL_NO_DH */
 #ifndef OPENSSL_NO_ECDH
-static int init_ecdh(SSL_CTX *, SERVICE_OPTIONS *);
+static int init_ecdh(SERVICE_OPTIONS *);
 #endif /* USE_ECDH */
 
 /* loading certificate */
-static int load_pem_cert(SERVICE_OPTIONS *);
+static int load_certificate(SERVICE_OPTIONS *);
 static int password_cb(char *, int, int, void *);
 
 /* session cache callbacks */
@@ -87,31 +73,13 @@ static void info_callback(const SSL *, int, int);
 static void print_stats(SSL_CTX *);
 
 static void sslerror_queue(void);
+static void sslerror_log(unsigned long, char *);
 
 /**************************************** initialize section->ctx */
 
 int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
-    struct stat st; /* buffer for stat */
-#ifndef OPENSSL_NO_RSA
-    int i;
-#endif /* OPENSSL_NO_RSA */
-
-    /* check if certificate exists */
-    if(!section->key) /* key file not specified */
-        section->key=section->cert;
-#ifdef HAVE_OSSL_ENGINE_H
-    if(!section->engine)
-#endif
-    if(section->key) {
-        if(stat(section->key, &st)) {
-            ioerror(section->key);
-            return 0;
-        }
-#if !defined(USE_WIN32) && !defined(USE_OS2)
-        if(st.st_mode & 7)
-            s_log(LOG_WARNING, "Wrong permissions on %s", section->key);
-#endif /* defined USE_WIN32 */
-    }
+    s_log(LOG_INFO, "Initializing SSL context for service %s",
+        section->servname);
 
     /* create SSL context */
     if(section->option.client)
@@ -119,50 +87,28 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     else /* server mode */
         section->ctx=SSL_CTX_new(section->server_method);
     SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
-    if(!section->option.client) { /* RSA/DH/ECDH server mode initialization */
+
+    /* initialize certificate verification */
+    if(load_certificate(section))
+        return 1; /* FAILED */
+    if(verify_init(section))
+        return 1; /* FAILED */
+
+    /* initialize DH/ECDH server mode */
+    if(!section->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
         SSL_CTX_set_tlsext_servername_arg(section->ctx, section);
         SSL_CTX_set_tlsext_servername_callback(section->ctx, servername_cb);
-#endif
-#ifndef OPENSSL_NO_RSA
-        for(i=0; i<KEY_CACHE_LENGTH; ++i) {
-            key_table[i].key=NULL;
-            key_table[i].timeout=0;
-        }
-        e_value=BN_new();
-        if(!e_value) {
-            sslerror("BN_new");
-            return 0;
-        }
-        if(!BN_set_word(e_value, RSA_F4)) {
-            sslerror("BN_set_word");
-            return 0;
-        }
-        SSL_CTX_set_tmp_rsa_callback(section->ctx, tmp_rsa_cb);
-#endif /* OPENSSL_NO_RSA */
+#endif /* OPENSSL_NO_TLSEXT */
 #ifndef OPENSSL_NO_DH
-        init_dh(section->ctx, section); /* ignore the result */
+        init_dh(section); /* ignore the result (errors are not critical) */
 #endif /* OPENSSL_NO_DH */
 #ifndef OPENSSL_NO_ECDH
-        init_ecdh(section->ctx, section); /* ignore the result */
+        init_ecdh(section); /* ignore the result (errors are not critical) */
 #endif /* OPENSSL_NO_ECDH */
     }
-    if(section->ssl_options) {
-        s_log(LOG_DEBUG, "Configuration SSL options: 0x%08lX",
-            section->ssl_options);
-        s_log(LOG_DEBUG, "SSL options set: 0x%08lX",
-            SSL_CTX_set_options(section->ctx, section->ssl_options));
-    }
-    if(section->cipher_list) {
-        if(!SSL_CTX_set_cipher_list(section->ctx, section->cipher_list)) {
-            sslerror("SSL_CTX_set_cipher_list");
-            return 0;
-        }
-    }
-    SSL_CTX_set_mode(section->ctx,
-        SSL_MODE_ENABLE_PARTIAL_WRITE|SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
-    /* session cache */
+    /* setup session cache */
     SSL_CTX_set_session_cache_mode(section->ctx, SSL_SESS_CACHE_BOTH);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
     if(section->option.sessiond) {
@@ -171,37 +117,41 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
         SSL_CTX_sess_set_remove_cb(section->ctx, sess_remove_cb);
     }
 
-    /* info callback */
+    /* set info callback */
     SSL_CTX_set_info_callback(section->ctx, info_callback);
 
-    /* initialize certificate verification */
-    if(!load_pem_cert(section))
-        return 0;
-    if(!verify_init(section))
-        return 0;
-
-    s_log(LOG_DEBUG, "SSL context initialized for service %s",
-        section->servname);
-    return 1; /* OK */
+    /* ciphers, options, mode */
+    if(section->cipher_list)
+        if(!SSL_CTX_set_cipher_list(section->ctx, section->cipher_list)) {
+            sslerror("SSL_CTX_set_cipher_list");
+            return 1; /* FAILED */
+        }
+    s_log(LOG_DEBUG, "SSL options set: 0x%08lX",
+        SSL_CTX_set_options(section->ctx, section->ssl_options));
+    SSL_CTX_set_mode(section->ctx,
+        SSL_MODE_ENABLE_PARTIAL_WRITE|SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+    s_log(LOG_INFO, "SSL context initialized");
+    return 0; /* OK */
 }
 
 /**************************************** SNI callback */
 
 #ifndef OPENSSL_NO_TLSEXT
+
 static int servername_cb(SSL *ssl, int *ad, void *arg) {
-    SERVICE_OPTIONS *opt=(SERVICE_OPTIONS *)arg;
+    SERVICE_OPTIONS *section=(SERVICE_OPTIONS *)arg;
     const char *servername=SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     SERVERNAME_LIST *list;
     CLI *c;
 
     /* leave the alert type at SSL_AD_UNRECOGNIZED_NAME */
     (void)ad; /* skip warning about unused parameter */
-    if(!opt->servername_list_head) /* no virtual services defined */
+    if(!section->servername_list_head) /* no virtual services defined */
         return SSL_TLSEXT_ERR_OK;
     if(!servername) /* no SNI extension received from the client */
         return SSL_TLSEXT_ERR_NOACK;
 
-    for(list=opt->servername_list_head; list; list=list->next)
+    for(list=section->servername_list_head; list; list=list->next)
         if(!strcasecmp(servername, list->servername)) {
             c=SSL_get_ex_data(ssl, cli_index);
             c->opt=list->opt;
@@ -221,106 +171,113 @@ static int servername_cb(SSL *ssl, int *ad, void *arg) {
  *  - SSL_TLSEXT_ERR_ALERT_WARNING
  *  - SSL_TLSEXT_ERR_ALERT_FATAL
  *  - SSL_TLSEXT_ERR_NOACK */
+
 #endif /* OPENSSL_NO_TLSEXT */
-
-/**************************************** temporary RSA keys generation */
-
-#ifndef OPENSSL_NO_RSA
-
-static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
-    RSA *rsa;
-    time_t now;
-    int idx, key_is_long;
-    static int long_keylen=0;
-
-    (void)s; /* skip warning about unused parameter */
-    (void)export; /* skip warning about unused parameter */
-    key_is_long=keylen>=KEY_CACHE_LENGTH;
-    idx=key_is_long ? 0 : keylen;
-    time(&now);
-    enter_critical_section(CRIT_KEYGEN);
-    if(key_table[idx].timeout<now || (key_is_long && keylen!=long_keylen)) {
-        rsa=key_table[idx].key;
-        key_table[idx].key=make_temp_key(keylen);
-        if(rsa)
-            RSA_free(rsa);
-        key_table[idx].timeout=now+KEY_CACHE_TIME;
-        if(key_is_long)
-            long_keylen=keylen;
-    }
-    rsa=key_table[idx].key;
-    leave_critical_section(CRIT_KEYGEN);
-    return rsa;
-}
-
-static RSA *make_temp_key(int keylen) {
-    RSA *rsa;
-
-    s_log(LOG_DEBUG, "Generating %d bit temporary RSA key...", keylen);
-    rsa=RSA_new();
-    if(!rsa) {
-        sslerror("RSA_new");
-        return NULL;
-    }
-    if(RSA_generate_key_ex(rsa, keylen, e_value, NULL)) {
-        sslerror("RSA_generate_key_ex");
-        return NULL;
-    }
-    s_log(LOG_DEBUG, "Temporary RSA key created");
-    return rsa;
-}
-
-#endif /* OPENSSL_NO_RSA */
 
 /**************************************** DH initialization */
 
 #ifndef OPENSSL_NO_DH
-static int init_dh(SSL_CTX *ctx, SERVICE_OPTIONS *section) {
+
+static int init_dh(SERVICE_OPTIONS *section) {
+    DH *dh;
+
+    dh=read_dh(section->cert);
+    if(!dh)
+        dh=get_dh2048();
+    if(!dh) {
+        s_log(LOG_NOTICE, "DH initialization failed");
+        return 1; /* FAILED */
+    }
+    SSL_CTX_set_tmp_dh(section->ctx, dh);
+    s_log(LOG_DEBUG, "DH initialized with %d-bit key", 8*DH_size(dh));
+    DH_free(dh);
+    return 0; /* OK */
+}
+
+static DH *read_dh(char *cert) {
     DH *dh;
     BIO *bio;
 
-    if(!section->cert) {
-        s_log(LOG_INFO, "No certificate available to load DH parameters");
-        return 0; /* FAILED */
+    if(!cert) {
+        s_log(LOG_DEBUG, "No certificate available to load DH parameters");
+        return NULL; /* FAILED */
     }
-    bio=BIO_new_file(section->cert, "r");
+    bio=BIO_new_file(cert, "r");
     if(!bio) {
         sslerror("BIO_new_file");
-        return 0; /* FAILED */
+        return NULL; /* FAILED */
     }
     dh=PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
     BIO_free(bio);
     if(!dh) {
         while(ERR_get_error())
             ; /* OpenSSL error queue cleanup */
-        s_log(LOG_INFO, "Could not load DH parameters from %s",
-            section->cert);
-        return 0; /* FAILED */
+        s_log(LOG_DEBUG, "Could not load DH parameters from %s", cert);
+        return NULL; /* FAILED */
     }
-    s_log(LOG_DEBUG, "Using DH parameters from %s", section->cert);
-    SSL_CTX_set_tmp_dh(ctx, dh);
-    s_log(LOG_INFO, "DH initialized with %d bit key", 8*DH_size(dh));
-    DH_free(dh);
-    return 1; /* OK */
+    s_log(LOG_DEBUG, "Using DH parameters from %s", cert);
+    return dh;
 }
+
+static DH *get_dh2048() {
+    static unsigned char dh2048_p[]={ /* OpenSSL DH parameters */
+        0xED,0x92,0x89,0x35,0x82,0x45,0x55,0xCB,0x3B,0xFB,0xA2,0x76,
+        0x5A,0x69,0x04,0x61,0xBF,0x21,0xF3,0xAB,0x53,0xD2,0xCD,0x21,
+        0xDA,0xFF,0x78,0x19,0x11,0x52,0xF1,0x0E,0xC1,0xE2,0x55,0xBD,
+        0x68,0x6F,0x68,0x00,0x53,0xB9,0x22,0x6A,0x2F,0xE4,0x9A,0x34,
+        0x1F,0x65,0xCC,0x59,0x32,0x8A,0xBD,0xB1,0xDB,0x49,0xED,0xDF,
+        0xA7,0x12,0x66,0xC3,0xFD,0x21,0x04,0x70,0x18,0xF0,0x7F,0xD6,
+        0xF7,0x58,0x51,0x19,0x72,0x82,0x7B,0x22,0xA9,0x34,0x18,0x1D,
+        0x2F,0xCB,0x21,0xCF,0x6D,0x92,0xAE,0x43,0xB6,0xA8,0x29,0xC7,
+        0x27,0xA3,0xCB,0x00,0xC5,0xF2,0xE5,0xFB,0x0A,0xA4,0x59,0x85,
+        0xA2,0xBD,0xAD,0x45,0xF0,0xB3,0xAD,0xF9,0xE0,0x81,0x35,0xEE,
+        0xD9,0x83,0xB3,0xCC,0xAE,0xEA,0xEB,0x66,0xE6,0xA9,0x57,0x66,
+        0xB9,0xF1,0x28,0xA5,0x3F,0x22,0x80,0xD7,0x0B,0xA6,0xF6,0x71,
+        0x93,0x9B,0x81,0x0E,0xF8,0x5A,0x90,0xE6,0xCC,0xCA,0x6F,0x66,
+        0x5F,0x7A,0xC0,0x10,0x1A,0x1E,0xF0,0xFC,0x2D,0xB6,0x08,0x0C,
+        0x62,0x28,0xB0,0xEC,0xDB,0x89,0x28,0xEE,0x0C,0xA8,0x3D,0x65,
+        0x94,0x69,0x16,0x69,0x53,0x3C,0x53,0x60,0x13,0xB0,0x2B,0xA7,
+        0xD4,0x82,0x87,0xAD,0x1C,0x72,0x9E,0x41,0x35,0xFC,0xC2,0x7C,
+        0xE9,0x51,0xDE,0x61,0x85,0xFC,0x19,0x9B,0x76,0x60,0x0F,0x33,
+        0xF8,0x6B,0xB3,0xCA,0x52,0x0E,0x29,0xC3,0x07,0xE8,0x90,0x16,
+        0xCC,0xCC,0x00,0x19,0xB6,0xAD,0xC3,0xA4,0x30,0x8B,0x33,0xA1,
+        0xAF,0xD8,0x8C,0x8D,0x9D,0x01,0xDB,0xA4,0xC4,0xDD,0x7F,0x0B,
+        0xBD,0x6F,0x38,0xC3,};
+    static unsigned char dh2048_g[]={0x02,};
+    DH *dh;
+
+    dh=DH_new();
+    if(!dh)
+        return NULL;
+    dh->p=BN_bin2bn(dh2048_p, sizeof dh2048_p, NULL);
+    dh->g=BN_bin2bn(dh2048_g, sizeof dh2048_g, NULL);
+    if(!dh->p || !dh->g) {
+        DH_free(dh);
+        return NULL;
+    }
+    s_log(LOG_DEBUG, "Using hardcoded DH parameters");
+    return dh;
+}
+
 #endif /* OPENSSL_NO_DH */
 
 /**************************************** ECDH initialization */
 
 #ifndef OPENSSL_NO_ECDH
-static int init_ecdh(SSL_CTX *ctx, SERVICE_OPTIONS *section) {
+static int init_ecdh(SERVICE_OPTIONS *section) {
     EC_KEY *ecdh;
 
     ecdh=EC_KEY_new_by_curve_name(section->curve);
     if(!ecdh) {
-        s_log(LOG_ERR, "Unable to create curve for NID=%d", section->curve);
-        return 0; /* FAILED */
+        s_log(LOG_ERR, "Unable to create curve %s",
+            OBJ_nid2ln(section->curve));
+        return 1; /* FAILED */
     }
-    SSL_CTX_set_tmp_ecdh(ctx, ecdh);
-    SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
+    SSL_CTX_set_tmp_ecdh(section->ctx, ecdh);
     EC_KEY_free(ecdh);
-    s_log(LOG_DEBUG, "ECDH initialized");
-    return 1; /* OK */
+    s_log(LOG_DEBUG, "ECDH initialized with curve %s",
+        OBJ_nid2ln(section->curve));
+    return 0; /* OK */
 }
 #endif /* OPENSSL_NO_ECDH */
 
@@ -328,29 +285,48 @@ static int init_ecdh(SSL_CTX *ctx, SERVICE_OPTIONS *section) {
 
 static int cache_initialized=0;
 
-static int load_pem_cert(SERVICE_OPTIONS *opt) {
+static int load_certificate(SERVICE_OPTIONS *section) {
     int i, reason;
     UI_DATA ui_data;
 #ifdef HAVE_OSSL_ENGINE_H
     EVP_PKEY *pkey;
     UI_METHOD *ui_method;
 #endif
+    struct stat st; /* buffer for stat */
 
-    if(!opt->cert) /* no certificate specified */
-        return 1; /* OK */
+    /* check if certificate exists */
+    if(!section->key) /* key file not specified */
+        section->key=section->cert;
+#ifdef HAVE_OSSL_ENGINE_H
+    if(!section->engine)
+#endif
+    if(section->key) {
+        if(stat(section->key, &st)) {
+            ioerror(section->key);
+            return 1; /* FAILED */
+        }
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+        if(st.st_mode & 7)
+            s_log(LOG_WARNING, "Insecure file permissions on %s",
+                section->key);
+#endif /* defined USE_WIN32 */
+    }
 
-    ui_data.opt=opt; /* setup current section for callbacks */
+    if(!section->cert) /* no certificate specified */
+        return 0; /* OK */
 
-    s_log(LOG_DEBUG, "Certificate: %s", opt->cert);
-    if(!SSL_CTX_use_certificate_chain_file(opt->ctx, opt->cert)) {
-        s_log(LOG_ERR, "Error reading certificate file: %s", opt->cert);
+    ui_data.section=section; /* setup current section for callbacks */
+
+    s_log(LOG_DEBUG, "Certificate: %s", section->cert);
+    if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
+        s_log(LOG_ERR, "Error reading certificate file: %s", section->cert);
         sslerror("SSL_CTX_use_certificate_chain_file");
-        return 0;
+        return 1; /* FAILED */
     }
     s_log(LOG_DEBUG, "Certificate loaded");
 
-    s_log(LOG_DEBUG, "Key file: %s", opt->key);
-    SSL_CTX_set_default_passwd_cb(opt->ctx, password_cb);
+    s_log(LOG_DEBUG, "Key file: %s", section->key);
+    SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
 #ifdef HAVE_OSSL_ENGINE_H
 #ifdef USE_WIN32
     ui_method=UI_create_method("stunnel WIN32 UI");
@@ -358,9 +334,9 @@ static int load_pem_cert(SERVICE_OPTIONS *opt) {
 #else /* USE_WIN32 */
     ui_method=UI_OpenSSL();
 #endif /* USE_WIN32 */
-    if(opt->engine)
+    if(section->engine)
         for(i=1; i<=3; i++) {
-            pkey=ENGINE_load_private_key(opt->engine, opt->key,
+            pkey=ENGINE_load_private_key(section->engine, section->key,
                 ui_method, &ui_data);
             if(!pkey) {
                 reason=ERR_GET_REASON(ERR_peek_error());
@@ -370,21 +346,21 @@ static int load_pem_cert(SERVICE_OPTIONS *opt) {
                     continue;
                 }
                 sslerror("ENGINE_load_private_key");
-                return 0;
+                return 1; /* FAILED */
             }
-            if(SSL_CTX_use_PrivateKey(opt->ctx, pkey))
+            if(SSL_CTX_use_PrivateKey(section->ctx, pkey))
                 break; /* success */
             sslerror("SSL_CTX_use_PrivateKey");
-            return 0;
+            return 1; /* FAILED */
         }
     else
 #endif /* HAVE_OSSL_ENGINE_H */
         for(i=0; i<=3; i++) {
             if(!i && !cache_initialized)
                 continue; /* there is no cached value */
-            SSL_CTX_set_default_passwd_cb_userdata(opt->ctx,
+            SSL_CTX_set_default_passwd_cb_userdata(section->ctx,
                 i ? &ui_data : NULL); /* try the cached password first */
-            if(SSL_CTX_use_PrivateKey_file(opt->ctx, opt->key,
+            if(SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
                     SSL_FILETYPE_PEM))
                 break;
             reason=ERR_GET_REASON(ERR_peek_error());
@@ -394,14 +370,14 @@ static int load_pem_cert(SERVICE_OPTIONS *opt) {
                 continue;
             }
             sslerror("SSL_CTX_use_PrivateKey_file");
-            return 0;
+            return 1; /* FAILED */
         }
-    if(!SSL_CTX_check_private_key(opt->ctx)) {
+    if(!SSL_CTX_check_private_key(section->ctx)) {
         sslerror("Private key does not match the certificate");
-        return 0;
+        return 1; /* FAILED */
     }
     s_log(LOG_DEBUG, "Private key loaded");
-    return 1; /* OK */
+    return 0; /* OK */
 }
 
 static int password_cb(char *buf, int size, int rwflag, void *userdata) {
@@ -494,7 +470,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     SOCKADDR_UNION addr;
     struct timeval t;
     CACHE_PACKET *packet;
-    SERVICE_OPTIONS *opt;
+    SERVICE_OPTIONS *section;
 
     if(ret) /* set error as the default result if required */
         *ret=NULL;
@@ -541,8 +517,8 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     }
 
     /* retrieve pointer to the section structure of this ctx */
-    opt=SSL_CTX_get_ex_data(ctx, opt_index);
-    memcpy(&addr, &opt->sessiond_addr.addr[0], sizeof addr);
+    section=SSL_CTX_get_ex_data(ctx, opt_index);
+    memcpy(&addr, &section->sessiond_addr.addr[0], sizeof addr);
     if(sendto(s, (void *)packet, sizeof(CACHE_PACKET)-MAX_VAL_LEN+val_len, 0,
             &addr.sa, addr_len(addr))<0) {
         sockerror("cache_transfer: sendto");
@@ -650,28 +626,33 @@ static void print_stats(SSL_CTX *ctx) { /* print statistics */
 
 void sslerror(char *txt) { /* OpenSSL error handler */
     unsigned long err;
-    char string[120];
 
     err=ERR_get_error();
-    if(!err) {
+    if(err) {
+        sslerror_queue();
+        sslerror_log(err, txt);
+    } else {
         s_log(LOG_ERR, "%s: Peer suddenly disconnected", txt);
-        return;
     }
-    sslerror_queue();
-    ERR_error_string(err, string);
-    s_log(LOG_ERR, "%s: %lX: %s", txt, err, string);
 }
 
 static void sslerror_queue(void) { /* recursive dump of the error queue */
     unsigned long err;
-    char string[120];
 
     err=ERR_get_error();
-    if(!err)
-        return;
-    sslerror_queue();
-    ERR_error_string(err, string);
-    s_log(LOG_ERR, "error queue: %lX : %s", err, string);
+    if(err) {
+        sslerror_queue();
+        sslerror_log(err, "error queue");
+    }
+}
+
+static void sslerror_log(unsigned long err, char *txt) {
+    char *error_string;
+
+    error_string=str_alloc(120);
+    ERR_error_string(err, error_string);
+    s_log(LOG_ERR, "%s: %lX: %s", txt, err, error_string);
+    str_free(error_string);
 }
 
 /* end of ctx.c */

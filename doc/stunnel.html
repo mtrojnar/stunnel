@@ -66,7 +66,7 @@
 <dt><strong><a name="win32" class="item"><strong>WIN32:</strong></a></strong></dt>
 
 <dd>
-<p><strong>stunnel</strong> [ [-install | -uninstall | -start | -stop]
+<p><strong>stunnel</strong> [ [-install | -uninstall | -start | -stop] | -exit]
     [-quiet] [&lt;filename&gt;] ] | -help | -version | -sockets</p>
 </dd>
 </dl>
@@ -134,6 +134,11 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 
 <dd>
 <p>Stop NT Service</p>
+</dd>
+<dt><strong><a name="exit" class="item"><strong>-exit</strong> (Win32 only)</a></strong></dt>
+
+<dd>
+<p>Exit an already started stunnel</p>
 </dd>
 <dt><strong><a name="quiet" class="item"><strong>-quiet</strong> (NT/2000/XP only)</a></strong></dt>
 
@@ -418,7 +423,10 @@ c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.</p>
 
 <dd>
 <p>specify ECDH curve name</p>
-<p>default: sect163r2</p>
+<p>To get a list of supported cuves use:</p>
+<pre>
+    openssl ecparam -list_curves</pre>
+<p>default: prime256v1</p>
 </dd>
 <dt><strong><a name="delay_yes_no" class="item"><strong>delay</strong> = yes | no</a></strong></dt>
 

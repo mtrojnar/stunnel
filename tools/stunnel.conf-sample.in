@@ -1,26 +1,32 @@
-; Sample stunnel configuration file by Michal Trojnara 2002-2011
+; Sample Unix stunnel configuration file by Michal Trojnara 2002-2011
 ; Some options used here may not be adequate for your particular configuration
 ; Please read the manual and make sure you understand them
 
-; Certificate/key is needed in server mode and optional in client mode
-; The default certificate is provided only for testing and should not
-; be used in a production environment
-cert = @prefix@/etc/stunnel/mail.pem
-;key = @prefix@/etc/stunnel/mail.pem
+; *****************************************************************************
+; * Global Options                                                            *
+; *****************************************************************************
 
-; Security enhancements for UNIX systems - comment them out on Win32
-; for chroot a copy of some devices and files is needed within the jail
+; A copy of some devices and system files is needed within the chroot jail
+; Chroot conflicts with configuration file reload and many other features
 chroot = @prefix@/var/lib/stunnel/
+; Chroot jail can be escaped if setuid option is not used
 setuid = nobody
 setgid = @DEFAULT_GROUP@
+
 ; PID is created inside the chroot jail
 pid = /stunnel.pid
 
-; Disable support for insecure SSLv2 protocol
-options = NO_SSLv2
+; Debugging stuff (may useful for troubleshooting)
+;debug = 7
+;output = stunnel.log
 
-; Workaround for Eudora bug
-;options = DONT_INSERT_EMPTY_FRAGMENTS
+; *****************************************************************************
+; * Service Defaults (may also be specified in individual service sections)   *
+; *****************************************************************************
+
+; Certificate/key is needed in server mode and optional in client mode
+cert = @prefix@/etc/stunnel/mail.pem
+;key = @prefix@/etc/stunnel/mail.pem
 
 ; Authentication stuff needs to be configured to prevent MITM attacks
 ; It is not enabled by default!
@@ -36,14 +42,17 @@ options = NO_SSLv2
 ; Alternatively CRLfile can be used
 ;CRLfile = @prefix@/etc/stunnel/crls.pem
 
-; Debugging stuff (may useful for troubleshooting)
-;debug = 7
-;output = stunnel.log
+; Disable support for insecure SSLv2 protocol
+options = NO_SSLv2
+; Workaround for Eudora bug
+;options = DONT_INSERT_EMPTY_FRAGMENTS
 
 ; SSL client mode
 ;client = yes
 
-; Service-level configuration
+; *****************************************************************************
+; * Service Definitions (remove all services for inetd mode)                  *
+; *****************************************************************************
 
 [pop3s]
 accept  = 995

@@ -647,7 +647,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #ifdef USE_FIPS
 #define STUNNEL_CIPHER_LIST "FIPS"
 #else
-#define STUNNEL_CIPHER_LIST "RC4-MD5:HIGH:!aNULL:!SSLv2"
+#define STUNNEL_CIPHER_LIST "ALL:!SSLv2:!aNULL:!EXP:!LOW:-MEDIUM:RC4:+HIGH"
 #endif /* USE_FIPS */
     switch(cmd) {
     case CMD_INIT:
@@ -764,9 +764,10 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     }
 
     /* curve */
+#define DEFAULT_CURVE NID_X9_62_prime256v1
     switch(cmd) {
     case CMD_INIT:
-        section->curve=NID_sect163r2;
+        section->curve=DEFAULT_CURVE;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "curve"))
@@ -776,7 +777,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "Curve name not supported";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_NOTICE, "%-15s = %s", "curve", "sect163r2");
+        s_log(LOG_NOTICE, "%-15s = %s", "curve", OBJ_nid2ln(DEFAULT_CURVE));
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-15s = ECDH curve name", "curve");
@@ -1024,7 +1025,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* options */
     switch(cmd) {
     case CMD_INIT:
-        section->ssl_options=0;
+        section->ssl_options=SSL_OP_SINGLE_ECDH_USE;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "options"))
@@ -1739,7 +1740,7 @@ static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
             "SSL server needs a certificate");
         return 0;
     }
-    if(!context_init(section)) /* initialize SSL context */
+    if(context_init(section)) /* initialize SSL context */
         return 0;
 
     if(section==&new_service_options) { /* inetd mode checks */

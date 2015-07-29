@@ -16,8 +16,7 @@ BIN=$(BINROOT)\$(TARGETCPU)
 
 OBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj $(OBJ)\verify.obj $(OBJ)\file.obj $(OBJ)\client.obj \
 	$(OBJ)\protocol.obj $(OBJ)\sthreads.obj $(OBJ)\log.obj $(OBJ)\options.obj $(OBJ)\network.obj \
-	$(OBJ)\resolver.obj $(OBJ)\gui.obj $(OBJ)\resources.res $(OBJ)\str.obj \
-	$(OBJ)\version.res
+	$(OBJ)\resolver.obj $(OBJ)\gui.obj $(OBJ)\resources.res $(OBJ)\str.obj
 	
 CC=cl
 DEFINES=/DUSE_WIN32 /D_CRT_SECURE_NO_DEPRECATE \
@@ -25,9 +24,6 @@ DEFINES=/DUSE_WIN32 /D_CRT_SECURE_NO_DEPRECATE \
 
 CFLAGS=/MD /W3 /Ox /O2 /Ob2 /Gs0 /GF /Gy /GL /nologo \
 	/I"$(SSLDIR)\inc32" $(DEFINES)
-
-# Required for HOST symbol used in version.rc	
-RFLAGS=$(DEFINES)
 
 LINK=link
 LDFLAGS=/INCREMENTAL:NO /NOLOGO /SUBSYSTEM:WINDOWS /OPT:REF \

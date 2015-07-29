@@ -74,13 +74,12 @@ static void reset(int, char *);
 CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
     CLI *c;
 
-    /* str_alloc() cannot be used here, because corresponding
-       free() is called from a different thread */
-    c=calloc(1, sizeof(CLI));
+    c=str_alloc(sizeof(CLI));
     if(!c) {
         s_log(LOG_ERR, "Memory allocation failed");
         return NULL;
     }
+    str_detach(c);
     c->opt=opt;
     c->local_rfd.fd=rfd;
     c->local_wfd.fd=wfd;
@@ -107,9 +106,7 @@ void *client(void *arg) {
         }
     } else
         run_client(c);
-    /* str_free() cannot be used here, because corresponding
-       calloc() is called from a different thread */
-    free(c);
+    str_free(c);
 #ifdef DEBUG_STACK_SIZE
     stack_info(0); /* display computed value */
 #endif
@@ -369,6 +366,9 @@ static void init_ssl(CLI *c) {
         s_log(LOG_INFO, "SSL %s: previous session reused",
             c->opt->option.client ? "connected" : "accepted");
     } else { /* a new session was negotiated */
+#ifdef USE_WIN32
+        win_newcert(c->ssl, c->opt);
+#endif
         if(c->opt->option.client) {
             s_log(LOG_INFO, "SSL connected: new session negotiated");
             enter_critical_section(CRIT_SESSION);

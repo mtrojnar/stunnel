@@ -92,11 +92,12 @@ static CONTEXT *new_context(void) {
     CONTEXT *context;
 
     /* allocate and fill the CONTEXT structure */
-    context=calloc(1, sizeof(CONTEXT));
+    context=str_alloc(sizeof(CONTEXT));
     if(!context) {
         s_log(LOG_ERR, "Unable to allocate CONTEXT structure");
         return NULL;
     }
+    str_detach(context);
     context->id=next_id++;
     context->fds=NULL;
     context->ready=0;
@@ -131,7 +132,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     context=new_context();
     if(!context) {
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -139,9 +140,9 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 
     /* initialize context_t structure */
     if(getcontext(&context->context)<0) {
-        free(context);
+        str_free(context);
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         ioerror("getcontext");
@@ -150,16 +151,17 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     context->context.uc_link=NULL; /* stunnel does not use uc_link */
 
     /* create stack */
-    context->stack=calloc(1, arg->opt->stack_size);
+    context->stack=str_alloc(arg->opt->stack_size);
     if(!context->stack) {
-        free(context);
+        str_free(context);
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         s_log(LOG_ERR, "Unable to allocate stack");
         return -1;
     }
+    str_detach(context->stack);
 #if defined(__sgi) || ARGC==2 /* obsolete ss_sp semantics */
     context->context.uc_stack.ss_sp=context->stack+arg->opt->stack_size-8;
 #else
@@ -197,7 +199,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     switch(fork()) {
     case -1:    /* error */
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -209,7 +211,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
         _exit(0);
     default:    /* parent */
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
     }
@@ -254,10 +256,10 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
-    /* there is no guarantee free() is called from the same thread */
-    value=malloc(sizeof(struct CRYPTO_dynlock_value));
+    value=str_alloc(sizeof(struct CRYPTO_dynlock_value));
     if(!value)
         return NULL;
+    str_detach(value);
     pthread_mutex_init(&value->mutex, NULL);
     return value;
 }
@@ -277,8 +279,7 @@ static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     pthread_mutex_destroy(&value->mutex);
-    /* there is no guarantee malloc() is called from the same thread */
-    free(value);
+    str_free(value);
 }
 
 unsigned long stunnel_process_id(void) {
@@ -340,7 +341,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
         errno=error;
         ioerror("pthread_create");
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -386,10 +387,10 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
-    /* there is no guarantee free() is called from the same thread */
-    value=malloc(sizeof(struct CRYPTO_dynlock_value));
+    value=str_alloc(sizeof(struct CRYPTO_dynlock_value));
     if(!value)
         return NULL;
+    str_detach(value);
     InitializeCriticalSection(&value->mutex);
     return value;
 }
@@ -409,8 +410,7 @@ static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     DeleteCriticalSection(&value->mutex);
-    /* there is no guarantee malloc() is called from the same thread */
-    free(value);
+    str_free(value);
 }
 
 unsigned long stunnel_process_id(void) {
@@ -445,7 +445,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     if((long)_beginthread((void(*)(void *))cli, arg->opt->stack_size, arg)==-1) {
         ioerror("_beginthread");
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -487,7 +487,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     if((long)_beginthread((void(*)(void *))cli, NULL, arg->opt->stack_size, arg)==-1L) {
         ioerror("_beginthread");
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;

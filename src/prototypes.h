@@ -113,58 +113,61 @@ extern GLOBAL_OPTIONS global_options;
 typedef struct servername_list_struct SERVERNAME_LIST; /* forward declaration */
 
 typedef struct service_options_struct {
-    SSL_CTX *ctx;                                            /*  SSL context */
-    X509_STORE *revocation_store;             /* cert store for CRL checking */
-#ifdef HAVE_OSSL_ENGINE_H
-    ENGINE *engine;                        /* engine to read the private key */
-#endif
     struct service_options_struct *next;   /* next node in the services list */
+    SSL_CTX *ctx;                                            /*  SSL context */
     char *servname;        /* service name for logging & permission checking */
-    SSL_SESSION *session;                           /* jecently used session */
-    char local_address[IPLEN];             /* dotted-decimal address to bind */
+
+        /* service-specific data for sthreads.c */
 #ifndef USE_FORK
     int stack_size;                            /* stack size for this thread */
 #endif
 
-        /* service-specific data for ctx.c */
+        /* service-specific data for verify.c */
     char *ca_dir;                              /* directory for hashed certs */
     char *ca_file;                       /* file containing bunches of certs */
     char *crl_dir;                              /* directory for hashed CRLs */
     char *crl_file;                       /* file containing bunches of CRLs */
+    int verify_level;
+    int verify_use_only_my;
+    X509_STORE *revocation_store;             /* cert store for CRL checking */
+    SOCKADDR_LIST ocsp_addr;
+    char *ocsp_path;
+    unsigned long ocsp_flags;
+
+        /* service-specific data for ctx.c */
     char *cipher_list;
     char *cert;                                             /* cert filename */
     char *key;                               /* pem (priv key/cert) filename */
     long session_timeout;
-    int verify_level;
-    int verify_use_only_my;
-    int curve;
     long ssl_options;
-    SOCKADDR_LIST ocsp_addr;
-    char *ocsp_path;
-    unsigned long ocsp_flags;
     SSL_METHOD *client_method, *server_method;
     SOCKADDR_LIST sessiond_addr;
     SERVERNAME_LIST *servername_list_head, *servername_list_tail;
+    int curve;
+#ifdef HAVE_OSSL_ENGINE_H
+    ENGINE *engine;                        /* engine to read the private key */
+#endif
 
         /* service-specific data for client.c */
     int fd;        /* file descriptor accepting connections for this service */
-    char *execname; /* program name for local mode */
+    SSL_SESSION *session;                           /* recently used session */
+    char *execname;                           /* program name for local mode */
 #ifdef USE_WIN32
-    char *execargs; /* program arguments for local mode */
+    char *execargs;                      /* program arguments for local mode */
 #else
-    char **execargs; /* program arguments for local mode */
+    char **execargs;                     /* program arguments for local mode */
 #endif
     SOCKADDR_LIST local_addr, remote_addr, source_addr;
     char *username;
     char *remote_address;
     char *host_name;
-    int timeout_busy; /* maximum waiting for data time */
-    int timeout_close; /* maximum close_notify time */
-    int timeout_connect; /* maximum connect() time */
-    int timeout_idle; /* maximum idle connection time */
-    enum {FAILOVER_RR, FAILOVER_PRIO} failover; /* failover strategy */
+    int timeout_busy;                       /* maximum waiting for data time */
+    int timeout_close;                          /* maximum close_notify time */
+    int timeout_connect;                           /* maximum connect() time */
+    int timeout_idle;                        /* maximum idle connection time */
+    enum {FAILOVER_RR, FAILOVER_PRIO} failover;         /* failover strategy */
 
-        /* protocol name for protocol.c */
+        /* service-specific data for protocol.c */
     char *protocol;
     char *protocol_host;
     char *protocol_username;
@@ -411,8 +414,8 @@ char *s_ntop(char *, SOCKADDR_UNION *);
 /**************************************** prototypes for sthreads.c */
 
 typedef enum {
-    CRIT_KEYGEN, CRIT_INET, CRIT_CLIENTS,
-    CRIT_WIN_LOG, CRIT_SESSION, CRIT_LIBWRAP,
+    CRIT_KEYGEN, CRIT_INET, CRIT_CLIENTS, CRIT_WIN_LOG,
+    CRIT_SESSION, CRIT_LIBWRAP,
 #if OPENSSL_VERSION_NUMBER<0x1000002f
     CRIT_SSL,
 #endif /* OpenSSL version < 1.0.0b */
@@ -450,7 +453,7 @@ void stack_info(int);
 /**************************************** prototypes for gui.c */
 
 typedef struct {
-    SERVICE_OPTIONS *opt;
+    SERVICE_OPTIONS *section;
     char pass[PEM_BUFSIZE];
 } UI_DATA;
 
@@ -458,6 +461,7 @@ typedef struct {
 void win_log(char *);
 void win_exit(int);
 void win_newconfig(int);
+void win_newcert(SSL *, SERVICE_OPTIONS *);
 int passwd_cb(char *, int, int, void *);
 #ifdef HAVE_OSSL_ENGINE_H
 int pin_cb(UI *, UI_STRING *);
@@ -502,6 +506,7 @@ void str_cleanup();
 void str_stats();
 void *str_alloc(size_t);
 void *str_realloc(void *, size_t);
+void str_detach(void *);
 void str_free(void *);
 char *str_dup(const char *);
 char *str_vprintf(const char *, va_list);

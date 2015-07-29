@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2011.06.28" "4.39" "stunnel"
+.TH STUNNEL 8 "2011.07.23" "4.40" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -76,7 +76,7 @@ stunnel \- universal SSL tunnel
 \&\fBstunnel\fR [<filename>] | \-fd n | \-help | \-version | \-sockets
 .IP "\fB\s-1WIN32:\s0\fR" 4
 .IX Item "WIN32:"
-\&\fBstunnel\fR [ [\-install | \-uninstall | \-start | \-stop]
+\&\fBstunnel\fR [ [\-install | \-uninstall | \-start | \-stop] | \-exit]
     [\-quiet] [<filename>] ] | \-help | \-version | \-sockets
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
@@ -122,6 +122,9 @@ Start \s-1NT\s0 Service
 .IP "\fB\-stop\fR (\s-1NT/2000/XP\s0 only)" 4
 .IX Item "-stop (NT/2000/XP only)"
 Stop \s-1NT\s0 Service
+.IP "\fB\-exit\fR (Win32 only)" 4
+.IX Item "-exit (Win32 only)"
+Exit an already started stunnel
 .IP "\fB\-quiet\fR (\s-1NT/2000/XP\s0 only)" 4
 .IX Item "-quiet (NT/2000/XP only)"
 Don't display a message box when successfully installed or uninstalled \s-1NT\s0 service
@@ -381,7 +384,13 @@ This file contains multiple CRLs, used with the \fIverify\fR.
 .IX Item "curve = nid"
 specify \s-1ECDH\s0 curve name
 .Sp
-default: sect163r2
+To get a list of supported cuves use:
+.Sp
+.Vb 1
+\&    openssl ecparam \-list_curves
+.Ve
+.Sp
+default: prime256v1
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
 delay \s-1DNS\s0 lookup for 'connect' option

@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2011.06.28" "4.39" "stunnel"
+.TH STUNNEL.PL 8 "2011.07.23" "4.40" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -77,7 +77,7 @@ stunnel \- uniwersalny tunel protokołu \s-1SSL\s0
 \&\fBstunnel\fR [<plik>] | \-fd n | \-help | \-version | \-sockets
 .IP "\fB\s-1WIN32:\s0\fR" 4
 .IX Item "WIN32:"
-\&\fBstunnel\fR [ [\-install | \-uninstall | \-start | \-stop ]
+\&\fBstunnel\fR [ [\-install | \-uninstall | \-start | \-stop ] | \-exit]
     [\-quiet] [<plik>] ] | \-help | \-version | \-sockets
 .SH "OPIS"
 .IX Header "OPIS"
@@ -121,6 +121,9 @@ uruchom serwis \s-1NT\s0
 .IP "\fB\-stop\fR (tylko \s-1NT/2000/XP\s0)" 4
 .IX Item "-stop (tylko NT/2000/XP)"
 zatrzymaj serwis \s-1NT\s0
+.IP "\fB\-exit\fR (tylko Win32)" 4
+.IX Item "-exit (tylko Win32)"
+zatrzymaj uruchomiony program
 .IP "\fB\-quiet\fR (tylko \s-1NT/2000/XP\s0)" 4
 .IX Item "-quiet (tylko NT/2000/XP)"
 nie wyświetlaj okienka informującego o pomyślnym zainstalowaniu lub
@@ -397,7 +400,13 @@ przez opcję \fIverify\fR.
 .IX Item "curve = nid"
 krzywa dla \s-1ECDH\s0
 .Sp
-domyślnie: sect163r2
+Listę dostępnych krzywych można uzyskać poleceniem:
+.Sp
+.Vb 1
+\&    openssl ecparam \-list_curves
+.Ve
+.Sp
+domyślnie: prime256v1
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
 opóźnij rozwinięcie adresu \s-1DNS\s0 podanego w opcji \fIconnect\fR

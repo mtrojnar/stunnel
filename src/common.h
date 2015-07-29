@@ -138,20 +138,6 @@ typedef int socklen_t;
 
 #ifdef USE_WIN32
 
-#ifndef HOST
-#ifdef __MINGW32__
-#define HOST "x86-pc-mingw32-gnu"
-#else
-#ifdef _MSC_VER
-#define _QUOTEME(x) #x
-#define QUOTEME(x) _QUOTEME(x)
-#define HOST "x86-pc-msvc-" ## QUOTEME(_MSC_VER)
-#else
-#define HOST "x86-pc-unknown"
-#endif
-#endif
-#endif
-
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned long u32;

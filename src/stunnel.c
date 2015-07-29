@@ -55,7 +55,7 @@ static int setup_fd(int, int, char *);
 static int max_fds;
 static int max_clients=0;
 
-int volatile num_clients=0; /* current number of clients */
+volatile int num_clients=0; /* current number of clients */
 s_poll_set fds; /* file descriptors of listening sockets */
 int signal_fd;
 
@@ -224,6 +224,7 @@ void unbind_ports(void) {
 int bind_ports(void) {
     SERVICE_OPTIONS *opt;
     SOCKADDR_UNION addr;
+    char local_address[IPLEN];
 
     s_poll_init(&fds);
     s_poll_add(&fds, signal_fd, 1, 0);
@@ -237,16 +238,16 @@ int bind_ports(void) {
                 closesocket(opt->fd);
                 return 1;
             }
-            s_ntop(opt->local_address, &addr);
+            s_ntop(local_address, &addr);
             if(bind(opt->fd, &addr.sa, addr_len(addr))) {
                 s_log(LOG_ERR, "Error binding %s to %s",
-                    opt->servname, opt->local_address);
+                    opt->servname, local_address);
                 sockerror("bind");
                 closesocket(opt->fd);
                 return 1;
             }
             s_log(LOG_DEBUG, "Service %s bound to %s",
-                opt->servname, opt->local_address);
+                opt->servname, local_address);
             if(listen(opt->fd, SOMAXCONN)) {
                 sockerror("listen");
                 closesocket(opt->fd);

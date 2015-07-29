@@ -1,5 +1,7 @@
-!define VERSION "4.39"
-!define DLLS "/home/ftp/openssl/binary-1.0.0d-zdll/"
+# NSIS stunnel installer by Michal Trojnara 2011
+
+!define VERSION "4.40"
+!define DLLS "/home/ftp/openssl/openssl-1.0.0d-i586/"
 !include "Sections.nsh"
 
 Name "stunnel ${VERSION}"
@@ -23,6 +25,18 @@ UninstPage instfiles
 Section "Stunnel Core Files (required)"
   SectionIn RO
   SetOutPath "$INSTDIR"
+
+  # stop the service, exit stunnel
+  ReadRegStr $R0 HKLM \
+    "Software\Microsoft\Windows NT\CurrentVersion" CurrentVersion
+  IfErrors skip_service_stop
+  ExecWait '"$INSTDIR\stunnel.exe" -stop -quiet'
+skip_service_stop:
+  # skip if the previously installed stunnel version is older than 4.40
+  GetDLLVersion "$INSTDIR\stunnel.exe" $R0 $R1
+  IfErrors skip_process_exit
+  ExecWait '"$INSTDIR\stunnel.exe" -exit -quiet'
+skip_process_exit:
 
   # write files
   SetOverwrite off
@@ -72,12 +86,14 @@ Section "Start Menu Shortcuts"
   # main link
   CreateShortCut "$SMPROGRAMS\stunnel\Run stunnel.lnk" \
     "$INSTDIR\stunnel.exe" "" "$INSTDIR\stunnel.exe" 0
+  CreateShortCut "$SMPROGRAMS\stunnel\Exit stunnel.lnk" \
+    "$INSTDIR\stunnel.exe" "-exit" "$INSTDIR\stunnel.exe" 0
 
   # NT service
   ClearErrors
   ReadRegStr $R0 HKLM \
     "Software\Microsoft\Windows NT\CurrentVersion" CurrentVersion
-  IfErrors lbl_win9x
+  IfErrors skip_service_links
   CreateShortCut "$SMPROGRAMS\stunnel\Service install.lnk" \
     "$INSTDIR\stunnel.exe" "-install" "$INSTDIR\stunnel.exe" 0
   CreateShortCut "$SMPROGRAMS\stunnel\Service uninstall.lnk" \
@@ -86,7 +102,7 @@ Section "Start Menu Shortcuts"
     "$INSTDIR\stunnel.exe" "-start" "$INSTDIR\stunnel.exe" 0
   CreateShortCut "$SMPROGRAMS\stunnel\Service stop.lnk" \
     "$INSTDIR\stunnel.exe" "-stop" "$INSTDIR\stunnel.exe" 0
-lbl_win9x:
+skip_service_links:
 
   # edit config file
   CreateShortCut "$SMPROGRAMS\stunnel\Edit stunnel.conf.lnk" \
@@ -116,14 +132,18 @@ Section "Desktop Shortcut"
 SectionEnd
 
 Section "Uninstall"
-  # remove stunnel folder
   ClearErrors
+
+  # stop and remove the service, exit stunnel
   ReadRegStr $R0 HKLM \
     "Software\Microsoft\Windows NT\CurrentVersion" CurrentVersion
-  IfErrors lbl_win9x
+  IfErrors skip_service_uninstall
   ExecWait '"$INSTDIR\stunnel.exe" -stop -quiet'
   ExecWait '"$INSTDIR\stunnel.exe" -uninstall -quiet'
-lbl_win9x:
+skip_service_uninstall:
+  ExecWait '"$INSTDIR\stunnel.exe" -exit -quiet'
+
+  # remove stunnel folder
   Delete "$INSTDIR\stunnel.conf"
   Delete "$INSTDIR\stunnel.pem"
   Delete "$INSTDIR\stunnel.exe"
@@ -148,3 +168,4 @@ lbl_win9x:
   DeleteRegKey HKLM "Software\NSIS_stunnel"
 SectionEnd
 
+# end of stunnel.nsi
