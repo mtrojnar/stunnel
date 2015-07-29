@@ -110,6 +110,8 @@ typedef struct {
 
 extern GLOBAL_OPTIONS global_options;
 
+typedef struct servername_list_struct SERVERNAME_LIST; /* forward declaration */
+
 typedef struct service_options_struct {
     SSL_CTX *ctx;                                            /*  SSL context */
     X509_STORE *revocation_store;             /* cert store for CRL checking */
@@ -142,6 +144,7 @@ typedef struct service_options_struct {
     unsigned long ocsp_flags;
     SSL_METHOD *client_method, *server_method;
     SOCKADDR_LIST sessiond_addr;
+    SERVERNAME_LIST *servername_list_head, *servername_list_tail;
 
         /* service-specific data for client.c */
     int fd;        /* file descriptor accepting connections for this service */
@@ -177,6 +180,7 @@ typedef struct service_options_struct {
         unsigned int retry:1; /* loop remote+program */
         unsigned int sessiond:1;
         unsigned int program:1;
+        unsigned int sni:1;
 #ifndef USE_WIN32
         unsigned int pty:1;
         unsigned int transparent_src:1;
@@ -190,6 +194,12 @@ typedef struct service_options_struct {
 } SERVICE_OPTIONS;
 
 extern SERVICE_OPTIONS service_options;
+
+struct servername_list_struct {
+    char *servername;
+    SERVICE_OPTIONS *opt;
+    struct servername_list_struct *next;
+};
 
 typedef enum {
     TYPE_NONE, TYPE_FLAG, TYPE_INT, TYPE_LINGER, TYPE_TIMEVAL, TYPE_STRING
@@ -426,7 +436,7 @@ void stack_info(int);
 /**************************************** prototypes for gui.c */
 
 typedef struct {
-    SERVICE_OPTIONS *section;
+    SERVICE_OPTIONS *opt;
     char pass[PEM_BUFSIZE];
 } UI_DATA;
 

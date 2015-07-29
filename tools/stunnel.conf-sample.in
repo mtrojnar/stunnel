@@ -16,10 +16,6 @@ setgid = @DEFAULT_GROUP@
 ; PID is created inside the chroot jail
 pid = /stunnel.pid
 
-; Some performance tunings
-socket = l:TCP_NODELAY=1
-socket = r:TCP_NODELAY=1
-
 ; Disable support for insecure SSLv2 protocol
 options = NO_SSLv2
 

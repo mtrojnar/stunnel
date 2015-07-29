@@ -384,6 +384,10 @@ extern char *sys_errlist[];
 #include <openssl/fips_rand.h>
 #endif /* USE_FIPS */
 
+#if OPENSSL_VERSION_NUMBER<0x10000000
+#define OPENSSL_NO_TLSEXT
+#endif /* OpenSSL version < 1.0.0 */
+
 #else /* HAVE_OPENSSL */
 
 #include <lhash.h>
@@ -392,6 +396,7 @@ extern char *sys_errlist[];
 #include <crypto.h>
 #include <md4.h>
 #include <des.h>
+#define OPENSSL_NO_TLSEXT
 
 #endif /* HAVE_OPENSSL */
 

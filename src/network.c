@@ -395,7 +395,7 @@ int signal_pipe_init(void) {
         die(1);
     }
 #else /* __INNOTEK_LIBC__ */
-    if(s_pipe(signal_pipe, 0, "signal_pipe"))
+    if(s_pipe(signal_pipe, 1, "signal_pipe"))
         die(1);
 #endif /* __INNOTEK_LIBC__ */
 
@@ -512,13 +512,16 @@ int set_socket_options(int s, int type) {
             continue; /* default */
         switch(ptr->opt_type) {
         case TYPE_LINGER:
-            opt_size=sizeof(struct linger); break;
+            opt_size=sizeof(struct linger);
+            break;
         case TYPE_TIMEVAL:
-            opt_size=sizeof(struct timeval); break;
+            opt_size=sizeof(struct timeval);
+            break;
         case TYPE_STRING:
-            opt_size=strlen(ptr->opt_val[type]->c_val)+1; break;
+            opt_size=strlen(ptr->opt_val[type]->c_val)+1;
+            break;
         default:
-            opt_size=sizeof(int); break;
+            opt_size=sizeof(int);
         }
         if(setsockopt(s, ptr->opt_level, ptr->opt_name,
                 (void *)ptr->opt_val[type], opt_size)) {

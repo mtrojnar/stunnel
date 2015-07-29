@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.FR 8"
-.TH STUNNEL.FR 8 "2011.02.09" "4.36" "stunnel"
+.TH STUNNEL.FR 8 "2011.06.28" "4.38" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -306,15 +306,13 @@ Les valeurs de l'option time   sont : tv_sec:tv_usec.
 .Sp
 Exemples :
 .Sp
-.Vb 11
+.Vb 9
 \&    socket = l:SO_LINGER=1:60
 \&        définit un délai d\*(Aqune minute pour la clôture des sockets locaux
-\&    socket = r:TCP_NODELAY=1
-\&        désactive l\*(Aqalgorithme Nagle pour les sockets distants
-\&    socket = r:SO_OOBINLINE=1
+\&    socket = r:SO_OOBINLINE=yes
 \&        Place directement les données hors\-bande dans le flux de réception
 \&        des sockets distants
-\&    socket = a:SO_REUSEADDR=0
+\&    socket = a:SO_REUSEADDR=no
 \&        désactive la réutilisation d\*(Aqadresses (activée par défaut)
 \&    socket = a:SO_BINDTODEVICE=lo
 \&        limite l\*(Aqacceptation des connexions sur la seule interface de bouclage

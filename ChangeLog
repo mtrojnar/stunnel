@@ -1,6 +1,18 @@
 stunnel change log
 
 
+Version 4.38, 2011.06.28, urgency: MEDIUM:
+* New features
+  - Server-side SNI implemented (RFC 3546 section 3.1) with a new
+    service-level option "nsi".
+  - "socket" option also accepts "yes" and "no" for flags.
+  - Nagle's algorithm is now disabled by default for improved interactivity.
+* Bugfixes
+  - A compilation fix was added for OpenSSL version < 1.0.0.
+  - Signal pipe set to non-blocking mode.  This bug caused hangs of stunnel
+    features based on signals, e.g. local mode, FORK threading, or
+    configuration file reload on Unix.  Win32 platform was not affected.
+
 Version 4.37, 2011.06.17, urgency: MEDIUM:
 * New features
   - Client-side SNI implemented (RFC 3546 section 3.1).

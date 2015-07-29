@@ -266,14 +266,11 @@ Przyk³ady:
     socket = l:SO_LINGER=1:60
         ustaw jednominutowe przeterminowanie
         przy zamykaniu lokalnego gniazda
-    socket = r:TCP_NODELAY=1
-        wy³±cz algorytm Nagle'a na zdalnych
-        gniazdach
-    socket = r:SO_OOBINLINE=1
+    socket = r:SO_OOBINLINE=yes
         umie¶æ dane pozapasmowe (out-of-band)
         bezpo¶rednio w strumieniu danych
         wej¶ciowych dla zdalnych gniazd
-    socket = a:SO_REUSEADDR=0
+    socket = a:SO_REUSEADDR=no
         zablokuj ponowne u¿ywanie portu
         (domy¶lnie w³±czone)
     socket = a:SO_BINDTODEVICE=lo
@@ -464,6 +461,25 @@ IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
 Domy¶lnie u¿ywane jest IP najbardziej zewnêtrznego interfejsu w stronê
 serwera, do którego nawi±zywane jest po³±czenie.
 
+=item B<sni> = nazwa_us³ugi:nazwa_serwera
+
+U¿yj us³ugi jako podrzêdnej (virtualnego serwera) dla rozszerzenia TLS Server
+Name Indication (RFC 3546).
+
+I<nazwa_us³ugi> wskazuje us³ugê nadrzêdn±, która odbiera po³±czenia od klientów
+przy pomocy opcji I<accept>.  I<nazwa_serwera> wskazuje nazwê serwera
+wirtualnego.  Z pojedyñcz± us³ug± nadrzêdn± powi±zane jest zwykle wiele us³ug
+podrzêdnych.  Opcja I<sni> mo¿e byæ rownie¿ u¿yta wielokrotnie w ramach jednej
+us³ugi podrzêdnej.
+
+Zarówno us³uga nadrzêdna jak i podrzêdna nie mo¿e byæ skonfigurowana w trybie
+klienckim.  Opcja I<connect> us³ugi podrzêdnej jest ignorowana w po³±czeniu z
+opcj± I<protocol>, gdy¿ po³±czenie do zdalnego serwera jest w tym wypadku
+nawi±zywane przed negocjacj± TLS.  Uwierzytelnienie przy pomocy biblioteki
+libwrap jest realizowane dwukrotnie: najpierw dla us³ugi nadrzêdnej po
+odebraniu po³±czenia TCP, a nastêpnie dla us³ugi podrzêdnej podczas negocjacji
+TLS.
+
 =item B<OCSP> = URL
 
 serwer OCSP do weryfikacji certyfikatów
@@ -507,31 +523,31 @@ Wsparcie dla tego rozrzeczenia zosta³o zarzucone w wersji 3.0.0 serwera Samba.
 
 =item I<connect>
 
-RFC 2817 - I<Upgrading to TLS Within HTTP/1.1>, rozdzia³ 5.2 - I<Requesting a Tunnel with CONNECT>
+Negocjacja RFC 2817 - I<Upgrading to TLS Within HTTP/1.1>, rozdzia³ 5.2 - I<Requesting a Tunnel with CONNECT>
 
 Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.
 
 =item I<imap>
 
-RFC 2595 - I<Using TLS with IMAP, POP3 and ACAP>
+Negocjacja RFC 2595 - I<Using TLS with IMAP, POP3 and ACAP>
 
 =item I<nntp>
 
-RFC 4642 - I<Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)>
+Negocjacja RFC 4642 - I<Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)>
 
 Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.
 
 =item I<pop3>
 
-RFC 2449 - I<POP3 Extension Mechanism>
+Negocjacja RFC 2449 - I<POP3 Extension Mechanism>
 
 =item I<smtp>
 
-RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
+Negocjacja RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
 
 =item I<pgsql>
 
-http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
+Negocjacja http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
 
 =back
 

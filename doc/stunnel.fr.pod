@@ -294,12 +294,10 @@ ExemplesE<nbsp>:
 
     socket = l:SO_LINGER=1:60
         définit un délai d'une minute pour la clôture des sockets locaux
-    socket = r:TCP_NODELAY=1
-        désactive l'algorithme Nagle pour les sockets distants
-    socket = r:SO_OOBINLINE=1
+    socket = r:SO_OOBINLINE=yes
         Place directement les données hors-bande dans le flux de réception
         des sockets distants
-    socket = a:SO_REUSEADDR=0
+    socket = a:SO_REUSEADDR=no
         désactive la réutilisation d'adresses (activée par défaut)
     socket = a:SO_BINDTODEVICE=lo
         limite l'acceptation des connexions sur la seule interface de bouclage

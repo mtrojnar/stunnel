@@ -256,12 +256,10 @@ Examples:
 
     socket = l:SO_LINGER=1:60
         set one minute timeout for closing local socket
-    socket = r:TCP_NODELAY=1
-        turn off the Nagle algorithm for remote sockets
-    socket = r:SO_OOBINLINE=1
+    socket = r:SO_OOBINLINE=yes
         place out-of-band data directly into the
         receive data stream for remote sockets
-    socket = a:SO_REUSEADDR=0
+    socket = a:SO_REUSEADDR=no
         disable address reuse (enabled by default)
     socket = a:SO_BINDTODEVICE=lo
         only accept connections on loopback interface
@@ -443,6 +441,22 @@ default: yes
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
 
+=item B<sni> = service_name:server_name
+
+Use the service as a slave service (a name-based virtual server) for Server
+Name Indication TLS extension (RFC 3546).
+
+I<service_name> specifies the master service that accepts client connections
+with I<accept> option.  I<server_name> specifies the host name to be redirected.
+Multiple slave services are normally specified for a single master service.
+I<sni> option can also be specified more than once within a single slave service.
+
+This service, as well as the master service, may not be configured in client mode.
+I<connect> option of the slave service is ignored when I<protocol> option is
+specified, as I<protocol> connects remote host before TLS handshake.
+Libwrap checks (Unix only) are performed twice: with master service name after
+TCP connection is accepted, and with slave service name during TLS handshake.
+
 =item B<OCSP> = url
 
 select OCSP server for certificate verification
@@ -486,31 +500,31 @@ Support for this extension was dropped in Samba 3.0.0.
 
 =item I<connect>
 
-RFC 2817 - I<Upgrading to TLS Within HTTP/1.1>, section 5.2 - I<Requesting a Tunnel with CONNECT>
+Based on RFC 2817 - I<Upgrading to TLS Within HTTP/1.1>, section 5.2 - I<Requesting a Tunnel with CONNECT>
 
 This protocol is only supported in client mode.
 
 =item I<imap>
 
-RFC 2595 - I<Using TLS with IMAP, POP3 and ACAP>
+Based on RFC 2595 - I<Using TLS with IMAP, POP3 and ACAP>
 
 =item I<nntp>
 
-RFC 4642 - I<Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)>
+Based on RFC 4642 - I<Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)>
 
 This protocol is only supported in client mode.
 
 =item I<pop3>
 
-RFC 2449 - I<POP3 Extension Mechanism>
+Based on RFC 2449 - I<POP3 Extension Mechanism>
 
 =item I<smtp>
 
-RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
+Based on RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
 
 =item I<pgsql>
 
-http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
+Based on http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
 
 =back
 

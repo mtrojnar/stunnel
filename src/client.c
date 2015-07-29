@@ -282,7 +282,7 @@ static void init_ssl(CLI *c) {
     if(c->opt->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
         if(c->opt->host_name) {
-            s_log(LOG_DEBUG, "SNI host name: %s", c->opt->host_name);
+            s_log(LOG_DEBUG, "SNI: host name: %s", c->opt->host_name);
             if(!SSL_set_tlsext_host_name(c->ssl, c->opt->host_name)) {
                 sslerror("SSL_set_tlsext_host_name");
                 longjmp(c->err, 1);

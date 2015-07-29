@@ -553,7 +553,7 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
         /* set the default push button to "Cancel" */
         SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDCANCEL, (LPARAM) 0);
 
-        titlebar=str_printf("Private key: %s", ui_data->section->key);
+        titlebar=str_printf("Private key: %s", ui_data->opt->key);
         tstr=str2tstr(titlebar);
         str_free(titlebar);
         SetWindowText(hDlg, tstr);

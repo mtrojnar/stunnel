@@ -319,14 +319,11 @@ Dla opcji time warto¶ci maj± postaæ tv_sec:tv_usec.</p>
     socket = l:SO_LINGER=1:60
         ustaw jednominutowe przeterminowanie
         przy zamykaniu lokalnego gniazda
-    socket = r:TCP_NODELAY=1
-        wy³±cz algorytm Nagle'a na zdalnych
-        gniazdach
-    socket = r:SO_OOBINLINE=1
+    socket = r:SO_OOBINLINE=yes
         umie¶æ dane pozapasmowe (out-of-band)
         bezpo¶rednio w strumieniu danych
         wej¶ciowych dla zdalnych gniazd
-    socket = a:SO_REUSEADDR=0
+    socket = a:SO_REUSEADDR=no
         zablokuj ponowne u¿ywanie portu
         (domy¶lnie w³±czone)
     socket = a:SO_BINDTODEVICE=lo
@@ -508,6 +505,24 @@ komend±:</p>
 <p>Domy¶lnie u¿ywane jest IP najbardziej zewnêtrznego interfejsu w stronê
 serwera, do którego nawi±zywane jest po³±czenie.</p>
 </dd>
+<dt><strong><a name="sni_nazwa_us_ugi_nazwa_serwera" class="item"><strong>sni</strong> = nazwa_us³ugi:nazwa_serwera</a></strong></dt>
+
+<dd>
+<p>U¿yj us³ugi jako podrzêdnej (virtualnego serwera) dla rozszerzenia TLS Server
+Name Indication (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>).</p>
+<p><em>nazwa_us³ugi</em> wskazuje us³ugê nadrzêdn±, która odbiera po³±czenia od klientów
+przy pomocy opcji <em>accept</em>.  <em>nazwa_serwera</em> wskazuje nazwê serwera
+wirtualnego.  Z pojedyñcz± us³ug± nadrzêdn± powi±zane jest zwykle wiele us³ug
+podrzêdnych.  Opcja <em>sni</em> mo¿e byæ rownie¿ u¿yta wielokrotnie w ramach jednej
+us³ugi podrzêdnej.</p>
+<p>Zarówno us³uga nadrzêdna jak i podrzêdna nie mo¿e byæ skonfigurowana w trybie
+klienckim.  Opcja <em>connect</em> us³ugi podrzêdnej jest ignorowana w po³±czeniu z
+opcj± <em>protocol</em>, gdy¿ po³±czenie do zdalnego serwera jest w tym wypadku
+nawi±zywane przed negocjacj± TLS.  Uwierzytelnienie przy pomocy biblioteki
+libwrap jest realizowane dwukrotnie: najpierw dla us³ugi nadrzêdnej po
+odebraniu po³±czenia TCP, a nastêpnie dla us³ugi podrzêdnej podczas negocjacji
+TLS.</p>
+</dd>
 <dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = URL</a></strong></dt>
 
 <dd>
@@ -549,34 +564,34 @@ Wsparcie dla tego rozrzeczenia zosta³o zarzucone w wersji 3.0.0 serwera Samba.</
 <dt><strong><a name="connect" class="item"><em>connect</em></a></strong></dt>
 
 <dd>
-<p>RFC 2817 - <em>Upgrading to TLS Within HTTP/1.1</em>, rozdzia³ 5.2 - <em>Requesting a Tunnel with CONNECT</em></p>
+<p>Negocjacja <a href="http://www.ietf.org/rfc/rfc2817.txt" class="rfc">RFC 2817</a> - <em>Upgrading to TLS Within HTTP/1.1</em>, rozdzia³ 5.2 - <em>Requesting a Tunnel with CONNECT</em></p>
 <p>Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.</p>
 </dd>
 <dt><strong><a name="imap" class="item"><em>imap</em></a></strong></dt>
 
 <dd>
-<p>RFC 2595 - <em>Using TLS with IMAP, POP3 and ACAP</em></p>
+<p>Negocjacja <a href="http://www.ietf.org/rfc/rfc2595.txt" class="rfc">RFC 2595</a> - <em>Using TLS with IMAP, POP3 and ACAP</em></p>
 </dd>
 <dt><strong><a name="nntp" class="item"><em>nntp</em></a></strong></dt>
 
 <dd>
-<p>RFC 4642 - <em>Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)</em></p>
+<p>Negocjacja <a href="http://www.ietf.org/rfc/rfc4642.txt" class="rfc">RFC 4642</a> - <em>Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)</em></p>
 <p>Ten protokó³ jest wspierany wy³±cznie w trybie klienckim.</p>
 </dd>
 <dt><strong><a name="pop3" class="item"><em>pop3</em></a></strong></dt>
 
 <dd>
-<p>RFC 2449 - <em>POP3 Extension Mechanism</em></p>
+<p>Negocjacja <a href="http://www.ietf.org/rfc/rfc2449.txt" class="rfc">RFC 2449</a> - <em>POP3 Extension Mechanism</em></p>
 </dd>
 <dt><strong><a name="smtp" class="item"><em>smtp</em></a></strong></dt>
 
 <dd>
-<p>RFC 2487 - <em>SMTP Service Extension for Secure SMTP over TLS</em></p>
+<p>Negocjacja <a href="http://www.ietf.org/rfc/rfc2487.txt" class="rfc">RFC 2487</a> - <em>SMTP Service Extension for Secure SMTP over TLS</em></p>
 </dd>
 <dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
 
 <dd>
-<p><a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
+<p>Negocjacja <a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
 </dd>
 </dl>
 </dd>

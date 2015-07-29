@@ -193,14 +193,19 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
         closesocket(s);
         return;
     }
+    enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
+    /* increment before create_client() to prevent race condition
+     * resulting in logging "Service xxx finished (-1 left)" */
+    ++num_clients;
+    leave_critical_section(CRIT_CLIENTS);
     if(create_client(opt->fd, s, alloc_client_session(opt, s, s), client)) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
+        enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
+        --num_clients;
+        leave_critical_section(CRIT_CLIENTS);
         closesocket(s);
         return;
     }
-    enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
-    ++num_clients;
-    leave_critical_section(CRIT_CLIENTS);
 }
 
 /**************************************** initialization helpers */
@@ -248,7 +253,7 @@ int bind_ports(void) {
             s_poll_add(&fds, opt->fd, 1, 0);
             s_log(LOG_DEBUG, "Service %s opened FD=%d",
                 opt->servname, opt->fd);
-        } else { /* create exec+connect services */
+        } else if(opt->option.program) { /* create exec+connect services */
             enter_critical_section(CRIT_CLIENTS);
             ++num_clients;
             leave_critical_section(CRIT_CLIENTS);

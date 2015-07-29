@@ -308,12 +308,10 @@ The values for time are tv_sec:tv_usec.</p>
 <pre>
     socket = l:SO_LINGER=1:60
         set one minute timeout for closing local socket
-    socket = r:TCP_NODELAY=1
-        turn off the Nagle algorithm for remote sockets
-    socket = r:SO_OOBINLINE=1
+    socket = r:SO_OOBINLINE=yes
         place out-of-band data directly into the
         receive data stream for remote sockets
-    socket = a:SO_REUSEADDR=0
+    socket = a:SO_REUSEADDR=no
         disable address reuse (enabled by default)
     socket = a:SO_BINDTODEVICE=lo
         only accept connections on loopback interface</pre>
@@ -485,6 +483,21 @@ to its owner.  On Unix systems you can use the following command:</p>
 <p>IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.</p>
 </dd>
+<dt><strong><a name="sni_service_name_server_name" class="item"><strong>sni</strong> = service_name:server_name</a></strong></dt>
+
+<dd>
+<p>Use the service as a slave service (a name-based virtual server) for Server
+Name Indication TLS extension (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>).</p>
+<p><em>service_name</em> specifies the master service that accepts client connections
+with <em>accept</em> option.  <em>server_name</em> specifies the host name to be redirected.
+Multiple slave services are normally specified for a single master service.
+<em>sni</em> option can also be specified more than once within a single slave service.</p>
+<p>This service, as well as the master service, may not be configured in client mode.
+<em>connect</em> option of the slave service is ignored when <em>protocol</em> option is
+specified, as <em>protocol</em> connects remote host before TLS handshake.
+Libwrap checks (Unix only) are performed twice: with master service name after
+TCP connection is accepted, and with slave service name during TLS handshake.</p>
+</dd>
 <dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = url</a></strong></dt>
 
 <dd>
@@ -526,34 +539,34 @@ Support for this extension was dropped in Samba 3.0.0.</p>
 <dt><strong><a name="connect" class="item"><em>connect</em></a></strong></dt>
 
 <dd>
-<p>RFC 2817 - <em>Upgrading to TLS Within HTTP/1.1</em>, section 5.2 - <em>Requesting a Tunnel with CONNECT</em></p>
+<p>Based on <a href="http://www.ietf.org/rfc/rfc2817.txt" class="rfc">RFC 2817</a> - <em>Upgrading to TLS Within HTTP/1.1</em>, section 5.2 - <em>Requesting a Tunnel with CONNECT</em></p>
 <p>This protocol is only supported in client mode.</p>
 </dd>
 <dt><strong><a name="imap" class="item"><em>imap</em></a></strong></dt>
 
 <dd>
-<p>RFC 2595 - <em>Using TLS with IMAP, POP3 and ACAP</em></p>
+<p>Based on <a href="http://www.ietf.org/rfc/rfc2595.txt" class="rfc">RFC 2595</a> - <em>Using TLS with IMAP, POP3 and ACAP</em></p>
 </dd>
 <dt><strong><a name="nntp" class="item"><em>nntp</em></a></strong></dt>
 
 <dd>
-<p>RFC 4642 - <em>Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)</em></p>
+<p>Based on <a href="http://www.ietf.org/rfc/rfc4642.txt" class="rfc">RFC 4642</a> - <em>Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)</em></p>
 <p>This protocol is only supported in client mode.</p>
 </dd>
 <dt><strong><a name="pop3" class="item"><em>pop3</em></a></strong></dt>
 
 <dd>
-<p>RFC 2449 - <em>POP3 Extension Mechanism</em></p>
+<p>Based on <a href="http://www.ietf.org/rfc/rfc2449.txt" class="rfc">RFC 2449</a> - <em>POP3 Extension Mechanism</em></p>
 </dd>
 <dt><strong><a name="smtp" class="item"><em>smtp</em></a></strong></dt>
 
 <dd>
-<p>RFC 2487 - <em>SMTP Service Extension for Secure SMTP over TLS</em></p>
+<p>Based on <a href="http://www.ietf.org/rfc/rfc2487.txt" class="rfc">RFC 2487</a> - <em>SMTP Service Extension for Secure SMTP over TLS</em></p>
 </dd>
 <dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
 
 <dd>
-<p><a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
+<p>Based on <a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
 </dd>
 </dl>
 </dd>

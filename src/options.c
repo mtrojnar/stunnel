@@ -533,6 +533,9 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         char *opt, char *arg) {
     char *tmpstr;
     int tmpnum;
+#ifndef OPENSSL_NO_TLSEXT
+    SERVICE_OPTIONS *tmpsrv;
+#endif /* OPENSSL_NO_TLSEXT */
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
@@ -704,9 +707,12 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             section->option.delayed_lookup=1;
         }
         tmpstr=strrchr(arg, ':');
-        if(tmpstr)
+        if(tmpstr) {
             *tmpstr='\0';
-        section->host_name=str_dup_err(arg);
+            section->host_name=str_dup_err(arg);
+        } else {
+            section->host_name=str_dup_err("localhost");
+        }
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -892,7 +898,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-15s = rr|prio chose failover strategy",
+        s_log(LOG_NOTICE, "%-15s = rr|prio failover strategy",
             "failover");
         break;
     }
@@ -1221,27 +1227,57 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
-#ifndef USE_FORK
-    /* stack */
+#ifndef OPENSSL_NO_TLSEXT
+    /* sni */
     switch(cmd) {
     case CMD_INIT:
-        section->stack_size=DEFAULT_STACK_SIZE;
+        section->servername_list_head=NULL;
+        section->servername_list_tail=NULL;
+        section->option.sni=0;
         break;
     case CMD_EXEC:
-        if(strcasecmp(opt, "stack"))
+        if(strcasecmp(opt, "sni"))
             break;
-        section->stack_size=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
-            return "Illegal thread stack size";
+        tmpstr=strchr(arg, ':');
+        if(!tmpstr)
+            return "Invalid parameter format";
+        *tmpstr++='\0';
+        for(tmpsrv=new_service_options.next; tmpsrv; tmpsrv=tmpsrv->next)
+            if(!strcmp(tmpsrv->servname, arg))
+                break;
+        if(!tmpsrv)
+            return "Section name not found";
+        if(tmpsrv->option.client)
+            return "SNI master service is a TLS client";
+        if(tmpsrv->servername_list_tail) {
+            tmpsrv->servername_list_tail->next=str_alloc(sizeof(SERVERNAME_LIST));
+            tmpsrv->servername_list_tail=tmpsrv->servername_list_tail->next;
+        } else { /* first virtual service */
+            tmpsrv->servername_list_head=
+                tmpsrv->servername_list_tail=
+                str_alloc(sizeof(SERVERNAME_LIST));
+            tmpsrv->ssl_options|=SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
+        }
+        if(!tmpsrv->servername_list_tail) {
+            s_log(LOG_ERR, "Fatal memory allocation error");
+            die(2);
+        }
+        tmpsrv->servername_list_tail->servername=str_dup_err(tmpstr);
+        tmpsrv->servername_list_tail->opt=section;
+        tmpsrv->servername_list_tail->next=NULL;
+        section->option.sni=1;
+        /* always negotiate a new session on renegotiation, as the SSL
+         * context settings (including access control) may be different */
+        section->ssl_options|=SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_NOTICE, "%-15s = %d bytes", "stack", DEFAULT_STACK_SIZE);
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-15s = thread stack size (in bytes)", "stack");
+        s_log(LOG_NOTICE, "%-15s = master_service:host_name for an SNI virtual service",
+            "sni");
         break;
     }
-#endif
+#endif /* OPENSSL_NO_TLSEXT */
 
     /* sslVersion */
     switch(cmd) {
@@ -1284,12 +1320,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "sslVersion"))
             break;
         if(!strcasecmp(arg, "all")) {
-#if !defined(OPENSSL_NO_SSL3) && !defined(OPENSSL_NO_SSL2)
             section->client_method=(SSL_METHOD *)SSLv23_client_method();
             section->server_method=(SSL_METHOD *)SSLv23_server_method();
-#else
-            return "SSLv23 not supported";
-#endif
         } else if(!strcasecmp(arg, "SSLv2")) {
 #if !defined(OPENSSL_NO_SSL2)
             section->client_method=(SSL_METHOD *)SSLv2_client_method();
@@ -1322,6 +1354,28 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         s_log(LOG_NOTICE, "%-15s = all|SSLv2|SSLv3|TLSv1 SSL method", "sslVersion");
         break;
     }
+
+#ifndef USE_FORK
+    /* stack */
+    switch(cmd) {
+    case CMD_INIT:
+        section->stack_size=DEFAULT_STACK_SIZE;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "stack"))
+            break;
+        section->stack_size=strtol(arg, &tmpstr, 10);
+        if(tmpstr==arg || *tmpstr) /* not a number */
+            return "Illegal thread stack size";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        s_log(LOG_NOTICE, "%-15s = %d bytes", "stack", DEFAULT_STACK_SIZE);
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-15s = thread stack size (in bytes)", "stack");
+        break;
+    }
+#endif
 
     /* TIMEOUTbusy */
     switch(cmd) {
@@ -1711,12 +1765,18 @@ static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
         if((unsigned int)section->option.accept
                 + (unsigned int)section->option.program
                 + (unsigned int)section->option.remote
+                + (unsigned int)section->option.sni
 #ifndef USE_WIN32
                 + (unsigned int)section->option.transparent_dst
 #endif /* USE_WIN32 */
                 !=2) {
             section_error(last_line, section->servname,
                 "Each service must define two endpoints");
+            return 0;
+        }
+        if(section->option.sni && section->option.client) {
+            section_error(last_line, section->servname,
+                "SNI slave service is a TLS client");
             return 0;
         }
     }
@@ -1868,54 +1928,52 @@ static int parse_ssl_option(char *arg) {
 /**************************************** socket options */
 
 static int on=1;
-
-#define DEF_VALS {NULL, NULL, NULL}
-#define DEF_ACCEPT {(void *)&on, NULL, NULL}
+#define DEF_ON ((void *)&on)
 
 SOCK_OPT sock_opts[] = {
-    {"SO_DEBUG",        SOL_SOCKET,  SO_DEBUG,        TYPE_FLAG,    DEF_VALS},
-    {"SO_DONTROUTE",    SOL_SOCKET,  SO_DONTROUTE,    TYPE_FLAG,    DEF_VALS},
-    {"SO_KEEPALIVE",    SOL_SOCKET,  SO_KEEPALIVE,    TYPE_FLAG,    DEF_VALS},
-    {"SO_LINGER",       SOL_SOCKET,  SO_LINGER,       TYPE_LINGER,  DEF_VALS},
-    {"SO_OOBINLINE",    SOL_SOCKET,  SO_OOBINLINE,    TYPE_FLAG,    DEF_VALS},
-    {"SO_RCVBUF",       SOL_SOCKET,  SO_RCVBUF,       TYPE_INT,     DEF_VALS},
-    {"SO_SNDBUF",       SOL_SOCKET,  SO_SNDBUF,       TYPE_INT,     DEF_VALS},
+    {"SO_DEBUG",        SOL_SOCKET,  SO_DEBUG,        TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"SO_DONTROUTE",    SOL_SOCKET,  SO_DONTROUTE,    TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"SO_KEEPALIVE",    SOL_SOCKET,  SO_KEEPALIVE,    TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"SO_LINGER",       SOL_SOCKET,  SO_LINGER,       TYPE_LINGER,  {NULL, NULL, NULL}},
+    {"SO_OOBINLINE",    SOL_SOCKET,  SO_OOBINLINE,    TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"SO_RCVBUF",       SOL_SOCKET,  SO_RCVBUF,       TYPE_INT,     {NULL, NULL, NULL}},
+    {"SO_SNDBUF",       SOL_SOCKET,  SO_SNDBUF,       TYPE_INT,     {NULL, NULL, NULL}},
 #ifdef SO_RCVLOWAT
-    {"SO_RCVLOWAT",     SOL_SOCKET,  SO_RCVLOWAT,     TYPE_INT,     DEF_VALS},
+    {"SO_RCVLOWAT",     SOL_SOCKET,  SO_RCVLOWAT,     TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef SO_SNDLOWAT
-    {"SO_SNDLOWAT",     SOL_SOCKET,  SO_SNDLOWAT,     TYPE_INT,     DEF_VALS},
+    {"SO_SNDLOWAT",     SOL_SOCKET,  SO_SNDLOWAT,     TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef SO_RCVTIMEO
-    {"SO_RCVTIMEO",     SOL_SOCKET,  SO_RCVTIMEO,     TYPE_TIMEVAL, DEF_VALS},
+    {"SO_RCVTIMEO",     SOL_SOCKET,  SO_RCVTIMEO,     TYPE_TIMEVAL, {NULL, NULL, NULL}},
 #endif
 #ifdef SO_SNDTIMEO
-    {"SO_SNDTIMEO",     SOL_SOCKET,  SO_SNDTIMEO,     TYPE_TIMEVAL, DEF_VALS},
+    {"SO_SNDTIMEO",     SOL_SOCKET,  SO_SNDTIMEO,     TYPE_TIMEVAL, {NULL, NULL, NULL}},
 #endif
-    {"SO_REUSEADDR",    SOL_SOCKET,  SO_REUSEADDR,    TYPE_FLAG,    DEF_ACCEPT},
+    {"SO_REUSEADDR",    SOL_SOCKET,  SO_REUSEADDR,    TYPE_FLAG,    {DEF_ON, NULL, NULL}},
 #ifdef SO_BINDTODEVICE
-    {"SO_BINDTODEVICE", SOL_SOCKET,  SO_BINDTODEVICE, TYPE_STRING,  DEF_VALS},
+    {"SO_BINDTODEVICE", SOL_SOCKET,  SO_BINDTODEVICE, TYPE_STRING,  {NULL, NULL, NULL}},
 #endif
 #ifdef TCP_KEEPCNT
-    {"TCP_KEEPCNT",     SOL_TCP,     TCP_KEEPCNT,     TYPE_INT,     DEF_VALS},
+    {"TCP_KEEPCNT",     SOL_TCP,     TCP_KEEPCNT,     TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef TCP_KEEPIDLE
-    {"TCP_KEEPIDLE",    SOL_TCP,     TCP_KEEPIDLE,    TYPE_INT,     DEF_VALS},
+    {"TCP_KEEPIDLE",    SOL_TCP,     TCP_KEEPIDLE,    TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef TCP_KEEPINTVL
-    {"TCP_KEEPINTVL",   SOL_TCP,     TCP_KEEPINTVL,   TYPE_INT,     DEF_VALS},
+    {"TCP_KEEPINTVL",   SOL_TCP,     TCP_KEEPINTVL,   TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef IP_TOS
-    {"IP_TOS",          IPPROTO_IP,  IP_TOS,          TYPE_INT,     DEF_VALS},
+    {"IP_TOS",          IPPROTO_IP,  IP_TOS,          TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef IP_TTL
-    {"IP_TTL",          IPPROTO_IP,  IP_TTL,          TYPE_INT,     DEF_VALS},
+    {"IP_TTL",          IPPROTO_IP,  IP_TTL,          TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef IP_MAXSEG
-    {"TCP_MAXSEG",      IPPROTO_TCP, TCP_MAXSEG,      TYPE_INT,     DEF_VALS},
+    {"TCP_MAXSEG",      IPPROTO_TCP, TCP_MAXSEG,      TYPE_INT,     {NULL, NULL, NULL}},
 #endif
-    {"TCP_NODELAY",     IPPROTO_TCP, TCP_NODELAY,     TYPE_FLAG,    DEF_VALS},
-    {NULL,              0,           0,               TYPE_NONE,    DEF_VALS}
+    {"TCP_NODELAY",     IPPROTO_TCP, TCP_NODELAY,     TYPE_FLAG,    {NULL, DEF_ON, DEF_ON}},
+    {NULL,              0,           0,               TYPE_NONE,    {NULL, NULL, NULL}}
 };
 
 static int print_socket_options(void) {
@@ -1923,36 +1981,36 @@ static int print_socket_options(void) {
     socklen_t optlen;
     SOCK_OPT *ptr;
     OPT_UNION val;
-    char *t1, *t2, *t3, *t4, *t5;
+    char *ta, *tl, *tr, *td;
 
     fd=socket(AF_INET, SOCK_STREAM, 0);
 
     s_log(LOG_NOTICE, "Socket option defaults:");
-    s_log(LOG_NOTICE, "    %-16s%-10s%-10s%-10s%-10s",
-        "Option", "Accept", "Local", "Remote", "OS default");
+    s_log(LOG_NOTICE,
+        "    Option Name     |  Accept  |   Local  |  Remote  |OS default");
+    s_log(LOG_NOTICE,
+        "    ----------------+----------+----------+----------+----------");
     for(ptr=sock_opts; ptr->opt_str; ++ptr) {
-        /* display option name */
-        t1=str_printf("    %-16s", ptr->opt_str);
-        /* display stunnel default values */
-        t2=print_option(ptr->opt_type, ptr->opt_val[0]);
-        t3=print_option(ptr->opt_type, ptr->opt_val[1]);
-        t4=print_option(ptr->opt_type, ptr->opt_val[2]);
-        /* display OS default value */
+        /* get OS default value */
         optlen=sizeof val;
         if(getsockopt(fd, ptr->opt_level,
                 ptr->opt_name, (void *)&val, &optlen)) {
             if(get_last_socket_error()!=ENOPROTOOPT) {
-                /* dump the name and assigned values */
-                s_log(LOG_ERR, "%s%s%s%s", t1, t2, t3, t4);
-                str_free(t1); str_free(t2); str_free(t3); str_free(t4);
+                s_log(LOG_ERR, "Failed to get %s OS default", ptr->opt_str);
                 sockerror("getsockopt");
                 return 0; /* FAILED */
             }
-            t5=str_dup("    --    "); /* write-only value */
+            td=str_dup("write-only");
         } else
-            t5=print_option(ptr->opt_type, &val);
-        s_log(LOG_NOTICE, "%s%s%s%s%s", t1, t2, t3, t4, t5);
-        str_free(t1); str_free(t2); str_free(t3); str_free(t4); str_free(t5);
+            td=print_option(ptr->opt_type, &val);
+        /* get stunnel default values */
+        ta=print_option(ptr->opt_type, ptr->opt_val[0]);
+        tl=print_option(ptr->opt_type, ptr->opt_val[1]);
+        tr=print_option(ptr->opt_type, ptr->opt_val[2]);
+        /* print collected data and fee the memory */
+        s_log(LOG_NOTICE, "    %-16s|%10s|%10s|%10s|%10s",
+            ptr->opt_str, ta, tl, tr, td);
+        str_free(ta); str_free(tl); str_free(tr); str_free(td);
     }
     return 1; /* OK */
 }
@@ -1962,16 +2020,17 @@ static char *print_option(int type, OPT_UNION *val) {
         return str_dup("    --    ");
     switch(type) {
     case TYPE_FLAG:
+        return str_printf("%s", val->i_val ? "yes" : "no");
     case TYPE_INT:
-        return str_printf("%10d", val->i_val);
+        return str_printf("%d", val->i_val);
     case TYPE_LINGER:
-        return str_printf("%d:%-8d",
+        return str_printf("%d:%d",
             val->linger_val.l_onoff, val->linger_val.l_linger);
     case TYPE_TIMEVAL:
-        return str_printf("%6d:%-3d",
+        return str_printf("%d:%d",
             (int)val->timeval_val.tv_sec, (int)val->timeval_val.tv_usec);
     case TYPE_STRING:
-        return str_printf("%10s", val->c_val);
+        return str_printf("%s", val->c_val);
     }
     return str_dup("  Ooops?  "); /* internal error? */
 }
@@ -2009,6 +2068,15 @@ static int parse_socket_option(char *arg) {
     ptr->opt_val[socket_type]=str_alloc(sizeof(OPT_UNION));
     switch(ptr->opt_type) {
     case TYPE_FLAG:
+        if(!strcasecmp(opt_val_str, "yes") || !strcmp(opt_val_str, "1")) {
+            ptr->opt_val[socket_type]->i_val=1;
+            return 1; /* OK */
+        }
+        if(!strcasecmp(opt_val_str, "no") || !strcmp(opt_val_str, "0")) {
+            ptr->opt_val[socket_type]->i_val=0;
+            return 1; /* OK */
+        }
+        return 0; /* FAILED */
     case TYPE_INT:
         ptr->opt_val[socket_type]->i_val=strtol(opt_val_str, &tmpstr, 10);
         if(tmpstr==arg || *tmpstr) /* not a number */

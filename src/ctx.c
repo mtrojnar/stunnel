@@ -52,6 +52,11 @@ static BIGNUM *e_value;
 
 /**************************************** prototypes */
 
+/* SNI */
+#ifndef OPENSSL_NO_TLSEXT
+static int servername_cb(SSL *, int *, void *);
+#endif
+
 /* RSA/DH initialization */
 #ifndef OPENSSL_NO_RSA
 static RSA *tmp_rsa_cb(SSL *, int, int);
@@ -115,6 +120,10 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
         section->ctx=SSL_CTX_new(section->server_method);
     SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
     if(!section->option.client) { /* RSA/DH/ECDH server mode initialization */
+#ifndef OPENSSL_NO_TLSEXT
+        SSL_CTX_set_tlsext_servername_arg(section->ctx, section);
+        SSL_CTX_set_tlsext_servername_callback(section->ctx, servername_cb);
+#endif
 #ifndef OPENSSL_NO_RSA
         for(i=0; i<KEY_CACHE_LENGTH; ++i) {
             key_table[i].key=NULL;
@@ -175,6 +184,44 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
         section->servname);
     return 1; /* OK */
 }
+
+/**************************************** SNI callback */
+
+#ifndef OPENSSL_NO_TLSEXT
+static int servername_cb(SSL *ssl, int *ad, void *arg) {
+    SERVICE_OPTIONS *opt=(SERVICE_OPTIONS *)arg;
+    const char *servername=SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    SERVERNAME_LIST *list;
+    CLI *c;
+
+    /* leave the alert type at SSL_AD_UNRECOGNIZED_NAME */
+    (void)ad; /* skip warning about unused parameter */
+    if(!opt->servername_list_head) /* no virtual services defined */
+        return SSL_TLSEXT_ERR_OK;
+    if(!servername) /* no SNI extension received from the client */
+        return SSL_TLSEXT_ERR_NOACK;
+
+    for(list=opt->servername_list_head; list; list=list->next)
+        if(!strcasecmp(servername, list->servername)) {
+            c=SSL_get_ex_data(ssl, cli_index);
+            c->opt=list->opt;
+            SSL_set_SSL_CTX(ssl, c->opt->ctx);
+            s_log(LOG_NOTICE, "SNI: switched to section %s",
+                c->opt->servname);
+#ifdef USE_LIBWRAP
+            libwrap_auth(c); /* retry on a service switch */
+#endif /* USE_LIBWRAP */
+            return SSL_TLSEXT_ERR_OK;
+        }
+    s_log(LOG_ERR, "SNI: no service defined for server %s", servername);
+    return SSL_TLSEXT_ERR_ALERT_FATAL;
+}
+/* TLSEXT callback return codes:
+ *  - SSL_TLSEXT_ERR_OK
+ *  - SSL_TLSEXT_ERR_ALERT_WARNING
+ *  - SSL_TLSEXT_ERR_ALERT_FATAL
+ *  - SSL_TLSEXT_ERR_NOACK */
+#endif /* OPENSSL_NO_TLSEXT */
 
 /**************************************** temporary RSA keys generation */
 
@@ -281,7 +328,7 @@ static int init_ecdh(SSL_CTX *ctx, SERVICE_OPTIONS *section) {
 
 static int cache_initialized=0;
 
-static int load_pem_cert(SERVICE_OPTIONS *section) {
+static int load_pem_cert(SERVICE_OPTIONS *opt) {
     int i, reason;
     UI_DATA ui_data;
 #ifdef HAVE_OSSL_ENGINE_H
@@ -289,21 +336,21 @@ static int load_pem_cert(SERVICE_OPTIONS *section) {
     UI_METHOD *ui_method;
 #endif
 
-    if(!section->cert) /* no certificate specified */
+    if(!opt->cert) /* no certificate specified */
         return 1; /* OK */
 
-    ui_data.section=section; /* setup current section for callbacks */
+    ui_data.opt=opt; /* setup current section for callbacks */
 
-    s_log(LOG_DEBUG, "Certificate: %s", section->cert);
-    if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
-        s_log(LOG_ERR, "Error reading certificate file: %s", section->cert);
+    s_log(LOG_DEBUG, "Certificate: %s", opt->cert);
+    if(!SSL_CTX_use_certificate_chain_file(opt->ctx, opt->cert)) {
+        s_log(LOG_ERR, "Error reading certificate file: %s", opt->cert);
         sslerror("SSL_CTX_use_certificate_chain_file");
         return 0;
     }
     s_log(LOG_DEBUG, "Certificate loaded");
 
-    s_log(LOG_DEBUG, "Key file: %s", section->key);
-    SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
+    s_log(LOG_DEBUG, "Key file: %s", opt->key);
+    SSL_CTX_set_default_passwd_cb(opt->ctx, password_cb);
 #ifdef HAVE_OSSL_ENGINE_H
 #ifdef USE_WIN32
     ui_method=UI_create_method("stunnel WIN32 UI");
@@ -311,9 +358,9 @@ static int load_pem_cert(SERVICE_OPTIONS *section) {
 #else /* USE_WIN32 */
     ui_method=UI_OpenSSL();
 #endif /* USE_WIN32 */
-    if(section->engine)
+    if(opt->engine)
         for(i=1; i<=3; i++) {
-            pkey=ENGINE_load_private_key(section->engine, section->key,
+            pkey=ENGINE_load_private_key(opt->engine, opt->key,
                 ui_method, &ui_data);
             if(!pkey) {
                 reason=ERR_GET_REASON(ERR_peek_error());
@@ -325,7 +372,7 @@ static int load_pem_cert(SERVICE_OPTIONS *section) {
                 sslerror("ENGINE_load_private_key");
                 return 0;
             }
-            if(SSL_CTX_use_PrivateKey(section->ctx, pkey))
+            if(SSL_CTX_use_PrivateKey(opt->ctx, pkey))
                 break; /* success */
             sslerror("SSL_CTX_use_PrivateKey");
             return 0;
@@ -335,9 +382,9 @@ static int load_pem_cert(SERVICE_OPTIONS *section) {
         for(i=0; i<=3; i++) {
             if(!i && !cache_initialized)
                 continue; /* there is no cached value */
-            SSL_CTX_set_default_passwd_cb_userdata(section->ctx,
+            SSL_CTX_set_default_passwd_cb_userdata(opt->ctx,
                 i ? &ui_data : NULL); /* try the cached password first */
-            if(SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
+            if(SSL_CTX_use_PrivateKey_file(opt->ctx, opt->key,
                     SSL_FILETYPE_PEM))
                 break;
             reason=ERR_GET_REASON(ERR_peek_error());
@@ -349,7 +396,7 @@ static int load_pem_cert(SERVICE_OPTIONS *section) {
             sslerror("SSL_CTX_use_PrivateKey_file");
             return 0;
         }
-    if(!SSL_CTX_check_private_key(section->ctx)) {
+    if(!SSL_CTX_check_private_key(opt->ctx)) {
         sslerror("Private key does not match the certificate");
         return 0;
     }
