@@ -5,35 +5,54 @@ AC_CONFIG_HEADER(config.h)
 
 AC_CANONICAL_HOST
 AC_PROG_CC
+if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.2"
+VERSION="3.3"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
 AC_MSG_CHECKING([for SSL directory])
-SSLDIR="/usr/local/ssl"
-test -f $SSLDIR/include/ssl.h || SSLDIR="/usr/lib/ssl"
-test -f $SSLDIR/include/ssl.h || SSLDIR="/usr"
-AC_MSG_RESULT($SSLDIR)
-AC_SUBST(SSLDIR)
-AC_DEFINE_UNQUOTED(SSLDIR, "$SSLDIR")
+for dir in /usr/local/ssl /usr/lib/ssl /usr/pkg /usr/local /usr; do
+    ssldir="$dir"
+    if test -f "$dir/include/openssl/ssl.h"; then
+        AC_DEFINE(HAVE_OPENSSL)
+        break
+    fi
+    if test -f "$dir/include/ssl.h"; then
+        break
+    fi
+done
+AC_MSG_RESULT($ssldir)
+AC_SUBST(ssldir)
+AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
 
 AC_SUBST(host)
 AC_DEFINE_UNQUOTED(HOST, "$host")
+
+CFLAGS="$CFLAGS -I$ssldir/include"
+LIBS="-L$ssldir/lib -lssl -lcrypto $LIBS"
 
 dnl Checks for libraries.
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(pthread, pthread_create)
-AC_CHECK_LIB(rsaref, RSA_PKCS1_RSAref)
+# AC_CHECK_LIB(rsaref, RSA_PKCS1_RSAPrivateEncrypt)
+
 AC_MSG_CHECKING([for hosts_access in -lwrap])
 saved_LIBS="$LIBS"
-LIBS="$saved_LIBS -lwrap"
+LIBS="-lwrap $saved_LIBS"
 AC_TRY_LINK([int hosts_access(); int allow_severity, deny_severity;],
 [hosts_access()],
 [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBWRAP)],
+[AC_MSG_RESULT(no)]; LIBS="$saved_LIBS")
+
+AC_MSG_CHECKING([for RSAref library])
+saved_LIBS="$LIBS"
+LIBS="-lRSAglue -lrsaref $saved_LIBS"
+AC_TRY_LINK([], [],
+[AC_MSG_RESULT(yes); ],
 [AC_MSG_RESULT(no)]; LIBS="$saved_LIBS")
 
 dnl Checks for header files.
@@ -50,7 +69,7 @@ AC_CHECK_HEADERS(getopt.h strings.h unistd.h sys/select.h tcpd.h pthread.h)
 # AC_HEADER_TIME
 
 # dnl Checks for library functions.
-# AC_CHECK_FUNCS(select strerror)
+AC_CHECK_FUNCS(rindex getopt snprintf vsnprintf)
 
-AC_OUTPUT(Makefile)
+AC_OUTPUT(Makefile stunnel.8)
 

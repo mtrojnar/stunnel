@@ -1,5 +1,19 @@
 stunnel         Universal SSL tunnel
 
+3.3 1999.04.28	Support for openssl 0.9.3 added.
+		Generic support for protocol negotiation added (protocol.c).
+		SMTP protocol negotiation support for Netscape client added.
+		Transparent proxy mode (currently works on Linux only).
+		SO_REUSEADDR enabled on listening socket in daemon mode.
+		./configure now accepts --prefix parameter.
+		-Wall is only used with gcc compiler.
+		Makefile.in and configure.in updated.
+		SSL-related functions moved to a separate file.
+		vsprintf changed to vsnprintf in log.c on systems have it.
+		Pidfile in /var/run added for daemon mode.
+		RSAref support fix (not tested).
+		Some compatibility fixes for Solaris and NetBSD added.
+
 3.2 1999.04.28	RSAref support (not tested).
 		Added full duplex with non-blocking sockets.
 		RST sent instead of FIN on peer error (on error peer

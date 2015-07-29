@@ -2,62 +2,89 @@
 # Makefile for stunnel by Michal Trojnara 1998-1999 #
 #####################################################
 
-VERSION=@VERSION@
-HOST=@host@
-DESTDIR=/usr
-SBINDIR=$(DESTDIR)/sbin
-MANDIR=$(DESTDIR)/man/man8
-SSLDIR=@SSLDIR@
-CERTDIR=$(SSLDIR)/certs
-
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+sbindir=@sbindir@
+mandir=@mandir@/man8
+ssldir=@ssldir@
+certdir=$(ssldir)/certs
+@SET_MAKE@
+VERSION=stunnel-@VERSION@
 CC=@CC@
 INSTALL=@INSTALL@
-CFLAGS=@CFLAGS@ -Wall -I$(SSLDIR)/include
-LIBS=-L$(SSLDIR)/lib @LIBS@ -lssl -lcrypto
-OBJS=stunnel.o sthreads.o log.o
+CFLAGS=@CFLAGS@
+LIBS=@LIBS@
+OBJS=stunnel.o ssl.o protocol.o sthreads.o log.o
+DESTFILES=$(sbindir)/stunnel $(mandir)/stunnel.8 $(certdir)/stunnel.pem
 
-stunnel: $(OBJS)
-	$(CC) $(LDFLAGS) -o stunnel $(OBJS) $(LIBS)
-#	mkdir -p ../distrib
-#	gzip < stunnel > ../distrib/stunnel-$(VERSION)-$(HOST).gz
+# standard external rules
 
-# .o:
-# 	$(CC) -c $(CFLAGS) $@
+all: stunnel
+
+install: installdirs $(DESTFILES)
+
+uninstall:
+	rm -f $(DESTFILES)
+
+install-strip:
+	$(MAKE) INSTALL='$(INSTALL) -s' install
+
+clean:
+	rm -f stunnel $(OBJS) core config.log
+
+distclean: clean
+	rm -f stunnel.8 config.cache config.status Makefile config.h
+
+mostlyclean: distclean
+
+maintainer-clean: distclean
+
+dist: distclean
+	./mkinstalldirs ../dist
+	cp -f stunnel.exe ../dist/$(VERSION).exe
+	cp -rp . ../dist/$(VERSION)
+	tar -cf - -C ../dist $(VERSION) | gzip > ../dist/$(VERSION).tar.gz
+	rm -rf ../dist/$(VERSION)
+
+installdirs: mkinstalldirs
+	./mkinstalldirs $(sbindir) $(mandir) $(certdir)
+
+# non-standard external rules
 
 stunnel.html: man2html.pl stunnel.8
 	./man2html.pl < stunnel.8 > stunnel.html
 
 cert:
 	rm -f stunnel.pem
-	make stunnel.pem
+	$(MAKE) stunnel.pem
+
+# internal rules
+
+stunnel: $(OBJS)
+	$(CC) $(LDFLAGS) -o stunnel $(OBJS) $(LIBS)
+
+Makefile: configure Makefile.in
+	./configure
+	$(MAKE) clean
+
+configure: configure.in
+	autoconf
+	autoheader configure.in > config.h.in
+
+$(OBJS): Makefile common.h
 
 stunnel.pem:
-	$(SSLDIR)/bin/openssl req -new -x509 -days 365 -config stunnel.cnf \
+	$(ssldir)/bin/openssl req -new -x509 -days 365 -config stunnel.cnf \
 		-out stunnel.pem -keyout stunnel.pem
-	$(SSLDIR)/bin/openssl x509 -subject -dates -fingerprint -noout \
+	$(ssldir)/bin/openssl x509 -subject -dates -fingerprint -noout \
 		-in stunnel.pem
 
-$(SBINDIR)/stunnel: stunnel
-	mkdir -p $(SBINDIR)
-	$(INSTALL) -m 711 stunnel $(SBINDIR)
+$(sbindir)/stunnel: stunnel
+	$(INSTALL) -m 711 stunnel $(sbindir)
 
-$(MANDIR)/stunnel.8: stunnel.8
-	mkdir -p $(MANDIR)
-	$(INSTALL) -m 644 stunnel.8 $(MANDIR)
+$(mandir)/stunnel.8: stunnel.8
+	$(INSTALL) -m 644 stunnel.8 $(mandir)
 
-$(CERTDIR)/stunnel.pem: stunnel.pem
-	mkdir -p $(CERTDIR)
-	$(INSTALL) -m 600 stunnel.pem $(CERTDIR)
+$(certdir)/stunnel.pem: stunnel.pem
+	$(INSTALL) -m 600 stunnel.pem $(certdir)
 
-install: $(SBINDIR)/stunnel $(MANDIR)/stunnel.8 $(CERTDIR)/stunnel.pem
-
-clean:
-	rm -f stunnel $(OBJS) config.log core
-
-dist_clean: clean
-	rm -f config.cache Makefile config.h
-
-distrib: dist_clean
-	mkdir -p ../distrib
-	cp -f stunnel.exe ../distrib/stunnel-$(VERSION).exe
-	tar -cf - -C .. stunnel | gzip > ../distrib/stunnel-$(VERSION).tar.gz

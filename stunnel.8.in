@@ -29,7 +29,7 @@ default: server mode
 .B -p pemfile
 certificate (*.pem) file name
 .RS
-default: /usr/lib/ssl/certs/stunnel.pem
+default: @SSLDIR@/certs/stunnel.pem
 .RE
 .TP
 .B -v level
@@ -93,6 +93,9 @@ There are available SSL enabled versions of FTP and telnet daemons, however.
 .BR ssl (1),
 .BR tcpd (8),
 .BR inetd (8)
+.TP
+.BI http://mike.daewoo.com.pl/computer/stunnel
+Stunnel home page
 .TP
 .BI http://www.psy.uq.oz.au/~ftp/Crypto/
 SSLeay FAQ

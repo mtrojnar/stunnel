@@ -19,6 +19,13 @@
  */
 
 #include "common.h"
+#include <stdio.h>
+
+#ifdef HAVE_OPENSSL
+#include <openssl/crypto.h> /* for CRYPTO_* */
+#else
+#include <crypto.h> /* for CRYPTO_* */
+#endif
 
 #ifdef USE_PTHREAD
 
@@ -28,7 +35,11 @@
 pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
 pthread_attr_t pth_attr;
 
-static void locking_callback(int mode, int type, char *file, int line)
+static void locking_callback(int mode, int type,
+#ifdef HAVE_OPENSSL
+    const /* Callback definition has been changed in openssl 0.9.3 */
+#endif
+    char *file, int line)
 {
     if(mode&CRYPTO_LOCK)
         pthread_mutex_lock(lock_cs+type);
@@ -95,7 +106,8 @@ int create_client(int ls, int s, void (*cli)(int))
 {
     int iID;
 
-    CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)cli, (void *)s, 0, &iID);
+    CloseHandle(CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)cli,
+        (void *)s, 0, &iID));
     return 0;
 }
 

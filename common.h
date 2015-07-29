@@ -18,27 +18,37 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <stdio.h>
-
-/* SSL headers */
-#ifdef HAVE_LIBRSAREF
-#define RSAref
-#endif
-#define NO_BLOWFISH
-#include <ssl.h>
-#include <err.h>
-#include <lhash.h>
-#include <crypto.h>
+#define OPT_CLIENT      0x01
+#define OPT_CERT        0x02
+#define OPT_DAEMON      0x04
+#define OPT_FOREGROUND  0x08
+#define OPT_LOCAL       0x10
+#define OPT_REMOTE      0x20
+#define OPT_TRANSPARENT 0x40
 
 #ifdef USE_WIN32
 
-#define VERSION "3.2"
+#define VERSION "3.3"
 #define HOST "i586-pc-mingw32-gnu"
+
+#define HAVE_VSNPRINTF
+#define vsnprintf _vsnprintf
+int _vsnprintf(char *, int, char *, ...);
 
 #define get_last_socket_error() WSAGetLastError()
 #define get_last_error()        GetLastError()
 #define readsocket(s,b,n)       recv((s),(b),(n),0)
 #define writesocket(s,b,n)      send((s),(b),(n),0)
+
+#define LOG_EMERG       0
+#define LOG_ALERT       1
+#define LOG_CRIT        2
+#define LOG_ERR         3
+#define LOG_WARNING     4
+#define LOG_NOTICE      5
+#define LOG_INFO        6
+#define LOG_DEBUG       7
+
 #else /* USE_WIN32 */
 
 #include "config.h"
@@ -63,6 +73,8 @@
 #define USE_LIBWRAP
 #endif
 
+#include <syslog.h>
+
 #endif /* USE_WIN32 */
 
 #ifdef USE_PTHREAD
@@ -80,8 +92,49 @@
 #define STUNNEL_INFO STUNNEL_TMP
 #endif
 
+/* Length of strings (including the terminating '\0' character) */
+#define STRLEN         1024
+
+typedef struct {
+    char certfile[STRLEN];  /* name of the certificate */
+    char clientdir[STRLEN];
+    char pidfile[STRLEN];
+    unsigned long dpid;
+    int clients;
+    int option;
+    int foreground;         /* force messages to stderr */
+    unsigned short localport, remoteport;
+    unsigned long *localnames, *remotenames;
+    char *execname, **execargs; /* program name and arguments for local mode */
+    char servname[STRLEN];  /* service name for loggin & permission checking */
+    int verify_level;
+    int verify_use_only_my;
+    int debug_level;
+    long session_timeout;
+    char *username;
+    char *protocol;
+} server_options;
+
+/* Prototypes for stunnel.c */
+
+void sockerror(char *);
+int connect_local();
+int connect_remote(unsigned long);
+
+/* Prototypes for ssl.c */
+
+void context_init();
+void context_free();
+void client(int);
+
+/* Prototypes for protocol.c */
+
+int negotiate(char *, int, int, int);
+
 /* Prototypes for log.c */
 
+void log_open();
+void log_close();
 void log(int, char *, ...);
 
 /* Prototypes for sthreads.c */

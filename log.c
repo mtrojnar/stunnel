@@ -19,27 +19,51 @@
  */
 
 #include "common.h"
-
-extern int foreground, debug_level;
-
-#ifndef USE_WIN32
-#include <syslog.h>
-#endif
-
+#include <stdio.h>
 #include <stdarg.h>
+
+extern server_options options;
+
+#ifdef USE_WIN32
+
+void log_open()
+{
+}
+
+void log_close()
+{
+}
+
+#else /* USE_WIN32 */
+
+void log_open()
+{
+    openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+}
+
+void log_close()
+{
+    closelog();
+}
+
+#endif /* USE_WIN32 */
 
 void log(int level, char *format, ...)
 {
     va_list arglist;
     char text[256];
 
-    if(level>debug_level)
+    if(level>options.debug_level)
         return;
     va_start(arglist, format);
+#ifdef HAVE_VSNPRINTF
+    vsnprintf(text, 256, format, arglist);
+#else
     vsprintf(text, format, arglist);
+#endif
     va_end(arglist);
 #ifndef USE_WIN32
-    if(!foreground)
+    if(!options.foreground)
         syslog(level, text);
     else
 #endif

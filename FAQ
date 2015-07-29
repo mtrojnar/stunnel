@@ -33,7 +33,7 @@ A: If possible avoid starting stunnel from inetd.  It's slow (SSL needs
    and will use more memory on heavy load.
    The example /etc/inetd.conf line for imapd:
    "imaps stream tcp nowait root \
-      /usr/sbin/stunnel stunnel -l /usr/sbin/imapd imapd".
+      /usr/local/sbin/stunnel stunnel -l /usr/sbin/imapd imapd".
    Notice, that for better compatibility above syntax is different
    than the old one (2.x).
    Don't forget to add "imaps 993/tcp" to /etc/services and restart inetd.
