@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.08             (stunnel.c)
- *   Date:         2005.02.27
+ *   Version:      4.09             (stunnel.c)
+ *   Date:         2005.03.26
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -46,7 +46,6 @@ static void daemonize(void);
 static void create_pid(void);
 static void delete_pid(void);
 #endif
-static void setnonblock(int, unsigned long);
 
     /* Error/exceptions handling functions */
 #ifndef USE_WIN32
@@ -63,10 +62,14 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
     main_initialize(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL);
 
     signal(SIGPIPE, SIG_IGN); /* avoid 'broken pipe' signal */
-    signal(SIGTERM, signal_handler);
-    signal(SIGQUIT, signal_handler);
-    signal(SIGINT, signal_handler);
-    signal(SIGHUP, signal_handler);
+    if(signal(SIGTERM, SIG_IGN)!=SIG_IGN)
+        signal(SIGTERM, signal_handler);
+    if(signal(SIGQUIT, SIG_IGN)!=SIG_IGN)
+        signal(SIGQUIT, signal_handler);
+    if(signal(SIGINT, SIG_IGN)!=SIG_IGN)
+        signal(SIGINT, signal_handler);
+    if(signal(SIGHUP, SIG_IGN)!=SIG_IGN)
+        signal(SIGHUP, signal_handler);
     /* signal(SIGSEGV, signal_handler); */
 
     main_execute();
@@ -419,172 +422,12 @@ static void delete_pid(void) {
     if(unlink(options.pidfile)<0)
         ioerror(options.pidfile); /* not critical */
 }
-#endif /* defined USE_WIN32 */
-
-int set_socket_options(int s, int type) {
-    SOCK_OPT *ptr;
-    extern SOCK_OPT sock_opts[];
-    static char *type_str[3]={"accept", "local", "remote"};
-    int opt_size;
-
-    for(ptr=sock_opts;ptr->opt_str;ptr++) {
-        if(!ptr->opt_val[type])
-            continue; /* default */
-        switch(ptr->opt_type) {
-        case TYPE_LINGER:
-            opt_size=sizeof(struct linger); break;
-        case TYPE_TIMEVAL:
-            opt_size=sizeof(struct timeval); break;
-        case TYPE_STRING:
-            opt_size=strlen(ptr->opt_val[type]->c_val)+1; break;
-        default:
-            opt_size=sizeof(int); break;
-        }
-        if(setsockopt(s, ptr->opt_level, ptr->opt_name,
-                (void *)ptr->opt_val[type], opt_size)) {
-            sockerror(ptr->opt_str);
-            return -1; /* FAILED */
-        } else {
-            s_log(LOG_DEBUG, "%s option set on %s socket",
-                ptr->opt_str, type_str[type]);
-        }
-    }
-    return 0; /* OK */
-}
-
-void ioerror(const char *txt) { /* input/output error handler */
-    log_error(LOG_ERR, get_last_error(), txt);
-}
-
-void sockerror(const char *txt) { /* socket error handler */
-    log_error(LOG_ERR, get_last_socket_error(), txt);
-}
-
-void log_error(int level, int error, const char *txt) { /* generic error logger */
-    s_log(level, "%s: %s (%d)", txt, my_strerror(error), error);
-}
-
-char *my_strerror(int errnum) {
-    switch(errnum) {
-#ifdef USE_WIN32
-    case 10004:
-        return "Interrupted system call (WSAEINTR)";
-    case 10009:
-        return "Bad file number (WSAEBADF)";
-    case 10013:
-        return "Permission denied (WSAEACCES)";
-    case 10014:
-        return "Bad address (WSAEFAULT)";
-    case 10022:
-        return "Invalid argument (WSAEINVAL)";
-    case 10024:
-        return "Too many open files (WSAEMFILE)";
-    case 10035:
-        return "Operation would block (WSAEWOULDBLOCK)";
-    case 10036:
-        return "Operation now in progress (WSAEINPROGRESS)";
-    case 10037:
-        return "Operation already in progress (WSAEALREADY)";
-    case 10038:
-        return "Socket operation on non-socket (WSAENOTSOCK)";
-    case 10039:
-        return "Destination address required (WSAEDESTADDRREQ)";
-    case 10040:
-        return "Message too long (WSAEMSGSIZE)";
-    case 10041:
-        return "Protocol wrong type for socket (WSAEPROTOTYPE)";
-    case 10042:
-        return "Bad protocol option (WSAENOPROTOOPT)";
-    case 10043:
-        return "Protocol not supported (WSAEPROTONOSUPPORT)";
-    case 10044:
-        return "Socket type not supported (WSAESOCKTNOSUPPORT)";
-    case 10045:
-        return "Operation not supported on socket (WSAEOPNOTSUPP)";
-    case 10046:
-        return "Protocol family not supported (WSAEPFNOSUPPORT)";
-    case 10047:
-        return "Address family not supported by protocol family (WSAEAFNOSUPPORT)";
-    case 10048:
-        return "Address already in use (WSAEADDRINUSE)";
-    case 10049:
-        return "Can't assign requested address (WSAEADDRNOTAVAIL)";
-    case 10050:
-        return "Network is down (WSAENETDOWN)";
-    case 10051:
-        return "Network is unreachable (WSAENETUNREACH)";
-    case 10052:
-        return "Net dropped connection or reset (WSAENETRESET)";
-    case 10053:
-        return "Software caused connection abort (WSAECONNABORTED)";
-    case 10054:
-        return "Connection reset by peer (WSAECONNRESET)";
-    case 10055:
-        return "No buffer space available (WSAENOBUFS)";
-    case 10056:
-        return "Socket is already connected (WSAEISCONN)";
-    case 10057:
-        return "Socket is not connected (WSAENOTCONN)";
-    case 10058:
-        return "Can't send after socket shutdown (WSAESHUTDOWN)";
-    case 10059:
-        return "Too many references, can't splice (WSAETOOMANYREFS)";
-    case 10060:
-        return "Connection timed out (WSAETIMEDOUT)";
-    case 10061:
-        return "Connection refused (WSAECONNREFUSED)";
-    case 10062:
-        return "Too many levels of symbolic links (WSAELOOP)";
-    case 10063:
-        return "File name too long (WSAENAMETOOLONG)";
-    case 10064:
-        return "Host is down (WSAEHOSTDOWN)";
-    case 10065:
-        return "No Route to Host (WSAEHOSTUNREACH)";
-    case 10066:
-        return "Directory not empty (WSAENOTEMPTY)";
-    case 10067:
-        return "Too many processes (WSAEPROCLIM)";
-    case 10068:
-        return "Too many users (WSAEUSERS)";
-    case 10069:
-        return "Disc Quota Exceeded (WSAEDQUOT)";
-    case 10070:
-        return "Stale NFS file handle (WSAESTALE)";
-    case 10091:
-        return "Network SubSystem is unavailable (WSASYSNOTREADY)";
-    case 10092:
-        return "WINSOCK DLL Version out of range (WSAVERNOTSUPPORTED)";
-    case 10093:
-        return "Successful WSASTARTUP not yet performed (WSANOTINITIALISED)";
-    case 10071:
-        return "Too many levels of remote in path (WSAEREMOTE)";
-    case 11001:
-        return "Host not found (WSAHOST_NOT_FOUND)";
-    case 11002:
-        return "Non-Authoritative Host not found (WSATRY_AGAIN)";
-    case 11003:
-        return "Non-Recoverable errors: FORMERR, REFUSED, NOTIMP (WSANO_RECOVERY)";
-    case 11004:
-        return "Valid name, no data record of requested type (WSANO_DATA)";
-#if 0
-    case 11004: /* typically, only WSANO_DATA is reported */
-        return "No address, look for MX record (WSANO_ADDRESS)";
-#endif
-#endif /* defined USE_WIN32 */
-    default:
-        return strerror(errnum);
-    }
-}
-
-#ifndef USE_WIN32
 
 static void signal_handler(int sig) { /* signal handler */
     s_log(sig==SIGTERM ? LOG_NOTICE : LOG_ERR,
         "Received signal %d; terminating", sig);
     exit(3);
 }
-
 #endif /* !defined USE_WIN32 */
 
 char *stunnel_info(void) {
@@ -621,44 +464,6 @@ char *stunnel_info(void) {
     safeconcat(retval, " with ");
     safeconcat(retval, SSLeay_version(SSLEAY_VERSION));
     return retval;
-}
-
-int alloc_fd(int sock) {
-#ifndef USE_WIN32
-    if(!max_fds || sock>=max_fds) {
-        s_log(LOG_ERR,
-            "File descriptor out of range (%d>=%d)", sock, max_fds);
-        closesocket(sock);
-        return -1;
-    }
-#endif
-    setnonblock(sock, 1);
-    return 0;
-}
-
-/* Try to use non-POSIX O_NDELAY on obsolete BSD systems */
-#if !defined O_NONBLOCK && defined O_NDELAY
-#define O_NONBLOCK O_NDELAY
-#endif
-
-static void setnonblock(int sock, unsigned long l) {
-#if defined F_GETFL && defined F_SETFL && defined O_NONBLOCK
-    int retval, flags;
-    do {
-        flags=fcntl(sock, F_GETFL, 0);
-    }while(flags<0 && get_last_socket_error()==EINTR);
-    flags=l ? flags|O_NONBLOCK : flags&(~O_NONBLOCK);
-    do {
-        retval=fcntl(sock, F_SETFL, flags);
-    }while(retval<0 && get_last_socket_error()==EINTR);
-    if(retval<0)
-#else
-    if(ioctlsocket(sock, FIONBIO, &l)<0)
-#endif
-        sockerror("nonblocking"); /* non-critical */
-    else
-        s_log(LOG_DEBUG, "FD %d in %sblocking mode", sock,
-            l ? "non-" : "");
 }
 
 /* End of stunnel.c */

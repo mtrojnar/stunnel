@@ -53,7 +53,7 @@ struct addrinfo {
     int ai_family;
     int ai_socktype;
     int ai_protocol;
-    socklen_t ai_addrlen;
+    int ai_addrlen;
     struct sockaddr *ai_addr;
     char *ai_canonname;
     struct addrinfo *ai_next;
@@ -77,7 +77,7 @@ static const char *s_gai_strerror(int);
 #ifndef NI_NUMERICSERV
 #define NI_NUMERICSERV	8
 #endif
-static int getnameinfo(const struct sockaddr *, socklen_t,
+static int getnameinfo(const struct sockaddr *, int,
     char *, int , char *, int , int );
 #endif
 
@@ -365,7 +365,7 @@ static const char *s_gai_strerror(int err) {
 }
 
 #ifndef HAVE_GETNAMEINFO
-static int getnameinfo(const struct sockaddr *sa, socklen_t salen,
+static int getnameinfo(const struct sockaddr *sa, int salen,
     char *host, int hostlen, char *serv, int servlen, int flags) {
 
 #ifdef USE_WIN32

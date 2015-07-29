@@ -323,10 +323,8 @@ static int init_ssl(CLI *c) {
         return -1;
     }
     if(SSL_session_reused(c->ssl)) {
-        if(options.option.client)
-            s_log(LOG_INFO, "SSL connected: previous session reused");
-        else
-            s_log(LOG_INFO, "SSL accepted: previous session reused");
+        s_log(LOG_INFO, "SSL %s: previous session reused",
+            options.option.client ? "connected" : "accepted");
     } else { /* a new session was negotiated */
         if(options.option.client) {
             s_log(LOG_INFO, "SSL connected: new session negotiated");
@@ -365,18 +363,14 @@ static int transfer(CLI *c) {
     s_poll_set fds;
     int num, err;
     int check_SSL_pending;
-    int ssl_closing=0;
-        /* 0 = not closing SSL,
-         * 1 = need to initiate SSL_shutdown,
-         * 2 = need to retry SSL_shutdown,
-         * 3 = SSL closed */
+    enum {CL_OPEN, CL_INIT, CL_RETRY, CL_CLOSED} ssl_closing=CL_OPEN;
     int watchdog=0; /* a counter to detect an infinite loop */
 
     c->sock_ptr=c->ssl_ptr=0;
     sock_rd=sock_wr=ssl_rd=ssl_wr=1;
     c->sock_bytes=c->ssl_bytes=0;
 
-    while(((sock_rd||c->sock_ptr)&&ssl_wr)||((ssl_rd||c->ssl_ptr)&&sock_wr)) {
+    do { /* main loop */
         /* set flag to try and read any buffered SSL data
          * if we made room in the buffer by writing to the socket */
         check_SSL_pending=0;
@@ -386,48 +380,54 @@ static int transfer(CLI *c) {
         if(sock_rd && c->sock_ptr<BUFFSIZE) /* socket input buffer not full*/
             s_poll_add(&fds, c->sock_rfd->fd, 1, 0);
         if((ssl_rd && c->ssl_ptr<BUFFSIZE) /* SSL input buffer not full */ ||
-                ((c->sock_ptr || ssl_closing==2) && want_rd))
+                ((c->sock_ptr || ssl_closing==CL_RETRY) && want_rd))
                 /* want to SSL_write or SSL_shutdown but read from the
                  * underlying socket needed for the SSL protocol */
             s_poll_add(&fds, c->ssl_rfd->fd, 1, 0);
-        if(sock_wr && c->ssl_ptr) /* SSL input buffer not empty */
+        if(c->ssl_ptr) /* SSL input buffer not empty */
             s_poll_add(&fds, c->sock_wfd->fd, 0, 1);
-        if((ssl_wr && c->sock_ptr) /* socket input buffer not empty */ ||
-                ssl_closing==1 /* need to send close_notify */ ||
-                ((c->ssl_ptr<BUFFSIZE || ssl_closing==2) && want_wr))
+        if(c->sock_ptr /* socket input buffer not empty */ ||
+                ssl_closing==CL_INIT /* need to send close_notify */ ||
+                ((c->ssl_ptr<BUFFSIZE || ssl_closing==CL_RETRY) && want_wr))
                 /* want to SSL_read or SSL_shutdown but write to the
                  * underlying socket needed for the SSL protocol */
             s_poll_add(&fds, c->ssl_wfd->fd, 0, 1);
 
         /****************************** wait for an event */
-        switch(s_poll_wait(&fds, sock_rd && sock_wr && ssl_rd && ssl_wr ?
-            c->opt->timeout_idle : c->opt->timeout_close)) {
+        err=s_poll_wait(&fds, (sock_rd && ssl_rd) /* both peers open */ ||
+            c->ssl_ptr /* data buffered to write to socket */ ||
+            c->sock_ptr /* data buffered to write to SSL */ ?
+            c->opt->timeout_idle : c->opt->timeout_close);
+        switch(err) {
         case -1:
             sockerror("s_poll_wait");
             return -1;
-        case 0: /* Timeout */
-            if(sock_rd) { /* No traffic for a long time */
-                s_log(LOG_DEBUG, "s_poll_wait timeout: connection reset");
+        case 0: /* timeout */
+            if((sock_rd && ssl_rd) || c->ssl_ptr || c->sock_ptr) {
+                s_log(LOG_INFO, "s_poll_wait timeout: connection reset");
                 return -1;
-            } else { /* Timeout waiting for SSL close_notify */
-                s_log(LOG_DEBUG,
-                    "s_poll_wait timeout waiting for SSL close_notify");
+            } else { /* already closing connection */
+                s_log(LOG_INFO, "s_poll_wait timeout: connection close");
                 return 0; /* OK */
             }
         }
+        if(!(sock_can_rd || sock_can_wr || ssl_can_rd || ssl_can_wr)) {
+            s_log(LOG_ERR, "INTERNAL ERROR: "
+                "s_poll_wait returned %d, but no descriptor is ready", err);
+            return -1;
+        }
 
         /****************************** send SSL close_notify message */
-        if(ssl_closing==1 || (ssl_closing==2 &&
+        if(ssl_closing==CL_INIT || (ssl_closing==CL_RETRY &&
                 ((want_rd && ssl_can_rd) || (want_wr && ssl_can_wr)))) {
             switch(SSL_shutdown(c->ssl)) { /* Send close_notify */
             case 1: /* the shutdown was successfully completed */
                 s_log(LOG_INFO, "SSL_shutdown successfully sent close_notify");
-                ssl_wr=0; /* close_notify sent: SSL write closed */
-                ssl_closing=3; /* done! */
+                ssl_closing=CL_CLOSED; /* done! */
                 break;
             case 0: /* the shutdown is not yet finished */
                 s_log(LOG_DEBUG, "SSL_shutdown retrying");
-                ssl_closing=2; /* next time just retry SSL_shutdown */
+                ssl_closing=CL_RETRY; /* retry next time */
                 break;
             case -1: /* a fatal error occurred */
                 sslerror("SSL_shutdown");
@@ -487,7 +487,7 @@ static int transfer(CLI *c) {
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
                 s_log(LOG_DEBUG, "SSL closed on SSL_write");
-                ssl_rd=ssl_wr=0;
+                ssl_rd=0;
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_write");
@@ -544,9 +544,15 @@ static int transfer(CLI *c) {
                 break;
             case SSL_ERROR_SYSCALL:
                 if(!num) { /* EOF */
+                    if(c->sock_ptr) {
+                        s_log(LOG_ERR,
+                            "SSL socket closed with %d byte(s) in buffer",
+                            c->sock_ptr);
+                        return -1; /* reset the socket */
+                    }
                     s_log(LOG_DEBUG, "SSL socket closed on SSL_read");
-                    ssl_rd=ssl_wr=0; /* buggy peer didn't send close_notify */
-                    ssl_closing=3; /* don't try to send it back */
+                    ssl_rd=ssl_wr=0; /* buggy or SSLv2 peer: no close_notify */
+                    ssl_closing=CL_CLOSED; /* don't try to send it back */
                 } else if(parse_socket_error("SSL_read"))
                     return -1;
                 break;
@@ -566,13 +572,22 @@ static int transfer(CLI *c) {
         /****************************** check write shutdown conditions */
         if(sock_wr && !ssl_rd && !c->ssl_ptr) {
             s_log(LOG_DEBUG, "Socket write shutdown");
-            shutdown(c->sock_wfd->fd, SHUT_WR);
-            sock_wr=0;
+            sock_wr=0; /* no further write allowed */
+            shutdown(c->sock_wfd->fd, SHUT_WR); /* send TCP FIN */
         }
-        if(!ssl_closing && (!sock_rd || SSL_get_shutdown(c->ssl)) &&
-                !c->sock_ptr) {
+        if(ssl_wr && (!sock_rd || SSL_get_shutdown(c->ssl)) && !c->sock_ptr) {
             s_log(LOG_DEBUG, "SSL write shutdown");
-            ssl_closing=1;
+            ssl_wr=0; /* no further write allowed */
+            if(strcmp(SSL_get_version(c->ssl), "SSLv2")) { /* SSLv3, TLSv1 */
+                ssl_closing=CL_INIT; /* initiate close_notify */
+            } else { /* no alerts in SSLv2 including close_notify alert */
+                shutdown(c->sock_rfd->fd, SHUT_RD); /* notify the kernel */
+                shutdown(c->sock_wfd->fd, SHUT_WR); /* send TCP FIN */
+                SSL_set_shutdown(c->ssl, /* notify the OpenSSL library */
+                    SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                ssl_rd=0; /* no further read allowed */
+                ssl_closing=CL_CLOSED; /* closed */
+            }
         }
 
         /****************************** check watchdog */
@@ -596,7 +611,7 @@ static int transfer(CLI *c) {
             return -1;
         }
 
-    } /* while loop */
+    } while(sock_wr || ssl_closing!=CL_CLOSED);
 
     return 0; /* OK */
 }
@@ -609,7 +624,7 @@ static int parse_socket_error(const char *text) {
     case EWOULDBLOCK:
         s_log(LOG_NOTICE, "%s would block: retrying", text);
         return 0;
-#if EWOULDBLOCK!=EAGAIN
+#if EAGAIN!=EWOULDBLOCK
     case EAGAIN:
         s_log(LOG_DEBUG, "%s temporary lack of resources: retrying", text);
         return 0;

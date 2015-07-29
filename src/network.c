@@ -31,50 +31,17 @@
 #include "common.h"
 #include "prototypes.h"
 
+#ifndef USE_WIN32
+static int signal_pipe[2];
+static char signal_buffer[16];
+static void sigchld_handler(int);
+static void signal_pipe_empty(void);
 #ifdef USE_FORK
 static void client_status(void); /* dead children detected */
 #endif
- 
-#ifndef USE_WIN32
-
-static int signal_pipe[2];
-static char signal_buffer[16];
-
-static void sigchld_handler(int sig) { /* SIGCHLD detected */
-    int save_errno=errno;
-
-    write(signal_pipe[1], signal_buffer, 1);
-    signal(SIGCHLD, sigchld_handler);
-    errno=save_errno;
-}
-
-int signal_pipe_init(void) {
-    if(pipe(signal_pipe)) {
-        ioerror("pipe");
-        exit(1);
-    }
-    alloc_fd(signal_pipe[0]);
-    alloc_fd(signal_pipe[1]);
-#ifdef FD_CLOEXEC
-    /* close the pipe in child execvp */
-    fcntl(signal_pipe[0], F_SETFD, FD_CLOEXEC);
-    fcntl(signal_pipe[1], F_SETFD, FD_CLOEXEC);
-#endif
-    signal(SIGCHLD, sigchld_handler);
-    return signal_pipe[0];
-}
-
-static void signal_pipe_empty(void) {
-    read(signal_pipe[0], signal_buffer, sizeof(signal_buffer));
-#ifdef USE_PTHREAD
-    exec_status(); /* report status of 'exec' process */
-#endif /* USE_PTHREAD */
-#ifdef USE_FORK
-    client_status(); /* report status of client process */
-#endif /* USE_FORK */
-}
-
 #endif /* !defined(USE_WIN32) */
+
+static void setnonblock(int, unsigned long);
 
 #ifdef HAVE_POLL
 
@@ -188,6 +155,65 @@ int s_poll_wait(s_poll_set *fds, int timeout) {
 
 #endif /* HAVE_POLL */
 
+#ifndef USE_WIN32
+
+static void sigchld_handler(int sig) { /* SIGCHLD detected */
+    int save_errno=errno;
+
+    write(signal_pipe[1], signal_buffer, 1);
+    signal(SIGCHLD, sigchld_handler);
+    errno=save_errno;
+}
+
+int signal_pipe_init(void) {
+    if(pipe(signal_pipe)) {
+        ioerror("pipe");
+        exit(1);
+    }
+    alloc_fd(signal_pipe[0]);
+    alloc_fd(signal_pipe[1]);
+#ifdef FD_CLOEXEC
+    /* close the pipe in child execvp */
+    fcntl(signal_pipe[0], F_SETFD, FD_CLOEXEC);
+    fcntl(signal_pipe[1], F_SETFD, FD_CLOEXEC);
+#endif
+    signal(SIGCHLD, sigchld_handler);
+    return signal_pipe[0];
+}
+
+static void signal_pipe_empty(void) {
+    read(signal_pipe[0], signal_buffer, sizeof(signal_buffer));
+#ifdef USE_PTHREAD
+    exec_status(); /* report status of 'exec' process */
+#endif /* USE_PTHREAD */
+#ifdef USE_FORK
+    client_status(); /* report status of client process */
+#endif /* defined USE_FORK */
+}
+
+void exec_status(void) { /* dead local ('exec') process detected */
+    int pid, status;
+
+#ifdef HAVE_WAIT_FOR_PID
+    while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
+#else
+    if((pid=wait(&status))>0) {
+#endif
+#ifdef WIFSIGNALED
+        if(WIFSIGNALED(status)) {
+            s_log(LOG_INFO, "Local process %d terminated on signal %d",
+                pid, WTERMSIG(status));
+        } else {
+            s_log(LOG_INFO, "Local process %d finished with code %d",
+                pid, WEXITSTATUS(status));
+        }
+#else
+        s_log(LOG_INFO, "Local process %d finished with status %d",
+            pid, status);
+#endif
+    }
+}
+
 #ifdef USE_FORK
 static void client_status(void) { /* dead children detected */
     int pid, status;
@@ -214,32 +240,78 @@ static void client_status(void) { /* dead children detected */
     }
 #endif
 }
-#endif
+#endif /* defined USE_FORK */
 
-#ifndef USE_WIN32
-void exec_status(void) { /* dead local ('exec') process detected */
-    int pid, status;
-
-#ifdef HAVE_WAIT_FOR_PID
-    while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
-#else
-    if((pid=wait(&status))>0) {
-#endif
-#ifdef WIFSIGNALED
-        if(WIFSIGNALED(status)) {
-            s_log(LOG_INFO, "Local process %d terminated on signal %d",
-                pid, WTERMSIG(status));
-        } else {
-            s_log(LOG_INFO, "Local process %d finished with code %d",
-                pid, WEXITSTATUS(status));
-        }
-#else
-        s_log(LOG_INFO, "Local process %d finished with status %d",
-            pid, status);
-#endif
-    }
-}
 #endif /* !defined USE_WIN32 */
+
+int alloc_fd(int sock) {
+#ifndef USE_WIN32
+    if(!max_fds || sock>=max_fds) {
+        s_log(LOG_ERR,
+            "File descriptor out of range (%d>=%d)", sock, max_fds);
+        closesocket(sock);
+        return -1;
+    }
+#endif
+    setnonblock(sock, 1);
+    return 0;
+}
+
+/* Try to use non-POSIX O_NDELAY on obsolete BSD systems */
+#if !defined O_NONBLOCK && defined O_NDELAY
+#define O_NONBLOCK O_NDELAY
+#endif
+
+static void setnonblock(int sock, unsigned long l) {
+#if defined F_GETFL && defined F_SETFL && defined O_NONBLOCK
+    int retval, flags;
+    do {
+        flags=fcntl(sock, F_GETFL, 0);
+    }while(flags<0 && get_last_socket_error()==EINTR);
+    flags=l ? flags|O_NONBLOCK : flags&(~O_NONBLOCK);
+    do {
+        retval=fcntl(sock, F_SETFL, flags);
+    }while(retval<0 && get_last_socket_error()==EINTR);
+    if(retval<0)
+#else
+    if(ioctlsocket(sock, FIONBIO, &l)<0)
+#endif
+        sockerror("nonblocking"); /* non-critical */
+    else
+        s_log(LOG_DEBUG, "FD %d in %sblocking mode", sock,
+            l ? "non-" : "");
+}
+
+int set_socket_options(int s, int type) {
+    SOCK_OPT *ptr;
+    extern SOCK_OPT sock_opts[];
+    static char *type_str[3]={"accept", "local", "remote"};
+    int opt_size;
+
+    for(ptr=sock_opts;ptr->opt_str;ptr++) {
+        if(!ptr->opt_val[type])
+            continue; /* default */
+        switch(ptr->opt_type) {
+        case TYPE_LINGER:
+            opt_size=sizeof(struct linger); break;
+        case TYPE_TIMEVAL:
+            opt_size=sizeof(struct timeval); break;
+        case TYPE_STRING:
+            opt_size=strlen(ptr->opt_val[type]->c_val)+1; break;
+        default:
+            opt_size=sizeof(int); break;
+        }
+        if(setsockopt(s, ptr->opt_level, ptr->opt_name,
+                (void *)ptr->opt_val[type], opt_size)) {
+            sockerror(ptr->opt_str);
+            return -1; /* FAILED */
+        } else {
+            s_log(LOG_DEBUG, "%s option set on %s socket",
+                ptr->opt_str, type_str[type]);
+        }
+    }
+    return 0; /* OK */
+}
 
 int write_blocking(CLI *c, int fd, u8 *ptr, int len) {
         /* simulate a blocking write */

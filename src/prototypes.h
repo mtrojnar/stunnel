@@ -47,13 +47,7 @@ extern int num_clients;
 
 void main_initialize(char *, char *);
 void main_execute(void);
-void ioerror(const char *);
-void sockerror(const char *);
-void log_error(int, int, const char *);
-char *my_strerror(int);
-int set_socket_options(int, int);
 char *stunnel_info(void);
-int alloc_fd(int);
 
 /**************************************** Prototypes for ssl.c */
 
@@ -82,6 +76,10 @@ void log_raw(const char *, ...)
 #else
     ;
 #endif
+void ioerror(const char *);
+void sockerror(const char *);
+void log_error(int, int, const char *);
+char *my_strerror(int);
     
 /**************************************** Prototypes for sthreads.c */
 
@@ -293,6 +291,9 @@ int s_poll_wait(s_poll_set *, int);
 int signal_pipe_init(void);
 void exec_status(void);
 #endif
+int set_socket_options(int, int);
+int alloc_fd(int);
+
 int write_blocking(CLI *, int fd, u8 *, int);
 int read_blocking(CLI *, int fd, u8 *, int);
 /* descriptor versions of fprintf/fscanf */

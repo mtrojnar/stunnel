@@ -1,5 +1,17 @@
 stunnel         Universal SSL tunnel
 
+Version 4.09, 2005.03.26, urgency: MEDIUM:
+* DLLs for OpenSSL 0.9.7f.
+* Bugfixes
+  - Compilation problem with undeclarated socklen_t fixed.
+  - TIMEOUTclose is not used when there is any data in the buffers.
+  - Stunnel no longer relies on close_notify with SSL 2.0 connections,
+    since SSL 2.0 protocol does not have any alerts defined.
+  - Closing SSL socket when there is some data in SSL output buffer
+    is detected and reported as an error.
+  - Install/chmod race condition when installing default certificate fixed.
+  - Stunnel no longer installs signal_handler on ignored singals.
+
 Version 4.08, 2005.02.27, urgency: LOW:
 * New features
   - New -quiet option was added to install NT service without a message box.
