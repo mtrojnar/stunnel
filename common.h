@@ -56,7 +56,7 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.16"
+#define VERSION "3.17"
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else

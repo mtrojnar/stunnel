@@ -1,5 +1,11 @@
 stunnel         Universal SSL tunnel
 
+Version 3.17, 2001.07.29, urgency: MEDIUM:
+* Problem with coredump on exit with active threads fixed.
+* Timeout for transfer() function added:
+   - 1 hour if socket is open for read
+   - 1 minute if socket is closed for read
+
 Version 3.16, 2001.07.22, urgency: MEDIUM:
 * Some transfer() bugfixes/improvements.
 * STDIN/STDOUT are no logner assumed to be non-socket decriptors.

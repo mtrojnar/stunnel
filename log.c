@@ -169,7 +169,7 @@ void log(int level, char *format, ...) {
     va_list arglist;
     char text[256];
     FILE *out;
-    time_t gmt;
+    static time_t gmt;
     struct tm *timeptr;
 
     if(level>options.debug_level)

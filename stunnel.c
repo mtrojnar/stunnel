@@ -3,13 +3,10 @@
  *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.16                  (stunnel.c)
- *   Date:         2001.07.22
+ *   Version:      3.17                  (stunnel.c)
+ *   Date:         2001.07.29
  *   
- *   Author:                   Michal Trojnara  <Michal.Trojnara@mirt.net>
- *   SSL support:          Adam Hernik      <adas@infocentrum.com>
- *                         Pawel Krawczyk   <kravietz@ceti.com.pl>
- *   PTY support:          Dirk O. Siebnich <dok@vossnet.de>
+ *   Author:               Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by

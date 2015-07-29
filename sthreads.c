@@ -91,6 +91,10 @@ int create_client(int ls, int s, void (*cli)(int)) {
 
      sigemptyset(&mask);
      sigaddset(&mask, SIGCHLD);
+     sigaddset(&mask, SIGTERM);
+     sigaddset(&mask, SIGQUIT);
+     sigaddset(&mask, SIGINT);
+     sigaddset(&mask, SIGHUP);
      pthread_sigmask(SIG_BLOCK, &mask, &oldmask); /* block SIGCHLD */
      if(pthread_create(&thread, &pth_attr, (void *)cli, (void *)s)) {
          /* SIGCHLD will remain blocked here */

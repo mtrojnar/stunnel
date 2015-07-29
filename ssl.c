@@ -614,6 +614,8 @@ static int transfer(int sock_rfd, int sock_wfd,
     char sock_buff[BUFFSIZE], ssl_buff[BUFFSIZE];
     int sock_ptr, ssl_ptr, sock_rd, sock_wr, ssl_rd, ssl_wr;
     int check_SSL_pending;
+    int ready;
+    struct timeval tv;
 #if defined FIONBIO && defined USE_NBIO
     unsigned long l;
 #endif
@@ -666,7 +668,17 @@ static int transfer(int sock_rfd, int sock_wfd,
             FD_SET(ssl_wfd, &wr_set);
         }
 
-        if(select(fdno, &rd_set, &wr_set, NULL, NULL)<0) {
+        /* socket open for read -> set timeout to 1 hour */
+        /* socket closed for read -> set timeout to 1 minute */
+        tv.tv_sec=sock_rd ? 3600 : 60;
+        tv.tv_usec=0;
+
+        ready=select(fdno, &rd_set, &wr_set, NULL, &tv);
+        if(!ready) {
+            log(LOG_DEBUG, "select timeout");
+            break; /* Exit the while() loop */
+        }
+        if(ready<0) {
             sockerror("select");
             goto error;
         }
@@ -693,9 +705,6 @@ static int transfer(int sock_rfd, int sock_wfd,
                     log(LOG_DEBUG, "Socket write shutdown");
                     sock_wr=0;
                 }
-            } else { /* close */
-                log(LOG_DEBUG, "Socket closed on write");
-                sock_wr=0;
             }
         }
 
@@ -747,10 +756,10 @@ static int transfer(int sock_rfd, int sock_wfd,
                 log(LOG_NOTICE, "IPC reset (child died)");
                 break; /* close connection */
             }
-            if (num < 0 && errno != EIO) {
+            if (num<0 && errno!=EIO) {
                 sockerror("read");
                 goto error;
-            } else if (num > 0) {
+            } else if (num>0) {
                 sock_ptr += num;
             } else { /* close */
                 log(LOG_DEBUG, "Socket closed on read");
