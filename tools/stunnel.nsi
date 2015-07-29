@@ -1,4 +1,4 @@
-!define VERSION "4.16"
+!define VERSION "4.17"
 !define DLLS "/home/ftp/stunnel/openssl/binary-0.9.7i-zdll/"
 !define WIN32 "/home/ftp/stunnel/obsolete/"
 

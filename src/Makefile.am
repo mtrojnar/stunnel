@@ -38,7 +38,7 @@ stunnel_exe_SOURCES =  $(common_headers) $(common_sources) $(win32_sources)
 # dist-hook: stunnel.exe
 # 	cp -p stunnel.exe $(distdir)/../
 
-OPENSSLDIR=/usr/src/openssl-0.9.7i
+OPENSSLDIR=/usr/src/openssl-0.9.8c
 WINCFLAGS=-O2 -Wall -I$(OPENSSLDIR)/outinc \
 	-DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
 WINLIBS=-L$(OPENSSLDIR)/out -lzdll -leay32 -lssl32 -lws2_32 -lgdi32 -mwindows

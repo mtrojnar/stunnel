@@ -162,7 +162,7 @@ static void smtp_server(CLI *c) {
 
     s_poll_zero(&c->fds);
     s_poll_add(&c->fds, c->local_rfd.fd, 1, 0);
-    switch(s_poll_wait(&c->fds, 0, 100)) {
+    switch(s_poll_wait(&c->fds, 0, 200)) { /* wait up to 200ms */
     case 0: /* fd not ready to read */
         s_log(LOG_DEBUG, "RFC 2487 detected");
         break;
@@ -179,7 +179,7 @@ static void smtp_server(CLI *c) {
         s_log(LOG_ERR, "Unknown server welcome");
         longjmp(c->err, 1);
     }
-    fdprintf(c, c->local_wfd.fd, "220%s + stunnel", line);
+    fdprintf(c, c->local_wfd.fd, "%s + stunnel", line);
     fdgetline(c, c->local_rfd.fd, line);
     if(!isprefix(line, "EHLO ")) {
         s_log(LOG_ERR, "Unknown client EHLO");

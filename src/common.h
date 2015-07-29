@@ -21,10 +21,46 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+/**************************************** Common constants */
+
+#ifndef VERSION
+#define VERSION "4.17"
+#endif
+
+#ifdef OPTIMIZE_SCALABILITY
+
+/* CPU stack size */
+#define STACK_SIZE      32768
+#define DEBUG_STACK_SIZE
+
+/* I/O buffer size */
+#define BUFFSIZE        2048
+
+/* Length of strings (including the terminating '\0' character) */
+#define STRLEN          128
+
+#else /* OPTIMIZE_SCALABILITY */
+
+/* CPU stack size */
+#define STACK_SIZE      65536
+
+/* I/O buffer size */
+#define BUFFSIZE        16384
+
+/* Length of strings (including the terminating '\0' character) */
+#define STRLEN          256
+
+#endif /* OPTIMIZE_SCALABILITY */
+
+/* IP address and TCP port textual representation length */
+#define IPLEN           128
+
+/* How many bytes of random input to read from files for PRNG */
+/* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
+#define RANDOM_BYTES    64
+
 /* For FormatGuard */
 /* #define __NO_FORMATGUARD_ */
-
-/* #define DEBUG_STACK_SIZE */
 
 /**************************************** Platform */
 
@@ -43,28 +79,6 @@ typedef int socklen_t;
 #define HAVE_OPENSSL
 #define HAVE_OSSL_ENGINE_H
 #endif
-
-/**************************************** Common constants */
-
-#ifndef VERSION
-#define VERSION "4.16"
-#endif
-
-/* CPU stack size */
-#define STACK_SIZE 65536
-
-/* I/O buffer size */
-#define BUFFSIZE        16384
-
-/* Length of strings (including the terminating '\0' character) */
-#define STRLEN          256
-
-/* IP address and TCP port textual representation length */
-#define IPLEN           128
-
-/* How many bytes of random input to read from files for PRNG */
-/* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
-#define RANDOM_BYTES    64
 
 /**************************************** Generic headers */
 
@@ -323,10 +337,12 @@ extern char *sys_errlist[];
     (dst[STRLEN-1]='\0', strncat((dst), (src), STRLEN-strlen(dst)-1))
 /* change all non-printable characters to '.' */
 #define safestring(s) \
-    do {char *p; for(p=(s); *p; p++) if(!isprint((int)*p)) *p='.';} while(0)
+    do {unsigned char *p; for(p=(s); *p; p++) \
+        if(!isprint((int)*p)) *p='.';} while(0)
 /* change all unsafe characters to '.' */
 #define safename(s) \
-    do {char *p; for(p=(s); *p; p++) if(!isalnum((int)*p)) *p='.';} while(0)
+    do {unsigned char *p; for(p=(s); *p; p++) \
+        if(!isalnum((int)*p)) *p='.';} while(0)
 
 /* Some definitions for IPv6 support */
 #if defined(USE_IPv6)

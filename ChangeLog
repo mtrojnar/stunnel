@@ -1,5 +1,15 @@
 stunnel         Universal SSL tunnel
 
+Version 4.17, 2006.09.10, urgency: MEDIUM:
+* New features
+  - Win32 DLLs for OpenSSL 0.9.8c.
+* Bugfixes
+  - Problem with detecting getaddrinfo() in ./configure fixed.
+  - Compilation problem due to misplaced #endif in ssl.c fixed.
+  - Duplicate 220 in smtp_server() function in protocol.c fixed.
+  - Minor os2.mak update.
+  - Minor update of safestring()/safename() macros.
+
 Version 4.16, 2006.08.31, urgency: MEDIUM:
 * New features sponsored by Hewlett-Packard
   - A new global option to control engine:
@@ -24,11 +34,10 @@ Version 4.16, 2006.08.31, urgency: MEDIUM:
   - Check for maximum number of defined services added.
   - OpenSSL_add_all_algorithms() added to SSL initialization.
   - configure script sections reordered to detect pthread library funcions.
-  - RFC 2487 autdetection improved (thx to Hans Werner Strube).  High
+  - RFC 2487 autdoetection improved (thx to Hans Werner Strube).  High
     resolution s_poll_wait() not currently supported by UCONTEXT threading.
   - More precise description of cert directory file names (thx to Muhammad
     Muquit).
-
 * Other changes
   - Maximum number of services increased from 64 to 256 when poll() is used.
 

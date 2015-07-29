@@ -1,11 +1,11 @@
 prefix=.
 DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DPACKAGE_TARNAME=\"stunnel\" \
-	-DPACKAGE_VERSION=\"4.15\" \
-	-DPACKAGE_STRING=\"stunnel\ 4.15\" \
+	-DPACKAGE_VERSION=\"4.17\" \
+	-DPACKAGE_STRING=\"stunnel\ 4.17\" \
 	-DPACKAGE_BUGREPORT=\"\" \
 	-DPACKAGE=\"stunnel\" \
-	-DVERSION=\"4.15\" \
+	-DVERSION=\"4.17\" \
 	-DSTDC_HEADERS=1 \
 	-DHAVE_SYS_TYPES_H=1 \
 	-DHAVE_SYS_STAT_H=1 \
@@ -15,6 +15,7 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DHAVE_STRINGS_H=1 \
 	-DHAVE_UNISTD_H=1 \
 	-DHAVE_OPENSSL=1 \
+	-DHAVE_OSSL_ENGINE_H=1 \
 	-Dssldir=\"/usr\" \
 	-DHOST=\"i386-pc-os2-emx\" \
 	-DHAVE_LIBSOCKET=1 \

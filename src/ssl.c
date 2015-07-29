@@ -286,12 +286,12 @@ static void init_engine() {
     s_log(LOG_DEBUG, "Engine %d initialized", current_engine+1);
 }
 
-#endif
-
 ENGINE *get_engine(int i) {
     if(i<1 || i>current_engine)
         return NULL;
     return engines[i-1];
 }
+
+#endif /* HAVE_OSSL_ENGINE_H */
 
 /* End of ssl.c */

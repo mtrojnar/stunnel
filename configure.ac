@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel], [4.16])
+AC_INIT([stunnel], [4.17])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.16)
+AM_INIT_AUTOMAKE(stunnel, 4.17)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -194,7 +194,8 @@ AC_CHECK_FUNCS(poll endhostent getnameinfo)
 AC_MSG_CHECKING([for getaddrinfo])
 AC_LINK_IFELSE(
     [AC_LANG_PROGRAM(
-        [[#include <sys/types.h>
+        [[#include <stdio.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>]],
         [[getaddrinfo(NULL, NULL, NULL, NULL);]],)],
