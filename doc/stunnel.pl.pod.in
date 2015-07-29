@@ -916,7 +916,14 @@ adres sessiond - servera cache sesji SSL
 
 wersja protokołu SSL
 
-Dozwolone opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+Wspierane opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+
+Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
+Starsze wersje OpenSSL nie wspierają TLSv1.1 i TLSv1.2.
+Nowsze wersje OpenSSL nie wspierają SSLv2.
+
+Przestarzałe protokoły SSLv2 i SSLv3 są domyślnie wyłączone.
+Szczegółowe informacje dostępne są w opisie opcji B<options>.
 
 =item B<stack> = LICZBA_BAJTÓW (z wyjątkiem modelu FORK)
 
@@ -1338,13 +1345,14 @@ B<stunnel>.
 =head2 PARAMETRY DH
 
 Począwszy od wersji 4.40 B<stunnel> zawiera w kodzie programu 2048-bitowe
-parametry DH.
+parametry DH.  Od wersji 5.18 te początkowe wartości parametrów DH są
+wymieniane na autogenerowane parametry tymczasowe.
+Wygenerowanie parametrów DH może zająć nawet wiele minut.
 
-Alternatywnie parametry DH można umieścić w pliku razem z certyfikatem:
+Alternatywnie parametry DH można umieścić w pliku razem z certyfikatem,
+co wyłącza generowanie parametrów tymczasowych:
 
     openssl dhparam 2048 >> stunnel.pem
-
-Wygenerowanie parametrów DH może zająć nawet wiele minut.
 
 
 =head1 PLIKI
@@ -1396,3 +1404,5 @@ strona projektu B<OpenSSL>
 
 =back
 
+=for comment
+vim:spelllang=pl:spell

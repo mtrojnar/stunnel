@@ -1,5 +1,31 @@
 stunnel change log
 
+Version 5.20, 2015.07.09, urgency: HIGH 
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.2d.
+    https://www.openssl.org/news/secadv_20150709.txt
+* New features
+  - poll(2) re-enabled on MacOS X 10.5 and later.
+  - Xcode SDK is automatically used on MacOS X if no other
+    locally installed OpenSSL directory is found.
+  - The SSL library detection algorithm was made a bit smarter.
+  - Warnings about insecure authentication were modified to
+    include the name of the affected service section.
+  - A warning was added to stunnel.init if no pid file was
+    specified in the configuration file (thx to Peter Pentchev).
+  - Optional debugging symbols are included in the Win32 installer.
+  - Documentation updates (closes Debian bug #781669).
+* Bugfixes
+  - Signal pipe reinitialization added to prevent turning the
+    main accepting thread into a busy wait loop when an external
+    condition breaks the signal pipe.  This bug was found to
+    surface on Win32, but other platforms may also be affected.
+  - Fixed removing the disabled taskbar icon.
+  - Generated temporary DH parameters are used for configuration
+    reload instead of the static defaults.
+  - LSB compatibility fixes added to the stunnel.init script (thx
+    to Peter Pentchev).
+  - Fixed the manual page headers (thx to Gleydson Soares).
 
 Version 5.19, 2015.06.16, urgency: MEDIUM:
 * New features

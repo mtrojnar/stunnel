@@ -606,7 +606,7 @@ NOEXPORT void transfer(CLI *c) {
         if(!(sock_can_rd || sock_can_wr || ssl_can_rd || ssl_can_wr)) {
             s_log(LOG_ERR, "INTERNAL ERROR: "
                 "s_poll_wait returned %d, but no descriptor is ready", err);
-            s_poll_dump(c->fds);
+            s_poll_dump(c->fds, LOG_ERR);
             longjmp(c->err, 1);
         }
 

@@ -39,6 +39,7 @@
 #include "prototypes.h"
 
 #ifndef OPENSSL_NO_DH
+DH *dh_params=NULL;
 int dh_needed=0;
 #endif /* OPENSSL_NO_DH */
 
@@ -274,19 +275,17 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
 #endif
         dh=dh_read(section->cert);
     if(dh) {
+        SSL_CTX_set_tmp_dh(section->ctx, dh);
         s_log(LOG_INFO, "%d-bit DH parameters loaded", 8*DH_size(dh));
-    } else {
-        dh=get_dh2048();
-        dh_needed=1; /* generate temporary DH parameters in cron */
-        section->option.dh_needed=1; /* update this context */
-        s_log(LOG_INFO, "DH parameters will be generated");
+        DH_free(dh);
+        return 0; /* OK */
     }
-    if(!dh) {
-        s_log(LOG_ERR, "DH initialization failed");
-        return 1; /* FAILED */
-    }
-    SSL_CTX_set_tmp_dh(section->ctx, dh);
-    DH_free(dh);
+    enter_critical_section(CRIT_DH); /* it only needs an rwlock here */
+    SSL_CTX_set_tmp_dh(section->ctx, dh_params);
+    leave_critical_section(CRIT_DH);
+    dh_needed=1; /* generate temporary DH parameters in cron */
+    section->option.dh_needed=1; /* update this context */
+    s_log(LOG_INFO, "Using dynamic DH parameters");
     return 0; /* OK */
 }
 

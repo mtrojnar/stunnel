@@ -153,7 +153,9 @@ NOEXPORT void auth_warnings(SERVICE_OPTIONS *section) {
     if(!section->option.client) /* servers don't require authentication */
         return;
     if(section->verify_level<2) {
-        s_log(LOG_WARNING, "Authentication is needed to prevent MITM attacks");
+        s_log(LOG_WARNING,
+            "Service [%s] needs authentication to prevent MITM attacks",
+            section->servname);
         return;
     }
     if(section->verify_level>=3) /* levels>=3 don't rely on PKI */
@@ -162,7 +164,9 @@ NOEXPORT void auth_warnings(SERVICE_OPTIONS *section) {
     if(section->check_email || section->check_host || section->check_ip)
         return;
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
-    s_log(LOG_WARNING, "\"verify = 2\" used without subject checks");
+    s_log(LOG_WARNING,
+        "Service [%s] uses \"verify = 2\" without subject checks",
+        section->servname);
 }
 
 NOEXPORT int load_file_lookup(X509_STORE *store, char *name) {

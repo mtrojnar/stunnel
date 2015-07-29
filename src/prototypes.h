@@ -486,6 +486,7 @@ typedef struct {
 } UI_DATA;
 
 #ifndef OPENSSL_NO_DH
+extern DH *dh_params;
 extern int dh_needed;
 #endif /* OPENSSL_NO_DH */
 
@@ -507,12 +508,13 @@ s_poll_set *s_poll_alloc(void);
 void s_poll_free(s_poll_set *);
 void s_poll_init(s_poll_set *);
 void s_poll_add(s_poll_set *, SOCKET, int, int);
+void s_poll_remove(s_poll_set *, SOCKET);
 int s_poll_canread(s_poll_set *, SOCKET);
 int s_poll_canwrite(s_poll_set *, SOCKET);
 int s_poll_hup(s_poll_set *, SOCKET);
 int s_poll_rdhup(s_poll_set *, SOCKET);
 int s_poll_wait(s_poll_set *, int, int);
-void s_poll_dump(s_poll_set *);
+void s_poll_dump(s_poll_set *, int);
 
 #ifdef USE_WIN32
 #define SIGNAL_RELOAD_CONFIG    1
@@ -622,6 +624,9 @@ typedef enum {
     CRIT_LIBWRAP,                           /* libwrap.c */
 #endif
     CRIT_LOG, CRIT_ID, CRIT_LEAK,           /* log.c */
+#ifndef OPENSSL_NO_DH
+    CRIT_DH,                                /* ctx.c */
+#endif /* OPENSSL_NO_DH */
     CRIT_SECTIONS                           /* number of critical sections */
 } SECTION_CODE;
 

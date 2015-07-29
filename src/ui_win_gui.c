@@ -83,7 +83,8 @@ NOEXPORT void daemon_thread(void *);
 NOEXPORT void valid_config(void);
 NOEXPORT void invalid_config(void);
 NOEXPORT void update_peer_menu(void);
-NOEXPORT void update_tray(const int);
+NOEXPORT void tray_update(const int);
+NOEXPORT void tray_delete(void);
 NOEXPORT void error_box(LPCTSTR);
 NOEXPORT void edit_config(HWND);
 NOEXPORT BOOL is_admin(void);
@@ -405,12 +406,11 @@ NOEXPORT void CALLBACK timer_proc(HWND hwnd, UINT msg, UINT_PTR id, DWORD t) {
     (void)t; /* skip warning about unused parameter */
     if(visible)
         update_logs();
-    update_tray(num_clients); /* needed when explorer.exe (re)starts */
+    tray_update(num_clients); /* needed when explorer.exe (re)starts */
 }
 
 NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         UINT message, WPARAM wParam, LPARAM lParam) {
-    NOTIFYICONDATA nid;
     POINT pt;
     RECT rect;
     PAINTSTRUCT ps;
@@ -511,17 +511,7 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
             main_menu_handle=NULL;
         }
 #endif
-        if(tray_menu_handle) {
-            if(!DestroyMenu(tray_menu_handle))
-                ioerror("DestroyMenu");
-            tray_menu_handle=NULL;
-        }
-        ZeroMemory(&nid, sizeof nid);
-        nid.cbSize=sizeof nid;
-        nid.hWnd=main_window_handle;
-        nid.uID=1;
-        nid.uFlags=NIF_TIP; /* not really sure what to put here, but it works */
-        Shell_NotifyIcon(NIM_DELETE, &nid); /* this removes the icon */
+        tray_delete(); /* remove the taskbark icon if exists */
         PostQuitMessage(0);
         return 0;
 
@@ -655,7 +645,7 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         return 0;
 
     case WM_CLIENTS:
-        update_tray((int)wParam);
+        tray_update((int)wParam);
         return 0;
     }
 
@@ -915,7 +905,7 @@ NOEXPORT void invalid_config() {
     ShowWindow(hwnd, SW_SHOWNORMAL); /* show window */
     SetForegroundWindow(hwnd); /* bring on top */
 
-    update_tray(-1); /* error icon */
+    tray_update(-1); /* error icon */
     update_peer_menu(); /* purge the list of sections */
 
     win_log(TEXT(""));
@@ -932,7 +922,7 @@ NOEXPORT void valid_config() {
         TEXT(STUNNEL_PLATFORM);
     SetWindowText(hwnd, win32_name);
 
-    update_tray(num_clients); /* idle or busy icon (on reload) */
+    tray_update(num_clients); /* idle or busy icon (on reload) */
     update_peer_menu(); /* one menu item per section */
 
     /* enable IDM_REOPEN_LOG menu if a log file is used, disable otherwise */
@@ -1055,29 +1045,28 @@ ICON_IMAGE load_icon_file(const char *name) {
     return icon;
 }
 
-NOEXPORT void update_tray(const int num) {
+NOEXPORT void tray_update(const int num) {
     NOTIFYICONDATA nid;
     static ICON_TYPE previous_icon=ICON_NONE;
     ICON_TYPE current_icon;
     LPTSTR tip;
 
-    if(!global_options.option.taskbar) {
-        /* release previously allocated menu resources */
-        if(tray_menu_handle) { /* disabled in the new configuration */
-            if(!DestroyMenu(tray_menu_handle))
-                ioerror("DestroyMenu");
-            tray_menu_handle=NULL;
-        }
+    if(!global_options.option.taskbar) { /* currently disabled */
+        tray_delete(); /* remove the taskbark icon if exists */
         return;
     }
     if(!tray_menu_handle) /* initialize taskbar */
         tray_menu_handle=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
-    if(tray_menu_handle && cmdline.service)
+    if(!tray_menu_handle) {
+        ioerror("LoadMenu");
+        return;
+    }
+    if(cmdline.service)
         EnableMenuItem(tray_menu_handle, IDM_EDIT_CONFIG, MF_GRAYED);
 
     ZeroMemory(&nid, sizeof nid);
     nid.cbSize=sizeof nid;
-    nid.uID=1; /* application-defined ID for the icon */
+    nid.uID=1; /* application-defined icon ID */
     nid.uFlags=NIF_MESSAGE|NIF_TIP;
     nid.uCallbackMessage=WM_SYSTRAY; /* notification message */
     nid.hWnd=hwnd; /* window to receive notifications */
@@ -1104,6 +1093,22 @@ NOEXPORT void update_tray(const int num) {
     /* tooltip update failed - try to create the icon */
     nid.uFlags|=NIF_ICON;
     Shell_NotifyIcon(NIM_ADD, &nid);
+}
+
+NOEXPORT void tray_delete(void) {
+    NOTIFYICONDATA nid;
+
+    if(tray_menu_handle) {
+        ZeroMemory(&nid, sizeof nid);
+        nid.cbSize=sizeof nid;
+        nid.uID=1; /* application-defined icon ID */
+        nid.hWnd=hwnd; /* window to receive notifications */
+        nid.uFlags=NIF_TIP; /* not really sure what to put here, but it works */
+        Shell_NotifyIcon(NIM_DELETE, &nid); /* this removes the icon */
+        if(!DestroyMenu(tray_menu_handle)) /* release menu resources */
+            ioerror("DestroyMenu");
+        tray_menu_handle=NULL;
+    }
 }
 
 NOEXPORT void error_box(LPCTSTR text) {

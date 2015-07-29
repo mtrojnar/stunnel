@@ -13,11 +13,12 @@ CLEANFILES = $(man_MANS) $(doc_DATA)
 SUFFIXES = .pod.in .8.in .html.in
 
 .pod.in.8.in:
-	pod2man -u --section=8 --release=$(VERSION) --center=stunnel \
-		--date=`date +%Y.%m.%d` $< $@
+	pod2man -u -n stunnel -s 8 -r $(VERSION) \
+		-c "stunnel TLS Proxy" -d `date +%Y.%m.%d` $< $@
 
 .pod.in.html.in:
-	pod2html --noindex --title stunnel.8 --infile=$< --outfile=$@
+	pod2html --index --backlink --header \
+		--title "stunnel TLS Proxy" --infile=$< --outfile=$@
 	rm -f pod2htmd.tmp pod2htmi.tmp
 
 edit = sed \

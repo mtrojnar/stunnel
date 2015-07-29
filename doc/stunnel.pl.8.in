@@ -70,8 +70,8 @@
 .rr rF
 .\" ========================================================================
 .\"
-.IX Title "STUNNEL.PL.POD.IN 8"
-.TH STUNNEL.PL.POD.IN 8 "2015.06.12" "5.19" "stunnel"
+.IX Title "stunnel 8"
+.TH stunnel 8 "2015.06.28" "5.20" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -861,7 +861,14 @@ adres sessiond \- servera cache sesji \s-1SSL\s0
 .IX Item "sslVersion = WERSJA_SSL"
 wersja protokołu \s-1SSL\s0
 .Sp
-Dozwolone opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+Wspierane opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+.Sp
+Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
+Starsze wersje OpenSSL nie wspierają TLSv1.1 i TLSv1.2.
+Nowsze wersje OpenSSL nie wspierają SSLv2.
+.Sp
+Przestarzałe protokoły SSLv2 i SSLv3 są domyślnie wyłączone.
+Szczegółowe informacje dostępne są w opisie opcji \fBoptions\fR.
 .IP "\fBstack\fR = LICZBA_BAJTÓW (z wyjątkiem modelu \s-1FORK\s0)" 4
 .IX Item "stack = LICZBA_BAJTÓW (z wyjątkiem modelu FORK)"
 rozmiar stosu procesora wątku
@@ -1236,15 +1243,16 @@ powyższej listy.  Jest to właściwość biblioteki \fBOpenSSL\fR, a nie progra
 .SS "\s-1PARAMETRY DH\s0"
 .IX Subsection "PARAMETRY DH"
 Począwszy od wersji 4.40 \fBstunnel\fR zawiera w kodzie programu 2048\-bitowe
-parametry \s-1DH.\s0
+parametry \s-1DH. \s0 Od wersji 5.18 te początkowe wartości parametrów \s-1DH\s0 są
+wymieniane na autogenerowane parametry tymczasowe.
+Wygenerowanie parametrów \s-1DH\s0 może zająć nawet wiele minut.
 .PP
-Alternatywnie parametry \s-1DH\s0 można umieścić w pliku razem z certyfikatem:
+Alternatywnie parametry \s-1DH\s0 można umieścić w pliku razem z certyfikatem,
+co wyłącza generowanie parametrów tymczasowych:
 .PP
 .Vb 1
 \&    openssl dhparam 2048 >> stunnel.pem
 .Ve
-.PP
-Wygenerowanie parametrów \s-1DH\s0 może zająć nawet wiele minut.
 .SH "PLIKI"
 .IX Header "PLIKI"
 .ie n .IP "\fI\fI@sysconfdir\fI@/stunnel/stunnel.conf\fR" 4

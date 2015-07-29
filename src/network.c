@@ -75,7 +75,7 @@ void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
 
     for(i=0; i<fds->nfds && fds->ufds[i].fd!=fd; i++)
         ;
-    if(i==fds->nfds) {
+    if(i==fds->nfds) { /* not found */
         if(i==fds->allocated) {
             fds->allocated=i+1;
             s_poll_realloc(fds);
@@ -92,6 +92,18 @@ void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
     }
     if(wr)
         fds->ufds[i].events|=POLLOUT;
+}
+
+void s_poll_remove(s_poll_set *fds, SOCKET fd) {
+    unsigned i;
+
+    for(i=0; i<fds->nfds && fds->ufds[i].fd!=fd; i++)
+        ;
+    if(i<fds->nfds) { /* found */
+        memmove(fds->ufds+i, fds->ufds+i+1,
+            (fds->nfds-i-1)*sizeof(struct pollfd));
+        fds->nfds--;
+    }
 }
 
 int s_poll_canread(s_poll_set *fds, SOCKET fd) {
@@ -140,11 +152,11 @@ NOEXPORT void s_poll_realloc(s_poll_set *fds) {
     fds->ufds=str_realloc(fds->ufds, fds->allocated*sizeof(struct pollfd));
 }
 
-void s_poll_dump(s_poll_set *fds) {
+void s_poll_dump(s_poll_set *fds, int level) {
     unsigned i;
 
     for(i=0; i<fds->nfds; i++)
-        s_log(LOG_ERR, "fd=%d revents=0x%X",
+        s_log(level, "fd=%d revents=0x%X",
             fds->ufds[i].fd, fds->ufds[i].revents);
 }
 
@@ -357,13 +369,19 @@ void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
     }
 #endif
     if(rd)
-        FD_SET((unsigned)fd, fds->irfds);
+        FD_SET(fd, fds->irfds);
     if(wr)
-        FD_SET((unsigned)fd, fds->iwfds);
+        FD_SET(fd, fds->iwfds);
     /* always expect errors (and the Spanish Inquisition) */
-    FD_SET((unsigned)fd, fds->ixfds);
+    FD_SET(fd, fds->ixfds);
     if(fd>fds->max)
         fds->max=fd;
+}
+
+void s_poll_remove(s_poll_set *fds, SOCKET fd) {
+    FD_CLR(fd, fds->irfds);
+    FD_CLR(fd, fds->iwfds);
+    FD_CLR(fd, fds->ixfds);
 }
 
 int s_poll_canread(s_poll_set *fds, SOCKET fd) {
@@ -422,7 +440,7 @@ NOEXPORT void s_poll_realloc(s_poll_set *fds) {
     fds->oxfds=str_realloc(fds->oxfds, FD_SIZE(fds));
 }
 
-void s_poll_dump(s_poll_set *fds) {
+void s_poll_dump(s_poll_set *fds, int level) {
     SOCKET fd;
     int r, w, x;
 
@@ -431,7 +449,7 @@ void s_poll_dump(s_poll_set *fds) {
         w=FD_ISSET(fd, fds->owfds);
         x=FD_ISSET(fd, fds->oxfds);
         if(r || w || x)
-            s_log(LOG_ERR, "fd=%d events=%c%c%c", fd,
+            s_log(level, "fd=%d events=%c%c%c", fd,
                 r?'r':'-', w?'w':'-', x?'x':'-');
     }
 }

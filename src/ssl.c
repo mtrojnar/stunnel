@@ -67,6 +67,13 @@ int ssl_init(void) { /* init SSL before parsing configuration file */
 #ifndef OPENSSL_NO_ENGINE
     ENGINE_load_builtin_engines();
 #endif
+#ifndef OPENSSL_NO_DH
+    dh_params=get_dh2048();
+    if(!dh_params) {
+        s_log(LOG_ERR, "Failed to get default DH parameters");
+        return 1;
+    }
+#endif /* OPENSSL_NO_DH */
     return 0;
 }
 

@@ -39,14 +39,14 @@
 #include "prototypes.h"
 
 #ifdef USE_PTHREAD
-void *cron_thread(void *arg);
+NOEXPORT void *cron_thread(void *arg);
 #endif
 #ifdef USE_WIN32
-void cron_thread(void *arg);
+NOEXPORT void cron_thread(void *arg);
 #endif
 #if defined(USE_PTHREAD) || defined(USE_WIN32)
-void cron_worker(void);
-void cron_dhparam(void);
+NOEXPORT void cron_worker(void);
+NOEXPORT void cron_dh_param(void);
 #endif
 
 #if defined(USE_PTHREAD)
@@ -73,7 +73,7 @@ int cron_init() {
     return 0;
 }
 
-void *cron_thread(void *arg) {
+NOEXPORT void *cron_thread(void *arg) {
 #ifdef SCHED_BATCH
     struct sched_param param;
 #endif
@@ -97,7 +97,7 @@ int cron_init() {
     return 0;
 }
 
-void cron_thread(void *arg) {
+NOEXPORT void cron_thread(void *arg) {
     (void)arg; /* skip warning about unused parameter */
     tls_alloc(NULL, NULL, "cron");
     if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST))
@@ -118,7 +118,7 @@ int cron_init() {
 /* run the cron job every 24 hours */
 #define CRON_PERIOD (24*60*60)
 
-void cron_worker(void) {
+NOEXPORT void cron_worker(void) {
     time_t now, then;
     int delay;
 
@@ -128,7 +128,7 @@ void cron_worker(void) {
     for(;;) {
         s_log(LOG_INFO, "Executing cron jobs");
 #ifndef OPENSSL_NO_DH
-        cron_dhparam();
+        cron_dh_param();
 #endif /* OPENSSL_NO_DH */
         time(&now);
         s_log(LOG_INFO, "Cron jobs completed in %d seconds", (int)(now-then));
@@ -148,7 +148,7 @@ void cron_worker(void) {
 }
 
 #ifndef OPENSSL_NO_DH
-void cron_dhparam(void) {
+NOEXPORT void cron_dh_param(void) {
     SERVICE_OPTIONS *opt;
     DH *dh;
 
@@ -175,11 +175,17 @@ void cron_dhparam(void) {
         return;
     }
 #endif
+
+    /* update global dh_params for future configuration reloads */
+    enter_critical_section(CRIT_DH); /* it only needs an rwlock here */
+    DH_free(dh_params);
+    dh_params=dh;
+    leave_critical_section(CRIT_DH);
+
     /* set for all sections that require it */
     for(opt=service_options.next; opt; opt=opt->next)
         if(opt->option.dh_needed)
             SSL_CTX_set_tmp_dh(opt->ctx, dh);
-    DH_free(dh);
     s_log(LOG_NOTICE, "DH parameters updated");
 }
 #endif /* OPENSSL_NO_DH */

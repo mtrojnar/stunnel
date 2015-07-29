@@ -16,7 +16,7 @@ BEGIN
         BLOCK "040904E4"
         BEGIN
             VALUE "CompanyName",        "Michal Trojnara"
-            VALUE "FileDescription",    "stunnel - multiplatform SSL tunneling proxy"
+            VALUE "FileDescription",    "stunnel - TLS offloading and load-balancing proxy"
             VALUE "FileVersion",        STUNNEL_VERSION
             VALUE "InternalName",       "stunnel"
             VALUE "LegalCopyright",     "© by Michal Trojnara, 1998-2015"
@@ -42,6 +42,8 @@ BEGIN
     BEGIN
         MENUITEM "&Save Log As",            IDM_SAVE_LOG
         MENUITEM "Reopen &Log File",        IDM_REOPEN_LOG, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                   IDM_EXIT
         MENUITEM SEPARATOR
         MENUITEM "&Close",                  IDM_CLOSE
     END

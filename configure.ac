@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.19])
+AC_INIT([stunnel],[5.20])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -104,7 +104,7 @@ AC_CHECK_TYPES([struct sockaddr_un], [], [], [#include <sys/un.h>])
 AC_CHECK_TYPES([struct addrinfo], [], [], [#include <netdb.h>])
 
 AC_MSG_NOTICE([**************************************** PTY device files])
-if test "$cross_compiling" = "no"; then
+if test "x$cross_compiling" = "xno"; then
     AC_CHECK_FILE("/dev/ptmx", AC_DEFINE([HAVE_DEV_PTMX], [1],
         [Define to 1 if you have '/dev/ptmx' device.]))
     AC_CHECK_FILE("/dev/ptc", AC_DEFINE([HAVE_DEV_PTS_AND_PTC], [1],
@@ -115,7 +115,7 @@ fi
 
 AC_MSG_NOTICE([**************************************** entropy sources])
 
-if test "$cross_compiling" = "no"; then
+if test "x$cross_compiling" = "xno"; then
     AC_ARG_WITH(egd-socket,
         [  --with-egd-socket=FILE  Entropy Gathering Daemon socket path],
         [EGD_SOCKET="$withval"]
@@ -144,7 +144,7 @@ fi
 
 AC_MSG_NOTICE([**************************************** default group])
 DEFAULT_GROUP=nobody
-if test "$cross_compiling" = "no"; then
+if test "x$cross_compiling" = "xno"; then
     grep '^nogroup:' /etc/group >/dev/null && DEFAULT_GROUP=nogroup
 else
     AC_MSG_WARN([cross-compilation: assuming nogroup is not available])
@@ -186,7 +186,7 @@ AC_SEARCH_LIBS([shl_load], [dld])
 AC_SEARCH_LIBS([inflateEnd], [z])
 
 # Add BeOS libraries
-if test "$host_os" = "beos"; then
+if test "x$host_os" = "xbeos"; then
     LIBS="$LIBS -lbe -lroot -lbind"
 fi
 
@@ -229,10 +229,10 @@ getaddrinfo(NULL, NULL, NULL, NULL);
         [AC_MSG_RESULT([no])])
     ;;
 esac
-# poll() is not recommended on Mac OS X <=10.3 and broken on Mac OS X >=10.4
+# poll() is not recommended on Mac OS X <= 10.3 and broken on Mac OS X 10.4
 AC_MSG_CHECKING([for broken poll() implementation])
 case "$host_os" in
-darwin*)
+darwin[0-8].*)
     AC_MSG_RESULT([yes (poll() disabled)])
     AC_DEFINE([BROKEN_POLL], [1], [Define to 1 if you have a broken 'poll' implementation.])
     ;;
@@ -373,38 +373,43 @@ AC_ARG_ENABLE(libwrap,
 AC_MSG_NOTICE([**************************************** SSL])
 
 AC_MSG_CHECKING([for compiler sysroot])
-if test "$GCC" = yes; then
-    SYSROOT=`$CC --print-sysroot 2>/dev/null`
+if test "x$GCC" = "xyes"; then
+    sysroot=`$CC --print-sysroot 2>/dev/null`
 fi
-if test -z "$SYSROOT"; then
-    SYSROOT="/"
+if test -z "$sysroot" -o "x$sysroot" = "x/"; then
+    sysroot=""
+    AC_MSG_RESULT([/])
+else
+    AC_MSG_RESULT([$sysroot])
 fi
-AC_MSG_RESULT([$SYSROOT])
 
-# Check for SSL directory
 check_ssl_dir() { :
-    SSLDIR="$1"
-    if test -f "$1/include/openssl/ssl.h"; then
-        return 0
-    fi
-    return 1
+    test -n "$1" -a -f "$1/include/openssl/ssl.h" && SSLDIR="$1"
 }
 
+find_ssl_dir() { :
+    stunnel_prefix="$prefix"
+    test "x$stunnel_prefix" = "xNONE" && stunnel_prefix=$ac_default_prefix
+    for main_dir in "$stunnel_prefix" "/usr/local" "/usr/lib" "/usr/pkg" "/opt/local" "/opt" "/usr" ""; do
+        for sub_dir in "/ssl" "/openssl" "/ossl" ""; do
+            check_ssl_dir "$sysroot$main_dir$sub_dir"
+            test -n "$SSLDIR" && return
+        done
+    done
+    if test -x "/usr/bin/xcrun"; then
+        sdk_path=`/usr/bin/xcrun --sdk macosx --show-sdk-path`
+        check_ssl_dir "$sdk_path/usr"
+    fi
+}
+
+SSLDIR=""
 AC_MSG_CHECKING([for SSL directory])
 AC_ARG_WITH(ssl,
 [  --with-ssl=DIR          location of installed SSL libraries/include files],
-    [
-        check_ssl_dir "$withval"
-    ],
-    [
-        for main_dir in usr/local usr/lib usr/pkg opt/local opt usr ""; do
-            for sub_dir in /ssl /openssl ""; do
-                check_ssl_dir "$SYSROOT$main_dir$sub_dir" && break 2
-            done
-        done
-    ]
+    [check_ssl_dir "$withval"],
+    [find_ssl_dir]
 )
-if test ! -f "$SSLDIR/include/openssl/ssl.h"; then
+if test -z "$SSLDIR"; then
 AC_MSG_RESULT([not found])
 AC_MSG_ERROR([
 Could not find your SSL library installation dir
@@ -428,7 +433,7 @@ AC_CHECK_HEADER([$SSLDIR/include/openssl/ocsp.h],
     [Define to 1 if you have <ocsp.h> header file.])],
     [AC_MSG_WARN([OpenSSL ocsp header not found])])
 
-if test "$use_fips" = "auto"; then
+if test "x$use_fips" = "xauto"; then
     AC_CHECK_FUNCS(FIPS_mode_set, [
         AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS support])
         AC_MSG_NOTICE([FIPS support enabled])

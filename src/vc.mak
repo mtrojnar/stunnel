@@ -23,7 +23,7 @@ TARGET=win64
 #INCDIR=$(SSLDIR)\include
 #LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-SSLDIR=..\..\openssl-1.0.2c-$(TARGET)
+SSLDIR=..\..\openssl-1.0.2d-$(TARGET)
 INCDIR=$(SSLDIR)\inc32
 LIBDIR=$(SSLDIR)\out32dll
 # or simply install with "nmake -f ms\ntdll.mak install"
@@ -51,7 +51,7 @@ LINK=link
 
 UNICODEFLAGS=/DUNICODE /D_UNICODE
 CFLAGS=/MD /W3 /O2 /nologo /I"$(INCDIR)" $(UNICODEFLAGS)
-LDFLAGS=/NOLOGO
+LDFLAGS=/NOLOGO /DEBUG
 
 SHAREDLIBS=ws2_32.lib user32.lib shell32.lib
 GUILIBS=advapi32.lib comdlg32.lib crypt32.lib gdi32.lib psapi.lib

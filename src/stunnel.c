@@ -264,14 +264,15 @@ void child_status(void) { /* dead libwrap or 'exec' process detected */
 /**************************************** main loop accepting connections */
 
 void daemon_loop(void) {
-    SERVICE_OPTIONS *opt;
-    int temporary_lack_of_resources;
-
     while(1) {
-        temporary_lack_of_resources=0;
-        if(s_poll_wait(fds, -1, -1)>=0) {
+        int temporary_lack_of_resources=0;
+        int num=s_poll_wait(fds, -1, -1);
+        if(num>=0) {
+            SERVICE_OPTIONS *opt;
+            s_log(LOG_DEBUG, "Found %d ready file descriptor(s)", num);
+            s_poll_dump(fds, LOG_DEBUG);
             if(s_poll_canread(fds, signal_pipe[0]))
-                if(signal_pipe_dispatch()) /* received SIGNAL_TERMINATE */
+                if(signal_pipe_dispatch()) /* SIGNAL_TERMINATE or error */
                     break; /* terminate daemon_loop */
             for(opt=service_options.next; opt; opt=opt->next)
                 if(opt->option.accept && s_poll_canread(fds, opt->fd))
@@ -552,10 +553,41 @@ void signal_post(int sig) {
 #endif /* __GNUC__ */
 
 NOEXPORT int signal_pipe_dispatch(void) {
-    int sig;
+    static int sig;
+    static size_t ptr=0;
+    ssize_t num;
 
     s_log(LOG_DEBUG, "Dispatching signals from the signal pipe");
-    while(readsocket(signal_pipe[0], (char *)&sig, sizeof sig)==sizeof sig) {
+    for(;;) {
+        num=readsocket(signal_pipe[0], (char *)&sig+ptr, sizeof sig-ptr);
+        if(num==-1 && get_last_socket_error()==S_EWOULDBLOCK) {
+            s_log(LOG_DEBUG, "Signal pipe is empty");
+            return 0;
+        }
+        if(num==-1 || num==0) {
+            if(num)
+                sockerror("signal pipe read");
+            else
+                s_log(LOG_ERR, "Signal pipe closed");
+            s_poll_remove(fds, signal_pipe[0]);
+            closesocket(signal_pipe[0]);
+            closesocket(signal_pipe[1]);
+            if(signal_pipe_init()) {
+                s_log(LOG_ERR,
+                    "Signal pipe reinitialization failed; terminating");
+                return 1;
+            }
+            s_poll_add(fds, signal_pipe[0], 1, 0);
+            s_log(LOG_ERR, "Signal pipe reinitialized");
+            return 0;
+        }
+        ptr+=(size_t)num;
+        if(ptr<sizeof sig) {
+            s_log(LOG_DEBUG, "Incomplete signal pipe read (ptr=%ld)",
+                (long)ptr);
+            return 0;
+        }
+        ptr=0;
         switch(sig) {
 #ifndef USE_WIN32
         case SIGCHLD:
@@ -591,14 +623,12 @@ NOEXPORT int signal_pipe_dispatch(void) {
         case SIGNAL_TERMINATE:
             s_log(LOG_DEBUG, "Processing SIGNAL_TERMINATE");
             s_log(LOG_NOTICE, "Terminated");
-            return 2;
+            return 1;
         default:
             s_log(LOG_ERR, "Received signal %d; terminating", sig);
             return 1;
         }
     }
-    s_log(LOG_DEBUG, "Signal pipe is empty");
-    return 0;
 }
 
 /**************************************** log build details */

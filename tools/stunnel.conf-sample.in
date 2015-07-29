@@ -45,6 +45,11 @@
 
 ; ***************************************** Example TLS client mode services
 
+; The following examples use /etc/ssl/certs, which is the common location
+; of a hashed directory containing trusted CA certificates.  This is not
+; a hardcoded path of the stunnel package, as it is not related to the
+; stunnel configuration in @sysconfdir@/stunnel/.
+
 [gmail-pop3]
 client = yes
 accept = 127.0.0.1:110

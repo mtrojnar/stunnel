@@ -14,6 +14,8 @@
 #                    to completely disable *all* tunnels.
 ### END INIT INFO
 
+. /lib/lsb/init-functions
+
 DEFAULTPIDFILE="/var/run/stunnel.pid"
 DAEMON=@bindir@/stunnel
 NAME=stunnel
@@ -27,7 +29,7 @@ get_opt() {
     grep -i "^$2=" | sed -e "s;^[^=]*=;;"
 }
 
-get_pids() {
+get_pidfile() {
   local file=$1
   if [ -f $file ]; then
     CHROOT=`get_opt $file chroot`
@@ -35,13 +37,13 @@ get_pids() {
     if [ "$PIDFILE" = "" ]; then
       PIDFILE=$DEFAULTPIDFILE
     fi
-    if [ -f $CHROOT/$PIDFILE ]; then
-      cat $CHROOT/$PIDFILE
-    fi
+    echo "$CHROOT/$PIDFILE"
   fi
 }
 
 startdaemons() {
+  local res file args pidfile warn status
+
   if ! [ -d /var/run/stunnel ]; then
     rm -rf /var/run/stunnel
     install -d -o stunnel -g stunnel /var/run/stunnel
@@ -49,47 +51,81 @@ startdaemons() {
   if [ -n "$RLIMITS" ]; then
     ulimit $RLIMITS
   fi
+  res=0
   for file in $FILES; do 
     if [ -f $file ]; then
-      ARGS="$file $OPTIONS"
-      PROCLIST=`get_pids $file`
-      if [ "$PROCLIST" ] && kill -s 0 $PROCLIST 2>/dev/null; then
-        echo -n "[Already running: $file] "
-      elif $DAEMON $ARGS; then
-	echo -n "[Started: $file] "
+      echo -n " $file: "
+      args="$file $OPTIONS"
+      pidfile=`get_pidfile $file`
+      if egrep -qe '^pid[[:space:]]*=' "$file"; then
+        warn=''
       else
-	echo "[Failed: $file]"
-	echo "You should check that you have specified the pid= in you configuration file"
-	exit 1
+        warn=' (no pid=pidfile specified!)'
+      fi
+      status=0
+      start_daemon -p "$pidfile" "$DAEMON" $args || status=$?
+      if [ "$status" -eq 0 ]; then
+        echo -n "started$warn"
+      else
+        echo "failed$warn"
+        echo "You should check that you have specified the pid= in you configuration file"
+        res=1
       fi
     fi
   done;
+  echo ''
+  return "$res"
 }
 
 killdaemons()
 {
-  SIGNAL=${1:-TERM}
+  local sig file pidfile status
+
+  sig=${1:-TERM}
+  res=0
   for file in $FILES; do
-    PROCLIST=`get_pids $file`
-    if [ "$PROCLIST" ] && kill -s 0 $PROCLIST 2>/dev/null; then
-       kill -s $SIGNAL $PROCLIST
-       echo -n "[stopped: $file] "
+    echo -n " $file: "
+    pidfile=`get_pidfile $file`
+    if [ ! -e "$pidfile" ]; then
+      echo -n "no pid file"
+    else
+      status=0
+      killproc -p "$pidfile" "$DAEMON" "$sig" || status=$?
+      if [ "$status" -eq 0 ]; then
+        echo -n 'stopped'
+      else
+        echo -n 'failed'
+        res=1
+      fi
     fi
   done
+  echo ''
+  return "$res"
 }
 
 querydaemons()
 {
+  local res file pidfile status
+
   res=0
-  echo -n "$DESC status:"
   for file in $FILES; do
     echo -n " $file: "
-    PROCLIST=`get_pids $file`
-    if [ "$PROCLIST" ] && kill -s 0 $PROCLIST 2>/dev/null; then
-      echo -n 'running'
-    else
-      echo -n 'stopped'
+    pidfile=`get_pidfile "$file"`
+    if [ ! -e "$pidfile" ]; then
+      echo -n 'no pid file'
       res=1
+    else
+      status=0
+      pidofproc -p "$pidfile" "$DAEMON" >/dev/null || status="$?"
+      if [ "$status" = 0 ]; then
+        echo -n 'running'
+      elif [ "$status" = 4 ]; then
+        echo "cannot access the pid file $pidfile"
+        res=1
+      else
+        echo -n 'stopped'
+        res=1
+      fi
     fi
   done
   echo ''
@@ -126,42 +162,43 @@ fi
 
 set -e
 
+res=0
 case "$1" in
   start)
-        echo -n "Starting $DESC: "
-        startdaemons
-        echo "$NAME."
-        ;;
+    echo -n "Starting $DESC:"
+    startdaemons
+    res=$?
+    ;;
   stop)
-        echo -n "Stopping $DESC: "
-        killdaemons
-        echo "$NAME."
-        ;;
+    echo -n "Stopping $DESC:"
+    killdaemons
+    res=$?
+    ;;
   reopen-logs)
-        echo -n "Reopening log files $DESC: "
-        killdaemons USR1
-        echo "$NAME."
-        ;;
+    echo -n "Reopening log files $DESC:"
+    killdaemons USR1
+    res=$?
+    ;;
   force-reload|reload)
-        echo -n "Reloading configuration $DESC: "
-        killdaemons HUP
-        echo "$NAME."
-        ;;  
+    echo -n "Reloading configuration $DESC:"
+    killdaemons HUP
+    res=$?
+    ;;  
   restart)
-        echo -n "Restarting $DESC: "
-        killdaemons
-        sleep 5
-        startdaemons
-        echo "$NAME."
-        ;;
+    echo -n "Restarting $DESC:"
+    killdaemons && startdaemons
+    res=$?
+    ;;
   status)
-	querydaemons
-	;;
+    echo -n "$DESC status:"
+    querydaemons
+    res=$?
+    ;;
   *)
-        N=@sysconfdir@/init.d/$NAME
-        echo "Usage: $N {start|stop|status|reload|reopen-logs|restart} [<stunnel instance>]" >&2
-        exit 1
-        ;;
+    N=@sysconfdir@/init.d/$NAME
+    echo "Usage: $N {start|stop|status|reload|reopen-logs|restart} [<stunnel instance>]" >&2
+    res=1
+    ;;
 esac
 
-exit 0
+exit "$res"

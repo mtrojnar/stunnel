@@ -2,20 +2,54 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>stunnel.8</title>
+<title>stunnel TLS Proxy</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 <link rev="made" href="mailto:root@localhost" />
 </head>
 
-<body>
+<body id="_podtop_">
+<table border="0" width="100%" cellspacing="0" cellpadding="3">
+<tr><td class="_podblock_" style="background-color: #cccccc; color: #000" valign="middle">
+<big><strong><span class="_podblock_">&nbsp;stunnel TLS Proxy</span></strong></big>
+</td></tr>
+</table>
 
 
 
-<h1 id="NAZWA">NAZWA</h1>
+<ul id="index">
+  <li><a href="#NAZWA">NAZWA</a></li>
+  <li><a href="#SKADNIA">SK&#x141;ADNIA</a></li>
+  <li><a href="#OPIS">OPIS</a></li>
+  <li><a href="#OPCJE">OPCJE</a></li>
+  <li><a href="#PLIK-KONFIGURACYJNY">PLIK KONFIGURACYJNY</a>
+    <ul>
+      <li><a href="#OPCJE-GLOBALNE">OPCJE GLOBALNE</a></li>
+      <li><a href="#OPCJE-USUG">OPCJE US&#x141;UG</a></li>
+    </ul>
+  </li>
+  <li><a href="#ZWRACANA-WARTO">ZWRACANA WARTO&#x15A;&#x106;</a></li>
+  <li><a href="#SIGNAY">SIGNA&#x141;Y</a></li>
+  <li><a href="#PRZYKADY">PRZYK&#x141;ADY</a></li>
+  <li><a href="#NOTKI">NOTKI</a>
+    <ul>
+      <li><a href="#OGRANICZENIA">OGRANICZENIA</a></li>
+      <li><a href="#TRYB-INETD-tylko-Unix">TRYB INETD (tylko Unix)</a></li>
+      <li><a href="#CERTYFIKATY">CERTYFIKATY</a></li>
+      <li><a href="#LOSOWO">LOSOWO&#x15A;&#x106;</a></li>
+      <li><a href="#PARAMETRY-DH">PARAMETRY DH</a></li>
+    </ul>
+  </li>
+  <li><a href="#PLIKI">PLIKI</a></li>
+  <li><a href="#BDY">B&#x141;&#x118;DY</a></li>
+  <li><a href="#ZOBACZ-RWNIE">ZOBACZ R&Oacute;WNIE&#x17B;</a></li>
+  <li><a href="#AUTOR">AUTOR</a></li>
+</ul>
+
+<a href="#_podtop_"><h1 id="NAZWA">NAZWA</h1></a>
 
 <p>stunnel - uniwersalny tunel protoko&#x142;u SSL</p>
 
-<h1 id="SKADNIA">SK&#x141;ADNIA</h1>
+<a href="#_podtop_"><h1 id="SKADNIA">SK&#x141;ADNIA</h1></a>
 
 <dl>
 
@@ -33,13 +67,13 @@
 </dd>
 </dl>
 
-<h1 id="OPIS">OPIS</h1>
+<a href="#_podtop_"><h1 id="OPIS">OPIS</h1></a>
 
 <p>Program <b>stunnel</b> zosta&#x142; zaprojektowany do opakowywania w protok&oacute;&#x142; <i>SSL</i> po&#x142;&#x105;cze&#x144; pomi&#x119;dzy zdalnymi klientami a lokalnymi lub zdalnymi serwerami. Przez serwer lokalny rozumiana jest aplikacja przeznaczona do uruchamiania przy pomocy <i>inetd</i>. Stunnel pozwala na proste zestawienie komunikacji serwer&oacute;w nie posiadaj&#x105;cych funkcjonalno&#x15B;ci <i>SSL</i> poprzez bezpieczne kana&#x142;y <i>SSL</i>.</p>
 
 <p><b>stunnel</b> pozwala doda&#x107; funkcjonalno&#x15B;&#x107; <i>SSL</i> do powszechnie stosowanych demon&oacute;w <i>inetd</i>, np. <i>pop3</i> lub <i>imap</i>, do samodzielnych demon&oacute;w, np. <i>nntp</i>, <i>smtp</i> lub <i>http</i>, a nawet tunelowa&#x107; ppp poprzez gniazda sieciowe bez zmian w kodzie &#x17A;r&oacute;d&#x142;owym.</p>
 
-<h1 id="OPCJE">OPCJE</h1>
+<a href="#_podtop_"><h1 id="OPCJE">OPCJE</h1></a>
 
 <dl>
 
@@ -129,7 +163,7 @@
 </dd>
 </dl>
 
-<h1 id="PLIK-KONFIGURACYJNY">PLIK KONFIGURACYJNY</h1>
+<a href="#_podtop_"><h1 id="PLIK-KONFIGURACYJNY">PLIK KONFIGURACYJNY</h1></a>
 
 <p>Linia w pliku konfiguracyjnym mo&#x17C;e by&#x107;:</p>
 
@@ -972,7 +1006,11 @@
 
 <p>wersja protoko&#x142;u SSL</p>
 
-<p>Dozwolone opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
+<p>Wspierane opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
+
+<p>Dost&#x119;pno&#x15B;&#x107; konkretnych protoko&#x142;&oacute;w zale&#x17C;y od u&#x17C;ytej wersji OpenSSL. Starsze wersje OpenSSL nie wspieraj&#x105; TLSv1.1 i TLSv1.2. Nowsze wersje OpenSSL nie wspieraj&#x105; SSLv2.</p>
+
+<p>Przestarza&#x142;e protoko&#x142;y SSLv2 i SSLv3 s&#x105; domy&#x15B;lnie wy&#x142;&#x105;czone. Szczeg&oacute;&#x142;owe informacje dost&#x119;pne s&#x105; w opisie opcji <b>options</b>.</p>
 
 </dd>
 <dt id="stack-LICZBA_BAJTW-z-wyjtkiem-modelu-FORK"><b>stack</b> = LICZBA_BAJT&Oacute;W (z wyj&#x105;tkiem modelu FORK)</dt>
@@ -1172,11 +1210,11 @@
 </dd>
 </dl>
 
-<h1 id="ZWRACANA-WARTO">ZWRACANA WARTO&#x15A;&#x106;</h1>
+<a href="#_podtop_"><h1 id="ZWRACANA-WARTO">ZWRACANA WARTO&#x15A;&#x106;</h1></a>
 
 <p><b>stunnel</b> zwraca zero w przypadku sukcesu, lub warto&#x15B;&#x107; niezerow&#x105; w przypadku b&#x142;&#x119;du.</p>
 
-<h1 id="SIGNAY">SIGNA&#x141;Y</h1>
+<a href="#_podtop_"><h1 id="SIGNAY">SIGNA&#x141;Y</h1></a>
 
 <p>Nast&#x119;puj&#x105;ce sygna&#x142;y mog&#x105; by&#x107; u&#x17C;yte do sterowania programem w systemie Unix:</p>
 
@@ -1229,7 +1267,7 @@
 
 <p>Skutek wys&#x142;ania innych sygna&#x142;&oacute;w jest niezdefiniowany.</p>
 
-<h1 id="PRZYKADY">PRZYK&#x141;ADY</h1>
+<a href="#_podtop_"><h1 id="PRZYKADY">PRZYK&#x141;ADY</h1></a>
 
 <p>Szyfrowanie po&#x142;&#x105;cze&#x144; do lokalnego serwera <i>imapd</i> mo&#x17C;na u&#x17C;y&#x107;:</p>
 
@@ -1285,7 +1323,7 @@
 
 <pre><code>    curl --socks4a localhost http://www.example.com/</code></pre>
 
-<h1 id="NOTKI">NOTKI</h1>
+<a href="#_podtop_"><h1 id="NOTKI">NOTKI</h1></a>
 
 <h2 id="OGRANICZENIA">OGRANICZENIA</h2>
 
@@ -1359,15 +1397,13 @@
 
 <h2 id="PARAMETRY-DH">PARAMETRY DH</h2>
 
-<p>Pocz&#x105;wszy od wersji 4.40 <b>stunnel</b> zawiera w kodzie programu 2048-bitowe parametry DH.</p>
+<p>Pocz&#x105;wszy od wersji 4.40 <b>stunnel</b> zawiera w kodzie programu 2048-bitowe parametry DH. Od wersji 5.18 te pocz&#x105;tkowe warto&#x15B;ci parametr&oacute;w DH s&#x105; wymieniane na autogenerowane parametry tymczasowe. Wygenerowanie parametr&oacute;w DH mo&#x17C;e zaj&#x105;&#x107; nawet wiele minut.</p>
 
-<p>Alternatywnie parametry DH mo&#x17C;na umie&#x15B;ci&#x107; w pliku razem z certyfikatem:</p>
+<p>Alternatywnie parametry DH mo&#x17C;na umie&#x15B;ci&#x107; w pliku razem z certyfikatem, co wy&#x142;&#x105;cza generowanie parametr&oacute;w tymczasowych:</p>
 
 <pre><code>    openssl dhparam 2048 &gt;&gt; stunnel.pem</code></pre>
 
-<p>Wygenerowanie parametr&oacute;w DH mo&#x17C;e zaj&#x105;&#x107; nawet wiele minut.</p>
-
-<h1 id="PLIKI">PLIKI</h1>
+<a href="#_podtop_"><h1 id="PLIKI">PLIKI</h1></a>
 
 <dl>
 
@@ -1379,11 +1415,11 @@
 </dd>
 </dl>
 
-<h1 id="BDY">B&#x141;&#x118;DY</h1>
+<a href="#_podtop_"><h1 id="BDY">B&#x141;&#x118;DY</h1></a>
 
 <p>Opcja <i>execArgs</i> oraz linia komend Win32 nie obs&#x142;uguje cytowania.</p>
 
-<h1 id="ZOBACZ-RWNIE">ZOBACZ R&Oacute;WNIE&#x17B;</h1>
+<a href="#_podtop_"><h1 id="ZOBACZ-RWNIE">ZOBACZ R&Oacute;WNIE&#x17B;</h1></a>
 
 <dl>
 
@@ -1413,7 +1449,7 @@
 </dd>
 </dl>
 
-<h1 id="AUTOR">AUTOR</h1>
+<a href="#_podtop_"><h1 id="AUTOR">AUTOR</h1></a>
 
 <dl>
 
@@ -1425,6 +1461,11 @@
 </dd>
 </dl>
 
+<table border="0" width="100%" cellspacing="0" cellpadding="3">
+<tr><td class="_podblock_" style="background-color: #cccccc; color: #000" valign="middle">
+<big><strong><span class="_podblock_">&nbsp;stunnel TLS Proxy</span></strong></big>
+</td></tr>
+</table>
 
 </body>
 
