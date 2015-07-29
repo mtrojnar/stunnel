@@ -86,8 +86,8 @@ typedef struct name_list_struct {
 
 typedef struct sockaddr_list {                          /* list of addresses */
     SOCKADDR_UNION *addr;                           /* the list of addresses */
-    uint16_t *rr_ptr, rr_val;             /* current address for round-robin */
-    uint16_t num;                             /* how many addresses are used */
+    unsigned *rr_ptr, rr_val;             /* current address for round-robin */
+    unsigned num;                             /* how many addresses are used */
 } SOCKADDR_LIST;
 
 #ifndef OPENSSL_NO_COMP
@@ -103,7 +103,7 @@ typedef struct {
 #endif /* !defined(OPENSSL_NO_COMP) */
     char *egd_sock;                       /* entropy gathering daemon socket */
     char *rand_file;                                /* file with random data */
-    int random_bytes;                       /* how many random bytes to read */
+    long random_bytes;                      /* how many random bytes to read */
 
         /* some global data for stunnel.c */
 #ifndef USE_WIN32
@@ -112,7 +112,8 @@ typedef struct {
 #endif
     unsigned long dpid;
     char *pidfile;
-    int uid, gid;
+    uid_t uid;
+    gid_t gid;
 #endif
 
         /* logging-support data for log.c */
@@ -125,20 +126,20 @@ typedef struct {
 
         /* user interface configuraion */
 #ifdef ICON_IMAGE
-    ICON_IMAGE icon[ICON_NONE];                   /* user-specified GUI icons */
+    ICON_IMAGE icon[ICON_NONE];                  /* user-specified GUI icons */
 #endif
 
         /* on/off switches */
     struct {
-        unsigned int rand_write:1;                    /* overwrite rand_file */
+        unsigned rand_write:1;                        /* overwrite rand_file */
 #ifdef USE_WIN32
-        unsigned int taskbar:1;                   /* enable the taskbar icon */
+        unsigned taskbar:1;                       /* enable the taskbar icon */
 #else /* !USE_WIN32 */
-        unsigned int foreground:1;
-        unsigned int syslog:1;
+        unsigned foreground:1;
+        unsigned syslog:1;
 #endif
 #ifdef USE_FIPS
-        unsigned int fips:1;                       /* enable FIPS 140-2 mode */
+        unsigned fips:1;                           /* enable FIPS 140-2 mode */
 #endif
     } option;
 } GLOBAL_OPTIONS;
@@ -153,7 +154,7 @@ typedef struct servername_list_struct SERVERNAME_LIST;/* forward declaration */
 typedef struct psk_keys_struct {
     char *identity;
     unsigned char *key_val;
-    unsigned int key_len;
+    size_t key_len;
     struct psk_keys_struct *next;
 } PSK_KEYS;
 #endif /* !defined(OPENSSL_NO_PSK) */
@@ -165,7 +166,7 @@ typedef struct service_options_struct {
 
         /* service-specific data for sthreads.c */
 #ifndef USE_FORK
-    int stack_size;                            /* stack size for this thread */
+    size_t stack_size;                         /* stack size for this thread */
 #endif
 
         /* service-specific data for verify.c */
@@ -176,8 +177,7 @@ typedef struct service_options_struct {
     int verify_level;
     X509_STORE *revocation_store;             /* cert store for CRL checking */
 #ifndef OPENSSL_NO_OCSP
-    SOCKADDR_UNION ocsp_addr;
-    char *ocsp_path;
+    char *ocsp_url;
     unsigned long ocsp_flags;
 #endif /* !defined(OPENSSL_NO_OCSP) */
 
@@ -242,31 +242,31 @@ typedef struct service_options_struct {
 
         /* on/off switches */
     struct {
-        unsigned int accept:1;          /* endpoint: accept */
-        unsigned int client:1;
-        unsigned int delayed_lookup:1;
+        unsigned accept:1;              /* endpoint: accept */
+        unsigned client:1;
+        unsigned delayed_lookup:1;
 #ifdef USE_LIBWRAP
-        unsigned int libwrap:1;
+        unsigned libwrap:1;
 #endif
-        unsigned int local:1;           /* outgoing interface specified */
-        unsigned int remote:1;          /* endpoint: connect */
-        unsigned int retry:1;           /* loop remote+program */
-        unsigned int sessiond:1;
-        unsigned int program:1;         /* endpoint: exec */
+        unsigned local:1;               /* outgoing interface specified */
+        unsigned remote:1;              /* endpoint: connect */
+        unsigned retry:1;               /* loop remote+program */
+        unsigned sessiond:1;
+        unsigned program:1;             /* endpoint: exec */
 #ifndef OPENSSL_NO_TLSEXT
-        unsigned int sni:1;             /* endpoint: sni */
+        unsigned sni:1;                 /* endpoint: sni */
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 #ifndef USE_WIN32
-        unsigned int pty:1;
-        unsigned int transparent_src:1;
-        unsigned int transparent_dst:1; /* endpoint: transparent destination */
+        unsigned pty:1;
+        unsigned transparent_src:1;
+        unsigned transparent_dst:1;     /* endpoint: transparent destination */
 #endif
+        unsigned reset:1;               /* reset sockets on error */
+        unsigned renegotiation:1;
+        unsigned connect_before_ssl:1;
 #ifndef OPENSSL_NO_OCSP
-        unsigned int ocsp:1;
+        unsigned aia:1;                 /* Authority Information Access */
 #endif /* !defined(OPENSSL_NO_OCSP) */
-        unsigned int reset:1;           /* reset sockets on error */
-        unsigned int renegotiation:1;
-        unsigned int connect_before_ssl:1;
     } option;
 } SERVICE_OPTIONS;
 
@@ -309,13 +309,13 @@ typedef enum {
 typedef struct {
 #ifdef USE_POLL
     struct pollfd *ufds;
-    unsigned int nfds;
-    unsigned int allocated;
+    unsigned nfds;
+    unsigned allocated;
 #else /* select */
     fd_set *irfds, *iwfds, *ixfds, *orfds, *owfds, *oxfds;
     int max;
 #ifdef USE_WIN32
-    unsigned int allocated;
+    unsigned allocated;
 #endif
 #endif
 } s_poll_set;
@@ -339,8 +339,8 @@ typedef struct {
 /**************************************** prototypes for stunnel.c */
 
 #ifndef USE_FORK
-extern int max_clients;
-extern volatile int num_clients;
+extern long max_clients;
+extern volatile long num_clients;
 #endif
 
 void main_init(void);
@@ -479,7 +479,7 @@ typedef struct {
     /* data for transfer() function */
     char sock_buff[BUFFSIZE]; /* socket read buffer */
     char ssl_buff[BUFFSIZE]; /* SSL read buffer */
-    unsigned sock_ptr, ssl_ptr; /* index of first unused byte in buffer */
+    unsigned long sock_ptr, ssl_ptr; /* index of the first unused byte */
     FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
     FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
     uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and SSL */
@@ -493,8 +493,8 @@ void client_main(CLI *);
 /**************************************** prototypes for network.c */
 
 int s_connect(CLI *, SOCKADDR_UNION *, socklen_t);
-void s_write(CLI *, int fd, const void *, int);
-void s_read(CLI *, int fd, void *, int);
+void s_write(CLI *, int fd, const void *, size_t);
+void s_read(CLI *, int fd, void *, size_t);
 void fd_putline(CLI *, int, const char *);
 char *fd_getline(CLI *, int);
 /* descriptor versions of fprintf/fscanf */
@@ -522,10 +522,10 @@ char *protocol(CLI *, SERVICE_OPTIONS *opt, const PHASE);
 /**************************************** prototypes for resolver.c */
 
 void resolver_init();
-int name2addr(SOCKADDR_UNION *, char *, char *);
-int hostport2addr(SOCKADDR_UNION *, char *, char *);
-int namelist2addrlist(SOCKADDR_LIST *, NAME_LIST *, char *);
-int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
+unsigned name2addr(SOCKADDR_UNION *, char *, char *);
+unsigned hostport2addr(SOCKADDR_UNION *, char *, char *);
+unsigned namelist2addrlist(SOCKADDR_LIST *, NAME_LIST *, char *);
+unsigned hostport2addrlist(SOCKADDR_LIST *, char *, char *);
 void addrlist_init(SOCKADDR_LIST *);
 void addrlist_dup(SOCKADDR_LIST *, const SOCKADDR_LIST *);
 char *s_ntop(SOCKADDR_UNION *, socklen_t);
@@ -660,7 +660,7 @@ int safe_memcmp(const void *, const void *, size_t);
 
 void ui_config_reloaded(void);
 void ui_new_chain(const int);
-void ui_clients(const int);
+void ui_clients(const long);
 
 void ui_new_log(const char *);
 #ifdef USE_WIN32

@@ -72,7 +72,7 @@ void s_poll_init(s_poll_set *fds) {
 }
 
 void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
-    unsigned int i;
+    unsigned i;
 
     for(i=0; i<fds->nfds && fds->ufds[i].fd!=fd; i++)
         ;
@@ -96,7 +96,7 @@ void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
 }
 
 int s_poll_canread(s_poll_set *fds, int fd) {
-    unsigned int i;
+    unsigned i;
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
@@ -105,7 +105,7 @@ int s_poll_canread(s_poll_set *fds, int fd) {
 }
 
 int s_poll_canwrite(s_poll_set *fds, int fd) {
-    unsigned int i;
+    unsigned i;
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
@@ -116,7 +116,7 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
 /* best doc: http://lxr.free-electrons.com/source/net/ipv4/tcp.c#L456 */
 
 int s_poll_hup(s_poll_set *fds, int fd) {
-    unsigned int i;
+    unsigned i;
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
@@ -125,7 +125,7 @@ int s_poll_hup(s_poll_set *fds, int fd) {
 }
 
 int s_poll_rdhup(s_poll_set *fds, int fd) {
-    unsigned int i;
+    unsigned i;
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
@@ -148,9 +148,9 @@ NOEXPORT void scan_waiting_queue(void) {
     int retval;
     CONTEXT *context, *prev;
     int min_timeout;
-    unsigned int nfds, i;
+    unsigned nfds, i;
     time_t now;
-    static unsigned int max_nfds=0;
+    static unsigned max_nfds=0;
     static struct pollfd *ufds=NULL;
 
     time(&now);
@@ -356,11 +356,11 @@ void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
     }
 #endif
     if(rd)
-        FD_SET((unsigned int)fd, fds->irfds);
+        FD_SET((unsigned)fd, fds->irfds);
     if(wr)
-        FD_SET((unsigned int)fd, fds->iwfds);
+        FD_SET((unsigned)fd, fds->iwfds);
     /* always expect errors (and the Spanish Inquisition) */
-    FD_SET((unsigned int)fd, fds->ixfds);
+    FD_SET((unsigned)fd, fds->ixfds);
     if(fd>fds->max)
         fds->max=fd;
 }
@@ -428,7 +428,7 @@ int set_socket_options(int s, int type) {
     SOCK_OPT *ptr;
     extern SOCK_OPT sock_opts[];
     static char *type_str[3]={"accept", "local", "remote"};
-    int opt_size;
+    socklen_t opt_size;
     int retval=0; /* no error found */
 
     for(ptr=sock_opts; ptr->opt_str; ptr++) {
@@ -442,7 +442,7 @@ int set_socket_options(int s, int type) {
             opt_size=sizeof(struct timeval);
             break;
         case TYPE_STRING:
-            opt_size=strlen(ptr->opt_val[type]->c_val)+1;
+            opt_size=(socklen_t)strlen(ptr->opt_val[type]->c_val)+1;
             break;
         default:
             opt_size=sizeof(int);
@@ -537,10 +537,10 @@ int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     return -1; /* should not be possible */
 }
 
-void s_write(CLI *c, int fd, const void *buf, int len) {
+void s_write(CLI *c, int fd, const void *buf, size_t len) {
         /* simulate a blocking write */
     uint8_t *ptr=(uint8_t *)buf;
-    int num;
+    ssize_t num;
 
     while(len>0) {
         s_poll_init(c->fds);
@@ -564,14 +564,14 @@ void s_write(CLI *c, int fd, const void *buf, int len) {
             sockerror("writesocket (s_write)");
             longjmp(c->err, 1);
         }
-        ptr+=num;
-        len-=num;
+        ptr+=(size_t)num;
+        len-=(size_t)num;
     }
 }
 
-void s_read(CLI *c, int fd, void *ptr, int len) {
+void s_read(CLI *c, int fd, void *ptr, size_t len) {
         /* simulate a blocking read */
-    int num;
+    ssize_t num;
 
     while(len>0) {
         s_poll_init(c->fds);
@@ -600,14 +600,14 @@ void s_read(CLI *c, int fd, void *ptr, int len) {
             longjmp(c->err, 1);
         }
         ptr=(uint8_t *)ptr+num;
-        len-=num;
+        len-=(size_t)num;
     }
 }
 
 void fd_putline(CLI *c, int fd, const char *line) {
     char *tmpline;
     const char crlf[]="\r\n";
-    int len;
+    size_t len;
 
     tmpline=str_printf("%s%s", line, crlf);
     len=strlen(tmpline);
@@ -619,7 +619,7 @@ void fd_putline(CLI *c, int fd, const char *line) {
 
 char *fd_getline(CLI *c, int fd) {
     char *line;
-    int ptr=0, allocated=32;
+    size_t ptr=0, allocated=32;
 
     line=str_alloc(allocated);
     for(;;) {
@@ -732,7 +732,7 @@ void s_ssl_read(CLI *c, void *ptr, int len) {
 
 char *ssl_getstring(CLI *c) { /* get null-terminated string */
     char *line;
-    int ptr=0, allocated=32;
+    size_t ptr=0, allocated=32;
 
     line=str_alloc(allocated);
     for(;;) {

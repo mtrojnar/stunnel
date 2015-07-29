@@ -268,7 +268,7 @@ unsigned long stunnel_process_id(void) {
 
 unsigned long stunnel_thread_id(void) {
 #if defined(SYS_gettid) && defined(__linux__)
-    return syscall(SYS_gettid);
+    return (unsigned long)syscall(SYS_gettid);
 #else
     return (unsigned long)pthread_self();
 #endif
@@ -288,7 +288,8 @@ int sthreads_init(void) {
         pthread_mutex_init(stunnel_cs+i, NULL);
 
     /* initialize OpenSSL locking callback */
-    lock_cs=str_alloc_detached(CRYPTO_num_locks()*sizeof(pthread_mutex_t));
+    lock_cs=str_alloc_detached(
+        (size_t)CRYPTO_num_locks()*sizeof(pthread_mutex_t));
     for(i=0; i<CRYPTO_num_locks(); i++)
         pthread_mutex_init(lock_cs+i, NULL);
 #if OPENSSL_VERSION_NUMBER>=0x10000000L

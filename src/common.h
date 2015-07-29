@@ -76,10 +76,22 @@
 
 #ifdef _WIN32_WCE
 #define USE_WIN32
-typedef int socklen_t;
+typedef int                 socklen_t;
 #endif
 
 #ifdef USE_WIN32
+typedef signed   char       int8_t;
+typedef signed   short      int16_t;
+typedef signed   int        int32_t;
+typedef signed   long long  int64_t;
+typedef unsigned char       uint8_t;
+typedef unsigned short      uint16_t;
+typedef unsigned int        uint32_t;
+typedef unsigned long long  uint64_t;
+#ifndef __MINGW32__
+typedef long                ssize_t;
+typedef unsigned long       size_t;
+#endif
 #define USE_IPv6
 #define _CRT_SECURE_NO_DEPRECATE
 #define _CRT_NONSTDC_NO_DEPRECATE
@@ -88,9 +100,6 @@ typedef int socklen_t;
 #define HAVE_OSSL_OCSP_H
 /* prevent including wincrypt.h, as it defines its own OCSP_RESPONSE */
 #define __WINCRYPT_H__
-#endif
-
-#ifdef USE_WIN32
 #define S_EADDRINUSE  WSAEADDRINUSE
 /* winsock does not define WSAEAGAIN */
 /* in most (but not all!) BSD implementations EAGAIN==EWOULDBLOCK */
@@ -172,16 +181,12 @@ typedef int socklen_t;
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
-#else
-typedef signed   char       int8_t;
-typedef signed   short      int16_t;
-typedef signed   int        int32_t;
-typedef signed   long long  int64_t;
-typedef unsigned char       uint8_t;
-typedef unsigned short      uint16_t;
-typedef unsigned int        uint32_t;
-typedef unsigned long long  uint64_t;
 #endif
+
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 /* must be included before sys/stat.h for Ultrix */
 /* must be included before sys/socket.h for OpenBSD */
 #include <sys/types.h>   /* u_short, u_long */
@@ -491,7 +496,7 @@ STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #endif /* defined (USE_WIN32) || defined (__vms) */
 
 #ifndef offsetof
-#define offsetof(T, F) ((unsigned int)((char *)&((T *)0L)->F - (char *)0L))
+#define offsetof(T, F) ((unsigned)((char *)&((T *)0L)->F - (char *)0L))
 #endif
 
 #endif /* defined COMMON_H */

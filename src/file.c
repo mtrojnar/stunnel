@@ -156,7 +156,7 @@ int file_getline(DISK_FILE *df, char *line, int len) {
 #ifdef USE_WIN32
         ReadFile(df->fh, line+i, 1, &num, NULL);
 #else /* USE_WIN32 */
-        num=read(df->fd, line+i, 1);
+        num=(int)read(df->fd, line+i, 1);
 #endif /* USE_WIN32 */
         if(num!=1) { /* EOF */
             if(i) /* any previously retrieved data */
@@ -182,8 +182,8 @@ int file_putline(DISK_FILE *df, char *line) {
     int num;
 #endif /* USE_WIN32 */
 
-    len=strlen(line);
-    buff=str_alloc(len+2); /* +2 for CR+LF */
+    len=(int)strlen(line);
+    buff=str_alloc((size_t)len+2); /* +2 for CR+LF */
     strcpy(buff, line);
 #ifdef USE_WIN32
     buff[len++]='\r'; /* CR */
@@ -193,7 +193,7 @@ int file_putline(DISK_FILE *df, char *line) {
     WriteFile(df->fh, buff, len, &num, NULL);
 #else /* USE_WIN32 */
     /* no file -> write to stderr */
-    num=write(df ? df->fd : 2, buff, len);
+    num=(int)write(df ? df->fd : 2, buff, (size_t)len);
 #endif /* USE_WIN32 */
     str_free(buff);
     return num;

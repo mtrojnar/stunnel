@@ -588,6 +588,14 @@ Option I<sni> is only available when compiled with B<OpenSSL 1.0.0> and later.
 
 select OCSP server for certificate verification
 
+=item B<OCSPaia> = yes | no
+
+validate certificates with their AIA OCSP responders
+
+This option enables I<stunnel> to validate certificates with the list of
+OCSP responder URLs retrieved from their AIA (Authority Information Access)
+extension.
+
 =item B<OCSPflag> = OCSP_FLAG
 
 specify OCSP server flag

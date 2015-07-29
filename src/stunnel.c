@@ -79,9 +79,9 @@ NOEXPORT void client_status(void); /* dead children detected */
 static int signal_pipe[2]={-1, -1};
 
 #ifndef USE_FORK
-int max_clients=0;
+long max_clients=0;
 /* -1 before a valid config is loaded, then the current number of clients */
-volatile int num_clients=-1;
+volatile long num_clients=-1;
 #endif
 s_poll_set *fds; /* file descriptors of listening sockets */
 int systemd_fds; /* number of file descriptors passed by systemd */
@@ -326,7 +326,7 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt) {
     RAND_add("", 1, 0.0); /* each child needs a unique entropy pool */
 #else
     if(max_clients && num_clients>=max_clients) {
-        s_log(LOG_WARNING, "Connection rejected: too many clients (>=%d)",
+        s_log(LOG_WARNING, "Connection rejected: too many clients (>=%ld)",
             max_clients);
         closesocket(s);
         return 0;

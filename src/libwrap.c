@@ -57,7 +57,7 @@ int allow_severity=LOG_NOTICE, deny_severity=LOG_WARNING;
 NOEXPORT ssize_t read_fd(int, void *, size_t, int *);
 NOEXPORT ssize_t write_fd(int, void *, size_t, int);
 
-int num_processes=0;
+unsigned num_processes=0;
 static int *ipc_socket, *busy;
 #endif /* USE_LIBWRAP_POOL */
 
@@ -67,7 +67,8 @@ static int *ipc_socket, *busy;
 #endif /* __GNUC__ */
 int libwrap_init() {
 #ifdef USE_LIBWRAP_POOL
-    int i, j, rfd, result;
+    unsigned i, j;
+    int rfd, result;
     char servname[SERVNAME_LEN];
     static int initialized=0;
     SERVICE_OPTIONS *opt;
@@ -121,8 +122,9 @@ int libwrap_init() {
 void libwrap_auth(CLI *c, char *accepted_address) {
     int result=0; /* deny by default */
 #ifdef USE_LIBWRAP_POOL
-    static volatile int num_busy=0, roundrobin=0;
-    int retval, my_process;
+    static volatile unsigned num_busy=0, roundrobin=0;
+    unsigned my_process;
+    int retval;
     static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
     static pthread_cond_t cond=PTHREAD_COND_INITIALIZER;
 #endif /* USE_LIBWRAP_POOL */

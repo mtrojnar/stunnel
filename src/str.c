@@ -63,7 +63,7 @@ struct alloc_list_struct {
     const char *file;
     int line;
     int valid_canary;
-    unsigned int magic;
+    unsigned magic;
         /* at least on IA64 allocations need to be aligned */
 #ifdef __GNUC__
 } __attribute__((aligned(16)));
@@ -97,7 +97,8 @@ char *str_printf(const char *format, ...) {
 }
 
 char *str_vprintf(const char *format, va_list start_ap) {
-    int n, size=32;
+    int n;
+    size_t size=32;
     char *p;
     va_list ap;
 
@@ -105,12 +106,12 @@ char *str_vprintf(const char *format, va_list start_ap) {
     for(;;) {
         va_copy(ap, start_ap);
         n=vsnprintf(p, size, format, ap);
-        if(n>-1 && n<size)
+        if(n>-1 && n<(int)size)
             return p;
-        if(n>-1)      /* glibc 2.1 */
-            size=n+1; /* precisely what is needed */
-        else          /* glibc 2.0, WIN32, etc. */
-            size*=2;  /* twice the old size */
+        if(n>-1)                /* glibc 2.1 */
+            size=(size_t)n+1;   /* precisely what is needed */
+        else                    /* glibc 2.0, WIN32, etc. */
+            size*=2;            /* twice the old size */
         p=str_realloc(p, size);
     }
 }
@@ -266,15 +267,15 @@ void str_stats() {
         return; /* skip if no data is allocated */
     s_log(LOG_DEBUG, "str_stats: %lu block(s), "
             "%lu data byte(s), %lu control byte(s)",
-        (unsigned long int)alloc_tls->blocks,
-        (unsigned long int)alloc_tls->bytes,
-        (unsigned long int)(alloc_tls->blocks*
+        (unsigned long)alloc_tls->blocks,
+        (unsigned long)alloc_tls->bytes,
+        (unsigned long)(alloc_tls->blocks*
             (sizeof(ALLOC_LIST)+sizeof canary)));
     for(alloc_list=alloc_tls->head; alloc_list; alloc_list=alloc_list->next) {
         if(++i>10) /* limit the number of results */
             break;
         s_log(LOG_DEBUG, "str_stats: %lu byte(s) at %s:%d",
-            (unsigned long int)alloc_list->size,
+            (unsigned long)alloc_list->size,
             alloc_list->file, alloc_list->line);
     }
 }
@@ -425,7 +426,8 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
 /* a version of memcmp() with execution time not dependent on data values */
 /* it does *not* allow to test wheter s1 is greater or lesser than s2  */
 int safe_memcmp(const void *s1, const void *s2, size_t n) {
-    uint8_t *p1=(uint8_t *)s1, *p2=(uint8_t *)s2, r=0;
+    uint8_t *p1=(uint8_t *)s1, *p2=(uint8_t *)s2;
+    int r=0;
     while(n--)
         r|=*p1++^*p2++;
     return r;

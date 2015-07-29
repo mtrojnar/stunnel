@@ -152,7 +152,7 @@ static const SSL_OPTION ssl_opts[] = {
     {NULL, 0}
 };
 
-NOEXPORT int parse_ssl_option(char *);
+NOEXPORT long parse_ssl_option(char *);
 NOEXPORT void print_ssl_options(void);
 
 NOEXPORT int print_socket_options(void);
@@ -160,7 +160,6 @@ NOEXPORT char *print_option(int, OPT_UNION *);
 NOEXPORT int parse_socket_option(char *);
 
 #ifndef OPENSSL_NO_OCSP
-NOEXPORT char *parse_ocsp_url(SERVICE_OPTIONS *, char *);
 NOEXPORT unsigned long parse_ocsp_flag(char *);
 #endif /* !defined(OPENSSL_NO_OCSP) */
 
@@ -257,19 +256,19 @@ int options_parse(CONF_TYPE type) {
     DISK_FILE *df;
     char line_text[CONFLINELEN], *errstr;
     char config_line[CONFLINELEN], *config_opt, *config_arg;
-    int line_number, i;
+    int i, line_number;
     SERVICE_OPTIONS *section, *new_section;
 #ifndef USE_WIN32
     int fd;
-    char *tmpstr;
+    char *tmp_str;
 #endif
 
     s_log(LOG_NOTICE, "Reading configuration from %s %s",
         type==CONF_FD ? "descriptor" : "file", configuration_file);
 #ifndef USE_WIN32
     if(type==CONF_FD) { /* file descriptor */
-        fd=strtol(configuration_file, &tmpstr, 10);
-        if(tmpstr==configuration_file || *tmpstr) { /* not a number */
+        fd=(int)strtol(configuration_file, &tmp_str, 10);
+        if(tmp_str==configuration_file || *tmp_str) { /* not a number */
             s_log(LOG_ERR, "Invalid file descriptor number");
             print_syntax();
             return 1;
@@ -304,7 +303,7 @@ int options_parse(CONF_TYPE type) {
         }
         while(isspace((unsigned char)*config_opt))
             ++config_opt; /* remove initial whitespaces */
-        for(i=strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
+        for(i=(int)strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
             config_opt[i]='\0'; /* remove trailing whitespaces */
         if(config_opt[0]=='\0' || config_opt[0]=='#' || config_opt[0]==';') /* empty or comment */
             continue;
@@ -336,7 +335,7 @@ int options_parse(CONF_TYPE type) {
             return 1;
         }
         *config_arg++='\0'; /* split into option name and argument value */
-        for(i=strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
+        for(i=(int)strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
             config_opt[i]='\0'; /* remove trailing whitespaces */
         while(isspace((unsigned char)*config_arg))
             ++config_arg; /* remove initial whitespaces */
@@ -396,7 +395,7 @@ void options_apply() { /* apply default/validated configuration */
 /**************************************** global options */
 
 NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
-    char *tmpstr;
+    char *tmp_str;
 #ifndef USE_WIN32
     struct group *gr;
     struct passwd *pw;
@@ -553,10 +552,10 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "engineCtrl"))
             break;
-        tmpstr=strchr(arg, ':');
-        if(tmpstr)
-            *tmpstr++='\0';
-        return engine_ctrl(arg, tmpstr);
+        tmp_str=strchr(arg, ':');
+        if(tmp_str)
+            *tmp_str++='\0';
+        return engine_ctrl(arg, tmp_str);
     case CMD_END:
         break;
     case CMD_FREE:
@@ -808,8 +807,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "RNDbytes"))
             break;
-        new_global_options.random_bytes=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        new_global_options.random_bytes=(long)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal number of bytes to read from random seed files";
         return NULL; /* OK */
     case CMD_END:
@@ -913,8 +912,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
             new_global_options.gid=gr->gr_gid;
             return NULL; /* OK */
         }
-        new_global_options.gid=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        new_global_options.gid=(gid_t)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal GID";
         return NULL; /* OK */
     case CMD_END:
@@ -943,8 +942,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
             new_global_options.uid=pw->pw_uid;
             return NULL; /* OK */
         }
-        new_global_options.uid=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        new_global_options.uid=(uid_t)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal UID";
         return NULL; /* OK */
     case CMD_END:
@@ -1054,8 +1053,10 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
 NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         char *opt, char *arg) {
-    char *tmpstr;
-    int tmpnum, endpoints=0;
+    char *tmp_str;
+    int tmp_int, endpoints=0;
+    long tmp_long;
+    unsigned long tmp_ulong;
     NAME_LIST *tmplist;
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
@@ -1428,10 +1429,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "engineNum"))
             break;
-        tmpnum=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        tmp_int=(int)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal engine number";
-        section->engine=engine_get_by_num(tmpnum-1);
+        section->engine=engine_get_by_num(tmp_int-1);
         if(!section->engine)
             return "Illegal engine number";
         return NULL; /* OK */
@@ -1640,15 +1641,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* OCSP */
     switch(cmd) {
     case CMD_BEGIN:
-        section->option.ocsp=0;
-        memset(&section->ocsp_addr, 0, sizeof(SOCKADDR_UNION));
-        section->ocsp_addr.in.sin_family=AF_INET;
+        section->ocsp_url=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "ocsp"))
             break;
-        section->option.ocsp=1;
-        return parse_ocsp_url(section, arg);
+        section->ocsp_url=str_dup(arg);
+        return NULL; /* OK */
     case CMD_END:
         break;
     case CMD_FREE:
@@ -1660,6 +1659,33 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
+    /* OCSPaia */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->option.aia=0; /* disable AIA by default */
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "OCSPaia"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.aia=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.aia=0;
+        else
+            return "Argument should be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = yes|no check the AIA responders from certificates",
+            "OCSPaia");
+        break;
+    }
+
     /* OCSPflag */
     switch(cmd) {
     case CMD_BEGIN:
@@ -1668,10 +1694,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "OCSPflag"))
             break;
-        tmpnum=parse_ocsp_flag(arg);
-        if(!tmpnum)
+        tmp_ulong=parse_ocsp_flag(arg);
+        if(!tmp_ulong)
             return "Illegal OCSP flag";
-        section->ocsp_flags|=tmpnum;
+        section->ocsp_flags|=tmp_ulong;
         return NULL;
     case CMD_END:
         break;
@@ -1699,17 +1725,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             break;
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
         if(*arg=='-') {
-            tmpnum=parse_ssl_option(arg+1);
-            if(!tmpnum)
+            tmp_long=parse_ssl_option(arg+1);
+            if(!tmp_long)
                 return "Illegal SSL option";
-            section->ssl_options_clear|=tmpnum;
+            section->ssl_options_clear|=tmp_long;
             return NULL; /* OK */
         }
 #endif /* OpenSSL 0.9.8m or later */
-        tmpnum=parse_ssl_option(arg);
-        if(!tmpnum)
+        tmp_long=parse_ssl_option(arg);
+        if(!tmp_long)
             return "Illegal SSL option";
-        section->ssl_options_set|=tmpnum;
+        section->ssl_options_set|=tmp_long;
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1737,9 +1763,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         /* this also sets section->option.connect_before_ssl */
-        tmpstr=protocol(NULL, section, PROTOCOL_CHECK);
-        if(tmpstr)
-            return tmpstr;
+        tmp_str=protocol(NULL, section, PROTOCOL_CHECK);
+        if(tmp_str)
+            return tmp_str;
         if(section->protocol && !strcasecmp(section->protocol, "socks")) {
             section->option.remote=1;
             ++endpoints;
@@ -2063,8 +2089,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "sessionCacheSize"))
             break;
-        section->session_size=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        section->session_size=strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal session cache size";
         return NULL; /* OK */
     case CMD_END:
@@ -2087,8 +2113,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "sessionCacheTimeout") && strcasecmp(opt, "session"))
             break;
-        section->session_timeout=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        section->session_timeout=strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal session cache timeout";
         return NULL; /* OK */
     case CMD_END:
@@ -2149,9 +2175,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->sni=str_dup(arg);
         return NULL; /* OK */
     case CMD_END:
-        tmpstr=sni_init(section);
-        if(tmpstr)
-            return tmpstr;
+        tmp_str=sni_init(section);
+        if(tmp_str)
+            return tmp_str;
         if(section->option.sni)
             ++endpoints;
         break;
@@ -2256,8 +2282,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "stack"))
             break;
-        section->stack_size=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        section->stack_size=(size_t)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal thread stack size";
         return NULL; /* OK */
     case CMD_END:
@@ -2281,8 +2307,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "TIMEOUTbusy"))
             break;
-        section->timeout_busy=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        section->timeout_busy=(int)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal busy timeout";
         return NULL; /* OK */
     case CMD_END:
@@ -2305,8 +2331,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "TIMEOUTclose"))
             break;
-        section->timeout_close=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        section->timeout_close=(int)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal close timeout";
         return NULL; /* OK */
     case CMD_END:
@@ -2330,8 +2356,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "TIMEOUTconnect"))
             break;
-        section->timeout_connect=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        section->timeout_connect=(int)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal connect timeout";
         return NULL; /* OK */
     case CMD_END:
@@ -2354,8 +2380,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "TIMEOUTidle"))
             break;
-        section->timeout_idle=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        section->timeout_idle=(int)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Illegal idle timeout";
         return NULL; /* OK */
     case CMD_END:
@@ -2421,8 +2447,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "verify"))
             break;
-        section->verify_level=strtol(arg, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        section->verify_level=(int)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return "Bad verify level";
         if(section->verify_level<0 || section->verify_level>4)
             return "Bad verify level";
@@ -2476,15 +2502,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
 #ifndef OPENSSL_NO_TLSEXT
 NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
-    char *tmpstr;
+    char *tmp_str;
     SERVICE_OPTIONS *tmpsrv;
 
     /* server mode: update servername_list based on the SNI option */
     if(!section->option.client && section->sni) {
-        tmpstr=strchr(section->sni, ':');
-        if(!tmpstr)
+        tmp_str=strchr(section->sni, ':');
+        if(!tmp_str)
             return "Invalid SNI parameter format";
-        *tmpstr++='\0';
+        *tmp_str++='\0';
         for(tmpsrv=new_service_options.next; tmpsrv; tmpsrv=tmpsrv->next)
             if(!strcmp(tmpsrv->servname, section->sni))
                 break;
@@ -2502,7 +2528,7 @@ NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
             tmpsrv->ssl_options_set|=
                 SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
         }
-        tmpsrv->servername_list_tail->servername=str_dup(tmpstr);
+        tmpsrv->servername_list_tail->servername=str_dup(tmp_str);
         tmpsrv->servername_list_tail->opt=section;
         tmpsrv->servername_list_tail->next=NULL;
         section->option.sni=1;
@@ -2520,9 +2546,9 @@ NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
         else if(section->connect_list) /* 'connect' option */
             section->sni=str_dup(section->connect_list->name); /* first hostname */
         if(section->sni) { /* either 'protocolHost' or 'connect' specified */
-            tmpstr=strrchr(section->sni, ':');
-            if(tmpstr) { /* 'host:port' -> drop ':port' */
-                *tmpstr='\0';
+            tmp_str=strrchr(section->sni, ':');
+            if(tmp_str) { /* 'host:port' -> drop ':port' */
+                *tmp_str='\0';
             } else { /* 'port' -> default to 'localhost' */
                 str_free(section->sni);
                 section->sni=str_dup("localhost");
@@ -2617,7 +2643,7 @@ NOEXPORT int parse_debug_level(char *arg) {
 
 /**************************************** SSL options */
 
-NOEXPORT int parse_ssl_option(char *arg) {
+NOEXPORT long parse_ssl_option(char *arg) {
     SSL_OPTION *option;
 
     for(option=(SSL_OPTION *)ssl_opts; option->name; ++option)
@@ -2642,7 +2668,7 @@ NOEXPORT void print_ssl_options(void) {
 NOEXPORT PSK_KEYS *psk_read(char *key_file) {
     DISK_FILE *df;
     char line[CONFLINELEN], *key_val;
-    unsigned int key_len;
+    size_t key_len;
     PSK_KEYS *head=NULL, *tail=NULL, *curr;
     int line_number=0;
 
@@ -2846,7 +2872,7 @@ NOEXPORT char *print_option(int type, OPT_UNION *val) {
 
 NOEXPORT int parse_socket_option(char *arg) {
     int socket_type; /* 0-accept, 1-local, 2-remote */
-    char *opt_val_str, *opt_val2_str, *tmpstr;
+    char *opt_val_str, *opt_val2_str, *tmp_str;
     SOCK_OPT *ptr;
 
     if(arg[1]!=':')
@@ -2887,8 +2913,8 @@ NOEXPORT int parse_socket_option(char *arg) {
         }
         return 1; /* FAILED */
     case TYPE_INT:
-        ptr->opt_val[socket_type]->i_val=strtol(opt_val_str, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        ptr->opt_val[socket_type]->i_val=(int)strtol(opt_val_str, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return 1; /* FAILED */
         return 0; /* OK */
     case TYPE_LINGER:
@@ -2896,29 +2922,30 @@ NOEXPORT int parse_socket_option(char *arg) {
         if(opt_val2_str) {
             *opt_val2_str++='\0';
             ptr->opt_val[socket_type]->linger_val.l_linger=
-                (u_short)strtol(opt_val2_str, &tmpstr, 10);
-            if(tmpstr==arg || *tmpstr) /* not a number */
+                (u_short)strtol(opt_val2_str, &tmp_str, 10);
+            if(tmp_str==arg || *tmp_str) /* not a number */
                 return 1; /* FAILED */
         } else {
             ptr->opt_val[socket_type]->linger_val.l_linger=0;
         }
         ptr->opt_val[socket_type]->linger_val.l_onoff=
-            (u_short)strtol(opt_val_str, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+            (u_short)strtol(opt_val_str, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return 1; /* FAILED */
         return 0; /* OK */
     case TYPE_TIMEVAL:
         opt_val2_str=strchr(opt_val_str, ':');
         if(opt_val2_str) {
             *opt_val2_str++='\0';
-            ptr->opt_val[socket_type]->timeval_val.tv_usec=strtol(opt_val2_str, &tmpstr, 10);
-            if(tmpstr==arg || *tmpstr) /* not a number */
+            ptr->opt_val[socket_type]->timeval_val.tv_usec=
+                strtol(opt_val2_str, &tmp_str, 10);
+            if(tmp_str==arg || *tmp_str) /* not a number */
                 return 1; /* FAILED */
         } else {
             ptr->opt_val[socket_type]->timeval_val.tv_usec=0;
         }
-        ptr->opt_val[socket_type]->timeval_val.tv_sec=strtol(opt_val_str, &tmpstr, 10);
-        if(tmpstr==arg || *tmpstr) /* not a number */
+        ptr->opt_val[socket_type]->timeval_val.tv_sec=strtol(opt_val_str, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
             return 1; /* FAILED */
         return 0; /* OK */
     case TYPE_STRING:
@@ -2935,27 +2962,6 @@ NOEXPORT int parse_socket_option(char *arg) {
 /**************************************** OCSP */
 
 #ifndef OPENSSL_NO_OCSP
-
-NOEXPORT char *parse_ocsp_url(SERVICE_OPTIONS *section, char *arg) {
-    char *host, *port, *path;
-    int ssl;
-
-    if(!OCSP_parse_url(arg, &host, &port, &path, &ssl))
-        return "Failed to parse OCSP URL";
-    if(ssl)
-        return "SSL not supported for OCSP"
-            " - additional stunnel service needs to be defined";
-    if(!hostport2addr(&section->ocsp_addr, host, port))
-        return "Failed to resolve OCSP server address";
-    section->ocsp_path=str_dup(path);
-    if(host)
-        OPENSSL_free(host);
-    if(port)
-        OPENSSL_free(port);
-    if(path)
-        OPENSSL_free(path);
-    return NULL; /* OK! */
-}
 
 NOEXPORT unsigned long parse_ocsp_flag(char *arg) {
     struct {
@@ -3148,7 +3154,7 @@ NOEXPORT void print_syntax(void) {
 #ifndef USE_WIN32
 
 NOEXPORT char **argalloc(char *str) { /* allocate 'exec' argumets */
-    int max_arg, i;
+    size_t max_arg, i;
     char *ptr, **retval;
 
     max_arg=strlen(str)/2+1;

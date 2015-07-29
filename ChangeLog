@@ -1,6 +1,18 @@
 stunnel change log
 
 
+Version 5.10, 2015.01.22, urgency: LOW:
+* New features
+  - OCSP AIA (Authority Information Access) support.  This feature
+    can be enabled with the new service-level option "OCSPaia".
+  - Additional security features of the linker are enabled:
+    "-z relro", "-z now", "-z noexecstack".
+* Bugfixes
+  - OpenSSL DLLs updated to version 1.0.1l.
+    https://www.openssl.org/news/secadv_20150108.txt
+  - FIPS canister updated to version 2.0.9 in the Win32 binary
+    build.
+
 Version 5.09, 2015.01.02, urgency: LOW:
 * New features
   - Added PSK authentication with two new service-level

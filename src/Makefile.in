@@ -87,10 +87,16 @@ DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(srcdir)/config.h.in $(srcdir)/stunnel3.in \
 	$(top_srcdir)/auto/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
-	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
-	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
-	$(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/ax_append_compile_flags.m4 \
+	$(top_srcdir)/m4/ax_append_flag.m4 \
+	$(top_srcdir)/m4/ax_append_link_flags.m4 \
+	$(top_srcdir)/m4/ax_check_compile_flag.m4 \
+	$(top_srcdir)/m4/ax_check_link_flag.m4 \
+	$(top_srcdir)/m4/ax_pthread.m4 \
+	$(top_srcdir)/m4/ax_require_defined.m4 \
+	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
+	$(top_srcdir)/m4/ltsugar.m4 $(top_srcdir)/m4/ltversion.m4 \
+	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -154,8 +160,8 @@ am_stunnel_OBJECTS = $(am__objects_2) $(am__objects_3) \
 stunnel_OBJECTS = $(am_stunnel_OBJECTS)
 stunnel_LDADD = $(LDADD)
 stunnel_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(stunnel_CFLAGS) \
-	$(CFLAGS) $(stunnel_LDFLAGS) $(LDFLAGS) -o $@
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(stunnel_LDFLAGS) $(LDFLAGS) -o $@
 am__objects_5 = str.$(OBJEXT) file.$(OBJEXT) client.$(OBJEXT) \
 	log.$(OBJEXT) options.$(OBJEXT) protocol.$(OBJEXT) \
 	network.$(OBJEXT) resolver.$(OBJEXT) ssl.$(OBJEXT) \
@@ -294,6 +300,9 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PTHREAD_CC = @PTHREAD_CC@
+PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
+PTHREAD_LIBS = @PTHREAD_LIBS@
 RANDOM_FILE = @RANDOM_FILE@
 RANLIB = @RANLIB@
 SED = @SED@
@@ -314,6 +323,7 @@ am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
 am__tar = @am__tar@
 am__untar = @am__untar@
+ax_pthread_config = @ax_pthread_config@
 bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
@@ -349,11 +359,6 @@ psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
-stunnel_CFLAGS = @stunnel_CFLAGS@
-
-# SSL library
-stunnel_LDFLAGS = @stunnel_LDFLAGS@ -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib \
-	-lssl -lcrypto
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
@@ -384,6 +389,9 @@ libstunnel_la_LDFLAGS = -avoid-version
 stunnel_CPPFLAGS = -I/usr/kerberos/include -I$(SSLDIR)/include \
 	-DLIBDIR='"$(pkglibdir)"' -DCONFDIR='"$(sysconfdir)/stunnel"'
 
+# SSL library
+stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
+
 # Win32 executable
 EXTRA_DIST = make.bat makece.bat makew32.bat mingw.mak evc.mak vc.mak \
 	os2.mak
@@ -392,13 +400,13 @@ tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
 
 # OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 # WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-OPENSSLDIR = /usr/src/openssl-1.0.1j-i686
+OPENSSLDIR = /usr/src/openssl-1.0.1l-i686
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
-WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wno-long-long -pedantic -DUNICODE -D_UNICODE
+WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wpedantic \
+	-Wformat=2 -Wconversion -Wno-long-long -D_FORTIFY_SOURCE=2 \
+	-DUNICODE -D_UNICODE
 WINLDFLAGS = -mthreads -fstack-protector -s
 WINLIBS = -L$(OPENSSLDIR) -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
-# WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lpsapi -lws2_32 -lgdi32
-# WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj \
 	network.obj resolver.obj ssl.obj ctx.obj verify.obj \
 	sthreads.obj fd.obj stunnel.obj
@@ -649,242 +657,242 @@ distclean-compile:
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
 
 stunnel-str.o: str.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-str.o -MD -MP -MF $(DEPDIR)/stunnel-str.Tpo -c -o stunnel-str.o `test -f 'str.c' || echo '$(srcdir)/'`str.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-str.o -MD -MP -MF $(DEPDIR)/stunnel-str.Tpo -c -o stunnel-str.o `test -f 'str.c' || echo '$(srcdir)/'`str.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-str.Tpo $(DEPDIR)/stunnel-str.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='str.c' object='stunnel-str.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-str.o `test -f 'str.c' || echo '$(srcdir)/'`str.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-str.o `test -f 'str.c' || echo '$(srcdir)/'`str.c
 
 stunnel-str.obj: str.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-str.obj -MD -MP -MF $(DEPDIR)/stunnel-str.Tpo -c -o stunnel-str.obj `if test -f 'str.c'; then $(CYGPATH_W) 'str.c'; else $(CYGPATH_W) '$(srcdir)/str.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-str.obj -MD -MP -MF $(DEPDIR)/stunnel-str.Tpo -c -o stunnel-str.obj `if test -f 'str.c'; then $(CYGPATH_W) 'str.c'; else $(CYGPATH_W) '$(srcdir)/str.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-str.Tpo $(DEPDIR)/stunnel-str.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='str.c' object='stunnel-str.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-str.obj `if test -f 'str.c'; then $(CYGPATH_W) 'str.c'; else $(CYGPATH_W) '$(srcdir)/str.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-str.obj `if test -f 'str.c'; then $(CYGPATH_W) 'str.c'; else $(CYGPATH_W) '$(srcdir)/str.c'; fi`
 
 stunnel-file.o: file.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-file.o -MD -MP -MF $(DEPDIR)/stunnel-file.Tpo -c -o stunnel-file.o `test -f 'file.c' || echo '$(srcdir)/'`file.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-file.o -MD -MP -MF $(DEPDIR)/stunnel-file.Tpo -c -o stunnel-file.o `test -f 'file.c' || echo '$(srcdir)/'`file.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-file.Tpo $(DEPDIR)/stunnel-file.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='file.c' object='stunnel-file.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-file.o `test -f 'file.c' || echo '$(srcdir)/'`file.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-file.o `test -f 'file.c' || echo '$(srcdir)/'`file.c
 
 stunnel-file.obj: file.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-file.obj -MD -MP -MF $(DEPDIR)/stunnel-file.Tpo -c -o stunnel-file.obj `if test -f 'file.c'; then $(CYGPATH_W) 'file.c'; else $(CYGPATH_W) '$(srcdir)/file.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-file.obj -MD -MP -MF $(DEPDIR)/stunnel-file.Tpo -c -o stunnel-file.obj `if test -f 'file.c'; then $(CYGPATH_W) 'file.c'; else $(CYGPATH_W) '$(srcdir)/file.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-file.Tpo $(DEPDIR)/stunnel-file.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='file.c' object='stunnel-file.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-file.obj `if test -f 'file.c'; then $(CYGPATH_W) 'file.c'; else $(CYGPATH_W) '$(srcdir)/file.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-file.obj `if test -f 'file.c'; then $(CYGPATH_W) 'file.c'; else $(CYGPATH_W) '$(srcdir)/file.c'; fi`
 
 stunnel-client.o: client.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-client.o -MD -MP -MF $(DEPDIR)/stunnel-client.Tpo -c -o stunnel-client.o `test -f 'client.c' || echo '$(srcdir)/'`client.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-client.o -MD -MP -MF $(DEPDIR)/stunnel-client.Tpo -c -o stunnel-client.o `test -f 'client.c' || echo '$(srcdir)/'`client.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-client.Tpo $(DEPDIR)/stunnel-client.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='client.c' object='stunnel-client.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-client.o `test -f 'client.c' || echo '$(srcdir)/'`client.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-client.o `test -f 'client.c' || echo '$(srcdir)/'`client.c
 
 stunnel-client.obj: client.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-client.obj -MD -MP -MF $(DEPDIR)/stunnel-client.Tpo -c -o stunnel-client.obj `if test -f 'client.c'; then $(CYGPATH_W) 'client.c'; else $(CYGPATH_W) '$(srcdir)/client.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-client.obj -MD -MP -MF $(DEPDIR)/stunnel-client.Tpo -c -o stunnel-client.obj `if test -f 'client.c'; then $(CYGPATH_W) 'client.c'; else $(CYGPATH_W) '$(srcdir)/client.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-client.Tpo $(DEPDIR)/stunnel-client.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='client.c' object='stunnel-client.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-client.obj `if test -f 'client.c'; then $(CYGPATH_W) 'client.c'; else $(CYGPATH_W) '$(srcdir)/client.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-client.obj `if test -f 'client.c'; then $(CYGPATH_W) 'client.c'; else $(CYGPATH_W) '$(srcdir)/client.c'; fi`
 
 stunnel-log.o: log.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-log.o -MD -MP -MF $(DEPDIR)/stunnel-log.Tpo -c -o stunnel-log.o `test -f 'log.c' || echo '$(srcdir)/'`log.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-log.o -MD -MP -MF $(DEPDIR)/stunnel-log.Tpo -c -o stunnel-log.o `test -f 'log.c' || echo '$(srcdir)/'`log.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-log.Tpo $(DEPDIR)/stunnel-log.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='log.c' object='stunnel-log.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-log.o `test -f 'log.c' || echo '$(srcdir)/'`log.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-log.o `test -f 'log.c' || echo '$(srcdir)/'`log.c
 
 stunnel-log.obj: log.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-log.obj -MD -MP -MF $(DEPDIR)/stunnel-log.Tpo -c -o stunnel-log.obj `if test -f 'log.c'; then $(CYGPATH_W) 'log.c'; else $(CYGPATH_W) '$(srcdir)/log.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-log.obj -MD -MP -MF $(DEPDIR)/stunnel-log.Tpo -c -o stunnel-log.obj `if test -f 'log.c'; then $(CYGPATH_W) 'log.c'; else $(CYGPATH_W) '$(srcdir)/log.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-log.Tpo $(DEPDIR)/stunnel-log.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='log.c' object='stunnel-log.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-log.obj `if test -f 'log.c'; then $(CYGPATH_W) 'log.c'; else $(CYGPATH_W) '$(srcdir)/log.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-log.obj `if test -f 'log.c'; then $(CYGPATH_W) 'log.c'; else $(CYGPATH_W) '$(srcdir)/log.c'; fi`
 
 stunnel-options.o: options.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-options.o -MD -MP -MF $(DEPDIR)/stunnel-options.Tpo -c -o stunnel-options.o `test -f 'options.c' || echo '$(srcdir)/'`options.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-options.o -MD -MP -MF $(DEPDIR)/stunnel-options.Tpo -c -o stunnel-options.o `test -f 'options.c' || echo '$(srcdir)/'`options.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-options.Tpo $(DEPDIR)/stunnel-options.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='options.c' object='stunnel-options.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-options.o `test -f 'options.c' || echo '$(srcdir)/'`options.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-options.o `test -f 'options.c' || echo '$(srcdir)/'`options.c
 
 stunnel-options.obj: options.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-options.obj -MD -MP -MF $(DEPDIR)/stunnel-options.Tpo -c -o stunnel-options.obj `if test -f 'options.c'; then $(CYGPATH_W) 'options.c'; else $(CYGPATH_W) '$(srcdir)/options.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-options.obj -MD -MP -MF $(DEPDIR)/stunnel-options.Tpo -c -o stunnel-options.obj `if test -f 'options.c'; then $(CYGPATH_W) 'options.c'; else $(CYGPATH_W) '$(srcdir)/options.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-options.Tpo $(DEPDIR)/stunnel-options.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='options.c' object='stunnel-options.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-options.obj `if test -f 'options.c'; then $(CYGPATH_W) 'options.c'; else $(CYGPATH_W) '$(srcdir)/options.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-options.obj `if test -f 'options.c'; then $(CYGPATH_W) 'options.c'; else $(CYGPATH_W) '$(srcdir)/options.c'; fi`
 
 stunnel-protocol.o: protocol.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-protocol.o -MD -MP -MF $(DEPDIR)/stunnel-protocol.Tpo -c -o stunnel-protocol.o `test -f 'protocol.c' || echo '$(srcdir)/'`protocol.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-protocol.o -MD -MP -MF $(DEPDIR)/stunnel-protocol.Tpo -c -o stunnel-protocol.o `test -f 'protocol.c' || echo '$(srcdir)/'`protocol.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-protocol.Tpo $(DEPDIR)/stunnel-protocol.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='protocol.c' object='stunnel-protocol.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-protocol.o `test -f 'protocol.c' || echo '$(srcdir)/'`protocol.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-protocol.o `test -f 'protocol.c' || echo '$(srcdir)/'`protocol.c
 
 stunnel-protocol.obj: protocol.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-protocol.obj -MD -MP -MF $(DEPDIR)/stunnel-protocol.Tpo -c -o stunnel-protocol.obj `if test -f 'protocol.c'; then $(CYGPATH_W) 'protocol.c'; else $(CYGPATH_W) '$(srcdir)/protocol.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-protocol.obj -MD -MP -MF $(DEPDIR)/stunnel-protocol.Tpo -c -o stunnel-protocol.obj `if test -f 'protocol.c'; then $(CYGPATH_W) 'protocol.c'; else $(CYGPATH_W) '$(srcdir)/protocol.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-protocol.Tpo $(DEPDIR)/stunnel-protocol.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='protocol.c' object='stunnel-protocol.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-protocol.obj `if test -f 'protocol.c'; then $(CYGPATH_W) 'protocol.c'; else $(CYGPATH_W) '$(srcdir)/protocol.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-protocol.obj `if test -f 'protocol.c'; then $(CYGPATH_W) 'protocol.c'; else $(CYGPATH_W) '$(srcdir)/protocol.c'; fi`
 
 stunnel-network.o: network.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-network.o -MD -MP -MF $(DEPDIR)/stunnel-network.Tpo -c -o stunnel-network.o `test -f 'network.c' || echo '$(srcdir)/'`network.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-network.o -MD -MP -MF $(DEPDIR)/stunnel-network.Tpo -c -o stunnel-network.o `test -f 'network.c' || echo '$(srcdir)/'`network.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-network.Tpo $(DEPDIR)/stunnel-network.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='network.c' object='stunnel-network.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-network.o `test -f 'network.c' || echo '$(srcdir)/'`network.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-network.o `test -f 'network.c' || echo '$(srcdir)/'`network.c
 
 stunnel-network.obj: network.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-network.obj -MD -MP -MF $(DEPDIR)/stunnel-network.Tpo -c -o stunnel-network.obj `if test -f 'network.c'; then $(CYGPATH_W) 'network.c'; else $(CYGPATH_W) '$(srcdir)/network.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-network.obj -MD -MP -MF $(DEPDIR)/stunnel-network.Tpo -c -o stunnel-network.obj `if test -f 'network.c'; then $(CYGPATH_W) 'network.c'; else $(CYGPATH_W) '$(srcdir)/network.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-network.Tpo $(DEPDIR)/stunnel-network.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='network.c' object='stunnel-network.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-network.obj `if test -f 'network.c'; then $(CYGPATH_W) 'network.c'; else $(CYGPATH_W) '$(srcdir)/network.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-network.obj `if test -f 'network.c'; then $(CYGPATH_W) 'network.c'; else $(CYGPATH_W) '$(srcdir)/network.c'; fi`
 
 stunnel-resolver.o: resolver.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-resolver.o -MD -MP -MF $(DEPDIR)/stunnel-resolver.Tpo -c -o stunnel-resolver.o `test -f 'resolver.c' || echo '$(srcdir)/'`resolver.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-resolver.o -MD -MP -MF $(DEPDIR)/stunnel-resolver.Tpo -c -o stunnel-resolver.o `test -f 'resolver.c' || echo '$(srcdir)/'`resolver.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-resolver.Tpo $(DEPDIR)/stunnel-resolver.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='resolver.c' object='stunnel-resolver.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-resolver.o `test -f 'resolver.c' || echo '$(srcdir)/'`resolver.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-resolver.o `test -f 'resolver.c' || echo '$(srcdir)/'`resolver.c
 
 stunnel-resolver.obj: resolver.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-resolver.obj -MD -MP -MF $(DEPDIR)/stunnel-resolver.Tpo -c -o stunnel-resolver.obj `if test -f 'resolver.c'; then $(CYGPATH_W) 'resolver.c'; else $(CYGPATH_W) '$(srcdir)/resolver.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-resolver.obj -MD -MP -MF $(DEPDIR)/stunnel-resolver.Tpo -c -o stunnel-resolver.obj `if test -f 'resolver.c'; then $(CYGPATH_W) 'resolver.c'; else $(CYGPATH_W) '$(srcdir)/resolver.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-resolver.Tpo $(DEPDIR)/stunnel-resolver.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='resolver.c' object='stunnel-resolver.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-resolver.obj `if test -f 'resolver.c'; then $(CYGPATH_W) 'resolver.c'; else $(CYGPATH_W) '$(srcdir)/resolver.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-resolver.obj `if test -f 'resolver.c'; then $(CYGPATH_W) 'resolver.c'; else $(CYGPATH_W) '$(srcdir)/resolver.c'; fi`
 
 stunnel-ssl.o: ssl.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-ssl.o -MD -MP -MF $(DEPDIR)/stunnel-ssl.Tpo -c -o stunnel-ssl.o `test -f 'ssl.c' || echo '$(srcdir)/'`ssl.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-ssl.o -MD -MP -MF $(DEPDIR)/stunnel-ssl.Tpo -c -o stunnel-ssl.o `test -f 'ssl.c' || echo '$(srcdir)/'`ssl.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-ssl.Tpo $(DEPDIR)/stunnel-ssl.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ssl.c' object='stunnel-ssl.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-ssl.o `test -f 'ssl.c' || echo '$(srcdir)/'`ssl.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-ssl.o `test -f 'ssl.c' || echo '$(srcdir)/'`ssl.c
 
 stunnel-ssl.obj: ssl.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-ssl.obj -MD -MP -MF $(DEPDIR)/stunnel-ssl.Tpo -c -o stunnel-ssl.obj `if test -f 'ssl.c'; then $(CYGPATH_W) 'ssl.c'; else $(CYGPATH_W) '$(srcdir)/ssl.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-ssl.obj -MD -MP -MF $(DEPDIR)/stunnel-ssl.Tpo -c -o stunnel-ssl.obj `if test -f 'ssl.c'; then $(CYGPATH_W) 'ssl.c'; else $(CYGPATH_W) '$(srcdir)/ssl.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-ssl.Tpo $(DEPDIR)/stunnel-ssl.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ssl.c' object='stunnel-ssl.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-ssl.obj `if test -f 'ssl.c'; then $(CYGPATH_W) 'ssl.c'; else $(CYGPATH_W) '$(srcdir)/ssl.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-ssl.obj `if test -f 'ssl.c'; then $(CYGPATH_W) 'ssl.c'; else $(CYGPATH_W) '$(srcdir)/ssl.c'; fi`
 
 stunnel-ctx.o: ctx.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-ctx.o -MD -MP -MF $(DEPDIR)/stunnel-ctx.Tpo -c -o stunnel-ctx.o `test -f 'ctx.c' || echo '$(srcdir)/'`ctx.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-ctx.o -MD -MP -MF $(DEPDIR)/stunnel-ctx.Tpo -c -o stunnel-ctx.o `test -f 'ctx.c' || echo '$(srcdir)/'`ctx.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-ctx.Tpo $(DEPDIR)/stunnel-ctx.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ctx.c' object='stunnel-ctx.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-ctx.o `test -f 'ctx.c' || echo '$(srcdir)/'`ctx.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-ctx.o `test -f 'ctx.c' || echo '$(srcdir)/'`ctx.c
 
 stunnel-ctx.obj: ctx.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-ctx.obj -MD -MP -MF $(DEPDIR)/stunnel-ctx.Tpo -c -o stunnel-ctx.obj `if test -f 'ctx.c'; then $(CYGPATH_W) 'ctx.c'; else $(CYGPATH_W) '$(srcdir)/ctx.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-ctx.obj -MD -MP -MF $(DEPDIR)/stunnel-ctx.Tpo -c -o stunnel-ctx.obj `if test -f 'ctx.c'; then $(CYGPATH_W) 'ctx.c'; else $(CYGPATH_W) '$(srcdir)/ctx.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-ctx.Tpo $(DEPDIR)/stunnel-ctx.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ctx.c' object='stunnel-ctx.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-ctx.obj `if test -f 'ctx.c'; then $(CYGPATH_W) 'ctx.c'; else $(CYGPATH_W) '$(srcdir)/ctx.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-ctx.obj `if test -f 'ctx.c'; then $(CYGPATH_W) 'ctx.c'; else $(CYGPATH_W) '$(srcdir)/ctx.c'; fi`
 
 stunnel-verify.o: verify.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-verify.o -MD -MP -MF $(DEPDIR)/stunnel-verify.Tpo -c -o stunnel-verify.o `test -f 'verify.c' || echo '$(srcdir)/'`verify.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-verify.o -MD -MP -MF $(DEPDIR)/stunnel-verify.Tpo -c -o stunnel-verify.o `test -f 'verify.c' || echo '$(srcdir)/'`verify.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-verify.Tpo $(DEPDIR)/stunnel-verify.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='verify.c' object='stunnel-verify.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-verify.o `test -f 'verify.c' || echo '$(srcdir)/'`verify.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-verify.o `test -f 'verify.c' || echo '$(srcdir)/'`verify.c
 
 stunnel-verify.obj: verify.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-verify.obj -MD -MP -MF $(DEPDIR)/stunnel-verify.Tpo -c -o stunnel-verify.obj `if test -f 'verify.c'; then $(CYGPATH_W) 'verify.c'; else $(CYGPATH_W) '$(srcdir)/verify.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-verify.obj -MD -MP -MF $(DEPDIR)/stunnel-verify.Tpo -c -o stunnel-verify.obj `if test -f 'verify.c'; then $(CYGPATH_W) 'verify.c'; else $(CYGPATH_W) '$(srcdir)/verify.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-verify.Tpo $(DEPDIR)/stunnel-verify.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='verify.c' object='stunnel-verify.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-verify.obj `if test -f 'verify.c'; then $(CYGPATH_W) 'verify.c'; else $(CYGPATH_W) '$(srcdir)/verify.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-verify.obj `if test -f 'verify.c'; then $(CYGPATH_W) 'verify.c'; else $(CYGPATH_W) '$(srcdir)/verify.c'; fi`
 
 stunnel-sthreads.o: sthreads.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-sthreads.o -MD -MP -MF $(DEPDIR)/stunnel-sthreads.Tpo -c -o stunnel-sthreads.o `test -f 'sthreads.c' || echo '$(srcdir)/'`sthreads.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-sthreads.o -MD -MP -MF $(DEPDIR)/stunnel-sthreads.Tpo -c -o stunnel-sthreads.o `test -f 'sthreads.c' || echo '$(srcdir)/'`sthreads.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-sthreads.Tpo $(DEPDIR)/stunnel-sthreads.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sthreads.c' object='stunnel-sthreads.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-sthreads.o `test -f 'sthreads.c' || echo '$(srcdir)/'`sthreads.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-sthreads.o `test -f 'sthreads.c' || echo '$(srcdir)/'`sthreads.c
 
 stunnel-sthreads.obj: sthreads.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-sthreads.obj -MD -MP -MF $(DEPDIR)/stunnel-sthreads.Tpo -c -o stunnel-sthreads.obj `if test -f 'sthreads.c'; then $(CYGPATH_W) 'sthreads.c'; else $(CYGPATH_W) '$(srcdir)/sthreads.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-sthreads.obj -MD -MP -MF $(DEPDIR)/stunnel-sthreads.Tpo -c -o stunnel-sthreads.obj `if test -f 'sthreads.c'; then $(CYGPATH_W) 'sthreads.c'; else $(CYGPATH_W) '$(srcdir)/sthreads.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-sthreads.Tpo $(DEPDIR)/stunnel-sthreads.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sthreads.c' object='stunnel-sthreads.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-sthreads.obj `if test -f 'sthreads.c'; then $(CYGPATH_W) 'sthreads.c'; else $(CYGPATH_W) '$(srcdir)/sthreads.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-sthreads.obj `if test -f 'sthreads.c'; then $(CYGPATH_W) 'sthreads.c'; else $(CYGPATH_W) '$(srcdir)/sthreads.c'; fi`
 
 stunnel-fd.o: fd.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-fd.o -MD -MP -MF $(DEPDIR)/stunnel-fd.Tpo -c -o stunnel-fd.o `test -f 'fd.c' || echo '$(srcdir)/'`fd.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-fd.o -MD -MP -MF $(DEPDIR)/stunnel-fd.Tpo -c -o stunnel-fd.o `test -f 'fd.c' || echo '$(srcdir)/'`fd.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-fd.Tpo $(DEPDIR)/stunnel-fd.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='fd.c' object='stunnel-fd.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-fd.o `test -f 'fd.c' || echo '$(srcdir)/'`fd.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-fd.o `test -f 'fd.c' || echo '$(srcdir)/'`fd.c
 
 stunnel-fd.obj: fd.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-fd.obj -MD -MP -MF $(DEPDIR)/stunnel-fd.Tpo -c -o stunnel-fd.obj `if test -f 'fd.c'; then $(CYGPATH_W) 'fd.c'; else $(CYGPATH_W) '$(srcdir)/fd.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-fd.obj -MD -MP -MF $(DEPDIR)/stunnel-fd.Tpo -c -o stunnel-fd.obj `if test -f 'fd.c'; then $(CYGPATH_W) 'fd.c'; else $(CYGPATH_W) '$(srcdir)/fd.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-fd.Tpo $(DEPDIR)/stunnel-fd.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='fd.c' object='stunnel-fd.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-fd.obj `if test -f 'fd.c'; then $(CYGPATH_W) 'fd.c'; else $(CYGPATH_W) '$(srcdir)/fd.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-fd.obj `if test -f 'fd.c'; then $(CYGPATH_W) 'fd.c'; else $(CYGPATH_W) '$(srcdir)/fd.c'; fi`
 
 stunnel-stunnel.o: stunnel.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-stunnel.o -MD -MP -MF $(DEPDIR)/stunnel-stunnel.Tpo -c -o stunnel-stunnel.o `test -f 'stunnel.c' || echo '$(srcdir)/'`stunnel.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-stunnel.o -MD -MP -MF $(DEPDIR)/stunnel-stunnel.Tpo -c -o stunnel-stunnel.o `test -f 'stunnel.c' || echo '$(srcdir)/'`stunnel.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-stunnel.Tpo $(DEPDIR)/stunnel-stunnel.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='stunnel.c' object='stunnel-stunnel.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-stunnel.o `test -f 'stunnel.c' || echo '$(srcdir)/'`stunnel.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-stunnel.o `test -f 'stunnel.c' || echo '$(srcdir)/'`stunnel.c
 
 stunnel-stunnel.obj: stunnel.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-stunnel.obj -MD -MP -MF $(DEPDIR)/stunnel-stunnel.Tpo -c -o stunnel-stunnel.obj `if test -f 'stunnel.c'; then $(CYGPATH_W) 'stunnel.c'; else $(CYGPATH_W) '$(srcdir)/stunnel.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-stunnel.obj -MD -MP -MF $(DEPDIR)/stunnel-stunnel.Tpo -c -o stunnel-stunnel.obj `if test -f 'stunnel.c'; then $(CYGPATH_W) 'stunnel.c'; else $(CYGPATH_W) '$(srcdir)/stunnel.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-stunnel.Tpo $(DEPDIR)/stunnel-stunnel.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='stunnel.c' object='stunnel-stunnel.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-stunnel.obj `if test -f 'stunnel.c'; then $(CYGPATH_W) 'stunnel.c'; else $(CYGPATH_W) '$(srcdir)/stunnel.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-stunnel.obj `if test -f 'stunnel.c'; then $(CYGPATH_W) 'stunnel.c'; else $(CYGPATH_W) '$(srcdir)/stunnel.c'; fi`
 
 stunnel-pty.o: pty.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-pty.o -MD -MP -MF $(DEPDIR)/stunnel-pty.Tpo -c -o stunnel-pty.o `test -f 'pty.c' || echo '$(srcdir)/'`pty.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-pty.o -MD -MP -MF $(DEPDIR)/stunnel-pty.Tpo -c -o stunnel-pty.o `test -f 'pty.c' || echo '$(srcdir)/'`pty.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-pty.Tpo $(DEPDIR)/stunnel-pty.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='pty.c' object='stunnel-pty.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-pty.o `test -f 'pty.c' || echo '$(srcdir)/'`pty.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-pty.o `test -f 'pty.c' || echo '$(srcdir)/'`pty.c
 
 stunnel-pty.obj: pty.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-pty.obj -MD -MP -MF $(DEPDIR)/stunnel-pty.Tpo -c -o stunnel-pty.obj `if test -f 'pty.c'; then $(CYGPATH_W) 'pty.c'; else $(CYGPATH_W) '$(srcdir)/pty.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-pty.obj -MD -MP -MF $(DEPDIR)/stunnel-pty.Tpo -c -o stunnel-pty.obj `if test -f 'pty.c'; then $(CYGPATH_W) 'pty.c'; else $(CYGPATH_W) '$(srcdir)/pty.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-pty.Tpo $(DEPDIR)/stunnel-pty.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='pty.c' object='stunnel-pty.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-pty.obj `if test -f 'pty.c'; then $(CYGPATH_W) 'pty.c'; else $(CYGPATH_W) '$(srcdir)/pty.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-pty.obj `if test -f 'pty.c'; then $(CYGPATH_W) 'pty.c'; else $(CYGPATH_W) '$(srcdir)/pty.c'; fi`
 
 stunnel-libwrap.o: libwrap.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-libwrap.o -MD -MP -MF $(DEPDIR)/stunnel-libwrap.Tpo -c -o stunnel-libwrap.o `test -f 'libwrap.c' || echo '$(srcdir)/'`libwrap.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-libwrap.o -MD -MP -MF $(DEPDIR)/stunnel-libwrap.Tpo -c -o stunnel-libwrap.o `test -f 'libwrap.c' || echo '$(srcdir)/'`libwrap.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-libwrap.Tpo $(DEPDIR)/stunnel-libwrap.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libwrap.c' object='stunnel-libwrap.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-libwrap.o `test -f 'libwrap.c' || echo '$(srcdir)/'`libwrap.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-libwrap.o `test -f 'libwrap.c' || echo '$(srcdir)/'`libwrap.c
 
 stunnel-libwrap.obj: libwrap.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-libwrap.obj -MD -MP -MF $(DEPDIR)/stunnel-libwrap.Tpo -c -o stunnel-libwrap.obj `if test -f 'libwrap.c'; then $(CYGPATH_W) 'libwrap.c'; else $(CYGPATH_W) '$(srcdir)/libwrap.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-libwrap.obj -MD -MP -MF $(DEPDIR)/stunnel-libwrap.Tpo -c -o stunnel-libwrap.obj `if test -f 'libwrap.c'; then $(CYGPATH_W) 'libwrap.c'; else $(CYGPATH_W) '$(srcdir)/libwrap.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-libwrap.Tpo $(DEPDIR)/stunnel-libwrap.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libwrap.c' object='stunnel-libwrap.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-libwrap.obj `if test -f 'libwrap.c'; then $(CYGPATH_W) 'libwrap.c'; else $(CYGPATH_W) '$(srcdir)/libwrap.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-libwrap.obj `if test -f 'libwrap.c'; then $(CYGPATH_W) 'libwrap.c'; else $(CYGPATH_W) '$(srcdir)/libwrap.c'; fi`
 
 stunnel-ui_unix.o: ui_unix.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-ui_unix.o -MD -MP -MF $(DEPDIR)/stunnel-ui_unix.Tpo -c -o stunnel-ui_unix.o `test -f 'ui_unix.c' || echo '$(srcdir)/'`ui_unix.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-ui_unix.o -MD -MP -MF $(DEPDIR)/stunnel-ui_unix.Tpo -c -o stunnel-ui_unix.o `test -f 'ui_unix.c' || echo '$(srcdir)/'`ui_unix.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-ui_unix.Tpo $(DEPDIR)/stunnel-ui_unix.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ui_unix.c' object='stunnel-ui_unix.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-ui_unix.o `test -f 'ui_unix.c' || echo '$(srcdir)/'`ui_unix.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-ui_unix.o `test -f 'ui_unix.c' || echo '$(srcdir)/'`ui_unix.c
 
 stunnel-ui_unix.obj: ui_unix.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-ui_unix.obj -MD -MP -MF $(DEPDIR)/stunnel-ui_unix.Tpo -c -o stunnel-ui_unix.obj `if test -f 'ui_unix.c'; then $(CYGPATH_W) 'ui_unix.c'; else $(CYGPATH_W) '$(srcdir)/ui_unix.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-ui_unix.obj -MD -MP -MF $(DEPDIR)/stunnel-ui_unix.Tpo -c -o stunnel-ui_unix.obj `if test -f 'ui_unix.c'; then $(CYGPATH_W) 'ui_unix.c'; else $(CYGPATH_W) '$(srcdir)/ui_unix.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-ui_unix.Tpo $(DEPDIR)/stunnel-ui_unix.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ui_unix.c' object='stunnel-ui_unix.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-ui_unix.obj `if test -f 'ui_unix.c'; then $(CYGPATH_W) 'ui_unix.c'; else $(CYGPATH_W) '$(srcdir)/ui_unix.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-ui_unix.obj `if test -f 'ui_unix.c'; then $(CYGPATH_W) 'ui_unix.c'; else $(CYGPATH_W) '$(srcdir)/ui_unix.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

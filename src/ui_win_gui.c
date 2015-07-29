@@ -109,7 +109,7 @@ static struct LIST {
   TCHAR txt[1]; /* single character for trailing '\0' */
 } *head=NULL, *tail=NULL;
 
-static unsigned int number_of_sections=0;
+static unsigned number_of_sections=0;
 
 static HINSTANCE ghInst;
 static HWND edit_handle=NULL;
@@ -140,7 +140,7 @@ static UI_DATA *ui_data=NULL;
 
 static struct {
     char *config_file;
-    unsigned int service:1, install:1, uninstall:1, start:1, stop:1,
+    unsigned service:1, install:1, uninstall:1, start:1, stop:1,
         quiet:1, exit:1;
 } cmdline;
 
@@ -404,7 +404,7 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
     RECT rect;
     PAINTSTRUCT ps;
     SERVICE_OPTIONS *section;
-    unsigned int section_number;
+    unsigned section_number;
     LPTSTR txt;
 
 #if 0
@@ -935,7 +935,7 @@ NOEXPORT void update_peer_menu(void) {
     HMENU main_peer_list=NULL;
 #endif
     HMENU tray_peer_list=NULL;
-    unsigned int section_number;
+    unsigned section_number;
     LPTSTR servname;
 
     /* purge menu peer lists */
@@ -1124,7 +1124,7 @@ void ui_config_reloaded(void) {
     PostMessage(hwnd, WM_VALID_CONFIG, 0, 0);
 }
 
-void ui_clients(const int num) {
+void ui_clients(const long num) {
     PostMessage(hwnd, WM_CLIENTS, (WPARAM)num, 0);
 }
 

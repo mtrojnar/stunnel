@@ -119,7 +119,7 @@ char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 /* FIXME: connect() failures are not currently reported with SOCKS protocol */
 
 NOEXPORT char *socks_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    unsigned char version;
+    uint8_t version;
 
     (void)opt; /* skip warning about unused parameter */
     if(phase!=PROTOCOL_MIDDLE)
@@ -148,7 +148,7 @@ NOEXPORT char *socks_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 
 NOEXPORT void socks4_server(CLI *c) {
     struct {
-        unsigned char vn, cd;
+        uint8_t vn, cd;
         u_short sin_port;
         struct in_addr sin_addr;
     } socks;
@@ -209,9 +209,9 @@ NOEXPORT void socks4_server(CLI *c) {
 }
 
 NOEXPORT void socks5_server_method(CLI *c) {
-    unsigned char nmethods, *methods;
+    uint8_t nmethods, *methods;
     struct {
-        unsigned char ver, method;
+        uint8_t ver, method;
     } response;
     int i;
 
@@ -238,19 +238,19 @@ NOEXPORT void socks5_server_method(CLI *c) {
 NOEXPORT void socks5_server(CLI *c) {
     union {
         struct {
-            unsigned char ver, cmd, rsv, atyp;
+            uint8_t ver, cmd, rsv, atyp;
         } req;
         struct {
-            unsigned char ver, cmd, rsv, atyp, addr[4], port[2];
+            uint8_t ver, cmd, rsv, atyp, addr[4], port[2];
         } v4;
         struct {
-            unsigned char ver, cmd, rsv, atyp, addr[16], port[2];
+            uint8_t ver, cmd, rsv, atyp, addr[16], port[2];
         } v6;
         struct {
-            unsigned char ver, rep, rsv, atyp;
+            uint8_t ver, rep, rsv, atyp;
         } resp;
     } socks;
-    unsigned char host_len;
+    uint8_t host_len;
     char *host_name, *port_name;
     u_short port_number;
     SOCKADDR_UNION addr;
@@ -276,7 +276,7 @@ NOEXPORT void socks5_server(CLI *c) {
             close_connection=0;
         } else if(socks.req.atyp==0x03) { /* DOMAINNAME */
             s_ssl_read(c, &host_len, sizeof host_len);
-            host_name=str_alloc(host_len+1);
+            host_name=str_alloc((size_t)host_len+1);
             s_ssl_read(c, host_name, host_len);
             host_name[host_len]='\0';
             s_ssl_read(c, &port_number, 2);
@@ -453,8 +453,7 @@ NOEXPORT char *cifs_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     if(phase!=PROTOCOL_EARLY)
         return NULL;
     s_read(c, c->local_rfd.fd, buffer, 4) ;/* NetBIOS header */
-    len=buffer[3];
-    len|=(uint16_t)(buffer[2]) << 8;
+    len=(uint16_t)(((uint16_t)(buffer[2])<<8)|buffer[3]);
     if(len>sizeof buffer-4) {
         s_log(LOG_ERR, "Received block too long");
         longjmp(c->err, 1);
@@ -908,7 +907,7 @@ NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         } else { /* basic authentication */
             line=str_printf("%s:%s",
                 opt->protocol_username, opt->protocol_password);
-            encoded=base64(1, line, strlen(line));
+            encoded=base64(1, line, (int)strlen(line));
             str_free(line);
             if(!encoded) {
                 s_log(LOG_ERR, "Base64 encoder failed");
@@ -999,8 +998,9 @@ NOEXPORT void ntlm(CLI *c, SERVICE_OPTIONS *opt) {
 
     /* read and ignore HTTP content (if any) */
     while(content_length>0) {
-        s_read(c, c->remote_fd.fd, buf, s_min(content_length, BUFSIZ));
-        content_length-=s_min(content_length, BUFSIZ);
+        size_t n=s_min((size_t)content_length, BUFSIZ);
+        s_read(c, c->remote_fd.fd, buf, n);
+        content_length-=(long)n;
     }
 
     /* send Proxy-Authorization (phase 3) */
@@ -1029,28 +1029,28 @@ NOEXPORT char *ntlm1() {
 
 NOEXPORT char *ntlm3(char *username, char *password, char *phase2) {
     MD4_CTX md4;
-    char *decoded; /* decoded reply from proxy */
-    char phase3[146];
-    unsigned char md4_hash[21];
-    unsigned int userlen=strlen(username);
-    unsigned int phase3len=s_min(88+userlen, sizeof phase3);
+    uint8_t *decoded; /* decoded reply from proxy */
+    uint8_t phase3[146];
+    uint8_t md4_hash[21];
+    size_t userlen=strlen(username);
+    size_t phase3len=s_min(88+userlen, sizeof phase3);
 
     /* setup phase3 structure */
     memset(phase3, 0, sizeof phase3);
-    strcpy(phase3, "NTLMSSP");
-    phase3[8]=3;            /* type: 3 */
-    phase3[16]=phase3len;   /* LM-resp off */
-    phase3[20]=24;          /* NT-resp len */
-    phase3[22]=24;          /* NT-Resp len */
-    phase3[24]=64;          /* NT-resp off */
-    phase3[32]=phase3len;   /* domain offset */
-    phase3[36]=userlen;     /* user length */
-    phase3[38]=userlen;     /* user length */
-    phase3[40]=88;          /* user offset */
-    phase3[48]=phase3len;   /* host offset */
-    phase3[56]=phase3len;   /* message len */
-    phase3[60]=2;           /* flag: negotiate OEM */
-    phase3[61]=2;           /* flag: negotiate NTLM */
+    strcpy((char *)phase3, "NTLMSSP");
+    phase3[8]=3;                    /* type: 3 */
+    phase3[16]=(uint8_t)phase3len;  /* LM-resp off */
+    phase3[20]=24;                  /* NT-resp len */
+    phase3[22]=24;                  /* NT-Resp len */
+    phase3[24]=64;                  /* NT-resp off */
+    phase3[32]=(uint8_t)phase3len;  /* domain offset */
+    phase3[36]=(uint8_t)userlen;    /* user length */
+    phase3[38]=(uint8_t)userlen;    /* user length */
+    phase3[40]=88;                  /* user offset */
+    phase3[48]=(uint8_t)phase3len;  /* host offset */
+    phase3[56]=(uint8_t)phase3len;  /* message len */
+    phase3[60]=2;                   /* flag: negotiate OEM */
+    phase3[61]=2;                   /* flag: negotiate NTLM */
 
     /* calculate MD4 of UTF-16 encoded password */
     MD4_Init(&md4);
@@ -1062,20 +1062,17 @@ NOEXPORT char *ntlm3(char *username, char *password, char *phase2) {
     memset(md4_hash+16, 0, 5); /* pad to 21 bytes */
 
     /* decode challenge and calculate response */
-    decoded=base64(0, phase2, strlen(phase2)); /* decode */
+    decoded=(uint8_t *)base64(0, phase2, (int)strlen(phase2)); /* decode */
     if(!decoded)
         return NULL;
-    crypt_DES((unsigned char *)phase3+64,
-        (unsigned char *)decoded+24, md4_hash);
-    crypt_DES((unsigned char *)phase3+72,
-        (unsigned char *)decoded+24, md4_hash+7);
-    crypt_DES((unsigned char *)phase3+80,
-        (unsigned char *)decoded+24, md4_hash+14);
+    crypt_DES(phase3+64, decoded+24, md4_hash);
+    crypt_DES(phase3+72, decoded+24, md4_hash+7);
+    crypt_DES(phase3+80, decoded+24, md4_hash+14);
     str_free(decoded);
 
-    strncpy(phase3+88, username, sizeof phase3-88);
+    strncpy((char *)phase3+88, username, sizeof phase3-88);
 
-    return base64(1, phase3, phase3len); /* encode */
+    return base64(1, (char *)phase3, (int)phase3len); /* encode */
 }
 
 NOEXPORT void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
@@ -1084,13 +1081,13 @@ NOEXPORT void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
 
     /* convert key from 56 to 64 bits */
     key[0]=hash[0];
-    key[1]=((hash[0]&1)<<7)|(hash[1]>>1);
-    key[2]=((hash[1]&3)<<6)|(hash[2]>>2);
-    key[3]=((hash[2]&7)<<5)|(hash[3]>>3);
-    key[4]=((hash[3]&15)<<4)|(hash[4]>>4);
-    key[5]=((hash[4]&31)<<3)|(hash[5]>>5);
-    key[6]=((hash[5]&63)<<2)|(hash[6]>>6);
-    key[7]=((hash[6]&127)<<1);
+    key[1]=(unsigned char)(((hash[0]&1)<<7)|(hash[1]>>1));
+    key[2]=(unsigned char)(((hash[1]&3)<<6)|(hash[2]>>2));
+    key[3]=(unsigned char)(((hash[2]&7)<<5)|(hash[3]>>3));
+    key[4]=(unsigned char)(((hash[3]&15)<<4)|(hash[4]>>4));
+    key[5]=(unsigned char)(((hash[4]&31)<<3)|(hash[5]>>5));
+    key[6]=(unsigned char)(((hash[5]&63)<<2)|(hash[6]>>6));
+    key[7]=(unsigned char)(((hash[6]&127)<<1));
     DES_set_odd_parity(&key);
 
     /* encrypt */
@@ -1128,7 +1125,7 @@ NOEXPORT char *base64(int encode, char *in, int len) {
     n=BIO_pending(bio);
     /* 32 bytes as a safety precaution for passing decoded data to crypt_DES */
     /* n+1 to get null-terminated string on encode */
-    out=str_alloc(n<32?32:n+1);
+    out=str_alloc(n<32?32:(size_t)n+1);
     n=BIO_read(bio, out, n);
     if(n<0) {
         BIO_free_all(bio);

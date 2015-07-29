@@ -131,7 +131,7 @@ void client_main(CLI *c) {
 NOEXPORT void client_run(CLI *c) {
     int err, rst;
 #ifndef USE_FORK
-    int num_clients_copy;
+    long num_clients_copy;
 #endif
 
 #ifndef USE_FORK
@@ -220,7 +220,7 @@ NOEXPORT void client_run(CLI *c) {
     ui_clients(--num_clients);
     num_clients_copy=num_clients; /* to move s_log() away from CRIT_CLIENTS */
     leave_critical_section(CRIT_CLIENTS);
-    s_log(LOG_DEBUG, "Service [%s] finished (%d left)",
+    s_log(LOG_DEBUG, "Service [%s] finished (%ld left)",
         c->opt->servname, num_clients_copy);
 #endif
 
@@ -493,7 +493,7 @@ NOEXPORT void new_chain(CLI *c) {
         return;
     }
     /* prevent automatic deallocation of the cached value */
-    chain=str_alloc_detached(len+1);
+    chain=str_alloc_detached((size_t)len+1);
     len=BIO_read(bio, chain, len);
     if(len<0) {
         s_log(LOG_ERR, "BIO_read failed");
@@ -511,7 +511,8 @@ NOEXPORT void new_chain(CLI *c) {
 /****************************** transfer data */
 NOEXPORT void transfer(CLI *c) {
     int watchdog=0; /* a counter to detect an infinite loop */
-    int num, err;
+    ssize_t num;
+    int err;
     /* logical channels (not file descriptors!) open for read or write */
     int sock_open_rd=1, sock_open_wr=1;
     /* awaited conditions on SSL file descriptors */
@@ -542,7 +543,7 @@ NOEXPORT void transfer(CLI *c) {
         if(sock_open_rd) /* only poll if the read file descriptor is open */
             s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
         if(sock_open_wr) /* only poll if the write file descriptor is open */
-            s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr);
+            s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr>0);
         /* poll SSL file descriptors unless SSL shutdown was completed */
         if(SSL_get_shutdown(c->ssl)!=
                 (SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN)) {
@@ -600,7 +601,7 @@ NOEXPORT void transfer(CLI *c) {
         if(shutdown_wants_read || shutdown_wants_write) {
             num=SSL_shutdown(c->ssl); /* send close_notify alert */
             if(num<0) /* -1 - not completed */
-                err=SSL_get_error(c->ssl, num);
+                err=SSL_get_error(c->ssl, (int)num);
             else /* 0 or 1 - success */
                 err=SSL_ERROR_NONE;
             switch(err) {
@@ -643,10 +644,10 @@ NOEXPORT void transfer(CLI *c) {
                 sock_open_rd=sock_open_wr=0;
                 break;
             default:
-                memmove(c->ssl_buff, c->ssl_buff+num, c->ssl_ptr-num);
-                c->ssl_ptr-=num;
-                memset(c->ssl_buff+c->ssl_ptr, 0, num); /* paranoia */
-                c->sock_bytes+=num;
+                memmove(c->ssl_buff, c->ssl_buff+num, c->ssl_ptr-(size_t)num);
+                c->ssl_ptr-=(size_t)num;
+                memset(c->ssl_buff+c->ssl_ptr, 0, (size_t)num); /* paranoia */
+                c->sock_bytes+=(size_t)num;
                 watchdog=0; /* reset watchdog */
             }
         }
@@ -666,7 +667,7 @@ NOEXPORT void transfer(CLI *c) {
                 sock_open_rd=0;
                 break;
             default:
-                c->sock_ptr+=num;
+                c->sock_ptr+=(size_t)num;
                 watchdog=0; /* reset watchdog */
             }
         }
@@ -683,15 +684,16 @@ NOEXPORT void transfer(CLI *c) {
                 (write_wants_write && ssl_can_wr)) {
             write_wants_read=0;
             write_wants_write=0;
-            num=SSL_write(c->ssl, c->sock_buff, c->sock_ptr);
-            switch(err=SSL_get_error(c->ssl, num)) {
+            num=SSL_write(c->ssl, c->sock_buff, (int)(c->sock_ptr));
+            switch(err=SSL_get_error(c->ssl, (int)num)) {
             case SSL_ERROR_NONE:
                 if(num==0)
                     s_log(LOG_DEBUG, "SSL_write returned 0");
-                memmove(c->sock_buff, c->sock_buff+num, c->sock_ptr-num);
-                c->sock_ptr-=num;
-                memset(c->sock_buff+c->sock_ptr, 0, num); /* paranoia */
-                c->ssl_bytes+=num;
+                memmove(c->sock_buff, c->sock_buff+num,
+                    c->sock_ptr-(size_t)num);
+                c->sock_ptr-=(size_t)num;
+                memset(c->sock_buff+c->sock_ptr, 0, (size_t)num); /* paranoia */
+                c->ssl_bytes+=(size_t)num;
                 watchdog=0; /* reset watchdog */
                 break;
             case SSL_ERROR_WANT_WRITE: /* buffered data? */
@@ -713,7 +715,7 @@ NOEXPORT void transfer(CLI *c) {
                  * SSL socket closed without close_notify alert */
                 if(c->sock_ptr) { /* TODO: what about buffered data? */
                     s_log(LOG_ERR,
-                        "SSL socket closed (SSL_write) with %d unsent byte(s)",
+                        "SSL socket closed (SSL_write) with %ld unsent byte(s)",
                         c->sock_ptr);
                     longjmp(c->err, 1); /* reset the socket */
                 }
@@ -741,12 +743,12 @@ NOEXPORT void transfer(CLI *c) {
                 (read_wants_write && ssl_can_wr)) {
             read_wants_read=0;
             read_wants_write=0;
-            num=SSL_read(c->ssl, c->ssl_buff+c->ssl_ptr, BUFFSIZE-c->ssl_ptr);
-            switch(err=SSL_get_error(c->ssl, num)) {
+            num=SSL_read(c->ssl, c->ssl_buff+c->ssl_ptr, (int)(BUFFSIZE-c->ssl_ptr));
+            switch(err=SSL_get_error(c->ssl, (int)num)) {
             case SSL_ERROR_NONE:
                 if(num==0)
                     s_log(LOG_DEBUG, "SSL_read returned 0");
-                c->ssl_ptr+=num;
+                c->ssl_ptr+=(size_t)num;
                 watchdog=0; /* reset watchdog */
                 break;
             case SSL_ERROR_WANT_WRITE:
@@ -768,7 +770,7 @@ NOEXPORT void transfer(CLI *c) {
                  * SSL socket closed without close_notify alert */
                 if(c->sock_ptr || write_wants_write) {
                     s_log(LOG_ERR,
-                        "SSL socket closed (SSL_read) with %d unsent byte(s)",
+                        "SSL socket closed (SSL_read) with %ld unsent byte(s)",
                         c->sock_ptr);
                     longjmp(c->err, 1); /* reset the socket */
                 }
@@ -802,7 +804,7 @@ NOEXPORT void transfer(CLI *c) {
         if(sock_open_wr && s_poll_hup(c->fds, c->sock_wfd->fd)) {
             if(c->ssl_ptr) {
                 s_log(LOG_ERR,
-                    "Write socket closed (write hangup) with %d unsent byte(s)",
+                    "Write socket closed (write hangup) with %ld unsent byte(s)",
                     c->ssl_ptr);
                 longjmp(c->err, 1); /* reset the socket */
             }
@@ -823,7 +825,7 @@ NOEXPORT void transfer(CLI *c) {
                 s_poll_hup(c->fds, c->ssl_wfd->fd)) {
             if(c->sock_ptr || write_wants_write) {
                 s_log(LOG_ERR,
-                    "SSL socket closed (write hangup) with %d unsent byte(s)",
+                    "SSL socket closed (write hangup) with %ld unsent byte(s)",
                     c->sock_ptr);
                 longjmp(c->err, 1); /* reset the socket */
             }
@@ -887,8 +889,8 @@ NOEXPORT void transfer(CLI *c) {
             s_log(LOG_ERR, "shutdown_wants_read=%s, shutdown_wants_write=%s",
                 shutdown_wants_read ? "Y" : "n",
                 shutdown_wants_write ? "Y" : "n");
-            s_log(LOG_ERR, "socket input buffer: %d byte(s), "
-                "ssl input buffer: %d byte(s)", c->sock_ptr, c->ssl_ptr);
+            s_log(LOG_ERR, "socket input buffer: %ld byte(s), "
+                "ssl input buffer: %ld byte(s)", c->sock_ptr, c->ssl_ptr);
             longjmp(c->err, 1);
         }
 
@@ -981,7 +983,7 @@ NOEXPORT void auth_user(CLI *c, char *accepted_address) {
 #ifndef _WIN32_WCE
     s_ent=getservbyname("auth", "tcp");
     if(s_ent) {
-        ident.in.sin_port=s_ent->s_port;
+        ident.in.sin_port=(uint16_t)s_ent->s_port;
     } else
 #endif
     {
@@ -1165,7 +1167,8 @@ NOEXPORT int connect_local(CLI *c) { /* spawn local process */
 
 /* connect remote host */
 NOEXPORT int connect_remote(CLI *c) {
-    int fd, ind_start, ind_try, ind_cur;
+    int fd;
+    unsigned ind_start, ind_try, ind_cur;
 
     setup_connect_addr(c);
     ind_start=*c->connect_addr.rr_ptr;

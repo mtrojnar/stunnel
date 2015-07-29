@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2014.12.12" "5.09" "stunnel"
+.TH STUNNEL 8 "2015.01.22" "5.10" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -563,6 +563,13 @@ Option \fIsni\fR is only available when compiled with \fBOpenSSL 1.0.0\fR and la
 .IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
 .IX Item "OCSP = URL"
 select \s-1OCSP\s0 server for certificate verification
+.IP "\fBOCSPaia\fR = yes | no" 4
+.IX Item "OCSPaia = yes | no"
+validate certificates with their \s-1AIA OCSP\s0 responders
+.Sp
+This option enables \fIstunnel\fR to validate certificates with the list of
+\&\s-1OCSP\s0 responder URLs retrieved from their \s-1AIA \s0(Authority Information Access)
+extension.
 .IP "\fBOCSPflag\fR = \s-1OCSP_FLAG\s0" 4
 .IX Item "OCSPflag = OCSP_FLAG"
 specify \s-1OCSP\s0 server flag

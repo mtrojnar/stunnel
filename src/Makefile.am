@@ -29,7 +29,7 @@ stunnel_CPPFLAGS += -DLIBDIR='"$(pkglibdir)"'
 stunnel_CPPFLAGS += -DCONFDIR='"$(sysconfdir)/stunnel"'
 
 # SSL library
-stunnel_LDFLAGS += -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
+stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 
 # Win32 executable
 EXTRA_DIST = make.bat makece.bat makew32.bat
@@ -40,13 +40,13 @@ tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
 
 # OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 # WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-OPENSSLDIR = /usr/src/openssl-1.0.1j-i686
+OPENSSLDIR = /usr/src/openssl-1.0.1l-i686
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
-WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wno-long-long -pedantic -DUNICODE -D_UNICODE
+WINCFLAGS = -mthreads -fstack-protector -O2
+WINCFLAGS += -Wall -Wextra -Wpedantic -Wformat=2 -Wconversion -Wno-long-long
+WINCFLAGS += -D_FORTIFY_SOURCE=2 -DUNICODE -D_UNICODE
 WINLDFLAGS = -mthreads -fstack-protector -s
 WINLIBS = -L$(OPENSSLDIR) -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
-# WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lpsapi -lws2_32 -lgdi32
-# WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj
 WINOBJ += network.obj resolver.obj ssl.obj ctx.obj verify.obj sthreads.obj
 WINOBJ += fd.obj stunnel.obj

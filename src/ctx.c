@@ -59,10 +59,10 @@ NOEXPORT int ecdh_init(SERVICE_OPTIONS *);
 /* initialize authentication */
 NOEXPORT int auth_init(SERVICE_OPTIONS *);
 #ifndef OPENSSL_NO_PSK
-NOEXPORT unsigned int psk_client_callback(SSL *, const char *,
-    char *, unsigned int, unsigned char *, unsigned int);
-NOEXPORT unsigned int psk_server_callback(SSL *, const char *,
-    unsigned char *, unsigned int);
+NOEXPORT unsigned psk_client_callback(SSL *, const char *,
+    char *, unsigned, unsigned char *, unsigned);
+NOEXPORT unsigned psk_server_callback(SSL *, const char *,
+    unsigned char *, unsigned);
 #endif /* !defined(OPENSSL_NO_PSK) */
 NOEXPORT int load_cert(SERVICE_OPTIONS *);
 NOEXPORT int load_key_file(SERVICE_OPTIONS *);
@@ -75,10 +75,10 @@ NOEXPORT int password_cb(char *, int, int, void *);
 NOEXPORT int sess_new_cb(SSL *, SSL_SESSION *);
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *, unsigned char *, int, int *);
 NOEXPORT void sess_remove_cb(SSL_CTX *, SSL_SESSION *);
-NOEXPORT void cache_transfer(SSL_CTX *, const unsigned int, const unsigned,
-    const unsigned char *, const unsigned int,
-    const unsigned char *, const unsigned int,
-    unsigned char **, unsigned int *);
+NOEXPORT void cache_transfer(SSL_CTX *, const u_char, const long,
+    const u_char *, const size_t,
+    const u_char *, const size_t,
+    unsigned char **, size_t *);
 
 /* info callbacks */
 NOEXPORT void info_callback(
@@ -138,7 +138,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
 
     /* setup session cache */
     if(!section->option.client) {
-        unsigned int servname_len=strlen(section->servname);
+        unsigned servname_len=(unsigned)strlen(section->servname);
         if(servname_len>SSL_MAX_SSL_SESSION_ID_LENGTH)
             servname_len=SSL_MAX_SSL_SESSION_ID_LENGTH;
         if(!SSL_CTX_set_session_id_context(section->ctx,
@@ -241,12 +241,12 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
  *  - SSL_TLSEXT_ERR_NOACK */
 
 NOEXPORT int matches_wildcard(char *servername, char *pattern) {
-    int diff;
+    ssize_t diff;
 
     if(!servername || !pattern)
         return 0;
     if(*pattern=='*') { /* wildcard comparison */
-        diff=strlen(servername)-strlen(++pattern);
+        diff=(ssize_t)strlen(servername)-(ssize_t)strlen(++pattern);
         if(diff<0) /* pattern longer than servername */
             return 0;
         servername+=diff;
@@ -389,11 +389,11 @@ NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
 
 #ifndef OPENSSL_NO_PSK
 
-NOEXPORT unsigned int psk_client_callback(SSL *ssl, const char *hint,
-    char *identity, unsigned int max_identity_len,
-    unsigned char *psk, unsigned int max_psk_len) {
+NOEXPORT unsigned psk_client_callback(SSL *ssl, const char *hint,
+    char *identity, unsigned max_identity_len,
+    unsigned char *psk, unsigned max_psk_len) {
     CLI *c;
-    unsigned int identity_len;
+    size_t identity_len;
 
     (void)hint; /* skip warning about unused parameter */
     c=SSL_get_ex_data(ssl, cli_index);
@@ -406,26 +406,26 @@ NOEXPORT unsigned int psk_client_callback(SSL *ssl, const char *hint,
      * nothing about it -- lets play safe */
     identity_len=strlen(c->opt->psk_selected->identity)+1;
     if(identity_len>max_identity_len) {
-        s_log(LOG_ERR, "PSK identity too long (%d>%d bytes)",
+        s_log(LOG_ERR, "PSK identity too long (%lu>%d bytes)",
             identity_len, max_psk_len);
         return 0;
     }
     if(c->opt->psk_selected->key_len>max_psk_len) {
-        s_log(LOG_ERR, "PSK too long (%d>%d bytes)",
+        s_log(LOG_ERR, "PSK too long (%lu>%d bytes)",
             c->opt->psk_selected->key_len, max_psk_len);
         return 0;
     }
     strcpy(identity, c->opt->psk_selected->identity);
     memcpy(psk, c->opt->psk_selected->key_val, c->opt->psk_selected->key_len);
     s_log(LOG_INFO, "PSK client configured for identity \"%s\"", identity);
-    return c->opt->psk_selected->key_len;
+    return (unsigned)(c->opt->psk_selected->key_len);
 }
 
-NOEXPORT unsigned int psk_server_callback(SSL *ssl, const char *identity,
-    unsigned char *psk, unsigned int max_psk_len) {
+NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
+    unsigned char *psk, unsigned max_psk_len) {
     CLI *c;
     PSK_KEYS *found;
-    unsigned int len;
+    size_t len;
 
     c=SSL_get_ex_data(ssl, cli_index);
     found=psk_find(c->opt->psk_keys, identity);
@@ -436,7 +436,7 @@ NOEXPORT unsigned int psk_server_callback(SSL *ssl, const char *identity,
         len=0;
     }
     if(len>max_psk_len) {
-        s_log(LOG_ERR, "PSK too long (%d>%d bytes)", len, max_psk_len);
+        s_log(LOG_ERR, "PSK too long (%lu>%d bytes)", len, max_psk_len);
         len=0;
     }
     if(len) {
@@ -446,7 +446,7 @@ NOEXPORT unsigned int psk_server_callback(SSL *ssl, const char *identity,
         if(max_psk_len>=32 && RAND_bytes(psk, 32))
             len=32; /* 256 random bits */
     }
-    return len;
+    return (unsigned)len;
 }
 
 PSK_KEYS *psk_find(PSK_KEYS *head, const char *identity) {
@@ -590,12 +590,12 @@ NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
         /* PEM_def_callback is defined in OpenSSL 0.9.7 and later */
         len=PEM_def_callback(buf, size, rwflag, NULL);
 #endif
-        memcpy(cache, buf, size); /* save in cache */
+        memcpy(cache, buf, (size_t)size); /* save in cache */
         cache_initialized=1;
     } else { /* try the cached value */
-        strncpy(buf, cache, size);
+        strncpy(buf, cache, (size_t)size);
         buf[size-1]='\0';
-        len=strlen(buf);
+        len=(int)strlen(buf);
     }
     return len;
 }
@@ -611,14 +611,15 @@ NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
 
 NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
     unsigned char *val, *val_tmp;
-    int val_len;
+    ssize_t val_len;
 
     val_len=i2d_SSL_SESSION(sess, NULL);
-    val_tmp=val=str_alloc(val_len);
+    val_tmp=val=str_alloc((size_t)val_len);
     i2d_SSL_SESSION(sess, &val_tmp);
 
     cache_transfer(ssl->ctx, CACHE_CMD_NEW, SSL_SESSION_get_timeout(sess),
-        sess->session_id, sess->session_id_length, val, val_len, NULL, NULL);
+        sess->session_id, sess->session_id_length,
+        val, (size_t)val_len, NULL, NULL);
     str_free(val);
     return 1; /* leave the session in local cache for reuse */
 }
@@ -626,12 +627,12 @@ NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
         unsigned char *key, int key_len, int *do_copy) {
     unsigned char *val, *val_tmp=NULL;
-    unsigned int val_len=0;
+    ssize_t val_len=0;
     SSL_SESSION *sess;
 
     *do_copy = 0; /* allow the session to be freed autmatically */
     cache_transfer(ssl->ctx, CACHE_CMD_GET, 0,
-        key, key_len, NULL, 0, &val, &val_len);
+        key, (size_t)key_len, NULL, 0, &val, (size_t *)&val_len);
     if(!val)
         return NULL;
     val_tmp=val;
@@ -657,16 +658,17 @@ typedef struct {
     u_char val[MAX_VAL_LEN];
 } CACHE_PACKET;
 
-NOEXPORT void cache_transfer(SSL_CTX *ctx, const unsigned int type,
-        const unsigned int timeout,
-        const unsigned char *key, const unsigned int key_len,
-        const unsigned char *val, const unsigned int val_len,
-        unsigned char **ret, unsigned int *ret_len) {
+NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
+        const long timeout,
+        const u_char *key, const size_t key_len,
+        const u_char *val, const size_t val_len,
+        unsigned char **ret, size_t *ret_len) {
     char session_id_txt[2*SSL_MAX_SSL_SESSION_ID_LENGTH+1];
     const char hex[16]="0123456789ABCDEF";
     const char *type_description[]={"new", "get", "remove"};
-    unsigned int i;
-    int s, len;
+    unsigned i;
+    int s;
+    ssize_t len;
     struct timeval t;
     CACHE_PACKET *packet;
     SERVICE_OPTIONS *section;
@@ -681,17 +683,17 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     }
     session_id_txt[2*i]='\0';
     s_log(LOG_INFO,
-        "cache_transfer: request=%s, timeout=%u, id=%s, length=%d",
+        "cache_transfer: request=%s, timeout=%ld, id=%s, length=%ld",
         type_description[type], timeout, session_id_txt, val_len);
 
     /* allocate UDP packet buffer */
     if(key_len>SSL_MAX_SSL_SESSION_ID_LENGTH) {
-        s_log(LOG_ERR, "cache_transfer: session id too big (%d bytes)",
+        s_log(LOG_ERR, "cache_transfer: session id too big (%ld bytes)",
             key_len);
         return;
     }
     if(val_len>MAX_VAL_LEN) {
-        s_log(LOG_ERR, "cache_transfer: encoded session too big (%d bytes)",
+        s_log(LOG_ERR, "cache_transfer: encoded session too big (%ld bytes)",
             key_len);
         return;
     }
@@ -763,7 +765,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const unsigned int type,
         str_free(packet);
         return;
     }
-    *ret_len=len-(sizeof(CACHE_PACKET)-MAX_VAL_LEN);
+    *ret_len=(size_t)len-(sizeof(CACHE_PACKET)-MAX_VAL_LEN);
     *ret=str_alloc(*ret_len);
     s_log(LOG_INFO, "cache_transfer: session found");
     memcpy(*ret, packet->val, *ret_len);

@@ -606,6 +606,13 @@ Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
 serwer OCSP do weryfikacji certyfikatów
 
+=item B<OCSPaia> = yes | no
+
+weryfikuj certyfikaty przy użyciu respondertów AIA
+
+Opcja I<OCSPaia> pozwala na weryfikowanie certyfikatów przy pomocy listy URLi
+serwerów OCSP przesłanych w rozszerzeniach AIA (Authority Information Access).
+
 =item B<OCSPflag> = FLAGA_OCSP
 
 flaga serwera OCSP

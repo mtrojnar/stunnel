@@ -55,7 +55,7 @@ NOEXPORT int setup_fd(int, int, char *);
 
 #ifndef USE_FORK
 
-static int max_fds;
+static long max_fds;
 
 void get_limits(void) { /* set max_fds and max_clients */
     /* start with current ulimit */
@@ -90,7 +90,7 @@ void get_limits(void) { /* set max_fds and max_clients */
 
     if(max_fds) {
         max_clients=max_fds>=256 ? max_fds*125/256 : (max_fds-6)/2;
-        s_log(LOG_DEBUG, "Clients allowed=%d", max_clients);
+        s_log(LOG_DEBUG, "Clients allowed=%ld", max_clients);
     } else {
         max_clients=0;
         s_log(LOG_DEBUG, "No limit detected for the number of clients");
@@ -197,7 +197,7 @@ NOEXPORT int setup_fd(int fd, int nonblock, char *msg) {
     }
 #ifndef USE_FORK
     if(max_fds && fd>=max_fds) {
-        s_log(LOG_ERR, "%s: FD=%d out of range (max %d)",
+        s_log(LOG_ERR, "%s: FD=%d out of range (max %ld)",
             msg, fd, max_fds);
         closesocket(fd);
         return -1;
@@ -207,7 +207,7 @@ NOEXPORT int setup_fd(int fd, int nonblock, char *msg) {
 #ifdef USE_NEW_LINUX_API
     (void)nonblock; /* skip warning about unused parameter */
 #else /* set O_NONBLOCK and F_SETFD */
-    set_nonblock(fd, nonblock);
+    set_nonblock(fd, (unsigned long)nonblock);
 #ifdef FD_CLOEXEC
     do {
         err=fcntl(fd, F_SETFD, FD_CLOEXEC);

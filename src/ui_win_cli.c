@@ -90,7 +90,7 @@ void ui_new_chain(const int section_number) {
     (void)section_number; /* skip warning about unused parameter */
 }
 
-void ui_clients(const int num) {
+void ui_clients(const long num) {
     (void)num; /* skip warning about unused parameter */
 }
 

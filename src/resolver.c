@@ -40,7 +40,7 @@
 
 /**************************************** prototypes */
 
-NOEXPORT int name2addrlist(SOCKADDR_LIST *, char *, char *);
+NOEXPORT unsigned name2addrlist(SOCKADDR_LIST *, char *, char *);
 NOEXPORT void addrlist2addr(SOCKADDR_UNION *, SOCKADDR_LIST *);
 
 #ifndef HAVE_GETADDRINFO
@@ -123,9 +123,10 @@ void resolver_init() {
 
 /**************************************** stunnel resolver API */
 
-int name2addr(SOCKADDR_UNION *addr, char *name, char *default_host) {
+unsigned name2addr(SOCKADDR_UNION *addr, char *name,
+        char *default_host) {
     SOCKADDR_LIST *addr_list;
-    int retval;
+    unsigned retval;
 
     addr_list=str_alloc(sizeof(SOCKADDR_LIST));
     addrlist_init(addr_list);
@@ -138,9 +139,10 @@ int name2addr(SOCKADDR_UNION *addr, char *name, char *default_host) {
     return retval;
 }
 
-int hostport2addr(SOCKADDR_UNION *addr, char *host_name, char *port_name) {
+unsigned hostport2addr(SOCKADDR_UNION *addr,
+        char *host_name, char *port_name) {
     SOCKADDR_LIST *addr_list;
-    int retval;
+    unsigned retval;
 
     addr_list=str_alloc(sizeof(SOCKADDR_LIST));
     addrlist_init(addr_list);
@@ -154,7 +156,7 @@ int hostport2addr(SOCKADDR_UNION *addr, char *host_name, char *port_name) {
 }
 
 NOEXPORT void addrlist2addr(SOCKADDR_UNION *addr, SOCKADDR_LIST *addr_list) {
-    int i;
+    unsigned i;
 
     for(i=0; i<addr_list->num; ++i) { /* find the first IPv4 address */
         if(addr_list->addr[i].in.sin_family==AF_INET) {
@@ -174,7 +176,8 @@ NOEXPORT void addrlist2addr(SOCKADDR_UNION *addr, SOCKADDR_LIST *addr_list) {
     memcpy(addr, &addr_list->addr[0], sizeof(SOCKADDR_UNION));
 }
 
-int namelist2addrlist(SOCKADDR_LIST *addr_list, NAME_LIST *name_list, char *default_host) {
+unsigned namelist2addrlist(SOCKADDR_LIST *addr_list,
+        NAME_LIST *name_list, char *default_host) {
     /* recursive implementation to reverse the list */
     if(!name_list)
         return 0;
@@ -182,9 +185,10 @@ int namelist2addrlist(SOCKADDR_LIST *addr_list, NAME_LIST *name_list, char *defa
         name2addrlist(addr_list, name_list->name, default_host);
 }
 
-NOEXPORT int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
+NOEXPORT unsigned name2addrlist(SOCKADDR_LIST *addr_list,
+        char *name, char *default_host) {
     char *tmp, *host_name, *port_name;
-    int retval;
+    unsigned retval;
 
     addrlist_init(addr_list);
 
@@ -221,7 +225,7 @@ NOEXPORT int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_h
     return retval;
 }
 
-int hostport2addrlist(SOCKADDR_LIST *addr_list,
+unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         char *host_name, char *port_name) {
     struct addrinfo hints, *res=NULL, *cur;
     int err, retries=0;
