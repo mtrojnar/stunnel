@@ -409,9 +409,18 @@ IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
 Domy¶lnie u¿ywane jest IP najbardziej zewnêtrznego interfejsu w stronê
 serwera, do którego nawi±zywane jest po³±czenie.
 
-=item B<ocsp> = URL
+=item B<OCSP> = URL
 
 serwer OCSP do weryfikacji certyfikatów
+
+=item B<OCSPflag> = flaga
+
+flaga serwera OCSP
+
+aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
+NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
+
+Aby wyspecyfikowaæ kilka flag nale¿y u¿yæ I<OCSPflag> wielokrotnie.
 
 =item B<options> = opcje_SSL
 
@@ -430,19 +439,39 @@ w programie Eudora mo¿na u¿yæ opcji:
 
 negocjuj SSL podanym protoko³em aplikacyjnym
 
-aktualnie wspierane protoko³y: cifs, connect, nntp, pop3, smtp
+aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp
 
-=item B<protocolCredentials> = u¿ytkownik:has³o
+=item B<protocolAuthentication> = uwierzytelnienie
 
-dane uwierzytelniaj±ce do negocjacji protoko³u
+rodzaj uwierzytelnienia do negocjacji protoko³u
+
+aktualnie wspierane: basic, NTLM
+
+Obecnie typ uwierzytelnienia ma zastosowanie wy³±cznie w protokole 'connect'.
+
+domy¶lnie: basic
 
 =item B<protocolHost> = adres:port
 
 adres docelowy do negocjacji protoko³u
 
+=item B<protocolPassword> = has³o
+
+has³o do negocjacji protoko³u
+
+=item B<protocolUsername> = u¿ytkownik
+
+nazwa u¿ytkownika do negocjacji protoko³u
+
 =item B<pty> = yes | no (tylko Unix)
 
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
+
+=item B<retry> = yes | no (tylko Unix)
+
+po³±cz ponownie sekcjê connect+exec po roz³±czeniu
+
+domy¶lnie: no
 
 =item B<session> = przeterminowanie_pamiêci_podrêcznej_sesji
 

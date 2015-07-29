@@ -44,8 +44,13 @@ static void smtp_server(CLI *);
 static void pop3_client(CLI *);
 static void pop3_server(CLI *);
 static void imap_client(CLI *);
+static void imap_server(CLI *);
 static void nntp_client(CLI *);
 static void connect_client(CLI *);
+static char *ntlm1();
+static char *ntlm3(char *, char *, char *);
+static void crypt_DES(DES_cblock, DES_cblock, DES_cblock);
+static char *base64(int, char *, int);
 
 void negotiate(CLI *c) {
     if(!c->opt->protocol)
@@ -79,13 +84,15 @@ void negotiate(CLI *c) {
             smtp_server(c);
         else if(!strcmp(c->opt->protocol, "pop3"))
             pop3_server(c);
+        else if(!strcmp(c->opt->protocol, "imap"))
+            imap_server(c);
         else {
             s_log(LOG_ERR, "Protocol %s not supported in server mode",
                 c->opt->protocol);
             longjmp(c->err, 1);
         }
     }
-    s_log(LOG_NOTICE, "Protocol negotiations succeded");
+    s_log(LOG_NOTICE, "Protocol negotiations succeeded");
 }
 
 static void cifs_client(CLI *c) {
@@ -241,9 +248,94 @@ static void imap_client(CLI *c) {
     fdputline(c, c->remote_fd.fd, "stunnel STARTTLS");
     fdgetline(c, c->remote_fd.fd, line);
     if(!isprefix(line, "stunnel OK")) {
+        fdputline(c, c->local_wfd.fd,
+            "* BYE stunnel: Server does not support TLS");
         s_log(LOG_ERR, "Server does not support TLS");
+        longjmp(c->err, 2); /* don't reset */
+    }
+}
+
+static void imap_server(CLI *c) {
+    char line[STRLEN], id[STRLEN], *tail, *capa;
+ 
+    s_poll_zero(&c->fds);
+    s_poll_add(&c->fds, c->local_rfd.fd, 1, 0);
+    switch(s_poll_wait(&c->fds, 0, 200)) {
+    case 0: /* fd not ready to read */
+        s_log(LOG_DEBUG, "RFC 2595 detected");
+        break;
+    case 1: /* fd ready to read */
+        s_log(LOG_DEBUG, "RFC 2595 not detected");
+        return; /* Return if RFC 2595 is not used */
+    default: /* -1 */
+        sockerror("RFC2595 (s_poll_wait)");
         longjmp(c->err, 1);
     }
+
+    /* process server welcome and send it to client */
+    fdgetline(c, c->remote_fd.fd, line);
+    if(!isprefix(line, "* OK")) {
+        s_log(LOG_ERR, "Unknown server welcome");
+        longjmp(c->err, 1);
+    }
+    capa=strstr(line, "CAPABILITY");
+    if(!capa)
+        capa=strstr(line, "capability");
+    if(capa)
+        *capa='K'; /* disable CAPABILITY within greeting */
+    fdprintf(c, c->local_wfd.fd, "%s (stunnel)", line);
+
+    while(1) { /* process client commands */
+        fdgetline(c, c->local_rfd.fd, line);
+        /* split line into id and tail */
+        safecopy(id, line);
+        tail=strchr(id, ' ');
+        if(!tail)
+            break;
+        *tail++='\0';
+
+        if(isprefix(tail, "STARTTLS")) {
+            fdprintf(c, c->local_wfd.fd,
+                "%s OK Begin TLS negotiation now", id);
+            return; /* success */
+        } else if(isprefix(tail, "CAPABILITY")) {
+            fdputline(c, c->remote_fd.fd, line); /* send it to server */
+            fdgetline(c, c->remote_fd.fd, line); /* get the capabilites */
+            if(*line=='*') {
+                /* 
+                 * append STARTTLS
+                 * should also add LOGINDISABLED, but can't because
+                 * of Mozilla bug #324138/#312009
+                 * LOGIN would fail as "unexpected command", anyway
+                 */
+                fdprintf(c, c->local_wfd.fd, "%s STARTTLS", line);
+                fdgetline(c, c->remote_fd.fd, line); /* next line */
+            }
+            fdputline(c, c->local_wfd.fd, line); /* forward to the client */
+            tail=strchr(line, ' ');
+            if(!tail || !isprefix(tail+1, "OK")) { /* not OK? */
+                fdputline(c, c->local_wfd.fd,
+                    "* BYE unexpected server response");
+                s_log(LOG_ERR, "Unexpected server response: %s", line);
+                break;
+            }
+        } else if(isprefix(tail, "LOGOUT")) {
+            fdputline(c, c->local_wfd.fd, "* BYE server terminating");
+            fdprintf(c, c->local_wfd.fd, "%s OK LOGOUT completed", id);
+            break;
+        } else {
+            fdputline(c, c->local_wfd.fd, "* BYE stunnel: unexpected command");
+            fdprintf(c, c->local_wfd.fd, "%s BAD %s unexpected", id, tail);
+            s_log(LOG_ERR, "Unexpected client command %s", tail);
+            break;
+        }
+    }    
+    /* clean server shutdown */
+    fdputline(c, c->remote_fd.fd, "stunnel LOGOUT");
+    fdgetline(c, c->remote_fd.fd, line);
+    if(*line=='*')
+        fdgetline(c, c->remote_fd.fd, line);
+    longjmp(c->err, 2); /* don't reset */
 }
 
 static void nntp_client(CLI *c) {
@@ -264,7 +356,7 @@ static void nntp_client(CLI *c) {
 }
 
 static void connect_client(CLI *c) {
-    char line[STRLEN];
+    char line[STRLEN], ntlm2[STRLEN], *encoded;
 
     if(!c->opt->protocol_host) {
         s_log(LOG_ERR, "protocolHost not specified");
@@ -273,22 +365,177 @@ static void connect_client(CLI *c) {
     fdprintf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1",
         c->opt->protocol_host);
     fdprintf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
-    if(c->opt->protocol_credentials)
-        fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: basic %s",
-            c->opt->protocol_credentials);
+    if(c->opt->protocol_username && c->opt->protocol_password) {
+        if(!strcasecmp(c->opt->protocol_authentication, "NTLM")) {
+
+            /* send Proxy-Authorization (phase 1) */
+            fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s",
+                ntlm1());
+            fdputline(c, c->remote_fd.fd, ""); /* empty line */
+            fdgetline(c, c->remote_fd.fd, line);
+
+            /* receive Proxy-Authenticate (phase 2) */
+            if(line[9]!='4' || line[10]!='0' || line[11]!='7') { /* code 407 */
+                s_log(LOG_ERR, "NTLM authorization request rejected");
+                do { /* read all headers */
+                    fdgetline(c, c->remote_fd.fd, line);
+                } while(*line);
+                longjmp(c->err, 1);
+            }
+            *ntlm2='\0';
+            do { /* read all headers */
+                fdgetline(c, c->remote_fd.fd, line);
+                if(isprefix(line, "Proxy-Authenticate: NTLM "))
+                    safecopy(ntlm2, line+25);
+            } while(*line);
+
+            /* send Proxy-Authorization (phase 3) */
+            fdprintf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1",
+                c->opt->protocol_host);
+            fdprintf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
+            encoded=ntlm3(c->opt->protocol_username, c->opt->protocol_password,
+                ntlm2);
+            safecopy(line, encoded);
+            free(encoded);
+            fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", line);
+        } else { /* basic authentication */
+            safecopy(line, c->opt->protocol_username);
+            safeconcat(line, ":");
+            safeconcat(line, c->opt->protocol_password);
+            encoded=base64(1, line, strlen(line));
+            safecopy(line, encoded);
+            free(encoded);
+            fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: basic %s",
+                line);
+        }
+    }
     fdputline(c, c->remote_fd.fd, ""); /* empty line */
     fdgetline(c, c->remote_fd.fd, line);
     if(line[9]!='2') { /* "HTTP/1.0 200 Connection established" */
         s_log(LOG_ERR, "CONNECT request rejected");
-        do {
-            fdgetline(c, c->remote_fd.fd, line); /* read all headers */
-        } while(line[0]);
+        do { /* read all headers */
+            fdgetline(c, c->remote_fd.fd, line);
+        } while(*line);
         longjmp(c->err, 1);
     }
     s_log(LOG_INFO, "CONNECT request accepted");
     do {
         fdgetline(c, c->remote_fd.fd, line); /* read all headers */
-    } while(line[0]);
+    } while(*line);
+}
+
+/* 
+ * NTLM code is based on the following documentation:
+ * http://davenport.sourceforge.net/ntlm.html
+ * http://www.innovation.ch/personal/ronald/ntlm.html
+ */
+
+static char *ntlm1() {
+    char phase1[16];
+
+    memset(phase1, 0, sizeof(phase1));
+    strcpy(phase1, "NTLMSSP");
+    phase1[8]=1; /* type: 1 */
+    phase1[12]=2; /* flag: negotiate OEM */
+    phase1[13]=2; /* flag: negotiate NTLM */
+    return base64(1, phase1, sizeof(phase1)); /* encode */
+}
+
+#define s_min(a, b) ((a)>(b)?(b):(a))
+
+static char *ntlm3(char *username, char *password, char *phase2) {
+    char *decoded; /* decoded reply from proxy */
+    char phase3[146];
+    char md4_hash[21];
+    int userlen=strlen(username);
+    int phase3len=s_min(88+userlen, sizeof(phase3));
+    MD4_CTX md4;
+
+    /* setup phase3 structure */
+    memset(phase3, 0, sizeof(phase3));
+    strcpy(phase3, "NTLMSSP");
+    phase3[8]=3;            /* type: 3 */
+    phase3[16]=phase3len;   /* LM-resp off */
+    phase3[20]=24;          /* NT-resp len */
+    phase3[22]=24;          /* NT-Resp len */
+    phase3[24]=64;          /* NT-resp off */
+    phase3[32]=phase3len;   /* domain offset */
+    phase3[36]=userlen;     /* user length */
+    phase3[38]=userlen;     /* user length */
+    phase3[40]=88;          /* user offset */
+    phase3[48]=phase3len;   /* host offset */
+    phase3[56]=phase3len;   /* message len */
+    phase3[60]=2;           /* flag: negotiate OEM */
+    phase3[61]=2;           /* flag: negotiate NTLM */
+
+    /* calculate MD4 of UTF-16 encoded password */
+    MD4_Init(&md4);
+    while(*password) {
+        MD4_Update(&md4, password++, 1);
+        MD4_Update(&md4, "", 1); /* UTF-16 */
+    }
+    MD4_Final(md4_hash, &md4);
+    memset(md4_hash+16, 0, 5); /* pad to 21 bytes */
+
+    /* decode challenge and calculate response */
+    decoded=base64(0, phase2, strlen(phase2)); /* decode */
+    crypt_DES(phase3+64, decoded+24, md4_hash);
+    crypt_DES(phase3+72, decoded+24, md4_hash+7);
+    crypt_DES(phase3+80, decoded+24, md4_hash+14);
+    free(decoded);
+
+    strncpy(phase3+88, username, sizeof(phase3)-88);
+
+    return base64(1, phase3, phase3len); /* encode */
+}
+
+static void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
+    DES_cblock key;
+    DES_key_schedule sched;
+
+    /* convert key from 56 to 64 bits */
+    key[0]=hash[0];
+    key[1]=((hash[0]&1)<<7)|(hash[1]>>1);
+    key[2]=((hash[1]&3)<<6)|(hash[2]>>2);
+    key[3]=((hash[2]&7)<<5)|(hash[3]>>3);
+    key[4]=((hash[3]&15)<<4)|(hash[4]>>4);
+    key[5]=((hash[4]&31)<<3)|(hash[5]>>5);
+    key[6]=((hash[5]&63)<<2)|(hash[6]>>6);
+    key[7]=((hash[6]&127)<<1);
+    DES_set_odd_parity(&key);
+
+    /* encrypt */
+    DES_set_key_unchecked(&key, &sched);
+    DES_ecb_encrypt((const_DES_cblock *)src,
+        (DES_cblock *)dst, &sched, DES_ENCRYPT);
+}
+
+static char *base64(int encode, char *in, int len) {
+    BIO *bio, *b64;
+    char *out;
+
+    b64=BIO_new(BIO_f_base64());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bio=BIO_new(BIO_s_mem());
+    if(encode)
+        bio=BIO_push(b64, bio);
+    BIO_write(bio, in, len);
+    BIO_flush(bio);
+    if(encode) {
+        bio=BIO_pop(bio);
+        BIO_free(b64);
+    } else {
+        bio=BIO_push(b64, bio);
+    }
+    len=BIO_pending(bio);
+    out=calloc(len+1, 1);
+    if(!out) {
+        log_raw("Fatal memory allocation error");
+        exit(2);
+    }
+    BIO_read(bio, out, len);
+    BIO_free_all(bio);
+    return out;
 }
 
 /* End of protocol.c */

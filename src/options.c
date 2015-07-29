@@ -46,7 +46,6 @@
 static void section_validate(char *, int, LOCAL_OPTIONS *, int);
 static void config_error(char *, int, char *);
 static char *stralloc(char *);
-static char *base64(char *);
 #ifndef USE_WIN32
 static char **argalloc(char *);
 #endif
@@ -56,7 +55,8 @@ static int parse_ssl_option(char *);
 static int print_socket_options(void);
 static void print_option(char *, int, OPT_UNION *);
 static int parse_socket_option(char *);
-static char *parse_ocsp_option(LOCAL_OPTIONS *, char *);
+static char *parse_ocsp_url(LOCAL_OPTIONS *, char *);
+static unsigned long parse_ocsp_flag(char *);
 
 GLOBAL_OPTIONS options;
 LOCAL_OPTIONS local_options;
@@ -802,7 +802,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     }
 
 #if SSLEAY_VERSION_NUMBER >= 0x00907000L
-    /* ocsp */
+    /* OCSP */
     switch(cmd) {
     case CMD_INIT:
         section->option.ocsp=0;
@@ -813,11 +813,31 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         if(strcasecmp(opt, "ocsp"))
             break;
         section->option.ocsp=1;
-        return parse_ocsp_option(section, arg);
+        return parse_ocsp_url(section, arg);
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
         log_raw("%-15s = OCSP server URL", "ocsp");
+        break;
+    }
+
+    /* OCSPflag */
+    switch(cmd) {
+    case CMD_INIT:
+        section->ocsp_flags=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "OCSPflag"))
+            break;
+        tmpnum=parse_ocsp_flag(arg);
+        if(!tmpnum)
+            return "Illegal OCSP flag";
+        section->ocsp_flags|=tmpnum;
+        return NULL;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = OCSP server flags", "OCSPflag");
         break;
     }
 #endif /* OpenSSL-0.9.7 */
@@ -862,21 +882,21 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         break;
     }
 
-    /* protocolCredentials */
+    /* protocolAuthentication */
     switch(cmd) {
     case CMD_INIT:
-        section->protocol_credentials=NULL;
+        section->protocol_authentication="basic";
         break;
     case CMD_EXEC:
-        if(strcasecmp(opt, "protocolCredentials"))
+        if(strcasecmp(opt, "protocolAuthentication"))
             break;
-        section->protocol_credentials=base64(arg);
+        section->protocol_authentication=stralloc(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        log_raw("%-15s = username:password for protocol negotiations",
-            "protocolCredentials");
+        log_raw("%-15s = authentication type for protocol negotiations",
+            "protocolAuthentication");
         break;
     }
 
@@ -895,6 +915,42 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_HELP:
         log_raw("%-15s = host:port for protocol negotiations",
             "protocolHost");
+        break;
+    }
+
+    /* protocolPassword */
+    switch(cmd) {
+    case CMD_INIT:
+        section->protocol_password=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "protocolPassword"))
+            break;
+        section->protocol_password=stralloc(arg);
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = password for protocol negotiations",
+            "protocolPassword");
+        break;
+    }
+
+    /* protocolUsername */
+    switch(cmd) {
+    case CMD_INIT:
+        section->protocol_username=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "protocolUsername"))
+            break;
+        section->protocol_username=stralloc(arg);
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = username for protocol negotiations",
+            "protocolUsername");
         break;
     }
 
@@ -919,6 +975,31 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_HELP:
         log_raw("%-15s = yes|no allocate pseudo terminal for 'exec' option",
             "pty");
+        break;
+    }
+#endif
+
+    /* retry */
+#ifndef USE_WIN32
+    switch(cmd) {
+    case CMD_INIT:
+        section->option.retry=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "retry"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.retry=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.retry=0;
+        else
+            return "Argument should be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = yes|no retry connect+exec section",
+            "retry");
         break;
     }
 #endif
@@ -1204,7 +1285,7 @@ void parse_config(char *name, char *parameter) {
             log_raw("No file descriptor specified");
             syntax(default_config_file);
         }
-        for(arg=parameter, i=0; *arg; arg++) {
+        for(arg=parameter, i=0; *arg; ++arg) {
             if(*arg<'0' || *arg>'9') {
                 log_raw("Invalid file descriptor %s", parameter);
                 syntax(default_config_file);
@@ -1227,17 +1308,17 @@ void parse_config(char *name, char *parameter) {
     }
     line_number=0;
     while(file_getline(df, confline, CONFLINELEN)) {
-        line_number++;
+        ++line_number;
         opt=confline;
         while(isspace((unsigned char)*opt))
-            opt++; /* remove initial whitespaces */
+            ++opt; /* remove initial whitespaces */
         for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); --i)
             opt[i]='\0'; /* remove trailing whitespaces */
         if(opt[0]=='\0' || opt[0]=='#' || opt[0]==';') /* empty or comment */
             continue;
         if(opt[0]=='[' && opt[strlen(opt)-1]==']') { /* new section */
             section_validate(filename, line_number, section, 0);
-            opt++;
+            ++opt;
             opt[strlen(opt)-1]='\0';
             new_section=calloc(1, sizeof(LOCAL_OPTIONS));
             if(!new_section) {
@@ -1263,7 +1344,7 @@ void parse_config(char *name, char *parameter) {
         for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); --i)
             opt[i]='\0'; /* remove trailing whitespaces */
         while(isspace((unsigned char)*arg))
-            arg++; /* remove initial whitespaces */
+            ++arg; /* remove initial whitespaces */
         errstr=service_options(CMD_EXEC, section, opt, arg);
         if(section==&local_options && errstr==option_not_found)
             errstr=global_options(CMD_EXEC, opt, arg);
@@ -1345,30 +1426,6 @@ static char *stralloc(char *str) { /* Allocate static string */
     return retval;
 }
 
-static char *base64(char *str) { /* Allocate base64-encoded string */
-    BIO *bio, *b64;
-    char *retval;
-    int len;
-
-    b64=BIO_new(BIO_f_base64());
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-    bio=BIO_new(BIO_s_mem());
-    bio=BIO_push(b64, bio);
-    BIO_write(bio, str, strlen(str));
-    BIO_flush(bio);
-    bio=BIO_pop(bio);
-    BIO_free(b64);
-    len=BIO_pending(bio);
-    retval=calloc(len+1, 1);
-    if(!retval) {
-        log_raw("Fatal memory allocation error");
-        exit(2);
-    }
-    BIO_read(bio, retval, len);
-    BIO_free(bio);
-    return retval;
-}
-
 #ifndef USE_WIN32
 static char **argalloc(char *str) { /* Allocate 'exec' argumets */
     int max_arg, i;
@@ -1385,7 +1442,7 @@ static char **argalloc(char *str) { /* Allocate 'exec' argumets */
     while(*ptr && i<max_arg) {
         retval[i++]=ptr;
         while(*ptr && !isspace((unsigned char)*ptr))
-            ptr++;
+            ++ptr;
         while(*ptr && isspace((unsigned char)*ptr))
             *ptr++='\0';
     }
@@ -1447,7 +1504,7 @@ static int parse_debug_level(char *arg) {
         options.facility=-1;
         string=strtok(arg_copy, "."); /* break it up */
 
-        for(fl=facilities; fl->name; fl++) {
+        for(fl=facilities; fl->name; ++fl) {
             if(!strcasecmp(fl->name, string)) {
                 options.facility = fl->value;
                 break;
@@ -1465,7 +1522,7 @@ static int parse_debug_level(char *arg) {
         return 1; /* OK */
     }
     options.debug_level=8;    /* illegal level */
-    for(fl=levels; fl->name; fl++) {
+    for(fl=levels; fl->name; ++fl) {
         if(!strcasecmp(fl->name, string)) {
             options.debug_level=fl->value;
             break;
@@ -1514,10 +1571,9 @@ static int parse_ssl_option(char *arg) {
         {NULL, 0}
     }, *option;
 
-    for(option=ssl_opts; option->name; option++)
-        if(!strcasecmp(option->name, arg)) {
+    for(option=ssl_opts; option->name; ++option)
+        if(!strcasecmp(option->name, arg))
             return option->value;
-        }
     return 0; /* FAILED */
 }
 
@@ -1577,7 +1633,7 @@ static int print_socket_options(void) {
     log_raw("Socket option defaults:");
     log_raw("    %-16s%-10s%-10s%-10s%-10s",
         "Option", "Accept", "Local", "Remote", "OS default");
-    for(ptr=sock_opts; ptr->opt_str; ptr++) {
+    for(ptr=sock_opts; ptr->opt_str; ++ptr) {
         /* display option name */
         sprintf(line, "    %-16s", ptr->opt_str);
         /* display stunnel default values */
@@ -1658,7 +1714,7 @@ static int parse_socket_option(char *arg) {
             return 0; /* FAILED */
         if(!strcmp(arg, ptr->opt_str))
             break; /* option name found */
-        ptr++;
+        ++ptr;
     }
     ptr->opt_val[socket_type]=calloc(1, sizeof(OPT_UNION));
     switch(ptr->opt_type) {
@@ -1697,9 +1753,9 @@ static int parse_socket_option(char *arg) {
     return 0; /* FAILED */
 }
 
-/* Parse out OCSP stuff */
+/* Parse out OCSP URL */
 
-static char *parse_ocsp_option(LOCAL_OPTIONS *section, char *arg) {
+static char *parse_ocsp_url(LOCAL_OPTIONS *section, char *arg) {
     char *host, *port, *path;
     int ssl;
 
@@ -1718,6 +1774,34 @@ static char *parse_ocsp_option(LOCAL_OPTIONS *section, char *arg) {
     if(path)
         OPENSSL_free(path);
     return NULL; /* OK! */
+}
+
+/* Parse out OCSP flags stuff */
+
+static unsigned long parse_ocsp_flag(char *arg) {
+    struct {
+        char *name;
+        unsigned long value;
+    } ocsp_opts[] = {
+        {"NOCERTS", OCSP_NOCERTS},
+        {"NOINTERN", OCSP_NOINTERN},
+        {"NOSIGS", OCSP_NOSIGS},
+        {"NOCHAIN", OCSP_NOCHAIN},
+        {"NOVERIFY", OCSP_NOVERIFY},
+        {"NOEXPLICIT", OCSP_NOEXPLICIT},
+        {"NOCASIGN", OCSP_NOCASIGN},
+        {"NODELEGATED", OCSP_NODELEGATED},
+        {"NOCHECKS", OCSP_NOCHECKS},
+        {"TRUSTOTHER", OCSP_TRUSTOTHER},
+        {"RESPID_KEY", OCSP_RESPID_KEY},
+        {"NOTIME", OCSP_NOTIME},
+        {NULL, 0}
+    }, *option;
+
+    for(option=ocsp_opts; option->name; ++option)
+        if(!strcasecmp(option->name, arg))
+            return option->value;
+    return 0; /* FAILED */
 }
 
 /* End of options.c */

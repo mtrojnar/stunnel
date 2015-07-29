@@ -529,9 +529,9 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
         switch(wParam) {
         case IDOK:
             /* Get number of characters. */
-            cchPassword = (WORD) SendDlgItemMessage(hDlg,
+            cchPassword=(WORD)SendDlgItemMessage(hDlg,
                 IDE_PASSEDIT, EM_LINELENGTH, (WPARAM) 0, (LPARAM) 0);
-            if(cchPassword==0 || cchPassword>=STRLEN) {
+            if(!cchPassword || cchPassword>=PEM_BUFSIZE) {
                 EndDialog(hDlg, FALSE);
                 return FALSE;
             }
@@ -563,7 +563,7 @@ int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
     if(!DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc))
         return 0; /* error */
     strncpy(buf, ui_data->pass, size);
-    buf[size - 1] = '\0';
+    buf[size-1]='\0';
     return strlen(buf);
 }
 

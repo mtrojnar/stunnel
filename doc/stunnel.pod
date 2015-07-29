@@ -386,9 +386,18 @@ default: value of I<cert> option
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
 
-=item B<ocsp> = url
+=item B<OCSP> = url
 
 select OCSP server for certificate verification
+
+=item B<OCSPflag> = flag
+
+specify OCSP server flag
+
+Several I<OCSPflag> can be used to specify multiple flags.
+
+currently supported flags: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
+NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
 
 =item B<options> = SSL_options
 
@@ -407,19 +416,39 @@ the following option can be used:
 
 application protocol to negotiate SSL
 
-currently supported: cifs, connect, nntp, pop3, smtp
+currently supported: cifs, connect, imap, nntp, pop3, smtp
 
-=item B<protocolCredentials> = username:password
+=item B<protocolAuthentication> = auth_type
 
-credentials for protocol negotiations
+authentication type for protocol negotiations
+
+currently supported: basic, NTLM
+
+Currently authentication type only applies to 'connect' protocol.
+
+default: basic
 
 =item B<protocolHost> = host:port
 
 destination address for protocol negotiations
 
+=item B<protocolPassword> = password
+
+password for protocol negotiations
+
+=item B<protocolUsername> = username
+
+username for protocol negotiations
+
 =item B<pty> = yes | no (Unix only)
 
 allocate pseudo terminal for 'exec' option
+
+=item B<retry> = yes | no (Unix only)
+
+reconnect a connect+exec section after it's disconnected
+
+default: no
 
 =item B<session> = timeout
 

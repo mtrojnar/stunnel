@@ -572,10 +572,23 @@ IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
 serwera, do którego nawi±zywane jest po³±czenie.</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_ocsp__3d_url"><strong>ocsp</strong> = URL</a></strong><br />
+<dt><strong><a name="item_ocsp__3d_url"><strong>OCSP</strong> = URL</a></strong><br />
 </dt>
 <dd>
 serwer OCSP do weryfikacji certyfikatów
+</dd>
+<p></p>
+<dt><strong><a name="item_ocspflag__3d_flaga"><strong>OCSPflag</strong> = flaga</a></strong><br />
+</dt>
+<dd>
+flaga serwera OCSP
+</dd>
+<dd>
+<p>aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
+NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
+</dd>
+<dd>
+<p>Aby wyspecyfikowaæ kilka flag nale¿y u¿yæ <em>OCSPflag</em> wielokrotnie.</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_options__3d_opcje_ssl"><strong>options</strong> = opcje_SSL</a></strong><br />
@@ -603,13 +616,22 @@ w programie Eudora mo¿na u¿yæ opcji:</p>
 negocjuj SSL podanym protoko³em aplikacyjnym
 </dd>
 <dd>
-<p>aktualnie wspierane protoko³y: cifs, connect, nntp, pop3, smtp</p>
+<p>aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_protocolcredentials__3d_u_bfytkownik_3ahas_b3o"><strong>protocolCredentials</strong> = u¿ytkownik:has³o</a></strong><br />
+<dt><strong><a name="item_protocolauthentication__3d_uwierzytelnienie"><strong>protocolAuthentication</strong> = uwierzytelnienie</a></strong><br />
 </dt>
 <dd>
-dane uwierzytelniaj±ce do negocjacji protoko³u
+rodzaj uwierzytelnienia do negocjacji protoko³u
+</dd>
+<dd>
+<p>aktualnie wspierane: basic, NTLM</p>
+</dd>
+<dd>
+<p>Obecnie typ uwierzytelnienia ma zastosowanie wy³±cznie w protokole 'connect'.</p>
+</dd>
+<dd>
+<p>domy¶lnie: basic</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_protocolhost__3d_adres_3aport"><strong>protocolHost</strong> = adres:port</a></strong><br />
@@ -618,10 +640,31 @@ dane uwierzytelniaj±ce do negocjacji protoko³u
 adres docelowy do negocjacji protoko³u
 </dd>
 <p></p>
+<dt><strong><a name="item_protocolpassword__3d_has_b3o"><strong>protocolPassword</strong> = has³o</a></strong><br />
+</dt>
+<dd>
+has³o do negocjacji protoko³u
+</dd>
+<p></p>
+<dt><strong><a name="item_protocolusername__3d_u_bfytkownik"><strong>protocolUsername</strong> = u¿ytkownik</a></strong><br />
+</dt>
+<dd>
+nazwa u¿ytkownika do negocjacji protoko³u
+</dd>
+<p></p>
 <dt><strong><strong>pty</strong> = yes | no (tylko Unix)</strong><br />
 </dt>
 <dd>
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
+</dd>
+<p></p>
+<dt><strong><strong>retry</strong> = yes | no (tylko Unix)</strong><br />
+</dt>
+<dd>
+po³±cz ponownie sekcjê connect+exec po roz³±czeniu
+</dd>
+<dd>
+<p>domy¶lnie: no</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_session__3d_przeterminowanie_pami_eaci_podr_eaczne"><strong>session</strong> = przeterminowanie_pamiêci_podrêcznej_sesji</a></strong><br />

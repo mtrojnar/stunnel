@@ -8,7 +8,7 @@
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=../openssl-0.9.8c
+SSLDIR=../openssl-0.9.8d
 
 DEFINES=-DUSE_WIN32 -DHAVE_OPENSSL
 
@@ -19,7 +19,7 @@ LDFLAGS=-s
 # LIBS=-L$(SSLDIR)/out -lssl -lcrypto -lwsock32 -lgdi32
 
 LIBS=-L$(SSLDIR)/out -lzdll -leay32 -lssl32 -lwsock32 -lgdi32
-OBJS=stunnel.o ssl.o ctx.o file.o client.o protocol.o sthreads.o log.o options.o network.o resolver.o gui.o resources.o
+OBJS=stunnel.o ssl.o ctx.o verify.o file.o client.o protocol.o sthreads.o log.o options.o network.o resolver.o gui.o resources.o
 
 stunnel.exe: $(OBJS)
 	$(CC) $(LDFLAGS) -o stunnel.exe $(OBJS) $(LIBS) -mwindows

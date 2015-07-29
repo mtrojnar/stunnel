@@ -5,7 +5,7 @@ WCEVER=300
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=..\..\build\openssl-0.9.8c
+SSLDIR=..\..\build\openssl-0.9.8d
 COMPATDIR=..\..\build\wcecompat
 CEUTILSDIR=..\..\ceutils
 DSTDIR=ce:\stunnel
@@ -19,7 +19,7 @@ CFLAGS=/nologo /MC /O1i /W3 /WX /GF /Gy /DHOST=\"$(TARGETCPU)-WCE-eVC-$(WCEVER)\
 RFLAGS=$(INCLUDES)
 LDFLAGS=/nologo /subsystem:windowsce,3.00 /machine:ARM /libpath:"$(SDKDIR)\lib\$(TARGETCPU)" /libpath:"$(COMPATDIR)\lib" /libpath:"$(SSLDIR)\out32dll"
 
-OBJS=stunnel.obj ssl.obj ctx.obj file.obj client.obj protocol.obj sthreads.obj log.obj options.obj network.obj resolver.obj
+OBJS=stunnel.obj ssl.obj ctx.obj verify.obj file.obj client.obj protocol.obj sthreads.obj log.obj options.obj network.obj resolver.obj
 GUIOBJS=gui.obj resources.res
 NOGUIOBJS=nogui.obj
 

@@ -34,7 +34,7 @@ STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About stunnel"
 BEGIN
     ICON            IDI_MYICON,-1,9,8,18,20
-    LTEXT           "stunnel version 4.18",-1,30,4,104,8
+    LTEXT           "stunnel version " VERSION,-1,30,4,104,8
     LTEXT           "© by Michal Trojnara 2006",-1,30,12,104,8
     LTEXT           "All Rights Reserved",-1,30,20,104,8
     LTEXT           "Licensed under the GNU GPL version 2",-1,4,28,130,8

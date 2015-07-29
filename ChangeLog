@@ -1,9 +1,31 @@
 stunnel         Universal SSL tunnel
 
+Version 4.19, 2006.11.11, urgency: LOW/EXPERIMENTAL:
+* Release notes
+  - There are a lot of new features in this version.  I recommend
+    to test it well before upgrading your mission-critical systems.
+* New features
+  - New service-level option to specify OCSP server flag:
+    OCSPflag = <flag>
+  - "protocolCredentials" option changed to "protocolUsername"
+    and "protocolPassword"
+  - NTLM support to be enabled with the new service-level option:
+    protocolAuthentication = NTLM
+  - imap protocol negotiation support added.
+  - Passphrase cache was added so the user does not need to reenter
+    the same passphrase for each defined service any more.
+  - New service-level option to retry connect+exec section:
+    retry = yes|no
+  - Local IP and port is logged for each established connection.
+  - Win32 DLLs for OpenSSL 0.9.8d.
+* Bugfixes
+  - Serious problem with SSL_WANT_* retries fixed.
+    The new code requires extensive testing!
+
 Version 4.18, 2006.09.26, urgency: MEDIUM:
 * Bugfixes
   - GPF on entering private key pass phrase on Win32 fixed.
-  - Updated Win32 DLLs.
+  - Updated OpenSSL Win32 DLLs.
   - Minor configure script update.
 
 Version 4.17, 2006.09.10, urgency: MEDIUM:
@@ -40,8 +62,8 @@ Version 4.16, 2006.08.31, urgency: MEDIUM:
   - Check for maximum number of defined services added.
   - OpenSSL_add_all_algorithms() added to SSL initialization.
   - configure script sections reordered to detect pthread library funcions.
-  - RFC 2487 autdoetection improved (thx to Hans Werner Strube).  High
-    resolution s_poll_wait() not currently supported by UCONTEXT threading.
+  - RFC 2487 autdoetection improved.  High resolution s_poll_wait()
+    not currently supported by UCONTEXT threading.
   - More precise description of cert directory file names (thx to Muhammad
     Muquit).
 * Other changes
@@ -52,8 +74,7 @@ Version 4.15, 2006.03.11, urgency: LOW:
   - There are a lot of new features in this version.  I recommend
     to test it well before upgrading your mission-critical systems.
 * Bugfixes
-  - Fix for pthreads on Solaris 10 (thx to Hans Werner Strube
-    <strube@physik3.gwdg.de>).
+  - Fix for pthreads on Solaris 10.
   - Attempt to autodetect socklen_t type in configure script.
   - Default threading model changed to pthread for better portability.
   - DH parameters are not included in the certificate by default.
@@ -318,7 +339,6 @@ Version 4.01, 2002.10.20, urgency: MEDIUM:
   - Signal mask is cleared just before exec in local mode.
   - Accepting sockets and log file descriptors are no longer
     leaked to the child processes.
-Special thanks to Hans Werner Strube for his testing effort.
 Special thanks to Steve Grubb for the source code audit.
 
 Version 4.00, 2002.08.30, urgency: LOW:

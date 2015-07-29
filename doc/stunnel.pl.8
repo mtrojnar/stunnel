@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2006.08.31" "4.08" "stunnel"
+.TH STUNNEL.PL 8 "2006.11.11" "4.08" "stunnel"
 .SH "NAZWA"
 .IX Header "NAZWA"
 stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
@@ -466,9 +466,17 @@ domy¶lnie: warto¶æ opcji \fIcert\fR
 .Sp
 Domy¶lnie u¿ywane jest \s-1IP\s0 najbardziej zewnêtrznego interfejsu w stronê
 serwera, do którego nawi±zywane jest po³±czenie.
-.IP "\fBocsp\fR = \s-1URL\s0" 4
-.IX Item "ocsp = URL"
+.IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
+.IX Item "OCSP = URL"
 serwer \s-1OCSP\s0 do weryfikacji certyfikatów
+.IP "\fBOCSPflag\fR = flaga" 4
+.IX Item "OCSPflag = flaga"
+flaga serwera \s-1OCSP\s0
+.Sp
+aktualnie wspierane flagi: \s-1NOCERTS\s0, \s-1NOINTERN\s0 \s-1NOSIGS\s0, \s-1NOCHAIN\s0, \s-1NOVERIFY\s0,
+\&\s-1NOEXPLICIT\s0, \s-1NOCASIGN\s0, \s-1NODELEGATED\s0, \s-1NOCHECKS\s0, \s-1TRUSTOTHER\s0, \s-1RESPID_KEY\s0, \s-1NOTIME\s0
+.Sp
+Aby wyspecyfikowaæ kilka flag nale¿y u¿yæ \fIOCSPflag\fR wielokrotnie.
 .IP "\fBoptions\fR = opcje_SSL" 4
 .IX Item "options = opcje_SSL"
 opcje biblioteki OpenSSL
@@ -487,16 +495,33 @@ w programie Eudora mo¿na u¿yæ opcji:
 .IX Item "protocol = protokó³"
 negocjuj \s-1SSL\s0 podanym protoko³em aplikacyjnym
 .Sp
-aktualnie wspierane protoko³y: cifs, connect, nntp, pop3, smtp
-.IP "\fBprotocolCredentials\fR = u¿ytkownik:has³o" 4
-.IX Item "protocolCredentials = u¿ytkownik:has³o"
-dane uwierzytelniaj±ce do negocjacji protoko³u
+aktualnie wspierane protoko³y: cifs, connect, imap, nntp, pop3, smtp
+.IP "\fBprotocolAuthentication\fR = uwierzytelnienie" 4
+.IX Item "protocolAuthentication = uwierzytelnienie"
+rodzaj uwierzytelnienia do negocjacji protoko³u
+.Sp
+aktualnie wspierane: basic, \s-1NTLM\s0
+.Sp
+Obecnie typ uwierzytelnienia ma zastosowanie wy³±cznie w protokole 'connect'.
+.Sp
+domy¶lnie: basic
 .IP "\fBprotocolHost\fR = adres:port" 4
 .IX Item "protocolHost = adres:port"
 adres docelowy do negocjacji protoko³u
+.IP "\fBprotocolPassword\fR = has³o" 4
+.IX Item "protocolPassword = has³o"
+has³o do negocjacji protoko³u
+.IP "\fBprotocolUsername\fR = u¿ytkownik" 4
+.IX Item "protocolUsername = u¿ytkownik"
+nazwa u¿ytkownika do negocjacji protoko³u
 .IP "\fBpty\fR = yes | no (tylko Unix)" 4
 .IX Item "pty = yes | no (tylko Unix)"
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
+.IP "\fBretry\fR = yes | no (tylko Unix)" 4
+.IX Item "retry = yes | no (tylko Unix)"
+po³±cz ponownie sekcjê connect+exec po roz³±czeniu
+.Sp
+domy¶lnie: no
 .IP "\fBsession\fR = przeterminowanie_pamiêci_podrêcznej_sesji" 4
 .IX Item "session = przeterminowanie_pamiêci_podrêcznej_sesji"
 czas w sekundach, po którym sesja \s-1SSL\s0 zostanie usuniêta z pamiêci podrêcznej

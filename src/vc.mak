@@ -5,11 +5,11 @@
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=..\openssl-0.9.8c
+SSLDIR=..\openssl-0.9.8d
 
-OBJS=stunnel.obj ssl.obj ctx.obj file.obj client.obj protocol.obj \
-	sthreads.obj log.obj options.obj network.obj resolver.obj \
-	gui.obj
+OBJS=stunnel.obj ssl.obj ctx.obj verify.obj file.obj client.obj \
+	protocol.obj sthreads.obj log.obj options.obj network.obj \
+	resolver.obj gui.obj
 	
 CC=cl
 CFLAGS=-MD -W3 -Ox -O2 -Ob2 -Gs0 -GF -Gy -GL -nologo \

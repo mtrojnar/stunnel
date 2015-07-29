@@ -545,10 +545,23 @@ IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
 </dd>
 <p></p>
-<dt><strong><a name="item_ocsp__3d_url"><strong>ocsp</strong> = url</a></strong><br />
+<dt><strong><a name="item_ocsp__3d_url"><strong>OCSP</strong> = url</a></strong><br />
 </dt>
 <dd>
 select OCSP server for certificate verification
+</dd>
+<p></p>
+<dt><strong><a name="item_ocspflag__3d_flag"><strong>OCSPflag</strong> = flag</a></strong><br />
+</dt>
+<dd>
+specify OCSP server flag
+</dd>
+<dd>
+<p>Several <em>OCSPflag</em> can be used to specify multiple flags.</p>
+</dd>
+<dd>
+<p>currently supported flags: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
+NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_options__3d_ssl_options"><strong>options</strong> = SSL_options</a></strong><br />
@@ -576,13 +589,22 @@ the following option can be used:</p>
 application protocol to negotiate SSL
 </dd>
 <dd>
-<p>currently supported: cifs, connect, nntp, pop3, smtp</p>
+<p>currently supported: cifs, connect, imap, nntp, pop3, smtp</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_protocolcredentials__3d_username_3apassword"><strong>protocolCredentials</strong> = username:password</a></strong><br />
+<dt><strong><a name="item_protocolauthentication__3d_auth_type"><strong>protocolAuthentication</strong> = auth_type</a></strong><br />
 </dt>
 <dd>
-credentials for protocol negotiations
+authentication type for protocol negotiations
+</dd>
+<dd>
+<p>currently supported: basic, NTLM</p>
+</dd>
+<dd>
+<p>Currently authentication type only applies to 'connect' protocol.</p>
+</dd>
+<dd>
+<p>default: basic</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_protocolhost__3d_host_3aport"><strong>protocolHost</strong> = host:port</a></strong><br />
@@ -591,10 +613,31 @@ credentials for protocol negotiations
 destination address for protocol negotiations
 </dd>
 <p></p>
+<dt><strong><a name="item_protocolpassword__3d_password"><strong>protocolPassword</strong> = password</a></strong><br />
+</dt>
+<dd>
+password for protocol negotiations
+</dd>
+<p></p>
+<dt><strong><a name="item_protocolusername__3d_username"><strong>protocolUsername</strong> = username</a></strong><br />
+</dt>
+<dd>
+username for protocol negotiations
+</dd>
+<p></p>
 <dt><strong><strong>pty</strong> = yes | no (Unix only)</strong><br />
 </dt>
 <dd>
 allocate pseudo terminal for 'exec' option
+</dd>
+<p></p>
+<dt><strong><strong>retry</strong> = yes | no (Unix only)</strong><br />
+</dt>
+<dd>
+reconnect a connect+exec section after it's disconnected
+</dd>
+<dd>
+<p>default: no</p>
 </dd>
 <p></p>
 <dt><strong><a name="item_session__3d_timeout"><strong>session</strong> = timeout</a></strong><br />

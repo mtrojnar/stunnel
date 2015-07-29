@@ -24,7 +24,7 @@
 /**************************************** Common constants */
 
 #ifndef VERSION
-#define VERSION "4.18"
+#define VERSION "undefined"
 #endif
 
 #ifdef OPTIMIZE_SCALABILITY
@@ -315,6 +315,8 @@ extern char *sys_errlist[];
 #include <openssl/err.h>
 #include <openssl/crypto.h> /* for CRYPTO_* and SSLeay_version */
 #include <openssl/rand.h>
+#include <openssl/md4.h>
+#include <openssl/des.h>
 #ifdef HAVE_OSSL_ENGINE_H
 #include <openssl/engine.h>
 #endif
@@ -326,6 +328,8 @@ extern char *sys_errlist[];
 #include <ssl.h>
 #include <err.h>
 #include <crypto.h> /* for CRYPTO_* and SSLeay_version */
+#include <md4.h>
+#include <des.h>
 #endif /* HAVE_OPENSSL */
 
 /**************************************** Other defines */

@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2006.08.31" "4.08" "stunnel"
+.TH STUNNEL 8 "2006.11.11" "4.08" "stunnel"
 .SH "NAME"
 stunnel \- universal SSL tunnel
 .SH "SYNOPSIS"
@@ -441,9 +441,17 @@ default: value of \fIcert\fR option
 .IX Item "local = host"
 \&\s-1IP\s0 of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local \s-1IP\s0 address, instead.
-.IP "\fBocsp\fR = url" 4
-.IX Item "ocsp = url"
+.IP "\fB\s-1OCSP\s0\fR = url" 4
+.IX Item "OCSP = url"
 select \s-1OCSP\s0 server for certificate verification
+.IP "\fBOCSPflag\fR = flag" 4
+.IX Item "OCSPflag = flag"
+specify \s-1OCSP\s0 server flag
+.Sp
+Several \fIOCSPflag\fR can be used to specify multiple flags.
+.Sp
+currently supported flags: \s-1NOCERTS\s0, \s-1NOINTERN\s0 \s-1NOSIGS\s0, \s-1NOCHAIN\s0, \s-1NOVERIFY\s0,
+\&\s-1NOEXPLICIT\s0, \s-1NOCASIGN\s0, \s-1NODELEGATED\s0, \s-1NOCHECKS\s0, \s-1TRUSTOTHER\s0, \s-1RESPID_KEY\s0, \s-1NOTIME\s0
 .IP "\fBoptions\fR = SSL_options" 4
 .IX Item "options = SSL_options"
 OpenSSL library options
@@ -462,16 +470,33 @@ the following option can be used:
 .IX Item "protocol = proto"
 application protocol to negotiate \s-1SSL\s0
 .Sp
-currently supported: cifs, connect, nntp, pop3, smtp
-.IP "\fBprotocolCredentials\fR = username:password" 4
-.IX Item "protocolCredentials = username:password"
-credentials for protocol negotiations
+currently supported: cifs, connect, imap, nntp, pop3, smtp
+.IP "\fBprotocolAuthentication\fR = auth_type" 4
+.IX Item "protocolAuthentication = auth_type"
+authentication type for protocol negotiations
+.Sp
+currently supported: basic, \s-1NTLM\s0
+.Sp
+Currently authentication type only applies to 'connect' protocol.
+.Sp
+default: basic
 .IP "\fBprotocolHost\fR = host:port" 4
 .IX Item "protocolHost = host:port"
 destination address for protocol negotiations
+.IP "\fBprotocolPassword\fR = password" 4
+.IX Item "protocolPassword = password"
+password for protocol negotiations
+.IP "\fBprotocolUsername\fR = username" 4
+.IX Item "protocolUsername = username"
+username for protocol negotiations
 .IP "\fBpty\fR = yes | no (Unix only)" 4
 .IX Item "pty = yes | no (Unix only)"
 allocate pseudo terminal for 'exec' option
+.IP "\fBretry\fR = yes | no (Unix only)" 4
+.IX Item "retry = yes | no (Unix only)"
+reconnect a connect+exec section after it's disconnected
+.Sp
+default: no
 .IP "\fBsession\fR = timeout" 4
 .IX Item "session = timeout"
 session cache timeout

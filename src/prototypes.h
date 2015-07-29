@@ -176,6 +176,7 @@ typedef struct local_options {
 #if SSLEAY_VERSION_NUMBER >= 0x00907000L
     SOCKADDR_LIST ocsp_addr;
     char *ocsp_path;
+    unsigned long ocsp_flags;
 #endif /* OpenSSL-0.9.7 */
     SSL_METHOD *(*client_method)(void), *(*server_method)(void);
 
@@ -194,7 +195,9 @@ typedef struct local_options {
         /* protocol name for protocol.c */
     char *protocol;
     char *protocol_host;
-    char *protocol_credentials;
+    char *protocol_username;
+    char *protocol_password;
+    char *protocol_authentication;
 
         /* on/off switches */
     struct {
@@ -203,6 +206,7 @@ typedef struct local_options {
         unsigned int delayed_lookup:1;
         unsigned int accept:1;
         unsigned int remote:1;
+        unsigned int retry:1; /* loop remote+program */
 #ifndef USE_WIN32
         unsigned int program:1;
         unsigned int pty:1;
@@ -242,6 +246,10 @@ void parse_config(char *, char *);
 
 void context_init(LOCAL_OPTIONS *);
 void sslerror(char *);
+
+/**************************************** Prototypes for verify.c */
+
+void verify_init(LOCAL_OPTIONS *);
 
 /**************************************** Prototypes for network.c */
 
@@ -284,7 +292,7 @@ typedef struct {
 
 typedef struct {
     LOCAL_OPTIONS *opt;
-    char accepting_address[IPLEN], connecting_address[IPLEN]; /* text */
+    char accepted_address[IPLEN]; /* text */
     SOCKADDR_LIST peer_addr; /* Peer address */
     FD local_rfd, local_wfd; /* Read and write local descriptors */
     FD remote_fd; /* Remote file descriptor */
@@ -381,7 +389,7 @@ void stack_info(int);
 
 typedef struct {
     LOCAL_OPTIONS *section;
-    char pass[STRLEN];
+    char pass[PEM_BUFSIZE];
 } UI_DATA;
 
 #ifdef USE_WIN32
