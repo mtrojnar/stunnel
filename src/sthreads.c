@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -92,8 +92,7 @@ NOEXPORT CONTEXT *new_context(void) {
     CONTEXT *context;
 
     /* allocate and fill the CONTEXT structure */
-    context=str_alloc(sizeof(CONTEXT));
-    str_detach(context);
+    context=str_alloc_detached(sizeof(CONTEXT));
     context->id=next_id++;
     context->fds=NULL;
     context->ready=0;
@@ -148,8 +147,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     context->context.uc_link=NULL; /* stunnel does not use uc_link */
 
     /* create stack */
-    context->stack=str_alloc(arg->opt->stack_size);
-    str_detach(context->stack);
+    context->stack=str_alloc_detached(arg->opt->stack_size);
 #if defined(__sgi) || ARGC==2 /* obsolete ss_sp semantics */
     context->context.uc_stack.ss_sp=context->stack+arg->opt->stack_size-8;
 #else
@@ -241,8 +239,7 @@ NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
-    value=str_alloc(sizeof(struct CRYPTO_dynlock_value));
-    str_detach(value);
+    value=str_alloc_detached(sizeof(struct CRYPTO_dynlock_value));
     pthread_mutex_init(&value->mutex, NULL);
     return value;
 }
@@ -277,6 +274,12 @@ unsigned long stunnel_thread_id(void) {
 #endif
 }
 
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+NOEXPORT void threadid_func(CRYPTO_THREADID *tid) {
+    CRYPTO_THREADID_set_numeric(tid, stunnel_thread_id());
+}
+#endif
+
 int sthreads_init(void) {
     int i;
 
@@ -285,11 +288,14 @@ int sthreads_init(void) {
         pthread_mutex_init(stunnel_cs+i, NULL);
 
     /* initialize OpenSSL locking callback */
-    lock_cs=str_alloc(CRYPTO_num_locks()*sizeof(pthread_mutex_t));
-    str_detach(lock_cs); /* do not track this allocation */
+    lock_cs=str_alloc_detached(CRYPTO_num_locks()*sizeof(pthread_mutex_t));
     for(i=0; i<CRYPTO_num_locks(); i++)
         pthread_mutex_init(lock_cs+i, NULL);
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+    CRYPTO_THREADID_set_callback(threadid_func);
+#else
     CRYPTO_set_id_callback(stunnel_thread_id);
+#endif
     CRYPTO_set_locking_callback(locking_callback);
 
     /* initialize OpenSSL dynamic locks callbacks */
@@ -374,8 +380,7 @@ NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
-    value=str_alloc(sizeof(struct CRYPTO_dynlock_value));
-    str_detach(value);
+    value=str_alloc_detached(sizeof(struct CRYPTO_dynlock_value));
     InitializeCriticalSection(&value->mutex);
     return value;
 }
@@ -414,8 +419,7 @@ int sthreads_init(void) {
         InitializeCriticalSection(stunnel_cs+i);
 
     /* initialize OpenSSL locking callback */
-    lock_cs=str_alloc(CRYPTO_num_locks()*sizeof(CRITICAL_SECTION));
-    str_detach(lock_cs); /* do not track this allocation */
+    lock_cs=str_alloc_detached(CRYPTO_num_locks()*sizeof(CRITICAL_SECTION));
     for(i=0; i<CRYPTO_num_locks(); i++)
         InitializeCriticalSection(lock_cs+i);
     CRYPTO_set_locking_callback(locking_callback);
@@ -513,12 +517,12 @@ void _endthread(void) {
 #ifdef DEBUG_STACK_SIZE
 
 #define STACK_RESERVE (STACK_SIZE/8)
-#define VERIFY_AREA ((STACK_SIZE-STACK_RESERVE)/sizeof(u32))
+#define VERIFY_AREA ((STACK_SIZE-STACK_RESERVE)/sizeof(uint32_t))
 #define TEST_VALUE 0xdeadbeef
 
 /* some heuristic to determine the usage of client stack size */
 void stack_info(int init) { /* 1-initialize, 0-display */
-    u32 table[VERIFY_AREA];
+    uint32_t table[VERIFY_AREA];
     int i, num;
     static int min_num=VERIFY_AREA;
 
@@ -546,10 +550,10 @@ void stack_info(int init) { /* 1-initialize, 0-display */
         s_log(LOG_NOTICE,
             "stack_info: size=%d, current=%d (%d%%), maximum=%d (%d%%)",
             STACK_SIZE,
-            (int)((VERIFY_AREA-num)*sizeof(u32)),
-            (int)((VERIFY_AREA-num)*sizeof(u32)*100/STACK_SIZE),
-            (int)((VERIFY_AREA-min_num)*sizeof(u32)),
-            (int)((VERIFY_AREA-min_num)*sizeof(u32)*100/STACK_SIZE));
+            (int)((VERIFY_AREA-num)*sizeof(uint32_t)),
+            (int)((VERIFY_AREA-num)*sizeof(uint32_t)*100/STACK_SIZE),
+            (int)((VERIFY_AREA-min_num)*sizeof(uint32_t)),
+            (int)((VERIFY_AREA-min_num)*sizeof(uint32_t)*100/STACK_SIZE));
     }
 }
 

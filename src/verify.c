@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -51,7 +51,7 @@ NOEXPORT int cert_check(X509_STORE_CTX *, int);
 NOEXPORT int cert_check_local(X509_STORE_CTX *);
 NOEXPORT int compare_pubkeys(X509 *, X509 *);
 NOEXPORT int crl_check(X509_STORE_CTX *);
-#ifdef HAVE_OSSL_OCSP_H
+#ifndef OPENSSL_NO_OCSP
 NOEXPORT int ocsp_check(X509_STORE_CTX *);
 NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *, OCSP_REQUEST *);
 #endif
@@ -224,13 +224,13 @@ NOEXPORT int verify_checks(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         str_free(subject);
         return 0; /* fail */
     }
-#ifdef HAVE_OSSL_OCSP_H
+#ifndef OPENSSL_NO_OCSP
     if(!ocsp_check(callback_ctx)) {
         s_log(LOG_WARNING, "Rejected by OCSP at depth=%d: %s", depth, subject);
         str_free(subject);
         return 0; /* fail */
     }
-#endif /* HAVE_OSSL_OCSP_H */
+#endif /* !defined(OPENSSL_NO_OCSP) */
 
     s_log(depth ? LOG_INFO : LOG_NOTICE,
         "Certificate accepted at depth=%d: %s", depth, subject);
@@ -303,6 +303,9 @@ NOEXPORT int compare_pubkeys(X509 *c1, X509 *c2) {
         s_log(LOG_DEBUG, "CERT: Public keys do not match");
         return 0; /* fail */
     }
+#else
+    (void)c1; /* skip warning about unused parameter */
+    (void)c2; /* skip warning about unused parameter */
 #endif
     s_log(LOG_INFO, "CERT: Locally installed certificate matched");
     return 1; /* success */
@@ -410,7 +413,7 @@ NOEXPORT int crl_check(X509_STORE_CTX *callback_ctx) {
     return 1; /* success */
 }
 
-#ifdef HAVE_OSSL_OCSP_H
+#ifndef OPENSSL_NO_OCSP
 
 /**************************************** OCSP checking */
 /* TODO: check OCSP server specified in the certificate */
@@ -579,7 +582,7 @@ cleanup:
     return resp;
 }
 
-#endif /* HAVE_OSSL_OCSP_H */
+#endif /* !defined(OPENSSL_NO_OCSP) */
 
 char *X509_NAME2text(X509_NAME *name) {
     char *text;
@@ -601,7 +604,6 @@ char *X509_NAME2text(X509_NAME *name) {
     }
     text[n]='\0';
     BIO_free(bio);
-    safestring(text);
     return text;
 }
 

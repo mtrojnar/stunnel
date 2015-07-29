@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.08])
+AC_INIT([stunnel],[5.09])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -99,11 +99,6 @@ LT_INIT([disable-static])
 AC_SUBST([LIBTOOL_DEPS])
 
 AC_MSG_NOTICE([**************************************** types])
-AC_CHECK_SIZEOF(unsigned char)
-AC_CHECK_SIZEOF(unsigned short)
-AC_CHECK_SIZEOF(unsigned int)
-AC_CHECK_SIZEOF(unsigned long)
-
 AC_MSG_CHECKING([for socklen_t])
 AC_EGREP_HEADER(socklen_t, sys/socket.h,
     AC_MSG_RESULT([yes]),
@@ -166,7 +161,7 @@ AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_DIRENT
 # AC_HEADER_STDC
 # AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS([malloc.h ucontext.h pthread.h poll.h tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h])
+AC_CHECK_HEADERS([stdint.h malloc.h ucontext.h pthread.h poll.h tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h])
 AC_CHECK_HEADERS([sys/types.h sys/select.h sys/poll.h sys/socket.h sys/un.h sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h sys/syscall.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
     [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1],
@@ -402,13 +397,13 @@ AC_ARG_ENABLE(systemd,
         AC_MSG_RESULT([autodetecting])
         # the library name has changed to -lsystemd in systemd 209
         AC_SEARCH_LIBS([sd_listen_fds], [systemd systemd-daemon],
-            AC_CHECK_HEADERS([systemd/sd-daemon.h], [
+            [ AC_CHECK_HEADERS([systemd/sd-daemon.h], [
                 AC_DEFINE([USE_SYSTEMD], [1],
                     [Define to 1 to enable systemd socket activation])
                 AC_MSG_NOTICE([systemd support enabled])
             ], [
                 AC_MSG_NOTICE([systemd header not found])
-            ]), [
+            ]) ], [
                 AC_MSG_NOTICE([systemd library not found])
             ])
     ]
@@ -462,7 +457,8 @@ AC_MSG_NOTICE([**************************************** SSL])
 AC_MSG_CHECKING([for compiler sysroot])
 if test "$GCC" = yes; then
     SYSROOT=`$CC --print-sysroot 2>/dev/null`
-else
+fi
+if test -z "$SYSROOT"; then
     SYSROOT="/"
 fi
 AC_MSG_RESULT([$SYSROOT])

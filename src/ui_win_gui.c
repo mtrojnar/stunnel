@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -742,7 +742,7 @@ int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
     return strlen(buf);
 }
 
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
 int pin_cb(UI *ui, UI_STRING *uis) {
     ui_data=UI_get0_user_data(ui); /* was: ui_data=UI_get_app_data(ui); */
     if(!ui_data) {

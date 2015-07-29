@@ -23,6 +23,7 @@ A sponsor could allocate my time to get them faster.
   This requires either Microsoft Visual Studio Standard Edition or Microsoft
   Visual Studio Professional Edition in order to retain FIPS compliance.
 * MSI installer for Windows.
+* Database and/or directory interface for retrieving PSK secrets.
 
 Low priority features.  They will unlikely ever be supported.
 * Support static FIPS-enabled build.

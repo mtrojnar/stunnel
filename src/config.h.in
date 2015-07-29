@@ -229,18 +229,6 @@
 /* Random file path */
 #undef RANDOM_FILE
 
-/* The size of `unsigned char', as computed by sizeof. */
-#undef SIZEOF_UNSIGNED_CHAR
-
-/* The size of `unsigned int', as computed by sizeof. */
-#undef SIZEOF_UNSIGNED_INT
-
-/* The size of `unsigned long', as computed by sizeof. */
-#undef SIZEOF_UNSIGNED_LONG
-
-/* The size of `unsigned short', as computed by sizeof. */
-#undef SIZEOF_UNSIGNED_SHORT
-
 /* SSL directory */
 #undef SSLDIR
 

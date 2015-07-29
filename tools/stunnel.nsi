@@ -1,9 +1,9 @@
-# NSIS stunnel installer by Michal Trojnara 1998-2014
+# NSIS stunnel installer by Michal Trojnara 1998-2015
 
 !include "Sections.nsh"
 
 !ifndef VERSION
-!define VERSION 5.08
+!define VERSION 5.09
 !endif
 
 !ifndef ZLIBDIR

@@ -731,6 +731,27 @@ hasło do negocjacji protokołu
 
 nazwa użytkownika do negocjacji protokołu
 
+=item B<PSKidentity> = TOŻSAMOŚĆ
+
+tożsamość klienta PSK
+
+I<PSKidentity> może zostać użyte w sekcjach klienckich do wybrania
+tożsamości użytej do uwierzytelnienia PSK.
+Opcja jest ignorowana w sekcjach serwerowych.
+
+domyślnie: pierwsza tożsamość zdefiniowana w pliku I<PSKsecrets>
+
+=item B<PSKsecrets> = PLIK
+
+plik z tożsamościami i kluczami PSK
+
+Każda linia pliku jest w następującym formacie:
+
+    TOŻSAMOŚĆ:KLUCZ
+
+Klucz musi być mieć przynajmniej 20 znaków.
+Należy ograniczyć dostęp do czytania lub pisania do tego pliku.
+
 =item B<pty> = yes | no (tylko Unix)
 
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
@@ -739,7 +760,7 @@ alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
 
 przekieruj klienta, któremu nie udało się poprawnie uwierzytelnić
 
-Ta opcja działa wyłącznie w trybie serwera, oraz przy wyłączonej negocjacji
+Opcja działa wyłącznie w trybie serwera, oraz przy wyłączonej negocjacji
 protokołu aplikacyjnego.
 
 =item B<renegotiation> = yes | no
@@ -763,7 +784,7 @@ domyślnie: yes (o ile wspierane przez B<OpenSSL>)
 
 sygnalizuj wystąpienie błędu przy pomocy flagi TCP RST
 
-Ta opcja nie jest wspierana na niektórych platformach.
+Opcja nie jest wspierana na niektórych platformach.
 
 domyślnie: yes
 

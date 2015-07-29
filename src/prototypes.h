@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -86,21 +86,21 @@ typedef struct name_list_struct {
 
 typedef struct sockaddr_list {                          /* list of addresses */
     SOCKADDR_UNION *addr;                           /* the list of addresses */
-    u16 *rr_ptr, rr_val;                  /* current address for round-robin */
-    u16 num;                                  /* how many addresses are used */
+    uint16_t *rr_ptr, rr_val;             /* current address for round-robin */
+    uint16_t num;                             /* how many addresses are used */
 } SOCKADDR_LIST;
 
 #ifndef OPENSSL_NO_COMP
 typedef enum {
     COMP_NONE, COMP_DEFLATE, COMP_ZLIB, COMP_RLE
 } COMP_TYPE;
-#endif /* OPENSSL_NO_COMP */
+#endif /* !defined(OPENSSL_NO_COMP) */
 
 typedef struct {
         /* some data for SSL initialization in ssl.c */
 #ifndef OPENSSL_NO_COMP
     COMP_TYPE compression;                               /* compression type */
-#endif /* OPENSSL_NO_COMP */
+#endif /* !defined(OPENSSL_NO_COMP) */
     char *egd_sock;                       /* entropy gathering daemon socket */
     char *rand_file;                                /* file with random data */
     int random_bytes;                       /* how many random bytes to read */
@@ -147,7 +147,16 @@ extern GLOBAL_OPTIONS global_options;
 
 #ifndef OPENSSL_NO_TLSEXT
 typedef struct servername_list_struct SERVERNAME_LIST;/* forward declaration */
-#endif
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
+
+#ifndef OPENSSL_NO_PSK
+typedef struct psk_keys_struct {
+    char *identity;
+    unsigned char *key_val;
+    unsigned int key_len;
+    struct psk_keys_struct *next;
+} PSK_KEYS;
+#endif /* !defined(OPENSSL_NO_PSK) */
 
 typedef struct service_options_struct {
     struct service_options_struct *next;   /* next node in the services list */
@@ -166,30 +175,37 @@ typedef struct service_options_struct {
     char *crl_file;                       /* file containing bunches of CRLs */
     int verify_level;
     X509_STORE *revocation_store;             /* cert store for CRL checking */
-#ifdef HAVE_OSSL_OCSP_H
+#ifndef OPENSSL_NO_OCSP
     SOCKADDR_UNION ocsp_addr;
     char *ocsp_path;
     unsigned long ocsp_flags;
-#endif
+#endif /* !defined(OPENSSL_NO_OCSP) */
 
         /* service-specific data for ctx.c */
     char *cipher_list;
     char *cert;                                             /* cert filename */
     char *key;                               /* pem (priv key/cert) filename */
     long session_size, session_timeout;
-    long ssl_options_set, ssl_options_clear;
+    long ssl_options_set;
+#if OPENSSL_VERSION_NUMBER>=0x009080dfL
+    long ssl_options_clear;
+#endif /* OpenSSL 0.9.8m or later */
     SSL_METHOD *client_method, *server_method;
     SOCKADDR_UNION sessiond_addr;
 #ifndef OPENSSL_NO_TLSEXT
     char *sni;
     SERVERNAME_LIST *servername_list_head, *servername_list_tail;
-#endif
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
+#ifndef OPENSSL_NO_PSK
+    char *psk_identity;
+    PSK_KEYS *psk_keys, *psk_selected;
+#endif /* !defined(OPENSSL_NO_PSK) */
 #ifndef OPENSSL_NO_ECDH
     int curve;
-#endif
-#ifdef HAVE_OSSL_ENGINE_H
+#endif /* !defined(OPENSSL_NO_ECDH) */
+#ifndef OPENSSL_NO_ENGINE
     ENGINE *engine;                        /* engine to read the private key */
-#endif
+#endif /* !defined(OPENSSL_NO_ENGINE) */
 
         /* service-specific data for client.c */
     int fd;        /* file descriptor accepting connections for this service */
@@ -239,15 +255,15 @@ typedef struct service_options_struct {
         unsigned int program:1;         /* endpoint: exec */
 #ifndef OPENSSL_NO_TLSEXT
         unsigned int sni:1;             /* endpoint: sni */
-#endif
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
 #ifndef USE_WIN32
         unsigned int pty:1;
         unsigned int transparent_src:1;
         unsigned int transparent_dst:1; /* endpoint: transparent destination */
 #endif
-#ifdef HAVE_OSSL_OCSP_H
+#ifndef OPENSSL_NO_OCSP
         unsigned int ocsp:1;
-#endif
+#endif /* !defined(OPENSSL_NO_OCSP) */
         unsigned int reset:1;           /* reset sockets on error */
         unsigned int renegotiation:1;
         unsigned int connect_before_ssl:1;
@@ -262,7 +278,7 @@ struct servername_list_struct {
     SERVICE_OPTIONS *opt;
     struct servername_list_struct *next;
 };
-#endif
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
 
 typedef enum {
     TYPE_NONE, TYPE_FLAG, TYPE_INT, TYPE_LINGER, TYPE_TIMEVAL, TYPE_STRING
@@ -366,7 +382,7 @@ void s_log(int, const char *, ...)
 #else
     ;
 #endif
-void fatal_debug(char *, char *, int);
+void fatal_debug(char *, const char *, int);
 #define fatal(a) fatal_debug((a), __FILE__, __LINE__)
 void ioerror(const char *);
 void sockerror(const char *);
@@ -401,6 +417,9 @@ typedef struct {
 } UI_DATA;
 
 int context_init(SERVICE_OPTIONS *);
+#ifndef OPENSSL_NO_PSK
+PSK_KEYS *psk_find(PSK_KEYS *, const char *);
+#endif /* !defined(OPENSSL_NO_PSK) */
 void sslerror(char *);
 
 /**************************************** prototypes for verify.c */
@@ -418,7 +437,6 @@ int s_poll_canread(s_poll_set *, int);
 int s_poll_canwrite(s_poll_set *, int);
 int s_poll_hup(s_poll_set *, int);
 int s_poll_rdhup(s_poll_set *, int);
-int s_poll_error(s_poll_set *, int);
 int s_poll_wait(s_poll_set *, int, int);
 
 #ifdef USE_WIN32
@@ -432,7 +450,6 @@ int s_poll_wait(s_poll_set *, int, int);
 #endif
 
 int set_socket_options(int, int);
-void safestring(char *);
 int make_sockets(int [2]);
 
 /**************************************** prototypes for client.c */
@@ -462,10 +479,10 @@ typedef struct {
     /* data for transfer() function */
     char sock_buff[BUFFSIZE]; /* socket read buffer */
     char ssl_buff[BUFFSIZE]; /* SSL read buffer */
-    int sock_ptr, ssl_ptr; /* index of first unused byte in buffer */
+    unsigned sock_ptr, ssl_ptr; /* index of first unused byte in buffer */
     FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
     FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
-    int sock_bytes, ssl_bytes; /* bytes written to socket and SSL */
+    uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and SSL */
     s_poll_set *fds; /* file descriptors */
 } CLI;
 
@@ -595,6 +612,7 @@ DISK_FILE *file_open(char *, FILE_MODE mode);
 void file_close(DISK_FILE *);
 int file_getline(DISK_FILE *, char *, int);
 int file_putline(DISK_FILE *, char *);
+int file_permissions(const char *);
 
 #ifdef USE_WIN32
 LPTSTR str2tstr(LPCSTR);
@@ -612,15 +630,18 @@ void str_init();
 void str_canary_init();
 void str_cleanup();
 void str_stats();
-void *str_alloc_debug(size_t, char *, int);
+void *str_alloc_debug(size_t, const char *, int);
 #define str_alloc(a) str_alloc_debug((a), __FILE__, __LINE__)
-void *str_realloc_debug(void *, size_t, char *, int);
+void *str_alloc_detached_debug(size_t, const char *, int);
+#define str_alloc_detached(a) str_alloc_detached_debug((a), __FILE__, __LINE__)
+void *str_realloc_debug(void *, size_t, const char *, int);
 #define str_realloc(a, b) str_realloc_debug((a), (b), __FILE__, __LINE__)
-void str_detach_debug(void *, char *, int);
+void str_detach_debug(void *, const char *, int);
 #define str_detach(a) str_detach_debug((a), __FILE__, __LINE__)
-void str_free_debug(void *, char *, int);
+void str_free_debug(void *, const char *, int);
 #define str_free(a) str_free_debug((a), __FILE__, __LINE__), (a)=NULL
-char *str_dup_debug(const char *, char *, int);
+#define str_free_expression(a) str_free_debug((a), __FILE__, __LINE__)
+char *str_dup_debug(const char *, const char *, int);
 #define str_dup(a) str_dup_debug((a), __FILE__, __LINE__)
 char *str_vprintf(const char *, va_list);
 char *str_printf(const char *, ...)
@@ -647,9 +668,9 @@ void message_box(LPCTSTR, const UINT);
 #endif /* USE_WIN32 */
 
 int passwd_cb(char *, int, int, void *);
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
 int pin_cb(UI *, UI_STRING *);
-#endif
+#endif /* !defined(OPENSSL_NO_ENGINE) */
 
 #ifdef ICON_IMAGE
 ICON_IMAGE load_icon_default(ICON_TYPE);

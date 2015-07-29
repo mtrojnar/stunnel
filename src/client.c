@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -50,9 +50,9 @@
 
 NOEXPORT void client_try(CLI *);
 NOEXPORT void client_run(CLI *);
-NOEXPORT void init_local(CLI *);
-NOEXPORT void init_remote(CLI *);
-NOEXPORT void init_ssl(CLI *);
+NOEXPORT void local_start(CLI *);
+NOEXPORT void remote_start(CLI *);
+NOEXPORT void ssl_start(CLI *);
 NOEXPORT void new_chain(CLI *);
 NOEXPORT void transfer(CLI *);
 NOEXPORT int parse_socket_error(CLI *, const char *);
@@ -70,8 +70,7 @@ NOEXPORT void reset(int, char *);
 CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
     CLI *c;
 
-    c=str_alloc(sizeof(CLI));
-    str_detach(c);
+    c=str_alloc_detached(sizeof(CLI));
     c->opt=opt;
     c->local_rfd.fd=rfd;
     c->local_wfd.fd=wfd;
@@ -164,8 +163,9 @@ NOEXPORT void client_run(CLI *c) {
         client_try(c);
     rst=err==1 && c->opt->option.reset;
     s_log(LOG_NOTICE,
-        "Connection %s: %d byte(s) sent to SSL, %d byte(s) sent to socket",
-         rst ? "reset" : "closed", c->ssl_bytes, c->sock_bytes);
+        "Connection %s: %llu byte(s) sent to SSL, %llu byte(s) sent to socket",
+        rst ? "reset" : "closed",
+        (unsigned long long)c->ssl_bytes, (unsigned long long)c->sock_bytes);
 
         /* cleanup temporary (e.g. IDENT) socket */
     if(c->fd>=0)
@@ -177,7 +177,11 @@ NOEXPORT void client_run(CLI *c) {
         SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         SSL_free(c->ssl);
         c->ssl=NULL;
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+        ERR_remove_thread_state(NULL);
+#else /* OpenSSL version < 1.0.0 */
         ERR_remove_state(0);
+#endif /* OpenSSL version >= 1.0.0 */
     }
 
         /* cleanup the remote socket */
@@ -230,22 +234,22 @@ NOEXPORT void client_run(CLI *c) {
 }
 
 NOEXPORT void client_try(CLI *c) {
-    init_local(c);
+    local_start(c);
     protocol(c, c->opt, PROTOCOL_EARLY);
     if(c->opt->option.connect_before_ssl) {
-        init_remote(c);
+        remote_start(c);
         protocol(c, c->opt, PROTOCOL_MIDDLE);
-        init_ssl(c);
+        ssl_start(c);
     } else {
-        init_ssl(c);
+        ssl_start(c);
         protocol(c, c->opt, PROTOCOL_MIDDLE);
-        init_remote(c);
+        remote_start(c);
     }
     protocol(c, c->opt, PROTOCOL_LATE);
     transfer(c);
 }
 
-NOEXPORT void init_local(CLI *c) {
+NOEXPORT void local_start(CLI *c) {
     SOCKADDR_UNION addr;
     socklen_t addr_len;
     char *accepted_address;
@@ -309,7 +313,7 @@ NOEXPORT void init_local(CLI *c) {
     str_free(accepted_address);
 }
 
-NOEXPORT void init_remote(CLI *c) {
+NOEXPORT void remote_start(CLI *c) {
     /* where to bind connecting socket */
     if(c->opt->option.local) /* outgoing interface */
         c->bind_addr=&c->opt->source_addr;
@@ -341,7 +345,7 @@ NOEXPORT void init_remote(CLI *c) {
         s_log(LOG_WARNING, "Failed to set remote socket options");
 }
 
-NOEXPORT void init_ssl(CLI *c) {
+NOEXPORT void ssl_start(CLI *c) {
     int i, err;
     SSL_SESSION *old_session;
     int unsafe_openssl;
@@ -409,16 +413,16 @@ NOEXPORT void init_ssl(CLI *c) {
                 err==SSL_ERROR_WANT_WRITE);
             switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
             case -1:
-                sockerror("init_ssl: s_poll_wait");
+                sockerror("ssl_start: s_poll_wait");
                 longjmp(c->err, 1);
             case 0:
-                s_log(LOG_INFO, "init_ssl: s_poll_wait:"
+                s_log(LOG_INFO, "ssl_start: s_poll_wait:"
                     " TIMEOUTbusy exceeded: sending reset");
                 longjmp(c->err, 1);
             case 1:
                 break; /* OK */
             default:
-                s_log(LOG_ERR, "init_ssl: s_poll_wait: unknown result");
+                s_log(LOG_ERR, "ssl_start: s_poll_wait: unknown result");
                 longjmp(c->err, 1);
             }
             continue; /* ok -> retry */
@@ -488,7 +492,8 @@ NOEXPORT void new_chain(CLI *c) {
         BIO_free(bio);
         return;
     }
-    chain=str_alloc(len+1);
+    /* prevent automatic deallocation of the cached value */
+    chain=str_alloc_detached(len+1);
     len=BIO_read(bio, chain, len);
     if(len<0) {
         s_log(LOG_ERR, "BIO_read failed");
@@ -498,7 +503,6 @@ NOEXPORT void new_chain(CLI *c) {
     }
     chain[len]='\0';
     BIO_free(bio);
-    str_detach(chain); /* to prevent automatic deallocation of cached value */
     c->opt->chain=chain; /* this race condition is safe to ignore */
     ui_new_chain(c->opt->section_number);
     s_log(LOG_DEBUG, "Peer certificate was cached (%d bytes)", len);
@@ -570,36 +574,6 @@ NOEXPORT void transfer(CLI *c) {
                 s_log(LOG_ERR, "transfer: s_poll_wait:"
                     " TIMEOUTclose exceeded: closing");
                 return; /* OK */
-            }
-        }
-
-        /****************************** check for errors on sockets */
-        err=s_poll_error(c->fds, c->sock_rfd->fd);
-        if(err && err!=S_EWOULDBLOCK && err!=S_EAGAIN) {
-            s_log(LOG_NOTICE, "Read socket error: %s (%d)",
-                s_strerror(err), err);
-            longjmp(c->err, 1);
-        }
-        if(c->sock_wfd->fd!=c->sock_rfd->fd) { /* performance optimization */
-            err=s_poll_error(c->fds, c->sock_wfd->fd);
-            if(err && err!=S_EWOULDBLOCK && err!=S_EAGAIN) {
-                s_log(LOG_NOTICE, "Write socket error: %s (%d)",
-                    s_strerror(err), err);
-                longjmp(c->err, 1);
-            }
-        }
-        err=s_poll_error(c->fds, c->ssl_rfd->fd);
-        if(err && err!=S_EWOULDBLOCK && err!=S_EAGAIN) {
-            s_log(LOG_NOTICE, "SSL socket error: %s (%d)",
-                s_strerror(err), err);
-            longjmp(c->err, 1);
-        }
-        if(c->ssl_wfd->fd!=c->ssl_rfd->fd) { /* performance optimization */
-            err=s_poll_error(c->fds, c->ssl_wfd->fd);
-            if(err && err!=S_EWOULDBLOCK && err!=S_EAGAIN) {
-                s_log(LOG_NOTICE, "SSL socket error: %s (%d)",
-                    s_strerror(err), err);
-                longjmp(c->err, 1);
             }
         }
 
@@ -963,7 +937,7 @@ NOEXPORT int parse_socket_error(CLI *c, const char *text) {
 
 NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
     SSL_CIPHER *cipher;
-#if !defined(OPENSSL_NO_COMP) && OPENSSL_VERSION_NUMBER>=0x0090800fL
+#ifndef OPENSSL_NO_COMP
     const COMP_METHOD *compression, *expansion;
 #endif
 
@@ -974,10 +948,11 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
         SSL_get_version(c->ssl), SSL_CIPHER_get_name(cipher),
         SSL_CIPHER_get_bits(cipher, NULL));
 
-#if !defined(OPENSSL_NO_COMP) && OPENSSL_VERSION_NUMBER>=0x0090800fL
+#ifndef OPENSSL_NO_COMP
     compression=SSL_get_current_compression(c->ssl);
     expansion=SSL_get_current_expansion(c->ssl);
-    s_log(LOG_INFO, "Compression: %s, expansion: %s",
+    s_log(compression||expansion ? LOG_INFO : LOG_DEBUG,
+        "Compression: %s, expansion: %s",
         compression ? SSL_COMP_get_name(compression) : "null",
         expansion ? SSL_COMP_get_name(expansion) : "null");
 #endif
@@ -1051,8 +1026,7 @@ NOEXPORT void auth_user(CLI *c, char *accepted_address) {
     while(*user==' ') /* skip leading spaces */
         ++user;
     if(strcmp(user, c->opt->username)) {
-        safestring(user);
-        s_log(LOG_WARNING, "Connection from %s REFUSED by IDENT (user %s)",
+        s_log(LOG_WARNING, "Connection from %s REFUSED by IDENT (user \"%s\")",
             accepted_address, user);
         str_free(line);
         longjmp(c->err, 1);

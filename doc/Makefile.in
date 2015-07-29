@@ -264,12 +264,12 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-EXTRA_DIST = stunnel.pod stunnel.pl.pod stunnel.fr.pod \
-    stunnel.8 stunnel.pl.8 stunnel.fr.8 \
-	stunnel.html stunnel.pl.html stunnel.fr.html en pl
+EXTRA_DIST = stunnel.pod stunnel.pl.pod \
+    stunnel.8 stunnel.pl.8 \
+	stunnel.html stunnel.pl.html en pl
 
-man_MANS = stunnel.8 stunnel.pl.8 stunnel.fr.8
-doc_DATA = stunnel.html stunnel.pl.html stunnel.fr.html
+man_MANS = stunnel.8 stunnel.pl.8
+doc_DATA = stunnel.html stunnel.pl.html
 SUFFIXES = .pod .8 .html
 all: all-am
 

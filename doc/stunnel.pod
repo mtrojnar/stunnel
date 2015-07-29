@@ -715,6 +715,26 @@ password for protocol negotiations
 
 username for protocol negotiations
 
+=item B<PSKidentity> = IDENTITY
+
+PSK identity for the PSK client
+
+I<PSKidentity> can be used on B<stunnel> clients to select the PSK identity
+used for authentication.  This option is ignored in server sections.
+
+default: the first identity specified in the I<PSKsecrets> file.
+
+=item B<PSKsecrets> = FILE
+
+file with PSK identities and corresponding keys
+
+Each line of the file in the following format:
+
+    IDENTITY:KEY
+
+The key is required to be at least 20 characters long.
+The file should not be world-readable nor world-writable.
+
 =item B<pty> = yes | no (Unix only)
 
 allocate pseudoterminal for 'exec' option

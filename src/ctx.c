@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -48,15 +48,22 @@ NOEXPORT int matches_wildcard(char *, char *);
 
 /* DH/ECDH initialization */
 #ifndef OPENSSL_NO_DH
-NOEXPORT int init_dh(SERVICE_OPTIONS *);
+NOEXPORT int dh_init(SERVICE_OPTIONS *);
 NOEXPORT DH *read_dh(char *);
 NOEXPORT DH *get_dh2048(void);
 #endif /* OPENSSL_NO_DH */
 #ifndef OPENSSL_NO_ECDH
-NOEXPORT int init_ecdh(SERVICE_OPTIONS *);
+NOEXPORT int ecdh_init(SERVICE_OPTIONS *);
 #endif /* USE_ECDH */
 
-/* loading certificate */
+/* initialize authentication */
+NOEXPORT int auth_init(SERVICE_OPTIONS *);
+#ifndef OPENSSL_NO_PSK
+NOEXPORT unsigned int psk_client_callback(SSL *, const char *,
+    char *, unsigned int, unsigned char *, unsigned int);
+NOEXPORT unsigned int psk_server_callback(SSL *, const char *,
+    unsigned char *, unsigned int);
+#endif /* !defined(OPENSSL_NO_PSK) */
 NOEXPORT int load_cert(SERVICE_OPTIONS *);
 NOEXPORT int load_key_file(SERVICE_OPTIONS *);
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
@@ -98,7 +105,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
 
     /* load certificate and private key to be verified by the peer server */
-#if defined(HAVE_OSSL_ENGINE_H) && OPENSSL_VERSION_NUMBER>=0x0090809fL
+#if !defined(OPENSSL_NO_ENGINE) && OPENSSL_VERSION_NUMBER>=0x0090809fL
     /* SSL_CTX_set_client_cert_engine() was introduced in OpenSSL 0.9.8i */
     if(section->option.client && section->engine) {
         if(SSL_CTX_set_client_cert_engine(section->ctx, section->engine))
@@ -108,7 +115,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
             sslerror("SSL_CTX_set_client_cert_engine"); /* ignore error */
     }
 #endif
-    if(load_cert(section))
+    if(auth_init(section))
         return 1; /* FAILED */
 
     /* initialize verification of the peer server certificate */
@@ -122,10 +129,10 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
         SSL_CTX_set_tlsext_servername_callback(section->ctx, servername_cb);
 #endif /* OPENSSL_NO_TLSEXT */
 #ifndef OPENSSL_NO_DH
-        init_dh(section); /* ignore the result (errors are not critical) */
+        dh_init(section); /* ignore the result (errors are not critical) */
 #endif /* OPENSSL_NO_DH */
 #ifndef OPENSSL_NO_ECDH
-        init_ecdh(section); /* ignore the result (errors are not critical) */
+        ecdh_init(section); /* ignore the result (errors are not critical) */
 #endif /* OPENSSL_NO_ECDH */
     }
 
@@ -159,10 +166,16 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
             return 1; /* FAILED */
         }
     SSL_CTX_set_options(section->ctx, section->ssl_options_set);
+#if OPENSSL_VERSION_NUMBER>=0x009080dfL
     SSL_CTX_clear_options(section->ctx, section->ssl_options_clear);
     s_log(LOG_DEBUG, "SSL options: 0x%08lX (+0x%08lX, -0x%08lX)",
         SSL_CTX_get_options(section->ctx),
         section->ssl_options_set, section->ssl_options_clear);
+#else /* OpenSSL older than 0.9.8m */
+    s_log(LOG_DEBUG, "SSL options: 0x%08lX (+0x%08lX)",
+        SSL_CTX_get_options(section->ctx),
+        section->ssl_options_set);
+#endif /* OpenSSL 0.9.8m or later */
 #ifdef SSL_MODE_RELEASE_BUFFERS
     SSL_CTX_set_mode(section->ctx,
         SSL_MODE_ENABLE_PARTIAL_WRITE |
@@ -247,11 +260,11 @@ NOEXPORT int matches_wildcard(char *servername, char *pattern) {
 
 #ifndef OPENSSL_NO_DH
 
-NOEXPORT int init_dh(SERVICE_OPTIONS *section) {
+NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
     DH *dh=NULL;
 
     s_log(LOG_DEBUG, "DH initialization");
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
     if(!section->engine) /* cert is a file and not an identifier */
 #endif
         dh=read_dh(section->cert);
@@ -337,7 +350,7 @@ NOEXPORT DH *get_dh2048() {
 /**************************************** ECDH initialization */
 
 #ifndef OPENSSL_NO_ECDH
-NOEXPORT int init_ecdh(SERVICE_OPTIONS *section) {
+NOEXPORT int ecdh_init(SERVICE_OPTIONS *section) {
     EC_KEY *ecdh;
 
     s_log(LOG_DEBUG, "ECDH initialization");
@@ -356,7 +369,97 @@ NOEXPORT int init_ecdh(SERVICE_OPTIONS *section) {
 }
 #endif /* OPENSSL_NO_ECDH */
 
-/**************************************** loading certificate */
+/**************************************** initialize authentication */
+
+NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
+    int result;
+
+    result=load_cert(section);
+#ifndef OPENSSL_NO_PSK
+    if(section->psk_keys) {
+        if(section->option.client)
+            SSL_CTX_set_psk_client_callback(section->ctx, psk_client_callback);
+        else
+            SSL_CTX_set_psk_server_callback(section->ctx, psk_server_callback);
+        result=0;
+    }
+#endif /* !defined(OPENSSL_NO_PSK) */
+    return result;
+}
+
+#ifndef OPENSSL_NO_PSK
+
+NOEXPORT unsigned int psk_client_callback(SSL *ssl, const char *hint,
+    char *identity, unsigned int max_identity_len,
+    unsigned char *psk, unsigned int max_psk_len) {
+    CLI *c;
+    unsigned int identity_len;
+
+    (void)hint; /* skip warning about unused parameter */
+    c=SSL_get_ex_data(ssl, cli_index);
+    if(!c->opt->psk_selected) {
+        s_log(LOG_ERR, "INTERNAL ERROR: No PSK identity selected");
+        return 0;
+    }
+    /* the source seems to have its buffer large enough for
+     * the trailing null character, but the manual page says
+     * nothing about it -- lets play safe */
+    identity_len=strlen(c->opt->psk_selected->identity)+1;
+    if(identity_len>max_identity_len) {
+        s_log(LOG_ERR, "PSK identity too long (%d>%d bytes)",
+            identity_len, max_psk_len);
+        return 0;
+    }
+    if(c->opt->psk_selected->key_len>max_psk_len) {
+        s_log(LOG_ERR, "PSK too long (%d>%d bytes)",
+            c->opt->psk_selected->key_len, max_psk_len);
+        return 0;
+    }
+    strcpy(identity, c->opt->psk_selected->identity);
+    memcpy(psk, c->opt->psk_selected->key_val, c->opt->psk_selected->key_len);
+    s_log(LOG_INFO, "PSK client configured for identity \"%s\"", identity);
+    return c->opt->psk_selected->key_len;
+}
+
+NOEXPORT unsigned int psk_server_callback(SSL *ssl, const char *identity,
+    unsigned char *psk, unsigned int max_psk_len) {
+    CLI *c;
+    PSK_KEYS *found;
+    unsigned int len;
+
+    c=SSL_get_ex_data(ssl, cli_index);
+    found=psk_find(c->opt->psk_keys, identity);
+    if(found) {
+        len=found->key_len;
+    } else {
+        s_log(LOG_ERR, "No key found for PSK identity \"%s\"", identity);
+        len=0;
+    }
+    if(len>max_psk_len) {
+        s_log(LOG_ERR, "PSK too long (%d>%d bytes)", len, max_psk_len);
+        len=0;
+    }
+    if(len) {
+        memcpy(psk, found->key_val, len);
+        s_log(LOG_INFO, "PSK server configured for identity \"%s\"", identity);
+    } else { /* block identity probes if possible */
+        if(max_psk_len>=32 && RAND_bytes(psk, 32))
+            len=32; /* 256 random bits */
+    }
+    return len;
+}
+
+PSK_KEYS *psk_find(PSK_KEYS *head, const char *identity) {
+    PSK_KEYS *curr;
+
+    if(identity)
+        for(curr=head; curr; curr=curr->next)
+            if(!strcmp(curr->identity, identity))
+                return curr;
+    return NULL;
+}
+
+#endif /* !defined(OPENSSL_NO_PSK) */
 
 static int cache_initialized=0;
 
@@ -371,13 +474,11 @@ NOEXPORT int load_cert(SERVICE_OPTIONS *section) {
     }
 
     /* load the private key */
-    if(!section->key)
-        section->key=section->cert;
     if(!section->key) {
         s_log(LOG_DEBUG, "No private key specified");
         return 0; /* OK */
     }
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
     if(section->engine) {
         if(load_key_engine(section))
             return 1; /* FAILED */
@@ -400,22 +501,10 @@ NOEXPORT int load_cert(SERVICE_OPTIONS *section) {
 NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
     int i, reason;
     UI_DATA ui_data;
-#if !defined(USE_WIN32) && !defined(USE_OS2)
-    struct stat st; /* buffer for stat */
-#endif
 
     s_log(LOG_INFO, "Loading key from file: %s", section->key);
-
-#if !defined(USE_WIN32) && !defined(USE_OS2)
-    /* check permissions of the private key file */
-    if(stat(section->key, &st)) {
-        ioerror("Private key file not found");
-        return 1; /* FAILED */
-    }
-    if(st.st_mode & 7)
-        s_log(LOG_WARNING, "Insecure file permissions on %s",
-            section->key);
-#endif
+    if(file_permissions(section->key))
+        return 1;
 
     ui_data.section=section; /* setup current section for callbacks */
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
@@ -442,7 +531,7 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
     int i, reason;
     UI_DATA ui_data;
@@ -484,7 +573,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
     }
     return 0; /* OK */
 }
-#endif /* HAVE_OSSL_ENGINE_H */
+#endif /* !defined(OPENSSL_NO_ENGINE) */
 
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
 NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {

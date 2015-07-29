@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -634,25 +634,48 @@ void stunnel_info(int level) {
         ",IPv%c"
 #ifdef USE_SYSTEMD
         ",SYSTEMD"
-#endif /* USE_SYSTEMD */
+#endif /* defined(USE_SYSTEMD) */
 
-#if defined HAVE_OSSL_ENGINE_H || defined HAVE_OSSL_OCSP_H || defined USE_FIPS
-        " SSL:"
-#define ITEM_SEPARATOR ""
-#ifdef HAVE_OSSL_ENGINE_H
+        " TLS:"
+#ifndef OPENSSL_NO_ENGINE
+#define TLS_FEATURE_FOUND
         "ENGINE"
-#undef ITEM_SEPARATOR
-#define ITEM_SEPARATOR ","
-#endif /* defined(HAVE_OSSL_ENGINE_H) */
-#ifdef HAVE_OSSL_OCSP_H
-        ITEM_SEPARATOR "OCSP"
-#undef ITEM_SEPARATOR
-#define ITEM_SEPARATOR ","
-#endif /* HAVE_OSSL_OCSP_H */
+#endif /* !defined(OPENSSL_NO_ENGINE) */
 #ifdef USE_FIPS
-        ITEM_SEPARATOR "FIPS"
-#endif /* USE_FIPS */
-#endif /* an SSL optional feature enabled */
+#ifdef TLS_FEATURE_FOUND
+        ","
+#else
+#define TLS_FEATURE_FOUND
+#endif
+        "FIPS"
+#endif /* defined(USE_FIPS) */
+#ifndef OPENSSL_NO_OCSP
+#ifdef TLS_FEATURE_FOUND
+        ","
+#else
+#define TLS_FEATURE_FOUND
+#endif
+        "OCSP"
+#endif /* !defined(OPENSSL_NO_OCSP) */
+#ifndef OPENSSL_NO_PSK
+#ifdef TLS_FEATURE_FOUND
+        ","
+#else
+#define TLS_FEATURE_FOUND
+#endif
+        "PSK"
+#endif /* !defined(OPENSSL_NO_PSK) */
+#ifndef OPENSSL_NO_TLSEXT
+#ifdef TLS_FEATURE_FOUND
+        ","
+#else
+#define TLS_FEATURE_FOUND
+#endif
+        "SNI"
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
+#ifndef TLS_FEATURE_FOUND
+        "NONE"
+#endif /* !defined(TLS_FEATURE_FOUND) */
 
 #ifdef USE_LIBWRAP
         " Auth:LIBWRAP"

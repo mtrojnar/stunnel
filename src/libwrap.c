@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -102,7 +102,7 @@ int libwrap_init() {
                 if(read_fd(ipc_socket[2*i+1], servname, SERVNAME_LEN, &rfd)<=0)
                     _exit(0);
                 result=check(servname, rfd);
-                write(ipc_socket[2*i+1], (u8 *)&result, sizeof result);
+                write(ipc_socket[2*i+1], (uint8_t *)&result, sizeof result);
                 if(rfd>=0)
                     close(rfd);
             }
@@ -169,7 +169,7 @@ void libwrap_auth(CLI *c, char *accepted_address) {
         write_fd(ipc_socket[2*my_process], c->opt->servname,
             strlen(c->opt->servname)+1, c->local_rfd.fd);
         s_read(c, ipc_socket[2*my_process],
-            (u8 *)&result, sizeof result);
+            (uint8_t *)&result, sizeof result);
         s_log(LOG_DEBUG, "Releasing libwrap process #%d", my_process);
 
         retval=pthread_mutex_lock(&mutex);

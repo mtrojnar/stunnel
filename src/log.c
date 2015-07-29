@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -39,6 +39,7 @@
 #include "prototypes.h"
 
 NOEXPORT void log_raw(const int, const char *, const char *, const char *);
+NOEXPORT void safestring(char *);
 
 static DISK_FILE *outfile=NULL;
 static struct LIST { /* single-linked list of log lines */
@@ -172,8 +173,7 @@ void s_log(int level, const char *format, ...) {
 
     if(mode==LOG_MODE_NONE) { /* save the text to log it later */
         enter_critical_section(CRIT_LOG);
-        tmp=str_alloc(sizeof(struct LIST));
-        str_detach(tmp);
+        tmp=str_alloc_detached(sizeof(struct LIST));
         tmp->next=NULL;
         tmp->level=level;
         tmp->stamp=stamp;
@@ -242,7 +242,7 @@ NOEXPORT void log_raw(const int level, const char *stamp,
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
 #endif /* __GNUC__ */
-void fatal_debug(char *txt, char *file, int line) {
+void fatal_debug(char *txt, const char *file, int line) {
     char msg[80];
 #ifdef USE_WIN32
     DWORD num;
@@ -417,6 +417,13 @@ char *s_strerror(int errnum) {
     default:
         return strerror(errnum);
     }
+}
+
+/* replace non-UTF-8 and non-printable control characters with '.' */
+NOEXPORT void safestring(char *c) {
+    for(; *c; ++c)
+        if(!(*c&0x80 || isprint(*c)))
+            *c='.';
 }
 
 /* end of log.c */

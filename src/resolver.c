@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -247,10 +247,10 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
     case 0:
         break; /* success */
     case EAI_SERVICE:
-        s_log(LOG_ERR, "Unknown TCP service '%s'", port_name);
+        s_log(LOG_ERR, "Unknown TCP service \"%s\"", port_name);
         return 0; /* error */
     default:
-        s_log(LOG_ERR, "Error resolving '%s': %s",
+        s_log(LOG_ERR, "Error resolving \"%s\": %s",
             host_name, s_gai_strerror(err));
         return 0; /* error */
     }

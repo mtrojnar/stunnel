@@ -1,6 +1,24 @@
 stunnel change log
 
 
+Version 5.09, 2015.01.02, urgency: LOW:
+* New features
+  - Added PSK authentication with two new service-level
+    configuration file options "PSKsecrets" and "PSKidentity".
+  - Added additional security checks to the OpenSSL memory
+    management functions.
+  - Added support for the OPENSSL_NO_OCSP and OPENSSL_NO_ENGINE
+    OpenSSL configuration flags.
+  - Added compatibility with the current OpenSSL 1.1.0-dev tree.
+* Bugfixes
+  - Removed defective s_poll_error() code occasionally causing
+    connections to be prematurely closed (truncated).
+    This bug was introduced in stunnel 4.34.
+  - Fixed ./configure systemd detection (thx to Kip Walraven).
+  - Fixed ./configure sysroot detection (thx to Kip Walraven).
+  - Fixed compilation against old versions of OpenSSL.
+  - Removed outdated French manual page.
+
 Version 5.08, 2014.12.09, urgency: MEDIUM:
 * New features
   - Added SOCKS4/SOCKS4a protocol support.

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -197,6 +197,24 @@ int file_putline(DISK_FILE *df, char *line) {
 #endif /* USE_WIN32 */
     str_free(buff);
     return num;
+}
+
+int file_permissions(const char *file_name) {
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+    struct stat st; /* buffer for stat */
+
+    /* check permissions of the private key file */
+    if(stat(file_name, &st)) {
+        ioerror(file_name);
+        return 1; /* FAILED */
+    }
+    if(st.st_mode & 7)
+        s_log(LOG_WARNING,
+            "Insecure file permissions on %s", file_name);
+#else
+    (void)file_name; /* skip warning about unused parameter */
+#endif
+    return 0;
 }
 
 #ifdef USE_WIN32

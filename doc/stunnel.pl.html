@@ -7,7 +7,7 @@
 <link rev="made" href="mailto:root@localhost" />
 </head>
 
-<body style="background-color: white">
+<body>
 
 
 
@@ -779,6 +779,28 @@
 <p>nazwa u&#x17C;ytkownika do negocjacji protoko&#x142;u</p>
 
 </dd>
+<dt id="PSKidentity-TOSAMO"><b>PSKidentity</b> = TO&#x17B;SAMO&#x15A;&#x106;</dt>
+<dd>
+
+<p>to&#x17C;samo&#x15B;&#x107; klienta PSK</p>
+
+<p><i>PSKidentity</i> mo&#x17C;e zosta&#x107; u&#x17C;yte w sekcjach klienckich do wybrania to&#x17C;samo&#x15B;ci u&#x17C;ytej do uwierzytelnienia PSK. Opcja jest ignorowana w sekcjach serwerowych.</p>
+
+<p>domy&#x15B;lnie: pierwsza to&#x17C;samo&#x15B;&#x107; zdefiniowana w pliku <i>PSKsecrets</i></p>
+
+</dd>
+<dt id="PSKsecrets-PLIK"><b>PSKsecrets</b> = PLIK</dt>
+<dd>
+
+<p>plik z to&#x17C;samo&#x15B;ciami i kluczami PSK</p>
+
+<p>Ka&#x17C;da linia pliku jest w nast&#x119;puj&#x105;cym formacie:</p>
+
+<pre><code>    TO&#x17B;SAMO&#x15A;&#x106;:KLUCZ</code></pre>
+
+<p>Klucz musi by&#x107; mie&#x107; przynajmniej 20 znak&oacute;w. Nale&#x17C;y ograniczy&#x107; dost&#x119;p do czytania lub pisania do tego pliku.</p>
+
+</dd>
 <dt id="pty-yes-no-tylko-Unix"><b>pty</b> = yes | no (tylko Unix)</dt>
 <dd>
 
@@ -790,7 +812,7 @@
 
 <p>przekieruj klienta, kt&oacute;remu nie uda&#x142;o si&#x119; poprawnie uwierzytelni&#x107;</p>
 
-<p>Ta opcja dzia&#x142;a wy&#x142;&#x105;cznie w trybie serwera, oraz przy wy&#x142;&#x105;czonej negocjacji protoko&#x142;u aplikacyjnego.</p>
+<p>Opcja dzia&#x142;a wy&#x142;&#x105;cznie w trybie serwera, oraz przy wy&#x142;&#x105;czonej negocjacji protoko&#x142;u aplikacyjnego.</p>
 
 </dd>
 <dt id="renegotiation-yes-no"><b>renegotiation</b> = yes | no</dt>
@@ -814,7 +836,7 @@
 
 <p>sygnalizuj wyst&#x105;pienie b&#x142;&#x119;du przy pomocy flagi TCP RST</p>
 
-<p>Ta opcja nie jest wspierana na niekt&oacute;rych platformach.</p>
+<p>Opcja nie jest wspierana na niekt&oacute;rych platformach.</p>
 
 <p>domy&#x15B;lnie: yes</p>
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -39,8 +39,8 @@
 #include "prototypes.h"
 
     /* global OpenSSL initalization: compression, engine, entropy */
-NOEXPORT int init_compression(GLOBAL_OPTIONS *);
-NOEXPORT int init_prng(GLOBAL_OPTIONS *);
+NOEXPORT int compression_init(GLOBAL_OPTIONS *);
+NOEXPORT int prng_init(GLOBAL_OPTIONS *);
 NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
 
 int cli_index, opt_index; /* to keep structure for callbacks */
@@ -52,7 +52,7 @@ int ssl_init(void) { /* init SSL before parsing configuration file */
     opt_index=SSL_CTX_get_ex_new_index(0, "opt index", NULL, NULL, NULL);
     if(cli_index<0 || opt_index<0)
         return 1;
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
     ENGINE_load_builtin_engines();
 #endif
     return 0;
@@ -71,16 +71,18 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global SSL settings */
     s_log(LOG_NOTICE, "FIPS mode %s",
         global->option.fips ? "enabled" : "disabled");
 #endif /* USE_FIPS */
-    if(init_compression(global))
+#ifndef OPENSSL_NO_COMP
+    if(compression_init(global))
         return 1;
-    if(init_prng(global))
+#endif /* OPENSSL_NO_COMP */
+    if(prng_init(global))
         return 1;
     s_log(LOG_DEBUG, "PRNG seeded successfully");
     return 0; /* SUCCESS */
 }
 
-NOEXPORT int init_compression(GLOBAL_OPTIONS *global) {
 #ifndef OPENSSL_NO_COMP
+NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
     SSL_COMP *comp;
     STACK_OF(SSL_COMP) *ssl_comp_methods;
 
@@ -152,11 +154,11 @@ NOEXPORT int init_compression(GLOBAL_OPTIONS *global) {
     sk_SSL_COMP_push(ssl_comp_methods, comp);
     s_log(LOG_INFO, "Compression enabled: %d algorithm(s)",
         sk_SSL_COMP_num(ssl_comp_methods));
-#endif /* OPENSSL_NO_COMP */
     return 0; /* success */
 }
+#endif /* OPENSSL_NO_COMP */
 
-NOEXPORT int init_prng(GLOBAL_OPTIONS *global) {
+NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
     int totbytes=0;
     char filename[256];
 #ifndef USE_WIN32

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -57,10 +57,15 @@ NOEXPORT char *parse_global_option(CMD, char *, char *);
 NOEXPORT char *parse_service_option(CMD, SERVICE_OPTIONS *, char *, char *);
 
 #ifndef OPENSSL_NO_TLSEXT
-NOEXPORT char *init_sni(SERVICE_OPTIONS *);
-#endif
+NOEXPORT char *sni_init(SERVICE_OPTIONS *);
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
 
 NOEXPORT int parse_debug_level(char *);
+
+#ifndef OPENSSL_NO_PSK
+NOEXPORT PSK_KEYS *psk_read(char *);
+NOEXPORT void psk_free(PSK_KEYS *);
+#endif /* !defined(OPENSSL_NO_PSK) */
 
 typedef struct {
     char *name;
@@ -154,12 +159,12 @@ NOEXPORT int print_socket_options(void);
 NOEXPORT char *print_option(int, OPT_UNION *);
 NOEXPORT int parse_socket_option(char *);
 
-#ifdef HAVE_OSSL_OCSP_H
+#ifndef OPENSSL_NO_OCSP
 NOEXPORT char *parse_ocsp_url(SERVICE_OPTIONS *, char *);
 NOEXPORT unsigned long parse_ocsp_flag(char *);
-#endif /* HAVE_OSSL_OCSP_H */
+#endif /* !defined(OPENSSL_NO_OCSP) */
 
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
 NOEXPORT void engine_reset_list(void);
 NOEXPORT char *engine_auto(void);
 NOEXPORT char *engine_open(const char *);
@@ -169,7 +174,7 @@ NOEXPORT char *engine_init(void);
 NOEXPORT void engine_next(void);
 NOEXPORT ENGINE *engine_get_by_id(const char *);
 NOEXPORT ENGINE *engine_get_by_num(const int);
-#endif
+#endif /* !defined(OPENSSL_NO_ENGINE) */
 
 NOEXPORT void print_syntax(void);
 #ifndef USE_WIN32
@@ -454,7 +459,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
             "compression");
         break;
     }
-#endif /* OPENSSL_NO_COMP */
+#endif /* !defined(OPENSSL_NO_COMP) */
 
     /* debug */
     switch(cmd) {
@@ -514,7 +519,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         break;
     }
 
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
 
     /* engine */
     switch(cmd) {
@@ -584,7 +589,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         break;
     }
 
-#endif
+#endif /* !defined(OPENSSL_NO_ENGINE) */
 
     /* fips */
     switch(cmd) {
@@ -1162,11 +1167,16 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->cert=str_dup(arg);
         return NULL; /* OK */
     case CMD_END:
+#ifndef OPENSSL_NO_PSK
+        if(section->psk_keys)
+            break;
+#endif /* !defined(OPENSSL_NO_PSK) */
+#ifndef OPENSSL_NO_ENGINE
+        if(section->engine)
+            break;
+#endif /* !defined(OPENSSL_NO_ENGINE) */
         if(!section->option.client && !section->cert)
-#ifdef HAVE_OSSL_ENGINE_H
-            if(!section->engine)
-#endif
-                return "SSL server needs a certificate";
+            return "SSL server needs a certificate";
         break;
     case CMD_FREE:
         break;
@@ -1357,7 +1367,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
-#endif /* !OPENSSL_NO_ECDH */
+#endif /* !defined(OPENSSL_NO_ECDH) */
 
     /* delay */
     switch(cmd) {
@@ -1386,7 +1396,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
 
     /* engineId */
     switch(cmd) {
@@ -1437,7 +1447,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
-#endif
+#endif /* !defined(OPENSSL_NO_ENGINE) */
 
     /* exec */
     switch(cmd) {
@@ -1559,6 +1569,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->key=str_dup(arg);
         return NULL; /* OK */
     case CMD_END:
+        if(section->cert && !section->key)
+            section->key=str_dup(section->cert);
         break;
     case CMD_FREE:
         break;
@@ -1623,7 +1635,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
-#ifdef HAVE_OSSL_OCSP_H
+#ifndef OPENSSL_NO_OCSP
 
     /* OCSP */
     switch(cmd) {
@@ -1672,28 +1684,32 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
-#endif /* HAVE_OSSL_OCSP_H */
+#endif /* !defined(OPENSSL_NO_OCSP) */
 
     /* options */
     switch(cmd) {
     case CMD_BEGIN:
         section->ssl_options_set|=SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3;
+#if OPENSSL_VERSION_NUMBER>=0x009080dfL
         section->ssl_options_clear=0;
+#endif /* OpenSSL 0.9.8m or later */
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "options"))
             break;
+#if OPENSSL_VERSION_NUMBER>=0x009080dfL
         if(*arg=='-') {
             tmpnum=parse_ssl_option(arg+1);
             if(!tmpnum)
                 return "Illegal SSL option";
             section->ssl_options_clear|=tmpnum;
-        } else {
-            tmpnum=parse_ssl_option(arg);
-            if(!tmpnum)
-                return "Illegal SSL option";
-            section->ssl_options_set|=tmpnum;
+            return NULL; /* OK */
         }
+#endif /* OpenSSL 0.9.8m or later */
+        tmpnum=parse_ssl_option(arg);
+        if(!tmpnum)
+            return "Illegal SSL option";
+        section->ssl_options_set|=tmpnum;
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1828,6 +1844,74 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             "protocolUsername");
         break;
     }
+
+#ifndef OPENSSL_NO_PSK
+
+    /* PSKidentity */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->psk_identity=NULL;
+        section->psk_selected=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "PSKidentity"))
+            break;
+        section->psk_identity=str_dup(arg);
+        return NULL; /* OK */
+    case CMD_END:
+        if(!section->psk_keys) /* PSK not configured */
+            break;
+        if(section->option.client) {
+            if(section->psk_identity) {
+                section->psk_selected=
+                    psk_find(section->psk_keys, section->psk_identity);
+                if(!section->psk_selected)
+                    return "No key found for the specified PSK identity";
+            } else { /* take the first specified identity as default */
+                section->psk_selected=section->psk_keys;
+            }
+        } else {
+            if(section->psk_identity)
+                s_log(LOG_NOTICE,
+                    "PSK identity is ignored in the server mode");
+        }
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = identity for PSK authentication",
+            "PSKidentity");
+        break;
+    }
+
+    /* PSKsecrets */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->psk_keys=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "PSKsecrets"))
+            break;
+        section->psk_keys=psk_read(arg);
+        if(!section->psk_keys)
+            return "Failed to read PSK secrets";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        psk_free(section->psk_keys);
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = secrets for PSK authentication",
+            "PSKsecrets");
+        break;
+    }
+
+#endif /* !defined(OPENSSL_NO_PSK) */
 
     /* pty */
 #ifndef USE_WIN32
@@ -2065,7 +2149,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->sni=str_dup(arg);
         return NULL; /* OK */
     case CMD_END:
-        tmpstr=init_sni(section);
+        tmpstr=sni_init(section);
         if(tmpstr)
             return tmpstr;
         if(section->option.sni)
@@ -2080,7 +2164,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             "sni");
         break;
     }
-#endif /* OPENSSL_NO_TLSEXT */
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
 
     /* sslVersion */
     switch(cmd) {
@@ -2095,40 +2179,40 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             section->client_method=(SSL_METHOD *)SSLv23_client_method();
             section->server_method=(SSL_METHOD *)SSLv23_server_method();
         } else if(!strcasecmp(arg, "SSLv2")) {
-#if !defined(OPENSSL_NO_SSL2)
+#ifndef OPENSSL_NO_SSL2
             section->client_method=(SSL_METHOD *)SSLv2_client_method();
             section->server_method=(SSL_METHOD *)SSLv2_server_method();
-#else
+#else /* defined(OPENSSL_NO_SSL2) */
             return "SSLv2 not supported";
-#endif
+#endif /* !defined(OPENSSL_NO_SSL2) */
         } else if(!strcasecmp(arg, "SSLv3")) {
-#if !defined(OPENSSL_NO_SSL3)
+#ifndef OPENSSL_NO_SSL3
             section->client_method=(SSL_METHOD *)SSLv3_client_method();
             section->server_method=(SSL_METHOD *)SSLv3_server_method();
-#else
+#else /* defined(OPENSSL_NO_SSL3) */
             return "SSLv3 not supported";
-#endif
+#endif /* !defined(OPENSSL_NO_SSL3) */
         } else if(!strcasecmp(arg, "TLSv1")) {
-#if !defined(OPENSSL_NO_TLS1)
+#ifndef OPENSSL_NO_TLS1
             section->client_method=(SSL_METHOD *)TLSv1_client_method();
             section->server_method=(SSL_METHOD *)TLSv1_server_method();
-#else
+#else /* defined(OPENSSL_NO_TLS1) */
             return "TLSv1 not supported";
-#endif
+#endif /* !defined(OPENSSL_NO_TLS1) */
         } else if(!strcasecmp(arg, "TLSv1.1")) {
-#if !defined(OPENSSL_NO_TLS1) && OPENSSL_VERSION_NUMBER>=0x10001000L
+#ifndef OPENSSL_NO_TLS1_1
             section->client_method=(SSL_METHOD *)TLSv1_1_client_method();
             section->server_method=(SSL_METHOD *)TLSv1_1_server_method();
-#else
+#else /* defined(OPENSSL_NO_TLS1_1) */
             return "TLSv1.1 not supported";
-#endif
+#endif /* !defined(OPENSSL_NO_TLS1_1) */
         } else if(!strcasecmp(arg, "TLSv1.2")) {
-#if !defined(OPENSSL_NO_TLS1) && OPENSSL_VERSION_NUMBER>=0x10001000L
+#ifndef OPENSSL_NO_TLS1_2
             section->client_method=(SSL_METHOD *)TLSv1_2_client_method();
             section->server_method=(SSL_METHOD *)TLSv1_2_server_method();
-#else
+#else /* defined(OPENSSL_NO_TLS1_2) */
             return "TLSv1.2 not supported";
-#endif
+#endif /* !defined(OPENSSL_NO_TLS1_2) */
         } else
             return "Incorrect version of SSL protocol";
         return NULL; /* OK */
@@ -2140,13 +2224,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                     section->client_method==(SSL_METHOD *)SSLv2_client_method() :
                     section->server_method==(SSL_METHOD *)SSLv2_server_method())
                 return "\"sslVersion = SSLv2\" not supported in FIPS mode";
-#endif
+#endif /* !defined(OPENSSL_NO_SSL2) */
 #ifndef OPENSSL_NO_SSL3
             if(section->option.client ?
                     section->client_method==(SSL_METHOD *)SSLv3_client_method() :
                     section->server_method==(SSL_METHOD *)SSLv3_server_method())
                 return "\"sslVersion = SSLv3\" not supported in FIPS mode";
-#endif
+#endif /* !defined(OPENSSL_NO_SSL3) */
         }
 #endif /* USE_FIPS */
         break;
@@ -2391,7 +2475,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 /**************************************** validate and initialize configuration */
 
 #ifndef OPENSSL_NO_TLSEXT
-NOEXPORT char *init_sni(SERVICE_OPTIONS *section) {
+NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
     char *tmpstr;
     SERVICE_OPTIONS *tmpsrv;
 
@@ -2447,7 +2531,7 @@ NOEXPORT char *init_sni(SERVICE_OPTIONS *section) {
     }
     return NULL;
 }
-#endif /* OPENSSL_NO_TLSEXT */
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
 
 /**************************************** facility/debug level */
 
@@ -2550,6 +2634,93 @@ NOEXPORT void print_ssl_options(void) {
     for(option=(SSL_OPTION *)ssl_opts; option->name; ++option)
         s_log(LOG_NOTICE, "options = %s", option->name);
 }
+
+/**************************************** read PSK file */
+
+#ifndef OPENSSL_NO_PSK
+
+NOEXPORT PSK_KEYS *psk_read(char *key_file) {
+    DISK_FILE *df;
+    char line[CONFLINELEN], *key_val;
+    unsigned int key_len;
+    PSK_KEYS *head=NULL, *tail=NULL, *curr;
+    int line_number=0;
+
+    if(file_permissions(key_file))
+        return NULL;
+    df=file_open(key_file, FILE_MODE_READ);
+    if(!df) {
+        s_log(LOG_ERR, "Cannot open PSKsecrets file");
+        return NULL;
+    }
+    while(file_getline(df, line, CONFLINELEN)>=0) {
+        ++line_number;
+        if(!line[0]) /* empty line */
+            continue;
+        key_val=strchr(line, ':');
+        if(!key_val) {
+            s_log(LOG_ERR,
+                "PSKsecrets line %d: Not in identity:key format",
+                line_number);
+            file_close(df);
+            psk_free(head);
+            return NULL;
+        }
+        *key_val++='\0';
+        key_len=strlen(key_val);
+        if(strlen(line)+1>PSK_MAX_IDENTITY_LEN) { /* with the trailing '\0' */
+            s_log(LOG_ERR,
+                "PSKsecrets line %d: Identity longer than %d characters",
+                line_number, PSK_MAX_IDENTITY_LEN);
+            file_close(df);
+            psk_free(head);
+            return NULL;
+        }
+        if(key_len>PSK_MAX_PSK_LEN) {
+            s_log(LOG_ERR,
+                "PSKsecrets line %d: Key longer than %d characters",
+                line_number, PSK_MAX_PSK_LEN);
+            file_close(df);
+            psk_free(head);
+            return NULL;
+        }
+        if(key_len<20) {
+            /* shorter keys are unlikely to have sufficient entropy */
+            s_log(LOG_ERR,
+                "PSKsecrets line %d: Key shorter than 20 characters",
+                line_number);
+            file_close(df);
+            psk_free(head);
+            return NULL;
+        }
+        curr=str_alloc(sizeof(PSK_KEYS));
+        curr->identity=str_dup(line);
+        curr->key_val=(unsigned char *)str_dup(key_val);
+        curr->key_len=key_len;
+        curr->next=NULL;
+        if(head)
+            tail->next=curr;
+        else
+            head=curr;
+        tail=curr;
+    }
+    file_close(df);
+    return head;
+}
+
+NOEXPORT void psk_free(PSK_KEYS *head) {
+    PSK_KEYS *next;
+
+    while(head) {
+        next=head->next;
+        str_free(head->identity);
+        str_free(head->key_val);
+        str_free(head);
+        head=next;
+    }
+}
+
+#endif
 
 /**************************************** socket options */
 
@@ -2763,7 +2934,7 @@ NOEXPORT int parse_socket_option(char *arg) {
 
 /**************************************** OCSP */
 
-#ifdef HAVE_OSSL_OCSP_H
+#ifndef OPENSSL_NO_OCSP
 
 NOEXPORT char *parse_ocsp_url(SERVICE_OPTIONS *section, char *arg) {
     char *host, *port, *path;
@@ -2812,11 +2983,11 @@ NOEXPORT unsigned long parse_ocsp_flag(char *arg) {
     return 0; /* FAILED */
 }
 
-#endif /* HAVE_OSSL_OCSP_H */
+#endif /* !defined(OPENSSL_NO_OCSP) */
 
 /**************************************** engine */
 
-#ifdef HAVE_OSSL_ENGINE_H
+#ifndef OPENSSL_NO_ENGINE
 
 #define MAX_ENGINES 256
 static ENGINE *engines[MAX_ENGINES]; /* table of engines for config parser */
@@ -2850,7 +3021,7 @@ NOEXPORT char *engine_open(const char *name) {
     engine_next();
     if(current_engine>=MAX_ENGINES)
         return "Too many open engines";
-    s_log(LOG_DEBUG, "Enabling support for engine '%s'", name);
+    s_log(LOG_DEBUG, "Enabling support for engine \"%s\"", name);
     engines[current_engine]=ENGINE_by_id(name);
     engine_initialized=0;
     if(!engines[current_engine]) {
@@ -2938,7 +3109,7 @@ NOEXPORT ENGINE *engine_get_by_num(const int i) {
     return engines[i];
 }
 
-#endif /* HAVE_OSSL_ENGINE_H */
+#endif /* !defined(OPENSSL_NO_ENGINE) */
 
 /**************************************** fatal error */
 

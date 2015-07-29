@@ -1,13 +1,13 @@
 ## Process this file with automake to produce Makefile.in
 
-EXTRA_DIST = stunnel.pod stunnel.pl.pod stunnel.fr.pod \
-    stunnel.8 stunnel.pl.8 stunnel.fr.8 \
-	stunnel.html stunnel.pl.html stunnel.fr.html en pl
+EXTRA_DIST = stunnel.pod stunnel.pl.pod \
+    stunnel.8 stunnel.pl.8 \
+	stunnel.html stunnel.pl.html en pl
 
-man_MANS = stunnel.8 stunnel.pl.8 stunnel.fr.8
+man_MANS = stunnel.8 stunnel.pl.8
 
 docdir = $(datadir)/doc/stunnel
-doc_DATA = stunnel.html stunnel.pl.html stunnel.fr.html
+doc_DATA = stunnel.html stunnel.pl.html
 
 SUFFIXES = .pod .8 .html
 

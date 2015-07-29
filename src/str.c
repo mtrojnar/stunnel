@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -46,7 +46,7 @@
 #endif /* __va_copy */
 #endif /* va_copy */
 
-static u8 canary[10]; /* 80-bit canary value */
+static uint8_t canary[10]; /* 80-bit canary value */
 static volatile int canary_initialized=0, str_initialized=0;
 
 typedef struct alloc_list_struct ALLOC_LIST;
@@ -60,7 +60,7 @@ struct alloc_list_struct {
     ALLOC_LIST *prev, *next;
     ALLOC_TLS *tls;
     size_t size;
-    char *file;
+    const char *file;
     int line;
     int valid_canary;
     unsigned int magic;
@@ -74,9 +74,11 @@ struct alloc_list_struct {
 
 NOEXPORT void set_alloc_tls(ALLOC_TLS *);
 NOEXPORT ALLOC_TLS *get_alloc_tls();
-NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, char *, int);
+NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
+NOEXPORT void crypto_init();
+NOEXPORT void str_free_function(void *);
 
-char *str_dup_debug(const char *str, char *file, int line) {
+char *str_dup_debug(const char *str, const char *file, int line) {
     char *retval;
 
     retval=str_alloc_debug(strlen(str)+1, file, line);
@@ -148,6 +150,7 @@ LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
 static ALLOC_TLS *global_tls=NULL;
 
 void str_init() {
+    crypto_init();
     str_initialized=1;
 }
 
@@ -172,6 +175,7 @@ NOEXPORT ALLOC_TLS *get_alloc_tls() {
 static ALLOC_TLS *global_tls=NULL;
 
 void str_init() {
+    crypto_init();
     str_initialized=1;
 }
 
@@ -190,6 +194,7 @@ NOEXPORT ALLOC_TLS *get_alloc_tls() {
 static pthread_key_t pthread_key;
 
 void str_init() {
+    crypto_init();
     pthread_key_create(&pthread_key, NULL);
     str_initialized=1;
 }
@@ -209,6 +214,7 @@ NOEXPORT ALLOC_TLS *get_alloc_tls() {
 static DWORD tls_index;
 
 void str_init() {
+    crypto_init();
     tls_index=TlsAlloc();
     str_initialized=1;
 }
@@ -234,11 +240,11 @@ void str_cleanup() {
     ALLOC_TLS *alloc_tls;
 
     if(!str_initialized)
-        fatal_debug("str not initialized", __FILE__, __LINE__);
+        fatal("str not initialized");
     alloc_tls=get_alloc_tls();
     if(alloc_tls) {
-        while(alloc_tls->head) /* str_free macro requires lvalue parameter */
-            str_free_debug(alloc_tls->head+1, __FILE__, __LINE__);
+        while(alloc_tls->head) /* str_free macro requires an lvalue parameter */
+            str_free_expression(alloc_tls->head+1);
         set_alloc_tls(NULL);
         free(alloc_tls);
     }
@@ -250,7 +256,7 @@ void str_stats() {
     int i=0;
 
     if(!str_initialized)
-        fatal_debug("str not initialized", __FILE__, __LINE__);
+        fatal("str not initialized");
     alloc_tls=get_alloc_tls();
     if(!alloc_tls) {
         s_log(LOG_DEBUG, "str_stats: alloc_tls not initialized");
@@ -273,7 +279,7 @@ void str_stats() {
     }
 }
 
-void *str_alloc_debug(size_t size, char *file, int line) {
+void *str_alloc_debug(size_t size, const char *file, int line) {
     ALLOC_TLS *alloc_tls;
     ALLOC_LIST *alloc_list;
 
@@ -288,20 +294,11 @@ void *str_alloc_debug(size_t size, char *file, int line) {
         alloc_tls->bytes=alloc_tls->blocks=0;
         set_alloc_tls(alloc_tls);
     }
-    alloc_list=calloc(1, sizeof(ALLOC_LIST)+size+sizeof canary);
-    if(!alloc_list)
-        fatal_debug("Out of memory", file, line);
 
+    alloc_list=(ALLOC_LIST *)str_alloc_detached_debug(size, file, line)-1;
     alloc_list->prev=NULL;
     alloc_list->next=alloc_tls->head;
     alloc_list->tls=alloc_tls;
-    alloc_list->size=size;
-    alloc_list->file=file;
-    alloc_list->line=line;
-    alloc_list->valid_canary=canary_initialized; /* before memcpy */
-    memcpy((u8 *)(alloc_list+1)+size, canary, sizeof canary);
-    alloc_list->magic=0xdeadbeef;
-
     if(alloc_tls->head)
         alloc_tls->head->prev=alloc_list;
     alloc_tls->head=alloc_list;
@@ -311,21 +308,43 @@ void *str_alloc_debug(size_t size, char *file, int line) {
     return alloc_list+1;
 }
 
-void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
+void *str_alloc_detached_debug(size_t size, const char *file, int line) {
+    ALLOC_LIST *alloc_list;
+
+#if 0
+    printf("allocating %lu bytes at %s:%d\n", (unsigned long)size, file, line);
+#endif
+    alloc_list=calloc(1, sizeof(ALLOC_LIST)+size+sizeof canary);
+    if(!alloc_list)
+        fatal_debug("Out of memory", file, line);
+    alloc_list->prev=NULL; /* for debugging */
+    alloc_list->next=NULL; /* for debugging */
+    alloc_list->tls=NULL;
+    alloc_list->size=size;
+    alloc_list->file=file;
+    alloc_list->line=line;
+    alloc_list->valid_canary=canary_initialized; /* before memcpy */
+    memcpy((uint8_t *)(alloc_list+1)+size, canary, sizeof canary);
+    alloc_list->magic=0xdeadbeef;
+
+    return alloc_list+1;
+}
+
+void *str_realloc_debug(void *ptr, size_t size, const char *file, int line) {
     ALLOC_LIST *prev_alloc_list, *alloc_list;
 
     if(!ptr)
         return str_alloc_debug(size, file, line);
     prev_alloc_list=get_alloc_list_ptr(ptr, file, line);
     if(prev_alloc_list->size>size) /* shrinking the allocation */
-        memset((u8 *)ptr+size, 0, prev_alloc_list->size-size); /* paranoia */
+        memset((uint8_t *)ptr+size, 0, prev_alloc_list->size-size); /* paranoia */
     alloc_list=realloc(prev_alloc_list,
         sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
         fatal_debug("Out of memory", file, line);
     ptr=alloc_list+1;
     if(size>alloc_list->size) /* growing the allocation */
-        memset((u8 *)ptr+alloc_list->size, 0, size-alloc_list->size);
+        memset((uint8_t *)ptr+alloc_list->size, 0, size-alloc_list->size);
     if(alloc_list->tls) { /* not detached */
         /* refresh possibly invalidated linked list pointers */
         if(alloc_list->tls->head==prev_alloc_list)
@@ -341,13 +360,13 @@ void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
     alloc_list->file=file;
     alloc_list->line=line;
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
-    memcpy((u8 *)ptr+size, canary, sizeof canary);
+    memcpy((uint8_t *)ptr+size, canary, sizeof canary);
     return ptr;
 }
 
 /* detach from thread automatic deallocation list */
 /* it has no effect if the allocation is already detached */
-void str_detach_debug(void *ptr, char *file, int line) {
+void str_detach_debug(void *ptr, const char *file, int line) {
     ALLOC_LIST *alloc_list;
 
     if(!ptr) /* do not attempt to free null pointers */
@@ -371,7 +390,7 @@ void str_detach_debug(void *ptr, char *file, int line) {
     }
 }
 
-void str_free_debug(void *ptr, char *file, int line) {
+void str_free_debug(void *ptr, const char *file, int line) {
     ALLOC_LIST *alloc_list;
 
     if(!ptr) /* do not attempt to free null pointers */
@@ -383,7 +402,7 @@ void str_free_debug(void *ptr, char *file, int line) {
     free(alloc_list);
 }
 
-NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, char *file, int line) {
+NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
     ALLOC_LIST *alloc_list;
 
     if(!str_initialized)
@@ -398,7 +417,7 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, char *file, int line) {
     if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls())
         fatal_debug("Memory allocated in a different thread", file, line);
     if(alloc_list->valid_canary &&
-            safe_memcmp((u8 *)ptr+alloc_list->size, canary, sizeof canary))
+            safe_memcmp((uint8_t *)ptr+alloc_list->size, canary, sizeof canary))
         fatal_debug("Dead canary", file, line); /* LOL */
     return alloc_list;
 }
@@ -406,10 +425,26 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, char *file, int line) {
 /* a version of memcmp() with execution time not dependent on data values */
 /* it does *not* allow to test wheter s1 is greater or lesser than s2  */
 int safe_memcmp(const void *s1, const void *s2, size_t n) {
-    u8 *p1=(u8 *)s1, *p2=(u8 *)s2, r=0;
+    uint8_t *p1=(uint8_t *)s1, *p2=(uint8_t *)s2, r=0;
     while(n--)
         r|=*p1++^*p2++;
     return r;
 }
+
+/**************************************** hook the OpenSSL allocator */
+
+NOEXPORT void crypto_init() {
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
+    CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
+        str_realloc_debug, str_free_function);
+#endif
+}
+
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
+NOEXPORT void str_free_function(void *ptr) {
+    /* CRYPTO_set_mem_ex_functions() needs a function rather than a macro */
+    str_free(ptr);
+}
+#endif
 
 /* end of str.c */

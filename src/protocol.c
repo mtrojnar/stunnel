@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -59,7 +59,7 @@ NOEXPORT char *imap_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *nntp_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *connect_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *connect_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-#if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
+#ifndef OPENSSL_NO_MD4
 NOEXPORT void ntlm(CLI *, SERVICE_OPTIONS *);
 NOEXPORT char *ntlm1();
 NOEXPORT char *ntlm3(char *, char *, char *);
@@ -168,14 +168,13 @@ NOEXPORT void socks4_server(CLI *c) {
             port_name=str_printf("%u", ntohs(socks.sin_port));
             hostport2addrlist(&c->connect_addr, host_name, port_name);
             str_free(port_name);
-            safestring(host_name);
             if(c->connect_addr.num) {
-                s_log(LOG_INFO, "SOCKS4a resolved '%s' to %u host(s)",
+                s_log(LOG_INFO, "SOCKS4a resolved \"%s\" to %u host(s)",
                     host_name, c->connect_addr.num);
                 socks.cd=90;
                 close_connection=0;
             } else {
-                s_log(LOG_ERR, "SOCKS4a failed to resolve '%s'", host_name);
+                s_log(LOG_ERR, "SOCKS4a failed to resolve \"%s\"", host_name);
                 socks.cd=91;
             }
             str_free(host_name);
@@ -193,12 +192,10 @@ NOEXPORT void socks4_server(CLI *c) {
         host_name=ssl_getstring(c);
         if(hostport2addr(&addr, host_name, "0") && addr.sa.sa_family==AF_INET) {
             memcpy(&socks.sin_addr, &addr.in.sin_addr, 4);
-            safestring(host_name);
-            s_log(LOG_INFO, "SOCKS4a/TOR resolved '%s'", host_name);
+            s_log(LOG_INFO, "SOCKS4a/TOR resolved \"%s\"", host_name);
             socks.cd=90;
         } else {
-            safestring(host_name);
-            s_log(LOG_ERR, "SOCKS4a/TOR failed to resolve '%s'", host_name);
+            s_log(LOG_ERR, "SOCKS4a/TOR failed to resolve \"%s\"", host_name);
             socks.cd=91;
         }
         str_free(host_name);
@@ -286,14 +283,13 @@ NOEXPORT void socks5_server(CLI *c) {
             port_name=str_printf("%u", ntohs(port_number));
             hostport2addrlist(&c->connect_addr, host_name, port_name);
             str_free(port_name);
-            safestring(host_name);
             if(c->connect_addr.num) {
-                s_log(LOG_INFO, "SOCKS5 resolved '%s' to %u host(s)",
+                s_log(LOG_INFO, "SOCKS5 resolved \"%s\" to %u host(s)",
                     host_name, c->connect_addr.num);
                 socks.resp.rep=0x00; /* succeeded */
                 close_connection=0;
             } else {
-                s_log(LOG_ERR, "SOCKS5 failed to resolve '%s'", host_name);
+                s_log(LOG_ERR, "SOCKS5 failed to resolve \"%s\"", host_name);
                 socks.resp.rep=0x04; /* Host unreachable */
             }
             str_free(host_name);
@@ -316,27 +312,25 @@ NOEXPORT void socks5_server(CLI *c) {
     } else if(socks.req.cmd==0xf0) { /* RESOLVE (a TOR extension) */
         host_name=ssl_getstring(c);
         if(hostport2addr(&addr, host_name, "0")) {
-            safestring(host_name);
             if(addr.sa.sa_family==AF_INET) {
-                s_log(LOG_INFO, "SOCKS5/TOR resolved '%s' to IPv4", host_name);
+                s_log(LOG_INFO, "SOCKS5/TOR resolved \"%s\" to IPv4", host_name);
                 memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
                 socks.resp.atyp=0x01; /* IP v4 address */
                 socks.resp.rep=0x00; /* succeeded */
 #ifdef USE_IPv6
             } else if(addr.sa.sa_family==AF_INET6) {
-                s_log(LOG_INFO, "SOCKS5/TOR resolved '%s' to IPv6", host_name);
+                s_log(LOG_INFO, "SOCKS5/TOR resolved \"%s\" to IPv6", host_name);
                 memcpy(&socks.v6.addr, &addr.in6.sin6_addr, 16);
                 socks.resp.atyp=0x04; /* IP v6 address */
                 socks.resp.rep=0x00; /* succeeded */
 #endif
             } else {
-                s_log(LOG_ERR, "SOCKS5/TOR unsupported address family for '%s'",
+                s_log(LOG_ERR, "SOCKS5/TOR unsupported address family for \"%s\"",
                     host_name);
                 socks.resp.rep=0x04; /* Host unreachable */
             }
         } else {
-            safestring(host_name);
-            s_log(LOG_ERR, "SOCKS5/TOR failed to resolve '%s'", host_name);
+            s_log(LOG_ERR, "SOCKS5/TOR failed to resolve \"%s\"", host_name);
             socks.resp.rep=0x04; /* Host unreachable */
         }
         str_free(host_name);
@@ -426,8 +420,8 @@ NOEXPORT char *proxy_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 /**************************************** cifs */
 
 NOEXPORT char *cifs_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    u8 buffer[5];
-    u8 request_dummy[4] = {0x81, 0, 0, 0}; /* a zero-length request */
+    uint8_t buffer[5];
+    uint8_t request_dummy[4] = {0x81, 0, 0, 0}; /* a zero-length request */
 
     (void)opt; /* skip warning about unused parameter */
     if(phase!=PROTOCOL_MIDDLE)
@@ -450,17 +444,17 @@ NOEXPORT char *cifs_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 }
 
 NOEXPORT char *cifs_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    u8 buffer[128];
-    u8 response_access_denied[5] = {0x83, 0, 0, 1, 0x81};
-    u8 response_use_ssl[5] = {0x83, 0, 0, 1, 0x8e};
-    u16 len;
+    uint8_t buffer[128];
+    uint8_t response_access_denied[5] = {0x83, 0, 0, 1, 0x81};
+    uint8_t response_use_ssl[5] = {0x83, 0, 0, 1, 0x8e};
+    uint16_t len;
 
     (void)opt; /* skip warning about unused parameter */
     if(phase!=PROTOCOL_EARLY)
         return NULL;
     s_read(c, c->local_rfd.fd, buffer, 4) ;/* NetBIOS header */
     len=buffer[3];
-    len|=(u16)(buffer[2]) << 8;
+    len|=(uint16_t)(buffer[2]) << 8;
     if(len>sizeof buffer-4) {
         s_log(LOG_ERR, "Received block too long");
         longjmp(c->err, 1);
@@ -478,10 +472,10 @@ NOEXPORT char *cifs_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 /**************************************** pgsql */
 
 /* http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982 */
-static const u8 ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
+static const uint8_t ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
 
 NOEXPORT char *pgsql_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    u8 buffer[1];
+    uint8_t buffer[1];
 
     (void)opt; /* skip warning about unused parameter */
     if(phase!=PROTOCOL_MIDDLE)
@@ -497,7 +491,7 @@ NOEXPORT char *pgsql_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 }
 
 NOEXPORT char *pgsql_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    u8 buffer[8], ssl_ok[1]={'S'};
+    uint8_t buffer[8], ssl_ok[1]={'S'};
 
     (void)opt; /* skip warning about unused parameter */
     if(phase!=PROTOCOL_EARLY)
@@ -905,7 +899,7 @@ NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     fd_printf(c, c->remote_fd.fd, "Host: %s", opt->protocol_host);
     if(opt->protocol_username && opt->protocol_password) {
         if(!strcasecmp(opt->protocol_authentication, "ntlm")) {
-#if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
+#ifndef OPENSSL_NO_MD4
             ntlm(c, opt);
 #else
             s_log(LOG_ERR, "NTLM authentication is not available");
@@ -946,7 +940,7 @@ NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     return NULL;
 }
 
-#if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
+#ifndef OPENSSL_NO_MD4
 
 /*
  * NTLM code is based on the following documentation:

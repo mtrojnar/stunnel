@@ -7,7 +7,7 @@
 <link rev="made" href="mailto:root@localhost" />
 </head>
 
-<body style="background-color: white">
+<body>
 
 
 
@@ -777,6 +777,28 @@
 <dd>
 
 <p>username for protocol negotiations</p>
+
+</dd>
+<dt id="PSKidentity-IDENTITY"><b>PSKidentity</b> = IDENTITY</dt>
+<dd>
+
+<p>PSK identity for the PSK client</p>
+
+<p><i>PSKidentity</i> can be used on <b>stunnel</b> clients to select the PSK identity used for authentication. This option is ignored in server sections.</p>
+
+<p>default: the first identity specified in the <i>PSKsecrets</i> file.</p>
+
+</dd>
+<dt id="PSKsecrets-FILE"><b>PSKsecrets</b> = FILE</dt>
+<dd>
+
+<p>file with PSK identities and corresponding keys</p>
+
+<p>Each line of the file in the following format:</p>
+
+<pre><code>    IDENTITY:KEY</code></pre>
+
+<p>The key is required to be at least 20 characters long. The file should not be world-readable nor world-writable.</p>
 
 </dd>
 <dt id="pty-yes-no-Unix-only"><b>pty</b> = yes | no (Unix only)</dt>

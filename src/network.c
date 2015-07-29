@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -134,16 +134,6 @@ int s_poll_rdhup(s_poll_set *fds, int fd) {
 #else
             return fds->ufds[i].revents&POLLHUP; /* read and write closed */
 #endif
-    return 0; /* not listed in fds */
-}
-
-int s_poll_error(s_poll_set *fds, int fd) {
-    unsigned int i;
-
-    for(i=0; i<fds->nfds; i++)
-        if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&(POLLERR|POLLNVAL) ?
-                get_socket_error(fd) : 0;
     return 0; /* not listed in fds */
 }
 
@@ -395,14 +385,6 @@ int s_poll_rdhup(s_poll_set *fds, int fd) {
     return 0; /* FIXME: how to detect RDHUP condition with select()? */
 }
 
-int s_poll_error(s_poll_set *fds, int fd) {
-    /* error conditions are signaled as read, but apparently *not* in Winsock:
-     * http://msdn.microsoft.com/en-us/library/windows/desktop/ms737625%28v=vs.85%29.aspx */
-    if(!FD_ISSET(fd, fds->orfds) && !FD_ISSET(fd, fds->oxfds))
-        return 0;
-    return get_socket_error(fd); /* check if it's really an error */
-}
-
 #ifdef USE_WIN32
 #define FD_SIZE(fds) (sizeof(u_int)+(fds)->allocated*sizeof(SOCKET))
 #else
@@ -557,7 +539,7 @@ int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
 
 void s_write(CLI *c, int fd, const void *buf, int len) {
         /* simulate a blocking write */
-    u8 *ptr=(u8 *)buf;
+    uint8_t *ptr=(uint8_t *)buf;
     int num;
 
     while(len>0) {
@@ -617,7 +599,7 @@ void s_read(CLI *c, int fd, void *ptr, int len) {
             s_log(LOG_ERR, "Unexpected socket close (s_read)");
             longjmp(c->err, 1);
         }
-        ptr=(u8 *)ptr+num;
+        ptr=(uint8_t *)ptr+num;
         len-=num;
     }
 }
@@ -631,13 +613,12 @@ void fd_putline(CLI *c, int fd, const char *line) {
     len=strlen(tmpline);
     s_write(c, fd, tmpline, len);
     tmpline[len-2]='\0'; /* remove CRLF */
-    safestring(tmpline);
     s_log(LOG_DEBUG, " -> %s", tmpline);
     str_free(tmpline);
 }
 
 char *fd_getline(CLI *c, int fd) {
-    char *line, *tmpline;
+    char *line;
     int ptr=0, allocated=32;
 
     line=str_alloc(allocated);
@@ -661,10 +642,7 @@ char *fd_getline(CLI *c, int fd) {
         ++ptr;
     }
     line[ptr]='\0';
-    tmpline=str_dup(line);
-    safestring(tmpline);
-    s_log(LOG_DEBUG, " <- %s", tmpline);
-    str_free(tmpline);
+    s_log(LOG_DEBUG, " <- %s", line);
     return line;
 }
 
@@ -685,7 +663,7 @@ void fd_printf(CLI *c, int fd, const char *format, ...) {
 
 void s_ssl_write(CLI *c, const void *buf, int len) {
         /* simulate a blocking SSL_write */
-    u8 *ptr=(u8 *)buf;
+    uint8_t *ptr=(uint8_t *)buf;
     int num;
 
     while(len>0) {
@@ -747,7 +725,7 @@ void s_ssl_read(CLI *c, void *ptr, int len) {
             s_log(LOG_ERR, "Unexpected socket close (s_ssl_read)");
             longjmp(c->err, 1);
         }
-        ptr=(u8 *)ptr+num;
+        ptr=(uint8_t *)ptr+num;
         len-=num;
     }
 }
@@ -773,13 +751,6 @@ char *ssl_getstring(CLI *c) { /* get null-terminated string */
         ++ptr;
     }
     return line;
-}
-
-    /* replace non-UTF-8 and non-printable control characters with '.' */
-void safestring(char *c) {
-    for(; *c; ++c)
-        if(!(*c&0x80 || isprint(*c)))
-            *c='.';
 }
 
 #define INET_SOCKET_PAIR
