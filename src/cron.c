@@ -100,7 +100,7 @@ int cron_init() {
 void cron_thread(void *arg) {
     (void)arg; /* skip warning about unused parameter */
     tls_alloc(NULL, NULL, "cron");
-    if(!SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN))
+    if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST))
         ioerror("SetThreadPriority");
     cron_worker();
     _endthread(); /* it should never be executed */
@@ -155,6 +155,7 @@ void cron_dhparam(void) {
     if(!dh_needed)
         return;
 
+    s_log(LOG_NOTICE, "Updating DH parameters");
 #if OPENSSL_VERSION_NUMBER>=0x0090800fL
     /* generate 2048-bit DH parameters */
     dh=DH_new();
@@ -174,7 +175,6 @@ void cron_dhparam(void) {
         return;
     }
 #endif
-
     /* set for all sections that require it */
     for(opt=service_options.next; opt; opt=opt->next)
         if(opt->option.dh_needed)

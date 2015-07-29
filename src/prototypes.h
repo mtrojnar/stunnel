@@ -512,6 +512,7 @@ int s_poll_canwrite(s_poll_set *, SOCKET);
 int s_poll_hup(s_poll_set *, SOCKET);
 int s_poll_rdhup(s_poll_set *, SOCKET);
 int s_poll_wait(s_poll_set *, int, int);
+void s_poll_dump(s_poll_set *);
 
 #ifdef USE_WIN32
 #define SIGNAL_RELOAD_CONFIG    1

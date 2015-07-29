@@ -12,9 +12,12 @@ win32_gui_sources += stunnel.ico active.ico error.ico idle.ico
 win32_cli_sources = ui_win_cli.c
 
 # Unix executables
-bin_PROGRAMS = stunnel stunnel3
+bin_PROGRAMS = stunnel
 stunnel_SOURCES = $(common_headers) $(common_sources) $(unix_sources)
-stunnel3_SOURCES = stunnel3.in
+bin_SCRIPTS = stunnel3
+
+EXTRA_DIST = stunnel3.in
+CLEANFILES = stunnel3
 
 # Unix shared library
 pkglib_LTLIBRARIES = libstunnel.la
@@ -41,15 +44,16 @@ dhparam.c: version.h
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 
 # Win32 executable
-EXTRA_DIST = make.bat makece.bat makew32.bat
-EXTRA_DIST += mingw.mak evc.mak vc.mak os2.mak
 # EXTRA_PROGRAMS = stunnel.exe tstunnel.exe
 # stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_gui_sources)
 # tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
+EXTRA_DIST += $(win32_gui_sources) $(win32_cli_sources)
+EXTRA_DIST += make.bat makece.bat makew32.bat
+EXTRA_DIST += mingw.mak evc.mak vc.mak os2.mak
 
 # OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 # WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-OPENSSLDIR = /usr/src/openssl-1.0.2b-i686
+OPENSSLDIR = /usr/src/openssl-1.0.2c-i686
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2
 WINCFLAGS += -Wall -Wextra -Wpedantic -Wformat=2 -Wconversion -Wno-long-long
@@ -68,10 +72,10 @@ WINPREFIX = i686-w64-mingw32-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
 
-# dist-hook: stunnel.exe tstunnel.exe
+MOSTLYCLEANFILES = $(WINOBJ)
+CLEANFILES += stunnel.exe tstunnel.exe
 
-distclean-local:
-	rm -f stunnel.exe tstunnel.exe
+# dist-hook: stunnel.exe tstunnel.exe
 
 # SUFFIXES = .c .rc .obj
 
@@ -86,9 +90,6 @@ tstunnel.exe: $(WINCLIOBJ)
 
 resources.obj: resources.rc resources.h version.h
 	$(WINDRES) --include-dir $(srcdir) $< $@
-
-mostlyclean-local:
-	-rm -f *.obj
 
 edit = sed \
 	-e 's|@bindir[@]|$(bindir)|g'

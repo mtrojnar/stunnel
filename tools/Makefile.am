@@ -9,8 +9,10 @@ conf_DATA = stunnel.conf-sample
 
 docdir = $(datadir)/doc/stunnel
 examplesdir = $(docdir)/examples
-examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
-	stunnel.spec stunnel.init stunnel.service
+examples_DATA = stunnel.spec stunnel.init stunnel.service
+examples_DATA += ca.html ca.pl importCA.html importCA.sh script.sh
+
+CLEANFILES = stunnel.conf-sample stunnel.init stunnel.service
 
 install-data-local:
 	${INSTALL} -d -m 1770 $(DESTDIR)$(localstatedir)/lib/stunnel
@@ -51,6 +53,3 @@ stunnel.conf-sample stunnel.init stunnel.service: Makefile
 stunnel.conf-sample: $(srcdir)/stunnel.conf-sample.in
 stunnel.init: $(srcdir)/stunnel.init.in
 stunnel.service: $(srcdir)/stunnel.service.in
-
-distclean-local:
-	rm -f stunnel.conf-sample stunnel.init stunnel.service

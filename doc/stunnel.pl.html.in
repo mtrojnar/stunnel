@@ -1297,8 +1297,8 @@
 
 <p>Przyk&#x142;adowa linia pliku /etc/inetd.conf mo&#x17C;e wygl&#x105;da&#x107; tak:</p>
 
-<pre><code>    imaps stream tcp nowait root /usr/local/bin/stunnel
-        stunnel /usr/local/etc/stunnel/imaps.conf</code></pre>
+<pre><code>    imaps stream tcp nowait root @bindir@/stunnel
+        stunnel @sysconfdir@/stunnel/imaps.conf</code></pre>
 
 <p>Poniewa&#x17C; w takich przypadkach po&#x142;&#x105;czenie na zdefiniowanym porcie (tutaj <i>imaps</i>) nawi&#x105;zuje osobny program (tutaj <i>inetd</i>), <b>stunnel</b> nie mo&#x17C;e u&#x17C;ywa&#x107; opcji <i>accept</i>. W pliku konfiguracyjnym nie mo&#x17C;e by&#x107; r&oacute;wnie&#x17C; zdefiniowana &#x17C;adna us&#x142;uga (<i>[nazwa_us&#x142;ugi]</i>), poniewa&#x17C; konfiguracja taka pozwala na nawi&#x105;zanie tylko jednego po&#x142;&#x105;czenia. Wszystkie <i>OPCJE US&#x141;UG</i> powinny by&#x107; umieszczone razem z opcjami globalnymi. Przyk&#x142;ad takiej konfiguracji znajduje si&#x119; w sekcji <i>PRZYK&#x141;ADY</i>.</p>
 
@@ -1371,7 +1371,7 @@
 
 <dl>
 
-<dt id="usr-local-etc-stunnel-stunnel.conf"><i>/usr/local/etc/stunnel/stunnel.conf</i></dt>
+<dt id="sysconfdir-stunnel-stunnel.conf"><i>@sysconfdir@/stunnel/stunnel.conf</i></dt>
 <dd>
 
 <p>plik konfiguracyjny programu</p>

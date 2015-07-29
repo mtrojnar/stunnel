@@ -15,6 +15,7 @@
 @SET_MAKE@
 
 
+
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -79,7 +80,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = stunnel$(EXEEXT) stunnel3$(EXEEXT)
+bin_PROGRAMS = stunnel$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(srcdir)/config.h.in $(top_srcdir)/auto/depcomp
@@ -127,7 +128,8 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(bindir)"
+am__installdirs = "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(bindir)" \
+	"$(DESTDIR)$(bindir)"
 LTLIBRARIES = $(pkglib_LTLIBRARIES)
 libstunnel_la_LIBADD =
 am__objects_1 = env.lo
@@ -160,9 +162,7 @@ stunnel_LDADD = $(LDADD)
 stunnel_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(stunnel_LDFLAGS) $(LDFLAGS) -o $@
-am_stunnel3_OBJECTS =
-stunnel3_OBJECTS = $(am_stunnel3_OBJECTS)
-stunnel3_LDADD = $(LDADD)
+SCRIPTS = $(bin_SCRIPTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -197,10 +197,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES) \
-	$(stunnel3_SOURCES)
-DIST_SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES) \
-	$(stunnel3_SOURCES)
+SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES)
+DIST_SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -361,7 +359,16 @@ win32_gui_sources = ui_win_gui.c resources.h resources.rc stunnel.ico \
 	active.ico error.ico idle.ico
 win32_cli_sources = ui_win_cli.c
 stunnel_SOURCES = $(common_headers) $(common_sources) $(unix_sources)
-stunnel3_SOURCES = stunnel3.in
+bin_SCRIPTS = stunnel3
+
+# Win32 executable
+# EXTRA_PROGRAMS = stunnel.exe tstunnel.exe
+# stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_gui_sources)
+# tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
+EXTRA_DIST = stunnel3.in $(win32_gui_sources) $(win32_cli_sources) \
+	make.bat makece.bat makew32.bat mingw.mak evc.mak vc.mak \
+	os2.mak
+CLEANFILES = stunnel3 stunnel.exe tstunnel.exe
 
 # Unix shared library
 pkglib_LTLIBRARIES = libstunnel.la
@@ -377,16 +384,9 @@ stunnel_CPPFLAGS = -I/usr/kerberos/include -I$(SSLDIR)/include \
 # SSL library
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 
-# Win32 executable
-EXTRA_DIST = make.bat makece.bat makew32.bat mingw.mak evc.mak vc.mak \
-	os2.mak
-# EXTRA_PROGRAMS = stunnel.exe tstunnel.exe
-# stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_gui_sources)
-# tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
-
 # OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 # WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-OPENSSLDIR = /usr/src/openssl-1.0.2b-i686
+OPENSSLDIR = /usr/src/openssl-1.0.2c-i686
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wpedantic \
 	-Wformat=2 -Wconversion -Wno-long-long -D_FORTIFY_SOURCE=2 \
@@ -405,6 +405,7 @@ WINCLIOBJ = $(WINOBJ) ui_win_cli.obj
 WINPREFIX = i686-w64-mingw32-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
+MOSTLYCLEANFILES = $(WINOBJ)
 edit = sed \
 	-e 's|@bindir[@]|$(bindir)|g'
 
@@ -549,6 +550,41 @@ clean-binPROGRAMS:
 stunnel$(EXEEXT): $(stunnel_OBJECTS) $(stunnel_DEPENDENCIES) $(EXTRA_stunnel_DEPENDENCIES) 
 	@rm -f stunnel$(EXEEXT)
 	$(AM_V_CCLD)$(stunnel_LINK) $(stunnel_OBJECTS) $(stunnel_LDADD) $(LIBS)
+install-binSCRIPTS: $(bin_SCRIPTS)
+	@$(NORMAL_INSTALL)
+	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(bindir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(bindir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  if test -f "$$d$$p"; then echo "$$d$$p"; echo "$$p"; else :; fi; \
+	done | \
+	sed -e 'p;s,.*/,,;n' \
+	    -e 'h;s|.*|.|' \
+	    -e 'p;x;s,.*/,,;$(transform)' | sed 'N;N;N;s,\n, ,g' | \
+	$(AWK) 'BEGIN { files["."] = ""; dirs["."] = 1; } \
+	  { d=$$3; if (dirs[d] != 1) { print "d", d; dirs[d] = 1 } \
+	    if ($$2 == $$4) { files[d] = files[d] " " $$1; \
+	      if (++n[d] == $(am__install_max)) { \
+		print "f", d, files[d]; n[d] = 0; files[d] = "" } } \
+	    else { print "f", d "/" $$4, $$1 } } \
+	  END { for (d in files) print "f", d, files[d] }' | \
+	while read type dir files; do \
+	     if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
+	     test -z "$$files" || { \
+	       echo " $(INSTALL_SCRIPT) $$files '$(DESTDIR)$(bindir)$$dir'"; \
+	       $(INSTALL_SCRIPT) $$files "$(DESTDIR)$(bindir)$$dir" || exit $$?; \
+	     } \
+	; done
+
+uninstall-binSCRIPTS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || exit 0; \
+	files=`for p in $$list; do echo "$$p"; done | \
+	       sed -e 's,.*/,,;$(transform)'`; \
+	dir='$(DESTDIR)$(bindir)'; $(am__uninstall_files_from_dir)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -969,9 +1005,9 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) config.h
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) config.h
 installdirs:
-	for dir in "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -994,8 +1030,10 @@ install-strip:
 	    "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'" install; \
 	fi
 mostlyclean-generic:
+	-test -z "$(MOSTLYCLEANFILES)" || rm -f $(MOSTLYCLEANFILES)
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -1013,7 +1051,7 @@ distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
-	distclean-hdr distclean-local distclean-tags
+	distclean-hdr distclean-tags
 
 dvi: dvi-am
 
@@ -1033,7 +1071,8 @@ install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-binPROGRAMS install-pkglibLTLIBRARIES
+install-exec-am: install-binPROGRAMS install-binSCRIPTS \
+	install-pkglibLTLIBRARIES
 
 install-html: install-html-am
 
@@ -1063,7 +1102,7 @@ maintainer-clean-am: distclean-am maintainer-clean-generic
 mostlyclean: mostlyclean-am
 
 mostlyclean-am: mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool mostlyclean-local
+	mostlyclean-libtool
 
 pdf: pdf-am
 
@@ -1073,7 +1112,8 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS uninstall-pkglibLTLIBRARIES
+uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
+	uninstall-pkglibLTLIBRARIES
 
 .MAKE: all install-am install-strip
 
@@ -1081,18 +1121,18 @@ uninstall-am: uninstall-binPROGRAMS uninstall-pkglibLTLIBRARIES
 	clean-binPROGRAMS clean-generic clean-libtool \
 	clean-pkglibLTLIBRARIES cscopelist-am ctags ctags-am distclean \
 	distclean-compile distclean-generic distclean-hdr \
-	distclean-libtool distclean-local distclean-tags distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-data install-data-am install-dvi \
+	distclean-libtool distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-binPROGRAMS \
+	install-binSCRIPTS install-data install-data-am install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
 	install-html-am install-info install-info-am install-man \
 	install-pdf install-pdf-am install-pkglibLTLIBRARIES \
 	install-ps install-ps-am install-strip installcheck \
 	installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool mostlyclean-local pdf \
-	pdf-am ps ps-am tags tags-am uninstall uninstall-am \
-	uninstall-binPROGRAMS uninstall-pkglibLTLIBRARIES
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-binSCRIPTS uninstall-pkglibLTLIBRARIES
 
 
 # Generate a new set of DH parameters for each version
@@ -1104,9 +1144,6 @@ dhparam.c: version.h
 	echo '#endif /* OPENSSL_NO_DH */' >>dhparam.c
 
 # dist-hook: stunnel.exe tstunnel.exe
-
-distclean-local:
-	rm -f stunnel.exe tstunnel.exe
 
 # SUFFIXES = .c .rc .obj
 
@@ -1121,9 +1158,6 @@ tstunnel.exe: $(WINCLIOBJ)
 
 resources.obj: resources.rc resources.h version.h
 	$(WINDRES) --include-dir $(srcdir) $< $@
-
-mostlyclean-local:
-	-rm -f *.obj
 
 stunnel3: Makefile
 	$(edit) '$(srcdir)/$@.in' >$@

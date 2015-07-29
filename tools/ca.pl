@@ -61,5 +61,5 @@ sub ReadForm {
 
 sub Error {
     print "Content-type: text/html\n\n";
-    print "<P><P><center><H1>Cant open file</H1></center>\n";
+    print "<P><P><center><H1>Can't open file</H1></center>\n";
 }

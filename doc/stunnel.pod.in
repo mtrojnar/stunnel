@@ -85,11 +85,11 @@ Stop NT Service
 
 =item B<-reload> (Windows NT and later only)
 
-Reload configuration file of the running NT Service
+Reload the configuration file of the running NT Service
 
 =item B<-reopen> (Windows NT and later only)
 
-Reopen log file of the running NT Service
+Reopen the log file of the running NT Service
 
 =item B<-exit> (Win32 only)
 
@@ -152,11 +152,11 @@ A Unix socket path (Unix only).
 
 directory to chroot B<stunnel> process
 
-B<chroot> keeps B<stunnel> in chrooted jail.  I<CApath>, I<CRLpath>, I<pid>
+B<chroot> keeps B<stunnel> in a chrooted jail.  I<CApath>, I<CRLpath>, I<pid>
 and I<exec> are located inside the jail and the patches have to be relative
 to the directory specified with B<chroot>.
 
-Several functions of the operating system also need their files to be located within chroot jail, e.g.:
+Several functions of the operating system also need their files to be located within the chroot jail, e.g.:
 
 =over 4
 
@@ -189,7 +189,7 @@ B<OpenSSL 0.9.7>.
 
 debugging level
 
-Level is a one of the syslog level names or numbers
+Level is one of the syslog level names or numbers
 emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6), or debug (7).  All logs for the specified level and
 all levels numerically less than it will be shown.  Use I<debug = debug> or
@@ -204,7 +204,7 @@ Case is ignored for both facilities and levels.
 
 path to Entropy Gathering Daemon socket
 
-Entropy Gathering Daemon socket to use to feed B<OpenSSL> random number
+Entropy Gathering Daemon socket to use to feed the B<OpenSSL> random number
 generator.  (Available only if compiled with B<OpenSSL 0.9.5a> or higher)
 
 =item B<engine> = auto | ENGINE_ID
@@ -213,7 +213,7 @@ select hardware engine
 
 default: software-only cryptography
 
-Here is an example of advanced engine configuration to read private key from an
+Here is an example of advanced engine configuration to read the private key from an
 OpenSC engine
 
     engine=dynamic
@@ -249,7 +249,7 @@ DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.
 
 Enable or disable FIPS 140-2 mode.
 
-This option allows to disable entering FIPS mode if B<stunnel> was compiled
+This option allows you to disable entering FIPS mode if B<stunnel> was compiled
 with FIPS 140-2 support.
 
 default: no (since version 5.00)
@@ -288,7 +288,7 @@ pixel image.
 
 log file handling
 
-This option allows to choose whether the log file (specified with the I<output>
+This option allows you to choose whether the log file (specified with the I<output>
 option) is appended or overwritten when opened or re-opened.
 
 default: append
@@ -306,7 +306,7 @@ pid file location
 
 If the argument is empty, then no pid file will be created.
 
-I<pid> path is relative to I<chroot> directory if specified.
+I<pid> path is relative to the I<chroot> directory if specified.
 
 =item B<RNDbytes> = BYTES
 
@@ -350,10 +350,10 @@ setuid() to the specified user in daemon mode
 
 =item B<socket> = a|l|r:OPTION=VALUE[:VALUE]
 
-Set an option on accept/local/remote socket
+Set an option on the accept/local/remote socket
 
-The values for linger option are l_onof:l_linger.
-The values for time are tv_sec:tv_usec.
+The values for the linger option are l_onof:l_linger.
+The values for the time are tv_sec:tv_usec.
 
 Examples:
 
@@ -384,7 +384,7 @@ default: yes
 
 =head2 SERVICE-LEVEL OPTIONS
 
-Each configuration section begins with service name in square brackets.
+Each configuration section begins with a service name in square brackets.
 The service name is used for libwrap (TCP Wrappers) access control and lets
 you distinguish B<stunnel> services in your log files.
 
@@ -411,20 +411,20 @@ To listen on all IPv6 addresses use:
 Certificate Authority directory
 
 This is the directory in which B<stunnel> will look for certificates when using
-the I<verify>.  Note that the certificates in this directory should be named
+the I<verify> option.  Note that the certificates in this directory should be named
 XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the
 cert.
 
 The hash algorithm has been changed in B<OpenSSL 1.0.0>.  It is required to
 c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
 
-I<CApath> path is relative to I<chroot> directory if specified.
+I<CApath> path is relative to the I<chroot> directory if specified.
 
 =item B<CAfile> = CERT_FILE
 
 Certificate Authority file
 
-This file contains multiple CA certificates, used with the I<verify>.
+This file contains multiple CA certificates, used with the I<verify> option.
 
 =item B<cert> = PEM_FILE
 
@@ -466,7 +466,7 @@ I<checkIP>.
 
 Select permitted SSL ciphers
 
-A colon delimited list of the ciphers to allow in the SSL connection,
+A colon-delimited list of the ciphers to allow in the SSL connection,
 for example DES-CBC3-SHA:IDEA-CBC-MD5.
 
 =item B<client> = yes | no
@@ -492,25 +492,25 @@ round-robin algorithm.
 Certificate Revocation Lists directory
 
 This is the directory in which B<stunnel> will look for CRLs when
-using the I<verify>. Note that the CRLs in this directory should
+using the I<verify> option. Note that the CRLs in this directory should
 be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.
 
 The hash algorithm has been changed in B<OpenSSL 1.0.0>.  It is required to
 c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
 
-I<CRLpath> path is relative to I<chroot> directory if specified.
+I<CRLpath> path is relative to the I<chroot> directory if specified.
 
 =item B<CRLfile> = CERT_FILE
 
 Certificate Revocation Lists file
 
-This file contains multiple CRLs, used with the I<verify>.
+This file contains multiple CRLs, used with the I<verify> option.
 
 =item B<curve> = NID
 
 specify ECDH curve name
 
-To get a list of supported cuves use:
+To get a list of supported curves use:
 
     openssl ecparam -list_curves
 
@@ -520,7 +520,7 @@ default: prime256v1
 
 connection identifier type
 
-This identifier allows to distinguish log entries generated for each of the
+This identifier allows you to distinguish log entries generated for each of the
 connections.
 
 Currently supported types:
@@ -559,7 +559,7 @@ I<debug = 7> for greatest debugging output.  The default is notice (5).
 
 =item B<delay> = yes | no
 
-delay DNS lookup for I<connect> option
+delay DNS lookup for the I<connect> option
 
 This option is useful for dynamic DNS, or when DNS is not available during
 B<stunnel> startup (road warrior VPN, dial-up configurations).
@@ -583,19 +583,19 @@ The engines are numbered starting from 1.
 
 =item B<exec> = EXECUTABLE_PATH
 
-execute local inetd-type program 
+execute a local inetd-type program 
 
-I<exec> path is relative to I<chroot> directory if specified.
+I<exec> path is relative to the I<chroot> directory if specified.
 
-The following environmental variables are set on Unix platform:
+The following environmental variables are set on Unix platforms:
 REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.
 
 =item B<execArgs> = $0 $1 $2 ...
 
-arguments for I<exec> including program name ($0)
+arguments for I<exec> including the program name ($0)
 
 Quoting is currently not supported.
-Arguments are separated with arbitrary number of whitespaces.
+Arguments are separated with an arbitrary amount of whitespace.
 
 =item B<failover> = rr | prio
 
@@ -618,15 +618,15 @@ The files are included in the ascending alphabetical order of their names.
 
 =item B<key> = KEY_FILE
 
-private key for certificate specified with I<cert> option
+private key for the certificate specified with I<cert> option
 
-Private key is needed to authenticate certificate owner.
+A private key is needed to authenticate the certificate owner.
 Since this file should be kept secret it should only be readable
-to its owner.  On Unix systems you can use the following command:
+by its owner.  On Unix systems you can use the following command:
 
     chmod 600 keyfile
 
-default: value of I<cert> option
+default: the value of the I<cert> option
 
 =item B<libwrap> = yes | no
 
@@ -636,8 +636,8 @@ default: no (since version 5.00)
 
 =item B<local> = HOST
 
-IP of the outgoing interface is used as source for remote connections.
-Use this option to bind a static local IP address, instead.
+By default, the IP address of the outgoing interface is used as the source for remote connections.
+Use this option to bind a static local IP address instead.
 
 =item B<sni> = SERVICE:SERVER_PATTERN (server mode)
 
@@ -645,29 +645,29 @@ Use the service as a slave service (a name-based virtual server) for Server
 Name Indication TLS extension (RFC 3546).
 
 I<service_name> specifies the master service that accepts client connections
-with I<accept> option.  I<server_name_pattern> specifies the host name to be
-redirected.  The pattern may start with '*' character, e.g. '*.example.com'.
+with the I<accept> option.  I<server_name_pattern> specifies the host name to be
+redirected.  The pattern may start with the '*' character, e.g. '*.example.com'.
 Multiple slave services are normally specified for a single master service.
-I<sni> option can also be specified more than once within a single slave
+The I<sni> option can also be specified more than once within a single slave
 service.
 
 This service, as well as the master service, may not be configured in client
 mode.
 
-I<connect> option of the slave service is ignored when I<protocol> option is
-specified, as I<protocol> connects remote host before TLS handshake.
+The I<connect> option of the slave service is ignored when the I<protocol> option is
+specified, as I<protocol> connects to the remote host before TLS handshake.
 
-Libwrap checks (Unix only) are performed twice: with master service name after
-TCP connection is accepted, and with slave service name during TLS handshake.
+Libwrap checks (Unix only) are performed twice: with the master service name after
+TCP connection is accepted, and with the slave service name during the TLS handshake.
 
-Option I<sni> is only available when compiled with B<OpenSSL 1.0.0> and later.
+The I<sni> option is only available when compiled with B<OpenSSL 1.0.0> and later.
 
 =item B<sni> = SERVER (client mode)
 
 Use the parameter as the value of TLS Server Name Indication (RFC 3546)
 extension.
 
-Option I<sni> is only available when compiled with B<OpenSSL 1.0.0> and later.
+The I<sni> option is only available when compiled with B<OpenSSL 1.0.0> and later.
 
 =item B<OCSP> = URL
 
@@ -719,7 +719,7 @@ application protocol to negotiate SSL
 
 This option enables initial, protocol-specific negotiation of the SSL/TLS
 encryption.
-I<protocol> option should not be used with SSL encryption on a separate port.
+The I<protocol> option should not be used with SSL encryption on a separate port.
 
 Currently supported protocols:
 
@@ -786,7 +786,7 @@ encryption.
 
 authentication type for protocol negotiations
 
-Currently authentication type only applies to the 'connect' protocol.
+Currently the authentication type only applies to the 'connect' protocol.
 
 default: basic
 
@@ -794,11 +794,11 @@ default: basic
 
 destination address for protocol negotiations
 
-I<protocolHost> specifies the final SSL server to be connected by the proxy,
+I<protocolHost> specifies the final SSL server to be connected to by the proxy,
 and not the proxy server directly connected by B<stunnel>.
 The proxy server should be specified with the 'connect' option.
 
-Currently protocol destination address only applies to 'connect' protocol.
+Currently the protocol destination address only applies to 'connect' protocol.
 
 =item B<protocolPassword> = PASSWORD
 
@@ -830,7 +830,7 @@ The file should not be world-readable nor world-writable.
 
 =item B<pty> = yes | no (Unix only)
 
-allocate pseudoterminal for 'exec' option
+allocate a pseudoterminal for 'exec' option
 
 =item B<redirect> = [HOST:]PORT
 
@@ -858,7 +858,7 @@ default: yes (if supported by B<OpenSSL>)
 
 =item B<reset> = yes | no
 
-attempt to use TCP RST flag to indicate an error
+attempt to use the TCP RST flag to indicate an error
 
 This option is not supported on some platforms.
 
@@ -878,7 +878,7 @@ I<sessionCacheSize> specifies the maximum number of the internal session cache
 entries.
 
 The value of 0 can be used for unlimited size.  It is not recommended
-for production use due to the risk of memory exhaustion DoS attack.
+for production use due to the risk of a memory exhaustion DoS attack.
 
 =item B<sessionCacheTimeout> = TIMEOUT
 
@@ -910,7 +910,7 @@ time to wait for close_notify (set to 0 for buggy MSIE)
 
 =item B<TIMEOUTconnect> = SECONDS
 
-time to wait to connect a remote host
+time to wait to connect to a remote host
 
 =item B<TIMEOUTidle> = SECONDS
 
@@ -930,7 +930,7 @@ Disable transparent proxy support.  This is the default.
 
 =item I<source>
 
-Re-write address to appear as if wrapped daemon is connecting
+Re-write the address to appear as if a wrapped daemon is connecting
 from the SSL client machine instead of the machine running B<stunnel>.
 
 This option is currently available in:
@@ -940,7 +940,7 @@ This option is currently available in:
 =item Remote mode (I<connect> option) on I<Linux E<gt>=2.6.28>
 
 This configuration requires B<stunnel> to be executed as root and without
-I<setuid> option.
+the I<setuid> option.
 
 This configuration requires the following setup for iptables and routing
 (possibly in /etc/rc.local or equivalent file):
@@ -953,25 +953,25 @@ This configuration requires the following setup for iptables and routing
     ip route add local 0.0.0.0/0 dev lo table 100
     echo 0 >/proc/sys/net/ipv4/conf/lo/rp_filter
 
-B<stunnel> must also to be executed as root and without I<setuid> option.
+B<stunnel> must also to be executed as root and without the I<setuid> option.
 
 =item Remote mode (I<connect> option) on I<Linux 2.2.x>
 
-This configuration requires kernel to be compiled with I<transparent proxy>
+This configuration requires the kernel to be compiled with the I<transparent proxy>
 option.
 Connected service must be installed on a separate host.
 Routing towards the clients has to go through the B<stunnel> box.
 
-B<stunnel> must also to be executed as root and without I<setuid> option.
+B<stunnel> must also to be executed as root and without the I<setuid> option.
 
 =item Remote mode (I<connect> option) on I<FreeBSD E<gt>=8.0>
 
 This configuration requires additional firewall and routing setup.
-B<stunnel> must also to be executed as root and without I<setuid> option.
+B<stunnel> must also to be executed as root and without the I<setuid> option.
 
 =item Local mode (I<exec> option)
 
-This configuration works by pre-loading I<libstunnel.so> shared library.
+This configuration works by pre-loading the I<libstunnel.so> shared library.
 _RLD_LIST environment variable is used on Tru64, and LD_PRELOAD variable on
 other platforms.
 
@@ -979,7 +979,7 @@ other platforms.
 
 =item I<destination>
 
-Original destination is used instead of I<connect> option.
+The original destination is used instead of the I<connect> option.
 
 A service section for transparent destination may look like this:
 
@@ -1003,7 +1003,7 @@ For a connect target installed on a remote host:
     /sbin/iptables -t nat -I PREROUTING -p tcp --dport <redirected_port> \
         -i eth0 -j DNAT --to-destination <local_ip>:<stunnel_port>
 
-Transparent destination option is currently only supported on Linux.
+The transparent destination option is currently only supported on Linux.
 
 =item I<both>
 
@@ -1017,40 +1017,40 @@ Two legacy options are also supported for backward compatibility:
 
 =item I<yes>
 
-This options has been renamed to I<source>.
+This option has been renamed to I<source>.
 
 =item I<no>
 
-This options has been renamed to I<none>.
+This option has been renamed to I<none>.
 
 =back
 
 
 =item B<verify> = LEVEL
 
-verify peer certificate
+verify the peer certificate
 
 =over 4
 
 =item level 0
 
-Request and ignore peer certificate.
+Request and ignore the peer certificate.
 
 =item level 1
 
-Verify peer certificate if present.
+Verify the peer certificate if present.
 
 =item level 2
 
-Verify peer certificate.
+Verify the peer certificate.
 
 =item level 3
 
-Verify peer with locally installed certificate.
+Verify the peer with locally installed certificate.
 
 =item level 4
 
-Ignore CA chain and only verify peer certificate.
+Ignore the CA chain and only verify the peer certificate.
 
 =item default
 
@@ -1058,7 +1058,7 @@ No verify.
 
 =back
 
-It is important to understand, that this option was solely designed for access
+It is important to understand that this option was solely designed for access
 control and not for authorization.  Specifically for level 2 every non-revoked
 certificate is accepted regardless of its Common Name.  For this reason a
 dedicated CA should be used with level 2, and not a generic CA commonly used
@@ -1108,16 +1108,16 @@ setuid
 
 =back
 
-The use of 'setuid' option will also prevent B<stunnel> from binding privileged
+The use of the 'setuid' option will also prevent B<stunnel> from binding to privileged
 (<1024) ports during configuration reloading.
 
-When 'chroot' option is used, B<stunnel> will look for all its files (including
-configuration file, certificates, log file and pid file) within the chroot
+When the 'chroot' option is used, B<stunnel> will look for all its files (including
+the configuration file, certificates, the log file and the pid file) within the chroot
 jail.
 
 =item SIGUSR1
 
-Close and reopen B<stunnel> log file.
+Close and reopen the B<stunnel> log file.
 This function can be used for log rotation.
 
 =item SIGTERM, SIGQUIT, SIGINT
@@ -1232,8 +1232,8 @@ information on certificates generation on pages listed below.
 
 The order of contents of the I<.pem> file is important.  It should contain the
 unencrypted private key first, then a signed certificate (not certificate
-request).  There should be also empty lines after certificate and private key.
-Plaintext certificate information appended on the top of generated certificate
+request).  There should also be empty lines after the certificate and the private key.
+Any plaintext certificate information appended on the top of generated certificate
 should be discarded. So the file should look like this:
 
     -----BEGIN RSA PRIVATE KEY-----
@@ -1247,7 +1247,7 @@ should be discarded. So the file should look like this:
 
 =head2 RANDOMNESS
 
-B<stunnel> needs to seed the PRNG (pseudo random number generator) in
+B<stunnel> needs to seed the PRNG (pseudo-random number generator) in
 order for SSL to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:
 
@@ -1333,7 +1333,7 @@ B<stunnel> configuration file
 
 =head1 BUGS
 
-Option I<execArgs> and Win32 command line does not support quoting.
+The I<execArgs> option and the Win32 command line do not support quoting.
 
 
 =head1 SEE ALSO

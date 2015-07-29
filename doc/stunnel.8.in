@@ -70,8 +70,8 @@
 .rr rF
 .\" ========================================================================
 .\"
-.IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2015.06.11" "5.18" "stunnel"
+.IX Title "STUNNEL.POD.IN 8"
+.TH STUNNEL.POD.IN 8 "2015.06.16" "5.19" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -137,10 +137,10 @@ Start \s-1NT\s0 Service
 Stop \s-1NT\s0 Service
 .IP "\fB\-reload\fR (Windows \s-1NT\s0 and later only)" 4
 .IX Item "-reload (Windows NT and later only)"
-Reload configuration file of the running \s-1NT\s0 Service
+Reload the configuration file of the running \s-1NT\s0 Service
 .IP "\fB\-reopen\fR (Windows \s-1NT\s0 and later only)" 4
 .IX Item "-reopen (Windows NT and later only)"
-Reopen log file of the running \s-1NT\s0 Service
+Reopen the log file of the running \s-1NT\s0 Service
 .IP "\fB\-exit\fR (Win32 only)" 4
 .IX Item "-exit (Win32 only)"
 Exit an already started stunnel
@@ -172,11 +172,11 @@ A Unix socket path (Unix only).
 .IX Item "chroot = DIRECTORY (Unix only)"
 directory to chroot \fBstunnel\fR process
 .Sp
-\&\fBchroot\fR keeps \fBstunnel\fR in chrooted jail.  \fICApath\fR, \fICRLpath\fR, \fIpid\fR
+\&\fBchroot\fR keeps \fBstunnel\fR in a chrooted jail.  \fICApath\fR, \fICRLpath\fR, \fIpid\fR
 and \fIexec\fR are located inside the jail and the patches have to be relative
 to the directory specified with \fBchroot\fR.
 .Sp
-Several functions of the operating system also need their files to be located within chroot jail, e.g.:
+Several functions of the operating system also need their files to be located within the chroot jail, e.g.:
 .RS 4
 .IP "\(bu" 4
 Delayed resolver typically needs /etc/nsswitch.conf and /etc/resolv.conf.
@@ -201,7 +201,7 @@ zlib compression of \fBOpenSSL 0.9.8\fR or above is not backward compatible with
 .IX Item "debug = [FACILITY.]LEVEL"
 debugging level
 .Sp
-Level is a one of the syslog level names or numbers
+Level is one of the syslog level names or numbers
 emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6), or debug (7).  All logs for the specified level and
 all levels numerically less than it will be shown.  Use \fIdebug = debug\fR or
@@ -215,7 +215,7 @@ Case is ignored for both facilities and levels.
 .IX Item "EGD = EGD_PATH (Unix only)"
 path to Entropy Gathering Daemon socket
 .Sp
-Entropy Gathering Daemon socket to use to feed \fBOpenSSL\fR random number
+Entropy Gathering Daemon socket to use to feed the \fBOpenSSL\fR random number
 generator.  (Available only if compiled with \fBOpenSSL 0.9.5a\fR or higher)
 .IP "\fBengine\fR = auto | \s-1ENGINE_ID\s0" 4
 .IX Item "engine = auto | ENGINE_ID"
@@ -223,7 +223,7 @@ select hardware engine
 .Sp
 default: software-only cryptography
 .Sp
-Here is an example of advanced engine configuration to read private key from an
+Here is an example of advanced engine configuration to read the private key from an
 OpenSC engine
 .Sp
 .Vb 7
@@ -258,7 +258,7 @@ DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.\s0
 .IX Item "fips = yes | no"
 Enable or disable \s-1FIPS 140\-2\s0 mode.
 .Sp
-This option allows to disable entering \s-1FIPS\s0 mode if \fBstunnel\fR was compiled
+This option allows you to disable entering \s-1FIPS\s0 mode if \fBstunnel\fR was compiled
 with \s-1FIPS 140\-2\s0 support.
 .Sp
 default: no (since version 5.00)
@@ -292,7 +292,7 @@ pixel image.
 .IX Item "log = append | overwrite"
 log file handling
 .Sp
-This option allows to choose whether the log file (specified with the \fIoutput\fR
+This option allows you to choose whether the log file (specified with the \fIoutput\fR
 option) is appended or overwritten when opened or re-opened.
 .Sp
 default: append
@@ -308,7 +308,7 @@ pid file location
 .Sp
 If the argument is empty, then no pid file will be created.
 .Sp
-\&\fIpid\fR path is relative to \fIchroot\fR directory if specified.
+\&\fIpid\fR path is relative to the \fIchroot\fR directory if specified.
 .IP "\fBRNDbytes\fR = \s-1BYTES\s0" 4
 .IX Item "RNDbytes = BYTES"
 bytes to read from random seed files
@@ -345,10 +345,10 @@ default: stunnel
 \&\fIsetuid()\fR to the specified user in daemon mode
 .IP "\fBsocket\fR = a|l|r:OPTION=VALUE[:VALUE]" 4
 .IX Item "socket = a|l|r:OPTION=VALUE[:VALUE]"
-Set an option on accept/local/remote socket
+Set an option on the accept/local/remote socket
 .Sp
-The values for linger option are l_onof:l_linger.
-The values for time are tv_sec:tv_usec.
+The values for the linger option are l_onof:l_linger.
+The values for the time are tv_sec:tv_usec.
 .Sp
 Examples:
 .Sp
@@ -375,7 +375,7 @@ enable the taskbar icon
 default: yes
 .SS "SERVICE-LEVEL \s-1OPTIONS\s0"
 .IX Subsection "SERVICE-LEVEL OPTIONS"
-Each configuration section begins with service name in square brackets.
+Each configuration section begins with a service name in square brackets.
 The service name is used for libwrap (\s-1TCP\s0 Wrappers) access control and lets
 you distinguish \fBstunnel\fR services in your log files.
 .PP
@@ -399,19 +399,19 @@ To listen on all IPv6 addresses use:
 Certificate Authority directory
 .Sp
 This is the directory in which \fBstunnel\fR will look for certificates when using
-the \fIverify\fR.  Note that the certificates in this directory should be named
+the \fIverify\fR option.  Note that the certificates in this directory should be named
 \&\s-1XXXXXXXX.0\s0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1DER\s0 encoded subject of the
 cert.
 .Sp
 The hash algorithm has been changed in \fBOpenSSL 1.0.0\fR.  It is required to
 c_rehash the directory on upgrade from \fBOpenSSL 0.x.x\fR to \fBOpenSSL 1.x.x\fR.
 .Sp
-\&\fICApath\fR path is relative to \fIchroot\fR directory if specified.
+\&\fICApath\fR path is relative to the \fIchroot\fR directory if specified.
 .IP "\fBCAfile\fR = \s-1CERT_FILE\s0" 4
 .IX Item "CAfile = CERT_FILE"
 Certificate Authority file
 .Sp
-This file contains multiple \s-1CA\s0 certificates, used with the \fIverify\fR.
+This file contains multiple \s-1CA\s0 certificates, used with the \fIverify\fR option.
 .IP "\fBcert\fR = \s-1PEM_FILE\s0" 4
 .IX Item "cert = PEM_FILE"
 certificate chain \s-1PEM\s0 file name
@@ -448,7 +448,7 @@ address of the peer certificate matches any of the \s-1IP\s0 addresses specified
 .IX Item "ciphers = CIPHER_LIST"
 Select permitted \s-1SSL\s0 ciphers
 .Sp
-A colon delimited list of the ciphers to allow in the \s-1SSL\s0 connection,
+A colon-delimited list of the ciphers to allow in the \s-1SSL\s0 connection,
 for example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5.\s0
 .IP "\fBclient\fR = yes | no" 4
 .IX Item "client = yes | no"
@@ -471,23 +471,23 @@ round-robin algorithm.
 Certificate Revocation Lists directory
 .Sp
 This is the directory in which \fBstunnel\fR will look for CRLs when
-using the \fIverify\fR. Note that the CRLs in this directory should
+using the \fIverify\fR option. Note that the CRLs in this directory should
 be named \s-1XXXXXXXX\s0.r0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1CRL.\s0
 .Sp
 The hash algorithm has been changed in \fBOpenSSL 1.0.0\fR.  It is required to
 c_rehash the directory on upgrade from \fBOpenSSL 0.x.x\fR to \fBOpenSSL 1.x.x\fR.
 .Sp
-\&\fICRLpath\fR path is relative to \fIchroot\fR directory if specified.
+\&\fICRLpath\fR path is relative to the \fIchroot\fR directory if specified.
 .IP "\fBCRLfile\fR = \s-1CERT_FILE\s0" 4
 .IX Item "CRLfile = CERT_FILE"
 Certificate Revocation Lists file
 .Sp
-This file contains multiple CRLs, used with the \fIverify\fR.
+This file contains multiple CRLs, used with the \fIverify\fR option.
 .IP "\fBcurve\fR = \s-1NID\s0" 4
 .IX Item "curve = NID"
 specify \s-1ECDH\s0 curve name
 .Sp
-To get a list of supported cuves use:
+To get a list of supported curves use:
 .Sp
 .Vb 1
 \&    openssl ecparam \-list_curves
@@ -498,7 +498,7 @@ default: prime256v1
 .IX Item "logId = TYPE"
 connection identifier type
 .Sp
-This identifier allows to distinguish log entries generated for each of the
+This identifier allows you to distinguish log entries generated for each of the
 connections.
 .Sp
 Currently supported types:
@@ -532,7 +532,7 @@ all levels numerically less than it will be shown.  Use \fIdebug = debug\fR or
 \&\fIdebug = 7\fR for greatest debugging output.  The default is notice (5).
 .IP "\fBdelay\fR = yes | no" 4
 .IX Item "delay = yes | no"
-delay \s-1DNS\s0 lookup for \fIconnect\fR option
+delay \s-1DNS\s0 lookup for the \fIconnect\fR option
 .Sp
 This option is useful for dynamic \s-1DNS,\s0 or when \s-1DNS\s0 is not available during
 \&\fBstunnel\fR startup (road warrior \s-1VPN,\s0 dial-up configurations).
@@ -553,19 +553,19 @@ select engine number for the service
 The engines are numbered starting from 1.
 .IP "\fBexec\fR = \s-1EXECUTABLE_PATH\s0" 4
 .IX Item "exec = EXECUTABLE_PATH"
-execute local inetd-type program
+execute a local inetd-type program
 .Sp
-\&\fIexec\fR path is relative to \fIchroot\fR directory if specified.
+\&\fIexec\fR path is relative to the \fIchroot\fR directory if specified.
 .Sp
-The following environmental variables are set on Unix platform:
+The following environmental variables are set on Unix platforms:
 \&\s-1REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.\s0
 .ie n .IP "\fBexecArgs\fR = $0 $1 $2 ..." 4
 .el .IP "\fBexecArgs\fR = \f(CW$0\fR \f(CW$1\fR \f(CW$2\fR ..." 4
 .IX Item "execArgs = $0 $1 $2 ..."
-arguments for \fIexec\fR including program name ($0)
+arguments for \fIexec\fR including the program name ($0)
 .Sp
 Quoting is currently not supported.
-Arguments are separated with arbitrary number of whitespaces.
+Arguments are separated with an arbitrary amount of whitespace.
 .IP "\fBfailover\fR = rr | prio" 4
 .IX Item "failover = rr | prio"
 Failover strategy for multiple \*(L"connect\*(R" targets.
@@ -586,17 +586,17 @@ include all configuration file parts located in \s-1DIRECTORY\s0
 The files are included in the ascending alphabetical order of their names.
 .IP "\fBkey\fR = \s-1KEY_FILE\s0" 4
 .IX Item "key = KEY_FILE"
-private key for certificate specified with \fIcert\fR option
+private key for the certificate specified with \fIcert\fR option
 .Sp
-Private key is needed to authenticate certificate owner.
+A private key is needed to authenticate the certificate owner.
 Since this file should be kept secret it should only be readable
-to its owner.  On Unix systems you can use the following command:
+by its owner.  On Unix systems you can use the following command:
 .Sp
 .Vb 1
 \&    chmod 600 keyfile
 .Ve
 .Sp
-default: value of \fIcert\fR option
+default: the value of the \fIcert\fR option
 .IP "\fBlibwrap\fR = yes | no" 4
 .IX Item "libwrap = yes | no"
 Enable or disable the use of /etc/hosts.allow and /etc/hosts.deny.
@@ -604,36 +604,36 @@ Enable or disable the use of /etc/hosts.allow and /etc/hosts.deny.
 default: no (since version 5.00)
 .IP "\fBlocal\fR = \s-1HOST\s0" 4
 .IX Item "local = HOST"
-\&\s-1IP\s0 of the outgoing interface is used as source for remote connections.
-Use this option to bind a static local \s-1IP\s0 address, instead.
+By default, the \s-1IP\s0 address of the outgoing interface is used as the source for remote connections.
+Use this option to bind a static local \s-1IP\s0 address instead.
 .IP "\fBsni\fR = \s-1SERVICE:SERVER_PATTERN \s0(server mode)" 4
 .IX Item "sni = SERVICE:SERVER_PATTERN (server mode)"
 Use the service as a slave service (a name-based virtual server) for Server
 Name Indication \s-1TLS\s0 extension (\s-1RFC 3546\s0).
 .Sp
 \&\fIservice_name\fR specifies the master service that accepts client connections
-with \fIaccept\fR option.  \fIserver_name_pattern\fR specifies the host name to be
-redirected.  The pattern may start with '*' character, e.g. '*.example.com'.
+with the \fIaccept\fR option.  \fIserver_name_pattern\fR specifies the host name to be
+redirected.  The pattern may start with the '*' character, e.g. '*.example.com'.
 Multiple slave services are normally specified for a single master service.
-\&\fIsni\fR option can also be specified more than once within a single slave
+The \fIsni\fR option can also be specified more than once within a single slave
 service.
 .Sp
 This service, as well as the master service, may not be configured in client
 mode.
 .Sp
-\&\fIconnect\fR option of the slave service is ignored when \fIprotocol\fR option is
-specified, as \fIprotocol\fR connects remote host before \s-1TLS\s0 handshake.
+The \fIconnect\fR option of the slave service is ignored when the \fIprotocol\fR option is
+specified, as \fIprotocol\fR connects to the remote host before \s-1TLS\s0 handshake.
 .Sp
-Libwrap checks (Unix only) are performed twice: with master service name after
-\&\s-1TCP\s0 connection is accepted, and with slave service name during \s-1TLS\s0 handshake.
+Libwrap checks (Unix only) are performed twice: with the master service name after
+\&\s-1TCP\s0 connection is accepted, and with the slave service name during the \s-1TLS\s0 handshake.
 .Sp
-Option \fIsni\fR is only available when compiled with \fBOpenSSL 1.0.0\fR and later.
+The \fIsni\fR option is only available when compiled with \fBOpenSSL 1.0.0\fR and later.
 .IP "\fBsni\fR = \s-1SERVER \s0(client mode)" 4
 .IX Item "sni = SERVER (client mode)"
 Use the parameter as the value of \s-1TLS\s0 Server Name Indication (\s-1RFC 3546\s0)
 extension.
 .Sp
-Option \fIsni\fR is only available when compiled with \fBOpenSSL 1.0.0\fR and later.
+The \fIsni\fR option is only available when compiled with \fBOpenSSL 1.0.0\fR and later.
 .IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
 .IX Item "OCSP = URL"
 select \s-1OCSP\s0 server for certificate verification
@@ -684,7 +684,7 @@ application protocol to negotiate \s-1SSL\s0
 .Sp
 This option enables initial, protocol-specific negotiation of the \s-1SSL/TLS\s0
 encryption.
-\&\fIprotocol\fR option should not be used with \s-1SSL\s0 encryption on a separate port.
+The \fIprotocol\fR option should not be used with \s-1SSL\s0 encryption on a separate port.
 .Sp
 Currently supported protocols:
 .RS 4
@@ -741,18 +741,18 @@ encryption.
 .IX Item "protocolAuthentication = basic | ntlm"
 authentication type for protocol negotiations
 .Sp
-Currently authentication type only applies to the 'connect' protocol.
+Currently the authentication type only applies to the 'connect' protocol.
 .Sp
 default: basic
 .IP "\fBprotocolHost\fR = \s-1HOST:PORT\s0" 4
 .IX Item "protocolHost = HOST:PORT"
 destination address for protocol negotiations
 .Sp
-\&\fIprotocolHost\fR specifies the final \s-1SSL\s0 server to be connected by the proxy,
+\&\fIprotocolHost\fR specifies the final \s-1SSL\s0 server to be connected to by the proxy,
 and not the proxy server directly connected by \fBstunnel\fR.
 The proxy server should be specified with the 'connect' option.
 .Sp
-Currently protocol destination address only applies to 'connect' protocol.
+Currently the protocol destination address only applies to 'connect' protocol.
 .IP "\fBprotocolPassword\fR = \s-1PASSWORD\s0" 4
 .IX Item "protocolPassword = PASSWORD"
 password for protocol negotiations
@@ -781,7 +781,7 @@ The key is required to be at least 20 characters long.
 The file should not be world-readable nor world-writable.
 .IP "\fBpty\fR = yes | no (Unix only)" 4
 .IX Item "pty = yes | no (Unix only)"
-allocate pseudoterminal for 'exec' option
+allocate a pseudoterminal for 'exec' option
 .IP "\fBredirect\fR = [\s-1HOST:\s0]PORT" 4
 .IX Item "redirect = [HOST:]PORT"
 redirect \s-1SSL\s0 client connections on certificate-based authentication failures
@@ -806,7 +806,7 @@ this issue.
 default: yes (if supported by \fBOpenSSL\fR)
 .IP "\fBreset\fR = yes | no" 4
 .IX Item "reset = yes | no"
-attempt to use \s-1TCP RST\s0 flag to indicate an error
+attempt to use the \s-1TCP RST\s0 flag to indicate an error
 .Sp
 This option is not supported on some platforms.
 .Sp
@@ -824,7 +824,7 @@ session cache size
 entries.
 .Sp
 The value of 0 can be used for unlimited size.  It is not recommended
-for production use due to the risk of memory exhaustion DoS attack.
+for production use due to the risk of a memory exhaustion DoS attack.
 .IP "\fBsessionCacheTimeout\fR = \s-1TIMEOUT\s0" 4
 .IX Item "sessionCacheTimeout = TIMEOUT"
 session cache timeout
@@ -849,7 +849,7 @@ time to wait for expected data
 time to wait for close_notify (set to 0 for buggy \s-1MSIE\s0)
 .IP "\fBTIMEOUTconnect\fR = \s-1SECONDS\s0" 4
 .IX Item "TIMEOUTconnect = SECONDS"
-time to wait to connect a remote host
+time to wait to connect to a remote host
 .IP "\fBTIMEOUTidle\fR = \s-1SECONDS\s0" 4
 .IX Item "TIMEOUTidle = SECONDS"
 time to keep an idle connection
@@ -864,7 +864,7 @@ Supported values:
 Disable transparent proxy support.  This is the default.
 .IP "\fIsource\fR" 4
 .IX Item "source"
-Re-write address to appear as if wrapped daemon is connecting
+Re-write the address to appear as if a wrapped daemon is connecting
 from the \s-1SSL\s0 client machine instead of the machine running \fBstunnel\fR.
 .Sp
 This option is currently available in:
@@ -872,7 +872,7 @@ This option is currently available in:
 .IP "Remote mode (\fIconnect\fR option) on \fILinux >=2.6.28\fR" 4
 .IX Item "Remote mode (connect option) on Linux >=2.6.28"
 This configuration requires \fBstunnel\fR to be executed as root and without
-\&\fIsetuid\fR option.
+the \fIsetuid\fR option.
 .Sp
 This configuration requires the following setup for iptables and routing
 (possibly in /etc/rc.local or equivalent file):
@@ -887,22 +887,22 @@ This configuration requires the following setup for iptables and routing
 \&    echo 0 >/proc/sys/net/ipv4/conf/lo/rp_filter
 .Ve
 .Sp
-\&\fBstunnel\fR must also to be executed as root and without \fIsetuid\fR option.
+\&\fBstunnel\fR must also to be executed as root and without the \fIsetuid\fR option.
 .IP "Remote mode (\fIconnect\fR option) on \fILinux 2.2.x\fR" 4
 .IX Item "Remote mode (connect option) on Linux 2.2.x"
-This configuration requires kernel to be compiled with \fItransparent proxy\fR
+This configuration requires the kernel to be compiled with the \fItransparent proxy\fR
 option.
 Connected service must be installed on a separate host.
 Routing towards the clients has to go through the \fBstunnel\fR box.
 .Sp
-\&\fBstunnel\fR must also to be executed as root and without \fIsetuid\fR option.
+\&\fBstunnel\fR must also to be executed as root and without the \fIsetuid\fR option.
 .IP "Remote mode (\fIconnect\fR option) on \fIFreeBSD >=8.0\fR" 4
 .IX Item "Remote mode (connect option) on FreeBSD >=8.0"
 This configuration requires additional firewall and routing setup.
-\&\fBstunnel\fR must also to be executed as root and without \fIsetuid\fR option.
+\&\fBstunnel\fR must also to be executed as root and without the \fIsetuid\fR option.
 .IP "Local mode (\fIexec\fR option)" 4
 .IX Item "Local mode (exec option)"
-This configuration works by pre-loading \fIlibstunnel.so\fR shared library.
+This configuration works by pre-loading the \fIlibstunnel.so\fR shared library.
 _RLD_LIST environment variable is used on Tru64, and \s-1LD_PRELOAD\s0 variable on
 other platforms.
 .RE
@@ -910,7 +910,7 @@ other platforms.
 .RE
 .IP "\fIdestination\fR" 4
 .IX Item "destination"
-Original destination is used instead of \fIconnect\fR option.
+The original destination is used instead of the \fIconnect\fR option.
 .Sp
 A service section for transparent destination may look like this:
 .Sp
@@ -940,7 +940,7 @@ For a connect target installed on a remote host:
 \&        \-i eth0 \-j DNAT \-\-to\-destination <local_ip>:<stunnel_port>
 .Ve
 .Sp
-Transparent destination option is currently only supported on Linux.
+The transparent destination option is currently only supported on Linux.
 .IP "\fIboth\fR" 4
 .IX Item "both"
 Use both \fIsource\fR and \fIdestination\fR transparent proxy.
@@ -950,39 +950,39 @@ Use both \fIsource\fR and \fIdestination\fR transparent proxy.
 Two legacy options are also supported for backward compatibility:
 .IP "\fIyes\fR" 4
 .IX Item "yes"
-This options has been renamed to \fIsource\fR.
+This option has been renamed to \fIsource\fR.
 .IP "\fIno\fR" 4
 .IX Item "no"
-This options has been renamed to \fInone\fR.
+This option has been renamed to \fInone\fR.
 .RE
 .RS 4
 .RE
 .IP "\fBverify\fR = \s-1LEVEL\s0" 4
 .IX Item "verify = LEVEL"
-verify peer certificate
+verify the peer certificate
 .RS 4
 .IP "level 0" 4
 .IX Item "level 0"
-Request and ignore peer certificate.
+Request and ignore the peer certificate.
 .IP "level 1" 4
 .IX Item "level 1"
-Verify peer certificate if present.
+Verify the peer certificate if present.
 .IP "level 2" 4
 .IX Item "level 2"
-Verify peer certificate.
+Verify the peer certificate.
 .IP "level 3" 4
 .IX Item "level 3"
-Verify peer with locally installed certificate.
+Verify the peer with locally installed certificate.
 .IP "level 4" 4
 .IX Item "level 4"
-Ignore \s-1CA\s0 chain and only verify peer certificate.
+Ignore the \s-1CA\s0 chain and only verify the peer certificate.
 .IP "default" 4
 .IX Item "default"
 No verify.
 .RE
 .RS 4
 .Sp
-It is important to understand, that this option was solely designed for access
+It is important to understand that this option was solely designed for access
 control and not for authorization.  Specifically for level 2 every non-revoked
 certificate is accepted regardless of its Common Name.  For this reason a
 dedicated \s-1CA\s0 should be used with level 2, and not a generic \s-1CA\s0 commonly used
@@ -1013,16 +1013,16 @@ setuid
 .RE
 .RS 4
 .Sp
-The use of 'setuid' option will also prevent \fBstunnel\fR from binding privileged
+The use of the 'setuid' option will also prevent \fBstunnel\fR from binding to privileged
 (<1024) ports during configuration reloading.
 .Sp
-When 'chroot' option is used, \fBstunnel\fR will look for all its files (including
-configuration file, certificates, log file and pid file) within the chroot
+When the 'chroot' option is used, \fBstunnel\fR will look for all its files (including
+the configuration file, certificates, the log file and the pid file) within the chroot
 jail.
 .RE
 .IP "\s-1SIGUSR1\s0" 4
 .IX Item "SIGUSR1"
-Close and reopen \fBstunnel\fR log file.
+Close and reopen the \fBstunnel\fR log file.
 This function can be used for log rotation.
 .IP "\s-1SIGTERM, SIGQUIT, SIGINT\s0" 4
 .IX Item "SIGTERM, SIGQUIT, SIGINT"
@@ -1125,7 +1125,7 @@ or \fItcpserver\fR.
 For example, if you have the following line in \fIinetd.conf\fR:
 .PP
 .Vb 1
-\&    imaps stream tcp nowait root /usr/local/bin/stunnel stunnel /usr/local/etc/stunnel/imaps.conf
+\&    imaps stream tcp nowait root @bindir@/stunnel stunnel @sysconfdir@/stunnel/imaps.conf
 .Ve
 .PP
 In these cases, the \fIinetd\fR\-style program is responsible
@@ -1146,8 +1146,8 @@ information on certificates generation on pages listed below.
 .PP
 The order of contents of the \fI.pem\fR file is important.  It should contain the
 unencrypted private key first, then a signed certificate (not certificate
-request).  There should be also empty lines after certificate and private key.
-Plaintext certificate information appended on the top of generated certificate
+request).  There should also be empty lines after the certificate and the private key.
+Any plaintext certificate information appended on the top of generated certificate
 should be discarded. So the file should look like this:
 .PP
 .Vb 8
@@ -1162,7 +1162,7 @@ should be discarded. So the file should look like this:
 .Ve
 .SS "\s-1RANDOMNESS\s0"
 .IX Subsection "RANDOMNESS"
-\&\fBstunnel\fR needs to seed the \s-1PRNG \s0(pseudo random number generator) in
+\&\fBstunnel\fR needs to seed the \s-1PRNG \s0(pseudo-random number generator) in
 order for \s-1SSL\s0 to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:
 .IP "\(bu" 4
@@ -1216,12 +1216,13 @@ It is also possible to specify \s-1DH\s0 parameters in the certificate file:
 \&\s-1DH\s0 parameter generation may take several minutes.
 .SH "FILES"
 .IX Header "FILES"
-.IP "\fI/usr/local/etc/stunnel/stunnel.conf\fR" 4
-.IX Item "/usr/local/etc/stunnel/stunnel.conf"
+.ie n .IP "\fI\fI@sysconfdir\fI@/stunnel/stunnel.conf\fR" 4
+.el .IP "\fI\f(CI@sysconfdir\fI@/stunnel/stunnel.conf\fR" 4
+.IX Item "@sysconfdir@/stunnel/stunnel.conf"
 \&\fBstunnel\fR configuration file
 .SH "BUGS"
 .IX Header "BUGS"
-Option \fIexecArgs\fR and Win32 command line does not support quoting.
+The \fIexecArgs\fR option and the Win32 command line do not support quoting.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 .IP "\fItcpd\fR\|(8)" 4

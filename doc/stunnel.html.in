@@ -108,13 +108,13 @@
 <dt id="reload-Windows-NT-and-later-only"><b>-reload</b> (Windows NT and later only)</dt>
 <dd>
 
-<p>Reload configuration file of the running NT Service</p>
+<p>Reload the configuration file of the running NT Service</p>
 
 </dd>
 <dt id="reopen-Windows-NT-and-later-only"><b>-reopen</b> (Windows NT and later only)</dt>
 <dd>
 
-<p>Reopen log file of the running NT Service</p>
+<p>Reopen the log file of the running NT Service</p>
 
 </dd>
 <dt id="exit-Win32-only"><b>-exit</b> (Win32 only)</dt>
@@ -175,9 +175,9 @@
 
 <p>directory to chroot <b>stunnel</b> process</p>
 
-<p><b>chroot</b> keeps <b>stunnel</b> in chrooted jail. <i>CApath</i>, <i>CRLpath</i>, <i>pid</i> and <i>exec</i> are located inside the jail and the patches have to be relative to the directory specified with <b>chroot</b>.</p>
+<p><b>chroot</b> keeps <b>stunnel</b> in a chrooted jail. <i>CApath</i>, <i>CRLpath</i>, <i>pid</i> and <i>exec</i> are located inside the jail and the patches have to be relative to the directory specified with <b>chroot</b>.</p>
 
-<p>Several functions of the operating system also need their files to be located within chroot jail, e.g.:</p>
+<p>Several functions of the operating system also need their files to be located within the chroot jail, e.g.:</p>
 
 <ul>
 
@@ -210,7 +210,7 @@
 
 <p>debugging level</p>
 
-<p>Level is a one of the syslog level names or numbers emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6), or debug (7). All logs for the specified level and all levels numerically less than it will be shown. Use <i>debug = debug</i> or <i>debug = 7</i> for greatest debugging output. The default is notice (5).</p>
+<p>Level is one of the syslog level names or numbers emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6), or debug (7). All logs for the specified level and all levels numerically less than it will be shown. Use <i>debug = debug</i> or <i>debug = 7</i> for greatest debugging output. The default is notice (5).</p>
 
 <p>The syslog facility &#39;daemon&#39; will be used unless a facility name is supplied. (Facilities are not supported on Win32.)</p>
 
@@ -222,7 +222,7 @@
 
 <p>path to Entropy Gathering Daemon socket</p>
 
-<p>Entropy Gathering Daemon socket to use to feed <b>OpenSSL</b> random number generator. (Available only if compiled with <b>OpenSSL 0.9.5a</b> or higher)</p>
+<p>Entropy Gathering Daemon socket to use to feed the <b>OpenSSL</b> random number generator. (Available only if compiled with <b>OpenSSL 0.9.5a</b> or higher)</p>
 
 </dd>
 <dt id="engine-auto-ENGINE_ID"><b>engine</b> = auto | ENGINE_ID</dt>
@@ -232,7 +232,7 @@
 
 <p>default: software-only cryptography</p>
 
-<p>Here is an example of advanced engine configuration to read private key from an OpenSC engine</p>
+<p>Here is an example of advanced engine configuration to read the private key from an OpenSC engine</p>
 
 <pre><code>    engine=dynamic
     engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
@@ -270,7 +270,7 @@
 
 <p>Enable or disable FIPS 140-2 mode.</p>
 
-<p>This option allows to disable entering FIPS mode if <b>stunnel</b> was compiled with FIPS 140-2 support.</p>
+<p>This option allows you to disable entering FIPS mode if <b>stunnel</b> was compiled with FIPS 140-2 support.</p>
 
 <p>default: no (since version 5.00)</p>
 
@@ -314,7 +314,7 @@
 
 <p>log file handling</p>
 
-<p>This option allows to choose whether the log file (specified with the <i>output</i> option) is appended or overwritten when opened or re-opened.</p>
+<p>This option allows you to choose whether the log file (specified with the <i>output</i> option) is appended or overwritten when opened or re-opened.</p>
 
 <p>default: append</p>
 
@@ -334,7 +334,7 @@
 
 <p>If the argument is empty, then no pid file will be created.</p>
 
-<p><i>pid</i> path is relative to <i>chroot</i> directory if specified.</p>
+<p><i>pid</i> path is relative to the <i>chroot</i> directory if specified.</p>
 
 </dd>
 <dt id="RNDbytes-BYTES"><b>RNDbytes</b> = BYTES</dt>
@@ -386,9 +386,9 @@
 <dt id="socket-a-l-r:OPTION-VALUE-:VALUE"><b>socket</b> = a|l|r:OPTION=VALUE[:VALUE]</dt>
 <dd>
 
-<p>Set an option on accept/local/remote socket</p>
+<p>Set an option on the accept/local/remote socket</p>
 
-<p>The values for linger option are l_onof:l_linger. The values for time are tv_sec:tv_usec.</p>
+<p>The values for the linger option are l_onof:l_linger. The values for the time are tv_sec:tv_usec.</p>
 
 <p>Examples:</p>
 
@@ -423,7 +423,7 @@
 
 <h2 id="SERVICE-LEVEL-OPTIONS">SERVICE-LEVEL OPTIONS</h2>
 
-<p>Each configuration section begins with service name in square brackets. The service name is used for libwrap (TCP Wrappers) access control and lets you distinguish <b>stunnel</b> services in your log files.</p>
+<p>Each configuration section begins with a service name in square brackets. The service name is used for libwrap (TCP Wrappers) access control and lets you distinguish <b>stunnel</b> services in your log files.</p>
 
 <p>Note that if you wish to run <b>stunnel</b> in <i>inetd</i> mode (where it is provided a network socket by a server such as <i>inetd</i>, <i>xinetd</i>, or <i>tcpserver</i>) then you should read the section entitled <i>INETD MODE</i> below.</p>
 
@@ -446,11 +446,11 @@
 
 <p>Certificate Authority directory</p>
 
-<p>This is the directory in which <b>stunnel</b> will look for certificates when using the <i>verify</i>. Note that the certificates in this directory should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the cert.</p>
+<p>This is the directory in which <b>stunnel</b> will look for certificates when using the <i>verify</i> option. Note that the certificates in this directory should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the cert.</p>
 
 <p>The hash algorithm has been changed in <b>OpenSSL 1.0.0</b>. It is required to c_rehash the directory on upgrade from <b>OpenSSL 0.x.x</b> to <b>OpenSSL 1.x.x</b>.</p>
 
-<p><i>CApath</i> path is relative to <i>chroot</i> directory if specified.</p>
+<p><i>CApath</i> path is relative to the <i>chroot</i> directory if specified.</p>
 
 </dd>
 <dt id="CAfile-CERT_FILE"><b>CAfile</b> = CERT_FILE</dt>
@@ -458,7 +458,7 @@
 
 <p>Certificate Authority file</p>
 
-<p>This file contains multiple CA certificates, used with the <i>verify</i>.</p>
+<p>This file contains multiple CA certificates, used with the <i>verify</i> option.</p>
 
 </dd>
 <dt id="cert-PEM_FILE"><b>cert</b> = PEM_FILE</dt>
@@ -500,7 +500,7 @@
 
 <p>Select permitted SSL ciphers</p>
 
-<p>A colon delimited list of the ciphers to allow in the SSL connection, for example DES-CBC3-SHA:IDEA-CBC-MD5.</p>
+<p>A colon-delimited list of the ciphers to allow in the SSL connection, for example DES-CBC3-SHA:IDEA-CBC-MD5.</p>
 
 </dd>
 <dt id="client-yes-no"><b>client</b> = yes | no</dt>
@@ -528,11 +528,11 @@
 
 <p>Certificate Revocation Lists directory</p>
 
-<p>This is the directory in which <b>stunnel</b> will look for CRLs when using the <i>verify</i>. Note that the CRLs in this directory should be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.</p>
+<p>This is the directory in which <b>stunnel</b> will look for CRLs when using the <i>verify</i> option. Note that the CRLs in this directory should be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.</p>
 
 <p>The hash algorithm has been changed in <b>OpenSSL 1.0.0</b>. It is required to c_rehash the directory on upgrade from <b>OpenSSL 0.x.x</b> to <b>OpenSSL 1.x.x</b>.</p>
 
-<p><i>CRLpath</i> path is relative to <i>chroot</i> directory if specified.</p>
+<p><i>CRLpath</i> path is relative to the <i>chroot</i> directory if specified.</p>
 
 </dd>
 <dt id="CRLfile-CERT_FILE"><b>CRLfile</b> = CERT_FILE</dt>
@@ -540,7 +540,7 @@
 
 <p>Certificate Revocation Lists file</p>
 
-<p>This file contains multiple CRLs, used with the <i>verify</i>.</p>
+<p>This file contains multiple CRLs, used with the <i>verify</i> option.</p>
 
 </dd>
 <dt id="curve-NID"><b>curve</b> = NID</dt>
@@ -548,7 +548,7 @@
 
 <p>specify ECDH curve name</p>
 
-<p>To get a list of supported cuves use:</p>
+<p>To get a list of supported curves use:</p>
 
 <pre><code>    openssl ecparam -list_curves</code></pre>
 
@@ -560,7 +560,7 @@
 
 <p>connection identifier type</p>
 
-<p>This identifier allows to distinguish log entries generated for each of the connections.</p>
+<p>This identifier allows you to distinguish log entries generated for each of the connections.</p>
 
 <p>Currently supported types:</p>
 
@@ -600,7 +600,7 @@
 <dt id="delay-yes-no"><b>delay</b> = yes | no</dt>
 <dd>
 
-<p>delay DNS lookup for <i>connect</i> option</p>
+<p>delay DNS lookup for the <i>connect</i> option</p>
 
 <p>This option is useful for dynamic DNS, or when DNS is not available during <b>stunnel</b> startup (road warrior VPN, dial-up configurations).</p>
 
@@ -628,19 +628,19 @@
 <dt id="exec-EXECUTABLE_PATH"><b>exec</b> = EXECUTABLE_PATH</dt>
 <dd>
 
-<p>execute local inetd-type program</p>
+<p>execute a local inetd-type program</p>
 
-<p><i>exec</i> path is relative to <i>chroot</i> directory if specified.</p>
+<p><i>exec</i> path is relative to the <i>chroot</i> directory if specified.</p>
 
-<p>The following environmental variables are set on Unix platform: REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.</p>
+<p>The following environmental variables are set on Unix platforms: REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.</p>
 
 </dd>
 <dt id="execArgs-0-1-2"><b>execArgs</b> = $0 $1 $2 ...</dt>
 <dd>
 
-<p>arguments for <i>exec</i> including program name ($0)</p>
+<p>arguments for <i>exec</i> including the program name ($0)</p>
 
-<p>Quoting is currently not supported. Arguments are separated with arbitrary number of whitespaces.</p>
+<p>Quoting is currently not supported. Arguments are separated with an arbitrary amount of whitespace.</p>
 
 </dd>
 <dt id="failover-rr-prio"><b>failover</b> = rr | prio</dt>
@@ -671,13 +671,13 @@
 <dt id="key-KEY_FILE"><b>key</b> = KEY_FILE</dt>
 <dd>
 
-<p>private key for certificate specified with <i>cert</i> option</p>
+<p>private key for the certificate specified with <i>cert</i> option</p>
 
-<p>Private key is needed to authenticate certificate owner. Since this file should be kept secret it should only be readable to its owner. On Unix systems you can use the following command:</p>
+<p>A private key is needed to authenticate the certificate owner. Since this file should be kept secret it should only be readable by its owner. On Unix systems you can use the following command:</p>
 
 <pre><code>    chmod 600 keyfile</code></pre>
 
-<p>default: value of <i>cert</i> option</p>
+<p>default: the value of the <i>cert</i> option</p>
 
 </dd>
 <dt id="libwrap-yes-no"><b>libwrap</b> = yes | no</dt>
@@ -691,7 +691,7 @@
 <dt id="local-HOST"><b>local</b> = HOST</dt>
 <dd>
 
-<p>IP of the outgoing interface is used as source for remote connections. Use this option to bind a static local IP address, instead.</p>
+<p>By default, the IP address of the outgoing interface is used as the source for remote connections. Use this option to bind a static local IP address instead.</p>
 
 </dd>
 <dt id="sni-SERVICE:SERVER_PATTERN-server-mode"><b>sni</b> = SERVICE:SERVER_PATTERN (server mode)</dt>
@@ -699,15 +699,15 @@
 
 <p>Use the service as a slave service (a name-based virtual server) for Server Name Indication TLS extension (RFC 3546).</p>
 
-<p><i>service_name</i> specifies the master service that accepts client connections with <i>accept</i> option. <i>server_name_pattern</i> specifies the host name to be redirected. The pattern may start with &#39;*&#39; character, e.g. &#39;*.example.com&#39;. Multiple slave services are normally specified for a single master service. <i>sni</i> option can also be specified more than once within a single slave service.</p>
+<p><i>service_name</i> specifies the master service that accepts client connections with the <i>accept</i> option. <i>server_name_pattern</i> specifies the host name to be redirected. The pattern may start with the &#39;*&#39; character, e.g. &#39;*.example.com&#39;. Multiple slave services are normally specified for a single master service. The <i>sni</i> option can also be specified more than once within a single slave service.</p>
 
 <p>This service, as well as the master service, may not be configured in client mode.</p>
 
-<p><i>connect</i> option of the slave service is ignored when <i>protocol</i> option is specified, as <i>protocol</i> connects remote host before TLS handshake.</p>
+<p>The <i>connect</i> option of the slave service is ignored when the <i>protocol</i> option is specified, as <i>protocol</i> connects to the remote host before TLS handshake.</p>
 
-<p>Libwrap checks (Unix only) are performed twice: with master service name after TCP connection is accepted, and with slave service name during TLS handshake.</p>
+<p>Libwrap checks (Unix only) are performed twice: with the master service name after TCP connection is accepted, and with the slave service name during the TLS handshake.</p>
 
-<p>Option <i>sni</i> is only available when compiled with <b>OpenSSL 1.0.0</b> and later.</p>
+<p>The <i>sni</i> option is only available when compiled with <b>OpenSSL 1.0.0</b> and later.</p>
 
 </dd>
 <dt id="sni-SERVER-client-mode"><b>sni</b> = SERVER (client mode)</dt>
@@ -715,7 +715,7 @@
 
 <p>Use the parameter as the value of TLS Server Name Indication (RFC 3546) extension.</p>
 
-<p>Option <i>sni</i> is only available when compiled with <b>OpenSSL 1.0.0</b> and later.</p>
+<p>The <i>sni</i> option is only available when compiled with <b>OpenSSL 1.0.0</b> and later.</p>
 
 </dd>
 <dt id="OCSP-URL"><b>OCSP</b> = URL</dt>
@@ -766,7 +766,7 @@
 
 <p>application protocol to negotiate SSL</p>
 
-<p>This option enables initial, protocol-specific negotiation of the SSL/TLS encryption. <i>protocol</i> option should not be used with SSL encryption on a separate port.</p>
+<p>This option enables initial, protocol-specific negotiation of the SSL/TLS encryption. The <i>protocol</i> option should not be used with SSL encryption on a separate port.</p>
 
 <p>Currently supported protocols:</p>
 
@@ -846,7 +846,7 @@
 
 <p>authentication type for protocol negotiations</p>
 
-<p>Currently authentication type only applies to the &#39;connect&#39; protocol.</p>
+<p>Currently the authentication type only applies to the &#39;connect&#39; protocol.</p>
 
 <p>default: basic</p>
 
@@ -856,9 +856,9 @@
 
 <p>destination address for protocol negotiations</p>
 
-<p><i>protocolHost</i> specifies the final SSL server to be connected by the proxy, and not the proxy server directly connected by <b>stunnel</b>. The proxy server should be specified with the &#39;connect&#39; option.</p>
+<p><i>protocolHost</i> specifies the final SSL server to be connected to by the proxy, and not the proxy server directly connected by <b>stunnel</b>. The proxy server should be specified with the &#39;connect&#39; option.</p>
 
-<p>Currently protocol destination address only applies to &#39;connect&#39; protocol.</p>
+<p>Currently the protocol destination address only applies to &#39;connect&#39; protocol.</p>
 
 </dd>
 <dt id="protocolPassword-PASSWORD"><b>protocolPassword</b> = PASSWORD</dt>
@@ -898,7 +898,7 @@
 <dt id="pty-yes-no-Unix-only"><b>pty</b> = yes | no (Unix only)</dt>
 <dd>
 
-<p>allocate pseudoterminal for &#39;exec&#39; option</p>
+<p>allocate a pseudoterminal for &#39;exec&#39; option</p>
 
 </dd>
 <dt id="redirect-HOST:-PORT"><b>redirect</b> = [HOST:]PORT</dt>
@@ -928,7 +928,7 @@
 <dt id="reset-yes-no"><b>reset</b> = yes | no</dt>
 <dd>
 
-<p>attempt to use TCP RST flag to indicate an error</p>
+<p>attempt to use the TCP RST flag to indicate an error</p>
 
 <p>This option is not supported on some platforms.</p>
 
@@ -950,7 +950,7 @@
 
 <p><i>sessionCacheSize</i> specifies the maximum number of the internal session cache entries.</p>
 
-<p>The value of 0 can be used for unlimited size. It is not recommended for production use due to the risk of memory exhaustion DoS attack.</p>
+<p>The value of 0 can be used for unlimited size. It is not recommended for production use due to the risk of a memory exhaustion DoS attack.</p>
 
 </dd>
 <dt id="sessionCacheTimeout-TIMEOUT"><b>sessionCacheTimeout</b> = TIMEOUT</dt>
@@ -996,7 +996,7 @@
 <dt id="TIMEOUTconnect-SECONDS"><b>TIMEOUTconnect</b> = SECONDS</dt>
 <dd>
 
-<p>time to wait to connect a remote host</p>
+<p>time to wait to connect to a remote host</p>
 
 </dd>
 <dt id="TIMEOUTidle-SECONDS"><b>TIMEOUTidle</b> = SECONDS</dt>
@@ -1023,7 +1023,7 @@
 <dt id="source"><i>source</i></dt>
 <dd>
 
-<p>Re-write address to appear as if wrapped daemon is connecting from the SSL client machine instead of the machine running <b>stunnel</b>.</p>
+<p>Re-write the address to appear as if a wrapped daemon is connecting from the SSL client machine instead of the machine running <b>stunnel</b>.</p>
 
 <p>This option is currently available in:</p>
 
@@ -1032,7 +1032,7 @@
 <dt id="Remote-mode-connect-option-on-Linux-2.6.28">Remote mode (<i>connect</i> option) on <i>Linux &gt;=2.6.28</i></dt>
 <dd>
 
-<p>This configuration requires <b>stunnel</b> to be executed as root and without <i>setuid</i> option.</p>
+<p>This configuration requires <b>stunnel</b> to be executed as root and without the <i>setuid</i> option.</p>
 
 <p>This configuration requires the following setup for iptables and routing (possibly in /etc/rc.local or equivalent file):</p>
 
@@ -1044,27 +1044,27 @@
     ip route add local 0.0.0.0/0 dev lo table 100
     echo 0 &gt;/proc/sys/net/ipv4/conf/lo/rp_filter</code></pre>
 
-<p><b>stunnel</b> must also to be executed as root and without <i>setuid</i> option.</p>
+<p><b>stunnel</b> must also to be executed as root and without the <i>setuid</i> option.</p>
 
 </dd>
 <dt id="Remote-mode-connect-option-on-Linux-2.2.x">Remote mode (<i>connect</i> option) on <i>Linux 2.2.x</i></dt>
 <dd>
 
-<p>This configuration requires kernel to be compiled with <i>transparent proxy</i> option. Connected service must be installed on a separate host. Routing towards the clients has to go through the <b>stunnel</b> box.</p>
+<p>This configuration requires the kernel to be compiled with the <i>transparent proxy</i> option. Connected service must be installed on a separate host. Routing towards the clients has to go through the <b>stunnel</b> box.</p>
 
-<p><b>stunnel</b> must also to be executed as root and without <i>setuid</i> option.</p>
+<p><b>stunnel</b> must also to be executed as root and without the <i>setuid</i> option.</p>
 
 </dd>
 <dt id="Remote-mode-connect-option-on-FreeBSD-8.0">Remote mode (<i>connect</i> option) on <i>FreeBSD &gt;=8.0</i></dt>
 <dd>
 
-<p>This configuration requires additional firewall and routing setup. <b>stunnel</b> must also to be executed as root and without <i>setuid</i> option.</p>
+<p>This configuration requires additional firewall and routing setup. <b>stunnel</b> must also to be executed as root and without the <i>setuid</i> option.</p>
 
 </dd>
 <dt id="Local-mode-exec-option">Local mode (<i>exec</i> option)</dt>
 <dd>
 
-<p>This configuration works by pre-loading <i>libstunnel.so</i> shared library. _RLD_LIST environment variable is used on Tru64, and LD_PRELOAD variable on other platforms.</p>
+<p>This configuration works by pre-loading the <i>libstunnel.so</i> shared library. _RLD_LIST environment variable is used on Tru64, and LD_PRELOAD variable on other platforms.</p>
 
 </dd>
 </dl>
@@ -1073,7 +1073,7 @@
 <dt id="destination"><i>destination</i></dt>
 <dd>
 
-<p>Original destination is used instead of <i>connect</i> option.</p>
+<p>The original destination is used instead of the <i>connect</i> option.</p>
 
 <p>A service section for transparent destination may look like this:</p>
 
@@ -1096,7 +1096,7 @@
     /sbin/iptables -t nat -I PREROUTING -p tcp --dport &lt;redirected_port&gt; \
         -i eth0 -j DNAT --to-destination &lt;local_ip&gt;:&lt;stunnel_port&gt;</code></pre>
 
-<p>Transparent destination option is currently only supported on Linux.</p>
+<p>The transparent destination option is currently only supported on Linux.</p>
 
 </dd>
 <dt id="both"><i>both</i></dt>
@@ -1114,13 +1114,13 @@
 <dt id="yes"><i>yes</i></dt>
 <dd>
 
-<p>This options has been renamed to <i>source</i>.</p>
+<p>This option has been renamed to <i>source</i>.</p>
 
 </dd>
 <dt id="no"><i>no</i></dt>
 <dd>
 
-<p>This options has been renamed to <i>none</i>.</p>
+<p>This option has been renamed to <i>none</i>.</p>
 
 </dd>
 </dl>
@@ -1129,38 +1129,38 @@
 <dt id="verify-LEVEL"><b>verify</b> = LEVEL</dt>
 <dd>
 
-<p>verify peer certificate</p>
+<p>verify the peer certificate</p>
 
 <dl>
 
 <dt id="level-0">level 0</dt>
 <dd>
 
-<p>Request and ignore peer certificate.</p>
+<p>Request and ignore the peer certificate.</p>
 
 </dd>
 <dt id="level-1">level 1</dt>
 <dd>
 
-<p>Verify peer certificate if present.</p>
+<p>Verify the peer certificate if present.</p>
 
 </dd>
 <dt id="level-2">level 2</dt>
 <dd>
 
-<p>Verify peer certificate.</p>
+<p>Verify the peer certificate.</p>
 
 </dd>
 <dt id="level-3">level 3</dt>
 <dd>
 
-<p>Verify peer with locally installed certificate.</p>
+<p>Verify the peer with locally installed certificate.</p>
 
 </dd>
 <dt id="level-4">level 4</dt>
 <dd>
 
-<p>Ignore CA chain and only verify peer certificate.</p>
+<p>Ignore the CA chain and only verify the peer certificate.</p>
 
 </dd>
 <dt id="default">default</dt>
@@ -1171,7 +1171,7 @@
 </dd>
 </dl>
 
-<p>It is important to understand, that this option was solely designed for access control and not for authorization. Specifically for level 2 every non-revoked certificate is accepted regardless of its Common Name. For this reason a dedicated CA should be used with level 2, and not a generic CA commonly used for webservers. Level 3 is preferred for point-to-point connections.</p>
+<p>It is important to understand that this option was solely designed for access control and not for authorization. Specifically for level 2 every non-revoked certificate is accepted regardless of its Common Name. For this reason a dedicated CA should be used with level 2, and not a generic CA commonly used for webservers. Level 3 is preferred for point-to-point connections.</p>
 
 </dd>
 </dl>
@@ -1212,15 +1212,15 @@
 </li>
 </ul>
 
-<p>The use of &#39;setuid&#39; option will also prevent <b>stunnel</b> from binding privileged (&lt;1024) ports during configuration reloading.</p>
+<p>The use of the &#39;setuid&#39; option will also prevent <b>stunnel</b> from binding to privileged (&lt;1024) ports during configuration reloading.</p>
 
-<p>When &#39;chroot&#39; option is used, <b>stunnel</b> will look for all its files (including configuration file, certificates, log file and pid file) within the chroot jail.</p>
+<p>When the &#39;chroot&#39; option is used, <b>stunnel</b> will look for all its files (including the configuration file, certificates, the log file and the pid file) within the chroot jail.</p>
 
 </dd>
 <dt id="SIGUSR1">SIGUSR1</dt>
 <dd>
 
-<p>Close and reopen <b>stunnel</b> log file. This function can be used for log rotation.</p>
+<p>Close and reopen the <b>stunnel</b> log file. This function can be used for log rotation.</p>
 
 </dd>
 <dt id="SIGTERM-SIGQUIT-SIGINT">SIGTERM, SIGQUIT, SIGINT</dt>
@@ -1301,7 +1301,7 @@
 
 <p>For example, if you have the following line in <i>inetd.conf</i>:</p>
 
-<pre><code>    imaps stream tcp nowait root /usr/local/bin/stunnel stunnel /usr/local/etc/stunnel/imaps.conf</code></pre>
+<pre><code>    imaps stream tcp nowait root @bindir@/stunnel stunnel @sysconfdir@/stunnel/imaps.conf</code></pre>
 
 <p>In these cases, the <i>inetd</i>-style program is responsible for binding a network socket (<i>imaps</i> above) and handing it to <b>stunnel</b> when a connection is received. Thus you do not want <b>stunnel</b> to have any <i>accept</i> option. All the <i>Service Level Options</i> should be placed in the global options section, and no <i>[service_name]</i> section will be present. See the <i>EXAMPLES</i> section for example configurations.</p>
 
@@ -1309,7 +1309,7 @@
 
 <p>Each SSL-enabled daemon needs to present a valid X.509 certificate to the peer. It also needs a private key to decrypt the incoming data. The easiest way to obtain a certificate and a key is to generate them with the free <b>OpenSSL</b> package. You can find more information on certificates generation on pages listed below.</p>
 
-<p>The order of contents of the <i>.pem</i> file is important. It should contain the unencrypted private key first, then a signed certificate (not certificate request). There should be also empty lines after certificate and private key. Plaintext certificate information appended on the top of generated certificate should be discarded. So the file should look like this:</p>
+<p>The order of contents of the <i>.pem</i> file is important. It should contain the unencrypted private key first, then a signed certificate (not certificate request). There should also be empty lines after the certificate and the private key. Any plaintext certificate information appended on the top of generated certificate should be discarded. So the file should look like this:</p>
 
 <pre><code>    -----BEGIN RSA PRIVATE KEY-----
     [encoded key]
@@ -1322,7 +1322,7 @@
 
 <h2 id="RANDOMNESS">RANDOMNESS</h2>
 
-<p><b>stunnel</b> needs to seed the PRNG (pseudo random number generator) in order for SSL to use good randomness. The following sources are loaded in order until sufficient random data has been gathered:</p>
+<p><b>stunnel</b> needs to seed the PRNG (pseudo-random number generator) in order for SSL to use good randomness. The following sources are loaded in order until sufficient random data has been gathered:</p>
 
 <ul>
 
@@ -1374,7 +1374,7 @@
 
 <dl>
 
-<dt id="usr-local-etc-stunnel-stunnel.conf"><i>/usr/local/etc/stunnel/stunnel.conf</i></dt>
+<dt id="sysconfdir-stunnel-stunnel.conf"><i>@sysconfdir@/stunnel/stunnel.conf</i></dt>
 <dd>
 
 <p><b>stunnel</b> configuration file</p>
@@ -1384,7 +1384,7 @@
 
 <h1 id="BUGS">BUGS</h1>
 
-<p>Option <i>execArgs</i> and Win32 command line does not support quoting.</p>
+<p>The <i>execArgs</i> option and the Win32 command line do not support quoting.</p>
 
 <h1 id="SEE-ALSO">SEE ALSO</h1>
 

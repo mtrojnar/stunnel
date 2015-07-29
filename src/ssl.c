@@ -145,7 +145,16 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
     /* also insert the obsolete ZLIB algorithm */
     if(global->compression==COMP_ZLIB) {
         /* 224 - within the private range (193 to 255) */
-        SSL_COMP_add_compression_method(0xe0, COMP_zlib());
+        COMP_METHOD *meth=COMP_zlib();
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+        if(!meth || COMP_get_type(meth)==NID_undef) {
+#else
+        if(!meth || meth->type==NID_undef) {
+#endif
+            s_log(LOG_ERR, "ZLIB compression is not supported");
+            return 1;
+        }
+        SSL_COMP_add_compression_method(0xe0, meth);
     }
     s_log(LOG_INFO, "Compression enabled: %d method(s)",
         sk_SSL_COMP_num(methods));

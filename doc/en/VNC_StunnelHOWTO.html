@@ -36,8 +36,8 @@ HOWTO and then we'll look at the theory behind all this.</P>
 <P STYLE="margin-bottom: 0cm"><BR>
 </P>
 <OL>
-	<LI><P STYLE="margin-bottom: 0cm">Download and install openSSL,
-	SSLEay, and Stunnel on the Linux/Unix box. Download the modules.</P>
+	<LI><P STYLE="margin-bottom: 0cm">Download and install OpenSSL,
+	SSLeay, and Stunnel on the Linux/Unix box. Download the modules.</P>
 </OL>
 <P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">a)
 [root@anthrax$]gunzip openssl-x.xx.tar.gz (repeat for all 3 the
@@ -52,7 +52,7 @@ modules)</P>
 	save the file as VNCRegEdit.REG on the Windows 2000 box</P>
 </OL>
 <P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">--cut here and copy
-to VNCRegEdit.REG the double click file to
+to VNCRegEdit.REG then double click the file to
 import--<BR>REGEDIT4<BR><BR>[HKEY_LOCAL_MACHINE\Software\ORL\WinVNC3]<BR>AllowLoopback=dword:00000001<BR><BR>[HKEY_LOCAL_MACHINE\Software\ORL\WinVNC3\Default]<BR>AllowLoopback=dword:00000001<BR>--stop
 here--<BR><BR>
 </P>
@@ -87,7 +87,7 @@ here--<BR><BR>
 	execute the following command and let it run in its own terminal.</P>
 </OL>
 <P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">stunnel -d 5900 -r
-unix.ip.adress:5900 -c</P>
+unix.ip.address:5900 -c</P>
 <P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">.</P>
 <OL>
 	<LI><P STYLE="margin-bottom: 0cm">And on the Windows 2000 machine
@@ -109,7 +109,7 @@ the window</P>
 2000 command as follows: 
 </P>
 <P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">stunnel -d 5902 -r
-unix.ip.adress:5902</P>
+unix.ip.address:5902</P>
 <P STYLE="margin-left: 0.5cm; margin-bottom: 0cm">and remember to
 start another vncserver on the Linux box for each VNC display</P>
 <P STYLE="margin-bottom: 0cm"><BR>
@@ -165,11 +165,11 @@ desired &quot;display&quot; number.</P>
 <P STYLE="margin-bottom: 0cm"><BR>
 </P>
 <P STYLE="margin-bottom: 0cm">To connect from the client machine you
-need to enter the client machines IP address and the &quot;display&quot;
+need to enter the client machine's IP address and the &quot;display&quot;
 (from the port conversion). But VNC will think that you are trying to
 connect to the local machine and does not allow this. To override
-this add the following to you registry.<BR><BR>--cut here and copy to
-anything.reg. the double click file to
+this add the following to your registry.<BR><BR>--cut here and copy to
+anything.reg. then double click the file to
 import--<BR>REGEDIT4<BR><BR>[HKEY_LOCAL_MACHINE\Software\ORL\WinVNC3]<BR>AllowLoopback=dword:00000001<BR><BR>[HKEY_LOCAL_MACHINE\Software\ORL\WinVNC3\Default]<BR>AllowLoopback=dword:00000001<BR>--stop
 here--<BR><BR>Now VNC will not complain. So you need to always run
 stunnel in client mode on the Windows machine and then connect with
@@ -182,7 +182,7 @@ way, *NIX doesn't complain about this. There is no setting needed if
 <P STYLE="margin-bottom: 0cm"><BR>
 </P>
 <P STYLE="margin-bottom: 0cm">Unfortunately this will not work well
-with the build in web version. If you did not known about it, try
+with the built-in web version. If you did not known about it, try
 http'ing into a machine running VNC server on it, to port 58XX (where
 XX is the display number), and the Java client will be loaded.<BR><BR>
 </P>

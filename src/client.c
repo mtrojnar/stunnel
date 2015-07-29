@@ -602,9 +602,13 @@ NOEXPORT void transfer(CLI *c) {
         ssl_can_wr=s_poll_canwrite(c->fds, c->ssl_wfd->fd);
 
         /****************************** checks for internal failures */
-        if(!(sock_can_rd || sock_can_wr || ssl_can_rd || ssl_can_wr))
-            s_log(LOG_NOTICE,
+        /* please report any internal errors to stunnel-users mailing list */
+        if(!(sock_can_rd || sock_can_wr || ssl_can_rd || ssl_can_wr)) {
+            s_log(LOG_ERR, "INTERNAL ERROR: "
                 "s_poll_wait returned %d, but no descriptor is ready", err);
+            s_poll_dump(c->fds);
+            longjmp(c->err, 1);
+        }
 
         if(c->reneg_state==RENEG_DETECTED && !c->opt->option.renegotiation) {
             s_log(LOG_ERR, "Aborting due to renegotiation request");

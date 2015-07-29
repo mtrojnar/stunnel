@@ -276,9 +276,9 @@ EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
 confdir = $(sysconfdir)/stunnel
 conf_DATA = stunnel.conf-sample
 examplesdir = $(docdir)/examples
-examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
-	stunnel.spec stunnel.init stunnel.service
-
+examples_DATA = stunnel.spec stunnel.init stunnel.service ca.html \
+	ca.pl importCA.html importCA.sh script.sh
+CLEANFILES = stunnel.conf-sample stunnel.init stunnel.service
 OPENSSL = $(SSLDIR)/bin/openssl
 edit = sed \
 	-e 's|@prefix[@]|$(prefix)|g' \
@@ -434,6 +434,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -448,7 +449,7 @@ clean-am: clean-generic clean-libtool mostlyclean-am
 
 distclean: distclean-am
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-local
+distclean-am: clean-am distclean-generic
 
 dvi: dvi-am
 
@@ -513,17 +514,17 @@ uninstall-am: uninstall-confDATA uninstall-examplesDATA
 
 .PHONY: all all-am check check-am clean clean-generic clean-libtool \
 	cscopelist-am ctags-am distclean distclean-generic \
-	distclean-libtool distclean-local distdir dvi dvi-am html \
-	html-am info info-am install install-am install-confDATA \
-	install-data install-data-am install-data-local install-dvi \
-	install-dvi-am install-examplesDATA install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am tags-am uninstall \
-	uninstall-am uninstall-confDATA uninstall-examplesDATA
+	distclean-libtool distdir dvi dvi-am html html-am info info-am \
+	install install-am install-confDATA install-data \
+	install-data-am install-data-local install-dvi install-dvi-am \
+	install-examplesDATA install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags-am uninstall uninstall-am uninstall-confDATA \
+	uninstall-examplesDATA
 
 
 install-data-local:
@@ -556,9 +557,6 @@ stunnel.conf-sample stunnel.init stunnel.service: Makefile
 stunnel.conf-sample: $(srcdir)/stunnel.conf-sample.in
 stunnel.init: $(srcdir)/stunnel.init.in
 stunnel.service: $(srcdir)/stunnel.service.in
-
-distclean-local:
-	rm -f stunnel.conf-sample stunnel.init stunnel.service
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

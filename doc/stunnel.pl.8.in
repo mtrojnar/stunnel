@@ -70,8 +70,8 @@
 .rr rF
 .\" ========================================================================
 .\"
-.IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2015.06.11" "5.18" "stunnel"
+.IX Title "STUNNEL.PL.POD.IN 8"
+.TH STUNNEL.PL.POD.IN 8 "2015.06.12" "5.19" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -1143,8 +1143,8 @@ programów są inetd, xinetd i tcpserver.
 Przykładowa linia pliku /etc/inetd.conf może wyglądać tak:
 .PP
 .Vb 2
-\&    imaps stream tcp nowait root /usr/local/bin/stunnel
-\&        stunnel /usr/local/etc/stunnel/imaps.conf
+\&    imaps stream tcp nowait root @bindir@/stunnel
+\&        stunnel @sysconfdir@/stunnel/imaps.conf
 .Ve
 .PP
 Ponieważ w takich przypadkach połączenie na zdefiniowanym porcie
@@ -1247,8 +1247,9 @@ Alternatywnie parametry \s-1DH\s0 można umieścić w pliku razem z certyfikatem
 Wygenerowanie parametrów \s-1DH\s0 może zająć nawet wiele minut.
 .SH "PLIKI"
 .IX Header "PLIKI"
-.IP "\fI/usr/local/etc/stunnel/stunnel.conf\fR" 4
-.IX Item "/usr/local/etc/stunnel/stunnel.conf"
+.ie n .IP "\fI\fI@sysconfdir\fI@/stunnel/stunnel.conf\fR" 4
+.el .IP "\fI\f(CI@sysconfdir\fI@/stunnel/stunnel.conf\fR" 4
+.IX Item "@sysconfdir@/stunnel/stunnel.conf"
 plik konfiguracyjny programu
 .SH "BŁĘDY"
 .IX Header "BŁĘDY"

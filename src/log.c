@@ -229,7 +229,7 @@ NOEXPORT void log_raw(const SERVICE_OPTIONS *opt,
                 file_putline(outfile, line); /* send log to file */
         }
     } else if(mode==LOG_MODE_ERROR) {
-        if(level>=0 || level<=7) /* just in case */
+        if(level>=0 && level<=7) /* just in case */
             line=str_printf("[%c] %s", "***!:.  "[level], text);
         else
             line=str_printf("[?] %s", text);

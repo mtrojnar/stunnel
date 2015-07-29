@@ -99,7 +99,7 @@ int s_poll_canread(s_poll_set *fds, SOCKET fd) {
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&POLLIN;
+            return fds->ufds[i].revents&(POLLIN|POLLERR);
     return 0; /* not listed in fds */
 }
 
@@ -108,7 +108,7 @@ int s_poll_canwrite(s_poll_set *fds, SOCKET fd) {
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&POLLOUT;
+            return fds->ufds[i].revents&(POLLOUT|POLLERR);
     return 0; /* not listed in fds */
 }
 
@@ -138,6 +138,14 @@ int s_poll_rdhup(s_poll_set *fds, SOCKET fd) {
 
 NOEXPORT void s_poll_realloc(s_poll_set *fds) {
     fds->ufds=str_realloc(fds->ufds, fds->allocated*sizeof(struct pollfd));
+}
+
+void s_poll_dump(s_poll_set *fds) {
+    unsigned i;
+
+    for(i=0; i<fds->nfds; i++)
+        s_log(LOG_ERR, "fd=%d revents=0x%X",
+            fds->ufds[i].fd, fds->ufds[i].revents);
 }
 
 #ifdef USE_UCONTEXT
@@ -359,11 +367,11 @@ void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
 }
 
 int s_poll_canread(s_poll_set *fds, SOCKET fd) {
-    return FD_ISSET(fd, fds->orfds);
+    return FD_ISSET(fd, fds->orfds) || FD_ISSET(fd, fds->oxfds);
 }
 
 int s_poll_canwrite(s_poll_set *fds, SOCKET fd) {
-    return FD_ISSET(fd, fds->owfds);
+    return FD_ISSET(fd, fds->owfds) || FD_ISSET(fd, fds->oxfds);
 }
 
 int s_poll_hup(s_poll_set *fds, SOCKET fd) {
@@ -412,6 +420,20 @@ NOEXPORT void s_poll_realloc(s_poll_set *fds) {
     fds->orfds=str_realloc(fds->orfds, FD_SIZE(fds));
     fds->owfds=str_realloc(fds->owfds, FD_SIZE(fds));
     fds->oxfds=str_realloc(fds->oxfds, FD_SIZE(fds));
+}
+
+void s_poll_dump(s_poll_set *fds) {
+    SOCKET fd;
+    int r, w, x;
+
+    for(fd=0; fd<fds->max; fd++) {
+        r=FD_ISSET(fd, fds->orfds);
+        w=FD_ISSET(fd, fds->owfds);
+        x=FD_ISSET(fd, fds->oxfds);
+        if(r || w || x)
+            s_log(LOG_ERR, "fd=%d events=%c%c%c", fd,
+                r?'r':'-', w?'w':'-', x?'x':'-');
+    }
 }
 
 #endif /* USE_POLL */

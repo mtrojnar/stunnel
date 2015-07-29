@@ -3,7 +3,7 @@
 !include "Sections.nsh"
 
 !ifndef VERSION
-!define VERSION 5.18
+!define VERSION 5.19
 !endif
 
 !ifndef ZLIBDIR
@@ -11,7 +11,7 @@
 !endif
 
 !ifndef OPENSSLDIR
-!define OPENSSLDIR openssl-1.0.2b-win32
+!define OPENSSLDIR openssl-1.0.2c-win32
 !endif
 
 !addplugindir "plugins/SimpleFC"

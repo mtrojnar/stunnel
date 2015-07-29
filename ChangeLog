@@ -1,6 +1,19 @@
 stunnel change log
 
 
+Version 5.19, 2015.06.16, urgency: MEDIUM:
+* New features
+  - OpenSSL DLLs updated to version 1.0.2c.
+  - Added a runtime check whether COMP_zlib() method is implemented
+    in order to improve compatibility with the Debian OpenSSL build.
+* Bugfixes
+  - Improved socket error handling.
+  - Cron thread priority on Win32 platform changed to
+    THREAD_PRIORITY_LOWEST to improve portability.
+  - Makefile bugfixes for stunnel 5.18 regressions.
+  - Fixed some typos in docs and scripts (thx to Peter Pentchev).
+  - Fixed a log level check condition (thx to Peter Pentchev).
+
 Version 5.18, 2015.06.12, urgency: MEDIUM:
 * New features
   - OpenSSL DLLs updated to version 1.0.2b.
