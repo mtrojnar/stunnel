@@ -1,6 +1,18 @@
 stunnel change log
 
 
+Version 5.11, 2015.03.11, urgency: LOW:
+* New features
+  - OpenSSL DLLs updated to version 1.0.2.
+  - Removed dereferences of internal OpenSSL data structures.
+  - PSK key lookup algorithm performance improved from
+    O(N) (linear) to O(log N) (logarithmic).
+* Bugfixes
+  - Fixed peer certificate list in the main window on Win32
+    (thx to @fyer for reporting it).
+  - Fixed console logging in tstunnel.exe.
+  - _tputenv_s() replaced with more portable _tputenv() on Win32.
+
 Version 5.10, 2015.01.22, urgency: LOW:
 * New features
   - OCSP AIA (Authority Information Access) support.  This feature

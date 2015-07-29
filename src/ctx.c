@@ -428,7 +428,7 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     size_t len;
 
     c=SSL_get_ex_data(ssl, cli_index);
-    found=psk_find(c->opt->psk_keys, identity);
+    found=psk_find(&c->opt->psk_sorted, identity);
     if(found) {
         len=found->key_len;
     } else {
@@ -441,7 +441,7 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     }
     if(len) {
         memcpy(psk, found->key_val, len);
-        s_log(LOG_INFO, "PSK server configured for identity \"%s\"", identity);
+        s_log(LOG_NOTICE, "Key configured for PSK identity \"%s\"", identity);
     } else { /* block identity probes if possible */
         if(max_psk_len>=32 && RAND_bytes(psk, 32))
             len=32; /* 256 random bits */
@@ -449,14 +449,42 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     return (unsigned)len;
 }
 
-PSK_KEYS *psk_find(PSK_KEYS *head, const char *identity) {
-    PSK_KEYS *curr;
+NOEXPORT int psk_compar(const void *a, const void *b) {
+    PSK_KEYS *x=*(PSK_KEYS **)a, *y=*(PSK_KEYS **)b;
 
-    if(identity)
-        for(curr=head; curr; curr=curr->next)
-            if(!strcmp(curr->identity, identity))
-                return curr;
-    return NULL;
+#if 0
+    s_log(LOG_DEBUG, "PSK cmp: %s %s", x->identity, y->identity);
+#endif
+    return strcmp(x->identity, y->identity);
+}
+
+void psk_sort(PSK_TABLE *table, PSK_KEYS *head) {
+    PSK_KEYS *curr;
+    size_t i;
+
+    table->num=0;
+    for(curr=head; curr; curr=curr->next)
+        ++table->num;
+    s_log(LOG_INFO, "PSK identities: %lu retrieved", table->num);
+    table->val=str_alloc(table->num*sizeof(PSK_KEYS *));
+    for(curr=head, i=0; i<table->num; ++i) {
+        table->val[i]=curr;
+        curr=curr->next;
+    }
+    qsort(table->val, table->num, sizeof(PSK_KEYS *), psk_compar);
+#if 0
+    for(i=0; i<table->num; ++i)
+        s_log(LOG_DEBUG, "PSK table: %s", table->val[i]->identity);
+#endif
+}
+
+PSK_KEYS *psk_find(const PSK_TABLE *table, const char *identity) {
+    PSK_KEYS key, *ptr=&key, **ret;
+
+    key.identity=(char *)identity;
+    ret=bsearch(&ptr,
+        table->val, table->num, sizeof(PSK_KEYS *), psk_compar);
+    return ret ? *ret : NULL;
 }
 
 #endif /* !defined(OPENSSL_NO_PSK) */
@@ -466,7 +494,7 @@ static int cache_initialized=0;
 NOEXPORT int load_cert(SERVICE_OPTIONS *section) {
     /* load the certificate */
     if(section->cert) {
-        s_log(LOG_INFO, "Loading cert from file: %s", section->cert);
+        s_log(LOG_INFO, "Loading certificate from file: %s", section->cert);
         if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
             sslerror("SSL_CTX_use_certificate_chain_file");
             return 1; /* FAILED */
@@ -612,14 +640,18 @@ NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
 NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
     unsigned char *val, *val_tmp;
     ssize_t val_len;
+    SSL_CTX *ctx;
+    const unsigned char *session_id;
+    unsigned int session_id_length;
 
     val_len=i2d_SSL_SESSION(sess, NULL);
     val_tmp=val=str_alloc((size_t)val_len);
     i2d_SSL_SESSION(sess, &val_tmp);
 
-    cache_transfer(ssl->ctx, CACHE_CMD_NEW, SSL_SESSION_get_timeout(sess),
-        sess->session_id, sess->session_id_length,
-        val, (size_t)val_len, NULL, NULL);
+    ctx=SSL_get_SSL_CTX(ssl);
+    session_id=SSL_SESSION_get_id(sess, &session_id_length);
+    cache_transfer(ctx, CACHE_CMD_NEW, SSL_SESSION_get_timeout(sess),
+        session_id, session_id_length, val, (size_t)val_len, NULL, NULL);
     str_free(val);
     return 1; /* leave the session in local cache for reuse */
 }
@@ -629,9 +661,11 @@ NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
     unsigned char *val, *val_tmp=NULL;
     ssize_t val_len=0;
     SSL_SESSION *sess;
+    SSL_CTX *ctx;
 
     *do_copy = 0; /* allow the session to be freed autmatically */
-    cache_transfer(ssl->ctx, CACHE_CMD_GET, 0,
+    ctx=SSL_get_SSL_CTX(ssl);
+    cache_transfer(ctx, CACHE_CMD_GET, 0,
         key, (size_t)key_len, NULL, 0, &val, (size_t *)&val_len);
     if(!val)
         return NULL;
@@ -646,8 +680,12 @@ NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
 }
 
 NOEXPORT void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
+    const unsigned char *session_id;
+    unsigned int session_id_length;
+
+    session_id=SSL_SESSION_get_id(sess, &session_id_length);
     cache_transfer(ctx, CACHE_CMD_REMOVE, 0,
-        sess->session_id, sess->session_id_length, NULL, 0, NULL, NULL);
+        session_id, session_id_length, NULL, 0, NULL, NULL);
 }
 
 #define MAX_VAL_LEN 512
@@ -780,6 +818,7 @@ NOEXPORT void info_callback(
 #endif
         SSL *ssl, int where, int ret) {
     CLI *c;
+    SSL_CTX *ctx;
 
     c=SSL_get_ex_data((SSL *)ssl, cli_index);
     if(c) {
@@ -815,28 +854,29 @@ NOEXPORT void info_callback(
             SSL_alert_type_string_long(ret),
             SSL_alert_desc_string_long(ret));
     } else if(where==SSL_CB_HANDSHAKE_DONE) {
+        ctx=SSL_get_SSL_CTX(ssl);
         s_log(LOG_DEBUG, "%4ld items in the session cache",
-            SSL_CTX_sess_number(ssl->ctx));
+            SSL_CTX_sess_number(ctx));
         s_log(LOG_DEBUG, "%4ld client connects (SSL_connect())",
-            SSL_CTX_sess_connect(ssl->ctx));
+            SSL_CTX_sess_connect(ctx));
         s_log(LOG_DEBUG, "%4ld client connects that finished",
-            SSL_CTX_sess_connect_good(ssl->ctx));
+            SSL_CTX_sess_connect_good(ctx));
         s_log(LOG_DEBUG, "%4ld client renegotiations requested",
-            SSL_CTX_sess_connect_renegotiate(ssl->ctx));
+            SSL_CTX_sess_connect_renegotiate(ctx));
         s_log(LOG_DEBUG, "%4ld server connects (SSL_accept())",
-            SSL_CTX_sess_accept(ssl->ctx));
+            SSL_CTX_sess_accept(ctx));
         s_log(LOG_DEBUG, "%4ld server connects that finished",
-            SSL_CTX_sess_accept_good(ssl->ctx));
+            SSL_CTX_sess_accept_good(ctx));
         s_log(LOG_DEBUG, "%4ld server renegotiations requested",
-            SSL_CTX_sess_accept_renegotiate(ssl->ctx));
+            SSL_CTX_sess_accept_renegotiate(ctx));
         s_log(LOG_DEBUG, "%4ld session cache hits",
-            SSL_CTX_sess_hits(ssl->ctx));
+            SSL_CTX_sess_hits(ctx));
         s_log(LOG_DEBUG, "%4ld external session cache hits",
-            SSL_CTX_sess_cb_hits(ssl->ctx));
+            SSL_CTX_sess_cb_hits(ctx));
         s_log(LOG_DEBUG, "%4ld session cache misses",
-            SSL_CTX_sess_misses(ssl->ctx));
+            SSL_CTX_sess_misses(ctx));
         s_log(LOG_DEBUG, "%4ld session cache timeouts",
-            SSL_CTX_sess_timeouts(ssl->ctx));
+            SSL_CTX_sess_timeouts(ctx));
     }
 }
 

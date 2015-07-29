@@ -23,7 +23,7 @@ TARGET=win64
 #INCDIR=$(SSLDIR)\include
 #LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-SSLDIR=..\..\openssl-1.0.1l-$(TARGET)
+SSLDIR=..\..\openssl-1.0.2-$(TARGET)
 INCDIR=$(SSLDIR)\inc32
 LIBDIR=$(SSLDIR)\out32dll
 # or simply install with "nmake -f ms\ntdll.mak install"
@@ -43,7 +43,7 @@ SHAREDOBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj \
 	$(OBJ)\options.obj $(OBJ)\network.obj $(OBJ)\resolver.obj \
  	$(OBJ)\str.obj $(OBJ)\fd.obj
 GUIOBJS=$(OBJ)\ui_win_gui.obj $(OBJ)\resources.res
-NOGUIOBJS=$(OBJ)\ui_win_cli.obj
+CLIOBJS=$(OBJ)\ui_win_cli.obj
 
 CC=cl
 LINK=link
@@ -54,7 +54,7 @@ LDFLAGS=/NOLOGO
 
 SHAREDLIBS=ws2_32.lib user32.lib shell32.lib
 GUILIBS=advapi32.lib comdlg32.lib crypt32.lib gdi32.lib psapi.lib
-NOGUILIBS=
+CLILIBS=
 SSLLIBS=/LIBPATH:"$(LIBDIR)" libeay32.lib ssleay32.lib
 # static linking:
 #	/LIBPATH:"$(LIBDIR)\VC\static" libeay32MD.lib ssleay32MD.lib
@@ -72,7 +72,7 @@ build: makedirs $(BIN)\stunnel.exe $(BIN)\tstunnel.exe
 clean:
 	-@ del $(SHAREDOBJS) >NUL 2>&1
 	-@ del $(GUIOBJS) >NUL 2>&1
-	-@ del $(NOGUIOBJS) >NUL 2>&1
+	-@ del $(CLIOBJS) >NUL 2>&1
 #	-@ del *.manifest >NUL 2>&1
 	-@ del $(BIN)\stunnel.exe >NUL 2>&1
 	-@ del $(BIN)\stunnel.exe.manifest >NUL 2>&1
@@ -89,15 +89,15 @@ makedirs:
 
 $(SHAREDOBJS): *.h vc.mak
 $(GUIOBJS): *.h vc.mak
-$(NOGUIOBJS): *.h vc.mak
+$(CLIOBJS): *.h vc.mak
 
 $(BIN)\stunnel.exe: $(SHAREDOBJS) $(GUIOBJS)
 	$(LINK) $(LDFLAGS) $(SHAREDLIBS) $(GUILIBS) $(SSLLIBS) /OUT:$@ $**
 	IF EXIST $@.manifest \
 		mt -nologo -manifest $@.manifest -outputresource:$@;1
 
-$(BIN)\tstunnel.exe: $(SHAREDOBJS) $(NOGUIOBJS)
-	$(LINK) $(LDFLAGS) $(SHAREDLIBS) $(NOGUILIBS) $(SSLLIBS) /OUT:$@ $**
+$(BIN)\tstunnel.exe: $(SHAREDOBJS) $(CLIOBJS)
+	$(LINK) $(LDFLAGS) $(SHAREDLIBS) $(CLILIBS) $(SSLLIBS) /OUT:$@ $**
 	IF EXIST $@.manifest \
 		mt -nologo -manifest $@.manifest -outputresource:$@;1
 

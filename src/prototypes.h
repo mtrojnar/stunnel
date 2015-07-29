@@ -157,6 +157,10 @@ typedef struct psk_keys_struct {
     size_t key_len;
     struct psk_keys_struct *next;
 } PSK_KEYS;
+typedef struct psk_table_struct {
+    PSK_KEYS **val;
+    size_t num;
+} PSK_TABLE;
 #endif /* !defined(OPENSSL_NO_PSK) */
 
 typedef struct service_options_struct {
@@ -199,6 +203,7 @@ typedef struct service_options_struct {
 #ifndef OPENSSL_NO_PSK
     char *psk_identity;
     PSK_KEYS *psk_keys, *psk_selected;
+    PSK_TABLE psk_sorted;
 #endif /* !defined(OPENSSL_NO_PSK) */
 #ifndef OPENSSL_NO_ECDH
     int curve;
@@ -418,7 +423,8 @@ typedef struct {
 
 int context_init(SERVICE_OPTIONS *);
 #ifndef OPENSSL_NO_PSK
-PSK_KEYS *psk_find(PSK_KEYS *, const char *);
+void psk_sort(PSK_TABLE *, PSK_KEYS *);
+PSK_KEYS *psk_find(const PSK_TABLE *, const char *);
 #endif /* !defined(OPENSSL_NO_PSK) */
 void sslerror(char *);
 

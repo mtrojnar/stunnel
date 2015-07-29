@@ -118,7 +118,7 @@ OBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj $(OBJ)\verify.obj \
 	$(OBJ)\resolver.obj $(OBJ)\str.obj $(OBJ)\fd.obj
 
 GUIOBJS=$(OBJ)\ui_win_gui.obj $(OBJ)\resources.res
-NOGUIOBJS=$(OBJ)\ui_win_cli.obj
+CLIOBJS=$(OBJ)\ui_win_cli.obj
 
 {$(SRC)\}.c{$(OBJ)\}.obj:
 	$(CC) $(CFLAGS) -Fo$@ -c $<
@@ -140,7 +140,7 @@ makedirs:
 $(BIN)\stunnel.exe:$(OBJS) $(GUIOBJS)
 	link $(LDFLAGS)  /out:$(BIN)\stunnel.exe $(LIBS) commctrl.lib $**
 
-$(BIN)\tstunnel.exe:$(OBJS) $(NOGUIOBJS)
+$(BIN)\tstunnel.exe:$(OBJS) $(CLIOBJS)
 	link $(LDFLAGS)  /out:$(BIN)\tstunnel.exe $(LIBS) $**
 
 $(OBJ)\resources.res: $(SRC)\resources.rc $(SRC)\resources.h $(SRC)\version.h
@@ -161,6 +161,6 @@ install: stunnel.exe tstunnel.exe
 	$(CEUTILSDIR)\cecopy $(SSLDIR)\out32dll_$(TARGETCPU)\ssleay32.dll $(DSTDIR)
 
 clean:
-	-@ IF NOT "$(TARGETCPU)"=="" del $(OBJS) $(GUIOBJS) $(NOGUIOBJS) $(BIN)\stunnel.exe $(BIN)\tstunnel.exe >NUL 2>&1
+	-@ IF NOT "$(TARGETCPU)"=="" del $(OBJS) $(GUIOBJS) $(CLIOBJS) $(BIN)\stunnel.exe $(BIN)\tstunnel.exe >NUL 2>&1
 	-@ IF NOT "$(TARGETCPU)"=="" rmdir $(OBJ) >NUL 2>&1
 	-@ IF NOT "$(TARGETCPU)"=="" rmdir $(BIN) >NUL 2>&1

@@ -1878,6 +1878,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_BEGIN:
         section->psk_identity=NULL;
         section->psk_selected=NULL;
+        section->psk_sorted.val=NULL;
+        section->psk_sorted.num=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "PSKidentity"))
@@ -1887,10 +1889,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_END:
         if(!section->psk_keys) /* PSK not configured */
             break;
+        psk_sort(&section->psk_sorted, section->psk_keys);
         if(section->option.client) {
             if(section->psk_identity) {
                 section->psk_selected=
-                    psk_find(section->psk_keys, section->psk_identity);
+                    psk_find(&section->psk_sorted, section->psk_identity);
                 if(!section->psk_selected)
                     return "No key found for the specified PSK identity";
             } else { /* take the first specified identity as default */

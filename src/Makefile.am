@@ -40,13 +40,16 @@ tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
 
 # OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 # WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-OPENSSLDIR = /usr/src/openssl-1.0.1l-i686
+OPENSSLDIR = /usr/src/openssl-1.0.2-i686
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2
 WINCFLAGS += -Wall -Wextra -Wpedantic -Wformat=2 -Wconversion -Wno-long-long
 WINCFLAGS += -D_FORTIFY_SOURCE=2 -DUNICODE -D_UNICODE
 WINLDFLAGS = -mthreads -fstack-protector -s
-WINLIBS = -L$(OPENSSLDIR) -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
+WINCOMMONLIBS=-lws2_32
+WINSSLLIBS=-L$(OPENSSLDIR) -lcrypto -lssl
+WINGUILIBS=$(WINCOMMONLIBS) -lgdi32 -lpsapi $(WINSSLLIBS)
+WINCLILIBS=$(WINCOMMONLIBS) $(WINSSLLIBS)
 WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj
 WINOBJ += network.obj resolver.obj ssl.obj ctx.obj verify.obj sthreads.obj
 WINOBJ += fd.obj stunnel.obj
@@ -64,10 +67,10 @@ distclean-local:
 # SUFFIXES = .c .rc .obj
 
 stunnel.exe: $(WINGUIOBJ)
-	$(WINGCC) -mwindows $(WINLDFLAGS) -o stunnel.exe $(WINGUIOBJ) $(WINLIBS)
+	$(WINGCC) -mwindows $(WINLDFLAGS) -o stunnel.exe $(WINGUIOBJ) $(WINGUILIBS)
 
 tstunnel.exe: $(WINCLIOBJ)
-	$(WINGCC) $(WINLDFLAGS) -o tstunnel.exe $(WINCLIOBJ) $(WINLIBS)
+	$(WINGCC) $(WINLDFLAGS) -o tstunnel.exe $(WINCLIOBJ) $(WINCLILIBS)
 
 %.obj: %.c $(common_headers)
 	$(WINGCC) -c $(WINCPPFLAGS) $(WINCFLAGS) -o $@ $<

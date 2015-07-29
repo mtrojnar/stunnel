@@ -42,6 +42,8 @@ int main(int argc, char *argv[]) {
     static struct WSAData wsa_state;
     TCHAR *c, stunnel_exe_path[MAX_PATH];
 
+    str_init(); /* initialize per-thread string management */
+
     /* set current working directory and engine path */
     GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
     c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* last backslash */
@@ -55,9 +57,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 #endif
-    _tputenv_s(TEXT("OPENSSL_ENGINES"), stunnel_exe_path);
+    _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s"), stunnel_exe_path));
 
-    str_init(); /* initialize per-thread string management */
     if(WSAStartup(MAKEWORD(1, 1), &wsa_state))
         return 1;
     resolver_init();
@@ -101,17 +102,18 @@ void message_box(LPCTSTR text, const UINT type) {
 }
 
 void ui_new_log(const char *line) {
-#ifdef _WIN32_WCE
-    /* log to Windows CE debug output stream */
     LPTSTR tstr;
 
     tstr=str2tstr(line);
+#ifdef _WIN32_WCE
+    /* log to Windows CE debug output stream */
     RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
-    str_free(tstr);
 #else
-    fputs(line, stderr);
+    /* use UTF-16 or native codepage rather than UTF-8 */
+    _ftprintf(stderr, TEXT("%s\r\n"), tstr);
     fflush(stderr);
 #endif
+    str_free(tstr);
 }
 
 /**************************************** ctx callbacks */

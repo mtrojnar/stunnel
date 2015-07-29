@@ -191,7 +191,7 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
         return 1;
     }
 #endif
-    _tputenv_s(TEXT("OPENSSL_ENGINES"), stunnel_exe_path);
+    _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s"), stunnel_exe_path));
 
     if(initialize_winsock())
         return 1;
@@ -943,8 +943,8 @@ NOEXPORT void update_peer_menu(void) {
     if(main_menu_handle)
         main_peer_list=GetSubMenu(main_menu_handle, 2); /* 3rd submenu */
     if(main_peer_list)
-        while(DeleteMenu(tray_peer_list, 0, MF_BYPOSITION))
-            ; /* purge old menu */
+        while(GetMenuItemCount(main_peer_list)) /* purge old menu */
+            DeleteMenu(main_peer_list, 0, MF_BYPOSITION);
 #endif
     if(tray_menu_handle)
         tray_peer_list=GetSubMenu(GetSubMenu(tray_menu_handle, 0), 2);

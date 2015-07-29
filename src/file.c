@@ -221,9 +221,9 @@ int file_permissions(const char *file_name) {
 
 LPTSTR str2tstr(LPCSTR in) {
     LPTSTR out;
+#ifdef UNICODE
     int len;
 
-#ifdef UNICODE
     len=MultiByteToWideChar(CP_UTF8, 0, in, -1, NULL, 0);
     if(!len)
         return str_tprintf(TEXT("MultiByteToWideChar() failed"));
@@ -234,18 +234,17 @@ LPTSTR str2tstr(LPCSTR in) {
         return str_tprintf(TEXT("MultiByteToWideChar() failed"));
     }
 #else
-    len=strlen(in);
-    out=str_alloc(len+1);
-    strcpy(out, in);
+    /* FIXME: convert UTF-8 to native codepage */
+    out=str_dup(in);
 #endif
     return out;
 }
 
 LPSTR tstr2str(LPCTSTR in) {
     LPSTR out;
+#ifdef UNICODE
     int len;
 
-#ifdef UNICODE
     len=WideCharToMultiByte(CP_UTF8, 0, in, -1, NULL, 0, NULL, NULL);
     if(!len)
         return str_printf("WideCharToMultiByte() failed");
@@ -256,9 +255,8 @@ LPSTR tstr2str(LPCTSTR in) {
         return str_printf("WideCharToMultiByte() failed");
     }
 #else
-    len=strlen(in);
-    out=str_alloc(len+1);
-    strcpy(out, in);
+    /* FIXME: convert native codepage to UTF-8 */
+    out=str_dup(in);
 #endif
     return out;
 }

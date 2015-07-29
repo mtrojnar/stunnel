@@ -6,6 +6,8 @@ A sponsor could allocate my time to get them faster.
 * Add an Apparmor profile.
 * Optional line-buffering of the log file.
 * Configuration file option to limit the number of concurrent connections.
+* "include" configuration file option to include all configuration file
+  parts located in the specified directory (e.g. /etc/stunnel/conf.d/).
 * Implement reference counting of the SERVICE_OPTIONS structure
   - Add 'leastconn' failover strategy to order defined 'connect' targets
     by the number of active connections.
@@ -15,8 +17,6 @@ A sponsor could allocate my time to get them faster.
     is reloaded *and* old connections are closed.
 * Command-line server control interface on both Unix and Windows.
 * Separate GUI process running as current user on Windows.
-* etc/stunnel/conf.d/* files automatically processed while reading
-  etc/stunnel/stunnel.conf
 * An Android GUI.
 * Indirect CRL support (RFC 3280, section 5).
 * Provide 64-bit Windows builds (besides 32-bit builds).

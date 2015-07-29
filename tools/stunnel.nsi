@@ -3,7 +3,7 @@
 !include "Sections.nsh"
 
 !ifndef VERSION
-!define VERSION 5.10
+!define VERSION 5.11
 !endif
 
 !ifndef ZLIBDIR
@@ -11,7 +11,7 @@
 !endif
 
 !ifndef OPENSSLDIR
-!define OPENSSLDIR openssl-1.0.1l-win32
+!define OPENSSLDIR openssl-1.0.2-win32
 !endif
 
 !addplugindir "plugins/SimpleFC"
@@ -78,6 +78,7 @@ skip_service_stop:
   !cd ".."
   !cd "stunnel"
   !cd "tools"
+  # MINGW builds requires libssp-0.dll instead of msvcr90.dll
 
   # add firewall rule
   SimpleFC::AddApplication "stunnel (GUI Version)" \
