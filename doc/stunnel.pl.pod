@@ -11,12 +11,12 @@ stunnel - uniwersalny tunel protokołu SSL
 
 =item B<Unix:>
 
-B<stunnel> [S<PLIK>] | S<-fd N> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [S<PLIK>] | S<-fd N> | S<-help> | S<-version> | S<-sockets> | S<-options>
 
 =item B<WIN32:>
 
 B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop> ] | S<-exit>]
-    [S<-quiet>] [S<PLIK>] ] | S<-help> | S<-version> | S<-sockets>
+    [S<-quiet>] [S<PLIK>] ] | S<-help> | S<-version> | S<-sockets> | S<-options>
 
 =back
 
@@ -60,19 +60,23 @@ drukuj wersję programu i domyślne wartości parametrów
 
 drukuj domyślne opcje gniazd
 
-=item B<-install> (tylko NT/2000/XP)
+=item B<-options>
+
+drukuj wspierane opcje SSL
+
+=item B<-install> (tylko Windows NT lub nowszy)
 
 instaluj serwis NT
 
-=item B<-uninstall> (tylko NT/2000/XP)
+=item B<-uninstall> (tylko Windows NT lub nowszy)
 
 odinstaluj serwis NT
 
-=item B<-start> (tylko NT/2000/XP)
+=item B<-start> (tylko Windows NT lub nowszy)
 
 uruchom serwis NT
 
-=item B<-stop> (tylko NT/2000/XP)
+=item B<-stop> (tylko Windows NT lub nowszy)
 
 zatrzymaj serwis NT
 
@@ -80,10 +84,9 @@ zatrzymaj serwis NT
 
 zatrzymaj uruchomiony program
 
-=item B<-quiet> (tylko NT/2000/XP)
+=item B<-quiet> (tylko Win32)
 
-nie wyświetlaj okienka informującego o pomyślnym zainstalowaniu lub
-odinstalowaniu
+nie wyświetlaj okienek z komunikatami
 
 =back
 

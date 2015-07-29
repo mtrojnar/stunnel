@@ -950,8 +950,8 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
     if(global_options.debug_level<LOG_INFO) /* performance optimization */
         return;
     cipher=(SSL_CIPHER *)SSL_get_current_cipher(c->ssl);
-    s_log(LOG_INFO, "Negotiated %s ciphersuite: %s (%d-bit encryption)",
-        SSL_CIPHER_get_version(cipher), SSL_CIPHER_get_name(cipher),
+    s_log(LOG_INFO, "Negotiated %s ciphersuite %s (%d-bit encryption)",
+        SSL_get_version(c->ssl), SSL_CIPHER_get_name(cipher),
         SSL_CIPHER_get_bits(cipher, NULL));
 
 #if !defined(OPENSSL_NO_COMP) && OPENSSL_VERSION_NUMBER>=0x0090800fL

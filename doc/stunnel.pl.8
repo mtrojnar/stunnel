@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2014.10.06" "5.05" "stunnel"
+.TH STUNNEL.PL 8 "2014.10.15" "5.06" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -83,11 +83,11 @@ stunnel \- uniwersalny tunel protokołu \s-1SSL\s0
 .IX Header "SKŁADNIA"
 .IP "\fBUnix:\fR" 4
 .IX Item "Unix:"
-\&\fBstunnel\fR [\s-1PLIK\s0] | \-fd N | \-help | \-version | \-sockets
+\&\fBstunnel\fR [\s-1PLIK\s0] | \-fd N | \-help | \-version | \-sockets | \-options
 .IP "\fB\s-1WIN32:\s0\fR" 4
 .IX Item "WIN32:"
 \&\fBstunnel\fR [ [\-install | \-uninstall | \-start | \-stop ] | \-exit]
-    [\-quiet] [\s-1PLIK\s0] ] | \-help | \-version | \-sockets
+    [\-quiet] [\s-1PLIK\s0] ] | \-help | \-version | \-sockets | \-options
 .SH "OPIS"
 .IX Header "OPIS"
 Program \fBstunnel\fR został zaprojektowany do opakowywania w protokół \fI\s-1SSL\s0\fR
@@ -118,25 +118,27 @@ drukuj wersję programu i domyślne wartości parametrów
 .IP "\fB\-sockets\fR" 4
 .IX Item "-sockets"
 drukuj domyślne opcje gniazd
-.IP "\fB\-install\fR (tylko \s-1NT/2000/XP\s0)" 4
-.IX Item "-install (tylko NT/2000/XP)"
+.IP "\fB\-options\fR" 4
+.IX Item "-options"
+drukuj wspierane opcje \s-1SSL\s0
+.IP "\fB\-install\fR (tylko Windows \s-1NT\s0 lub nowszy)" 4
+.IX Item "-install (tylko Windows NT lub nowszy)"
 instaluj serwis \s-1NT\s0
-.IP "\fB\-uninstall\fR (tylko \s-1NT/2000/XP\s0)" 4
-.IX Item "-uninstall (tylko NT/2000/XP)"
+.IP "\fB\-uninstall\fR (tylko Windows \s-1NT\s0 lub nowszy)" 4
+.IX Item "-uninstall (tylko Windows NT lub nowszy)"
 odinstaluj serwis \s-1NT\s0
-.IP "\fB\-start\fR (tylko \s-1NT/2000/XP\s0)" 4
-.IX Item "-start (tylko NT/2000/XP)"
+.IP "\fB\-start\fR (tylko Windows \s-1NT\s0 lub nowszy)" 4
+.IX Item "-start (tylko Windows NT lub nowszy)"
 uruchom serwis \s-1NT\s0
-.IP "\fB\-stop\fR (tylko \s-1NT/2000/XP\s0)" 4
-.IX Item "-stop (tylko NT/2000/XP)"
+.IP "\fB\-stop\fR (tylko Windows \s-1NT\s0 lub nowszy)" 4
+.IX Item "-stop (tylko Windows NT lub nowszy)"
 zatrzymaj serwis \s-1NT\s0
 .IP "\fB\-exit\fR (tylko Win32)" 4
 .IX Item "-exit (tylko Win32)"
 zatrzymaj uruchomiony program
-.IP "\fB\-quiet\fR (tylko \s-1NT/2000/XP\s0)" 4
-.IX Item "-quiet (tylko NT/2000/XP)"
-nie wyświetlaj okienka informującego o pomyślnym zainstalowaniu lub
-odinstalowaniu
+.IP "\fB\-quiet\fR (tylko Win32)" 4
+.IX Item "-quiet (tylko Win32)"
+nie wyświetlaj okienek z komunikatami
 .SH "PLIK KONFIGURACYJNY"
 .IX Header "PLIK KONFIGURACYJNY"
 Linia w pliku konfiguracyjnym może być:

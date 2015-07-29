@@ -147,7 +147,9 @@ int main_configure(char *arg1, char *arg2) {
      * since daemonize() invalidates stderr */
     if(log_open())
         return 1;
+#ifndef USE_FORK
     num_clients=0; /* the first valid config */
+#endif
     return 0;
 }
 

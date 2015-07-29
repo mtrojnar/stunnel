@@ -1,6 +1,24 @@
 stunnel change log
 
 
+Version 5.06, 2014.10.15, urgency: HIGH:
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.1j.
+    https://www.openssl.org/news/secadv_20141015.txt
+  - The insecure SSLv2 protocol is now disabled by default.
+    It can be enabled with "options = -NO_SSLv2".
+  - The insecure SSLv3 protocol is now disabled by default.
+    It can be enabled with "options = -NO_SSLv3".
+  - Default sslVersion changed to "all" (also in FIPS mode)
+    to autonegotiate the highest supported TLS version.
+* New features
+  - Added missing SSL options to match OpenSSL 1.0.1j.
+  - New "-options" commandline option to display the list
+    of supported SSL options.
+* Bugfixes
+  - Fixed FORK threading build regression bug.
+  - Fixed missing periodic Win32 GUI log updates.
+
 Version 5.05, 2014.10.10, urgency: MEDIUM:
 * New features
   - Asynchronous communication with the GUI thread for faster

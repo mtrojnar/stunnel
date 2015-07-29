@@ -38,17 +38,6 @@
 #include "common.h"
 #include "prototypes.h"
 
-#if !defined(OPENSSL_NO_TLS1)
-#define DEFAULT_SSLVER_CLIENT "TLSv1"
-#elif !defined(OPENSSL_NO_SSL3)
-#define DEFAULT_SSLVER_CLIENT "SSLv3"
-#elif !defined(OPENSSL_NO_SSL2)
-#define DEFAULT_SSLVER_CLIENT "SSLv2"
-#else /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
-#error No supported SSL methods found
-#endif /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
-#define DEFAULT_SSLVER_SERVER "all"
-
 #if defined(_WIN32_WCE) && !defined(CONFDIR)
 #define CONFDIR "\\stunnel"
 #endif
@@ -73,7 +62,93 @@ NOEXPORT char *init_sni(SERVICE_OPTIONS *);
 
 NOEXPORT int parse_debug_level(char *);
 
+typedef struct {
+    char *name;
+    long value;
+} SSL_OPTION;
+
+static const SSL_OPTION ssl_opts[] = {
+    {"MICROSOFT_SESS_ID_BUG", SSL_OP_MICROSOFT_SESS_ID_BUG},
+    {"NETSCAPE_CHALLENGE_BUG", SSL_OP_NETSCAPE_CHALLENGE_BUG},
+#ifdef SSL_OP_LEGACY_SERVER_CONNECT
+    {"LEGACY_SERVER_CONNECT", SSL_OP_LEGACY_SERVER_CONNECT},
+#endif
+    {"NETSCAPE_REUSE_CIPHER_CHANGE_BUG",
+        SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG},
+#ifdef SSL_OP_TLSEXT_PADDING
+    {"TLSEXT_PADDING", SSL_OP_TLSEXT_PADDING},
+#endif
+    {"MICROSOFT_BIG_SSLV3_BUFFER", SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER},
+#ifdef SSL_OP_SAFARI_ECDHE_ECDSA_BUG
+    {"SAFARI_ECDHE_ECDSA_BUG", SSL_OP_SAFARI_ECDHE_ECDSA_BUG},
+#endif
+    {"SSLEAY_080_CLIENT_DH_BUG", SSL_OP_SSLEAY_080_CLIENT_DH_BUG},
+    {"TLS_D5_BUG", SSL_OP_TLS_D5_BUG},
+    {"TLS_BLOCK_PADDING_BUG", SSL_OP_TLS_BLOCK_PADDING_BUG},
+#ifdef SSL_OP_MSIE_SSLV2_RSA_PADDING
+    {"MSIE_SSLV2_RSA_PADDING", SSL_OP_MSIE_SSLV2_RSA_PADDING},
+#endif
+    {"SSLREF2_REUSE_CERT_TYPE_BUG", SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG},
+#ifdef SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+    {"DONT_INSERT_EMPTY_FRAGMENTS", SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS},
+#endif
+    {"ALL", SSL_OP_ALL},
+#ifdef SSL_OP_NO_QUERY_MTU
+    {"NO_QUERY_MTU", SSL_OP_NO_QUERY_MTU},
+#endif
+#ifdef SSL_OP_COOKIE_EXCHANGE
+    {"COOKIE_EXCHANGE", SSL_OP_COOKIE_EXCHANGE},
+#endif
+#ifdef SSL_OP_NO_TICKET
+    {"NO_TICKET", SSL_OP_NO_TICKET},
+#endif
+#ifdef SSL_OP_CISCO_ANYCONNECT
+    {"CISCO_ANYCONNECT", SSL_OP_CISCO_ANYCONNECT},
+#endif
+#ifdef SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION
+    {"NO_SESSION_RESUMPTION_ON_RENEGOTIATION",
+        SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION},
+#endif
+#ifdef SSL_OP_NO_COMPRESSION
+    {"NO_COMPRESSION", SSL_OP_NO_COMPRESSION},
+#endif
+#ifdef SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
+    {"ALLOW_UNSAFE_LEGACY_RENEGOTIATION",
+        SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION},
+#endif
+#ifdef SSL_OP_SINGLE_ECDH_USE
+    {"SINGLE_ECDH_USE", SSL_OP_SINGLE_ECDH_USE},
+#endif
+    {"SINGLE_DH_USE", SSL_OP_SINGLE_DH_USE},
+    {"EPHEMERAL_RSA", SSL_OP_EPHEMERAL_RSA},
+#ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
+    {"CIPHER_SERVER_PREFERENCE", SSL_OP_CIPHER_SERVER_PREFERENCE},
+#endif
+    {"TLS_ROLLBACK_BUG", SSL_OP_TLS_ROLLBACK_BUG},
+    {"NO_SSLv2", SSL_OP_NO_SSLv2},
+    {"NO_SSLv3", SSL_OP_NO_SSLv3},
+    {"NO_TLSv1", SSL_OP_NO_TLSv1},
+#ifdef SSL_OP_NO_TLSv1_1
+    {"NO_TLSv1.1", SSL_OP_NO_TLSv1_1},
+#endif
+#ifdef SSL_OP_NO_TLSv1_2
+    {"NO_TLSv1.2", SSL_OP_NO_TLSv1_2},
+#endif
+    {"PKCS1_CHECK_1", SSL_OP_PKCS1_CHECK_1},
+    {"PKCS1_CHECK_2", SSL_OP_PKCS1_CHECK_2},
+    {"NETSCAPE_CA_DN_BUG", SSL_OP_NETSCAPE_CA_DN_BUG},
+#ifdef SSL_OP_NON_EXPORT_FIRST
+    {"NON_EXPORT_FIRST", SSL_OP_NON_EXPORT_FIRST},
+#endif
+    {"NETSCAPE_DEMO_CIPHER_CHANGE_BUG", SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG},
+#ifdef SSL_OP_CRYPTOPRO_TLSEXT_BUG
+    {"CRYPTOPRO_TLSEXT_BUG", SSL_OP_CRYPTOPRO_TLSEXT_BUG},
+#endif
+    {NULL, 0}
+};
+
 NOEXPORT int parse_ssl_option(char *);
+NOEXPORT void print_ssl_options(void);
 
 NOEXPORT int print_socket_options(void);
 NOEXPORT char *print_option(int, OPT_UNION *);
@@ -146,6 +221,10 @@ int options_cmdline(char *name, char *parameter) {
         return 1;
     } else if(!strcasecmp(name, "-sockets")) {
         print_socket_options();
+        log_flush(LOG_MODE_INFO);
+        return 1;
+    } else if(!strcasecmp(name, "-options")) {
+        print_ssl_options();
         log_flush(LOG_MODE_INFO);
         return 1;
     } else
@@ -952,44 +1031,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         /* FIPS needs to be initialized as early as possible */
         if(ssl_configure(&new_global_options)) /* configure global SSL settings */
             return "Failed to initialize SSL";
-
-        /* prepare default SSL methods */
-#ifdef USE_FIPS
-        if(new_global_options.option.fips) {
-            if(!new_service_options.cipher_list)
-                new_service_options.cipher_list="FIPS";
-            if(!new_service_options.client_method)
-                new_service_options.client_method=
-                    (SSL_METHOD *)TLSv1_client_method();
-            if(!new_service_options.server_method)
-                new_service_options.server_method=
-                    (SSL_METHOD *)TLSv1_server_method();
-        } else {
-#endif /* USE_FIPS */
-            if(!new_service_options.cipher_list)
-                new_service_options.cipher_list=stunnel_cipher_list;
-            if(!new_service_options.client_method)
-#if !defined(OPENSSL_NO_TLS1)
-                new_service_options.client_method=
-                    (SSL_METHOD *)TLSv1_client_method();
-#elif !defined(OPENSSL_NO_SSL3)
-                new_service_options.client_method=
-                    (SSL_METHOD *)SSLv3_client_method();
-#elif !defined(OPENSSL_NO_SSL2)
-                new_service_options.client_method=
-                    (SSL_METHOD *)SSLv2_client_method();
-#else /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
-#error No supported SSL methods found
-#endif /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
-            /* SSLv23_server_method() is an always available catch-all */
-            if(!new_service_options.server_method)
-                new_service_options.server_method=
-                    (SSL_METHOD *)SSLv23_server_method();
-#ifdef USE_FIPS
-        }
-#endif /* USE_FIPS */
     }
-
     return NULL; /* OK */
 }
 
@@ -1136,6 +1178,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->cipher_list=str_dup(arg);
         return NULL; /* OK */
     case CMD_END:
+#ifdef USE_FIPS
+        if(new_global_options.option.fips) {
+            if(!new_service_options.cipher_list)
+                new_service_options.cipher_list="FIPS";
+        } else
+#endif /* USE_FIPS */
+        {
+            if(!new_service_options.cipher_list)
+                new_service_options.cipher_list=stunnel_cipher_list;
+        }
+
         break;
     case CMD_FREE:
         break;
@@ -1614,7 +1667,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* options */
     switch(cmd) {
     case CMD_BEGIN:
-        section->ssl_options_set=0;
+        section->ssl_options_set|=SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3;
         section->ssl_options_clear=0;
         break;
     case CMD_EXEC:
@@ -2016,8 +2069,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* sslVersion */
     switch(cmd) {
     case CMD_BEGIN:
-        section->client_method=NULL;
-        section->server_method=NULL;
+        section->client_method=(SSL_METHOD *)SSLv23_client_method();
+        section->server_method=(SSL_METHOD *)SSLv23_server_method();;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "sslVersion"))
@@ -2067,14 +2120,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #ifdef USE_FIPS
         if(new_global_options.option.fips) {
             if(section->option.client) {
-                if(section->client_method!=(SSL_METHOD *)TLSv1_client_method() &&
-                        section->client_method!=(SSL_METHOD *)TLSv1_1_client_method() &&
-                        section->client_method!=(SSL_METHOD *)TLSv1_2_client_method())
+                if(section->client_method==(SSL_METHOD *)SSLv2_client_method() ||
+                        section->client_method==(SSL_METHOD *)SSLv3_client_method())
                     return "FIPS mode requires sslVersion to be TLSv1 or later";
             } else {
-                if(section->server_method!=(SSL_METHOD *)TLSv1_server_method() &&
-                        section->server_method!=(SSL_METHOD *)TLSv1_1_server_method() &&
-                        section->server_method!=(SSL_METHOD *)TLSv1_2_server_method())
+                if(section->server_method==(SSL_METHOD *)SSLv2_server_method() ||
+                        section->server_method==(SSL_METHOD *)SSLv3_server_method())
                     return "FIPS mode requires sslVersion to be TLSv1 or later";
             }
         }
@@ -2083,16 +2134,6 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
-#ifdef USE_FIPS
-        s_log(LOG_NOTICE, "%-22s = TLSv1 (with \"fips = yes\")",
-                "sslVersion");
-        s_log(LOG_NOTICE, "%-22s = " DEFAULT_SSLVER_CLIENT " for client, "
-                DEFAULT_SSLVER_SERVER " for server (with \"fips = no\")",
-                "sslVersion");
-#else
-        s_log(LOG_NOTICE, "%-22s = " DEFAULT_SSLVER_CLIENT " for client, "
-                DEFAULT_SSLVER_SERVER " for server", "sslVersion");
-#endif
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-22s = all|SSLv2|SSLv3|TLSv1"
@@ -2335,7 +2376,7 @@ NOEXPORT char *init_sni(SERVICE_OPTIONS *section) {
     char *tmpstr;
     SERVICE_OPTIONS *tmpsrv;
 
-    /* server mode: update servername_list based on SNI option */
+    /* server mode: update servername_list based on the SNI option */
     if(!section->option.client && section->sni) {
         tmpstr=strchr(section->sni, ':');
         if(!tmpstr)
@@ -2474,85 +2515,21 @@ NOEXPORT int parse_debug_level(char *arg) {
 /**************************************** SSL options */
 
 NOEXPORT int parse_ssl_option(char *arg) {
-    struct {
-        char *name;
-        long value;
-    } ssl_opts[] = {
-        {"MICROSOFT_SESS_ID_BUG", SSL_OP_MICROSOFT_SESS_ID_BUG},
-        {"NETSCAPE_CHALLENGE_BUG", SSL_OP_NETSCAPE_CHALLENGE_BUG},
-#ifdef SSL_OP_LEGACY_SERVER_CONNECT
-        {"LEGACY_SERVER_CONNECT", SSL_OP_LEGACY_SERVER_CONNECT},
-#endif
-        {"NETSCAPE_REUSE_CIPHER_CHANGE_BUG",
-            SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG},
-        {"SSLREF2_REUSE_CERT_TYPE_BUG", SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG},
-        {"MICROSOFT_BIG_SSLV3_BUFFER", SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER},
-#ifdef SSL_OP_MSIE_SSLV2_RSA_PADDING
-        {"MSIE_SSLV2_RSA_PADDING", SSL_OP_MSIE_SSLV2_RSA_PADDING},
-#endif
-        {"SSLEAY_080_CLIENT_DH_BUG", SSL_OP_SSLEAY_080_CLIENT_DH_BUG},
-        {"TLS_D5_BUG", SSL_OP_TLS_D5_BUG},
-        {"TLS_BLOCK_PADDING_BUG", SSL_OP_TLS_BLOCK_PADDING_BUG},
-#ifdef SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
-        {"DONT_INSERT_EMPTY_FRAGMENTS", SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS},
-#endif
-        {"ALL", SSL_OP_ALL},
-#ifdef SSL_OP_NO_QUERY_MTU
-        {"NO_QUERY_MTU", SSL_OP_NO_QUERY_MTU},
-#endif
-#ifdef SSL_OP_COOKIE_EXCHANGE
-        {"COOKIE_EXCHANGE", SSL_OP_COOKIE_EXCHANGE},
-#endif
-#ifdef SSL_OP_NO_TICKET
-        {"NO_TICKET", SSL_OP_NO_TICKET},
-#endif
-#ifdef SSL_OP_CISCO_ANYCONNECT
-        {"CISCO_ANYCONNECT", SSL_OP_CISCO_ANYCONNECT},
-#endif
-#ifdef SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION
-        {"NO_SESSION_RESUMPTION_ON_RENEGOTIATION",
-            SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION},
-#endif
-#ifdef SSL_OP_NO_COMPRESSION
-        {"NO_COMPRESSION", SSL_OP_NO_COMPRESSION},
-#endif
-#ifdef SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
-        {"ALLOW_UNSAFE_LEGACY_RENEGOTIATION",
-            SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION},
-#endif
-#ifdef SSL_OP_SINGLE_ECDH_USE
-        {"SINGLE_ECDH_USE", SSL_OP_SINGLE_ECDH_USE},
-#endif
-        {"SINGLE_DH_USE", SSL_OP_SINGLE_DH_USE},
-        {"EPHEMERAL_RSA", SSL_OP_EPHEMERAL_RSA},
-#ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
-        {"CIPHER_SERVER_PREFERENCE", SSL_OP_CIPHER_SERVER_PREFERENCE},
-#endif
-        {"TLS_ROLLBACK_BUG", SSL_OP_TLS_ROLLBACK_BUG},
-        {"NO_SSLv2", SSL_OP_NO_SSLv2},
-        {"NO_SSLv3", SSL_OP_NO_SSLv3},
-        {"NO_TLSv1", SSL_OP_NO_TLSv1},
-#ifdef SSL_OP_NO_TLSv1_1
-        {"NO_TLSv1.1", SSL_OP_NO_TLSv1_1},
-#endif
-#ifdef SSL_OP_NO_TLSv1_2
-        {"NO_TLSv1.2", SSL_OP_NO_TLSv1_2},
-#endif
-        {"PKCS1_CHECK_1", SSL_OP_PKCS1_CHECK_1},
-        {"PKCS1_CHECK_2", SSL_OP_PKCS1_CHECK_2},
-        {"NETSCAPE_CA_DN_BUG", SSL_OP_NETSCAPE_CA_DN_BUG},
-        {"NETSCAPE_DEMO_CIPHER_CHANGE_BUG",
-            SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG},
-#ifdef SSL_OP_CRYPTOPRO_TLSEXT_BUG
-        {"CRYPTOPRO_TLSEXT_BUG", SSL_OP_CRYPTOPRO_TLSEXT_BUG},
-#endif
-        {NULL, 0}
-    }, *option;
+    SSL_OPTION *option;
 
-    for(option=ssl_opts; option->name; ++option)
+    for(option=(SSL_OPTION *)ssl_opts; option->name; ++option)
         if(!strcasecmp(option->name, arg))
             return option->value;
     return 0; /* FAILED */
+}
+
+NOEXPORT void print_ssl_options(void) {
+    SSL_OPTION *option;
+
+    s_log(LOG_NOTICE, " ");
+    s_log(LOG_NOTICE, "Supported SSL options:");
+    for(option=(SSL_OPTION *)ssl_opts; option->name; ++option)
+        s_log(LOG_NOTICE, "options = %s", option->name);
 }
 
 /**************************************** socket options */

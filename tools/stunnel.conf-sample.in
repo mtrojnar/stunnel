@@ -43,8 +43,10 @@ cert = @prefix@/etc/stunnel/mail.pem
 ; Alternatively CRLfile can be used
 ;CRLfile = @prefix@/etc/stunnel/crls.pem
 
-; Disable support for insecure SSLv2 protocol
-options = NO_SSLv2
+; Enable support for the insecure SSLv2 protocol
+;options = -NO_SSLv2
+; Enable support for the insecure SSLv3 protocol
+;options = -NO_SSLv3
 ; Workaround for Eudora bug
 ;options = DONT_INSERT_EMPTY_FRAGMENTS
 

@@ -11,12 +11,12 @@ stunnel - universal SSL tunnel
 
 =item B<Unix:>
 
-B<stunnel> [S<FILE>] | S<-fd N> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [S<FILE>] | S<-fd N> | S<-help> | S<-version> | S<-sockets> | S<-options>
 
 =item B<WIN32:>
 
 B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop>] | S<-exit>]
-    [S<-quiet>] [S<FILE>] ] | S<-help> | S<-version> | S<-sockets>
+    [S<-quiet>] [S<FILE>] ] | S<-help> | S<-version> | S<-sockets> | S<-options>
 
 =back
 
@@ -62,19 +62,23 @@ Print B<stunnel> version and compile time defaults
 
 Print default socket options
 
-=item B<-install> (NT/2000/XP only)
+=item B<-options>
+
+Print supported SSL options
+
+=item B<-install> (Windows NT and later only)
 
 Install NT Service
 
-=item B<-uninstall> (NT/2000/XP only)
+=item B<-uninstall> (Windows NT and later only)
 
 Uninstall NT Service
 
-=item B<-start> (NT/2000/XP only)
+=item B<-start> (Windows NT and later only)
 
 Start NT Service
 
-=item B<-stop> (NT/2000/XP only)
+=item B<-stop> (Windows NT and later only)
 
 Stop NT Service
 
@@ -82,7 +86,7 @@ Stop NT Service
 
 Exit an already started stunnel
 
-=item B<-quiet> (NT/2000/XP only)
+=item B<-quiet> (Win32 only)
 
 Don't display any message boxes
 

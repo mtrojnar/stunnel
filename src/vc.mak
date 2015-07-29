@@ -23,7 +23,7 @@ TARGET=win64
 #INCDIR=$(SSLDIR)\include
 #LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-SSLDIR=..\..\openssl-1.0.1i-$(TARGET)
+SSLDIR=..\..\openssl-1.0.1j-$(TARGET)
 INCDIR=$(SSLDIR)\inc32
 LIBDIR=$(SSLDIR)\out32dll
 # or simply install with "nmake -f ms\ntdll.mak install"

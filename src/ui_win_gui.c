@@ -67,6 +67,7 @@ NOEXPORT void gui_cmdline();
 NOEXPORT int initialize_winsock(void);
 NOEXPORT int gui_loop();
 
+NOEXPORT void CALLBACK timer_proc(HWND, UINT, UINT_PTR, DWORD);
 NOEXPORT LRESULT CALLBACK window_proc(HWND, UINT, WPARAM, LPARAM);
 NOEXPORT LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
 NOEXPORT LRESULT CALLBACK pass_proc(HWND, UINT, WPARAM, LPARAM);
@@ -368,6 +369,9 @@ NOEXPORT int gui_loop() {
     WaitForSingleObject(main_initialized, INFINITE);
     /* logging subsystem is now available */
 
+    /* setup periodic event to trigger update_logs() */
+    SetTimer(NULL, 0, 1000, timer_proc); /* run callback once per second */
+
     s_log(LOG_DEBUG, "GUI message loop initialized");
     for(;;)
         switch(GetMessage(&msg, NULL, 0, 0)) {
@@ -383,11 +387,22 @@ NOEXPORT int gui_loop() {
         }
 }
 
+NOEXPORT void CALLBACK timer_proc(HWND hwnd, UINT msg, UINT_PTR id, DWORD t) {
+    (void)hwnd; /* skip warning about unused parameter */
+    (void)msg; /* skip warning about unused parameter */
+    (void)id; /* skip warning about unused parameter */
+    (void)t; /* skip warning about unused parameter */
+    if(visible)
+        update_logs();
+    update_tray(num_clients); /* needed when explorer.exe (re)starts */
+}
+
 NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         UINT message, WPARAM wParam, LPARAM lParam) {
     NOTIFYICONDATA nid;
     POINT pt;
     RECT rect;
+    PAINTSTRUCT ps;
     SERVICE_OPTIONS *section;
     unsigned int section_number;
     LPTSTR txt;
@@ -405,9 +420,6 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
 #endif
     switch(message) {
     case WM_CREATE:
-        /* setup periodic event to trigger update_logs() */
-        SetTimer(hwnd, 0x29a, 1000, NULL); /* one WM_TIMER event per second */
-
 #ifdef _WIN32_WCE
         /* create command bar */
         command_bar_handle=CommandBar_Create(ghInst, main_window_handle, 1);
@@ -451,11 +463,10 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         SetFocus(edit_handle);
         return 0;
 
-    case WM_TIMER:
-        if(visible)
-            update_logs();
-        update_tray(num_clients); /* needed when explorer.exe (re)starts */
-        return 0;
+    case WM_PAINT:
+        BeginPaint(hwnd, &ps);
+        EndPaint(hwnd, &ps);
+        break;
 
     case WM_CLOSE:
         ShowWindow(main_window_handle, SW_HIDE);
@@ -473,7 +484,11 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
                 visible ? MF_CHECKED : MF_UNCHECKED);
         if(visible)
             update_logs();
+#ifdef WM_SHOWWINDOW
+        return 0;
+#else
         break; /* proceed to DefWindowProc() */
+#endif
 
     case WM_DESTROY:
 #ifdef _WIN32_WCE
@@ -495,7 +510,6 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         nid.uFlags=NIF_TIP; /* not really sure what to put here, but it works */
         Shell_NotifyIcon(NIM_DELETE, &nid); /* this removes the icon */
         PostQuitMessage(0);
-        KillTimer(main_window_handle, 0x29a);
         return 0;
 
     case WM_COMMAND:
