@@ -25,6 +25,7 @@ Low priority features.  They will unlikely ever be supported.
 * Service-level logging configuration (separate verbosity and destination).
 * Key renegotiation (re-handshake) for long connections.
 * Logging to NT EventLog on Windows.
+* Log rotation on Windows.
 * Internationalization of logged messages (i18n).
 * Generic scripting engine instead or static protocol.c.
 

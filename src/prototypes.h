@@ -195,8 +195,8 @@ typedef struct service_options_struct {
         /* service-specific data for gui.c */
 #ifdef USE_WIN32
     int section_number;
-    LPTSTR file, help;
-    char *chain;
+    LPTSTR file;
+    char *help, *chain;
 #endif
 
         /* on/off switches */
@@ -384,7 +384,8 @@ void s_poll_init(s_poll_set *);
 void s_poll_add(s_poll_set *, int, int, int);
 int s_poll_canread(s_poll_set *, int);
 int s_poll_canwrite(s_poll_set *, int);
-int s_poll_error(s_poll_set *, FD *);
+int s_poll_hup(s_poll_set *, int);
+int s_poll_error(s_poll_set *, int);
 int s_poll_wait(s_poll_set *, int, int);
 
 #ifdef USE_WIN32
@@ -398,7 +399,6 @@ int s_poll_wait(s_poll_set *, int, int);
 #endif
 
 int set_socket_options(int, int);
-int get_socket_error(const int);
 int make_sockets(int [2]);
 
 /**************************************** prototypes for client.c */
@@ -468,6 +468,7 @@ void protocol(CLI *, const PROTOCOL_PHASE);
 
 /**************************************** prototypes for resolver.c */
 
+void resolver_init();
 int name2addr(SOCKADDR_UNION *, char *, char *);
 int hostport2addr(SOCKADDR_UNION *, char *, char *);
 int namelist2addrlist(SOCKADDR_LIST *, NAME_LIST *, char *);
@@ -485,9 +486,22 @@ const char *s_gai_strerror(int);
 #endif
 
 #ifdef USE_WIN32
+
 /* rename some locally shadowed declarations */
 #define getnameinfo     local_getnameinfo
-#endif /* defined USE_WIN32 */
+
+#ifndef _WIN32_WCE
+typedef int (CALLBACK * GETADDRINFO) (const char *,
+    const char *, const struct addrinfo *, struct addrinfo **);
+typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo FAR *);
+typedef int (CALLBACK * GETNAMEINFO) (const struct sockaddr *, socklen_t,
+    char *, size_t, char *, size_t, int);
+extern GETADDRINFO s_getaddrinfo;
+extern FREEADDRINFO s_freeaddrinfo;
+extern GETNAMEINFO s_getnameinfo;
+#endif /* ! _WIN32_WCE */
+
+#endif /* USE_WIN32 */
 
 int getnameinfo(const struct sockaddr *, int, char *, int, char *, int, int);
 
@@ -536,23 +550,14 @@ void stack_info(int);
 /**************************************** prototypes for gui.c */
 
 #ifdef USE_WIN32
-extern HWND hwnd;
-
+void message_box(const LPSTR, const UINT);
+void win_new_chain(int);
+void win_new_log(char *);
+void win_new_config(void);
 int passwd_cb(char *, int, int, void *);
 #ifdef HAVE_OSSL_ENGINE_H
 int pin_cb(UI *, UI_STRING *);
 #endif
-
-#ifndef _WIN32_WCE
-typedef int (CALLBACK * GETADDRINFO) (const char *,
-    const char *, const struct addrinfo *, struct addrinfo **);
-typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo FAR *);
-typedef int (CALLBACK * GETNAMEINFO) (const struct sockaddr *, socklen_t,
-    char *, size_t, char *, size_t, int);
-extern GETADDRINFO s_getaddrinfo;
-extern FREEADDRINFO s_freeaddrinfo;
-extern GETNAMEINFO s_getnameinfo;
-#endif /* ! _WIN32_WCE */
 #endif /* USE_WIN32 */
 
 /**************************************** prototypes for file.c */

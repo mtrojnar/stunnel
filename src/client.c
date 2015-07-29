@@ -54,7 +54,7 @@ static void init_local(CLI *);
 static void init_remote(CLI *);
 static void init_ssl(CLI *);
 #ifdef USE_WIN32
-static void win_new_chain(CLI *);
+static void new_chain(CLI *);
 #endif
 static void transfer(CLI *);
 static int parse_socket_error(CLI *, const char *);
@@ -269,7 +269,7 @@ static void init_local(CLI *c) {
     }
 
     /* neither of local descriptors is a socket */
-    if(!c->local_rfd.is_socket && !c->local_rfd.is_socket) {
+    if(!c->local_rfd.is_socket && !c->local_wfd.is_socket) {
 #ifndef USE_WIN32
         if(c->opt->option.transparent_src) {
             s_log(LOG_ERR, "Transparent source needs a socket");
@@ -337,7 +337,7 @@ static void init_ssl(CLI *c) {
     if(c->opt->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
         if(c->opt->sni) {
-            s_log(LOG_DEBUG, "SNI: host name: %s", c->opt->sni);
+            s_log(LOG_DEBUG, "SNI: sending servername: %s", c->opt->sni);
             if(!SSL_set_tlsext_host_name(c->ssl, c->opt->sni)) {
                 sslerror("SSL_set_tlsext_host_name");
                 longjmp(c->err, 1);
@@ -437,7 +437,7 @@ static void init_ssl(CLI *c) {
             c->opt->option.client ? "connected" : "accepted");
     } else { /* a new session was negotiated */
 #ifdef USE_WIN32
-        win_new_chain(c);
+        new_chain(c);
 #endif
         if(c->opt->option.client) {
             s_log(LOG_INFO, "SSL connected: new session negotiated");
@@ -454,7 +454,7 @@ static void init_ssl(CLI *c) {
 }
 
 #ifdef USE_WIN32
-static void win_new_chain(CLI *c) {
+static void new_chain(CLI *c) {
     BIO *bio;
     int i, len;
     X509 *peer=NULL;
@@ -496,7 +496,7 @@ static void win_new_chain(CLI *c) {
     BIO_free(bio);
     str_detach(chain); /* to prevent automatic deallocation of cached value */
     c->opt->chain=chain; /* this race condition is safe to ignore */
-    PostMessage(hwnd, WM_NEW_CHAIN, c->opt->section_number, 0);
+    win_new_chain(c->opt->section_number);
     s_log(LOG_DEBUG, "Peer certificate was cached (%d bytes)", len);
 }
 #endif
@@ -527,15 +527,18 @@ static void transfer(CLI *c) {
         s_poll_init(c->fds); /* initialize the structure */
         /* for plain socket open data strem = open file descriptor */
         /* make sure to add each open socket to receive exceptions! */
-        if(sock_open_rd)
+        if(sock_open_rd) /* only poll if the read file descriptor is open */
             s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
-        if(sock_open_wr)
+        if(sock_open_wr) /* only poll if the write file descriptor is open */
             s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr);
-        /* for SSL assume that sockets are open if there any pending requests */
-        if(read_wants_read || write_wants_read || shutdown_wants_read)
-            s_poll_add(c->fds, c->ssl_rfd->fd, 1, 0);
-        if(read_wants_write || write_wants_write || shutdown_wants_write)
-            s_poll_add(c->fds, c->ssl_wfd->fd, 0, 1);
+        /* poll SSL file descriptors unless SSL shutdown was completed */
+        if(SSL_get_shutdown(c->ssl)!=
+                (SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN)) {
+            s_poll_add(c->fds, c->ssl_rfd->fd, 
+                read_wants_read || write_wants_read || shutdown_wants_read, 0);
+            s_poll_add(c->fds, c->ssl_wfd->fd, 0,
+                read_wants_write || write_wants_write || shutdown_wants_write);
+        }
 
         /****************************** wait for an event */
         err=s_poll_wait(c->fds,
@@ -563,37 +566,62 @@ static void transfer(CLI *c) {
         }
 
         /****************************** check for errors on sockets */
-        err=s_poll_error(c->fds, c->sock_rfd);
-        if(err) {
-            s_log(LOG_NOTICE,
-                "Error detected on socket (read) file descriptor: %s (%d)",
+        err=s_poll_error(c->fds, c->sock_rfd->fd);
+        if(err && err!=S_EWOULDBLOCK && err!=S_EAGAIN) {
+            s_log(LOG_NOTICE, "Read socket error: %s (%d)",
                 s_strerror(err), err);
             longjmp(c->err, 1);
         }
-        if(c->sock_wfd->fd != c->sock_rfd->fd) { /* performance optimization */
-            err=s_poll_error(c->fds, c->sock_wfd);
-            if(err) {
-                s_log(LOG_NOTICE,
-                    "Error detected on socket write file descriptor: %s (%d)",
+        if(c->sock_wfd->fd!=c->sock_rfd->fd) { /* performance optimization */
+            err=s_poll_error(c->fds, c->sock_wfd->fd);
+            if(err && err!=S_EWOULDBLOCK && err!=S_EAGAIN) {
+                s_log(LOG_NOTICE, "Write socket error: %s (%d)",
                     s_strerror(err), err);
                 longjmp(c->err, 1);
             }
         }
-        err=s_poll_error(c->fds, c->ssl_rfd);
-        if(err) {
-            s_log(LOG_NOTICE,
-                "Error detected on SSL (read) file descriptor: %s (%d)",
+        err=s_poll_error(c->fds, c->ssl_rfd->fd);
+        if(err && err!=S_EWOULDBLOCK && err!=S_EAGAIN) {
+            s_log(LOG_NOTICE, "SSL socket error: %s (%d)",
                 s_strerror(err), err);
             longjmp(c->err, 1);
         }
-        if(c->ssl_wfd->fd != c->ssl_rfd->fd) { /* performance optimization */
-            err=s_poll_error(c->fds, c->ssl_wfd);
-            if(err) {
-                s_log(LOG_NOTICE,
-                    "Error detected on SSL write file descriptor: %s (%d)",
+        if(c->ssl_wfd->fd!=c->ssl_rfd->fd) { /* performance optimization */
+            err=s_poll_error(c->fds, c->ssl_wfd->fd);
+            if(err && err!=S_EWOULDBLOCK && err!=S_EAGAIN) {
+                s_log(LOG_NOTICE, "SSL socket error: %s (%d)",
                     s_strerror(err), err);
                 longjmp(c->err, 1);
             }
+        }
+
+        /****************************** check for hangup conditions */
+        if(s_poll_hup(c->fds, c->sock_rfd->fd)) {
+            s_log(LOG_INFO, "Read socket closed (hangup)");
+            sock_open_rd=0;
+        }
+        if(s_poll_hup(c->fds, c->sock_wfd->fd)) {
+            if(c->ssl_ptr) {
+                s_log(LOG_ERR,
+                    "Write socket closed (hangup) with %d unsent byte(s)",
+                    c->ssl_ptr);
+                longjmp(c->err, 1); /* reset the socket */
+            }
+            s_log(LOG_INFO, "Write socket closed (hangup)");
+            sock_open_wr=0;
+        }
+        if(s_poll_hup(c->fds, c->ssl_rfd->fd) ||
+                s_poll_hup(c->fds, c->ssl_wfd->fd)) {
+            /* hangup -> buggy (e.g. Microsoft) peer:
+             * SSL socket closed without close_notify alert */
+            if(c->sock_ptr) {
+                s_log(LOG_ERR,
+                    "SSL socket closed (hangup) with %d unsent byte(s)",
+                    c->sock_ptr);
+                longjmp(c->err, 1); /* reset the socket */
+            }
+            s_log(LOG_INFO, "SSL socket closed (hangup)");
+            SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         }
 
         /****************************** retrieve results from c->fds */
@@ -661,7 +689,7 @@ static void transfer(CLI *c) {
                 if(parse_socket_error(c, "readsocket"))
                     break; /* a non-critical error: retry */
             case 0: /* close */
-                s_log(LOG_DEBUG, "Socket closed on read");
+                s_log(LOG_INFO, "Read socket closed (readsocket)");
                 sock_open_rd=0;
                 break;
             default:
@@ -677,10 +705,6 @@ static void transfer(CLI *c) {
             case -1: /* error */
                 if(parse_socket_error(c, "writesocket"))
                     break; /* a non-critical error: retry */
-            case 0:
-                s_log(LOG_DEBUG, "Socket closed on write");
-                sock_open_rd=sock_open_wr=0;
-                break;
             default:
                 memmove(c->ssl_buff, c->ssl_buff+num, c->ssl_ptr-num);
                 c->ssl_ptr-=num;
@@ -727,15 +751,15 @@ static void transfer(CLI *c) {
                  * SSL socket closed without close_notify alert */
                 if(c->sock_ptr) {
                     s_log(LOG_ERR,
-                        "SSL socket closed on SSL_read with %d unsent byte(s)",
+                        "SSL socket closed (SSL_read) with %d unsent byte(s)",
                         c->sock_ptr);
                     longjmp(c->err, 1); /* reset the socket */
                 }
-                s_log(LOG_DEBUG, "SSL socket closed on SSL_read");
+                s_log(LOG_INFO, "SSL socket closed (SSL_read)");
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify alert received */
-                s_log(LOG_DEBUG, "SSL closed on SSL_read");
+                s_log(LOG_INFO, "SSL closed (SSL_read)");
                 if(SSL_version(c->ssl)==SSL2_VERSION)
                     SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
@@ -779,15 +803,15 @@ static void transfer(CLI *c) {
                  * SSL socket closed without close_notify alert */
                 if(c->sock_ptr) {
                     s_log(LOG_ERR,
-                        "SSL socket closed on SSL_write with %d unsent byte(s)",
+                        "SSL socket closed (SSL_write) with %d unsent byte(s)",
                         c->sock_ptr);
                     longjmp(c->err, 1); /* reset the socket */
                 }
-                s_log(LOG_DEBUG, "SSL socket closed on SSL_write");
+                s_log(LOG_INFO, "SSL socket closed (SSL_write)");
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify alert received */
-                s_log(LOG_DEBUG, "SSL closed on SSL_write");
+                s_log(LOG_INFO, "SSL closed (SSL_write)");
                 if(SSL_version(c->ssl)==SSL2_VERSION)
                     SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
@@ -804,7 +828,7 @@ static void transfer(CLI *c) {
         if(sock_open_wr && SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN && !c->ssl_ptr) {
             sock_open_wr=0; /* no further write allowed */
             if(!c->sock_wfd->is_socket) {
-                s_log(LOG_DEBUG, "Closing the socket file descriptor");
+                s_log(LOG_DEBUG, "Closing the file descriptor");
                 sock_open_rd=0; /* file descriptor is ready to be closed */
             } else if(!shutdown(c->sock_wfd->fd, SHUT_WR)) { /* send TCP FIN */
                 s_log(LOG_DEBUG, "Sent socket write shutdown");
@@ -1094,8 +1118,15 @@ static int connect_local(CLI *c) { /* spawn local process */
         sigemptyset(&newmask);
         sigprocmask(SIG_SETMASK, &newmask, NULL);
 #endif
+        signal(SIGCHLD, SIG_DFL);
+        signal(SIGHUP, SIG_DFL);
+        signal(SIGUSR1, SIG_DFL);
+        signal(SIGPIPE, SIG_DFL);
+        signal(SIGTERM, SIG_DFL);
+        signal(SIGQUIT, SIG_DFL);
+        signal(SIGINT, SIG_DFL);
         execvp(c->opt->execname, c->opt->execargs);
-        ioerror(c->opt->execname); /* execv failed */
+        ioerror(c->opt->execname); /* execvp failed */
         _exit(1);
     default: /* parent */
         s_log(LOG_INFO, "Local mode child started (PID=%lu)", c->pid);

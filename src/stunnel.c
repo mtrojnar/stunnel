@@ -44,7 +44,11 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-pedantic"
 #endif /* __GNUC__ */
+#ifdef __GNUC__
+#include <../ms/applink.c>
+#else /* __GNUC__ */
 #include <openssl/applink.c>
+#endif /* __GNUC__ */
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif /* __GNUC__ */
@@ -119,12 +123,16 @@ static int main_unix(int argc, char* argv[]) {
         fatal("Could not open /dev/null");
 #endif /* standard Unix */
     main_initialize();
-    if(main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL))
+    if(main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL)) {
+        close(fd);
         return 1;
+    }
     if(service_options.next) { /* there are service sections -> daemon mode */
 #if !defined(__vms) && !defined(USE_OS2)
-        if(daemonize(fd))
+        if(daemonize(fd)) {
+            close(fd);
             return 1;
+        }
         close(fd);
         /* create_pid() must be called after drop_privileges()
          * or it won't be possible to remove the file on exit */
@@ -328,7 +336,8 @@ void unbind_ports(void) {
         if(opt->ctx) {
             s_log(LOG_DEBUG, "Sessions cached before flush: %ld",
                 SSL_CTX_sess_number(opt->ctx));
-            SSL_CTX_flush_sessions(opt->ctx, time(NULL)+opt->session_timeout+1);
+            SSL_CTX_flush_sessions(opt->ctx,
+                (long)time(NULL)+opt->session_timeout+1);
             s_log(LOG_DEBUG, "Sessions cached after flush: %ld",
                 SSL_CTX_sess_number(opt->ctx));
         }

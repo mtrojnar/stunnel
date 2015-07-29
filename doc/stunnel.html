@@ -521,23 +521,26 @@ to its owner.  On Unix systems you can use the following command:</p>
 <p>IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.</p>
 </dd>
-<dt><strong><a name="server_name" class="item"><strong>sni</strong> = service_name:server_name (server mode)</a></strong></dt>
+<dt><strong><a name="server_name_pattern" class="item"><strong>sni</strong> = service_name:server_name_pattern (server mode)</a></strong></dt>
 
 <dd>
 <p>Use the service as a slave service (a name-based virtual server) for Server
 Name Indication TLS extension (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>).</p>
 <p><em>service_name</em> specifies the master service that accepts client connections
-with <em>accept</em> option.  <em>server_name</em> specifies the host name to be redirected.
+with <em>accept</em> option.  <em>server_name_pattern</em> specifies the host name to be
+redirected.  The pattern may start with '*' character, e.g. '*.example.com'.
 Multiple slave services are normally specified for a single master service.
-<em>sni</em> option can also be specified more than once within a single slave service.</p>
-<p>This service, as well as the master service, may not be configured in client mode.
-<em>connect</em> option of the slave service is ignored when <em>protocol</em> option is
-specified, as <em>protocol</em> connects remote host before TLS handshake.
-Libwrap checks (Unix only) are performed twice: with master service name after
+<em>sni</em> option can also be specified more than once within a single slave
+service.</p>
+<p>This service, as well as the master service, may not be configured in client
+mode.</p>
+<p><em>connect</em> option of the slave service is ignored when <em>protocol</em> option is
+specified, as <em>protocol</em> connects remote host before TLS handshake.</p>
+<p>Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.</p>
 <p>Option <em>sni</em> is only available when compiled with OpenSSL 1.0.0 and later.</p>
 </dd>
-<dt><strong><strong>sni</strong> = server_name (client mode)</strong></dt>
+<dt><strong><a name="server_name" class="item"><strong>sni</strong> = server_name (client mode)</a></strong></dt>
 
 <dd>
 <p>Use the parameter as the value of TLS Server Name Indication (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>)
@@ -572,8 +575,10 @@ the following option can be used:</p>
 <dt><strong><a name="protocol_proto" class="item"><strong>protocol</strong> = proto</a></strong></dt>
 
 <dd>
-<p>application protocol to negotiate SSL (e.g. <em>starttls</em> or <em>stls</em>)</p>
-<p><em>protocol</em> option should not be used with SSL encryption on a separate port.</p>
+<p>application protocol to negotiate SSL</p>
+<p>This option enables initial, protocol-specific negotiation of the SSL/TLS
+encryption.
+<em>protocol</em> option should not be used with SSL encryption on a separate port.</p>
 <p>Currently supported protocols:</p>
 <dl>
 <dt><strong><a name="cifs" class="item"><em>cifs</em></a></strong></dt>

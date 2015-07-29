@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2012.09.20" "4.54" "stunnel"
+.TH STUNNEL.PL 8 "2013.01.13" "4.55" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -492,24 +492,28 @@ domyślnie: yes
 .Sp
 Domyślnie używane jest \s-1IP\s0 najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.
-.IP "\fBsni\fR = nazwa_usługi:nazwa_serwera (tryb serwera)" 4
-.IX Item "sni = nazwa_usługi:nazwa_serwera (tryb serwera)"
+.IP "\fBsni\fR = nazwa_usługi:wzorzec_nazwy_serwera (tryb serwera)" 4
+.IX Item "sni = nazwa_usługi:wzorzec_nazwy_serwera (tryb serwera)"
 Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia \s-1TLS\s0 Server
 Name Indication (\s-1RFC\s0 3546).
 .Sp
 \&\fInazwa_usługi\fR wskazuje usługę nadrzędną, która odbiera połączenia od klientów
-przy pomocy opcji \fIaccept\fR.  \fInazwa_serwera\fR wskazuje nazwę serwera
-wirtualnego.  Z pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług
-podrzędnych.  Opcja \fIsni\fR może być rownież użyta wielokrotnie w ramach jednej
-usługi podrzędnej.
+przy pomocy opcji \fIaccept\fR.  \fIwzorzec_nazwy_serwera\fR wskazuje nazwę serwera
+wirtualnego.  Wzorzec może zaczynać się znakiem '*', np. '*.example.com".
+Z pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług podrzędnych.
+Opcja \fIsni\fR może być rownież użyta wielokrotnie w ramach jednej usługi
+podrzędnej.
 .Sp
 Zarówno usługa nadrzędna jak i podrzędna nie może być skonfigurowana w trybie
-klienckim.  Opcja \fIconnect\fR usługi podrzędnej jest ignorowana w połączeniu z
-opcją \fIprotocol\fR, gdyż połączenie do zdalnego serwera jest w tym wypadku
-nawiązywane przed negocjacją \s-1TLS\s0.  Uwierzytelnienie przy pomocy biblioteki
-libwrap jest realizowane dwukrotnie: najpierw dla usługi nadrzędnej po
-odebraniu połączenia \s-1TCP\s0, a następnie dla usługi podrzędnej podczas negocjacji
-\&\s-1TLS\s0.
+klienckim.
+.Sp
+Opcja \fIconnect\fR usługi podrzędnej jest ignorowana w połączeniu z opcją
+\&\fIprotocol\fR, gdyż połączenie do zdalnego serwera jest w tym wypadku nawiązywane
+przed negocjacją \s-1TLS\s0.
+.Sp
+Uwierzytelnienie przy pomocy biblioteki libwrap jest realizowane dwukrotnie:
+najpierw dla usługi nadrzędnej po odebraniu połączenia \s-1TCP\s0, a następnie dla
+usługi podrzędnej podczas negocjacji \s-1TLS\s0.
 .Sp
 Opcja \fIsni\fR jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
 .IP "\fBsni\fR = nazwa_serwera (tryb klienta)" 4
@@ -545,8 +549,10 @@ w programie Eudora można użyć opcji:
 .Ve
 .IP "\fBprotocol\fR = protokół" 4
 .IX Item "protocol = protokół"
-negocjuj \s-1SSL\s0 podanym protokołem aplikacyjnym (np. \fIstarttls\fR lub \fIstls\fR)
+negocjuj \s-1SSL\s0 podanym protokołem aplikacyjnym
 .Sp
+Opcja ta włącza wstępną negocjację szyfrowania \s-1SSL\s0 dla wybranego protokołu
+aplikacyjnego.
 Opcji \fIprotocol\fR nie należy używać z szyfrowaniem \s-1SSL\s0 na osobnym porcie.
 .Sp
 Aktualnie wspierane protokoły:

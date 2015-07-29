@@ -80,6 +80,42 @@ static void freeaddrinfo(struct addrinfo *);
 
 #endif /* !defined HAVE_GETADDRINFO */
 
+/**************************************** resolver initialization */
+
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+GETADDRINFO s_getaddrinfo;
+FREEADDRINFO s_freeaddrinfo;
+GETNAMEINFO s_getnameinfo;
+#endif
+
+void resolver_init() {
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+    HINSTANCE handle;
+
+    handle=LoadLibrary("ws2_32.dll"); /* IPv6 in Windows XP or higher */
+    if(handle) {
+        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
+        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
+        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
+        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
+            return; /* IPv6 detected -> OK */
+        FreeLibrary(handle);
+    }
+    handle=LoadLibrary("wship6.dll"); /* experimental IPv6 for Windows 2000 */
+    if(handle) {
+        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
+        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
+        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
+        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
+            return; /* IPv6 detected -> OK */
+        FreeLibrary(handle);
+    }
+    s_getaddrinfo=NULL;
+    s_freeaddrinfo=NULL;
+    s_getnameinfo=NULL;
+#endif
+}
+
 /**************************************** stunnel resolver API */
 
 int name2addr(SOCKADDR_UNION *addr, char *name, char *default_host) {

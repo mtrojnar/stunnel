@@ -41,21 +41,59 @@
 int main(int argc, char *argv[]) {
     static struct WSAData wsa_state;
 
+    str_init(); /* initialize per-thread string management */
     if(WSAStartup(MAKEWORD(1, 1), &wsa_state))
         return 1;
+    resolver_init();
     main_initialize();
-    if(main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL))
-        return 1;
-    main_execute();
+    if(!main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL))
+        daemon_loop();
+    unbind_ports();
+    log_flush(LOG_MODE_ERROR);
     return 0;
 }
 
+void message_box(const LPSTR text, const UINT type) {
+    LPTSTR tstr;
+
+    tstr=str2tstr(text);
+    MessageBox(NULL, tstr, TEXT("stunnel"), type);
+    str_free(tstr);
+}
+
+void win_new_chain(int section_number) {
+    (void)section_number; /* skip warning about unused parameter */
+}
+
+void win_new_log(char *line) {
+#ifdef _WIN32_WCE
+    /* log to Windows CE debug output stream */
+    LPTSTR tstr;
+
+    tstr=str2tstr(line);
+    RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
+    str_free(tstr);
+#else
+    printf("%s\n", line);
+#endif
+}
+
+void win_new_config(void) {
+    /* no action */
+}
+
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
+    (void)buf; /* skip warning about unused parameter */
+    (void)size; /* skip warning about unused parameter */
+    (void)rwflag; /* skip warning about unused parameter */
+    (void)userdata; /* skip warning about unused parameter */
     return 0; /* not implemented */
 }
 
 #ifdef HAVE_OSSL_ENGINE_H
 int pin_cb(UI *ui, UI_STRING *uis) {
+    (void)ui; /* skip warning about unused parameter */
+    (void)uis; /* skip warning about unused parameter */
     return 0; /* not implemented */
 }
 #endif

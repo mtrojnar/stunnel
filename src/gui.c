@@ -79,7 +79,6 @@ static void invalid_config(void);
 static void update_peer_menu(void);
 static void update_tray_icon(void);
 static void error_box(const LPSTR);
-static void message_box(const LPSTR, const UINT);
 static void edit_config(HWND);
 static BOOL is_admin(void);
 
@@ -109,12 +108,16 @@ static HMENU tray_menu_handle=NULL;
 #ifndef _WIN32_WCE
 static HMENU main_menu_handle=NULL;
 #endif
-HWND hwnd=NULL; /* main window handle */
+static HWND hwnd=NULL; /* main window handle */
 #ifdef _WIN32_WCE
 static HWND command_bar_handle; /* command bar handle */
 #endif
 static HANDLE small_icon; /* 16x16 icon */
-static TCHAR *win32_name;
+    /* win32_name is needed for any error_box(), message_box(),
+     * and the initial main window title */
+static TCHAR *win32_name=TEXT("stunnel ") TEXT(STUNNEL_VERSION)
+    TEXT(" on ") TEXT(STUNNEL_PLATFORM) TEXT(" (not configured)");
+
 static HANDLE daemon_handle=NULL;
 
 #ifndef _WIN32_WCE
@@ -128,12 +131,6 @@ static HANDLE config_ready=NULL; /* reload without a valid configuration */
 static LONG new_logs=0;
 
 static UI_DATA *ui_data=NULL;
-
-#ifndef _WIN32_WCE
-GETADDRINFO s_getaddrinfo;
-FREEADDRINFO s_freeaddrinfo;
-GETNAMEINFO s_getnameinfo;
-#endif
 
 static struct {
     char *config_file;
@@ -166,11 +163,6 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
 #else
     command_line=lpCmdLine;
 #endif
-
-    /* win32_name is needed for any error_box(), message_box(),
-     * and the initial main window title */
-    win32_name=TEXT("stunnel ") TEXT(STUNNEL_VERSION) TEXT(" on ")
-        TEXT(STUNNEL_PLATFORM) TEXT(" (not configured)");
 
     parse_cmdline(command_line); /* setup global cmdline structure */
 
@@ -289,37 +281,12 @@ static void parse_cmdline(LPSTR command_line) {
 /* try to load winsock2 resolver functions from a specified dll name */
 static int initialize_winsock() {
     static struct WSAData wsa_state;
-#ifndef _WIN32_WCE
-    HINSTANCE handle;
-#endif
 
     if(WSAStartup(MAKEWORD( 2, 2 ), &wsa_state)) {
         message_box("Failed to initialize winsock", MB_ICONERROR);
         return 1; /* error */
     }
-#ifndef _WIN32_WCE
-    handle=LoadLibrary("ws2_32.dll"); /* IPv6 in Windows XP or higher */
-    if(handle) {
-        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
-        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
-        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
-        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
-            return 0; /* IPv6 detected -> OK */
-        FreeLibrary(handle);
-    }
-    handle=LoadLibrary("wship6.dll"); /* experimental IPv6 for Windows 2000 */
-    if(handle) {
-        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
-        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
-        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
-        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
-            return 0; /* IPv6 detected -> OK */
-        FreeLibrary(handle);
-    }
-    s_getaddrinfo=NULL;
-    s_freeaddrinfo=NULL;
-    s_getnameinfo=NULL;
-#endif
+    resolver_init();
     return 0; /* IPv4 detected -> OK */
 }
 
@@ -937,11 +904,13 @@ static void update_peer_menu(void) {
         section->file=str2tstr(str);
         str_free(str);
 
-        /* setup section->help */
+        /* setup LPTSTR section->file */
         str=str_printf("peer-%s.pem", section->servname);
         section->file=str2tstr(str);
         str_free(str);
-        str=str_printf(
+
+        /* setup (char *) section->help */
+        section->help=str_printf(
             "Peer certificate chain has been saved.\n"
             "Add the following lines to section [%s]:\n"
             "\tCAfile = peer-%s.pem\n"
@@ -949,8 +918,6 @@ static void update_peer_menu(void) {
             "to enable cryptographic authentication.\n"
             "Then reload stunnel configuration file.",
             section->servname, section->servname);
-        section->help=str2tstr(str);
-        str_free(str);
 
         /* setup section->chain */
         section->chain=NULL;
@@ -1021,7 +988,7 @@ static void error_box(const LPSTR text) {
     str_free(fullmsg);
 }
 
-static void message_box(const LPSTR text, const UINT type) {
+void message_box(const LPSTR text, const UINT type) {
     LPTSTR tstr;
 
     if(cmdline.quiet)
@@ -1029,6 +996,18 @@ static void message_box(const LPSTR text, const UINT type) {
     tstr=str2tstr(text);
     MessageBox(hwnd, tstr, win32_name, type);
     str_free(tstr);
+}
+
+void win_new_chain(int section_number) {
+    PostMessage(hwnd, WM_NEW_CHAIN, section_number, 0);
+}
+
+void win_new_log(char *line) {
+    SendMessage(hwnd, WM_LOG, (WPARAM)line, 0);
+}
+
+void win_new_config(void) {
+    PostMessage(hwnd, WM_VALID_CONFIG, 0, 0);
 }
 
 static void edit_config(HWND main_window_handle) {

@@ -40,6 +40,8 @@
 
 /* #define DEBUG_UCONTEXT */
 
+static int get_socket_error(const int);
+
 /**************************************** s_poll functions */
 
 #ifdef USE_POLL
@@ -88,8 +90,8 @@ int s_poll_canread(s_poll_set *fds, int fd) {
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&(POLLIN|POLLHUP); /* read or closed */
-    return 0;
+            return fds->ufds[i].revents&POLLIN;
+    return 0; /* not listed in fds */
 }
 
 int s_poll_canwrite(s_poll_set *fds, int fd) {
@@ -97,20 +99,27 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&POLLOUT; /* it is possible to write */
-    return 0;
+            return fds->ufds[i].revents&POLLOUT;
+    return 0; /* not listed in fds */
 }
 
-int s_poll_error(s_poll_set *fds, FD *s) {
+int s_poll_hup(s_poll_set *fds, int fd) {
     unsigned int i;
 
-    if(!s->is_socket)
-        return 0;
     for(i=0; i<fds->nfds; i++)
-        if(fds->ufds[i].fd==s->fd)
+        if(fds->ufds[i].fd==fd)
+            return fds->ufds[i].revents&POLLHUP;
+    return 0; /* not listed in fds */
+}
+
+int s_poll_error(s_poll_set *fds, int fd) {
+    unsigned int i;
+
+    for(i=0; i<fds->nfds; i++)
+        if(fds->ufds[i].fd==fd)
             return fds->ufds[i].revents&(POLLERR|POLLNVAL) ?
-                get_socket_error(s->fd) : 0;
-    return 0;
+                get_socket_error(fd) : 0;
+    return 0; /* not listed in fds */
 }
 
 #ifdef USE_UCONTEXT
@@ -321,14 +330,18 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
     return FD_ISSET(fd, &fds->owfds);
 }
 
-int s_poll_error(s_poll_set *fds, FD *s) {
-    if(!s->is_socket)
-        return 0; /* getsockopt is only available on sockets */
+int s_poll_hup(s_poll_set *fds, int fd) {
+    (void)fds; /* skip warning about unused parameter */
+    (void)fd; /* skip warning about unused parameter */
+    return 0; /* FIXME: how to detect HUP condition with select()? */
+}
+
+int s_poll_error(s_poll_set *fds, int fd) {
     /* error conditions are signaled as read, but apparently *not* in Winsock:
      * http://msdn.microsoft.com/en-us/library/windows/desktop/ms737625%28v=vs.85%29.aspx */
-    if(!(FD_ISSET(s->fd, &fds->orfds) || FD_ISSET(s->fd, &fds->oxfds)))
+    if(!FD_ISSET(fd, &fds->orfds) && !FD_ISSET(fd, &fds->oxfds))
         return 0;
-    return get_socket_error(s->fd); /* check if it's really an error */
+    return get_socket_error(fd); /* check if it's really an error */
 }
 
 int s_poll_wait(s_poll_set *fds, int sec, int msec) {
@@ -400,13 +413,13 @@ int set_socket_options(int s, int type) {
     return retval; /* returns 0 when all options succeeded */
 }
 
-int get_socket_error(const int fd) {
+static int get_socket_error(const int fd) {
     int err;
     socklen_t optlen=sizeof err;
 
     if(getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&err, &optlen))
         err=get_last_socket_error(); /* failed -> ask why */
-    return err;
+    return err==S_ENOTSOCK ? 0 : err;
 }
 
 /**************************************** simulate blocking I/O */
@@ -550,9 +563,10 @@ void fd_putline(CLI *c, int fd, const char *line) {
 }
 
 char *fd_getline(CLI *c, int fd) {
-    char *line=NULL, *tmpline;
-    int ptr=0;
+    char *line, *tmpline;
+    int ptr=0, allocated=32;
 
+    line=str_alloc(allocated);
     for(;;) {
         s_poll_init(c->fds);
         s_poll_add(c->fds, fd, 1, 0); /* read */
@@ -573,7 +587,10 @@ char *fd_getline(CLI *c, int fd) {
             str_free(line);
             longjmp(c->err, 1); /* error */
         }
-        line=str_realloc(line, ptr+1);
+        if(allocated<ptr+1) {
+            allocated*=2;
+            line=str_realloc(line, allocated);
+        }
         switch(readsocket(fd, line+ptr, 1)) {
         case -1: /* error */
             sockerror("fd_getline: readsocket");

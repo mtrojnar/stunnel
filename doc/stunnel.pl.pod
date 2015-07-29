@@ -514,24 +514,28 @@ IP źródła do nawiązywania zdalnych połączeń
 Domyślnie używane jest IP najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.
 
-=item B<sni> = nazwa_usługi:nazwa_serwera (tryb serwera)
+=item B<sni> = nazwa_usługi:wzorzec_nazwy_serwera (tryb serwera)
 
 Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia TLS Server
 Name Indication (RFC 3546).
 
 I<nazwa_usługi> wskazuje usługę nadrzędną, która odbiera połączenia od klientów
-przy pomocy opcji I<accept>.  I<nazwa_serwera> wskazuje nazwę serwera
-wirtualnego.  Z pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług
-podrzędnych.  Opcja I<sni> może być rownież użyta wielokrotnie w ramach jednej
-usługi podrzędnej.
+przy pomocy opcji I<accept>.  I<wzorzec_nazwy_serwera> wskazuje nazwę serwera
+wirtualnego.  Wzorzec może zaczynać się znakiem '*', np. '*.example.com".
+Z pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług podrzędnych.
+Opcja I<sni> może być rownież użyta wielokrotnie w ramach jednej usługi
+podrzędnej.
 
 Zarówno usługa nadrzędna jak i podrzędna nie może być skonfigurowana w trybie
-klienckim.  Opcja I<connect> usługi podrzędnej jest ignorowana w połączeniu z
-opcją I<protocol>, gdyż połączenie do zdalnego serwera jest w tym wypadku
-nawiązywane przed negocjacją TLS.  Uwierzytelnienie przy pomocy biblioteki
-libwrap jest realizowane dwukrotnie: najpierw dla usługi nadrzędnej po
-odebraniu połączenia TCP, a następnie dla usługi podrzędnej podczas negocjacji
-TLS.
+klienckim.
+
+Opcja I<connect> usługi podrzędnej jest ignorowana w połączeniu z opcją
+I<protocol>, gdyż połączenie do zdalnego serwera jest w tym wypadku nawiązywane
+przed negocjacją TLS.
+
+Uwierzytelnienie przy pomocy biblioteki libwrap jest realizowane dwukrotnie:
+najpierw dla usługi nadrzędnej po odebraniu połączenia TCP, a następnie dla
+usługi podrzędnej podczas negocjacji TLS.
 
 Opcja I<sni> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
 
@@ -570,8 +574,10 @@ w programie Eudora można użyć opcji:
 
 =item B<protocol> = protokół
 
-negocjuj SSL podanym protokołem aplikacyjnym (np. I<starttls> lub I<stls>)
+negocjuj SSL podanym protokołem aplikacyjnym
 
+Opcja ta włącza wstępną negocjację szyfrowania SSL dla wybranego protokołu
+aplikacyjnego.
 Opcji I<protocol> nie należy używać z szyfrowaniem SSL na osobnym porcie.
 
 Aktualnie wspierane protokoły:

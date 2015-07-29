@@ -3,7 +3,7 @@
 !include "Sections.nsh"
 
 !ifndef VERSION
-!define VERSION 4.54
+!define VERSION 4.55
 !endif
 
 !ifndef ZLIBDIR
@@ -11,7 +11,7 @@
 !endif
 
 !ifndef OPENSSLDIR
-!define OPENSSLDIR openssl-1.0.1c
+!define OPENSSLDIR openssl-1.0.1e
 !endif
 
 Name "stunnel ${VERSION}"
@@ -99,8 +99,6 @@ SectionEnd
 
 Section "Self-signed Certificate Tools" sectionCA
   SetOutPath "$INSTDIR"
-
-  # write files
   !cd ".."
   !cd ".."
   !cd "${OPENSSLDIR}"
@@ -118,6 +116,18 @@ Section "Self-signed Certificate Tools" sectionCA
 lbl_skip_new_pem:
 SectionEnd
 
+Section "Terminal Version of stunnel" sectionTERM
+  SetOutPath "$INSTDIR"
+  !cd ".."
+  !cd "bin"
+  !cd "W32"
+  File "tstunnel.exe"
+  File "tstunnel.exe.manifest"
+  !cd ".."
+  !cd ".."
+  !cd "tools"
+SectionEnd
+
 Section "Start Menu Shortcuts"
   SetShellVarContext all
   CreateDirectory "$SMPROGRAMS\stunnel"
@@ -127,23 +137,31 @@ Section "Start Menu Shortcuts"
   Delete "$SMPROGRAMS\stunnel\*.url"
 
   # main link
-  CreateShortCut "$SMPROGRAMS\stunnel\Run stunnel.lnk" \
+  CreateShortCut "$SMPROGRAMS\stunnel\stunnel GUI Start.lnk" \
     "$INSTDIR\stunnel.exe" "" "$INSTDIR\stunnel.exe" 0
-  CreateShortCut "$SMPROGRAMS\stunnel\Exit stunnel.lnk" \
+  CreateShortCut "$SMPROGRAMS\stunnel\stunnel GUI Stop.lnk" \
     "$INSTDIR\stunnel.exe" "-exit" "$INSTDIR\stunnel.exe" 0
+
+  # tstunnel
+  SectionGetFlags ${sectionTERM} $0
+  IntOp $0 $0 & ${SF_SELECTED}
+  IntCmp $0 0 lbl_noTERM
+  CreateShortCut "$SMPROGRAMS\stunnel\stunnel Terminal Start.lnk" \
+    "$INSTDIR\tstunnel.exe" "" "$INSTDIR\tstunnel.exe" 0
+lbl_noTERM:
 
   # NT service
   ClearErrors
   ReadRegStr $R0 HKLM \
     "Software\Microsoft\Windows NT\CurrentVersion" CurrentVersion
   IfErrors skip_service_links
-  CreateShortCut "$SMPROGRAMS\stunnel\Service install.lnk" \
+  CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Install.lnk" \
     "$INSTDIR\stunnel.exe" "-install" "$INSTDIR\stunnel.exe" 0
-  CreateShortCut "$SMPROGRAMS\stunnel\Service uninstall.lnk" \
+  CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Uninstall.lnk" \
     "$INSTDIR\stunnel.exe" "-uninstall" "$INSTDIR\stunnel.exe" 0
-  CreateShortCut "$SMPROGRAMS\stunnel\Service start.lnk" \
+  CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Start.lnk" \
     "$INSTDIR\stunnel.exe" "-start" "$INSTDIR\stunnel.exe" 0
-  CreateShortCut "$SMPROGRAMS\stunnel\Service stop.lnk" \
+  CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Stop.lnk" \
     "$INSTDIR\stunnel.exe" "-stop" "$INSTDIR\stunnel.exe" 0
 skip_service_links:
 
@@ -151,17 +169,19 @@ skip_service_links:
   CreateShortCut "$SMPROGRAMS\stunnel\Edit stunnel.conf.lnk" \
     "notepad.exe" "stunnel.conf" "notepad.exe" 0
 
+  SectionGetFlags ${sectionCA} $0
+  IntOp $0 $0 & ${SF_SELECTED}
+  IntCmp $0 0 lbl_noCA
+
   # OpenSSL shell
   CreateShortCut "$SMPROGRAMS\stunnel\OpenSSL Shell.lnk" \
     "$INSTDIR\openssl.exe" "" "$INSTDIR\openssl.exe" 0
 
   # make stunnel.pem
-  SectionGetFlags sectionCA $0
-  IntOp $0 $0 & SF_SELECTED
-  IntCmp $0 0 lbl_noCA
   CreateShortCut "$SMPROGRAMS\stunnel\Build Self-signed stunnel.pem.lnk" \
     "$INSTDIR\openssl.exe" \
     "req -new -x509 -days 365 -config stunnel.cnf -out stunnel.pem -keyout stunnel.pem"
+
 lbl_noCA:
 
   # help/uninstall
@@ -195,6 +215,8 @@ skip_service_uninstall:
   Delete "$INSTDIR\stunnel.pem"
   Delete "$INSTDIR\stunnel.exe"
   Delete "$INSTDIR\stunnel.exe.manifest"
+  Delete "$INSTDIR\tstunnel.exe"
+  Delete "$INSTDIR\tstunnel.exe.manifest"
   Delete "$INSTDIR\stunnel.cnf"
   Delete "$INSTDIR\openssl.exe"
   Delete "$INSTDIR\openssl.exe.manifest"

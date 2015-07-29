@@ -1,6 +1,29 @@
 stunnel change log
 
 
+Version 4.55, 2013.03.03, urgency: HIGH:
+* Security bugfix
+  - OpenSSL updated to version 1.0.1e in Win32/Android builds.
+  - Buffer overflow vulnerability fixed in the NTLM authentication
+    of the CONNECT protocol negotiation.
+    See https://www.stunnel.org/CVE-2013-1762.html for details.
+* New features
+  - SNI wildcard matching in server mode.
+  - Terminal version of stunnel (tstunnel.exe) build for Win32.
+* Bugfixes
+  - Fixed write half-close handling in the transfer() function (thx to
+    Dustin Lundquist).
+  - Fixed EAGAIN error handling in the transfer() function (thx to Jan Bee).
+  - Restored default signal handlers before execvp() (thx to Michael Weiser).
+  - Fixed memory leaks in protocol negotiation (thx to Arthur Mesh).
+  - Fixed a file descriptor leak during configuration file reload (thx to
+    Arthur Mesh).
+  - Closed SSL sockets were removed from the the transfer() c->fds poll.
+  - Minor fix in handling exotic inetd-mode configurations.
+  - WCE compilation fixes.
+  - IPv6 compilation fix in protocol.c.
+  - Windows installer fixes.
+
 Version 4.54, 2012.10.09, urgency: MEDIUM:
 * New Win32 features
   - FIPS module updated to version 2.0.
@@ -128,14 +151,14 @@ Version 4.46, 2011.11.04, urgency: LOW:
   - Added "verify = 4" mode to ignore CA chain and only verify peer certificate.
   - Removed the limit of 16 IP addresses for a single 'connect' option.
   - Removed the limit of 256 stunnel.conf sections in PTHREAD threading model.
-    It is still not possible have more than 63 sections on WIN32 platform.
+    It is still not possible have more than 63 sections on Win32 platform.
     http://msdn.microsoft.com/en-us/library/windows/desktop/ms740141(v=vs.85).aspx
 * Optimizations
   - Reduced per-connection memory usage.
   - Performed a major refactoring of internal data structures.  Extensive
     internal testing was performed, but some regression bugs are expected.
 * Bugfixes
-  - Fixed WIN32 compilation with Mingw32.
+  - Fixed Win32 compilation with Mingw32.
   - Fixed non-blocking API emulation layer in UCONTEXT threading model.
   - Fixed signal handling in UCONTEXT threading model.
 
@@ -180,7 +203,7 @@ Version 4.43, 2011.09.07, urgency: MEDIUM:
   - Major optimization of the logging subsystem.
     Benchmarks indicate up to 15% stunnel performance improvement.
 * Bugfixes
-  - Fixed WIN32 configuration file reload.
+  - Fixed Win32 configuration file reload.
   - Fixed FORK and UCONTEXT threading models.
   - Corrected INSTALL.W32 file.
 
@@ -314,14 +337,14 @@ Version 4.34, 2010.09.19, urgency: LOW:
 * Bugfixes
   - Implemented fixes in user interface to enter engine PIN.
   - Fixed a transfer() loop issue on socket errors.
-  - Fixed missing WIN32 taskbar icon while displaying a global option error.
+  - Fixed missing Win32 taskbar icon while displaying a global option error.
 
 Version 4.33, 2010.04.05, urgency: MEDIUM:
 * New features
   - Win32 DLLs for OpenSSL 1.0.0.
     This library requires to c_rehash CApath/CRLpath directories on upgrade.
   - Win32 DLLs for zlib 1.2.4.
-  - Experimental support for local mode on WIN32 platform.
+  - Experimental support for local mode on Win32 platform.
     Try "exec = c:\windows\system32\cmd.exe".
 * Bugfixes
   - Inetd mode fixed.

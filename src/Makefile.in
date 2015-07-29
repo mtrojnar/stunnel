@@ -37,7 +37,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = stunnel$(EXEEXT)
-EXTRA_PROGRAMS = stunnel.exe$(EXEEXT)
+EXTRA_PROGRAMS = stunnel.exe$(EXEEXT) tstunnel.exe$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/config.h.in $(srcdir)/stunnel3.in
@@ -110,6 +110,10 @@ am_stunnel_exe_OBJECTS = $(am__objects_2) $(am__objects_5) \
 	$(am__objects_6)
 stunnel_exe_OBJECTS = $(am_stunnel_exe_OBJECTS)
 stunnel_exe_LDADD = $(LDADD)
+am_tstunnel_exe_OBJECTS = $(am__objects_2) $(am__objects_5) \
+	nogui.$(OBJEXT)
+tstunnel_exe_OBJECTS = $(am_tstunnel_exe_OBJECTS)
+tstunnel_exe_LDADD = $(LDADD)
 SCRIPTS = $(bin_SCRIPTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/auto/depcomp
@@ -125,9 +129,9 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES) \
-	$(stunnel_exe_SOURCES)
+	$(stunnel_exe_SOURCES) $(tstunnel_exe_SOURCES)
 DIST_SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES) \
-	$(stunnel_exe_SOURCES)
+	$(stunnel_exe_SOURCES) $(tstunnel_exe_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -276,21 +280,25 @@ stunnel_CPPFLAGS = -I/usr/kerberos/include -I$(SSLDIR)/include \
 	-DPIDFILE='"$(localstatedir)/run/stunnel/stunnel.pid"'
 
 # Win32 executable
-EXTRA_DIST = nogui.c make.bat makece.bat makew32.bat mingw.mak evc.mak \
-	vc.mak os2.mak
+EXTRA_DIST = make.bat makece.bat makew32.bat mingw.mak evc.mak vc.mak \
+	os2.mak
 stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_sources)
-OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
-WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-# OPENSSLDIR = /usr/src/openssl-1.0.0f-i586
-# WINCPPFLAGS = -I$(OPENSSLDIR)/include
+tstunnel_exe_SOURCES = $(common_headers) $(common_sources) nogui.c
+
+# OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
+# WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
+OPENSSLDIR = /usr/src/openssl-1.0.1e-i586
+WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wno-long-long -pedantic
-WINLDFLAGS = -mthreads -fstack-protector -mwindows -s
+WINLDFLAGS = -mthreads -fstack-protector -s
 WINLIBS = -L$(OPENSSLDIR) -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 # WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lpsapi -lws2_32 -lgdi32
 # WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj \
 	network.obj resolver.obj ssl.obj ctx.obj verify.obj \
-	sthreads.obj fd.obj stunnel.obj gui.obj resources.obj
+	sthreads.obj fd.obj stunnel.obj
+WINGUIOBJ = $(WINOBJ) gui.obj resources.obj
+WINNOGUIOBJ = $(WINOBJ) nogui.obj
 WINPREFIX = i586-mingw32msvc-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
@@ -476,6 +484,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/network.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nogui.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protocol.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resolver.Po@am__quote@
@@ -962,15 +971,18 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 	uninstall-pkglibLTLIBRARIES
 
 
-dist-hook: stunnel.exe
+dist-hook: stunnel.exe tstunnel.exe
 
 distclean-local:
-	rm -f stunnel.exe
+	rm -f stunnel.exe tstunnel.exe
 
 # SUFFIXES = .c .rc .obj
 
-stunnel.exe: $(WINOBJ)
-	$(WINGCC) $(WINLDFLAGS) -o stunnel.exe $(WINOBJ) $(WINLIBS)
+stunnel.exe: $(WINGUIOBJ)
+	$(WINGCC) -mwindows $(WINLDFLAGS) -o stunnel.exe $(WINGUIOBJ) $(WINLIBS)
+
+tstunnel.exe: $(WINNOGUIOBJ)
+	$(WINGCC) $(WINLDFLAGS) -o tstunnel.exe $(WINNOGUIOBJ) $(WINLIBS)
 
 %.obj: %.c $(common_headers)
 	$(WINGCC) -c $(WINCPPFLAGS) $(WINCFLAGS) -o $@ $<

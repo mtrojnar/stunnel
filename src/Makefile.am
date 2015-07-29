@@ -31,36 +31,42 @@ stunnel_CPPFLAGS += -DPIDFILE='"$(localstatedir)/run/stunnel/stunnel.pid"'
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 
 # Win32 executable
-EXTRA_DIST = nogui.c make.bat makece.bat makew32.bat
+EXTRA_DIST = make.bat makece.bat makew32.bat
 EXTRA_DIST += mingw.mak evc.mak vc.mak os2.mak
-EXTRA_PROGRAMS = stunnel.exe
+EXTRA_PROGRAMS = stunnel.exe tstunnel.exe
 stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_sources)
+tstunnel_exe_SOURCES = $(common_headers) $(common_sources) nogui.c
 
-OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
-WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-# OPENSSLDIR = /usr/src/openssl-1.0.0f-i586
-# WINCPPFLAGS = -I$(OPENSSLDIR)/include
+# OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
+# WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
+OPENSSLDIR = /usr/src/openssl-1.0.1e-i586
+WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wno-long-long -pedantic
-WINLDFLAGS = -mthreads -fstack-protector -mwindows -s
+WINLDFLAGS = -mthreads -fstack-protector -s
 WINLIBS = -L$(OPENSSLDIR) -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 # WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lpsapi -lws2_32 -lgdi32
 # WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj
 WINOBJ += network.obj resolver.obj ssl.obj ctx.obj verify.obj sthreads.obj
-WINOBJ += fd.obj stunnel.obj gui.obj resources.obj
+WINOBJ += fd.obj stunnel.obj
+WINGUIOBJ = $(WINOBJ) gui.obj resources.obj
+WINNOGUIOBJ = $(WINOBJ) nogui.obj
 WINPREFIX = i586-mingw32msvc-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
 
-dist-hook: stunnel.exe
+dist-hook: stunnel.exe tstunnel.exe
 
 distclean-local:
-	rm -f stunnel.exe
+	rm -f stunnel.exe tstunnel.exe
 
 # SUFFIXES = .c .rc .obj
 
-stunnel.exe: $(WINOBJ)
-	$(WINGCC) $(WINLDFLAGS) -o stunnel.exe $(WINOBJ) $(WINLIBS)
+stunnel.exe: $(WINGUIOBJ)
+	$(WINGCC) -mwindows $(WINLDFLAGS) -o stunnel.exe $(WINGUIOBJ) $(WINLIBS)
+
+tstunnel.exe: $(WINNOGUIOBJ)
+	$(WINGCC) $(WINLDFLAGS) -o tstunnel.exe $(WINNOGUIOBJ) $(WINLIBS)
 
 %.obj: %.c $(common_headers)
 	$(WINGCC) -c $(WINCPPFLAGS) $(WINCFLAGS) -o $@ $<

@@ -540,26 +540,28 @@ komendą:</p>
 <p>Domyślnie używane jest IP najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.</p>
 </dd>
-<dt><strong><a name="nazwa_serwera" class="item"><strong>sni</strong> = nazwa_usługi:nazwa_serwera (tryb serwera)</a></strong></dt>
+<dt><strong><a name="wzorzec_nazwy_serwera" class="item"><strong>sni</strong> = nazwa_usługi:wzorzec_nazwy_serwera (tryb serwera)</a></strong></dt>
 
 <dd>
 <p>Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia TLS Server
 Name Indication (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>).</p>
 <p><em>nazwa_usługi</em> wskazuje usługę nadrzędną, która odbiera połączenia od klientów
-przy pomocy opcji <em>accept</em>.  <em>nazwa_serwera</em> wskazuje nazwę serwera
-wirtualnego.  Z pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług
-podrzędnych.  Opcja <em>sni</em> może być rownież użyta wielokrotnie w ramach jednej
-usługi podrzędnej.</p>
+przy pomocy opcji <em>accept</em>.  <em>wzorzec_nazwy_serwera</em> wskazuje nazwę serwera
+wirtualnego.  Wzorzec może zaczynać się znakiem '*', np. '*.example.com&quot;.
+Z pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług podrzędnych.
+Opcja <em>sni</em> może być rownież użyta wielokrotnie w ramach jednej usługi
+podrzędnej.</p>
 <p>Zarówno usługa nadrzędna jak i podrzędna nie może być skonfigurowana w trybie
-klienckim.  Opcja <em>connect</em> usługi podrzędnej jest ignorowana w połączeniu z
-opcją <em>protocol</em>, gdyż połączenie do zdalnego serwera jest w tym wypadku
-nawiązywane przed negocjacją TLS.  Uwierzytelnienie przy pomocy biblioteki
-libwrap jest realizowane dwukrotnie: najpierw dla usługi nadrzędnej po
-odebraniu połączenia TCP, a następnie dla usługi podrzędnej podczas negocjacji
-TLS.</p>
+klienckim.</p>
+<p>Opcja <em>connect</em> usługi podrzędnej jest ignorowana w połączeniu z opcją
+<em>protocol</em>, gdyż połączenie do zdalnego serwera jest w tym wypadku nawiązywane
+przed negocjacją TLS.</p>
+<p>Uwierzytelnienie przy pomocy biblioteki libwrap jest realizowane dwukrotnie:
+najpierw dla usługi nadrzędnej po odebraniu połączenia TCP, a następnie dla
+usługi podrzędnej podczas negocjacji TLS.</p>
 <p>Opcja <em>sni</em> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.</p>
 </dd>
-<dt><strong><strong>sni</strong> = nazwa_serwera (tryb klienta)</strong></dt>
+<dt><strong><a name="nazwa_serwera" class="item"><strong>sni</strong> = nazwa_serwera (tryb klienta)</a></strong></dt>
 
 <dd>
 <p>Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
@@ -594,8 +596,10 @@ w programie Eudora można użyć opcji:</p>
 <dt><strong><a name="protocol_protok" class="item"><strong>protocol</strong> = protokół</a></strong></dt>
 
 <dd>
-<p>negocjuj SSL podanym protokołem aplikacyjnym (np. <em>starttls</em> lub <em>stls</em>)</p>
-<p>Opcji <em>protocol</em> nie należy używać z szyfrowaniem SSL na osobnym porcie.</p>
+<p>negocjuj SSL podanym protokołem aplikacyjnym</p>
+<p>Opcja ta włącza wstępną negocjację szyfrowania SSL dla wybranego protokołu
+aplikacyjnego.
+Opcji <em>protocol</em> nie należy używać z szyfrowaniem SSL na osobnym porcie.</p>
 <p>Aktualnie wspierane protokoły:</p>
 <dl>
 <dt><strong><a name="cifs" class="item"><em>cifs</em></a></strong></dt>

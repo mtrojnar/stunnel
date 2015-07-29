@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2012.09.20" "4.54" "stunnel"
+.TH STUNNEL 8 "2013.01.13" "4.55" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -473,19 +473,24 @@ default: yes
 .IX Item "local = host"
 \&\s-1IP\s0 of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local \s-1IP\s0 address, instead.
-.IP "\fBsni\fR = service_name:server_name (server mode)" 4
-.IX Item "sni = service_name:server_name (server mode)"
+.IP "\fBsni\fR = service_name:server_name_pattern (server mode)" 4
+.IX Item "sni = service_name:server_name_pattern (server mode)"
 Use the service as a slave service (a name-based virtual server) for Server
 Name Indication \s-1TLS\s0 extension (\s-1RFC\s0 3546).
 .Sp
 \&\fIservice_name\fR specifies the master service that accepts client connections
-with \fIaccept\fR option.  \fIserver_name\fR specifies the host name to be redirected.
+with \fIaccept\fR option.  \fIserver_name_pattern\fR specifies the host name to be
+redirected.  The pattern may start with '*' character, e.g. '*.example.com'.
 Multiple slave services are normally specified for a single master service.
-\&\fIsni\fR option can also be specified more than once within a single slave service.
+\&\fIsni\fR option can also be specified more than once within a single slave
+service.
 .Sp
-This service, as well as the master service, may not be configured in client mode.
+This service, as well as the master service, may not be configured in client
+mode.
+.Sp
 \&\fIconnect\fR option of the slave service is ignored when \fIprotocol\fR option is
 specified, as \fIprotocol\fR connects remote host before \s-1TLS\s0 handshake.
+.Sp
 Libwrap checks (Unix only) are performed twice: with master service name after
 \&\s-1TCP\s0 connection is accepted, and with slave service name during \s-1TLS\s0 handshake.
 .Sp
@@ -523,8 +528,10 @@ the following option can be used:
 .Ve
 .IP "\fBprotocol\fR = proto" 4
 .IX Item "protocol = proto"
-application protocol to negotiate \s-1SSL\s0 (e.g. \fIstarttls\fR or \fIstls\fR)
+application protocol to negotiate \s-1SSL\s0
 .Sp
+This option enables initial, protocol-specific negotiation of the \s-1SSL/TLS\s0
+encryption.
 \&\fIprotocol\fR option should not be used with \s-1SSL\s0 encryption on a separate port.
 .Sp
 Currently supported protocols:

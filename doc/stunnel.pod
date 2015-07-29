@@ -497,19 +497,24 @@ default: yes
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
 
-=item B<sni> = service_name:server_name (server mode)
+=item B<sni> = service_name:server_name_pattern (server mode)
 
 Use the service as a slave service (a name-based virtual server) for Server
 Name Indication TLS extension (RFC 3546).
 
 I<service_name> specifies the master service that accepts client connections
-with I<accept> option.  I<server_name> specifies the host name to be redirected.
+with I<accept> option.  I<server_name_pattern> specifies the host name to be
+redirected.  The pattern may start with '*' character, e.g. '*.example.com'.
 Multiple slave services are normally specified for a single master service.
-I<sni> option can also be specified more than once within a single slave service.
+I<sni> option can also be specified more than once within a single slave
+service.
 
-This service, as well as the master service, may not be configured in client mode.
+This service, as well as the master service, may not be configured in client
+mode.
+
 I<connect> option of the slave service is ignored when I<protocol> option is
 specified, as I<protocol> connects remote host before TLS handshake.
+
 Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.
 
@@ -550,8 +555,10 @@ the following option can be used:
 
 =item B<protocol> = proto
 
-application protocol to negotiate SSL (e.g. I<starttls> or I<stls>)
+application protocol to negotiate SSL
 
+This option enables initial, protocol-specific negotiation of the SSL/TLS
+encryption.
 I<protocol> option should not be used with SSL encryption on a separate port.
 
 Currently supported protocols:

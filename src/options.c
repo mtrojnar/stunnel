@@ -2118,7 +2118,7 @@ void apply_conf() { /* can be used once the configuration was validated */
     /* service_options are used for inetd mode and to enumerate services */
     memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
 #ifdef USE_WIN32
-    PostMessage(hwnd, WM_VALID_CONFIG, 0, 0);
+    win_new_config();
 #endif
 }
 
@@ -2428,6 +2428,7 @@ static int print_socket_options(void) {
             if(get_last_socket_error()!=S_ENOPROTOOPT) {
                 s_log(LOG_ERR, "Failed to get %s OS default", ptr->opt_str);
                 sockerror("getsockopt");
+                closesocket(fd);
                 return 1; /* FAILED */
             }
             td=str_dup("write-only");
@@ -2442,6 +2443,7 @@ static int print_socket_options(void) {
             ptr->opt_str, ta, tl, tr, td);
         str_free(ta); str_free(tl); str_free(tr); str_free(td);
     }
+    closesocket(fd);
     return 0; /* OK */
 }
 

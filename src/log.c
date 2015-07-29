@@ -198,15 +198,7 @@ static void log_raw(const int level, const char *stamp,
     if(mode==LOG_MODE_ERROR || /* always log to the GUI window */
             (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
             level<=global_options.debug_level)
-        SendMessage(hwnd, WM_LOG, (WPARAM)line, 0);
-#if 0
-    /* logging to Windows console for nogui.c */
-    LPTSTR tstr;
-
-    tstr=str2tstr(line);
-    RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
-    str_free(tstr);
-#endif
+        win_new_log(line);
 #else /* Unix */
     if(mode==LOG_MODE_ERROR || /* always log LOG_MODE_ERROR to stderr */
             (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
@@ -251,12 +243,7 @@ void fatal_debug(char *error, char *file, int line) {
 #endif /* USE_WIN32, __vms */
 
 #ifdef USE_WIN32
-#ifdef _WIN32_WCE
-    MessageBox(hwnd, TEXT("INTERNAL ERROR"),
-        TEXT("stunnel"), MB_ICONERROR);
-#else /* _WIN32_WCE */
-    MessageBox(hwnd, text, "stunnel", MB_ICONERROR);
-#endif /* _WIN32_WCE */
+    message_box(text, MB_ICONERROR);
 #endif /* USE_WIN32 */
 
     abort();

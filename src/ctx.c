@@ -43,6 +43,7 @@
 /* SNI */
 #ifndef OPENSSL_NO_TLSEXT
 static int servername_cb(SSL *, int *, void *);
+static int matches_wildcard(char *, char *);
 #endif
 
 /* DH/ECDH initialization */
@@ -173,20 +174,25 @@ static int servername_cb(SSL *ssl, int *ad, void *arg) {
 
     /* leave the alert type at SSL_AD_UNRECOGNIZED_NAME */
     (void)ad; /* skip warning about unused parameter */
-    if(!section->servername_list_head) /* no virtual services defined */
+    if(!section->servername_list_head) { /* no virtual services defined */
+        s_log(LOG_DEBUG, "SNI: no virtual services defined");
         return SSL_TLSEXT_ERR_OK;
-    if(!servername) /* no SNI extension received from the client */
+    }
+    if(!servername) { /* no SNI extension received from the client */
+        s_log(LOG_NOTICE, "SNI: extension not received from the client");
         return SSL_TLSEXT_ERR_NOACK;
+    }
+    s_log(LOG_DEBUG, "SNI: searching service for servername: %s", servername);
 
     for(list=section->servername_list_head; list; list=list->next)
-        if(!strcasecmp(servername, list->servername)) {
+        if(matches_wildcard((char *)servername, list->servername)) {
+            s_log(LOG_DEBUG, "SNI: matched pattern: %s", list->servername);
             c=SSL_get_ex_data(ssl, cli_index);
             c->opt=list->opt;
             SSL_set_SSL_CTX(ssl, c->opt->ctx);
             SSL_set_verify(ssl, SSL_CTX_get_verify_mode(c->opt->ctx),
                 SSL_CTX_get_verify_callback(c->opt->ctx));
-            s_log(LOG_NOTICE, "SNI: switched to section %s",
-                c->opt->servname);
+            s_log(LOG_INFO, "SNI: switched to service [%s]", c->opt->servname);
 #ifdef USE_LIBWRAP
             accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
             libwrap_auth(c, accepted_address); /* retry on a service switch */
@@ -194,7 +200,7 @@ static int servername_cb(SSL *ssl, int *ad, void *arg) {
 #endif /* USE_LIBWRAP */
             return SSL_TLSEXT_ERR_OK;
         }
-    s_log(LOG_ERR, "SNI: no service defined for server %s", servername);
+    s_log(LOG_ERR, "SNI: no pattern matched servername: %s", servername);
     return SSL_TLSEXT_ERR_ALERT_FATAL;
 }
 /* TLSEXT callback return codes:
@@ -202,6 +208,20 @@ static int servername_cb(SSL *ssl, int *ad, void *arg) {
  *  - SSL_TLSEXT_ERR_ALERT_WARNING
  *  - SSL_TLSEXT_ERR_ALERT_FATAL
  *  - SSL_TLSEXT_ERR_NOACK */
+
+static int matches_wildcard(char *servername, char *pattern) {
+    int diff;
+
+    if(!servername || !pattern)
+        return 0;
+    if(*pattern=='*') { /* wildcard comparison */
+        diff=strlen(servername)-strlen(++pattern);
+        if(diff<0) /* pattern longer than servername */
+            return 0;
+        servername+=diff;
+    }
+    return !strcasecmp(servername, pattern);
+}
 
 #endif /* OPENSSL_NO_TLSEXT */
 

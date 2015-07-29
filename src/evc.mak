@@ -65,7 +65,7 @@ SDKDIR=$(SDKROOT)\$(OSVERSION)\$(PLATFORM)
 INCLUDES=-I$(SSLDIR)\inc32 -I$(COMPATDIR)\include -I"$(SDKDIR)\include\$(TARGETCPU)"
 # for X86 and other it appears that /MC or /ML flags are absurd,
 # we always have to override runtime lib list to coredll and corelibc
-LIBS=/NODEFAULTLIB coredll.lib corelibc.lib winsock.lib wcecompatex.lib libeay32.lib ssleay32.lib
+LIBS=/NODEFAULTLIB winsock.lib wcecompatex.lib libeay32.lib ssleay32.lib coredll.lib corelibc.lib
 
 DEFINES=/DHOST=\"$(TARGETCPU)-WCE-eVC-$(WCEVER)\"
 # /O1 /Oi more correct vs MS doc
