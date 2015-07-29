@@ -51,7 +51,7 @@ struct sockaddr_un {
 #ifndef USE_WIN32
 static int main_unix(int, char*[]);
 #endif
-static void accept_connection(SERVICE_OPTIONS *);
+static int accept_connection(SERVICE_OPTIONS *);
 static void get_limits(void); /* setup global max_clients and max_fds */
 #ifdef HAVE_CHROOT
 static int change_root(void);
@@ -66,10 +66,7 @@ static int setup_fd(int, int, char *);
 static void signal_handler(int);
 #endif
 static int signal_pipe_init(void);
-#ifndef USE_WIN32
-static void signal_pipe_redirect(void);
-#endif
-static int signal_pipe_empty(void);
+static int signal_pipe_dispatch(void);
 #ifdef USE_FORK
 static void client_status(void); /* dead children detected */
 #endif
@@ -146,15 +143,15 @@ int main_initialize() {
     fds=s_poll_alloc();
     if(signal_pipe_init())
         return 1;
+    stunnel_info(LOG_NOTICE);
     return 0;
 }
 
     /* configuration-dependent initialization */
 int main_configure(char *arg1, char *arg2) {
-    stunnel_info(LOG_NOTICE);
     if(parse_commandline(arg1, arg2))
         return 1;
-    str_canary(); /* needs prng initialization from parse_commandline */
+    str_canary_init(); /* needs prng initialization from parse_commandline */
 #if !defined(USE_WIN32) && !defined(__vms)
     /* syslog_open() must be called before change_root()
      * to be able to access /dev/log socket */
@@ -183,28 +180,37 @@ int main_configure(char *arg1, char *arg2) {
     return 0;
 }
 
-/**************************************** main loop */
+/**************************************** main loop accepting connections */
 
 void daemon_loop(void) {
     SERVICE_OPTIONS *opt;
+    int temporary_lack_of_resources;
 
     while(1) {
-        if(s_poll_wait(fds, -1, -1)>=0) { /* non-critical error */
+        temporary_lack_of_resources=0;
+        if(s_poll_wait(fds, -1, -1)>=0) {
             if(s_poll_canread(fds, signal_pipe[0]))
-                if(signal_pipe_empty())
-                    break;
+                if(signal_pipe_dispatch()) /* received SIGNAL_TERMINATE */
+                    break; /* terminate daemon_loop */
             for(opt=service_options.next; opt; opt=opt->next)
                 if(s_poll_canread(fds, opt->fd))
-                    accept_connection(opt);
+                    if(accept_connection(opt))
+                        temporary_lack_of_resources=1;
         } else {
-            log_error(LOG_INFO, get_last_socket_error(),
+            log_error(LOG_NOTICE, get_last_socket_error(),
                 "daemon_loop: s_poll_wait");
+            temporary_lack_of_resources=1;
+        }
+        if(temporary_lack_of_resources) {
+            s_log(LOG_NOTICE,
+                "Accepting new connections suspended for 1 second");
             sleep(1); /* to avoid log trashing */
         }
     }
 }
 
-static void accept_connection(SERVICE_OPTIONS *opt) {
+    /* return 1 when a short delay is needed before another try */
+static int accept_connection(SERVICE_OPTIONS *opt) {
     SOCKADDR_UNION addr;
     char *from_address;
     int s;
@@ -216,8 +222,8 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
         if(s>=0) /* success! */
             break;
         switch(get_last_socket_error()) {
-            case S_EINTR:
-                break; /* retry */
+            case S_EINTR: /* interrupted by a signal */
+                break; /* retry now */
             case S_EMFILE:
 #ifdef S_ENFILE
             case S_ENFILE:
@@ -228,9 +234,9 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
 #ifdef S_ENOMEM
             case S_ENOMEM:
 #endif
-                sleep(1); /* temporarily out of resources - short delay */
+                return 1; /* temporary lack of resources */
             default:
-                return; /* error */
+                return 0; /* any other error */
         }
     }
     from_address=s_ntop(&addr, addrlen);
@@ -241,7 +247,7 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
         s_log(LOG_WARNING, "Connection rejected: too many clients (>=%d)",
             max_clients);
         closesocket(s);
-        return;
+        return 0;
     }
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
     /* increment before create_client() to prevent race condition
@@ -254,8 +260,9 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
         --num_clients;
         leave_critical_section(CRIT_CLIENTS);
         closesocket(s);
-        return;
+        return 0;
     }
+    return 0;
 }
 
 /**************************************** initialization helpers */
@@ -556,7 +563,7 @@ void signal_post(int sig) {
     writesocket(signal_pipe[1], (char *)&sig, sizeof sig);
 }
 
-static int signal_pipe_empty(void) {
+static int signal_pipe_dispatch(void) {
     int sig, err;
 
     s_log(LOG_DEBUG, "Dispatching signals from the signal pipe");
@@ -586,9 +593,6 @@ static int signal_pipe_empty(void) {
                     /* FIXME: handle the error */
                 }
             }
-#ifdef USE_WIN32
-            win_newconfig();
-#endif
             break;
         case SIGNAL_REOPEN_LOG:
             s_log(LOG_DEBUG, "Processing SIGNAL_REOPEN_LOG");

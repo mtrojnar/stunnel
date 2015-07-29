@@ -1,3 +1,9 @@
+#define WM_SYSTRAY          (WM_USER+0)
+#define WM_VALID_CONFIG     (WM_APP+0)
+#define WM_INVALID_CONFIG   (WM_APP+1)
+#define WM_LOG              (WM_APP+2)
+#define WM_NEW_CHAIN        (WM_APP+3)
+
 #define IDI_MYICON          10
 
 #define IDE_EDIT            20

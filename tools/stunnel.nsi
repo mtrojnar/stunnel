@@ -1,14 +1,12 @@
 # NSIS stunnel installer by Michal Trojnara 2011
 
-!define VERSION "4.47"
-!define DLLS "/home/ftp/openssl/openssl-1.0.0e-i586/"
 !include "Sections.nsh"
 
 Name "stunnel ${VERSION}"
 OutFile "stunnel-${VERSION}-installer.exe" 
 InstallDir "$PROGRAMFILES\stunnel"
 BrandingText "Author: Michal Trojnara" 
-LicenseData "${SRCDIR}tools/stunnel.license"
+LicenseData "${SRCDIR}/tools/stunnel.license"
 SetCompressor /SOLID LZMA
 InstallDirRegKey HKLM "Software\NSIS_stunnel" "Install_Dir"
 
@@ -40,12 +38,14 @@ skip_process_exit:
 
   # write files
   SetOverwrite off
-  File "${SRCDIR}tools/stunnel.conf"
+  File "${SRCDIR}/tools/stunnel.conf"
   SetOverwrite on
-  File "${DLLS}*eay32.dll"
-  File "${DLLS}zlib1.dll"
+  File "${DLLS}/libeay32.dll"
+  File "${DLLS}/ssleay32.dll"
+  #File "${DLLS}/*eay32.dll"
+  #File "${DLLS}/zlib1.dll"
   File "src/stunnel.exe"
-  File "${SRCDIR}doc/stunnel.html"
+  File "${SRCDIR}/doc/stunnel.html"
   WriteUninstaller "uninstall.exe"
 
   # add uninstaller registry entries
@@ -68,8 +68,8 @@ Section "Self-signed Certificate Tools" sectionCA
   SetOutPath "$INSTDIR"
 
   # write files
-  File "${DLLS}openssl.exe"
-  File "${SRCDIR}tools/stunnel.cnf"
+  File "${DLLS}/openssl.exe"
+  File "${SRCDIR}/tools/stunnel.cnf"
   IfSilent lbl_skip_new_pem
   IfFileExists "$INSTDIR\stunnel.pem" lbl_skip_new_pem
   ExecWait '"$INSTDIR\openssl.exe" req -new -x509 -days 365 -config stunnel.cnf -out stunnel.pem -keyout stunnel.pem'
@@ -110,8 +110,8 @@ skip_service_links:
     "notepad.exe" "stunnel.conf" "notepad.exe" 0
 
   # make stunnel.pem
-  SectionGetFlags ${sectionCA} $0
-  IntOp $0 $0 & ${SF_SELECTED}
+  SectionGetFlags sectionCA $0
+  IntOp $0 $0 & SF_SELECTED
   IntCmp $0 0 lbl_noCA
   CreateShortCut "$SMPROGRAMS\stunnel\Build Self-signed stunnel.pem.lnk" \
     "$INSTDIR\openssl.exe" \
@@ -150,8 +150,10 @@ skip_service_uninstall:
   Delete "$INSTDIR\stunnel.exe"
   Delete "$INSTDIR\stunnel.cnf"
   Delete "$INSTDIR\openssl.exe"
-  Delete "$INSTDIR\*eay32.dll"
-  Delete "$INSTDIR\zlib1.dll"
+  Delete "$INSTDIR\libeay32.dll"
+  Delete "$INSTDIR\ssleay32.dll"
+  #Delete "$INSTDIR\*eay32.dll"
+  #Delete "$INSTDIR\zlib1.dll"
   Delete "$INSTDIR\stunnel.html"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"

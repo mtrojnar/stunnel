@@ -207,10 +207,13 @@ typedef unsigned long u32;
 /* Winsock2 header for IPv6 definitions */
 #include <winsock2.h>
 #include <ws2tcpip.h>
+
 #include <windows.h>
 
 #include <process.h>     /* _beginthread */
 #include <tchar.h>
+
+#include "resources.h"
 
 /**************************************** non-WIN32 headers */
 
@@ -376,6 +379,10 @@ extern char *sys_errlist[];
     (OPENSSL_VERSION_NUMBER<0x0090700fL && defined(THREADS)))
 #error OpenSSL library compiled without thread support
 #endif /* !OPENSSL_THREADS && USE_PTHREAD */
+
+#if defined (USE_WIN32) && defined(OPENSSL_FIPS)
+#define USE_FIPS
+#endif
 
 /* OpenSSL 0.9.6 comp.h needs ZLIB macro to declare COMP_zlib() */
 #define ZLIB

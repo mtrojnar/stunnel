@@ -1,10 +1,11 @@
 ; Sample stunnel configuration file for Unix by Michal Trojnara 2002-2011
-; Some options used here may not be adequate for your particular configuration
-; Please read the manual and make sure you understand them
+; Some options used here may be inadequate for your particular configuration
+; This sample file does *not* represent stunnel.conf defaults
+; Please consult the manual for detailed description of available options
 
-; *****************************************************************************
-; * Global Options                                                            *
-; *****************************************************************************
+; **************************************************************************
+; * Global options                                                         *
+; **************************************************************************
 
 ; A copy of some devices and system files is needed within the chroot jail
 ; Chroot conflicts with configuration file reload and many other features
@@ -20,9 +21,9 @@ pid = /stunnel.pid
 ;debug = 7
 ;output = stunnel.log
 
-; *****************************************************************************
-; * Service Defaults (may also be specified in individual service sections)   *
-; *****************************************************************************
+; **************************************************************************
+; * Service defaults may also be specified in individual service sections  *
+; **************************************************************************
 
 ; Certificate/key is needed in server mode and optional in client mode
 cert = @prefix@/etc/stunnel/mail.pem
@@ -47,15 +48,13 @@ options = NO_SSLv2
 ; Workaround for Eudora bug
 ;options = DONT_INSERT_EMPTY_FRAGMENTS
 
-; The following options provide additional security at some performance penalty
-; Default ECDH/DH parameters are strong/conservative, so it is quite safe to
-; comment out these lines in order to get a performance boost
-options = SINGLE_ECDH_USE
-options = SINGLE_DH_USE
+; These options provide additional security at some performance degradation
+;options = SINGLE_ECDH_USE
+;options = SINGLE_DH_USE
 
-; *****************************************************************************
-; * Service Definitions (remove all services for inetd mode)                  *
-; *****************************************************************************
+; **************************************************************************
+; * Service definitions (remove all services for inetd mode)               *
+; **************************************************************************
 
 ; Example SSL server mode services
 
@@ -94,7 +93,8 @@ connect = 25
 ;accept  = 443
 ;connect = 80
 ; "TIMEOUTclose = 0" is a workaround for a design flaw in Microsoft SSL
-; It does not use SSL close-notify alert designed to prevent truncation attacks
+; Microsoft implementations do not use SSL close-notify alert and thus
+; they are vulnerable to truncation attacks
 ;TIMEOUTclose = 0
 
 ; vim:ft=dosini

@@ -186,10 +186,18 @@ static void log_raw(const int level, const char *stamp,
 
     /* log the line to GUI/stderr */
 #ifdef USE_WIN32
-    if(mode==LOG_MODE_ERROR ||
+    if(mode==LOG_MODE_ERROR || /* always log to the GUI window */
             (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
             level<=global_options.debug_level)
-        win_log(line); /* always log to the GUI window */
+        SendMessage(hwnd, WM_LOG, (WPARAM)line, 0);
+#if 0
+    /* logging to Windows console for nogui.c */
+    LPTSTR tstr;
+
+    tstr=str2tstr(line);
+    RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
+    str_free(tstr);
+#endif
 #else /* Unix */
     if(mode==LOG_MODE_ERROR || /* always log LOG_MODE_ERROR to stderr */
             (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
@@ -201,7 +209,7 @@ static void log_raw(const int level, const char *stamp,
     str_free(line);
 }
 
-/* memory allocation failed - it is not allowed to use any str.c functions */
+/* critical problem - str.c functions are not safe to use */
 void fatal(char *error, char *file, int line) {
     char text[80];
 #ifdef USE_WIN32
@@ -226,7 +234,7 @@ void fatal(char *error, char *file, int line) {
 #endif /* !USE_WIN32 */
 
     snprintf(text, sizeof text, /* without newline */
-        "INTERNAL ERROR: Out of memory at %s, line %d", file, line);
+        "INTERNAL ERROR: %s at %s, line %d", error, file, line);
 
 #if !defined(USE_WIN32) && !defined(__vms)
     if(global_options.option.syslog)
@@ -235,10 +243,10 @@ void fatal(char *error, char *file, int line) {
 
 #ifdef USE_WIN32
 #ifdef _WIN32_WCE
-    MessageBox(NULL, TEXT("INTERNAL ERROR: Out of memory"),
+    MessageBox(hwnd, TEXT("INTERNAL ERROR"),
         TEXT("stunnel"), MB_ICONERROR);
 #else /* _WIN32_WCE */
-    MessageBox(NULL, text, "stunnel", MB_ICONERROR);
+    MessageBox(hwnd, text, "stunnel", MB_ICONERROR);
 #endif /* _WIN32_WCE */
 #endif /* USE_WIN32 */
 

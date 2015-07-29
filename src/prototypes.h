@@ -182,6 +182,8 @@ typedef struct service_options_struct {
         /* service-specific data for gui.c */
 #ifdef USE_WIN32
     int section_number;
+    LPTSTR file, help;
+    char *chain;
 #endif
 
         /* on/off switches */
@@ -328,6 +330,11 @@ void apply_conf(void);
 
 /**************************************** prototypes for ctx.c */
 
+typedef struct {
+    SERVICE_OPTIONS *section;
+    char pass[PEM_BUFSIZE];
+} UI_DATA;
+
 int context_init(SERVICE_OPTIONS *);
 void sslerror(char *);
 
@@ -456,9 +463,7 @@ typedef enum {
     CRIT_CLIENTS, CRIT_SESSION, /* client.c */
     CRIT_SSL,                   /* client.c */
     CRIT_INET,                  /* resolver.c */
-#ifdef USE_WIN32
-    CRIT_WIN_LOG,               /* gui.c */
-#else
+#ifndef USE_WIN32
     CRIT_LIBWRAP,               /* libwrap.c */
 #endif
     CRIT_SECTIONS               /* number of critical sections */
@@ -494,15 +499,9 @@ void stack_info(int);
 
 /**************************************** prototypes for gui.c */
 
-typedef struct {
-    SERVICE_OPTIONS *section;
-    char pass[PEM_BUFSIZE];
-} UI_DATA;
-
 #ifdef USE_WIN32
-void win_log(char *);
-void win_newconfig();
-void win_newcert(SSL *, SERVICE_OPTIONS *);
+extern HWND hwnd;
+
 int passwd_cb(char *, int, int, void *);
 #ifdef HAVE_OSSL_ENGINE_H
 int pin_cb(UI *, UI_STRING *);
@@ -543,7 +542,7 @@ void libwrap_auth(CLI *, char *);
 /**************************************** prototypes for str.c */
 
 void str_init();
-void str_canary();
+void str_canary_init();
 void str_cleanup();
 void str_stats();
 void *str_alloc_debug(size_t, char *, int);

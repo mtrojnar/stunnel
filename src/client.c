@@ -56,6 +56,9 @@ static void run_client(CLI *);
 static void init_local(CLI *);
 static void init_remote(CLI *);
 static void init_ssl(CLI *);
+#ifdef USE_WIN32
+static void win_new_chain(CLI *);
+#endif
 static void transfer(CLI *);
 static int parse_socket_error(CLI *, const char *);
 
@@ -259,7 +262,7 @@ static void init_remote(CLI *c) {
 static void init_ssl(CLI *c) {
     int i, err;
     SSL_SESSION *old_session;
-    long openssl_version;
+    int unsafe_openssl;
 
     if(!(c->ssl=SSL_new(c->opt->ctx))) {
         sslerror("SSL_new");
@@ -289,7 +292,7 @@ static void init_ssl(CLI *c) {
         if(c->local_rfd.fd==c->local_wfd.fd)
             SSL_set_fd(c->ssl, c->local_rfd.fd);
         else {
-           /* does it make sence to have SSL on STDIN/STDOUT? */
+           /* does it make sense to have SSL on STDIN/STDOUT? */
             SSL_set_rfd(c->ssl, c->local_rfd.fd);
             SSL_set_wfd(c->ssl, c->local_wfd.fd);
         }
@@ -307,14 +310,15 @@ static void init_ssl(CLI *c) {
         c->ssl_wfd=&(c->local_wfd);
     }
 
-    openssl_version=SSLeay();
+    unsafe_openssl=SSLeay()<0x0090810fL ||
+        (SSLeay()>=0x10000000L && SSLeay()<0x1000002fL);
     while(1) {
         /* critical section for OpenSSL version < 0.9.8p or 1.x.x < 1.0.0b *
          * this critical section is a crude workaround for CVE-2010-3864   *
          * see http://www.securityfocus.com/bid/44884 for details          *
+         * alternative solution is to disable internal session caching     *
          * NOTE: this critical section also covers callbacks (e.g. OCSP)   */
-        if(openssl_version<0x0090810fL ||
-                (openssl_version>=0x10000000L && openssl_version<0x1000002fL))
+        if(unsafe_openssl)
             enter_critical_section(CRIT_SSL);
 
         if(c->opt->option.client)
@@ -322,8 +326,7 @@ static void init_ssl(CLI *c) {
         else
             i=SSL_accept(c->ssl);
 
-        if(openssl_version<0x0090810fL ||
-                (openssl_version>=0x10000000L && openssl_version<0x1000002fL))
+        if(unsafe_openssl)
             leave_critical_section(CRIT_SSL);
 
         err=SSL_get_error(c->ssl, i);
@@ -371,7 +374,7 @@ static void init_ssl(CLI *c) {
             c->opt->option.client ? "connected" : "accepted");
     } else { /* a new session was negotiated */
 #ifdef USE_WIN32
-        win_newcert(c->ssl, c->opt);
+        win_new_chain(c);
 #endif
         if(c->opt->option.client) {
             s_log(LOG_INFO, "SSL connected: new session negotiated");
@@ -386,6 +389,54 @@ static void init_ssl(CLI *c) {
         print_cipher(c);
     }
 }
+
+#ifdef USE_WIN32
+static void win_new_chain(CLI *c) {
+    BIO *bio;
+    int i, len;
+    X509 *peer=NULL;
+    STACK_OF(X509) *sk;
+    char *chain;
+
+    if(c->opt->chain) /* already cached */
+        return; /* this race condition is safe to ignore */
+    bio=BIO_new(BIO_s_mem());
+    if(!bio)
+        return;
+    sk=SSL_get_peer_cert_chain(c->ssl);
+    for(i=0; sk && i<sk_X509_num(sk); i++) {
+        peer=sk_X509_value(sk, i);
+        PEM_write_bio_X509(bio, peer);
+    }
+    if(!sk || !c->opt->option.client) {
+        peer=SSL_get_peer_certificate(c->ssl);
+        if(peer) {
+            PEM_write_bio_X509(bio, peer);
+            X509_free(peer);
+        }
+    }
+    len=BIO_pending(bio);
+    if(len<=0) {
+        s_log(LOG_INFO, "No peer certificate received");
+        BIO_free(bio);
+        return;
+    }
+    chain=str_alloc(len+1);
+    len=BIO_read(bio, chain, len);
+    if(len<0) {
+        s_log(LOG_ERR, "BIO_read failed");
+        BIO_free(bio);
+        str_free(chain);
+        return;
+    }
+    chain[len]='\0';
+    BIO_free(bio);
+    str_detach(chain); /* to prevent automatic deallocation of cached value */
+    c->opt->chain=chain; /* this race condition is safe to ignore */
+    PostMessage(hwnd, WM_NEW_CHAIN, c->opt->section_number, 0);
+    s_log(LOG_DEBUG, "Peer certificate was cached (%d bytes)", len);
+}
+#endif
 
 /****************************** transfer data */
 static void transfer(CLI *c) {

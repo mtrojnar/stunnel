@@ -38,7 +38,7 @@ BEGIN
     POPUP "&File"
     BEGIN
         MENUITEM "&Save Log As",            IDM_SAVE_LOG
-        MENUITEM "Reopen &Log File",        IDM_REOPEN_LOG
+        MENUITEM "Reopen &Log File",        IDM_REOPEN_LOG, GRAYED
         MENUITEM SEPARATOR
         MENUITEM "&Close",                  IDM_CLOSE
     END
@@ -73,7 +73,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Edit stunnel.conf",      IDM_EDIT_CONFIG
         MENUITEM "&Reload stunnel.conf",    IDM_RELOAD_CONFIG
-        MENUITEM "Reopen &Log File",        IDM_REOPEN_LOG
+        MENUITEM "Reopen &Log File",        IDM_REOPEN_LOG, GRAYED
         MENUITEM SEPARATOR
         MENUITEM "&Homepage",               IDM_HOMEPAGE
         MENUITEM "&Manual",                 IDM_MANPAGE

@@ -50,14 +50,6 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void win_log(LPSTR line) { /* also used in log.c */
-    LPTSTR tstr;
-
-    tstr=str2tstr(line);
-    RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
-    str_free(tstr);
-}
-
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
     return 0; /* not implemented */
 }

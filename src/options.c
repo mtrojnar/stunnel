@@ -1712,6 +1712,9 @@ void apply_conf() { /* can be used once the configuration was validated */
     memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
     /* service_options are used for inetd mode and to enumerate services */
     memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
+#ifdef USE_WIN32
+    PostMessage(hwnd, WM_VALID_CONFIG, 0, 0);
+#endif
 }
 
 /**************************************** validate and initialize section */
