@@ -49,8 +49,8 @@
 #define DEFAULT_STACK_SIZE 65536
 /* #define DEBUG_STACK_SIZE */
 
-/* I/O buffer size */
-#define BUFFSIZE 8192
+/* I/O buffer size - 18432 is the maximum size of SSL record payload */
+#define BUFFSIZE 18432
 
 /* how many bytes of random input to read from files for PRNG */
 /* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
@@ -85,42 +85,44 @@ typedef int socklen_t;
 #define S_EADDRINUSE  WSAEADDRINUSE
 /* winsock does not define WSAEAGAIN */
 /* in most (but not all!) BSD implementations EAGAIN==EWOULDBLOCK */
-#define S_EAGAIN      WSAEWOULDBLOCK
-#define S_ECONNRESET  WSAECONNRESET
-#define S_EINPROGRESS WSAEINPROGRESS
-#define S_EINTR       WSAEINTR
-#define S_EINVAL      WSAEINVAL
-#define S_EISCONN     WSAEISCONN
-#define S_EMFILE      WSAEMFILE
+#define S_EAGAIN        WSAEWOULDBLOCK
+#define S_ECONNRESET    WSAECONNRESET
+#define S_EINPROGRESS   WSAEINPROGRESS
+#define S_EINTR         WSAEINTR
+#define S_EINVAL        WSAEINVAL
+#define S_EISCONN       WSAEISCONN
+#define S_EMFILE        WSAEMFILE
 /* winsock does not define WSAENFILE */
-#define S_ENOBUFS     WSAENOBUFS
+#define S_ENOBUFS       WSAENOBUFS
 /* winsock does not define WSAENOMEM */
-#define S_ENOPROTOOPT WSAENOPROTOOPT
-#define S_ENOTSOCK    WSAENOTSOCK
-#define S_EOPNOTSUPP  WSAEOPNOTSUPP
-#define S_EWOULDBLOCK WSAEWOULDBLOCK
+#define S_ENOPROTOOPT   WSAENOPROTOOPT
+#define S_ENOTSOCK      WSAENOTSOCK
+#define S_EOPNOTSUPP    WSAEOPNOTSUPP
+#define S_EWOULDBLOCK   WSAEWOULDBLOCK
+#define S_ECONNABORTED  WSAECONNABORTED
 #else /* USE_WIN32 */
-#define S_EADDRINUSE  EADDRINUSE
-#define S_EAGAIN      EAGAIN
-#define S_ECONNRESET  ECONNRESET
-#define S_EINPROGRESS EINPROGRESS
-#define S_EINTR       EINTR
-#define S_EINVAL      EINVAL
-#define S_EISCONN     EISCONN
-#define S_EMFILE      EMFILE
+#define S_EADDRINUSE    EADDRINUSE
+#define S_EAGAIN        EAGAIN
+#define S_ECONNRESET    ECONNRESET
+#define S_EINPROGRESS   EINPROGRESS
+#define S_EINTR         EINTR
+#define S_EINVAL        EINVAL
+#define S_EISCONN       EISCONN
+#define S_EMFILE        EMFILE
 #ifdef ENFILE
-#define S_ENFILE      ENFILE
+#define S_ENFILE        ENFILE
 #endif
 #ifdef ENOBUFS
-#define S_ENOBUFS     ENOBUFS
+#define S_ENOBUFS       ENOBUFS
 #endif
 #ifdef ENOMEM
-#define S_ENOMEM      ENOMEM
+#define S_ENOMEM        ENOMEM
 #endif
-#define S_ENOPROTOOPT ENOPROTOOPT
-#define S_ENOTSOCK    ENOTSOCK
-#define S_EOPNOTSUPP  EOPNOTSUPP
-#define S_EWOULDBLOCK EWOULDBLOCK
+#define S_ENOPROTOOPT   ENOPROTOOPT
+#define S_ENOTSOCK      ENOTSOCK
+#define S_EOPNOTSUPP    EOPNOTSUPP
+#define S_EWOULDBLOCK   EWOULDBLOCK
+#define S_ECONNABORTED  ECONNABORTED
 #endif /* USE_WIN32 */
 
 /**************************************** generic headers */
@@ -184,17 +186,19 @@ typedef unsigned short u16;
 typedef unsigned long u32;
 
 #define HAVE_SNPRINTF
-#define snprintf _snprintf
+#define snprintf                    _snprintf
 #define HAVE_VSNPRINTF
-#define vsnprintf _vsnprintf
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
-#define sleep(c) Sleep(1000*(c))
+#define vsnprintf                   _vsnprintf
+#define strcasecmp                  _stricmp
+#define strncasecmp                 _strnicmp
+#define sleep(c)                    Sleep(1000*(c))
 
-#define get_last_socket_error() WSAGetLastError()
-#define get_last_error()        GetLastError()
-#define readsocket(s,b,n)       recv((s),(b),(n),0)
-#define writesocket(s,b,n)      send((s),(b),(n),0)
+#define get_last_socket_error()     WSAGetLastError()
+#define set_last_socket_error(e)    WSASetLastError(e)
+#define get_last_error()            GetLastError()
+#define set_last_error(e)           SetLastError(e)
+#define readsocket(s,b,n)           recv((s),(b),(n),0)
+#define writesocket(s,b,n)          send((s),(b),(n),0)
 
 /* #define FD_SETSIZE 4096 */
 /* #define Win32_Winsock */
@@ -229,24 +233,28 @@ typedef unsigned long u32;
 #endif
 
 #ifdef __INNOTEK_LIBC__
-#define socklen_t               __socklen_t
-#define strcasecmp              stricmp
-#define strncasecmp             strnicmp
-#define NI_NUMERICHOST          1
-#define NI_NUMERICSERV          2
-#define get_last_socket_error() sock_errno()
-#define get_last_error()        errno
-#define readsocket(s,b,n)       recv((s),(b),(n),0)
-#define writesocket(s,b,n)      send((s),(b),(n),0)
-#define closesocket(s)          close(s)
-#define ioctlsocket(a,b,c)      so_ioctl((a),(b),(c))
+#define socklen_t                   __socklen_t
+#define strcasecmp                  stricmp
+#define strncasecmp                 strnicmp
+#define NI_NUMERICHOST              1
+#define NI_NUMERICSERV              2
+#define get_last_socket_error()     sock_errno()
+#define set_last_socket_error(e)    ()
+#define get_last_error()            errno
+#define set_last_error(e)           (errno=(e))
+#define readsocket(s,b,n)           recv((s),(b),(n),0)
+#define writesocket(s,b,n)          send((s),(b),(n),0)
+#define closesocket(s)              close(s)
+#define ioctlsocket(a,b,c)          so_ioctl((a),(b),(c))
 #else
-#define get_last_socket_error() errno
-#define get_last_error()        errno
-#define readsocket(s,b,n)       read((s),(b),(n))
-#define writesocket(s,b,n)      write((s),(b),(n))
-#define closesocket(s)          close(s)
-#define ioctlsocket(a,b,c)      ioctl((a),(b),(c))
+#define get_last_socket_error()     errno
+#define set_last_socket_error(e)    (errno=(e))
+#define get_last_error()            errno
+#define set_last_error(e)           (errno=(e))
+#define readsocket(s,b,n)           read((s),(b),(n))
+#define writesocket(s,b,n)          write((s),(b),(n))
+#define closesocket(s)              close(s)
+#define ioctlsocket(a,b,c)          ioctl((a),(b),(c))
 #endif
 
     /* OpenVMS compatibility */

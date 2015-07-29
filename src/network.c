@@ -217,7 +217,9 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
 
     /* it's illegal to deallocate the stack of the current context */
     if(to_free) { /* a delayed deallocation is scheduled */
+#ifdef DEBUG_UCONTEXT
         s_log(LOG_DEBUG, "Releasing context %ld", to_free->id);
+#endif
         str_free(to_free->stack);
         str_free(to_free);
         to_free=NULL;
@@ -245,15 +247,21 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     /* switch threads */
     if(fds) { /* swap the current context */
         if(context->id!=ready_head->id) {
+#ifdef DEBUG_UCONTEXT
             s_log(LOG_DEBUG, "Context swap: %ld -> %ld",
                 context->id, ready_head->id);
+#endif
             swapcontext(&context->context, &ready_head->context);
+#ifdef DEBUG_UCONTEXT
             s_log(LOG_DEBUG, "Current context: %ld", ready_head->id);
+#endif
         }
         return ready_head->ready;
     } else { /* drop the current context */
+#ifdef DEBUG_UCONTEXT
         s_log(LOG_DEBUG, "Context set: %ld (dropped) -> %ld",
             context->id, ready_head->id);
+#endif
         setcontext(&ready_head->context);
         ioerror("setcontext"); /* should not ever happen */
         return 0;

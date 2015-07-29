@@ -393,6 +393,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
         break;
     }
 
+#ifndef USE_WIN32
     /* service */
     switch(cmd) {
     case CMD_INIT:
@@ -409,6 +410,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
         s_log(LOG_NOTICE, "%-15s = service name", "service");
         break;
     }
+#endif
 
 #ifndef USE_WIN32
     /* setgid */
@@ -696,16 +698,16 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     switch(cmd) {
     case CMD_INIT:
         section->option.remote=0;
-        section->remote_address=NULL;
-        section->remote_addr.num=0;
+        section->connect_name=NULL;
+        section->connect_addr.num=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "connect"))
             break;
         section->option.remote=1;
-        section->remote_address=str_dup(arg);
+        section->connect_name=str_dup(arg);
         if(!section->option.delayed_lookup &&
-                !name2addrlist(&section->remote_addr, arg, DEFAULT_LOOPBACK)) {
+                !name2addrlist(&section->connect_addr, arg, DEFAULT_LOOPBACK)) {
             s_log(LOG_INFO, "Cannot resolve '%s' - delaying DNS lookup", arg);
             section->option.delayed_lookup=1;
         }
@@ -1540,7 +1542,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
 /**************************************** parse commandline parameters */
 
-void parse_commandline(char *name, char *parameter) {
+int parse_commandline(char *name, char *parameter) {
     if(!name)
 #ifdef CONFDIR
         name=CONFDIR CONFSEPARATOR "stunnel.conf";
@@ -1552,20 +1554,20 @@ void parse_commandline(char *name, char *parameter) {
         parse_global_option(CMD_HELP, NULL, NULL);
         parse_service_option(CMD_HELP, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
-        die(1);
+        return 1;
     }
 
     if(!strcasecmp(name, "-version")) {
         parse_global_option(CMD_DEFAULT, NULL, NULL);
         parse_service_option(CMD_DEFAULT, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
-        die(1);
+        return 1;
     }
 
     if(!strcasecmp(name, "-sockets")) {
         print_socket_options();
         log_flush(LOG_MODE_INFO);
-        die(1);
+        return 1;
     }
 
 #ifndef USE_WIN32
@@ -1573,17 +1575,18 @@ void parse_commandline(char *name, char *parameter) {
         if(!parameter) {
             s_log(LOG_ERR, "No file descriptor specified");
             print_syntax();
-            die(1);
+            return 1;
         }
         if(parse_conf(parameter, CONF_FD))
-            die(1);
+            return 1;
     } else
 #else
     (void)parameter; /* skip warning about unused parameter */
 #endif
         if(parse_conf(name, CONF_FILE))
-            die(1);
+            return 1;
     apply_conf();
+    return 0;
 }
 
 /**************************************** parse configuration file */
@@ -1611,7 +1614,7 @@ int parse_conf(char *name, CONF_TYPE type) {
         if(tmpstr==filename || *tmpstr) { /* not a number */
             s_log(LOG_ERR, "Invalid file descriptor number");
             print_syntax();
-            die(1);
+            return 1;
         }
         df=file_fdopen(fd);
     } else
@@ -1619,12 +1622,9 @@ int parse_conf(char *name, CONF_TYPE type) {
         df=file_open(filename, 0);
     if(!df) {
         s_log(LOG_ERR, "Cannot read configuration");
-        if(type==CONF_RELOAD) {
-            return 1;
-        } else {
+        if(type!=CONF_RELOAD)
             print_syntax();
-            die(1);
-        }
+        return 1;
     }
 
     memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
@@ -1722,8 +1722,8 @@ static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
     /* setup host_name for SNI, prefer protocolHost if specified */
     if(section->protocol_host) /* 'protocolHost' option */
         section->host_name=str_dup(section->protocol_host);
-    else if(section->remote_address) /* 'connect' option */
-        section->host_name=str_dup(section->remote_address);
+    else if(section->connect_name) /* 'connect' option */
+        section->host_name=str_dup(section->connect_name);
     else
         section->host_name=NULL;
     if(section->host_name) { /* either 'protocolHost' or 'connect' specified */

@@ -48,22 +48,28 @@ struct sockaddr_un {
 };
 #endif
 
+#ifndef USE_WIN32
+static int main_unix(int, char*[]);
+#endif
 static void accept_connection(SERVICE_OPTIONS *);
 static void get_limits(void); /* setup global max_clients and max_fds */
 #ifdef HAVE_CHROOT
-static void change_root(void);
+static int change_root(void);
 #endif
 #if !defined(USE_WIN32) && !defined(__vms)
-static void daemonize(void);
-static void create_pid(void);
+static int daemonize(void);
+static int create_pid(void);
 static void delete_pid(void);
 #endif
 static int setup_fd(int, int, char *);
 #if !defined(USE_WIN32) && !defined(USE_OS2)
 static void signal_handler(int);
 #endif
-static void signal_pipe_init(void);
-static void signal_pipe_empty(void);
+static int signal_pipe_init(void);
+#ifndef USE_WIN32
+static void signal_pipe_redirect(void);
+#endif
+static int signal_pipe_empty(void);
 #ifdef USE_FORK
 static void client_status(void); /* dead children detected */
 #endif
@@ -81,43 +87,73 @@ s_poll_set *fds; /* file descriptors of listening sockets */
 
 #ifndef USE_WIN32
 int main(int argc, char* argv[]) { /* execution begins here 8-) */
+    int retval;
+
     str_init(); /* initialize per-thread string management */
-    main_initialize(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL);
+    retval=main_unix(argc, argv);
+    unbind_ports();
+    s_poll_free(fds);
+    str_stats();
+    log_flush(LOG_MODE_ERROR);
+    return retval;
+}
+
+static int main_unix(int argc, char* argv[]) {
+    if(main_initialize())
+        return 1;
+    if(main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL))
+        return 1;
     if(service_options.next) { /* there are service sections -> daemon mode */
 #if !defined(__vms) && !defined(USE_OS2)
-        if(!(global_options.option.foreground))
-            daemonize();
+        if(daemonize())
+            return 1;
         /* create_pid() must be called after drop_privileges()
          * or it won't be possible to remove the file on exit */
         /* create_pid() must be called after daemonize()
          * since the final pid is not known beforehand */
-        create_pid();
+        if(create_pid())
+            return 1;
 #endif /* standard Unix */
+        signal(SIGCHLD, signal_handler); /* handle dead children */
+        signal(SIGHUP, signal_handler); /* configuration reload */
+        signal(SIGUSR1, signal_handler); /* log reopen */
+        signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
+        if(signal(SIGTERM, SIG_IGN)!=SIG_IGN)
+            signal(SIGTERM, signal_handler); /* fatal */
+        if(signal(SIGQUIT, SIG_IGN)!=SIG_IGN)
+            signal(SIGQUIT, signal_handler); /* fatal */
+        if(signal(SIGINT, SIG_IGN)!=SIG_IGN)
+            signal(SIGINT, signal_handler); /* fatal */
         num_clients=0;
         daemon_loop();
     } else { /* inetd mode */
+        signal(SIGCHLD, SIG_IGN); /* ignore dead children */
+        signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
         num_clients=1;
         client(alloc_client_session(&service_options, 0, 1));
         log_close();
     }
-    return 0; /* success */
+    return 0;
 }
 #endif
 
-void main_initialize(char *arg1, char *arg2) {
+    /* one-time initialization */
+int main_initialize() {
     ssl_init(); /* initialize SSL library */
     sthreads_init(); /* initialize critical sections & SSL callbacks */
     get_limits(); /* required by setup_fd() */
 
     fds=s_poll_alloc();
-    signal_pipe_init();
-    s_poll_init(fds);
-    s_poll_add(fds, signal_pipe[0], 1, 0);
-    /* the most essential initialization is performed here,
-     * so gui.c can execute a thread with daemon_loop() */
+    if(signal_pipe_init())
+        return 1;
+    return 0;
+}
 
+    /* configuration-dependent initialization */
+int main_configure(char *arg1, char *arg2) {
     stunnel_info(LOG_NOTICE);
-    parse_commandline(arg1, arg2);
+    if(parse_commandline(arg1, arg2))
+        return 1;
     str_canary(); /* needs prng initialization from parse_commandline */
 #if !defined(USE_WIN32) && !defined(__vms)
     /* syslog_open() must be called before change_root()
@@ -125,16 +161,18 @@ void main_initialize(char *arg1, char *arg2) {
     syslog_open();
 #endif /* !defined(USE_WIN32) && !defined(__vms) */
     if(bind_ports())
-        die(1);
+        return 1;
 
 #ifdef HAVE_CHROOT
     /* change_root() must be called before drop_privileges()
      * since chroot() needs root privileges */
-    change_root();
+    if(change_root())
+        return 1;
 #endif /* HAVE_CHROOT */
 
 #if !defined(USE_WIN32) && !defined(__vms) && !defined(USE_OS2)
-    drop_privileges(1);
+    if(drop_privileges(1))
+        return 1;
 #endif /* standard Unix */
 
     /* log_open() must be be called after drop_privileges()
@@ -142,6 +180,7 @@ void main_initialize(char *arg1, char *arg2) {
     /* log_open() must be be called before daemonize()
      * since daemonize() invalidates stderr */
     log_open();
+    return 0;
 }
 
 /**************************************** main loop */
@@ -152,7 +191,8 @@ void daemon_loop(void) {
     while(1) {
         if(s_poll_wait(fds, -1, -1)>=0) { /* non-critical error */
             if(s_poll_canread(fds, signal_pipe[0]))
-                signal_pipe_empty();
+                if(signal_pipe_empty())
+                    break;
             for(opt=service_options.next; opt; opt=opt->next)
                 if(s_poll_canread(fds, opt->fd))
                     accept_connection(opt);
@@ -190,7 +230,6 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
 #endif
                 sleep(1); /* temporarily out of resources - short delay */
             default:
-                sockerror("accept");
                 return; /* error */
         }
     }
@@ -351,23 +390,24 @@ static void get_limits(void) {
 }
 
 #ifdef HAVE_CHROOT
-static void change_root(void) {
-    if(global_options.chroot_dir) {
-        if(chroot(global_options.chroot_dir)) {
-            sockerror("chroot");
-            die(1);
-        }
-        if(chdir("/")) {
-            sockerror("chdir");
-            die(1);
-        }
+static int change_root(void) {
+    if(!global_options.chroot_dir)
+        return 0;
+    if(chroot(global_options.chroot_dir)) {
+        sockerror("chroot");
+        return 1;
     }
+    if(chdir("/")) {
+        sockerror("chdir");
+        return 1;
+    }
+    return 0;
 }
 #endif /* HAVE_CHROOT */
 
 #if !defined(USE_WIN32) && !defined(__vms) && !defined(USE_OS2)
 
-void drop_privileges(int critical) {
+int drop_privileges(int critical) {
 #ifdef HAVE_SETGROUPS
     gid_t gr_list[1];
 #endif
@@ -376,25 +416,28 @@ void drop_privileges(int critical) {
     if(global_options.gid) {
         if(setgid(global_options.gid) && critical) {
             sockerror("setgid");
-            die(1);
+            return 1;
         }
 #ifdef HAVE_SETGROUPS
         gr_list[0]=global_options.gid;
         if(setgroups(1, gr_list) && critical) {
             sockerror("setgroups");
-            die(1);
+            return 1;
         }
 #endif
     }
     if(global_options.uid) {
         if(setuid(global_options.uid) && critical) {
             sockerror("setuid");
-            die(1);
+            return 1;
         }
     }
+    return 0;
 }
 
-static void daemonize(void) { /* go to background */
+static int daemonize(void) { /* go to background */
+    if(global_options.option.foreground)
+        return 0;
     close(0);
     close(1);
     close(2);
@@ -403,37 +446,38 @@ static void daemonize(void) { /* go to background */
      * so it does not require /dev/null device in the chrooted directory */
     if(daemon(0, 1)==-1) {
         ioerror("daemon");
-        die(1);
+        return 1;
     }
 #else
     chdir("/");
     switch(fork()) {
     case -1:    /* fork failed */
         ioerror("fork");
-        die(1);
+        return 1;
     case 0:     /* child */
         break;
     default:    /* parent */
-        die(0);
+        exit(0);
     }
 #endif
 #ifdef HAVE_SETSID
     setsid(); /* ignore the error */
 #endif
+    return 0;
 }
 
-static void create_pid(void) {
+static int create_pid(void) {
     int pf;
     char *pid;
 
     if(!global_options.pidfile) {
         s_log(LOG_DEBUG, "No pid file being created");
-        return;
+        return 0;
     }
     if(global_options.pidfile[0]!='/') {
         /* to prevent creating pid file relative to '/' after daemonize() */
         s_log(LOG_ERR, "Pid file (%s) must be full path name", global_options.pidfile);
-        die(1);
+        return 1;
     }
     global_options.dpid=(unsigned long)getpid();
 
@@ -443,7 +487,7 @@ static void create_pid(void) {
     if(pf==-1) {
         s_log(LOG_ERR, "Cannot create pid file %s", global_options.pidfile);
         ioerror("create");
-        die(1);
+        return 1;
     }
     pid=str_printf("%lu\n", global_options.dpid);
     write(pf, pid, strlen(pid));
@@ -451,6 +495,7 @@ static void create_pid(void) {
     close(pf);
     s_log(LOG_DEBUG, "Created pid file %s", global_options.pidfile);
     atexit(delete_pid);
+    return 0;
 }
 
 static void delete_pid(void) {
@@ -465,10 +510,10 @@ static void delete_pid(void) {
 
 /**************************************** signal pipe handling */
 
-static void signal_pipe_init(void) {
+static int signal_pipe_init(void) {
 #ifdef USE_WIN32
     if(make_sockets(signal_pipe))
-        die(1);
+        return 1;
 #else
 #if defined(__INNOTEK_LIBC__)
     /* Innotek port of GCC can not use select on a pipe
@@ -497,32 +542,21 @@ static void signal_pipe_init(void) {
         closesocket(pipe_in);
     } else {
         sockerror("select");
-        die(1);
+        return 1;
     }
 #else /* __INNOTEK_LIBC__ */
     if(s_pipe(signal_pipe, 1, "signal_pipe"))
-        die(1);
+        return 1;
 #endif /* __INNOTEK_LIBC__ */
-
-    signal(SIGCHLD, signal_handler); /* a child has died */
-    signal(SIGHUP, signal_handler); /* configuration reload */
-    signal(SIGUSR1, signal_handler); /* log reopen */
-    signal(SIGPIPE, SIG_IGN); /* ignore "broken pipe" */
-    if(signal(SIGTERM, SIG_IGN)!=SIG_IGN)
-        signal(SIGTERM, signal_handler); /* fatal */
-    if(signal(SIGQUIT, SIG_IGN)!=SIG_IGN)
-        signal(SIGQUIT, signal_handler); /* fatal */
-    if(signal(SIGINT, SIG_IGN)!=SIG_IGN)
-        signal(SIGINT, signal_handler); /* fatal */
-    /* signal(SIGSEGV, signal_handler); */
 #endif /* USE_WIN32 */
+    return 0;
 }
 
 void signal_post(int sig) {
     writesocket(signal_pipe[1], (char *)&sig, sizeof sig);
 }
 
-static void signal_pipe_empty(void) {
+static int signal_pipe_empty(void) {
     int sig, err;
 
     s_log(LOG_DEBUG, "Dispatching signals from the signal pipe");
@@ -565,13 +599,14 @@ static void signal_pipe_empty(void) {
         case SIGNAL_TERMINATE:
             s_log(LOG_DEBUG, "Processing SIGNAL_TERMINATE");
             s_log(LOG_NOTICE, "Terminated");
-            die(2);
+            return 2;
         default:
             s_log(LOG_ERR, "Received signal %d; terminating", sig);
-            die(1);
+            return 1;
         }
     }
     s_log(LOG_DEBUG, "Signal pipe is empty");
+    return 0;
 }
 
 #ifdef USE_FORK
@@ -843,20 +878,6 @@ void stunnel_info(int level) {
 #endif /* defined(USE_IPv6) */
 #endif /* defined(USE_WIN32) */
         );
-}
-
-/**************************************** fatal error */
-
-void die(int status) { /* some cleanup and exit */
-    unbind_ports();
-    s_poll_free(fds);
-    str_stats();
-    log_flush(LOG_MODE_ERROR);
-#ifdef USE_WIN32
-    win_exit(status);
-#else
-    exit(status);
-#endif
 }
 
 /* end of stunnel.c */

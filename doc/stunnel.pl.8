@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2011.11.02" "4.46" "stunnel"
+.TH STUNNEL.PL 8 "2011.11.12" "4.47" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -237,12 +237,11 @@ opcji \fIoutput\fR).
 .IX Item "output = plik"
 plik, do którego dopisane zostaną logi
 .Sp
-Użycie tej opcji zmienia domyślne zachowanie programu polegające
-na logowaniu swoich komunikatów poprzez syslog.
+Użycie tej opcji powoduje dopisanie logów do podanego pliku.
 .Sp
-Do przekierowania komunikatów na standardowe wyjście (na przykład po to,
-żeby zalogować je programem splogger z pakietu daemontools) można podać
-jako parametr urządzenie /dev/stdout.
+Do kierowaniakomunikatów na standardowe wyjście (na przykład po to, żeby
+zalogować je programem splogger z pakietu daemontools) można podać jako
+parametr urządzenie /dev/stdout.
 .IP "\fBpid\fR = plik (tylko Unix)" 4
 .IX Item "pid = plik (tylko Unix)"
 położenie pliku z numerem procesu
@@ -270,11 +269,9 @@ generatora pseudolosowego.
 nadpisz plik nowymi wartościami pseudolosowymi
 .Sp
 domyślnie: yes (nadpisz)
-.IP "\fBservice\fR = nazwa_serwisu" 4
-.IX Item "service = nazwa_serwisu"
-użyj parametru jako nazwy serwisu
-.Sp
-\&\fIUnix:\fR nazwa serwisu dla biblioteki \s-1TCP\s0 Wrapper w trybie \fIinetd\fR.
+.IP "\fBservice\fR = nazwa_serwisu (tylko Unix)" 4
+.IX Item "service = nazwa_serwisu (tylko Unix)"
+użyj parametru jako nazwy serwisu dla biblioteki \s-1TCP\s0 Wrapper w trybie \fIinetd\fR
 .Sp
 domyślnie: stunnel
 .IP "\fBsetgid\fR = identyfikator_grupy (tylko Unix)" 4

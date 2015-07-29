@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2011.11.02" "4.46" "stunnel"
+.TH STUNNEL 8 "2011.11.12" "4.47" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -232,9 +232,9 @@ instead of via syslog (unless \fIoutput\fR is specified).
 default: background in daemon mode
 .IP "\fBoutput\fR = file" 4
 .IX Item "output = file"
-append log messages to a file instead of using syslog
+append log messages to a file
 .Sp
-/dev/stdout device can be used to redirect log messages to the standard
+/dev/stdout device can be used to send log messages to the standard
 output (for example to log them with daemontools splogger).
 .IP "\fBpid\fR = file (Unix only)" 4
 .IX Item "pid = file (Unix only)"
@@ -262,11 +262,9 @@ number generator.
 overwrite the random seed files with new random data
 .Sp
 default: yes
-.IP "\fBservice\fR = servicename" 4
-.IX Item "service = servicename"
-use specified string as the service name
-.Sp
-\&\fBOn Unix:\fR \fIinetd\fR mode service name for \s-1TCP\s0 Wrapper library.
+.IP "\fBservice\fR = servicename (Unix only)" 4
+.IX Item "service = servicename (Unix only)"
+use specified string as \fIinetd\fR mode service name for \s-1TCP\s0 Wrapper library
 .Sp
 default: stunnel
 .IP "\fBsetgid\fR = groupname (Unix only)" 4
@@ -919,6 +917,6 @@ internet 'super\-server'
 OpenSSL project website
 .SH "AUTHOR"
 .IX Header "AUTHOR"
-.IP "Michal Trojnara" 4
-.IX Item "Michal Trojnara"
+.IP "Michał Trojnara" 4
+.IX Item "Michał Trojnara"
 <\fIMichal.Trojnara@mirt.net\fR>

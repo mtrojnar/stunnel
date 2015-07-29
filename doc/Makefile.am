@@ -12,20 +12,10 @@ doc_DATA = stunnel.html stunnel.pl.html stunnel.fr.html
 SUFFIXES = .pod .8 .html
 
 .pod.8:
-	pod2man --section=8 --release=$(VERSION) --center=stunnel \
-		--date=`date +%Y.%m.%d` -u $< $@
+	pod2man -u --section=8 --release=$(VERSION) --center=stunnel \
+		--date=`date +%Y.%m.%d` $< $@
 
-stunnel.html: stunnel.pod
-	pod2html --infile=$< --outfile $@ --title stunnel.8
-	rm -f pod2htmd.tmp pod2htmi.tmp
-
-stunnel.fr.html: stunnel.fr.pod
-	pod2html --infile=$< --title stunnel.8 | \
-		sed 's/<head>/<head>\n<meta http-equiv=content-type content="text\/html; charset=ISO-8859-1">/' > $@
-	rm -f pod2htmd.tmp pod2htmi.tmp
-
-stunnel.pl.html: stunnel.pl.pod
-	pod2html --infile=$< --title stunnel.8 | \
-		sed 's/<head>/<head>\n<meta http-equiv=content-type content="text\/html; charset=ISO-8859-2">/' > $@
+.pod.html:
+	pod2html --noindex --title stunnel.8 --infile=$< --outfile=$@
 	rm -f pod2htmd.tmp pod2htmi.tmp
 

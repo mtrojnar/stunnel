@@ -1,6 +1,17 @@
 stunnel change log
 
 
+Version 4.47, 2011.11.21, urgency: MEDIUM:
+* Internal improvements
+  - CVE-2010-3864 workaround improved to check runtime version of OpenSSL
+    rather than compiled version, and to allow OpenSSL 0.x.x >= 0.9.8p.
+  - Encoding of man page sources changed to UTF-8.
+* Bugfixes
+  - Handling of socket/SSL close in transfer() function was fixed.
+  - Logging was modified to save and restore system error codes.
+  - Option "service" was restricted to Unix, as since stunnel 4.42 it
+    wasn't doing anything useful on Windows platform.
+
 Version 4.46, 2011.11.04, urgency: LOW:
 * New features
   - Added Unix socket support (e.g. "connect = /var/run/stunnel/socket").

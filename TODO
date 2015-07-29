@@ -2,6 +2,8 @@ stunnel TODO
 
 
 High priority features I'm going to support (sponsorship welcomed)
+* Request elevated UAC privileges before editing stunnel.conf
+  on Microsoft's Windows Vista, Windows Server 2008, and later.
 * Indirect CRL support (RFC 3280, section 5).
 * Separate GUI process running as current user on Windows.
 * Separate control process running as root user on Unix.

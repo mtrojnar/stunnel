@@ -69,17 +69,20 @@ typedef void (*FUNCTION)(CLI *);
 
 static const struct {
     char *name;
-    FUNCTION f[2][2];
+    struct {
+        PROTOCOL_TYPE type;
+        FUNCTION func;
+    } handlers[2];
 } protocols[]={
-    {"proxy",   {{proxy_server, NULL},           {NULL, NULL}}},
-    {"cifs",    {{cifs_server,  cifs_client},    {NULL, NULL}}},
-    {"pgsql",   {{pgsql_server, pgsql_client},   {NULL, NULL}}},
-    {"smtp",    {{smtp_server,  smtp_client},    {NULL, NULL}}},
-    {"pop3",    {{pop3_server,  pop3_client},    {NULL, NULL}}},
-    {"imap",    {{imap_server,  imap_client},    {NULL, NULL}}},
-    {"nntp",    {{NULL,         nntp_client},    {NULL, NULL}}},
-    {"connect", {{NULL,         connect_client}, {NULL, NULL}}},
-    {NULL,      {{NULL,         NULL},           {NULL, NULL}}}
+    {"proxy",   {{PROTOCOL_PRE_SSL,     proxy_server}, {PROTOCOL_PRE_SSL, NULL}}},
+    {"cifs",    {{PROTOCOL_PRE_CONNECT, cifs_server},  {PROTOCOL_PRE_SSL, cifs_client}}},
+    {"pgsql",   {{PROTOCOL_PRE_CONNECT, pgsql_server}, {PROTOCOL_PRE_SSL, pgsql_client}}},
+    {"smtp",    {{PROTOCOL_PRE_SSL,     smtp_server},  {PROTOCOL_PRE_SSL, smtp_client}}},
+    {"pop3",    {{PROTOCOL_PRE_SSL,     pop3_server},  {PROTOCOL_PRE_SSL, pop3_client}}},
+    {"imap",    {{PROTOCOL_PRE_SSL,     imap_server},  {PROTOCOL_PRE_SSL, imap_client}}},
+    {"nntp",    {{PROTOCOL_NONE,        NULL},         {PROTOCOL_PRE_SSL, nntp_client}}},
+    {"connect", {{PROTOCOL_PRE_CONNECT, NULL},         {PROTOCOL_PRE_SSL, connect_client}}},
+    {NULL,      {{PROTOCOL_NONE,        NULL},         {PROTOCOL_NONE,    NULL}}}
 };
 
 int find_protocol_id(const char *name) {
@@ -91,25 +94,17 @@ int find_protocol_id(const char *name) {
     return -1;
 }
 
-void protocol(CLI *c, const int phase) {
+void protocol(CLI *c, const PROTOCOL_TYPE type) {
     const int id=c->opt->protocol, mode=(unsigned int)c->opt->option.client;
 
-    if(id<0)
+    if(id<0 || type!=protocols[id].handlers[mode].type ||
+            !protocols[id].handlers[mode].func)
         return;
-    if(!protocols[id].f[phase][mode]) {
-        s_log(protocols[id].f[phase][mode^1] ? LOG_NOTICE : LOG_DEBUG,
-            "No %s-SSL %s-mode %s protocol negotiation supported",
-            phase ? "post" : "pre", mode ? "client" : "server",
-            protocols[id].name);
-        return;
-    }
-    s_log(LOG_INFO, "%s-SSL %s-mode %s protocol negotiations started",
-        phase ? "Post" : "Pre", mode ? "client" : "server",
-        protocols[id].name);
-    protocols[id].f[phase][mode](c);
-    s_log(LOG_INFO, "%s-SSL %s-mode %s protocol negotiations succeeded",
-        phase ? "Post" : "Pre", mode ? "client" : "server",
-        protocols[id].name);
+    s_log(LOG_INFO, "%s-mode %s protocol negotiations started",
+        mode ? "Client" : "Server", protocols[id].name);
+    protocols[id].handlers[mode].func(c);
+    s_log(LOG_INFO, "%s-mode %s protocol negotiations succeeded",
+        mode ? "Client" : "Server", protocols[id].name);
 }
 
 /**************************************** proxy */

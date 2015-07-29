@@ -58,7 +58,7 @@
 static BOOL CALLBACK enum_windows(HWND, LPARAM);
 static void parse_cmdline(LPSTR);
 static int initialize_winsock(void);
-static int start_gui();
+static int gui_loop();
 static void daemon_thread(void *);
 static LRESULT CALLBACK window_proc(HWND, UINT, WPARAM, LPARAM);
 static void update_taskbar(void);
@@ -118,7 +118,6 @@ static volatile int visible=0;
 static volatile int error_mode=1; /* no valid configuration was ever loaded */
 static HANDLE config_ready=NULL; /* reload without a valid configuration */
 static LONG new_logs=0;
-static jmp_buf jump_buf;
 
 static UI_DATA *ui_data=NULL;
 
@@ -201,7 +200,7 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
     if(cmdline.stop)
         return service_stop();
 #endif
-    return start_gui();
+    return gui_loop();
 }
 
 #ifndef _WIN32_WCE
@@ -313,7 +312,7 @@ static int initialize_winsock() {
     return 0; /* IPv4 detected -> OK */
 }
 
-static int start_gui() {
+static int gui_loop() {
 #ifdef _WIN32_WCE
     WNDCLASS wc;
 #else
@@ -381,27 +380,20 @@ static void daemon_thread(void *arg) {
     (void)arg; /* skip warning about unused parameter */
 
     /* get a valid configuration */
-    if(!setjmp(jump_buf)) {
-        main_initialize(cmdline.config_file, NULL);
-    } else {
-        unbind_ports(); /* in case initialization failed later */
+    main_initialize();
+    while(main_configure(cmdline.config_file, NULL)) {
+        unbind_ports(); /* in case initialization failed after bind_ports() */
         global_options.option.taskbar=1;
-        do { /* wait for a first valid configuration */
-            log_flush(LOG_MODE_ERROR); /* otherwise logs are buffered */
-            win_newconfig(); /* display error */
-            WaitForSingleObject(config_ready, INFINITE);
-            log_close(); /* prevent parse_conf() from logging in error mode */
-        } while(parse_conf(NULL, CONF_RELOAD));
-        apply_conf();
-        log_open(); /* using newly configured level */
-        bind_ports(); /* FIXME: handle error here */
+        log_flush(LOG_MODE_ERROR); /* otherwise logs are buffered */
+        win_newconfig(); /* display error */
+        WaitForSingleObject(config_ready, INFINITE);
+        log_close(); /* prevent main_configure() from logging in error mode */
     }
     error_mode=0; /* a valid configuration was loaded */
     win_newconfig();
 
     /* start the main loop */
-    if(!setjmp(jump_buf))
-        daemon_loop();
+    daemon_loop();
     _endthread(); /* SIGNAL_TERMINATE received */
 }
 
@@ -835,7 +827,7 @@ static LPTSTR log_txt(void) {
     return buff;
 }
 
-/* called from start_gui() on first load, and from network.c on reload */
+/* called from daemon_thread() on first load, and from network.c on reload */
 /* NOTE: initialization has to be completed or win_newcert() will fail */
 void win_newconfig() {
     SERVICE_OPTIONS *section;
@@ -1059,12 +1051,6 @@ void win_newcert(SSL *ssl, SERVICE_OPTIONS *section) {
     if(tray_menu_handle)
         EnableMenuItem(tray_menu_handle, IDM_PEER_MENU+section->section_number,
             MF_ENABLED);
-}
-
-void win_exit(const int exit_code) { /* used instead of exit() on Win32 */
-    if(cmdline.quiet) /* e.g. uninstallation with broken config */
-        exit(exit_code); /* just quit */
-    longjmp(jump_buf, exit_code);
 }
 
 static void error_box(const LPSTR text) {
@@ -1292,7 +1278,7 @@ static void WINAPI service_main(DWORD argc, LPTSTR* argv) {
         serviceStatus.dwCurrentState=SERVICE_RUNNING;
         SetServiceStatus(serviceStatusHandle, &serviceStatus);
 
-        start_gui();
+        gui_loop();
 
         /* service was stopped */
         serviceStatus.dwCurrentState=SERVICE_STOP_PENDING;

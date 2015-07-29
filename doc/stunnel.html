@@ -13,6 +13,7 @@
 <!-- INDEX BEGIN -->
 <div name="index">
 <p><a name="__index__"></a></p>
+<!--
 
 <ul>
 
@@ -46,7 +47,9 @@
 	<li><a href="#author">AUTHOR</a></li>
 </ul>
 
-<hr name="index" />
+-->
+
+
 </div>
 <!-- INDEX END -->
 
@@ -265,8 +268,8 @@ instead of via syslog (unless <em>output</em> is specified).</p>
 <dt><strong><a name="output_file" class="item"><strong>output</strong> = file</a></strong></dt>
 
 <dd>
-<p>append log messages to a file instead of using syslog</p>
-<p>/dev/stdout device can be used to redirect log messages to the standard
+<p>append log messages to a file</p>
+<p>/dev/stdout device can be used to send log messages to the standard
 output (for example to log them with daemontools splogger).</p>
 </dd>
 <dt><strong><a name="file" class="item"><strong>pid</strong> = file (Unix only)</a></strong></dt>
@@ -298,11 +301,10 @@ number generator.</p>
 <p>overwrite the random seed files with new random data</p>
 <p>default: yes</p>
 </dd>
-<dt><strong><a name="service_servicename" class="item"><strong>service</strong> = servicename</a></strong></dt>
+<dt><strong><a name="servicename" class="item"><strong>service</strong> = servicename (Unix only)</a></strong></dt>
 
 <dd>
-<p>use specified string as the service name</p>
-<p><strong>On Unix:</strong> <em>inetd</em> mode service name for TCP Wrapper library.</p>
+<p>use specified string as <em>inetd</em> mode service name for TCP Wrapper library</p>
 <p>default: stunnel</p>
 </dd>
 <dt><strong><a name="groupname" class="item"><strong>setgid</strong> = groupname (Unix only)</a></strong></dt>
@@ -1030,7 +1032,7 @@ OpenSSLs.</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <dl>
-<dt><strong><a name="michal_trojnara" class="item">Michal Trojnara</a></strong></dt>
+<dt><strong><a name="micha_trojnara" class="item">Michał Trojnara</a></strong></dt>
 
 <dd>
 <p>&lt;<em class="file"><a href="mailto:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net</a></em>&gt;</p>

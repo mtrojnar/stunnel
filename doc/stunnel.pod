@@ -1,5 +1,7 @@
 =head1 NAME
 
+=encoding utf8
+
 stunnel - universal SSL tunnel
 
 
@@ -208,9 +210,9 @@ default: background in daemon mode
 
 =item B<output> = file
 
-append log messages to a file instead of using syslog
+append log messages to a file
 
-/dev/stdout device can be used to redirect log messages to the standard
+/dev/stdout device can be used to send log messages to the standard
 output (for example to log them with daemontools splogger).
 
 =item B<pid> = file (Unix only)
@@ -243,11 +245,9 @@ overwrite the random seed files with new random data
 
 default: yes
 
-=item B<service> = servicename
+=item B<service> = servicename (Unix only)
 
-use specified string as the service name
-
-B<On Unix:> I<inetd> mode service name for TCP Wrapper library.
+use specified string as I<inetd> mode service name for TCP Wrapper library
 
 default: stunnel
 
@@ -987,7 +987,7 @@ OpenSSL project website
 
 =over 4
 
-=item Michal Trojnara
+=item Michał Trojnara
 
 <F<Michal.Trojnara@mirt.net>>
 

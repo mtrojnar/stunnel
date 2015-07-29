@@ -56,7 +56,7 @@ int num_processes=0;
 static int *ipc_socket, *busy;
 #endif /* USE_PTHREAD */
 
-void libwrap_init() {
+int libwrap_init() {
 #ifdef USE_PTHREAD
     int i, j, rfd, result;
     char servname[SERVNAME_LEN];
@@ -64,23 +64,23 @@ void libwrap_init() {
     SERVICE_OPTIONS *opt;
 
     if(initialized) /* during startup or previous configuration file reload */
-        return;
+        return 0;
     for(opt=service_options.next; opt; opt=opt->next)
         if(opt->option.libwrap) /* libwrap is enabled for this service */
             break;
     if(!opt) /* disabled for all sections or inetd mode (no sections) */
-        return;
+        return 0;
 
     num_processes=LIBWRAP_CLIENTS;
     ipc_socket=str_alloc(2*num_processes*sizeof(int));
     busy=str_alloc(num_processes*sizeof(int));
     for(i=0; i<num_processes; ++i) { /* spawn a child */
         if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, ipc_socket+2*i, 0, "libwrap_init"))
-            die(1);
+            return 1;
         switch(fork()) {
         case -1:    /* error */
             ioerror("fork");
-            die(1);
+            return 1;
         case  0:    /* child */
             drop_privileges(0); /* libwrap processes are not chrooted */
             close(0); /* stdin */
@@ -103,6 +103,7 @@ void libwrap_init() {
     }
     initialized=1;
 #endif /* USE_PTHREAD */
+    return 0;
 }
 
 void libwrap_auth(CLI *c, char *accepted_address) {

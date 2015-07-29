@@ -43,7 +43,9 @@ int main(int argc, char *argv[]) {
 
     if(WSAStartup(MAKEWORD(1, 1), &wsa_state))
         return 1;
-    main_initialize(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL);
+    main_initialize();
+    if(main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL))
+        return 1;
     main_execute();
     return 0;
 }
@@ -54,10 +56,6 @@ void win_log(LPSTR line) { /* also used in log.c */
     tstr=str2tstr(line);
     RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
     str_free(tstr);
-}
-
-void win_exit(int exit_code) {
-    exit(exit_code);
 }
 
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {

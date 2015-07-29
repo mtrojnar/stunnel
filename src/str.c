@@ -177,28 +177,14 @@ static DWORD tls_index;
 
 void str_init() {
     tls_index=TlsAlloc();
-    if(tls_index==TLS_OUT_OF_INDEXES) {
-        s_log(LOG_ERR, "TlsAlloc failed");
-        die(1);
-    }
 }
 
 static void set_alloc_tls(ALLOC_TLS *alloc_tls) {
-    if(!TlsSetValue(tls_index, alloc_tls)) {
-        s_log(LOG_ERR, "TlsSetValue failed");
-        die(1);
-    }
+    TlsSetValue(tls_index, alloc_tls);
 }
 
 static ALLOC_TLS *get_alloc_tls() {
-    ALLOC_TLS *alloc_tls;
-
-    alloc_tls=TlsGetValue(tls_index);
-    if(!alloc_tls && GetLastError()!=ERROR_SUCCESS) {
-        s_log(LOG_ERR, "TlsGetValue failed");
-        die(1);
-    }
-    return alloc_tls;
+    return TlsGetValue(tls_index);
 }
 
 #endif /* USE_WIN32 */

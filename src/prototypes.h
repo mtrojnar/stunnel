@@ -162,9 +162,9 @@ typedef struct service_options_struct {
     char **execargs;                     /* program arguments for local mode */
 #endif
     SOCKADDR_UNION local_addr, source_addr;
-    SOCKADDR_LIST remote_addr;
+    SOCKADDR_LIST connect_addr;
     char *username;
-    char *remote_address;
+    char *connect_name;
     char *host_name;
     int timeout_busy;                       /* maximum waiting for data time */
     int timeout_close;                          /* maximum close_notify time */
@@ -269,12 +269,13 @@ typedef struct disk_file {
 
 extern volatile int num_clients;
 
-void main_initialize(char *, char *);
+int main_initialize(void);
+int main_configure(char *, char *);
 void daemon_loop(void);
 void unbind_ports(void);
 int bind_ports(void);
 #if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
-void drop_privileges(int);
+int drop_privileges(int);
 #endif
 int s_socket(int, int, int, int, char *);
 int s_pipe(int [2], int, char *);
@@ -286,7 +287,6 @@ void signal_post(int);
 #if !defined(USE_WIN32) && !defined(USE_OS2)
 void child_status(void);  /* dead libwrap or 'exec' process detected */
 #endif
-void die(int);
 
 /**************************************** prototypes for log.c */
 
@@ -322,7 +322,7 @@ int ssl_configure(GLOBAL_OPTIONS *);
 
 /**************************************** prototypes for options.c */
 
-void parse_commandline(char *, char *);
+int parse_commandline(char *, char *);
 int parse_conf(char *, CONF_TYPE);
 void apply_conf(void);
 
@@ -374,6 +374,8 @@ typedef struct {
 
     SOCKADDR_UNION peer_addr; /* peer address */
     socklen_t peer_addr_len;
+    SOCKADDR_UNION *bind_addr; /* address to bind() the socket */
+    SOCKADDR_LIST connect_addr; /* for dynamically assigned addresses */
     FD local_rfd, local_wfd; /* read and write local descriptors */
     FD remote_fd; /* remote file descriptor */
         /* IP for explicit local bind or transparent proxy */
@@ -410,8 +412,15 @@ void fdprintf(CLI *, int, const char *, ...)
 
 /**************************************** prototype for protocol.c */
 
+typedef enum {
+    PROTOCOL_NONE,
+    PROTOCOL_PRE_CONNECT,
+    PROTOCOL_PRE_SSL,
+    PROTOCOL_POST_SSL
+} PROTOCOL_TYPE;
+
 int find_protocol_id(const char *);
-void protocol(CLI *c, const int);
+void protocol(CLI *, const PROTOCOL_TYPE);
 
 /**************************************** prototypes for resolver.c */
 
@@ -445,9 +454,7 @@ int getnameinfo(const struct sockaddr *, int, char *, int, char *, int, int);
 
 typedef enum {
     CRIT_CLIENTS, CRIT_SESSION, /* client.c */
-#if OPENSSL_VERSION_NUMBER<0x1000002fL
     CRIT_SSL,                   /* client.c */
-#endif /* OpenSSL version < 1.0.0b */
     CRIT_INET,                  /* resolver.c */
 #ifdef USE_WIN32
     CRIT_WIN_LOG,               /* gui.c */
@@ -459,7 +466,7 @@ typedef enum {
 
 void enter_critical_section(SECTION_CODE);
 void leave_critical_section(SECTION_CODE);
-void sthreads_init(void);
+int sthreads_init(void);
 unsigned long stunnel_process_id(void);
 unsigned long stunnel_thread_id(void);
 int create_client(int, int, CLI *, void *(*)(void *));
@@ -494,7 +501,6 @@ typedef struct {
 
 #ifdef USE_WIN32
 void win_log(char *);
-void win_exit(const int);
 void win_newconfig();
 void win_newcert(SSL *, SERVICE_OPTIONS *);
 int passwd_cb(char *, int, int, void *);
@@ -531,7 +537,7 @@ LPSTR tstr2str(const LPTSTR);
 
 /**************************************** prototypes for libwrap.c */
 
-void libwrap_init();
+int libwrap_init();
 void libwrap_auth(CLI *, char *);
 
 /**************************************** prototypes for str.c */

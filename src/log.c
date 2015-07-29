@@ -50,18 +50,25 @@ static LOG_MODE mode=LOG_MODE_NONE;
 
 #if !defined(USE_WIN32) && !defined(__vms)
 
+static int syslog_opened=0;
+
 void syslog_open(void) {
+    syslog_close();
     if(global_options.option.syslog)
 #ifdef __ultrix__
         openlog("stunnel", 0);
 #else
         openlog("stunnel", LOG_CONS|LOG_NDELAY, global_options.facility);
 #endif /* __ultrix__ */
+    syslog_opened=1;
 }
 
-void syslog_close(void) { /* this function is not currently used */
-    if(global_options.option.syslog)
-        closelog();
+void syslog_close(void) {
+    if(syslog_opened) {
+        if(global_options.option.syslog)
+            closelog();
+        syslog_opened=0;
+    }
 }
 
 #endif /* !defined(USE_WIN32) && !defined(__vms) */
@@ -107,6 +114,7 @@ void s_log(int level, const char *format, ...) {
     va_list ap;
     char *text, *stamp, *id;
     struct LIST *tmp;
+    int libc_error, socket_error;
     time_t gmt;
     struct tm *timeptr;
 #if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
@@ -116,6 +124,9 @@ void s_log(int level, const char *format, ...) {
     /* performance optimization: skip the trivial case early */
     if(mode==LOG_MODE_CONFIGURED && level>global_options.debug_level)
         return;
+
+    libc_error=get_last_error();
+    socket_error=get_last_socket_error();
 
     time(&gmt);
 #if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
@@ -150,6 +161,9 @@ void s_log(int level, const char *format, ...) {
         str_free(id);
         str_free(text);
     }
+
+    set_last_error(libc_error);
+    set_last_socket_error(socket_error);
 }
 
 static void log_raw(const int level, const char *stamp,

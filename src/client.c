@@ -57,16 +57,14 @@ static void init_local(CLI *);
 static void init_remote(CLI *);
 static void init_ssl(CLI *);
 static void transfer(CLI *);
-static void parse_socket_error(CLI *, const char *);
+static int parse_socket_error(CLI *, const char *);
 
 static void print_cipher(CLI *);
 static void auth_user(CLI *, char *);
 static int connect_local(CLI *);
-static int connect_remote(CLI *, SOCKADDR_UNION *);
-#ifdef SO_ORIGINAL_DST
-static int connect_transparent(CLI *, SOCKADDR_UNION *);
-#endif /* SO_ORIGINAL_DST */
-static void local_bind(CLI *c, SOCKADDR_UNION *);
+static int connect_remote(CLI *);
+static SOCKADDR_LIST *dynamic_remote_addr(CLI *);
+static void local_bind(CLI *c);
 static void print_bound_address(CLI *);
 static void reset(int, char *);
 
@@ -89,7 +87,6 @@ void *client(void *arg) {
     stack_info(1); /* initialize */
 #endif
     s_log(LOG_DEBUG, "Service %s started", c->opt->servname);
-    c->fds=s_poll_alloc();
     if(c->opt->option.remote && c->opt->option.program) {
             /* connect and exec options specified together */
             /* -> spawn a local program instead of stdio */
@@ -103,13 +100,9 @@ void *client(void *arg) {
         }
     } else
         run_client(c);
-    s_poll_free(c->fds);
     str_free(c);
 #ifdef DEBUG_STACK_SIZE
     stack_info(0); /* display computed value */
-#endif
-#ifdef USE_UCONTEXT
-    s_log(LOG_DEBUG, "Context %ld closed", ready_head->id);
 #endif
     str_stats();
     str_cleanup();
@@ -130,6 +123,9 @@ static void run_client(CLI *c) {
     c->fd=-1;
     c->ssl=NULL;
     c->sock_bytes=c->ssl_bytes=0;
+    c->fds=s_poll_alloc();
+    c->connect_addr.num=0;
+    c->connect_addr.addr=NULL;
 
     error=setjmp(c->err);
     if(!error)
@@ -142,6 +138,11 @@ static void run_client(CLI *c) {
         /* cleanup temporary (e.g. IDENT) socket */
     if(c->fd>=0)
         closesocket(c->fd);
+
+        /* cleanup memory */
+    if(c->connect_addr.addr)
+        str_free(c->connect_addr.addr);
+    s_poll_free(c->fds);
 
         /* cleanup SSL */
     if(c->ssl) { /* SSL initialized */
@@ -171,7 +172,9 @@ static void run_client(CLI *c) {
        }
     }
 #ifdef USE_FORK
-    if(!c->opt->option.remote) /* 'exec' specified */
+    /* display child return code if it managed to arrive on time */
+    /* otherwise it will be retrieved by the init process and ignored */
+    if(c->opt->option.program) /* 'exec' specified */
         child_status(); /* null SIGCHLD handler was used */
 #else
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
@@ -188,11 +191,12 @@ static void do_client(CLI *c) {
         init_ssl(c);
         init_remote(c);
     } else {
+        protocol(c, PROTOCOL_PRE_CONNECT);
         init_remote(c);
-        protocol(c, 0); /* pre-SSL protocol negotiations */
+        protocol(c, PROTOCOL_PRE_SSL);
         init_ssl(c);
+        protocol(c, PROTOCOL_POST_SSL);
     }
-    protocol(c, 1); /* post-SSL protocol negotiations */
     transfer(c);
 }
 
@@ -231,27 +235,21 @@ static void init_local(CLI *c) {
 }
 
 static void init_remote(CLI *c) {
-    SOCKADDR_UNION *bind_addr;
-
     /* where to bind connecting socket */
     if(c->opt->option.local) /* outgoing interface */
-        bind_addr=&c->opt->source_addr;
+        c->bind_addr=&c->opt->source_addr;
 #ifndef USE_WIN32
     else if(c->opt->option.transparent_src)
-        bind_addr=&c->peer_addr;
+        c->bind_addr=&c->peer_addr;
 #endif
     else
-        bind_addr=NULL; /* don't bind */
+        c->bind_addr=NULL; /* don't bind */
 
     /* setup c->remote_fd, now */
-    if(c->opt->option.remote)
-        c->remote_fd.fd=connect_remote(c, bind_addr);
-#ifdef SO_ORIGINAL_DST
-    else if(c->opt->option.transparent_dst)
-        c->remote_fd.fd=connect_transparent(c, bind_addr);
-#endif /* SO_ORIGINAL_DST */
-    else /* NOT in remote mode */
+    if(c->opt->option.program)
         c->remote_fd.fd=connect_local(c);
+    else /* NOT in local mode */
+        c->remote_fd.fd=connect_remote(c);
     c->remote_fd.is_socket=1; /* always! */
     s_log(LOG_DEBUG, "Remote FD=%d initialized", c->remote_fd.fd);
     if(set_socket_options(c->remote_fd.fd, 2)<0)
@@ -261,6 +259,7 @@ static void init_remote(CLI *c) {
 static void init_ssl(CLI *c) {
     int i, err;
     SSL_SESSION *old_session;
+    long openssl_version;
 
     if(!(c->ssl=SSL_new(c->opt->ctx))) {
         sslerror("SSL_new");
@@ -308,20 +307,25 @@ static void init_ssl(CLI *c) {
         c->ssl_wfd=&(c->local_wfd);
     }
 
+    openssl_version=SSLeay();
     while(1) {
-#if OPENSSL_VERSION_NUMBER<0x1000002fL
-        /* this critical section is a crude workaround for CVE-2010-3864 *
-         * see http://www.securityfocus.com/bid/44884 for details        *
-         * NOTE: this critical section also covers callbacks (e.g. OCSP) */
-        enter_critical_section(CRIT_SSL);
-#endif /* OpenSSL version < 1.0.0b */
+        /* critical section for OpenSSL version < 0.9.8p or 1.x.x < 1.0.0b *
+         * this critical section is a crude workaround for CVE-2010-3864   *
+         * see http://www.securityfocus.com/bid/44884 for details          *
+         * NOTE: this critical section also covers callbacks (e.g. OCSP)   */
+        if(openssl_version<0x0090810fL ||
+                (openssl_version>=0x10000000L && openssl_version<0x1000002fL))
+            enter_critical_section(CRIT_SSL);
+
         if(c->opt->option.client)
             i=SSL_connect(c->ssl);
         else
             i=SSL_accept(c->ssl);
-#if OPENSSL_VERSION_NUMBER<0x1000002fL
-        leave_critical_section(CRIT_SSL);
-#endif /* OpenSSL version < 1.0.0b */
+
+        if(openssl_version<0x0090810fL ||
+                (openssl_version>=0x10000000L && openssl_version<0x1000002fL))
+            leave_critical_section(CRIT_SSL);
+
         err=SSL_get_error(c->ssl, i);
         if(err==SSL_ERROR_NONE)
             break; /* ok -> done */
@@ -388,7 +392,7 @@ static void transfer(CLI *c) {
     int watchdog=0; /* a counter to detect an infinite loop */
     int num, err;
     /* logical channels (not file descriptors!) open for read or write */
-    int sock_open_rd=1, sock_open_wr=1, ssl_open_rd=1, ssl_open_wr=1;
+    int sock_open_rd=1, sock_open_wr=1;
     /* awaited conditions on SSL file descriptors */
     int shutdown_wants_read=0, shutdown_wants_write=0;
     int read_wants_read, read_wants_write=0;
@@ -400,10 +404,10 @@ static void transfer(CLI *c) {
 
     do { /* main loop of client data transfer */
         /****************************** initialize *_wants_* */
-        read_wants_read=
-            ssl_open_rd && c->ssl_ptr<BUFFSIZE && !read_wants_write;
-        write_wants_write=
-            ssl_open_wr && c->sock_ptr && !write_wants_read;
+        read_wants_read=!(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)
+            && c->ssl_ptr<BUFFSIZE && !read_wants_write;
+        write_wants_write=!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN)
+            && c->sock_ptr && !write_wants_read;
 
         /****************************** setup c->fds structure */
         s_poll_init(c->fds); /* initialize the structure */
@@ -421,7 +425,8 @@ static void transfer(CLI *c) {
 
         /****************************** wait for an event */
         err=s_poll_wait(c->fds,
-            (sock_open_rd && ssl_open_rd) /* both peers open */ ||
+            (sock_open_rd && /* both peers open */
+                !(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)) ||
             c->ssl_ptr /* data buffered to write to socket */ ||
             c->sock_ptr /* data buffered to write to SSL */ ?
             c->opt->timeout_idle : c->opt->timeout_close, 0);
@@ -430,7 +435,9 @@ static void transfer(CLI *c) {
             sockerror("transfer: s_poll_wait");
             longjmp(c->err, 1);
         case 0: /* timeout */
-            if((sock_open_rd && ssl_open_rd) || c->ssl_ptr || c->sock_ptr) {
+            if((sock_open_rd &&
+                    !(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)) ||
+                    c->ssl_ptr || c->sock_ptr) {
                 s_log(LOG_INFO, "transfer: s_poll_wait:"
                     " TIMEOUTidle exceeded: sending reset");
                 longjmp(c->err, 1);
@@ -511,7 +518,6 @@ static void transfer(CLI *c) {
 
         /****************************** send SSL close_notify message */
         if(shutdown_wants_read || shutdown_wants_write) {
-            shutdown_wants_read=shutdown_wants_write=0;
             num=SSL_shutdown(c->ssl); /* send close_notify */
             if(num<0) /* -1 - not completed */
                 err=SSL_get_error(c->ssl, num);
@@ -520,17 +526,23 @@ static void transfer(CLI *c) {
             switch(err) {
             case SSL_ERROR_NONE: /* the shutdown was successfully completed */
                 s_log(LOG_INFO, "SSL_shutdown successfully sent close_notify");
+                shutdown_wants_read=shutdown_wants_write=0;
+                break;
+            case SSL_ERROR_SYSCALL: /* socket error */
+                if(parse_socket_error(c, "SSL_shutdown"))
+                    break; /* a non-critical error: retry */
+                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                shutdown_wants_read=shutdown_wants_write=0;
                 break;
             case SSL_ERROR_WANT_WRITE:
                 s_log(LOG_DEBUG, "SSL_shutdown returned WANT_WRITE: retrying");
+                shutdown_wants_read=0;
                 shutdown_wants_write=1;
                 break;
             case SSL_ERROR_WANT_READ:
                 s_log(LOG_DEBUG, "SSL_shutdown returned WANT_READ: retrying");
                 shutdown_wants_read=1;
-                break;
-            case SSL_ERROR_SYSCALL: /* socket error */
-                parse_socket_error(c, "SSL_shutdown");
+                shutdown_wants_write=0;
                 break;
             case SSL_ERROR_SSL: /* SSL error */
                 sslerror("SSL_shutdown");
@@ -547,8 +559,8 @@ static void transfer(CLI *c) {
                 c->sock_buff+c->sock_ptr, BUFFSIZE-c->sock_ptr);
             switch(num) {
             case -1:
-                parse_socket_error(c, "readsocket");
-                break;
+                if(parse_socket_error(c, "readsocket"))
+                    break; /* a non-critical error: retry */
             case 0: /* close */
                 s_log(LOG_DEBUG, "Socket closed on read");
                 sock_open_rd=0;
@@ -564,10 +576,11 @@ static void transfer(CLI *c) {
             num=writesocket(c->sock_wfd->fd, c->ssl_buff, c->ssl_ptr);
             switch(num) {
             case -1: /* error */
-                parse_socket_error(c, "writesocket");
-                break;
+                if(parse_socket_error(c, "writesocket"))
+                    break; /* a non-critical error: retry */
             case 0:
-                s_log(LOG_DEBUG, "No data written to the socket: retrying");
+                s_log(LOG_DEBUG, "Socket closed on write");
+                sock_open_rd=sock_open_wr=0;
                 break;
             default:
                 memmove(c->ssl_buff, c->ssl_buff+num, c->ssl_ptr-num);
@@ -579,10 +592,10 @@ static void transfer(CLI *c) {
 
         /****************************** update *_wants_* based on new *_ptr */
         /* this update is also required for SSL_pending() to be used */
-        read_wants_read=
-            ssl_open_rd && c->ssl_ptr<BUFFSIZE && !read_wants_write;
-        write_wants_write=
-            ssl_open_wr && c->sock_ptr && !write_wants_read;
+        read_wants_read=!(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)
+            && c->ssl_ptr<BUFFSIZE && !read_wants_write;
+        write_wants_write=!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN)
+            && c->sock_ptr && !write_wants_read;
 
         /****************************** read from SSL */
         if((read_wants_read && (ssl_can_rd || SSL_pending(c->ssl))) ||
@@ -593,6 +606,8 @@ static void transfer(CLI *c) {
             num=SSL_read(c->ssl, c->ssl_buff+c->ssl_ptr, BUFFSIZE-c->ssl_ptr);
             switch(err=SSL_get_error(c->ssl, num)) {
             case SSL_ERROR_NONE:
+                if(num==0)
+                    s_log(LOG_DEBUG, "SSL_read returned 0");
                 c->ssl_ptr+=num;
                 watchdog=0; /* reset watchdog */
                 break;
@@ -607,24 +622,22 @@ static void transfer(CLI *c) {
                     "SSL_read returned WANT_X509_LOOKUP: retrying");
                 break;
             case SSL_ERROR_SYSCALL:
-                if(!num) { /* EOF */
-                    if(c->sock_ptr) {
-                        s_log(LOG_ERR,
-                            "SSL socket closed on SSL_read "
-                                "with %d byte(s) in buffer",
-                            c->sock_ptr);
-                        longjmp(c->err, 1); /* reset the socket */
-                    }
-                    s_log(LOG_DEBUG, "SSL socket closed on SSL_read");
-                    ssl_open_rd=ssl_open_wr=0; /* buggy peer: no close_notify */
-                } else
-                    parse_socket_error(c, "SSL_read");
+                if(num && parse_socket_error(c, "SSL_read"))
+                    break; /* a non-critical error: retry */
+                /* EOF -> buggy peer: no close_notify */
+                if(c->sock_ptr) {
+                    s_log(LOG_ERR,
+                        "SSL socket closed on SSL_read with %d unsent byte(s)",
+                        c->sock_ptr);
+                    longjmp(c->err, 1); /* reset the socket */
+                }
+                s_log(LOG_DEBUG, "SSL socket closed on SSL_read");
+                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
                 s_log(LOG_DEBUG, "SSL closed on SSL_read");
-                ssl_open_rd=0;
-                if(!strcmp(SSL_get_version(c->ssl), "SSLv2"))
-                    ssl_open_wr=0;
+                if(SSL_version(c->ssl)==SSL2_VERSION)
+                    SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_read");
@@ -642,6 +655,8 @@ static void transfer(CLI *c) {
             num=SSL_write(c->ssl, c->sock_buff, c->sock_ptr);
             switch(err=SSL_get_error(c->ssl, num)) {
             case SSL_ERROR_NONE:
+                if(num==0)
+                    s_log(LOG_DEBUG, "SSL_write returned 0");
                 memmove(c->sock_buff, c->sock_buff+num, c->sock_ptr-num);
                 c->sock_ptr-=num;
                 c->ssl_bytes+=num;
@@ -658,24 +673,22 @@ static void transfer(CLI *c) {
                     "SSL_write returned WANT_X509_LOOKUP: retrying");
                 break;
             case SSL_ERROR_SYSCALL: /* socket error */
-                if(!num) { /* EOF */
-                    if(c->sock_ptr) {
-                        s_log(LOG_ERR,
-                            "SSL socket closed on SSL_write "
-                                "with %d byte(s) in buffer",
-                            c->sock_ptr);
-                        longjmp(c->err, 1); /* reset the socket */
-                    }
-                    s_log(LOG_DEBUG, "SSL socket closed on SSL_write");
-                    ssl_open_rd=ssl_open_wr=0; /* buggy peer: no close_notify */
-                } else
-                    parse_socket_error(c, "SSL_write");
+                if(num && parse_socket_error(c, "SSL_write"))
+                    break; /* a non-critical error: retry */
+                /* EOF -> buggy peer: no close_notify */
+                if(c->sock_ptr) {
+                    s_log(LOG_ERR,
+                        "SSL socket closed on SSL_write with %d unsent byte(s)",
+                        c->sock_ptr);
+                    longjmp(c->err, 1); /* reset the socket */
+                }
+                s_log(LOG_DEBUG, "SSL socket closed on SSL_write");
+                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
                 s_log(LOG_DEBUG, "SSL closed on SSL_write");
-                ssl_open_rd=0;
-                if(!strcmp(SSL_get_version(c->ssl), "SSLv2"))
-                    ssl_open_wr=0;
+                if(SSL_version(c->ssl)==SSL2_VERSION)
+                    SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_write");
@@ -687,22 +700,19 @@ static void transfer(CLI *c) {
         }
 
         /****************************** check write shutdown conditions */
-        if(sock_open_wr && !ssl_open_rd && !c->ssl_ptr) {
+        if(sock_open_wr && SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN && !c->ssl_ptr) {
             s_log(LOG_DEBUG, "Sending socket write shutdown");
             sock_open_wr=0; /* no further write allowed */
             shutdown(c->sock_wfd->fd, SHUT_WR); /* send TCP FIN */
         }
-        if(ssl_open_wr && !sock_open_rd && !c->sock_ptr) {
+        if(!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN) && !sock_open_rd && !c->sock_ptr) {
             s_log(LOG_DEBUG, "Sending SSL write shutdown");
-            ssl_open_wr=0; /* no further write allowed */
-            if(strcmp(SSL_get_version(c->ssl), "SSLv2")) { /* SSLv3, TLSv1 */
+            if(SSL_version(c->ssl)!=SSL2_VERSION) { /* SSLv3, TLSv1 */
                 shutdown_wants_write=1; /* initiate close_notify */
             } else { /* no alerts in SSLv2 including close_notify alert */
-                shutdown(c->sock_rfd->fd, SHUT_RD); /* notify the kernel */
-                shutdown(c->sock_wfd->fd, SHUT_WR); /* send TCP FIN */
-                SSL_set_shutdown(c->ssl, /* notify the OpenSSL library */
-                    SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-                ssl_open_rd=0; /* no further read allowed */
+                shutdown(c->sock_rfd->fd, SHUT_RDWR); /* notify the kernel */
+                /* notify the OpenSSL library */
+                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
             }
         }
 
@@ -715,20 +725,19 @@ static void transfer(CLI *c) {
             stunnel_info(LOG_ERR);
             s_log(LOG_ERR, "protocol=%s, SSL_pending=%d",
                 SSL_get_version(c->ssl), SSL_pending(c->ssl));
-            s_log(LOG_ERR, "sock_open_rd=%s, sock_open_wr=%s, "
-                "ssl_open_rd=%s, ssl_open_wr=%s",
-                sock_open_rd ? "Y" : "n", sock_open_wr ? "Y" : "n",
-                ssl_open_rd ? "Y" : "n", ssl_open_wr ? "Y" : "n");
-            s_log(LOG_ERR, "sock_can_rd=%s,  sock_can_wr=%s,  "
-                "ssl_can_rd=%s,  ssl_can_wr=%s",
-                sock_can_rd ? "Y" : "n", sock_can_wr ? "Y" : "n",
+            s_log(LOG_ERR, "sock_open_rd=%s, sock_open_wr=%s",
+                sock_open_rd ? "Y" : "n", sock_open_wr ? "Y" : "n");
+            s_log(LOG_ERR, "SSL_RECEIVED_SHUTDOWN=%s, SSL_SENT_SHUTDOWN=%s",
+                SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN ? "Y" : "n",
+                SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN ? "Y" : "n");
+            s_log(LOG_ERR, "sock_can_rd=%s, sock_can_wr=%s",
+                sock_can_rd ? "Y" : "n", sock_can_wr ? "Y" : "n");
+            s_log(LOG_ERR, "ssl_can_rd=%s, ssl_can_wr=%s",
                 ssl_can_rd ? "Y" : "n", ssl_can_wr ? "Y" : "n");
-            s_log(LOG_ERR, "read_wants_read=%s,     read_wants_write=%s",
-                read_wants_read ? "Y" : "n",
-                read_wants_write ? "Y" : "n");
-            s_log(LOG_ERR, "write_wants_read=%s,    write_wants_write=%s",
-                write_wants_read ? "Y" : "n",
-                write_wants_write ? "Y" : "n");
+            s_log(LOG_ERR, "read_wants_read=%s, read_wants_write=%s",
+                read_wants_read ? "Y" : "n", read_wants_write ? "Y" : "n");
+            s_log(LOG_ERR, "write_wants_read=%s, write_wants_write=%s",
+                write_wants_read ? "Y" : "n", write_wants_write ? "Y" : "n");
             s_log(LOG_ERR, "shutdown_wants_read=%s, shutdown_wants_write=%s",
                 shutdown_wants_read ? "Y" : "n",
                 shutdown_wants_write ? "Y" : "n");
@@ -737,25 +746,33 @@ static void transfer(CLI *c) {
             longjmp(c->err, 1);
         }
 
-    } while(sock_open_wr || ssl_open_wr ||
+    } while(sock_open_wr || !(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN) ||
         shutdown_wants_read || shutdown_wants_write);
 }
 
-static void parse_socket_error(CLI *c, const char *text) {
+    /* returns 0 on close and 1 on non-critical errors */
+static int parse_socket_error(CLI *c, const char *text) {
     switch(get_last_socket_error()) {
+        /* http://tangentsoft.net/wskfaq/articles/bsd-compatibility.html */
+    case 0: /* close on read, or close on write on WIN32 */
+#ifndef USE_WIN32
+    case EPIPE: /* close on write on Unix */
+#endif
+    case S_ECONNABORTED:
+        s_log(LOG_INFO, "%s: Socket is closed", text);
+        return 0;
     case S_EINTR:
-        s_log(LOG_DEBUG,
-            "Function %s interrupted by a signal: retrying", text);
-        return;
+        s_log(LOG_DEBUG, "%s: Interrupted by a signal: retrying", text);
+        return 1;
     case S_EWOULDBLOCK:
-        s_log(LOG_NOTICE, "Function %s would block: retrying", text);
+        s_log(LOG_NOTICE, "%s: Would block: retrying", text);
         sleep(1); /* Microsoft bug KB177346 */
-        return;
+        return 1;
 #if S_EAGAIN!=S_EWOULDBLOCK
     case S_EAGAIN:
         s_log(LOG_DEBUG,
-            "Function %s temporary lack of resources: retrying", text);
-        return;
+            "%s: Temporary lack of resources: retrying", text);
+        return 1;
 #endif
     default:
         sockerror(text);
@@ -982,45 +999,30 @@ static int connect_local(CLI *c) { /* spawn local process */
 #endif /* not USE_WIN32 or __vms */
 
 /* connect remote host */
-static int connect_remote(CLI *c, SOCKADDR_UNION *bind_addr) {
-    SOCKADDR_LIST resolved_list, *address_list;
+static int connect_remote(CLI *c) {
     int fd, ind_try, ind_cur;
+    SOCKADDR_LIST *remote_addr; /* list of connect_blocking() targets */
 
-    /* setup address_list */
-    resolved_list.num=0;
-    resolved_list.addr=NULL;
-    if(c->opt->option.delayed_lookup) {
-        if(!name2addrlist(&resolved_list,
-                c->opt->remote_address, DEFAULT_LOOPBACK)) {
-            s_log(LOG_ERR, "No host resolved");
-            longjmp(c->err, 1);
-        }
-        address_list=&resolved_list;
-    } else /* use pre-resolved addresses */
-        address_list=&c->opt->remote_addr;
-
+    remote_addr=dynamic_remote_addr(c);
     /* try to connect each host from the list */
-    for(ind_try=0; ind_try<address_list->num; ind_try++) {
+    for(ind_try=0; ind_try<remote_addr->num; ind_try++) {
         if(c->opt->failover==FAILOVER_RR) {
-            ind_cur=address_list->cur;
+            ind_cur=remote_addr->cur;
             /* the race condition here can be safely ignored */
-            address_list->cur=(ind_cur+1)%address_list->num;
+            remote_addr->cur=(ind_cur+1)%remote_addr->num;
         } else { /* FAILOVER_PRIO */
-            ind_cur=ind_try; /* ignore address_list->cur */
+            ind_cur=ind_try; /* ignore remote_addr->cur */
         }
 
-        c->fd=s_socket(address_list->addr[ind_cur].sa.sa_family,
+        c->fd=s_socket(remote_addr->addr[ind_cur].sa.sa_family,
             SOCK_STREAM, 0, 1, "remote socket");
-        if(c->fd<0) {
-            if(resolved_list.addr)
-                str_free(resolved_list.addr);
+        if(c->fd<0)
             longjmp(c->err, 1);
-        }
 
-        local_bind(c, bind_addr); /* explicit local bind or transparent proxy */
+        local_bind(c); /* explicit local bind or transparent proxy */
 
-        if(connect_blocking(c, &address_list->addr[ind_cur],
-                addr_len(&address_list->addr[ind_cur]))) {
+        if(connect_blocking(c, &remote_addr->addr[ind_cur],
+                addr_len(&remote_addr->addr[ind_cur]))) {
             closesocket(c->fd);
             c->fd=-1;
             continue; /* next IP */
@@ -1028,46 +1030,47 @@ static int connect_remote(CLI *c, SOCKADDR_UNION *bind_addr) {
         print_bound_address(c);
         fd=c->fd;
         c->fd=-1;
-        if(resolved_list.addr)
-            str_free(resolved_list.addr);
         return fd; /* success! */
     }
-    if(resolved_list.addr)
-        str_free(resolved_list.addr);
     longjmp(c->err, 1);
     return -1; /* some C compilers require a return value */
 }
 
+static SOCKADDR_LIST *dynamic_remote_addr(CLI *c) {
 #ifdef SO_ORIGINAL_DST
-/* connect the original dst */
-static int connect_transparent(CLI *c, SOCKADDR_UNION *bind_addr) {
-    SOCKADDR_UNION addr;
-    socklen_t addrlen=sizeof addr;
-    int retval;
+    socklen_t addrlen=sizeof(SOCKADDR_UNION);
 
-    if(getsockopt(c->local_rfd.fd, SOL_IP, SO_ORIGINAL_DST,
-            &addr, &addrlen)) {
-        sockerror("setsockopt SO_ORIGINAL_DST");
-        longjmp(c->err, 1);
+    if(c->opt->option.transparent_dst) {
+        c->connect_addr.num=1;
+        c->connect_addr.addr=str_alloc(sizeof(SOCKADDR_UNION));
+        if(getsockopt(c->local_rfd.fd, SOL_IP, SO_ORIGINAL_DST,
+                c->connect_addr.addr, &addrlen)) {
+            sockerror("setsockopt SO_ORIGINAL_DST");
+            longjmp(c->err, 1);
+        }
+        return &c->connect_addr;
     }
-    c->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "remote socket");
-    if(c->fd<0)
-        longjmp(c->err, 1);
-    local_bind(c, bind_addr); /* explicit local bind or transparent proxy */
-    if(connect_blocking(c, &addr, addr_len(&addr)))
-        longjmp(c->err, 1); /* socket closed on cleanup */
-    print_bound_address(c);
-    retval=c->fd;
-    c->fd=-1;
-    return retval; /* success! */
-}
 #endif /* SO_ORIGINAL_DST */
 
-static void local_bind(CLI *c, SOCKADDR_UNION *bind_addr) {
+    /* TODO: add dynamic protocol server (e.g. SOCKS4, CONNECT) support here */
+
+    if(c->opt->option.delayed_lookup) {
+        if(!name2addrlist(&c->connect_addr,
+                c->opt->connect_name, DEFAULT_LOOPBACK)) {
+            s_log(LOG_ERR, "No host resolved");
+            longjmp(c->err, 1);
+        }
+        return &c->connect_addr;
+    }
+
+    return &c->opt->connect_addr; /* use pre-resolved (static) addresses */
+}
+
+static void local_bind(CLI *c) {
     int on;
 
     on=1;
-    if(!bind_addr)
+    if(!c->bind_addr)
         return;
 #if defined(USE_WIN32)
     /* do nothing */
@@ -1082,7 +1085,7 @@ static void local_bind(CLI *c, SOCKADDR_UNION *bind_addr) {
 #elif defined(IP_BINDANY) && defined(IPV6_BINDANY)
     /* non-local bind on FreeBSD */
     if(c->opt->option.transparent_src) {
-        if(bind_addr->sa.sa_family==AF_INET) { /* IPv4 */
+        if(c->bind_addr->sa.sa_family==AF_INET) { /* IPv4 */
             if(setsockopt(c->fd, IPPROTO_IP, IP_BINDANY, &on, sizeof on)) {
                 sockerror("setsockopt IP_BINDANY");
                 longjmp(c->err, 1);
@@ -1103,8 +1106,8 @@ static void local_bind(CLI *c, SOCKADDR_UNION *bind_addr) {
     }
 #endif
 
-    if(ntohs(bind_addr->in.sin_port)>=1024) { /* security check */
-        if(!bind(c->fd, &bind_addr->sa, addr_len(bind_addr))) {
+    if(ntohs(c->bind_addr->in.sin_port)>=1024) { /* security check */
+        if(!bind(c->fd, &c->bind_addr->sa, addr_len(c->bind_addr))) {
             s_log(LOG_INFO, "local_bind succeeded on the original port");
             return; /* success */
         }
@@ -1118,8 +1121,8 @@ static void local_bind(CLI *c, SOCKADDR_UNION *bind_addr) {
         }
     }
 
-    bind_addr->in.sin_port=htons(0); /* retry with ephemeral port */
-    if(!bind(c->fd, &bind_addr->sa, addr_len(bind_addr))) {
+    c->bind_addr->in.sin_port=htons(0); /* retry with ephemeral port */
+    if(!bind(c->fd, &c->bind_addr->sa, addr_len(c->bind_addr))) {
         s_log(LOG_INFO, "local_bind succeeded on an ephemeral port");
         return; /* success */
     }

@@ -113,14 +113,15 @@ static CONTEXT *new_context(void) {
     return context;
 }
 
-void sthreads_init(void) {
+int sthreads_init(void) {
     /* create the first (listening) context and put it in the running queue */
     if(!new_context()) {
         s_log(LOG_ERR, "Unable create the listening context");
-        die(1);
+        return 1;
     }
     /* no need to initialize ucontext_t structure here
        it will be initialied with swapcontext() call */
+    return 0;
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
@@ -170,8 +171,8 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     context->context.uc_stack.ss_size=arg->opt->stack_size;
     context->context.uc_stack.ss_flags=0;
 
-    s_log(LOG_DEBUG, "Context %ld created", context->id);
     makecontext(&context->context, (void(*)(void))cli, ARGC, arg);
+    s_log(LOG_DEBUG, "New context created");
     return 0;
 }
 
@@ -179,8 +180,8 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 
 #ifdef USE_FORK
 
-void sthreads_init(void) {
-    /* empty */
+int sthreads_init(void) {
+    return 0;
 }
 
 unsigned long stunnel_process_id(void) {
@@ -287,7 +288,7 @@ unsigned long stunnel_thread_id(void) {
     return (unsigned long)pthread_self();
 }
 
-void sthreads_init(void) {
+int sthreads_init(void) {
     int i;
 
     /* initialize stunnel critical sections */
@@ -304,6 +305,8 @@ void sthreads_init(void) {
     CRYPTO_set_dynlock_create_callback(dyn_create_function);
     CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+
+    return 0;
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
@@ -414,7 +417,7 @@ unsigned long stunnel_thread_id(void) {
     return GetCurrentThreadId() & 0x00ffffff;
 }
 
-void sthreads_init(void) {
+int sthreads_init(void) {
     int i;
 
     /* initialize stunnel critical sections */
@@ -430,6 +433,8 @@ void sthreads_init(void) {
     CRYPTO_set_dynlock_create_callback(dyn_create_function);
     CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+
+    return 0;
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
@@ -459,7 +464,8 @@ void leave_critical_section(SECTION_CODE i) {
     DosExitCritSec();
 }
 
-void sthreads_init(void) {
+int sthreads_init(void) {
+    return 0;
 }
 
 unsigned long stunnel_process_id(void) {
