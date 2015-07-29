@@ -1,4 +1,3 @@
-1. Allow separate certificate for each service.
-2. Implement make_sockets implemented with Internet sockets
+1. Implement make_sockets implemented with Internet sockets
    instead of Unix sockets for better compatibility.
-3. Add man pages, license, credits, etc.
+2. Add man pages, license, credits, etc.

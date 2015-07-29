@@ -1,0 +1,6 @@
+1.2 1998.02.14	Separate certificate for each service added
+		Connection logging support
+1.1 1998.02.14	Callback functions added to support MSIE and
+		Netscape Communicator
+1.0 1998.02.11	First version with SSL support
+0.1 1998.02.10	Testing skeleton

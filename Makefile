@@ -2,7 +2,7 @@
 # Makefile for stunnel by Michal Trojnara 1998 #
 ################################################
 
-VERSION=1.1
+VERSION=1.2
 CC=gcc
 CFLAGS=-O2 -Wall -I/usr/local/ssl/include
 LIBS=-L/usr/local/ssl/lib -lssl -lcrypto

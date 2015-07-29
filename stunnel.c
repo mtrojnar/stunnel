@@ -1,18 +1,19 @@
 /*****************************************************/
-/* stunnel.c          version 1.1           97.02.14 */
+/* stunnel.c          version 1.2           97.02.14 */
 /* by Michal Trojnara   <mtrojnar@ddc.daewoo.com.pl> */
 /* SSLeay support Adam Hernik <adas@infocentrum.com> */
 /*             Pawel Krawczyk <kravietz@ceti.com.pl> */
 /*****************************************************/
 
-#define STUNNELCERT "/etc/server.pem"
-#define STUNNELKEY "/etc/server.pem"
 #define BUFFSIZE 8192	/* I/O buffer size */
 
 #include <stdio.h>
 #include <unistd.h>	/* for fork, execvp, exit */
 #include <errno.h>	/* for errno */
 #include <string.h>	/* for strerror */
+#include <sys/stat.h>	/* for stat */
+#include <netinet/in.h> /* for struct sockaddr_in */
+#include <arpa/inet.h>  /* for inet_ntoa */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>	/* for select */
@@ -40,11 +41,35 @@ int main(int argc, char* argv[])
     int fd[2];
     SSL *ssl;
     SSL_CTX *ctx;
+    char *name; /* name of service */
+    char certfile[128]; /* server certificate */
+    struct stat st; /* buffer for stat */
+    struct sockaddr_in addr;
+    int addrlen;
 
+    openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
     signal(SIGPIPE, SIG_IGN); /* avoid 'broken pipe' signal */
     signal(SIGTERM, signal_handler);
     signal(SIGQUIT, signal_handler);
     signal(SIGSEGV, signal_handler);
+
+    name=rindex(argv[0], '/');
+    if(!name)
+        name=argv[0]; /* relative name - no '/' */
+    else
+        name++; /* first character after '/' */
+    addrlen=sizeof(addr);
+    memset(&addr, 0, addrlen);
+    if(getpeername(0, (struct sockaddr *)&addr, &addrlen))
+        ioerror("getpeername");
+    syslog(LOG_INFO, "%s connected from %s:%u",
+        name, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+    sprintf(certfile, "%s/%s.pem", X509_get_default_cert_dir(), name);
+    if(stat(certfile, &st))
+        ioerror(certfile);
+    if(st.st_mode & 7)
+        syslog(LOG_WARNING, "WARNING: Wrong permissions on %s", certfile);
+
     make_sockets(fd);
     switch(fork()) {
     case -1:	/* error */
@@ -59,13 +84,12 @@ int main(int argc, char* argv[])
         ioerror("execvp"); /* execvp failed */
     default:	/* parent */
         close(fd[1]);
-        openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
         SSL_load_error_strings();
         SSLeay_add_ssl_algorithms();
         ctx=SSL_CTX_new(SSLv23_server_method());
-        if(!SSL_CTX_use_RSAPrivateKey_file(ctx, STUNNELKEY, SSL_FILETYPE_PEM))
+        if(!SSL_CTX_use_RSAPrivateKey_file(ctx, certfile, SSL_FILETYPE_PEM))
             sslerror("SSL_CTX_use_RSAPrivateKey_file");
-        if(!SSL_CTX_use_certificate_file(ctx, STUNNELCERT, SSL_FILETYPE_PEM))
+        if(!SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM))
             sslerror("SSL_CTX_use_certificate_file");
         if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb))
             sslerror("SSL_CTX_set_tmp_rsa_callback");
@@ -153,14 +177,14 @@ static DH *tmp_dh_cb(SSL *s, int export) /* temporary DH key callback */
             sslerror("DH_new");
         if(!DH_generate_key(dh_tmp))
 	    sslerror("DH_generate_key");
-        syslog(LOG_DEBUG, "Diffie-Hellman length %d", DH_size(dh_tmp));
+        syslog(LOG_DEBUG, "Diffie-Hellman length: %u", DH_size(dh_tmp));
     }
     return(dh_tmp);
 }
 
 void ioerror(char *fun) /* Input/Output Error handler */
 {
-    syslog(LOG_ERR, "%s: %s (%d)", fun, strerror(errno), errno);
+    syslog(LOG_ERR, "%s: %s (%u)", fun, strerror(errno), errno);
     exit(1);
 }
 
