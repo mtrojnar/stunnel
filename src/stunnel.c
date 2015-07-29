@@ -278,7 +278,9 @@ static int accept_connection(SERVICE_OPTIONS *opt) {
     s_log(LOG_DEBUG, "Service [%s] accepted (FD=%d) from %s",
         opt->servname, s, from_address);
     str_free(from_address);
-#ifndef USE_FORK
+#ifdef USE_FORK
+    RAND_add("", 1, 0.0); /* each child needs a unique entropy pool */
+#else
     if(max_clients && num_clients>=max_clients) {
         s_log(LOG_WARNING, "Connection rejected: too many clients (>=%d)",
             max_clients);

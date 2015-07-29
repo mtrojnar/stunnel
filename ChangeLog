@@ -1,6 +1,10 @@
 stunnel change log
 
 
+Version 4.57, 2015.04.01, urgency: HIGH:
+* Security bugfixes
+  - Added PRNG state update in fork threading (CVE-2014-0016).
+
 Version 4.56, 2013.03.22, urgency: HIGH:
 * New features
   - Win32 installer automatically configures firewall exceptions.

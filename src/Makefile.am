@@ -39,7 +39,7 @@ tstunnel_exe_SOURCES = $(common_headers) $(common_sources) nogui.c
 
 # OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 # WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-OPENSSLDIR = /usr/src/openssl-1.0.1e-i586
+OPENSSLDIR = /usr/src/openssl-1.0.2a-i686
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wno-long-long -pedantic
 WINLDFLAGS = -mthreads -fstack-protector -s
@@ -51,7 +51,7 @@ WINOBJ += network.obj resolver.obj ssl.obj ctx.obj verify.obj sthreads.obj
 WINOBJ += fd.obj stunnel.obj
 WINGUIOBJ = $(WINOBJ) gui.obj resources.obj
 WINNOGUIOBJ = $(WINOBJ) nogui.obj
-WINPREFIX = i586-mingw32msvc-
+WINPREFIX = i686-w64-mingw32-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
 

@@ -299,7 +299,7 @@ WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj \
 	sthreads.obj fd.obj stunnel.obj
 WINGUIOBJ = $(WINOBJ) gui.obj resources.obj
 WINNOGUIOBJ = $(WINOBJ) nogui.obj
-WINPREFIX = i586-mingw32msvc-
+WINPREFIX = i686-w64-mingw32-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
 all: config.h
