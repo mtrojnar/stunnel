@@ -111,7 +111,8 @@ void ui_new_log(const char *line) {
     RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
     str_free(tstr);
 #else
-    printf("%s\n", line);
+    fputs(line, stderr);
+    fflush(stderr);
 #endif
 }
 

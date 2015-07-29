@@ -117,7 +117,10 @@ void client_main(CLI *c) {
             if(!c->opt->option.retry)
                 break;
             sleep(1); /* FIXME: not a good idea in ucontext threading */
+            s_poll_free(c->fds);
+            c->fds=NULL;
             str_stats(); /* client thread allocation tracking */
+            /* c allocation is detached, so it is safe to call str_stats() */
             if(service_options.next) /* don't str_cleanup in inetd mode */
                 str_cleanup();
         }
@@ -216,7 +219,11 @@ NOEXPORT void client_run(CLI *c) {
 
 NOEXPORT void client_try(CLI *c) {
     init_local(c);
-    if(!c->opt->option.client && c->opt->protocol<0) {
+    if(!c->opt->option.client && c->opt->protocol<0
+#ifndef OPENSSL_NO_TLSEXT
+            && !c->opt->servername_list_head
+#endif
+            ) {
         /* server mode and no protocol negotiation needed */
         init_ssl(c);
         init_remote(c);
@@ -508,8 +515,8 @@ NOEXPORT void transfer(CLI *c) {
     int sock_open_rd=1, sock_open_wr=1;
     /* awaited conditions on SSL file descriptors */
     int shutdown_wants_read=0, shutdown_wants_write=0;
-    int read_wants_read, read_wants_write=0;
-    int write_wants_read=0, write_wants_write;
+    int read_wants_read=0, read_wants_write=0;
+    int write_wants_read=0, write_wants_write=0;
     /* actual conditions on file descriptors */
     int sock_can_rd, sock_can_wr, ssl_can_rd, ssl_can_wr;
 
@@ -517,9 +524,9 @@ NOEXPORT void transfer(CLI *c) {
 
     do { /* main loop of client data transfer */
         /****************************** initialize *_wants_* */
-        read_wants_read=!(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)
+        read_wants_read|=!(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)
             && c->ssl_ptr<BUFFSIZE && !read_wants_write;
-        write_wants_write=!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN)
+        write_wants_write|=!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN)
             && c->sock_ptr && !write_wants_read;
 
         /****************************** setup c->fds structure */
@@ -613,7 +620,7 @@ NOEXPORT void transfer(CLI *c) {
                 s_poll_hup(c->fds, c->ssl_wfd->fd)) {
             /* hangup -> buggy (e.g. Microsoft) peer:
              * SSL socket closed without close_notify alert */
-            if(c->sock_ptr) {
+            if(c->sock_ptr || write_wants_write) {
                 s_log(LOG_ERR,
                     "SSL socket closed (hangup) with %d unsent byte(s)",
                     c->sock_ptr);
@@ -718,9 +725,9 @@ NOEXPORT void transfer(CLI *c) {
 
         /****************************** update *_wants_* based on new *_ptr */
         /* this update is also required for SSL_pending() to be used */
-        read_wants_read=!(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)
+        read_wants_read|=!(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)
             && c->ssl_ptr<BUFFSIZE && !read_wants_write;
-        write_wants_write=!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN)
+        write_wants_write|=!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN)
             && c->sock_ptr && !write_wants_read;
 
         /****************************** read from SSL */
@@ -728,6 +735,7 @@ NOEXPORT void transfer(CLI *c) {
                 /* it may be possible to read some pending data after
                  * writesocket() above made some room in c->ssl_buff */
                 (read_wants_write && ssl_can_wr)) {
+            read_wants_read=0;
             read_wants_write=0;
             num=SSL_read(c->ssl, c->ssl_buff+c->ssl_ptr, BUFFSIZE-c->ssl_ptr);
             switch(err=SSL_get_error(c->ssl, num)) {
@@ -741,7 +749,9 @@ NOEXPORT void transfer(CLI *c) {
                 s_log(LOG_DEBUG, "SSL_read returned WANT_WRITE: retrying");
                 read_wants_write=1;
                 break;
-            case SSL_ERROR_WANT_READ: /* nothing unexpected */
+            case SSL_ERROR_WANT_READ: /* is it possible? */
+                s_log(LOG_DEBUG, "SSL_read returned WANT_READ: retrying");
+                read_wants_read=1;
                 break;
             case SSL_ERROR_WANT_X509_LOOKUP:
                 s_log(LOG_DEBUG,
@@ -752,7 +762,7 @@ NOEXPORT void transfer(CLI *c) {
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
                  * SSL socket closed without close_notify alert */
-                if(c->sock_ptr) {
+                if(c->sock_ptr || write_wants_write) {
                     s_log(LOG_ERR,
                         "SSL socket closed (SSL_read) with %d unsent byte(s)",
                         c->sock_ptr);
@@ -779,6 +789,7 @@ NOEXPORT void transfer(CLI *c) {
         if((write_wants_read && ssl_can_rd) ||
                 (write_wants_write && ssl_can_wr)) {
             write_wants_read=0;
+            write_wants_write=0;
             num=SSL_write(c->ssl, c->sock_buff, c->sock_ptr);
             switch(err=SSL_get_error(c->ssl, num)) {
             case SSL_ERROR_NONE:
@@ -789,7 +800,9 @@ NOEXPORT void transfer(CLI *c) {
                 c->ssl_bytes+=num;
                 watchdog=0; /* reset watchdog */
                 break;
-            case SSL_ERROR_WANT_WRITE: /* nothing unexpected */
+            case SSL_ERROR_WANT_WRITE: /* buffered data? */
+                s_log(LOG_DEBUG, "SSL_write returned WANT_WRITE: retrying");
+                write_wants_write=1;
                 break;
             case SSL_ERROR_WANT_READ:
                 s_log(LOG_DEBUG, "SSL_write returned WANT_READ: retrying");
@@ -804,7 +817,7 @@ NOEXPORT void transfer(CLI *c) {
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
                  * SSL socket closed without close_notify alert */
-                if(c->sock_ptr) {
+                if(c->sock_ptr) { /* TODO: what about buffered data? */
                     s_log(LOG_ERR,
                         "SSL socket closed (SSL_write) with %d unsent byte(s)",
                         c->sock_ptr);
@@ -828,7 +841,8 @@ NOEXPORT void transfer(CLI *c) {
         }
 
         /****************************** check write shutdown conditions */
-        if(sock_open_wr && SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN && !c->ssl_ptr) {
+        if(sock_open_wr && SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN &&
+                !c->ssl_ptr) {
             sock_open_wr=0; /* no further write allowed */
             if(!c->sock_wfd->is_socket) {
                 s_log(LOG_DEBUG, "Closing the file descriptor");
@@ -840,8 +854,9 @@ NOEXPORT void transfer(CLI *c) {
                 sock_open_rd=0; /* file descriptor is ready to be closed */
             }
         }
-        if(!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN) && !sock_open_rd && !c->sock_ptr) {
-            if(SSL_version(c->ssl)!=SSL2_VERSION) { /* SSLv3, TLSv1 */
+        if(!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN) && !sock_open_rd &&
+                !c->sock_ptr && !write_wants_write) {
+            if(SSL_version(c->ssl)!=SSL2_VERSION) {
                 s_log(LOG_DEBUG, "Sending close_notify alert");
                 shutdown_wants_write=1;
             } else { /* no alerts in SSLv2, including the close_notify alert */

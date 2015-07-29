@@ -3,9 +3,12 @@ stunnel TODO
 
 High priority features.  They will likely be supported some day.
 A sponsor could allocate my time to get them faster.
+* Implement reference counting to deallocate the SERVICE_OPTIONS structure
+  after the configuration file is reloaded *and* old connections are closed.
+* Add '-status' command line option reporting the number of clients connected
+  to each service.
 * Add 'leastconn' failover strategy to order defined 'connect' targets
   by the number of active connections.
-* Perform protocol negotiations after SSL negotiations if possible.
 * Command-line server control interface on both Unix and Windows.
 * Separate GUI process running as current user on Windows.
 * Optional line-buffering of the log file.
@@ -18,10 +21,11 @@ A sponsor could allocate my time to get them faster.
   http://archive.socks.permeo.com/protocol/socks4.protocol
 
 Low priority features.  They will unlikely ever be supported.
-* Support static FIPS-enabled build.
 * Provide 64-bit Windows builds (besides 32-bit builds).
   This requires either Microsoft Visual Studio Standard Edition or Microsoft
   Visual Studio Professional Edition in order to retain FIPS compliance.
+* Support static FIPS-enabled build.
+* Perform protocol negotiations after SSL negotiations if possible.
 * Service-level logging configuration (separate verbosity and destination).
 * Enforce key renegotiation (re-handshake) for long connections.
 * Logging to NT EventLog on Windows.

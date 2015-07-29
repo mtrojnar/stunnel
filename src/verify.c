@@ -48,6 +48,8 @@ NOEXPORT int add_dir_lookup(X509_STORE *, char *);
 NOEXPORT int verify_callback(int, X509_STORE_CTX *);
 NOEXPORT int verify_checks(int, X509_STORE_CTX *);
 NOEXPORT int cert_check(X509_STORE_CTX *, int);
+NOEXPORT int cert_check_local(X509_STORE_CTX *);
+NOEXPORT int compare_pubkeys(X509 *, X509 *);
 NOEXPORT int crl_check(X509_STORE_CTX *);
 #ifdef HAVE_OSSL_OCSP_H
 NOEXPORT int ocsp_check(X509_STORE_CTX *);
@@ -244,20 +246,10 @@ NOEXPORT int verify_checks(int preverify_ok, X509_STORE_CTX *callback_ctx) {
 /**************************************** certificate checking */
 
 NOEXPORT int cert_check(X509_STORE_CTX *callback_ctx, int preverify_ok) {
-    SSL *ssl;
-    CLI *c;
-    X509_OBJECT obj;
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
-    ASN1_BIT_STRING *local_key, *peer_key;
-#endif
-    X509 *cert;
-    int depth;
-
-    ssl=X509_STORE_CTX_get_ex_data(callback_ctx,
+    SSL *ssl=X509_STORE_CTX_get_ex_data(callback_ctx,
         SSL_get_ex_data_X509_STORE_CTX_idx());
-    c=SSL_get_ex_data(ssl, cli_index);
-    cert=X509_STORE_CTX_get_current_cert(callback_ctx);
-    depth=X509_STORE_CTX_get_error_depth(callback_ctx);
+    CLI *c=SSL_get_ex_data(ssl, cli_index);
+    int depth=X509_STORE_CTX_get_error_depth(callback_ctx);
 
     if(!preverify_ok) {
         /* remote site specified a certificate, but it's not correct */
@@ -271,24 +263,51 @@ NOEXPORT int cert_check(X509_STORE_CTX *callback_ctx, int preverify_ok) {
             return 0; /* fail */
         }
     }
-    if(c->opt->verify_level>=3 && depth==0) {
-        if(X509_STORE_get_by_subject(callback_ctx, X509_LU_X509,
-                X509_get_subject_name(cert), &obj)!=1) {
-            s_log(LOG_WARNING,
-                "CERT: Certificate not found in local repository");
+    if(c->opt->verify_level>=3 && depth==0)
+        if(!cert_check_local(callback_ctx))
             return 0; /* fail */
-        }
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
-        peer_key=X509_get0_pubkey_bitstr(cert);
-        local_key=X509_get0_pubkey_bitstr(obj.data.x509);
-        if(!peer_key || !local_key || peer_key->length!=local_key->length ||
-                memcmp(peer_key->data, local_key->data, local_key->length)) {
-            s_log(LOG_WARNING, "CERT: Public keys do not match");
-            return 0; /* fail */
-        }
-#endif
-        s_log(LOG_INFO, "CERT: Locally installed certificate matched");
+    return 1; /* success */
+}
+
+NOEXPORT int cert_check_local(X509_STORE_CTX *callback_ctx) {
+    X509 *cert=X509_STORE_CTX_get_current_cert(callback_ctx);
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+    STACK_OF(X509) *sk=X509_STORE_get1_certs(callback_ctx,
+        X509_get_subject_name(cert));
+    int i;
+    if(!sk) {
+        sslerror("CERT: X509_STORE_get1_certs");
+        return 0; /* fail */
     }
+    for(i=0; i<sk_X509_num(sk); i++)
+        if(compare_pubkeys(cert, sk_X509_value(sk, i))) {
+            sk_X509_pop_free(sk, X509_free);
+            return 1; /* success */
+        }
+    sk_X509_pop_free(sk, X509_free);
+#else /* pre-1.0.0 API only returns a single matching certificate */
+    X509_OBJECT obj;
+    if(X509_STORE_get_by_subject(callback_ctx, X509_LU_X509,
+            X509_get_subject_name(cert), &obj)==1 &&
+            compare_pubkeys(cert, obj.data.x509))
+        return 1; /* success */
+#endif
+    s_log(LOG_WARNING,
+        "CERT: Certificate not found in local repository");
+    return 0; /* fail */
+}
+
+NOEXPORT int compare_pubkeys(X509 *c1, X509 *c2) {
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
+    ASN1_BIT_STRING *k1=X509_get0_pubkey_bitstr(c1);
+    ASN1_BIT_STRING *k2=X509_get0_pubkey_bitstr(c2);
+    if(!k1 || !k2 || k1->length!=k2->length ||
+            memcmp(k1->data, k2->data, k1->length)) {
+        s_log(LOG_INFO, "CERT: Public keys do not match");
+        return 0; /* fail */
+    }
+#endif
+    s_log(LOG_INFO, "CERT: Locally installed certificate matched");
     return 1; /* success */
 }
 

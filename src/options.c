@@ -311,20 +311,26 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 #endif
 
     /* fips */
-#ifdef USE_FIPS
     switch(cmd) {
     case CMD_BEGIN:
+#ifdef USE_FIPS
         new_global_options.option.fips=0;
+#endif /* USE_FIPS */
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "fips"))
             break;
+#ifdef USE_FIPS
         if(!strcasecmp(arg, "yes"))
             new_global_options.option.fips=1;
         else if(!strcasecmp(arg, "no"))
             new_global_options.option.fips=0;
         else
             return "Argument should be either 'yes' or 'no'";
+#else
+        if(strcasecmp(arg, "no"))
+            return "FIPS support is not available";
+#endif /* USE_FIPS */
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -333,11 +339,12 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
+#ifdef USE_FIPS
         s_log(LOG_NOTICE, "%-22s = yes|no FIPS 140-2 mode",
             "fips");
+#endif /* USE_FIPS */
         break;
     }
-#endif /* USE_FIPS */
 
     /* foreground */
 #ifndef USE_WIN32

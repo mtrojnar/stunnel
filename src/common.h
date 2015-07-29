@@ -222,6 +222,7 @@ typedef unsigned long u32;
 #include <windows.h>
 
 #include <process.h>     /* _beginthread */
+#include <shfolder.h>    /* SHGetFolderPath */
 #include <tchar.h>
 
 #include "resources.h"

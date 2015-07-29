@@ -494,7 +494,8 @@ NOEXPORT int signal_pipe_init(void) {
 }
 
 void signal_post(int sig) {
-    writesocket(signal_pipe[1], (char *)&sig, sizeof sig);
+    /* no meaningful way here to handle the result */
+    (void)writesocket(signal_pipe[1], (char *)&sig, sizeof sig);
 }
 
 NOEXPORT int signal_pipe_dispatch(void) {

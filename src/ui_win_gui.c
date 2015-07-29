@@ -1082,7 +1082,7 @@ NOEXPORT void edit_config(HWND main_window_handle) {
             NULL, SW_SHOWNORMAL);
     } else { /* UAC workaround */
         if(strchr(configuration_file, '\\')) {
-            conf_path=strdup(configuration_file);
+            conf_path=str_dup(configuration_file);
         } else {
             GetCurrentDirectory(MAX_PATH, cwd);
             conf_path=str_printf("%s\\%s", cwd, configuration_file);

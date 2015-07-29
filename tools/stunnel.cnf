@@ -2,14 +2,22 @@
 # by Michal Trojnara 1998-2014
 
 [ req ]
-# the default key length is secure and quite fast - do not change it
-default_bits                    = 2048
 # comment out the next line to protect the private key with a passphrase
 encrypt_key                     = no
-distinguished_name              = req_dn
-x509_extensions                 = cert_type
+# the default key length is secure and quite fast - do not change it
+default_bits                    = 2048
+default_md                      = sha1
+x509_extensions                 = stunnel_extensions
+distinguished_name              = stunnel_dn
 
-[ req_dn ]
+[ stunnel_extensions ]
+nsCertType                      = server
+basicConstraints                = CA:TRUE,pathlen:0
+keyUsage                        = keyCertSign
+extendedKeyUsage                = serverAuth
+nsComment                       = "stunnel self-signed certificate"
+
+[ stunnel_dn ]
 countryName = Country Name (2 letter code)
 countryName_default             = PL
 countryName_min                 = 2
@@ -36,7 +44,4 @@ organizationalUnitName_default  = Provisional CA
 # ...
 # See http://home.netscape.com/eng/security/ssl_2.0_certificate.html
 # to see how Netscape understands commonName.
-
-[ cert_type ]
-nsCertType                      = server
 

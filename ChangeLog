@@ -1,5 +1,23 @@
 stunnel change log
 
+Version 5.01, unreleased, urgency: HIGH:
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.1g.
+    This version mitigates TLS heartbeat read overrun (CVE-2014-0160).
+* New features
+  - X.509 extensions added to the created self-signed stunnel.pem.
+  - "FIPS = no" also allowed in non-FIPS builds of stunnel.
+  - Search all certificates with the same subject name for a matching
+    public key rather than only the first one (thx to Leon Winter).
+  - Create logs in the local application data folder if stunnel folder
+    is not writable on Win32.
+* Bugfixes
+  - close_notify not sent when SSL still has some data buffered.
+  - Protocol negotiation with server-side SNI fixed.
+  - A Mac OS X missing symbols fixed.
+  - Win32 configuration file reload crash fixed.
+  - Added s_pool_free() on exec+connect service retires.
+  - Line-buffering enforced on stderr output.
 
 stunnel 5.00 disables some features previously enabled by default.
 Users should review whether the new defaults are appropriate for their

@@ -24,7 +24,7 @@ TARGET=win64
 #FIPSDIR=$(SSLDIR)\include
 #LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-SSLDIR=..\..\openssl-1.0.1f-$(TARGET)
+SSLDIR=..\..\openssl-1.0.1g-$(TARGET)
 INCDIR=$(SSLDIR)\inc32
 FIPSDIR=$(SSLDIR)\inc32
 LIBDIR=$(SSLDIR)\out32dll
@@ -54,9 +54,8 @@ LINK=link
 CFLAGS=/MD /W3 /O2 /nologo /I"$(INCDIR)" /I"$(FIPSDIR)"
 LDFLAGS=/NOLOGO
 
-SHAREDLIBS=ws2_32.lib user32.lib
-GUILIBS=advapi32.lib comdlg32.lib crypt32.lib gdi32.lib \
-	psapi.lib shell32.lib
+SHAREDLIBS=ws2_32.lib user32.lib shell32.lib
+GUILIBS=advapi32.lib comdlg32.lib crypt32.lib gdi32.lib psapi.lib
 NOGUILIBS=
 SSLLIBS=/LIBPATH:"$(LIBDIR)" libeay32.lib ssleay32.lib
 # static linking:

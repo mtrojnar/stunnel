@@ -181,7 +181,11 @@ NOEXPORT int create_pid(void) {
         return 1;
     }
     pid=str_printf("%lu\n", global_options.dpid);
-    write(pf, pid, strlen(pid));
+    if(write(pf, pid, strlen(pid))<(int)strlen(pid)) {
+        s_log(LOG_ERR, "Cannot write pid file %s", global_options.pidfile);
+        ioerror("write");
+        return 1;
+    }
     str_free(pid);
     close(pf);
     s_log(LOG_DEBUG, "Created pid file %s", global_options.pidfile);
@@ -204,6 +208,20 @@ NOEXPORT void delete_pid(void) {
 void ui_new_config(void) {
     /* no action */
 }
+
+#ifdef ICON_IMAGE
+
+ICON_IMAGE load_icon_default(ICON_TYPE icon) {
+    (void)icon; /* skip warning about unused parameter */
+    return (ICON_IMAGE)0;
+}
+
+ICON_IMAGE load_icon_file(const char *file) {
+    (void)file; /* skip warning about unused parameter */
+    return (ICON_IMAGE)0;
+}
+
+#endif
 
 /**************************************** client callbacks */
 
