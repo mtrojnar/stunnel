@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -224,7 +224,7 @@ NOEXPORT int check(char *name, int fd) {
 
 #ifdef USE_LIBWRAP_POOL
 
-NOEXPORT ssize_t read_fd(int fd, void *ptr, size_t nbytes, int *recvfd) {
+NOEXPORT ssize_t read_fd(SOCKET fd, void *ptr, size_t nbytes, SOCKET *recvfd) {
     struct msghdr msg;
     struct iovec iov[1];
     ssize_t n;
@@ -253,7 +253,7 @@ NOEXPORT ssize_t read_fd(int fd, void *ptr, size_t nbytes, int *recvfd) {
     msg.msg_iov=iov;
     msg.msg_iovlen=1;
 
-    *recvfd=-1; /* descriptor was not passed */
+    *recvfd=INVALID_SOCKET; /* descriptor was not passed */
     n=recvmsg(fd, &msg, 0);
     if(n<=0)
         return n;

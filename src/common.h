@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -224,8 +224,8 @@ typedef int                 ssize_t;
 #define set_last_socket_error(e)    WSASetLastError(e)
 #define get_last_error()            GetLastError()
 #define set_last_error(e)           SetLastError(e)
-#define readsocket(s,b,n)           recv((s),(b),(n),0)
-#define writesocket(s,b,n)          send((s),(b),(n),0)
+#define readsocket(s,b,n)           recv((s),(b),(int)(n),0)
+#define writesocket(s,b,n)          send((s),(b),(int)(n),0)
 
 /* #define Win32_Winsock */
 #define __USE_W32_SOCKETS
@@ -270,6 +270,9 @@ typedef int                 ssize_t;
 #define closesocket(s)              close(s)
 #define ioctlsocket(a,b,c)          ioctl((a),(b),(c))
 #endif
+
+typedef int SOCKET;
+#define INVALID_SOCKET (-1)
 
     /* OpenVMS compatibility */
 #ifdef __vms
@@ -398,22 +401,21 @@ extern char *sys_errlist[];
 
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>
-#if defined(USE_PTHREAD) && !(defined(OPENSSL_THREADS) || \
-    (OPENSSL_VERSION_NUMBER<0x0090700fL && defined(THREADS)))
-#error OpenSSL library compiled without thread support
-#endif /* !OPENSSL_THREADS && USE_PTHREAD */
-
 /* opensslv.h requires prior opensslconf.h to include -fips in version string */
 #include <openssl/opensslv.h>
 
 #if OPENSSL_VERSION_NUMBER<0x0090700fL
-#define OPENSSL_NO_MD4
-#endif /* OpenSSL older than 0.7.0 */
+#error OpenSSL 0.9.7 or later is required
+#endif /* OpenSSL older than 0.9.7 */
+
+#if defined(USE_PTHREAD) && !defined(OPENSSL_THREADS)
+#error OpenSSL library compiled without thread support
+#endif /* !OPENSSL_THREADS && USE_PTHREAD */
 
 #if OPENSSL_VERSION_NUMBER<0x0090800fL
 #define OPENSSL_NO_ECDH
 #define OPENSSL_NO_COMP
-#endif /* OpenSSL older than 0.8.0 */
+#endif /* OpenSSL older than 0.9.8 */
 
 /* non-blocking OCSP API is not available before OpenSSL 0.9.8h */
 #if OPENSSL_VERSION_NUMBER<0x00908080L
@@ -449,9 +451,6 @@ extern char *sys_errlist[];
 #if defined(USE_WIN32) && defined(OPENSSL_FIPS)
 #define USE_FIPS
 #endif
-
-/* OpenSSL 0.9.6 comp.h needs ZLIB macro to declare COMP_zlib() */
-#define ZLIB
 
 #include <openssl/lhash.h>
 #include <openssl/ssl.h>

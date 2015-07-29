@@ -15,8 +15,9 @@ B<stunnel> [S<PLIK>] | S<-fd N> | S<-help> | S<-version> | S<-sockets> | S<-opti
 
 =item B<WIN32:>
 
-B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop> ] | S<-exit>]
-    [S<-quiet>] [S<PLIK>] ] | S<-help> | S<-version> | S<-sockets> | S<-options>
+B<stunnel> [ [ S<-install> | S<-uninstall> | S<-start> | S<-stop> |
+    S<-reload> | S<-reopen> | S<-exit> ] [S<-quiet>] [S<PLIK>] ] |
+    S<-help> | S<-version> | S<-sockets> | S<-options>
 
 =back
 
@@ -79,6 +80,14 @@ uruchom serwis NT
 =item B<-stop> (tylko Windows NT lub nowszy)
 
 zatrzymaj serwis NT
+
+=item B<-reload> (tylko Windows NT lub nowszy)
+
+przeładuj plik konfiguracyjny uruchomionego serwisu NT
+
+=item B<-reopen> (tylko Windows NT lub nowszy)
+
+otwórz ponownie log uruchomionego serwisu NT
 
 =item B<-exit> (tylko Win32)
 
@@ -438,6 +447,33 @@ program B<stunnel> do uwierzytelnienia się przed drugą stroną połączenia.
 Certyfikat jest konieczny, aby używać programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
 
+=item B<checkEmail> = EMAIL
+
+adres email przedstawionego certyfikatu
+
+Pojedyncza sekcja może zawierać wiele wystąpień opcji B<checkEmail>.
+Certyfikaty są akceptowane, jeżeli sekcja nie zawiera opcji B<checkEmail>,
+albo adres email przedstawionego certyfikatu pasuje do jednego z adresów
+email określonych przy pomocy B<checkEmail>.
+
+=item B<checkHost> = NAZWA_SERWERA
+
+nazwa serwera przedstawionego certyfikatu
+
+Pojedyncza sekcja może zawierać wiele wystąpień opcji B<checkHost>.
+Certyfikaty są akceptowane, jeżeli sekcja nie zawiera opcji B<checkHost>, albo
+nazwa serwera przedstawionego certyfikatu pasuje do jednego nazw określonych
+przy pomocy B<checkHost>.
+
+=item B<checkIP> = IP
+
+adres IP przedstawionego certyfikatu
+
+Pojedyncza sekcja może zawierać wiele wystąpień opcji B<checkIP>.  Certyfikaty
+są akceptowane, jeżeli sekcja nie zawiera opcji B<checkIP>, albo adres IP
+przedstawionego certyfikatu pasuje do jednego z adresów IP określonych przy
+pomocy B<checkIP>.
+
 =item B<ciphers> = LISTA_SZYFRÓW
 
 lista dozwolonych szyfrów SSL
@@ -573,7 +609,7 @@ względem tego katalogu.
 Na platformach Unix ustawiane są następujące zmienne środowiskowe:
 REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.
 
-=item B<execargs> = $0 $1 $2 ...
+=item B<execArgs> = $0 $1 $2 ...
 
 argumenty do opcji I<exec> włącznie z nazwą programu ($0)
 
@@ -814,10 +850,10 @@ alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
 
 =item B<redirect> = [HOST:]PORT
 
-przekieruj klienta, któremu nie udało się poprawnie uwierzytelnić
+przekieruj klienta, któremu nie udało się poprawnie uwierzytelnić przy pomocy certyfikatu
 
-Opcja działa wyłącznie w trybie serwera, oraz przy wyłączonej negocjacji
-protokołu aplikacyjnego.
+Opcja działa wyłącznie w trybie serwera.
+Część negocjacji protokołów jest niekompatybilna z opcją I<redirect>.
 
 =item B<renegotiation> = yes | no
 
@@ -1109,7 +1145,7 @@ Szyfrowanie połączeń do lokalnego serwera I<imapd> można użyć:
     [imapd]
     accept = 993
     exec = /usr/sbin/imapd
-    execargs = imapd
+    execArgs = imapd
 
 albo w trybie zdalnym:
 
@@ -1133,7 +1169,7 @@ może wyglądać następująco:
     [vpn]
     accept = 2020
     exec = /usr/sbin/pppd
-    execargs = pppd local
+    execArgs = pppd local
     pty = yes
 
 Poniższy plik konfiguracyjny może być wykorzystany do uruchomienia
@@ -1141,7 +1177,7 @@ programu B<stunnel> w trybie I<inetd>.  Warto zauważyć, że w pliku
 konfiguracyjnym nie ma sekcji I<[nazwa_usługi]>.
 
     exec = /usr/sbin/imapd
-    execargs = imapd
+    execArgs = imapd
 
 Aby skonfigurować VPN można użyć następującej konfiguracji klienta:
 
@@ -1320,7 +1356,7 @@ plik konfiguracyjny programu
 
 =head1 BŁĘDY
 
-Opcja I<execargs> oraz linia komend Win32 nie obsługuje cytowania.
+Opcja I<execArgs> oraz linia komend Win32 nie obsługuje cytowania.
 
 
 =head1 ZOBACZ RÓWNIEŻ

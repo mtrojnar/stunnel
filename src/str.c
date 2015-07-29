@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -50,7 +50,7 @@ struct alloc_list_struct {
 #ifdef __GNUC__
 } __attribute__((aligned(16)));
 #else
-    int padding[2]; /* the number of integers is architecture-specific */
+    uint64_t :0; /* align the structure */
 };
 #endif
 
@@ -59,15 +59,11 @@ NOEXPORT LPTSTR str_vtprintf(LPCTSTR, va_list);
 #endif /* USE_WIN32 */
 
 NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
-NOEXPORT void str_free_function(void *);
 NOEXPORT void str_leak_debug(ALLOC_LIST *, int);
-
-NOEXPORT void tls_platform_init();
-NOEXPORT void tls_set(TLS_DATA *);
 
 TLS_DATA *ui_tls;
 static uint8_t canary[10]; /* 80-bit canary value */
-static volatile int canary_initialized=0, tls_initialized=0;
+static volatile int canary_initialized=0;
 
 /**************************************** string manipulation functions */
 
@@ -130,7 +126,8 @@ LPTSTR str_tprintf(LPCTSTR format, ...) {
 }
 
 NOEXPORT LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
-    int n, size=32;
+    int n;
+    size_t size=32;
     LPTSTR p;
     va_list ap;
 
@@ -138,7 +135,7 @@ NOEXPORT LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
     for(;;) {
         va_copy(ap, start_ap);
         n=_vsntprintf(p, size, format, ap);
-        if(n>-1 && n<size)
+        if(n>-1 && n<(int)size)
             return p;
         size*=2;
         p=str_realloc(p, size*sizeof(TCHAR));
@@ -149,10 +146,23 @@ NOEXPORT LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
 
 /**************************************** memory allocation wrappers */
 
+void str_init(TLS_DATA *tls_data) {
+    tls_data->alloc_head=NULL;
+    tls_data->alloc_bytes=tls_data->alloc_blocks=0;
+}
+
+void str_cleanup(TLS_DATA *tls_data) {
+    /* free all attached allocations */
+    while(tls_data->alloc_head) /* str_free macro requires an lvalue */
+        str_free_expression(tls_data->alloc_head+1);
+}
+
 void str_canary_init() {
     if(canary_initialized) /* prevent double initialization on config reload */
         return;
     RAND_bytes(canary, sizeof canary);
+    /* an error would reduce the effectiveness of canaries */
+    /* this is nothing critical, so the return value is ignored here */
     canary_initialized=1; /* after RAND_bytes */
 }
 
@@ -376,157 +386,5 @@ int safe_memcmp(const void *s1, const void *s2, size_t n) {
         r|=*p1++^*p2++;
     return r;
 }
-
-/**************************************** thread local storage */
-
-/* this has to be the first function called from ui_*.c */
-void tls_init() {
-    tls_platform_init();
-    tls_initialized=1;
-    ui_tls=tls_alloc(NULL, NULL, "ui");
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
-    CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
-        str_realloc_debug, str_free_function);
-#endif
-}
-
-/* this has to be the first function called by a new thread */
-TLS_DATA *tls_alloc(CLI *c, TLS_DATA *inherited, char *txt) {
-    TLS_DATA *tls_data;
-    char *old_id=NULL;
-
-    if(inherited) { /* reuse the thread-local storage after fork() */
-        tls_data=inherited;
-        if(txt)
-            old_id=tls_data->id; /* delayed deallocation */
-    } else {
-        tls_data=calloc(1, sizeof(TLS_DATA));
-        if(!tls_data)
-            fatal("Out of memory");
-        if(c)
-            c->tls=tls_data;
-
-        tls_data->alloc_head=NULL;
-        tls_data->alloc_bytes=tls_data->alloc_blocks=0;
-        tls_data->c=c;
-        tls_data->opt=c?c->opt:&service_options;
-    }
-    tls_data->id="unconfigured";
-    tls_set(tls_data);
-
-    /* str.c functions can be used below this point */
-    if(txt) {
-        tls_data->id=str_dup(txt);
-        str_detach(tls_data->id); /* it is deallocated after str_stats() */
-    } else if(c) {
-        tls_data->id=log_id(c);
-        str_detach(tls_data->id); /* it is deallocated after str_stats() */
-    }
-    if(old_id)
-        str_free(old_id);
-
-    return tls_data;
-}
-
-/* per-thread thread-local storage cleanup */
-void tls_free() {
-    TLS_DATA *tls_data;
-
-    tls_data=tls_get();
-    if(!tls_data)
-        return;
-
-    str_free(tls_data->id);
-    while(tls_data->alloc_head) /* str_free macro requires an lvalue parameter */
-        str_free_expression(tls_data->alloc_head+1);
-
-    tls_set(NULL);
-    free(tls_data);
-}
-
-#ifdef USE_UCONTEXT
-
-static TLS_DATA *global_tls=NULL;
-
-NOEXPORT void tls_platform_init() {
-}
-
-NOEXPORT void tls_set(TLS_DATA *tls_data) {
-    if(ready_head)
-        ready_head->tls=tls_data;
-    else /* ucontext threads not initialized */
-        global_tls=tls;
-}
-
-TLS_DATA *tls_get() {
-    if(ready_head)
-        return ready_head->tls;
-    else /* ucontext threads not initialized */
-        return global_tls;
-}
-
-#endif /* USE_UCONTEXT */
-
-#ifdef USE_FORK
-
-static TLS_DATA *global_tls=NULL;
-
-NOEXPORT void tls_platform_init() {
-}
-
-NOEXPORT void tls_set(TLS_DATA *tls_data) {
-    global_tls=tls_data;
-}
-
-TLS_DATA *tls_get() {
-    return global_tls;
-}
-
-#endif /* USE_FORK */
-
-#ifdef USE_PTHREAD
-
-static pthread_key_t pthread_key;
-
-NOEXPORT void tls_platform_init() {
-    pthread_key_create(&pthread_key, NULL);
-}
-
-NOEXPORT void tls_set(TLS_DATA *tls_data) {
-    pthread_setspecific(pthread_key, tls_data);
-}
-
-TLS_DATA *tls_get() {
-    return pthread_getspecific(pthread_key);
-}
-
-#endif /* USE_PTHREAD */
-
-#ifdef USE_WIN32
-
-static DWORD tls_index;
-
-NOEXPORT void tls_platform_init() {
-    tls_index=TlsAlloc();
-}
-
-NOEXPORT void tls_set(TLS_DATA *tls_data) {
-    TlsSetValue(tls_index, tls_data);
-}
-
-TLS_DATA *tls_get() {
-    return TlsGetValue(tls_index);
-}
-
-#endif /* USE_WIN32 */
-
-/**************************************** OpenSSL allocator hook */
-
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
-NOEXPORT void str_free_function(void *ptr) {
-    /* CRYPTO_set_mem_ex_functions() needs a function rather than a macro */
-    str_free(ptr);
-}
-#endif
 
 /* end of str.c */

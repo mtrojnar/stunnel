@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -66,26 +66,24 @@ NOEXPORT unsigned psk_server_callback(SSL *, const char *,
 #endif /* !defined(OPENSSL_NO_PSK) */
 NOEXPORT int load_cert(SERVICE_OPTIONS *);
 NOEXPORT int load_key_file(SERVICE_OPTIONS *);
+#ifndef OPENSSL_NO_ENGINE
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
-NOEXPORT int password_cb(char *, int, int, void *);
 #endif
+NOEXPORT int password_cb(char *, int, int, void *);
 
 /* session cache callbacks */
 NOEXPORT int sess_new_cb(SSL *, SSL_SESSION *);
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *, unsigned char *, int, int *);
 NOEXPORT void sess_remove_cb(SSL_CTX *, SSL_SESSION *);
+
+/* sessiond interface */
 NOEXPORT void cache_transfer(SSL_CTX *, const u_char, const long,
     const u_char *, const size_t,
     const u_char *, const size_t,
     unsigned char **, size_t *);
 
 /* info callbacks */
-NOEXPORT void info_callback(
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
-    const
-#endif
-    SSL *, int, int);
+NOEXPORT void info_callback(const SSL *, int, int);
 
 NOEXPORT void sslerror_queue(void);
 NOEXPORT void sslerror_log(unsigned long, char *);
@@ -102,7 +100,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
         sslerror("SSL_CTX_new");
         return 1; /* FAILED */
     }
-    SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
+    SSL_CTX_set_ex_data(section->ctx, index_opt, section); /* for callbacks */
 
     /* load certificate and private key to be verified by the peer server */
 #if !defined(OPENSSL_NO_ENGINE) && OPENSSL_VERSION_NUMBER>=0x0090809fL
@@ -147,8 +145,11 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
             return 1; /* FAILED */
         }
     }
+#ifdef SSL_SESS_CACHE_NO_INTERNAL_STORE
+    /* the default cache mode is just SSL_SESS_CACHE_SERVER */
     SSL_CTX_set_session_cache_mode(section->ctx,
         SSL_SESS_CACHE_SERVER|SSL_SESS_CACHE_NO_INTERNAL_STORE);
+#endif
     SSL_CTX_sess_set_cache_size(section->ctx, section->session_size);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
     if(section->option.sessiond) {
@@ -218,7 +219,7 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
     for(list=section->servername_list_head; list; list=list->next)
         if(matches_wildcard((char *)servername, list->servername)) {
             s_log(LOG_DEBUG, "SNI: matched pattern: %s", list->servername);
-            c=SSL_get_ex_data(ssl, cli_index);
+            c=SSL_get_ex_data(ssl, index_cli);
             c->opt=list->opt;
             SSL_set_SSL_CTX(ssl, c->opt->ctx);
             SSL_set_verify(ssl, SSL_CTX_get_verify_mode(c->opt->ctx),
@@ -397,7 +398,7 @@ NOEXPORT unsigned psk_client_callback(SSL *ssl, const char *hint,
     size_t identity_len;
 
     (void)hint; /* skip warning about unused parameter */
-    c=SSL_get_ex_data(ssl, cli_index);
+    c=SSL_get_ex_data(ssl, index_cli);
     if(!c->opt->psk_selected) {
         s_log(LOG_ERR, "INTERNAL ERROR: No PSK identity selected");
         return 0;
@@ -408,12 +409,12 @@ NOEXPORT unsigned psk_client_callback(SSL *ssl, const char *hint,
     identity_len=strlen(c->opt->psk_selected->identity)+1;
     if(identity_len>max_identity_len) {
         s_log(LOG_ERR, "PSK identity too long (%lu>%d bytes)",
-            identity_len, max_psk_len);
+            (long unsigned)identity_len, max_psk_len);
         return 0;
     }
     if(c->opt->psk_selected->key_len>max_psk_len) {
         s_log(LOG_ERR, "PSK too long (%lu>%d bytes)",
-            c->opt->psk_selected->key_len, max_psk_len);
+            (long unsigned)c->opt->psk_selected->key_len, max_psk_len);
         return 0;
     }
     strcpy(identity, c->opt->psk_selected->identity);
@@ -428,7 +429,7 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     PSK_KEYS *found;
     size_t len;
 
-    c=SSL_get_ex_data(ssl, cli_index);
+    c=SSL_get_ex_data(ssl, index_cli);
     found=psk_find(&c->opt->psk_sorted, identity);
     if(found) {
         len=found->key_len;
@@ -437,15 +438,20 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
         len=0;
     }
     if(len>max_psk_len) {
-        s_log(LOG_ERR, "PSK too long (%lu>%d bytes)", len, max_psk_len);
+        s_log(LOG_ERR, "PSK too long (%lu>%d bytes)",
+            (long unsigned)len, max_psk_len);
         len=0;
     }
     if(len) {
         memcpy(psk, found->key_val, len);
         s_log(LOG_NOTICE, "Key configured for PSK identity \"%s\"", identity);
     } else { /* block identity probes if possible */
-        if(max_psk_len>=32 && RAND_bytes(psk, 32))
+        if(max_psk_len>=32 && RAND_bytes(psk, 32)>0) {
             len=32; /* 256 random bits */
+            s_log(LOG_ERR, "Configured random PSK");
+        } else {
+            s_log(LOG_ERR, "Rejecting with unknown_psk_identity alert");
+        }
     }
     return (unsigned)len;
 }
@@ -466,7 +472,8 @@ void psk_sort(PSK_TABLE *table, PSK_KEYS *head) {
     table->num=0;
     for(curr=head; curr; curr=curr->next)
         ++table->num;
-    s_log(LOG_INFO, "PSK identities: %lu retrieved", table->num);
+    s_log(LOG_INFO, "PSK identities: %lu retrieved",
+        (long unsigned)table->num);
     table->val=str_alloc(table->num*sizeof(PSK_KEYS *));
     for(curr=head, i=0; i<table->num; ++i) {
         table->val[i]=curr;
@@ -536,9 +543,7 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
         return 1;
 
     ui_data.section=section; /* setup current section for callbacks */
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
     SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
-#endif
 
     for(i=0; i<=3; i++) {
         if(!i && !cache_initialized)
@@ -570,9 +575,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
     s_log(LOG_INFO, "Loading key from engine: %s", section->key);
 
     ui_data.section=section; /* setup current section for callbacks */
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
     SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
-#endif
 
 #ifdef USE_WIN32
     ui_method=UI_create_method("stunnel WIN32 UI");
@@ -604,7 +607,6 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
 }
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
 NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
     static char cache[PEM_BUFSIZE];
     int len;
@@ -616,7 +618,6 @@ NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
 #ifdef USE_WIN32
         len=passwd_cb(buf, size, rwflag, userdata);
 #else
-        /* PEM_def_callback is defined in OpenSSL 0.9.7 and later */
         len=PEM_def_callback(buf, size, rwflag, NULL);
 #endif
         memcpy(cache, buf, (size_t)size); /* save in cache */
@@ -628,7 +629,6 @@ NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
     }
     return len;
 }
-#endif
 
 /**************************************** session cache callbacks */
 
@@ -641,7 +641,6 @@ NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
 NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
     unsigned char *val, *val_tmp;
     ssize_t val_len;
-    SSL_CTX *ctx;
     const unsigned char *session_id;
     unsigned int session_id_length;
 
@@ -649,9 +648,14 @@ NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
     val_tmp=val=str_alloc((size_t)val_len);
     i2d_SSL_SESSION(sess, &val_tmp);
 
-    ctx=SSL_get_SSL_CTX(ssl);
+#if OPENSSL_VERSION_NUMBER>=0x0090800fL
     session_id=SSL_SESSION_get_id(sess, &session_id_length);
-    cache_transfer(ctx, CACHE_CMD_NEW, SSL_SESSION_get_timeout(sess),
+#else
+    session_id=(const unsigned char *)sess->session_id;
+    session_id_length=sess->session_id_length;
+#endif
+    cache_transfer(SSL_get_SSL_CTX(ssl), CACHE_CMD_NEW,
+        SSL_SESSION_get_timeout(sess),
         session_id, session_id_length, val, (size_t)val_len, NULL, NULL);
     str_free(val);
     return 1; /* leave the session in local cache for reuse */
@@ -662,11 +666,9 @@ NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
     unsigned char *val, *val_tmp=NULL;
     ssize_t val_len=0;
     SSL_SESSION *sess;
-    SSL_CTX *ctx;
 
     *do_copy = 0; /* allow the session to be freed autmatically */
-    ctx=SSL_get_SSL_CTX(ssl);
-    cache_transfer(ctx, CACHE_CMD_GET, 0,
+    cache_transfer(SSL_get_SSL_CTX(ssl), CACHE_CMD_GET, 0,
         key, (size_t)key_len, NULL, 0, &val, (size_t *)&val_len);
     if(!val)
         return NULL;
@@ -684,7 +686,12 @@ NOEXPORT void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
     const unsigned char *session_id;
     unsigned int session_id_length;
 
+#if OPENSSL_VERSION_NUMBER>=0x0090800fL
     session_id=SSL_SESSION_get_id(sess, &session_id_length);
+#else
+    session_id=(const unsigned char *)sess->session_id;
+    session_id_length=sess->session_id_length;
+#endif
     cache_transfer(ctx, CACHE_CMD_REMOVE, 0,
         session_id, session_id_length, NULL, 0, NULL, NULL);
 }
@@ -706,7 +713,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     const char hex[16]="0123456789ABCDEF";
     const char *type_description[]={"new", "get", "remove"};
     unsigned i;
-    int s;
+    SOCKET s;
     ssize_t len;
     struct timeval t;
     CACHE_PACKET *packet;
@@ -722,18 +729,18 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     }
     session_id_txt[2*i]='\0';
     s_log(LOG_INFO,
-        "cache_transfer: request=%s, timeout=%ld, id=%s, length=%ld",
-        type_description[type], timeout, session_id_txt, val_len);
+        "cache_transfer: request=%s, timeout=%ld, id=%s, length=%lu",
+        type_description[type], timeout, session_id_txt, (long unsigned)val_len);
 
     /* allocate UDP packet buffer */
     if(key_len>SSL_MAX_SSL_SESSION_ID_LENGTH) {
-        s_log(LOG_ERR, "cache_transfer: session id too big (%ld bytes)",
-            key_len);
+        s_log(LOG_ERR, "cache_transfer: session id too big (%lu bytes)",
+            (unsigned long)key_len);
         return;
     }
     if(val_len>MAX_VAL_LEN) {
-        s_log(LOG_ERR, "cache_transfer: encoded session too big (%ld bytes)",
-            key_len);
+        s_log(LOG_ERR, "cache_transfer: encoded session too big (%lu bytes)",
+            (unsigned long)key_len);
         return;
     }
     packet=str_alloc(sizeof(CACHE_PACKET));
@@ -747,15 +754,20 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
 
     /* create the socket */
     s=s_socket(AF_INET, SOCK_DGRAM, 0, 0, "cache_transfer: socket");
-    if(s<0) {
+    if(s==INVALID_SOCKET) {
         str_free(packet);
         return;
     }
 
     /* retrieve pointer to the section structure of this ctx */
-    section=SSL_CTX_get_ex_data(ctx, opt_index);
-    if(sendto(s, (void *)packet, sizeof(CACHE_PACKET)-MAX_VAL_LEN+val_len, 0,
-            &section->sessiond_addr.sa, addr_len(&section->sessiond_addr))<0) {
+    section=SSL_CTX_get_ex_data(ctx, index_opt);
+    if(sendto(s, (void *)packet,
+#ifdef USE_WIN32
+            (int)
+#endif
+            (sizeof(CACHE_PACKET)-MAX_VAL_LEN+val_len),
+            0, &section->sessiond_addr.sa,
+            addr_len(&section->sessiond_addr))<0) {
         sockerror("cache_transfer: sendto");
         closesocket(s);
         str_free(packet);
@@ -813,15 +825,11 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
 
 /**************************************** informational callback */
 
-NOEXPORT void info_callback(
-#if OPENSSL_VERSION_NUMBER>=0x0090700fL
-        const
-#endif
-        SSL *ssl, int where, int ret) {
+NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
     CLI *c;
     SSL_CTX *ctx;
 
-    c=SSL_get_ex_data((SSL *)ssl, cli_index);
+    c=SSL_get_ex_data((SSL *)ssl, index_cli);
     if(c) {
         if((where&SSL_CB_HANDSHAKE_DONE)
                 && c->reneg_state==RENEG_INIT) {
@@ -854,29 +862,38 @@ NOEXPORT void info_callback(
             SSL_alert_type_string_long(ret),
             SSL_alert_desc_string_long(ret));
     } else if(where==SSL_CB_HANDSHAKE_DONE) {
-        ctx=SSL_get_SSL_CTX(ssl);
-        s_log(LOG_DEBUG, "%4ld items in the session cache",
-            SSL_CTX_sess_number(ctx));
-        s_log(LOG_DEBUG, "%4ld client connects (SSL_connect())",
-            SSL_CTX_sess_connect(ctx));
-        s_log(LOG_DEBUG, "%4ld client connects that finished",
-            SSL_CTX_sess_connect_good(ctx));
-        s_log(LOG_DEBUG, "%4ld client renegotiations requested",
-            SSL_CTX_sess_connect_renegotiate(ctx));
-        s_log(LOG_DEBUG, "%4ld server connects (SSL_accept())",
-            SSL_CTX_sess_accept(ctx));
-        s_log(LOG_DEBUG, "%4ld server connects that finished",
-            SSL_CTX_sess_accept_good(ctx));
-        s_log(LOG_DEBUG, "%4ld server renegotiations requested",
-            SSL_CTX_sess_accept_renegotiate(ctx));
-        s_log(LOG_DEBUG, "%4ld session cache hits",
+        ctx=SSL_get_SSL_CTX((SSL *)ssl);
+        if(c->opt->option.client) {
+            s_log(LOG_DEBUG, "%4ld client connect(s) requested",
+                SSL_CTX_sess_connect(ctx));
+            s_log(LOG_DEBUG, "%4ld client connect(s) succeeded",
+                SSL_CTX_sess_connect_good(ctx));
+            s_log(LOG_DEBUG, "%4ld client renegotiation(s) requested",
+                SSL_CTX_sess_connect_renegotiate(ctx));
+        } else {
+            s_log(LOG_DEBUG, "%4ld server accept(s) requested",
+                SSL_CTX_sess_accept(ctx));
+            s_log(LOG_DEBUG, "%4ld server accept(s) succeeded",
+                SSL_CTX_sess_accept_good(ctx));
+            s_log(LOG_DEBUG, "%4ld server renegotiation(s) requested",
+                SSL_CTX_sess_accept_renegotiate(ctx));
+        }
+        /* according to the source it not only includes internal
+           and external session caches, but also session tickets */
+        s_log(LOG_DEBUG, "%4ld session reuse(s)",
             SSL_CTX_sess_hits(ctx));
-        s_log(LOG_DEBUG, "%4ld external session cache hits",
-            SSL_CTX_sess_cb_hits(ctx));
-        s_log(LOG_DEBUG, "%4ld session cache misses",
-            SSL_CTX_sess_misses(ctx));
-        s_log(LOG_DEBUG, "%4ld session cache timeouts",
-            SSL_CTX_sess_timeouts(ctx));
+        if(!c->opt->option.client) { /* server session cache stats */
+            s_log(LOG_DEBUG, "%4ld internal session cache item(s)",
+                SSL_CTX_sess_number(ctx));
+            s_log(LOG_DEBUG, "%4ld internal session cache fill-up(s)",
+                SSL_CTX_sess_cache_full(ctx));
+            s_log(LOG_DEBUG, "%4ld internal session cache miss(es)",
+                SSL_CTX_sess_misses(ctx));
+            s_log(LOG_DEBUG, "%4ld external session cache hit(s)",
+                SSL_CTX_sess_cb_hits(ctx));
+            s_log(LOG_DEBUG, "%4ld expired session(s) retrieved",
+                SSL_CTX_sess_timeouts(ctx));
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -39,22 +39,28 @@
 #include "prototypes.h"
 
     /* global OpenSSL initalization: compression, engine, entropy */
+NOEXPORT void cb_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+    int idx, long argl, void *argp);
+#ifndef OPENSSL_NO_COMP
 NOEXPORT int compression_init(GLOBAL_OPTIONS *);
+#endif
 NOEXPORT int prng_init(GLOBAL_OPTIONS *);
 NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
 
-int cli_index, opt_index, redirect_index; /* to keep structure for callbacks */
+int index_cli, index_opt, index_redirect, index_addr;
 
 int ssl_init(void) { /* init SSL before parsing configuration file */
     SSL_load_error_strings();
     SSL_library_init();
-    cli_index=SSL_get_ex_new_index(0, "cli pointer index",
+    index_cli=SSL_get_ex_new_index(0, "cli index",
         NULL, NULL, NULL);
-    opt_index=SSL_CTX_get_ex_new_index(0, "opt pointer index",
+    index_opt=SSL_CTX_get_ex_new_index(0, "opt index",
         NULL, NULL, NULL);
-    redirect_index=SSL_SESSION_get_ex_new_index(0, "redirect value index",
+    index_redirect=SSL_SESSION_get_ex_new_index(0, "redirect index",
         NULL, NULL, NULL);
-    if(cli_index<0 || opt_index<0 || redirect_index<0) {
+    index_addr=SSL_SESSION_get_ex_new_index(0, "addr index",
+        NULL, NULL, cb_free);
+    if(index_cli<0 || index_opt<0 || index_redirect<0 || index_addr<0) {
         s_log(LOG_ERR, "Application specific data initialization failed");
         return 1;
     }
@@ -62,6 +68,17 @@ int ssl_init(void) { /* init SSL before parsing configuration file */
     ENGINE_load_builtin_engines();
 #endif
     return 0;
+}
+
+NOEXPORT void cb_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+        int idx, long argl, void *argp) {
+    (void)parent; /* skip warning about unused parameter */
+    (void)ad; /* skip warning about unused parameter */
+    (void)idx; /* skip warning about unused parameter */
+    (void)argl; /* skip warning about unused parameter */
+    s_log(LOG_DEBUG, "Deallocating application specific data for %s",
+        (char *)argp);
+    str_free(ptr);
 }
 
 int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global SSL settings */

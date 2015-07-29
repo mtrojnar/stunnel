@@ -1,12 +1,44 @@
 stunnel change log
 
 
+Version 5.15, 2015.04.16, urgency: LOW:
+* New features
+  - Added new service-level options "checkHost", "checkEmail" and
+    "checkIP" for additional checks of the peer certificate subject.
+    These options require OpenSSL version 1.0.2 or higher.
+  - Win32 binary distribution now ships with the Mozilla root CA
+    bundle.  This bundle is intended be used together with the new
+    "checkHost" option to validate server certs accepted by Mozilla.
+  - New commandline options "-reload" to reload the configuration
+    file and "-reopen" to reopen the log file of stunnel running
+    as a Windows service (thx to Marc McLaughlin).
+  - Added session persistence based on negotiated TLS sessions.
+    https://en.wikipedia.org/wiki/Load_balancing_%28computing%29#Persistence
+    The current implementation does not support external TLS
+    session caching with sessiond.
+  - MEDIUM ciphers (currently SEED and RC4) are removed from the
+    default cipher list.
+  - The "redirect" option was improved to not only redirect sessions
+    established with an untrusted certificate, but also sessions
+    established without a client certificate.
+  - OpenSSL version checking modified to distinguish FIPS and
+    non-FIPS builds.
+  - Improved compatibility with the current OpenSSL 1.1.0-dev tree.
+  - Removed support for OpenSSL versions older than 0.9.7.
+    The final update for the OpenSSL 0.9.6 branch was 17 Mar 2004.
+  - "sessiond" support improved to also work in OpenSSL 0.9.7.
+  - Randomize the initial value of the round-robin counter.
+  - New stunnel.conf templates are provided for Windows and Unix.
+* Bugfixes
+  - Fixed compilation against old versions of OpenSSL.
+  - Fixed memory leaks in certificate verification.
+
 Version 5.14, 2015.03.25, urgency: HIGH:
 * Security bugfixes
   - The "redirect" option now also redirects clients on SSL session
     reuse.  In stunnel versions 5.00 to 5.12 reused sessions were
-    never redirected regardless of their certificate verification
-    result.
+    instead always connected hosts specified with the "connect"
+    option regardless of their certificate verification result.
     This vulnerability was reported by Johan Olofsson.
 * New features
   - Windows service is automatically restarted after upgrade.
@@ -280,6 +312,10 @@ Version 5.00, 2014.03.06, urgency: HIGH:
   - Corrected round-robin failover behavior under heavy load.
   - Numerous fixes in the engine support code.
   - On Win32 platform .rnd file moved from c:\ to the stunnel folder.
+
+Version 4.57, 2015.04.01, urgency: HIGH:
+* Security bugfixes
+  - Added PRNG state update in fork threading (CVE-2014-0016).
 
 Version 4.56, 2013.03.22, urgency: HIGH:
 * New features

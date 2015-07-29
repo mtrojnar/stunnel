@@ -135,6 +135,6 @@ END
 
 STRINGTABLE
 BEGIN
-IDS_SERVICE_DESC  "Universal SSL tunnel for network daemons"
+IDS_SERVICE_DESC  "TLS offloading and load-balancing proxy"
 END
 

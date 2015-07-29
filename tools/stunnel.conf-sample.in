@@ -7,11 +7,7 @@
 ; * Global options                                                         *
 ; **************************************************************************
 
-; A copy of some devices and system files is needed within the chroot jail
-; Chroot conflicts with configuration file reload and many other features
-; Remember also to update the logrotate configuration.
-;chroot = @prefix@/var/lib/stunnel/
-; Chroot jail can be escaped if setuid option is not used
+; It is recommended to drop root privileges if stunnel is started by root
 ;setuid = nobody
 ;setgid = @DEFAULT_GROUP@
 
@@ -19,37 +15,19 @@
 ;pid = @prefix@/var/run/stunnel.pid
 
 ; Debugging stuff (may be useful for troubleshooting)
-;debug = 7
+;foreground = yes
+;debug = info
 ;output = stunnel.log
+
+; Enable FIPS 140-2 mode if needed for compliance
+;fips = yes
 
 ; **************************************************************************
 ; * Service defaults may also be specified in individual service sections  *
 ; **************************************************************************
 
-; Certificate/key is needed in server mode and optional in client mode
-cert = @prefix@/etc/stunnel/mail.pem
-;key = @prefix@/etc/stunnel/mail.pem
-
-; Authentication stuff needs to be configured to prevent MITM attacks
-; It is not enabled by default!
-;verify = 2
-; Don't forget to c_rehash CApath
-; CApath is located inside chroot jail
-;CApath = /certs
-; It's often easier to use CAfile
-;CAfile = @prefix@/etc/stunnel/certs.pem
-; Don't forget to c_rehash CRLpath
-; CRLpath is located inside chroot jail
-;CRLpath = /crls
-; Alternatively CRLfile can be used
-;CRLfile = @prefix@/etc/stunnel/crls.pem
-
-; Enable support for the insecure SSLv2 protocol
-;options = -NO_SSLv2
 ; Enable support for the insecure SSLv3 protocol
 ;options = -NO_SSLv3
-; Workaround for Eudora bug
-;options = DONT_INSERT_EMPTY_FRAGMENTS
 
 ; These options provide additional security at some performance degradation
 ;options = SINGLE_ECDH_USE
@@ -59,45 +37,65 @@ cert = @prefix@/etc/stunnel/mail.pem
 ; * Service definitions (remove all services for inetd mode)               *
 ; **************************************************************************
 
-; Example SSL server mode services
+; ***************************************** Example TLS client mode services
 
-[pop3s]
-accept  = 995
-connect = 110
+[gmail-pop3]
+client = yes
+accept = 127.0.0.1:110
+connect = pop.gmail.com:995
+verify = 2
+CApath = /etc/ssl/certs
+checkHost = pop.gmail.com
 
-[imaps]
-accept  = 993
-connect = 143
+[gmail-imap]
+client = yes
+accept = 127.0.0.1:143
+connect = imap.gmail.com:993
+verify = 2
+CApath = /etc/ssl/certs
+checkHost = imap.gmail.com
 
-[ssmtp]
-accept  = 465
-connect = 25
+[gmail-smtp]
+client = yes
+accept = 127.0.0.1:25
+connect = smtp.gmail.com:465
+verify = 2
+CApath = /etc/ssl/certs
+checkHost = smtp.gmail.com
 
-; Example SSL client mode services
+; ***************************************** Example TLS server mode services
 
-;[gmail-pop3]
-;client = yes
-;accept = 127.0.0.1:110
-;connect = pop.gmail.com:995
+;[pop3s]
+;accept  = 995
+;connect = 110
+;cert = @prefix@/etc/stunnel/stunnel.pem
 
-;[gmail-imap]
-;client = yes
-;accept = 127.0.0.1:143
-;connect = imap.gmail.com:993
+;[imaps]
+;accept  = 993
+;connect = 143
+;cert = @prefix@/etc/stunnel/stunnel.pem
 
-;[gmail-smtp]
-;client = yes
-;accept = 127.0.0.1:25
-;connect = smtp.gmail.com:465
+;[ssmtp]
+;accept  = 465
+;connect = 25
+;cert = @prefix@/etc/stunnel/stunnel.pem
 
-; Example SSL front-end to a web server
-
+; TLS front-end to a web server
 ;[https]
 ;accept  = 443
 ;connect = 80
-; "TIMEOUTclose = 0" is a workaround for a design flaw in Microsoft SSL
-; Microsoft implementations do not use SSL close-notify alert and thus
-; they are vulnerable to truncation attacks
+;cert = @prefix@/etc/stunnel/stunnel.pem
+; "TIMEOUTclose = 0" is a workaround for a design flaw in Microsoft SChannel
+; Microsoft implementations do not use TLS close-notify alert and thus they
+; are vulnerable to truncation attacks
 ;TIMEOUTclose = 0
+
+; Remote shell protected with PSK-authenticated TLS
+; Create "@prefix@/etc/stunnel/secrets.txt" containing IDENTITY:KEY pairs
+;[shell]
+;accept = 1337
+;exec = /bin/sh
+;execArgs = sh -i
+;PSKsecrets = @prefix@/etc/stunnel/secrets.txt
 
 ; vim:ft=dosini

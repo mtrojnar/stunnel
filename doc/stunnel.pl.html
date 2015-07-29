@@ -28,7 +28,7 @@
 <dt id="WIN32"><b>WIN32:</b></dt>
 <dd>
 
-<p><b>stunnel</b> [ [<span style="white-space: nowrap;">-install</span> | <span style="white-space: nowrap;">-uninstall</span> | <span style="white-space: nowrap;">-start</span> | <span style="white-space: nowrap;">-stop</span> ] | <span style="white-space: nowrap;">-exit</span>] [<span style="white-space: nowrap;">-quiet</span>] [<span style="white-space: nowrap;">PLIK</span>] ] | <span style="white-space: nowrap;">-help</span> | <span style="white-space: nowrap;">-version</span> | <span style="white-space: nowrap;">-sockets</span> | <span style="white-space: nowrap;">-options</span></p>
+<p><b>stunnel</b> [ [ <span style="white-space: nowrap;">-install</span> | <span style="white-space: nowrap;">-uninstall</span> | <span style="white-space: nowrap;">-start</span> | <span style="white-space: nowrap;">-stop</span> | <span style="white-space: nowrap;">-reload</span> | <span style="white-space: nowrap;">-reopen</span> | <span style="white-space: nowrap;">-exit</span> ] [<span style="white-space: nowrap;">-quiet</span>] [<span style="white-space: nowrap;">PLIK</span>] ] | <span style="white-space: nowrap;">-help</span> | <span style="white-space: nowrap;">-version</span> | <span style="white-space: nowrap;">-sockets</span> | <span style="white-space: nowrap;">-options</span></p>
 
 </dd>
 </dl>
@@ -101,6 +101,18 @@
 <dd>
 
 <p>zatrzymaj serwis NT</p>
+
+</dd>
+<dt id="reload-tylko-Windows-NT-lub-nowszy"><b>-reload</b> (tylko Windows NT lub nowszy)</dt>
+<dd>
+
+<p>prze&#x142;aduj plik konfiguracyjny uruchomionego serwisu NT</p>
+
+</dd>
+<dt id="reopen-tylko-Windows-NT-lub-nowszy"><b>-reopen</b> (tylko Windows NT lub nowszy)</dt>
+<dd>
+
+<p>otw&oacute;rz ponownie log uruchomionego serwisu NT</p>
 
 </dd>
 <dt id="exit-tylko-Win32"><b>-exit</b> (tylko Win32)</dt>
@@ -459,6 +471,30 @@
 <p>plik z &#x142;a&#x144;cuchem certyfikat&oacute;w</p>
 
 <p>Opcja okre&#x15B;la po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez program <b>stunnel</b> do uwierzytelnienia si&#x119; przed drug&#x105; stron&#x105; po&#x142;&#x105;czenia. Certyfikat jest konieczny, aby u&#x17C;ywa&#x107; programu w trybie serwera. W trybie klienta certyfikat jest opcjonalny.</p>
+
+</dd>
+<dt id="checkEmail-EMAIL"><b>checkEmail</b> = EMAIL</dt>
+<dd>
+
+<p>adres email przedstawionego certyfikatu</p>
+
+<p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkEmail</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie zawiera opcji <b>checkEmail</b>, albo adres email przedstawionego certyfikatu pasuje do jednego z adres&oacute;w email okre&#x15B;lonych przy pomocy <b>checkEmail</b>.</p>
+
+</dd>
+<dt id="checkHost-NAZWA_SERWERA"><b>checkHost</b> = NAZWA_SERWERA</dt>
+<dd>
+
+<p>nazwa serwera przedstawionego certyfikatu</p>
+
+<p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkHost</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie zawiera opcji <b>checkHost</b>, albo nazwa serwera przedstawionego certyfikatu pasuje do jednego nazw okre&#x15B;lonych przy pomocy <b>checkHost</b>.</p>
+
+</dd>
+<dt id="checkIP-IP"><b>checkIP</b> = IP</dt>
+<dd>
+
+<p>adres IP przedstawionego certyfikatu</p>
+
+<p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkIP</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie zawiera opcji <b>checkIP</b>, albo adres IP przedstawionego certyfikatu pasuje do jednego z adres&oacute;w IP okre&#x15B;lonych przy pomocy <b>checkIP</b>.</p>
 
 </dd>
 <dt id="ciphers-LISTA_SZYFRW"><b>ciphers</b> = LISTA_SZYFR&Oacute;W</dt>
@@ -862,9 +898,9 @@
 <dt id="redirect-HOST:-PORT"><b>redirect</b> = [HOST:]PORT</dt>
 <dd>
 
-<p>przekieruj klienta, kt&oacute;remu nie uda&#x142;o si&#x119; poprawnie uwierzytelni&#x107;</p>
+<p>przekieruj klienta, kt&oacute;remu nie uda&#x142;o si&#x119; poprawnie uwierzytelni&#x107; przy pomocy certyfikatu</p>
 
-<p>Opcja dzia&#x142;a wy&#x142;&#x105;cznie w trybie serwera, oraz przy wy&#x142;&#x105;czonej negocjacji protoko&#x142;u aplikacyjnego.</p>
+<p>Opcja dzia&#x142;a wy&#x142;&#x105;cznie w trybie serwera. Cz&#x119;&#x15B;&#x107; negocjacji protoko&#x142;&oacute;w jest niekompatybilna z opcj&#x105; <i>redirect</i>.</p>
 
 </dd>
 <dt id="renegotiation-yes-no"><b>renegotiation</b> = yes | no</dt>

@@ -2,8 +2,9 @@
 
 # File lists
 common_headers = common.h prototypes.h version.h
-common_sources = str.c file.c client.c log.c options.c protocol.c network.c
-common_sources += resolver.c ssl.c ctx.c verify.c sthreads.c fd.c stunnel.c
+common_sources = tls.c str.c file.c client.c log.c options.c protocol.c
+common_sources += network.c resolver.c ssl.c ctx.c verify.c sthreads.c
+common_sources += fd.c stunnel.c
 unix_sources = pty.c libwrap.c ui_unix.c
 shared_sources = env.c
 win32_gui_sources = ui_win_gui.c resources.h resources.rc
@@ -50,7 +51,7 @@ WINCOMMONLIBS=-lws2_32
 WINSSLLIBS=-L$(OPENSSLDIR) -lcrypto -lssl
 WINGUILIBS=$(WINCOMMONLIBS) -lgdi32 -lpsapi $(WINSSLLIBS)
 WINCLILIBS=$(WINCOMMONLIBS) $(WINSSLLIBS)
-WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj
+WINOBJ = tls.obj str.obj file.obj client.obj log.obj options.obj protocol.obj
 WINOBJ += network.obj resolver.obj ssl.obj ctx.obj verify.obj sthreads.obj
 WINOBJ += fd.obj stunnel.obj
 WINGUIOBJ = $(WINOBJ) ui_win_gui.obj resources.obj

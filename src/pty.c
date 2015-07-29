@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -177,11 +177,11 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf) {
 #else /* HAVE_DEV_PTS_AND_PTC */
     /* BSD-style pty code. */
     char buf[64];
-    int i;
+    size_t i;
     const char *ptymajors="pqrstuvwxyzabcdefghijklmnoABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const char *ptyminors="0123456789abcdef";
-    int num_minors=strlen(ptyminors);
-    int num_ptys=strlen(ptymajors)*num_minors;
+    size_t num_minors=strlen(ptyminors);
+    size_t num_ptys=strlen(ptymajors)*num_minors;
 
     for(i=0; i<num_ptys; i++) {
 #ifdef HAVE_SNPRINTF

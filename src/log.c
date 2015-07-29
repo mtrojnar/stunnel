@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -138,7 +138,12 @@ void s_log(int level, const char *format, ...) {
     va_list ap;
     char *text, *stamp, *id;
     struct LIST *tmp;
-    int libc_error, socket_error;
+#ifdef USE_WIN32
+    DWORD libc_error;
+#else
+    int libc_error;
+#endif
+    int socket_error;
     time_t gmt;
     struct tm *timeptr;
 #if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
@@ -261,19 +266,30 @@ char *log_id(CLI *c) {
         enter_critical_section(CRIT_ID);
         my_seq=seq++;
         leave_critical_section(CRIT_ID);
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wformat-extra-args"
+#endif /* __GNUC__ */
         return str_printf("%llu", my_seq);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
     case LOG_ID_UNIQUE:
-        uniq=str_alloc(22+1); /* log2(62^22)=130.99 */
-        RAND_pseudo_bytes(rnd, 22);
-        for(i=0; i<22; ++i) {
+        if(RAND_bytes(rnd, sizeof rnd)<=0) /* log2(62^22)=130.99 */
+            return str_dup("error");
+        for(i=0; i<sizeof rnd; ++i) {
             rnd[i]&=63;
             while(rnd[i]>=62) {
-                RAND_pseudo_bytes(rnd+i, 1);
+                if(RAND_bytes(rnd+i, 1)<=0)
+                    return str_dup("error");
                 rnd[i]&=63;
             }
-            uniq[i]=table[rnd[i]];
         }
-        uniq[22]='\0';
+        uniq=str_alloc(sizeof rnd+1);
+        for(i=0; i<sizeof rnd; ++i)
+            uniq[i]=table[rnd[i]];
+        uniq[sizeof rnd]='\0';
         return uniq;
     case LOG_ID_THREAD:
         tid=stunnel_thread_id();
@@ -343,7 +359,7 @@ void fatal_debug(char *txt, const char *file, int line) {
 #endif /* __GNUC__ */
 
 void ioerror(const char *txt) { /* input/output error */
-    log_error(LOG_ERR, get_last_error(), txt);
+    log_error(LOG_ERR, (int)get_last_error(), txt);
 }
 
 void sockerror(const char *txt) { /* socket error */

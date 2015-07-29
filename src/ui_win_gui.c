@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -95,6 +95,7 @@ NOEXPORT int service_install(void);
 NOEXPORT int service_uninstall(void);
 NOEXPORT int service_start(void);
 NOEXPORT int service_stop(void);
+NOEXPORT int service_user(DWORD);
 NOEXPORT void WINAPI service_main(DWORD, LPTSTR *);
 NOEXPORT void WINAPI control_handler(DWORD);
 #endif /* !defined(_WIN32_WCE) */
@@ -105,7 +106,7 @@ NOEXPORT LPTSTR get_params();
 /* global variables */
 static struct LIST {
   struct LIST *next;
-  int len;
+  size_t len;
   TCHAR txt[1]; /* single character for trailing '\0' */
 } *head=NULL, *tail=NULL;
 
@@ -129,6 +130,7 @@ static TCHAR *win32_name=TEXT("stunnel ") TEXT(STUNNEL_VERSION)
 #ifndef _WIN32_WCE
 static SERVICE_STATUS serviceStatus;
 static SERVICE_STATUS_HANDLE serviceStatusHandle=0;
+#define SERVICE_CONTROL_USER 128
 #endif
 
 static BOOL visible=FALSE;
@@ -141,7 +143,7 @@ static UI_DATA *ui_data=NULL;
 static struct {
     char *config_file;
     unsigned service:1, install:1, uninstall:1, start:1, stop:1,
-        quiet:1, exit:1;
+        quiet:1, exit:1, reload:1, reopen:1;
 } cmdline;
 
 /**************************************** initialization */
@@ -171,6 +173,7 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
 #ifndef _WIN32_WCE
     /* find previous instances of the same executable */
     if(!cmdline.service && !cmdline.install && !cmdline.uninstall &&
+            !cmdline.reload && !cmdline.reopen &&
             !cmdline.start && !cmdline.stop) {
         EnumWindows(enum_windows, (LPARAM)stunnel_exe_path);
         if(cmdline.exit)
@@ -207,6 +210,10 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
         return service_start();
     if(cmdline.stop)
         return service_stop();
+    if(cmdline.reload)
+        return service_user(SIGNAL_RELOAD_CONFIG);
+    if(cmdline.reopen)
+        return service_user(SIGNAL_REOPEN_LOG);
 #endif
     return gui_loop();
 }
@@ -224,9 +231,9 @@ NOEXPORT BOOL CALLBACK enum_windows(HWND other_window_handle, LPARAM lParam) {
         return TRUE;
     hInstance=(HINSTANCE)GetWindowLong(other_window_handle, GWL_HINSTANCE);
     GetWindowThreadProcessId(other_window_handle, &pid);
-    process_handle=OpenProcess(SYNCHRONIZE        /* WaitForSingleObject() */ |
-        PROCESS_TERMINATE                         /* TerminateProcess()    */ |
-        PROCESS_QUERY_INFORMATION|PROCESS_VM_READ /* GetModuleFileNameEx() */,
+    process_handle=OpenProcess(SYNCHRONIZE|         /* WaitForSingleObject() */
+        PROCESS_TERMINATE|                          /* TerminateProcess()    */
+        PROCESS_QUERY_INFORMATION|PROCESS_VM_READ,  /* GetModuleFileNameEx() */
         FALSE, pid);
     if(!process_handle)
         return TRUE;
@@ -272,6 +279,10 @@ NOEXPORT void gui_cmdline() {
             cmdline.install=1;
         else if(!strcasecmp(opt+1, "uninstall"))
             cmdline.uninstall=1;
+        else if(!strcasecmp(opt+1, "reload"))
+            cmdline.reload=1;
+        else if(!strcasecmp(opt+1, "reopen"))
+            cmdline.reopen=1;
         else if(!strcasecmp(opt+1, "start"))
             cmdline.start=1;
         else if(!strcasecmp(opt+1, "stop"))
@@ -380,7 +391,7 @@ NOEXPORT int gui_loop() {
             return 0;
         case 0:
             s_log(LOG_DEBUG, "GUI message loop terminated");
-            return msg.wParam;
+            return (int)msg.wParam;
         default:
             TranslateMessage(&msg);
             DispatchMessage(&msg);
@@ -735,11 +746,13 @@ int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
     (void)rwflag; /* skip warning about unused parameter */
 
     ui_data=userdata;
+    if(size<0) /* just in case */
+        return 0;
     if(!DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc))
         return 0; /* error */
-    strncpy(buf, ui_data->pass, size);
+    strncpy(buf, ui_data->pass, (size_t)size);
     buf[size-1]='\0';
-    return strlen(buf);
+    return (int)strlen(buf);
 }
 
 #ifndef OPENSSL_NO_ENGINE
@@ -776,7 +789,7 @@ NOEXPORT void save_log() {
     ofn.lpstrInitialDir=TEXT(".");
 
     ofn.lpstrTitle=TEXT("Save Log");
-    ofn.Flags=OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY |
+    ofn.Flags=OFN_EXPLORER|OFN_PATHMUSTEXIST|OFN_HIDEREADONLY|
         OFN_OVERWRITEPROMPT;
     if(!GetSaveFileName(&ofn))
         return;
@@ -809,8 +822,8 @@ NOEXPORT int save_text_file(LPTSTR file_name, char *str) {
 
 NOEXPORT void win_log(LPCTSTR txt) {
     struct LIST *curr;
-    int txt_len;
-    static int log_len=0;
+    size_t txt_len;
+    static size_t log_len=0;
 
     txt_len=_tcslen(txt);
     curr=str_alloc(sizeof(struct LIST)+txt_len*sizeof(TCHAR));
@@ -845,7 +858,7 @@ NOEXPORT void update_logs(void) {
 
 NOEXPORT LPTSTR log_txt(void) {
     LPTSTR buff;
-    int ptr=0, len=0;
+    unsigned ptr=0, len=0;
     struct LIST *curr;
 
     for(curr=head; curr; curr=curr->next)
@@ -923,11 +936,11 @@ NOEXPORT void valid_config() {
     /* enable IDM_REOPEN_LOG menu if a log file is used, disable otherwise */
 #ifndef _WIN32_WCE
     EnableMenuItem(main_menu_handle, IDM_REOPEN_LOG,
-        global_options.output_file ? MF_ENABLED : MF_GRAYED);
+        (UINT)(global_options.output_file ? MF_ENABLED : MF_GRAYED));
 #endif
     if(tray_menu_handle)
         EnableMenuItem(tray_menu_handle, IDM_REOPEN_LOG,
-            global_options.output_file ? MF_ENABLED : MF_GRAYED);
+            (UINT)(global_options.output_file ? MF_ENABLED : MF_GRAYED));
 }
 
 NOEXPORT void update_peer_menu(void) {
@@ -1092,7 +1105,7 @@ NOEXPORT void update_tray(const int num) {
 
 NOEXPORT void error_box(LPCTSTR text) {
     LPTSTR errmsg, fullmsg;
-    long dw;
+    DWORD dw;
 
     dw=GetLastError();
     FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM,
@@ -1110,7 +1123,7 @@ void message_box(LPCTSTR text, const UINT type) {
     MessageBox(hwnd, text, win32_name, type);
 }
 
-void ui_new_chain(const int section_number) {
+void ui_new_chain(const unsigned section_number) {
     PostMessage(hwnd, WM_NEW_CHAIN, section_number, 0);
 }
 
@@ -1364,6 +1377,58 @@ NOEXPORT int service_stop(void) {
     return 0;
 }
 
+NOEXPORT int service_user(DWORD sig) {
+    SC_HANDLE scm, service;
+    SERVICE_STATUS serviceStatus;
+
+    scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
+    if(!scm) {
+        error_box(TEXT("OpenSCManager"));
+        return 1;
+    }
+    service=OpenService(scm, SERVICE_NAME,
+        SERVICE_QUERY_STATUS|SERVICE_USER_DEFINED_CONTROL);
+    if(!service) {
+        error_box(TEXT("OpenService"));
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(!QueryServiceStatus(service, &serviceStatus)) {
+        error_box(TEXT("QueryServiceStatus"));
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(serviceStatus.dwCurrentState==SERVICE_STOPPED) {
+        message_box(TEXT("The service is stopped"), MB_ICONERROR);
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(!ControlService(service, SERVICE_CONTROL_USER+sig, &serviceStatus)) {
+        error_box(TEXT("ControlService"));
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    switch(sig) {
+        case SIGNAL_RELOAD_CONFIG:
+            message_box(TEXT("Service configuration reloaded"),
+                MB_ICONINFORMATION);
+            break;
+        case SIGNAL_REOPEN_LOG:
+            message_box(TEXT("Service log file reopened"),
+                MB_ICONINFORMATION);
+            break;
+        default:
+            message_box(TEXT("Undefined operation requested"),
+                MB_ICONINFORMATION);
+    }
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+    return 0;
+}
+
 NOEXPORT void WINAPI service_main(DWORD argc, LPTSTR* argv) {
     (void)argc; /* skip warning about unused parameter */
     (void)argv; /* skip warning about unused parameter */
@@ -1389,7 +1454,7 @@ NOEXPORT void WINAPI service_main(DWORD argc, LPTSTR* argv) {
 
         /* running */
         serviceStatus.dwControlsAccepted|=
-            (SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN);
+            (SERVICE_ACCEPT_STOP|SERVICE_ACCEPT_SHUTDOWN);
         serviceStatus.dwCurrentState=SERVICE_RUNNING;
         SetServiceStatus(serviceStatusHandle, &serviceStatus);
 
@@ -1401,7 +1466,7 @@ NOEXPORT void WINAPI service_main(DWORD argc, LPTSTR* argv) {
 
         /* service is now stopped */
         serviceStatus.dwControlsAccepted&=
-            ~(SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN);
+            (DWORD)~(SERVICE_ACCEPT_STOP|SERVICE_ACCEPT_SHUTDOWN);
         serviceStatus.dwCurrentState=SERVICE_STOPPED;
         SetServiceStatus(serviceStatusHandle, &serviceStatus);
     }
@@ -1411,27 +1476,28 @@ NOEXPORT void WINAPI control_handler(DWORD controlCode) {
     switch(controlCode) {
     case SERVICE_CONTROL_INTERROGATE:
         break;
-
     case SERVICE_CONTROL_SHUTDOWN:
     case SERVICE_CONTROL_STOP:
         serviceStatus.dwCurrentState=SERVICE_STOP_PENDING;
         SetServiceStatus(serviceStatusHandle, &serviceStatus);
         PostMessage(hwnd, WM_COMMAND, IDM_EXIT, 0);
         return;
-
     case SERVICE_CONTROL_PAUSE:
         break;
-
     case SERVICE_CONTROL_CONTINUE:
         break;
-
+    case SERVICE_CONTROL_USER+SIGNAL_RELOAD_CONFIG:
+        signal_post(SIGNAL_RELOAD_CONFIG);
+        break;
+    case SERVICE_CONTROL_USER+SIGNAL_REOPEN_LOG:
+        signal_post(SIGNAL_REOPEN_LOG);
+        break;
     default:
         if(controlCode >= 128 && controlCode <= 255)
             break; /* user defined control code */
         else
             break; /* unrecognised control code */
     }
-
     SetServiceStatus(serviceStatusHandle, &serviceStatus);
 }
 

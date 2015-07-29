@@ -13,7 +13,7 @@
 
 <h1 id="NAME">NAME</h1>
 
-<p>stunnel - universal SSL tunnel</p>
+<p>stunnel - TLS offloading and load-balancing proxy</p>
 
 <h1 id="SYNOPSIS">SYNOPSIS</h1>
 
@@ -28,7 +28,7 @@
 <dt id="WIN32"><b>WIN32:</b></dt>
 <dd>
 
-<p><b>stunnel</b> [ [<span style="white-space: nowrap;">-install</span> | <span style="white-space: nowrap;">-uninstall</span> | <span style="white-space: nowrap;">-start</span> | <span style="white-space: nowrap;">-stop</span>] | <span style="white-space: nowrap;">-exit</span>] [<span style="white-space: nowrap;">-quiet</span>] [<span style="white-space: nowrap;">FILE</span>] ] | <span style="white-space: nowrap;">-help</span> | <span style="white-space: nowrap;">-version</span> | <span style="white-space: nowrap;">-sockets</span> | <span style="white-space: nowrap;">-options</span></p>
+<p><b>stunnel</b> [ [ <span style="white-space: nowrap;">-install</span> | <span style="white-space: nowrap;">-uninstall</span> | <span style="white-space: nowrap;">-start</span> | <span style="white-space: nowrap;">-stop</span> | <span style="white-space: nowrap;">-reload</span> | <span style="white-space: nowrap;">-reopen</span> | <span style="white-space: nowrap;">-exit</span> ] [<span style="white-space: nowrap;">-quiet</span>] [<span style="white-space: nowrap;">FILE</span>] ] | <span style="white-space: nowrap;">-help</span> | <span style="white-space: nowrap;">-version</span> | <span style="white-space: nowrap;">-sockets</span> | <span style="white-space: nowrap;">-options</span></p>
 
 </dd>
 </dl>
@@ -103,6 +103,18 @@
 <dd>
 
 <p>Stop NT Service</p>
+
+</dd>
+<dt id="reload-Windows-NT-and-later-only"><b>-reload</b> (Windows NT and later only)</dt>
+<dd>
+
+<p>Reload configuration file of the running NT Service</p>
+
+</dd>
+<dt id="reopen-Windows-NT-and-later-only"><b>-reopen</b> (Windows NT and later only)</dt>
+<dd>
+
+<p>Reopen log file of the running NT Service</p>
 
 </dd>
 <dt id="exit-Win32-only"><b>-exit</b> (Win32 only)</dt>
@@ -428,7 +440,7 @@
 
 <p>To listen on all IPv6 addresses use:</p>
 
-<pre><code>    connect = :::PORT</code></pre>
+<pre><code>    accept = :::PORT</code></pre>
 
 </dd>
 <dt id="CApath-DIRECTORY"><b>CApath</b> = DIRECTORY</dt>
@@ -461,6 +473,30 @@
 <p>A certificate is required in server mode, and optional in client mode.</p>
 
 </dd>
+<dt id="checkEmail-EMAIL"><b>checkEmail</b> = EMAIL</dt>
+<dd>
+
+<p>email address of the peer certificate subject</p>
+
+<p>Multiple <i>checkEmail</i> options are allowed in a single service section. Certificates are accepted if no <i>checkEmail</i> option was specified, or the email address of the peer certificate matches any of the email addresses specified with <i>checkEmail</i>.</p>
+
+</dd>
+<dt id="checkHost-HOST"><b>checkHost</b> = HOST</dt>
+<dd>
+
+<p>host of the peer certificate subject</p>
+
+<p>Multiple <i>checkHost</i> options are allowed in a single service section. Certificates are accepted if no <i>checkHost</i> option was specified, or the host name of the peer certificate matches any of the hosts specified with <i>checkHost</i>.</p>
+
+</dd>
+<dt id="checkIP-IP"><b>checkIP</b> = IP</dt>
+<dd>
+
+<p>IP address of the peer certificate subject</p>
+
+<p>Multiple <i>checkIP</i> options are allowed in a single service section. Certificates are accepted if no <i>checkIP</i> option was specified, or the IP address of the peer certificate matches any of the IP addresses specified with <i>checkIP</i>.</p>
+
+</dd>
 <dt id="ciphers-CIPHER_LIST"><b>ciphers</b> = CIPHER_LIST</dt>
 <dd>
 
@@ -484,7 +520,7 @@
 
 <p>If no host is specified, the host defaults to localhost.</p>
 
-<p>Multiple <b>connect</b> options are allowed in a single service section.</p>
+<p>Multiple <i>connect</i> options are allowed in a single service section.</p>
 
 <p>If host resolves to multiple addresses and/or if multiple <i>connect</i> options are specified, then the remote address is chosen using a round-robin algorithm.</p>
 
@@ -862,9 +898,9 @@
 <dt id="redirect-HOST:-PORT"><b>redirect</b> = [HOST:]PORT</dt>
 <dd>
 
-<p>redirect SSL client connections on authentication failures</p>
+<p>redirect SSL client connections on certificate-based authentication failures</p>
 
-<p>This option only works in server mode, and without protocol negotiation.</p>
+<p>This option only works in server mode. Some protocol negotiations are also incompatible with the <i>redirect</i> option.</p>
 
 </dd>
 <dt id="renegotiation-yes-no"><b>renegotiation</b> = yes | no</dt>

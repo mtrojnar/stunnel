@@ -2,7 +2,7 @@
 
 =encoding utf8
 
-stunnel - universal SSL tunnel
+stunnel - TLS offloading and load-balancing proxy
 
 
 =head1 SYNOPSIS
@@ -15,8 +15,9 @@ B<stunnel> [S<FILE>] | S<-fd N> | S<-help> | S<-version> | S<-sockets> | S<-opti
 
 =item B<WIN32:>
 
-B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop>] | S<-exit>]
-    [S<-quiet>] [S<FILE>] ] | S<-help> | S<-version> | S<-sockets> | S<-options>
+B<stunnel> [ [ S<-install> | S<-uninstall> | S<-start> | S<-stop> |
+    S<-reload> | S<-reopen> | S<-exit> ] [S<-quiet>] [S<FILE>] ] |
+    S<-help> | S<-version> | S<-sockets> | S<-options>
 
 =back
 
@@ -81,6 +82,14 @@ Start NT Service
 =item B<-stop> (Windows NT and later only)
 
 Stop NT Service
+
+=item B<-reload> (Windows NT and later only)
+
+Reload configuration file of the running NT Service
+
+=item B<-reopen> (Windows NT and later only)
+
+Reopen log file of the running NT Service
 
 =item B<-exit> (Win32 only)
 
@@ -397,7 +406,7 @@ If no host specified, defaults to all IPv4 addresses for the local host.
 
 To listen on all IPv6 addresses use:
 
-    connect = :::PORT
+    accept = :::PORT
 
 =item B<CApath> = DIRECTORY
 
@@ -428,6 +437,33 @@ actual server/client certificate to the self-signed root CA certificate.
 
 A certificate is required in server mode, and optional in client mode.
 
+=item B<checkEmail> = EMAIL
+
+email address of the peer certificate subject
+
+Multiple I<checkEmail> options are allowed in a single service section.
+Certificates are accepted if no I<checkEmail> option was specified, or the
+email address of the peer certificate matches any of the email addresses
+specified with I<checkEmail>.
+
+=item B<checkHost> = HOST
+
+host of the peer certificate subject
+
+Multiple I<checkHost> options are allowed in a single service section.
+Certificates are accepted if no I<checkHost> option was specified, or the host
+name of the peer certificate matches any of the hosts specified with
+I<checkHost>.
+
+=item B<checkIP> = IP
+
+IP address of the peer certificate subject
+
+Multiple I<checkIP> options are allowed in a single service section.
+Certificates are accepted if no I<checkIP> option was specified, or the IP
+address of the peer certificate matches any of the IP addresses specified with
+I<checkIP>.
+
 =item B<ciphers> = CIPHER_LIST
 
 Select permitted SSL ciphers
@@ -447,7 +483,7 @@ connect to a remote address
 
 If no host is specified, the host defaults to localhost.
 
-Multiple B<connect> options are allowed in a single service section.
+Multiple I<connect> options are allowed in a single service section.
 
 If host resolves to multiple addresses and/or if multiple I<connect>
 options are specified, then the remote address is chosen using a
@@ -556,7 +592,7 @@ I<exec> path is relative to I<chroot> directory if specified.
 The following environmental variables are set on Unix platform:
 REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.
 
-=item B<execargs> = $0 $1 $2 ...
+=item B<execArgs> = $0 $1 $2 ...
 
 arguments for I<exec> including program name ($0)
 
@@ -794,9 +830,10 @@ allocate pseudoterminal for 'exec' option
 
 =item B<redirect> = [HOST:]PORT
 
-redirect SSL client connections on authentication failures
+redirect SSL client connections on certificate-based authentication failures
 
-This option only works in server mode, and without protocol negotiation.
+This option only works in server mode.
+Some protocol negotiations are also incompatible with the I<redirect> option.
 
 =item B<renegotiation> = yes | no
 
@@ -1095,7 +1132,7 @@ In order to provide SSL encapsulation to your local I<imapd> service, use:
     [imapd]
     accept = 993
     exec = /usr/sbin/imapd
-    execargs = imapd
+    execArgs = imapd
 
 or in remote mode:
 
@@ -1118,7 +1155,7 @@ use something like:
     [vpn]
     accept = 2020
     exec = /usr/sbin/pppd
-    execargs = pppd local
+    execArgs = pppd local
     pty = yes
 
 If you want to use B<stunnel> in I<inetd> mode to launch your imapd
@@ -1126,7 +1163,7 @@ process, you'd use this I<stunnel.conf>.
 Note there must be no I<[service_name]> section.
 
     exec = /usr/sbin/imapd
-    execargs = imapd
+    execArgs = imapd
 
 To setup SOCKS VPN configure the following client service:
 
@@ -1292,7 +1329,7 @@ B<stunnel> configuration file
 
 =head1 BUGS
 
-Option I<execargs> and Win32 command line does not support quoting.
+Option I<execArgs> and Win32 command line does not support quoting.
 
 
 =head1 SEE ALSO

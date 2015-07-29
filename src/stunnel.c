@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -76,7 +76,7 @@ NOEXPORT void client_status(void); /* dead children detected */
 
 /**************************************** global variables */
 
-static int signal_pipe[2]={-1, -1};
+static SOCKET signal_pipe[2]={INVALID_SOCKET, INVALID_SOCKET};
 
 #ifndef USE_FORK
 long max_clients=0;
@@ -292,13 +292,13 @@ void daemon_loop(void) {
 NOEXPORT int accept_connection(SERVICE_OPTIONS *opt) {
     SOCKADDR_UNION addr;
     char *from_address;
-    int s;
+    SOCKET s;
     socklen_t addrlen;
 
     addrlen=sizeof addr;
     for(;;) {
         s=s_accept(opt->fd, &addr.sa, &addrlen, 1, "local socket");
-        if(s>=0) /* success! */
+        if(s!=INVALID_SOCKET) /* success! */
             break;
         switch(get_last_socket_error()) {
             case S_EINTR: /* interrupted by a signal */
@@ -355,13 +355,13 @@ void unbind_ports(void) {
 
     for(opt=service_options.next; opt; opt=opt->next) {
         s_log(LOG_DEBUG, "Closing service [%s]", opt->servname);
-        if(opt->option.accept && opt->fd>=0) {
-            if(opt->fd<listen_fds_start ||
-                    opt->fd>=listen_fds_start+systemd_fds)
+        if(opt->option.accept && opt->fd!=INVALID_SOCKET) {
+            if(opt->fd<(SOCKET)listen_fds_start ||
+                    opt->fd>=(SOCKET)(listen_fds_start+systemd_fds))
                 closesocket(opt->fd);
             s_log(LOG_DEBUG, "Service [%s] closed (FD=%d)",
                 opt->servname, opt->fd);
-            opt->fd=-1;
+            opt->fd=INVALID_SOCKET;
 #ifdef HAVE_STRUCT_SOCKADDR_UN
             if(opt->local_addr.sa.sa_family==AF_UNIX) {
                 if(lstat(opt->local_addr.un.sun_path, &st))
@@ -376,7 +376,7 @@ void unbind_ports(void) {
                         opt->local_addr.un.sun_path);
             }
 #endif
-        } else if(opt->option.program && opt->option.remote) {
+        } else if(opt->exec_name && opt->connect_addr.names) {
             /* create exec+connect services             */
             /* FIXME: this is just a crude workaround   */
             /*        is it better to kill the service? */
@@ -413,27 +413,27 @@ int bind_ports(void) {
        bind_ports() was not fully performed */
     for(opt=service_options.next; opt; opt=opt->next)
         if(opt->option.accept)
-            opt->fd=-1;
+            opt->fd=INVALID_SOCKET;
 
     listening_section=0;
     for(opt=service_options.next; opt; opt=opt->next) {
         if(opt->option.accept) {
             if(listening_section<systemd_fds) {
-                opt->fd=listen_fds_start+listening_section;
+                opt->fd=(SOCKET)(listen_fds_start+listening_section);
                 s_log(LOG_DEBUG,
                     "Listening file descriptor received from systemd (FD=%d)",
                     opt->fd);
             } else {
                 opt->fd=s_socket(opt->local_addr.sa.sa_family,
                     SOCK_STREAM, 0, 1, "accept socket");
-                if(opt->fd<0)
+                if(opt->fd==INVALID_SOCKET)
                     return 1;
                 s_log(LOG_DEBUG, "Listening file descriptor created (FD=%d)",
                     opt->fd);
             }
             if(set_socket_options(opt->fd, 0)<0) {
                 closesocket(opt->fd);
-                opt->fd=-1;
+                opt->fd=INVALID_SOCKET;
                 return 1;
             }
             /* local socket can't be unnamed */
@@ -445,14 +445,14 @@ int bind_ports(void) {
                         opt->servname, local_address);
                     sockerror("bind");
                     closesocket(opt->fd);
-                    opt->fd=-1;
+                    opt->fd=INVALID_SOCKET;
                     str_free(local_address);
                     return 1;
                 }
                 if(listen(opt->fd, SOMAXCONN)) {
                     sockerror("listen");
                     closesocket(opt->fd);
-                    opt->fd=-1;
+                    opt->fd=INVALID_SOCKET;
                     str_free(local_address);
                     return 1;
                 }
@@ -462,11 +462,12 @@ int bind_ports(void) {
                 opt->servname, opt->fd, local_address);
             str_free(local_address);
             ++listening_section;
-        } else if(opt->option.program && opt->option.remote) {
+        } else if(opt->exec_name && opt->connect_addr.names) {
             /* create exec+connect services */
             /* FIXME: needs to be delayed on reload with opt->option.retry set */
-            create_client(-1, -1,
-                alloc_client_session(opt, -1, -1), client_thread);
+            create_client(INVALID_SOCKET, INVALID_SOCKET,
+                alloc_client_session(opt, INVALID_SOCKET, INVALID_SOCKET),
+                client_thread);
         }
     }
     if(listening_section<systemd_fds) {
@@ -602,12 +603,12 @@ NOEXPORT int signal_pipe_dispatch(void) {
 
 void stunnel_info(int level) {
     s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " platform");
-    if(SSLeay()==SSLEAY_VERSION_NUMBER) {
-        s_log(level, "Compiled/running with " OPENSSL_VERSION_TEXT);
-    } else {
+    if(strcmp(OPENSSL_VERSION_TEXT, SSLeay_version(SSLEAY_VERSION))) {
         s_log(level, "Compiled with " OPENSSL_VERSION_TEXT);
         s_log(level, "Running  with %s", SSLeay_version(SSLEAY_VERSION));
         s_log(level, "Update OpenSSL shared libraries or rebuild stunnel");
+    } else {
+        s_log(level, "Compiled/running with " OPENSSL_VERSION_TEXT);
     }
     s_log(level,
 

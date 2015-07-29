@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -61,7 +61,7 @@ int getpeername(int s, struct sockaddr_in *name, int *len) {
     else
         name->sin_addr.s_addr=htonl(INADDR_ANY);
     if((value=getenv("REMOTE_PORT")))
-        name->sin_port=htons(atoi(value));
+        name->sin_port=htons((uint16_t)atoi(value));
     else
         name->sin_port=htons(0); /* dynamic port allocation */
     return 0;

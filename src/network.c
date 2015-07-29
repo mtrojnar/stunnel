@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -46,7 +46,7 @@
 /* #define DEBUG_UCONTEXT */
 
 NOEXPORT void s_poll_realloc(s_poll_set *);
-NOEXPORT int get_socket_error(const int);
+NOEXPORT int get_socket_error(const SOCKET);
 
 /**************************************** s_poll functions */
 
@@ -59,8 +59,7 @@ s_poll_set *s_poll_alloc() {
 
 void s_poll_free(s_poll_set *fds) {
     if(fds) {
-        if(fds->ufds)
-            str_free(fds->ufds);
+        str_free(fds->ufds);
         str_free(fds);
     }
 }
@@ -71,7 +70,7 @@ void s_poll_init(s_poll_set *fds) {
     s_poll_realloc(fds);
 }
 
-void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
+void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
     unsigned i;
 
     for(i=0; i<fds->nfds && fds->ufds[i].fd!=fd; i++)
@@ -95,7 +94,7 @@ void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
         fds->ufds[i].events|=POLLOUT;
 }
 
-int s_poll_canread(s_poll_set *fds, int fd) {
+int s_poll_canread(s_poll_set *fds, SOCKET fd) {
     unsigned i;
 
     for(i=0; i<fds->nfds; i++)
@@ -104,7 +103,7 @@ int s_poll_canread(s_poll_set *fds, int fd) {
     return 0; /* not listed in fds */
 }
 
-int s_poll_canwrite(s_poll_set *fds, int fd) {
+int s_poll_canwrite(s_poll_set *fds, SOCKET fd) {
     unsigned i;
 
     for(i=0; i<fds->nfds; i++)
@@ -115,7 +114,7 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
 
 /* best doc: http://lxr.free-electrons.com/source/net/ipv4/tcp.c#L456 */
 
-int s_poll_hup(s_poll_set *fds, int fd) {
+int s_poll_hup(s_poll_set *fds, SOCKET fd) {
     unsigned i;
 
     for(i=0; i<fds->nfds; i++)
@@ -124,7 +123,7 @@ int s_poll_hup(s_poll_set *fds, int fd) {
     return 0; /* not listed in fds */
 }
 
-int s_poll_rdhup(s_poll_set *fds, int fd) {
+int s_poll_rdhup(s_poll_set *fds, SOCKET fd) {
     unsigned i;
 
     for(i=0; i<fds->nfds; i++)
@@ -320,18 +319,12 @@ s_poll_set *s_poll_alloc() {
 
 void s_poll_free(s_poll_set *fds) {
     if(fds) {
-        if(fds->irfds)
-            str_free(fds->irfds);
-        if(fds->iwfds)
-            str_free(fds->iwfds);
-        if(fds->ixfds)
-            str_free(fds->ixfds);
-        if(fds->orfds)
-            str_free(fds->orfds);
-        if(fds->owfds)
-            str_free(fds->owfds);
-        if(fds->oxfds)
-            str_free(fds->oxfds);
+        str_free(fds->irfds);
+        str_free(fds->iwfds);
+        str_free(fds->ixfds);
+        str_free(fds->orfds);
+        str_free(fds->owfds);
+        str_free(fds->oxfds);
         str_free(fds);
     }
 }
@@ -347,7 +340,7 @@ void s_poll_init(s_poll_set *fds) {
     fds->max=0; /* no file descriptors */
 }
 
-void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
+void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
 #ifdef USE_WIN32
     /* fds->ixfds contains union of fds->irfds and fds->iwfds */
     if(fds->ixfds->fd_count>=fds->allocated) {
@@ -365,21 +358,21 @@ void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
         fds->max=fd;
 }
 
-int s_poll_canread(s_poll_set *fds, int fd) {
+int s_poll_canread(s_poll_set *fds, SOCKET fd) {
     return FD_ISSET(fd, fds->orfds);
 }
 
-int s_poll_canwrite(s_poll_set *fds, int fd) {
+int s_poll_canwrite(s_poll_set *fds, SOCKET fd) {
     return FD_ISSET(fd, fds->owfds);
 }
 
-int s_poll_hup(s_poll_set *fds, int fd) {
+int s_poll_hup(s_poll_set *fds, SOCKET fd) {
     (void)fds; /* skip warning about unused parameter */
     (void)fd; /* skip warning about unused parameter */
     return 0; /* FIXME: how to detect HUP condition with select()? */
 }
 
-int s_poll_rdhup(s_poll_set *fds, int fd) {
+int s_poll_rdhup(s_poll_set *fds, SOCKET fd) {
     (void)fds; /* skip warning about unused parameter */
     (void)fd; /* skip warning about unused parameter */
     return 0; /* FIXME: how to detect RDHUP condition with select()? */
@@ -406,7 +399,8 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
             tv.tv_usec=1000*msec;
             tv_ptr=&tv;
         }
-        retval=select(fds->max+1, fds->orfds, fds->owfds, fds->oxfds, tv_ptr);
+        retval=select((int)fds->max+1,
+            fds->orfds, fds->owfds, fds->oxfds, tv_ptr);
     } while(retval<0 && get_last_socket_error()==S_EINTR);
     return retval;
 }
@@ -424,7 +418,7 @@ NOEXPORT void s_poll_realloc(s_poll_set *fds) {
 
 /**************************************** fd management */
 
-int set_socket_options(int s, int type) {
+int set_socket_options(SOCKET s, int type) {
     SOCK_OPT *ptr;
     extern SOCK_OPT sock_opts[];
     static char *type_str[3]={"accept", "local", "remote"};
@@ -469,7 +463,7 @@ int set_socket_options(int s, int type) {
     return retval; /* returns 0 when all options succeeded */
 }
 
-NOEXPORT int get_socket_error(const int fd) {
+NOEXPORT int get_socket_error(const SOCKET fd) {
     int err;
     socklen_t optlen=sizeof err;
 
@@ -537,7 +531,7 @@ int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     return -1; /* should not be possible */
 }
 
-void s_write(CLI *c, int fd, const void *buf, size_t len) {
+void s_write(CLI *c, SOCKET fd, const void *buf, size_t len) {
         /* simulate a blocking write */
     uint8_t *ptr=(uint8_t *)buf;
     ssize_t num;
@@ -569,7 +563,7 @@ void s_write(CLI *c, int fd, const void *buf, size_t len) {
     }
 }
 
-void s_read(CLI *c, int fd, void *ptr, size_t len) {
+void s_read(CLI *c, SOCKET fd, void *ptr, size_t len) {
         /* simulate a blocking read */
     ssize_t num;
 
@@ -604,7 +598,7 @@ void s_read(CLI *c, int fd, void *ptr, size_t len) {
     }
 }
 
-void fd_putline(CLI *c, int fd, const char *line) {
+void fd_putline(CLI *c, SOCKET fd, const char *line) {
     char *tmpline;
     const char crlf[]="\r\n";
     size_t len;
@@ -617,7 +611,7 @@ void fd_putline(CLI *c, int fd, const char *line) {
     str_free(tmpline);
 }
 
-char *fd_getline(CLI *c, int fd) {
+char *fd_getline(CLI *c, SOCKET fd) {
     char *line;
     size_t ptr=0, allocated=32;
 
@@ -646,7 +640,7 @@ char *fd_getline(CLI *c, int fd) {
     return line;
 }
 
-void fd_printf(CLI *c, int fd, const char *format, ...) {
+void fd_printf(CLI *c, SOCKET fd, const char *format, ...) {
     va_list ap;
     char *line;
 
@@ -755,25 +749,24 @@ char *ssl_getstring(CLI *c) { /* get null-terminated string */
 
 #define INET_SOCKET_PAIR
 
-int make_sockets(int fd[2]) { /* make a pair of connected ipv4 sockets */
+int make_sockets(SOCKET fd[2]) { /* make a pair of connected ipv4 sockets */
 #ifdef INET_SOCKET_PAIR
     struct sockaddr_in addr;
     socklen_t addrlen;
-    int s; /* temporary socket awaiting for connection */
+    SOCKET s; /* temporary socket awaiting for connection */
 
     /* create two *blocking* sockets first */
     s=s_socket(AF_INET, SOCK_STREAM, 0, 0, "make_sockets: s_socket#1");
-    if(s<0) {
+    if(s==INVALID_SOCKET)
         return 1;
-    }
     fd[1]=s_socket(AF_INET, SOCK_STREAM, 0, 0, "make_sockets: s_socket#2");
-    if(fd[1]<0) {
+    if(fd[1]==INVALID_SOCKET) {
         closesocket(s);
         return 1;
     }
 
     addrlen=sizeof addr;
-    memset(&addr, 0, addrlen);
+    memset(&addr, 0, sizeof addr);
     addr.sin_family=AF_INET;
     addr.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
     addr.sin_port=htons(0); /* dynamic port allocation */
@@ -802,7 +795,7 @@ int make_sockets(int fd[2]) { /* make a pair of connected ipv4 sockets */
     }
     fd[0]=s_accept(s, (struct sockaddr *)&addr, &addrlen, 1,
         "make_sockets: s_accept");
-    if(fd[0]<0) {
+    if(fd[0]==INVALID_SOCKET) {
         closesocket(s);
         closesocket(fd[1]);
         return 1;

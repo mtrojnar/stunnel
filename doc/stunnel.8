@@ -71,13 +71,13 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2015.03.20" "5.13" "stunnel"
+.TH STUNNEL 8 "2015.04.13" "5.15" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .SH "NAME"
-stunnel \- universal SSL tunnel
+stunnel \- TLS offloading and load\-balancing proxy
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
 .IP "\fBUnix:\fR" 4
@@ -85,8 +85,9 @@ stunnel \- universal SSL tunnel
 \&\fBstunnel\fR [\s-1FILE\s0] | \-fd N | \-help | \-version | \-sockets | \-options
 .IP "\fB\s-1WIN32:\s0\fR" 4
 .IX Item "WIN32:"
-\&\fBstunnel\fR [ [\-install | \-uninstall | \-start | \-stop] | \-exit]
-    [\-quiet] [\s-1FILE\s0] ] | \-help | \-version | \-sockets | \-options
+\&\fBstunnel\fR [ [ \-install | \-uninstall | \-start | \-stop |
+    \-reload | \-reopen | \-exit ] [\-quiet] [\s-1FILE\s0] ] |
+    \-help | \-version | \-sockets | \-options
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
 The \fBstunnel\fR program is designed to work as \fI\s-1SSL\s0\fR encryption wrapper 
@@ -134,6 +135,12 @@ Start \s-1NT\s0 Service
 .IP "\fB\-stop\fR (Windows \s-1NT\s0 and later only)" 4
 .IX Item "-stop (Windows NT and later only)"
 Stop \s-1NT\s0 Service
+.IP "\fB\-reload\fR (Windows \s-1NT\s0 and later only)" 4
+.IX Item "-reload (Windows NT and later only)"
+Reload configuration file of the running \s-1NT\s0 Service
+.IP "\fB\-reopen\fR (Windows \s-1NT\s0 and later only)" 4
+.IX Item "-reopen (Windows NT and later only)"
+Reopen log file of the running \s-1NT\s0 Service
 .IP "\fB\-exit\fR (Win32 only)" 4
 .IX Item "-exit (Win32 only)"
 Exit an already started stunnel
@@ -387,7 +394,7 @@ If no host specified, defaults to all IPv4 addresses for the local host.
 To listen on all IPv6 addresses use:
 .Sp
 .Vb 1
-\&    connect = :::PORT
+\&    accept = :::PORT
 .Ve
 .IP "\fBCApath\fR = \s-1DIRECTORY\s0" 4
 .IX Item "CApath = DIRECTORY"
@@ -415,6 +422,30 @@ The certificates must be in \s-1PEM\s0 format, and must be from the
 actual server/client certificate to the self-signed root \s-1CA\s0 certificate.
 .Sp
 A certificate is required in server mode, and optional in client mode.
+.IP "\fBcheckEmail\fR = \s-1EMAIL\s0" 4
+.IX Item "checkEmail = EMAIL"
+email address of the peer certificate subject
+.Sp
+Multiple \fIcheckEmail\fR options are allowed in a single service section.
+Certificates are accepted if no \fIcheckEmail\fR option was specified, or the
+email address of the peer certificate matches any of the email addresses
+specified with \fIcheckEmail\fR.
+.IP "\fBcheckHost\fR = \s-1HOST\s0" 4
+.IX Item "checkHost = HOST"
+host of the peer certificate subject
+.Sp
+Multiple \fIcheckHost\fR options are allowed in a single service section.
+Certificates are accepted if no \fIcheckHost\fR option was specified, or the host
+name of the peer certificate matches any of the hosts specified with
+\&\fIcheckHost\fR.
+.IP "\fBcheckIP\fR = \s-1IP\s0" 4
+.IX Item "checkIP = IP"
+\&\s-1IP\s0 address of the peer certificate subject
+.Sp
+Multiple \fIcheckIP\fR options are allowed in a single service section.
+Certificates are accepted if no \fIcheckIP\fR option was specified, or the \s-1IP\s0
+address of the peer certificate matches any of the \s-1IP\s0 addresses specified with
+\&\fIcheckIP\fR.
 .IP "\fBciphers\fR = \s-1CIPHER_LIST\s0" 4
 .IX Item "ciphers = CIPHER_LIST"
 Select permitted \s-1SSL\s0 ciphers
@@ -432,7 +463,7 @@ connect to a remote address
 .Sp
 If no host is specified, the host defaults to localhost.
 .Sp
-Multiple \fBconnect\fR options are allowed in a single service section.
+Multiple \fIconnect\fR options are allowed in a single service section.
 .Sp
 If host resolves to multiple addresses and/or if multiple \fIconnect\fR
 options are specified, then the remote address is chosen using a
@@ -750,9 +781,10 @@ The file should not be world-readable nor world-writable.
 allocate pseudoterminal for 'exec' option
 .IP "\fBredirect\fR = [\s-1HOST:\s0]PORT" 4
 .IX Item "redirect = [HOST:]PORT"
-redirect \s-1SSL\s0 client connections on authentication failures
+redirect \s-1SSL\s0 client connections on certificate-based authentication failures
 .Sp
-This option only works in server mode, and without protocol negotiation.
+This option only works in server mode.
+Some protocol negotiations are also incompatible with the \fIredirect\fR option.
 .IP "\fBrenegotiation\fR = yes | no" 4
 .IX Item "renegotiation = yes | no"
 support \s-1SSL\s0 renegotiation

@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -41,6 +41,7 @@
 /**************************************** prototypes */
 
 NOEXPORT void addrlist2addr(SOCKADDR_UNION *, SOCKADDR_LIST *);
+NOEXPORT void addrlist_init(SOCKADDR_LIST *);
 
 #ifndef HAVE_GETADDRINFO
 
@@ -128,12 +129,11 @@ unsigned name2addr(SOCKADDR_UNION *addr, char *name,
     unsigned retval;
 
     addr_list=str_alloc(sizeof(SOCKADDR_LIST));
-    addrlist_init(addr_list, 1);
+    addrlist_clear(addr_list);
     retval=name2addrlist(addr_list, name, default_host);
     if(retval)
         addrlist2addr(addr, addr_list);
-    if(addr_list->addr)
-        str_free(addr_list->addr);
+    str_free(addr_list->addr);
     str_free(addr_list);
     return retval;
 }
@@ -144,12 +144,11 @@ unsigned hostport2addr(SOCKADDR_UNION *addr,
     unsigned retval;
 
     addr_list=str_alloc(sizeof(SOCKADDR_LIST));
-    addrlist_init(addr_list, 1);
+    addrlist_clear(addr_list);
     retval=hostport2addrlist(addr_list, host_name, port_name);
     if(retval)
         addrlist2addr(addr, addr_list);
-    if(addr_list->addr)
-        str_free(addr_list->addr);
+    str_free(addr_list->addr);
     str_free(addr_list);
     return retval;
 }
@@ -256,24 +255,26 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         }
         addr_list->addr=str_realloc(addr_list->addr,
             (addr_list->num+1)*sizeof(SOCKADDR_UNION));
-        memcpy(&addr_list->addr[addr_list->num], cur->ai_addr, cur->ai_addrlen);
+        memcpy(&addr_list->addr[addr_list->num], cur->ai_addr,
+            (size_t)cur->ai_addrlen);
         ++(addr_list->num);
     }
     freeaddrinfo(res);
     return addr_list->num; /* ok - return the number of addresses */
 }
 
-void addrlist_init(SOCKADDR_LIST *addr_list, int clear_names) {
+void addrlist_clear(SOCKADDR_LIST *addr_list) {
+    addrlist_init(addr_list);
+    addr_list->names=NULL;
+}
+
+NOEXPORT void addrlist_init(SOCKADDR_LIST *addr_list) {
     addr_list->num=0;
-    if(addr_list->addr)
-        str_free(addr_list->addr);
     addr_list->addr=NULL;
     addr_list->rr_val=0; /* reset round-robin counter */
     /* allow structures created with sockaddr_dup() to modify
      * the original rr_val rather than its local copy */
     addr_list->rr_ptr=&addr_list->rr_val;
-    if(clear_names)
-        addr_list->names=NULL;
 }
 
 unsigned addrlist_dup(SOCKADDR_LIST *dst, const SOCKADDR_LIST *src) {
@@ -288,12 +289,17 @@ unsigned addrlist_dup(SOCKADDR_LIST *dst, const SOCKADDR_LIST *src) {
 }
 
 unsigned addrlist_resolve(SOCKADDR_LIST *addr_list) {
-    unsigned num=0;
+    unsigned num=0, rnd;
     NAME_LIST *host;
 
-    addrlist_init(addr_list, 0);
+    addrlist_init(addr_list);
     for(host=addr_list->names; host; host=host->next)
         num+=name2addrlist(addr_list, host->name, DEFAULT_LOOPBACK);
+    if(num>1) { /* randomize the initial value of round-robin counter */
+        /* ignore the error value and the distribution bias */
+        RAND_bytes((unsigned char *)&rnd, sizeof rnd);
+        addr_list->rr_val=rnd%num;
+    }
     return num;
 }
 
@@ -361,7 +367,7 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
         p=getservbyname(service, "tcp");
         if(!p)
             return EAI_NONAME;
-        port=p->s_port;
+        port=(u_short)p->s_port;
 #endif /* defined(_WIN32_WCE) */
     }
 
@@ -374,7 +380,7 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
 #if defined(USE_IPv6) && !defined(USE_WIN32)
     ai->ai_family=AF_INET6;
     ai->ai_addrlen=sizeof(struct sockaddr_in6);
-    ai->ai_addr=str_alloc(ai->ai_addrlen);
+    ai->ai_addr=str_alloc((size_t)ai->ai_addrlen);
     ai->ai_addr->sa_family=AF_INET6;
     if(inet_pton(AF_INET6, node,
             &((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr)>0) {
@@ -445,18 +451,18 @@ NOEXPORT int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
 #if defined(USE_IPv6)
         if(h->h_addrtype==AF_INET6) {
             ai->ai_addrlen=sizeof(struct sockaddr_in6);
-            ai->ai_addr=str_alloc(ai->ai_addrlen);
+            ai->ai_addr=str_alloc((size_t)ai->ai_addrlen);
             memcpy(&((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr,
-                h->h_addr_list[i], h->h_length);
+                h->h_addr_list[i], (size_t)h->h_length);
         } else
 #endif
         {
             ai->ai_addrlen=sizeof(struct sockaddr_in);
-            ai->ai_addr=str_alloc(ai->ai_addrlen);
+            ai->ai_addr=str_alloc((size_t)ai->ai_addrlen);
             memcpy(&((struct sockaddr_in *)ai->ai_addr)->sin_addr,
-                h->h_addr_list[i], h->h_length);
+                h->h_addr_list[i], (size_t)h->h_length);
         }
-        ai->ai_addr->sa_family=h->h_addrtype;
+        ai->ai_addr->sa_family=(u_short)h->h_addrtype;
         /* offsets of sin_port and sin6_port should be the same */
         ((struct sockaddr_in *)ai->ai_addr)->sin_port=port;
     }
@@ -473,10 +479,8 @@ NOEXPORT void freeaddrinfo(struct addrinfo *current) {
     }
 #endif
     while(current) {
-        if(current->ai_addr)
-            str_free(current->ai_addr);
-        if(current->ai_canonname)
-            str_free(current->ai_canonname);
+        str_free(current->ai_addr);
+        str_free(current->ai_canonname);
         next=current->ai_next;
         str_free(current);
         current=next;
@@ -538,8 +542,8 @@ const char *s_gai_strerror(int err) {
 /* implementation is limited to functionality needed by stunnel */
 
 #ifndef HAVE_GETNAMEINFO
-int getnameinfo(const struct sockaddr *sa, int salen,
-    char *host, int hostlen, char *serv, int servlen, int flags) {
+int getnameinfo(const struct sockaddr *sa, socklen_t salen,
+    char *host, size_t hostlen, char *serv, size_t servlen, int flags) {
 
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
     if(s_getnameinfo)

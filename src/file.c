@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -116,7 +116,7 @@ DISK_FILE *file_open(char *name, FILE_MODE mode) {
     flags|=O_CLOEXEC;
 #endif /* O_CLOEXEC */
     fd=open(name, flags, 0640);
-    if(fd<0)
+    if(fd==INVALID_SOCKET)
         return NULL;
 
     /* setup df structure */
@@ -139,14 +139,14 @@ void file_close(DISK_FILE *df) {
     str_free(df);
 }
 
-int file_getline(DISK_FILE *df, char *line, int len) {
+ssize_t file_getline(DISK_FILE *df, char *line, int len) {
     /* this version is really slow, but performance is not important here */
     /* (no buffering is implemented) */
-    int i;
+    ssize_t i;
 #ifdef USE_WIN32
     DWORD num;
 #else /* USE_WIN32 */
-    int num;
+    ssize_t num;
 #endif /* USE_WIN32 */
 
     if(!df) /* not opened */
@@ -156,7 +156,7 @@ int file_getline(DISK_FILE *df, char *line, int len) {
 #ifdef USE_WIN32
         ReadFile(df->fh, line+i, 1, &num, NULL);
 #else /* USE_WIN32 */
-        num=(int)read(df->fd, line+i, 1);
+        num=read(df->fd, line+i, 1);
 #endif /* USE_WIN32 */
         if(num!=1) { /* EOF */
             if(i) /* any previously retrieved data */
@@ -173,17 +173,17 @@ int file_getline(DISK_FILE *df, char *line, int len) {
     return i;
 }
 
-int file_putline(DISK_FILE *df, char *line) {
-    int len;
+ssize_t file_putline(DISK_FILE *df, char *line) {
     char *buff;
 #ifdef USE_WIN32
-    DWORD num;
+    DWORD len, num;
 #else /* USE_WIN32 */
-    int num;
+    size_t len;
+    ssize_t num;
 #endif /* USE_WIN32 */
 
-    len=(int)strlen(line);
-    buff=str_alloc((size_t)len+2); /* +2 for CR+LF */
+    len=strlen(line);
+    buff=str_alloc(len+2); /* +2 for CR+LF */
     strcpy(buff, line);
 #ifdef USE_WIN32
     buff[len++]='\r'; /* CR */
@@ -193,10 +193,10 @@ int file_putline(DISK_FILE *df, char *line) {
     WriteFile(df->fh, buff, len, &num, NULL);
 #else /* USE_WIN32 */
     /* no file -> write to stderr */
-    num=(int)write(df ? df->fd : 2, buff, (size_t)len);
+    num=write(df ? df->fd : 2, buff, len);
 #endif /* USE_WIN32 */
     str_free(buff);
-    return num;
+    return (ssize_t)num;
 }
 
 int file_permissions(const char *file_name) {
@@ -227,7 +227,7 @@ LPTSTR str2tstr(LPCSTR in) {
     len=MultiByteToWideChar(CP_UTF8, 0, in, -1, NULL, 0);
     if(!len)
         return str_tprintf(TEXT("MultiByteToWideChar() failed"));
-    out=str_alloc((len+1)*sizeof(WCHAR));
+    out=str_alloc(((size_t)len+1)*sizeof(WCHAR));
     len=MultiByteToWideChar(CP_UTF8, 0, in, -1, out, len);
     if(!len) {
         str_free(out);
@@ -248,7 +248,7 @@ LPSTR tstr2str(LPCTSTR in) {
     len=WideCharToMultiByte(CP_UTF8, 0, in, -1, NULL, 0, NULL, NULL);
     if(!len)
         return str_printf("WideCharToMultiByte() failed");
-    out=str_alloc(len+1);
+    out=str_alloc((size_t)len+1);
     len=WideCharToMultiByte(CP_UTF8, 0, in, -1, out, len, NULL, NULL);
     if(!len) {
         str_free(out);

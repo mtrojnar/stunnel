@@ -25,7 +25,8 @@ A sponsor could allocate my time to get them faster.
   Visual Studio Professional Edition in order to retain FIPS compliance.
 * MSI installer for Windows.
 * Database and/or directory interface for retrieving PSK secrets.
-* Extend the sessiond protocol to also store the "redirect" state.
+* Extend session tickets and/or sessiond to also serialize
+  application data ("redirect" state and session persistence).
 
 Low priority features.  They will unlikely ever be supported.
 * Support static FIPS-enabled build.
@@ -41,8 +42,6 @@ Features I won't support, unless convinced otherwise by a wealthy sponsor.
 * Support for adding X-Forwarded-For to SMTP email headers.
   This feature is most likely to be implemented as a separate proxy.
 * Additional certificate checks (including wildcard comparison) based on:
-  - CN (Common Name);
-  - SAN (Subject Alternative Name);
   - O (Organization), and
   - OU (Organizational Unit).
 * Set processes title that appear on the ps(1) and top(1) commands.

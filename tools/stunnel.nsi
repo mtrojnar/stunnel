@@ -3,7 +3,7 @@
 !include "Sections.nsh"
 
 !ifndef VERSION
-!define VERSION 5.14
+!define VERSION 5.15
 !endif
 
 !ifndef ZLIBDIR
@@ -52,6 +52,7 @@ skip_service_stop:
   # write files
   SetOverwrite off
   File "stunnel.conf"
+  File "ca-certs.pem"
   SetOverwrite on
   !cd ".."
   !cd "doc"
@@ -206,6 +207,20 @@ lbl_noTERM:
     "$SMPROGRAMS\stunnel\stunnel Service Stop.lnk"
   Pop $0 # returns error(-1)/success(0)
   DetailPrint "ShellLink::SetRunAsAdministrator: $0"
+
+  CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Configuration File Reload.lnk" \
+    "$INSTDIR\stunnel.exe" "-reload" "$INSTDIR\stunnel.exe" 0
+  ShellLink::SetRunAsAdministrator \
+    "$SMPROGRAMS\stunnel\stunnel Service Configuration File Reload.lnk"
+  Pop $0 # returns error(-1)/success(0)
+  DetailPrint "ShellLink::SetRunAsAdministrator: $0"
+
+  CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Log File Reopen.lnk" \
+    "$INSTDIR\stunnel.exe" "-reopen" "$INSTDIR\stunnel.exe" 0
+  ShellLink::SetRunAsAdministrator \
+    "$SMPROGRAMS\stunnel\stunnel Service Log File Reopen.lnk"
+  Pop $0 # returns error(-1)/success(0)
+  DetailPrint "ShellLink::SetRunAsAdministrator: $0"
 skip_service_links:
 
   # edit config file
@@ -263,6 +278,7 @@ skip_service_uninstall:
 
   # remove stunnel folder
   Delete "$INSTDIR\stunnel.conf"
+  Delete "$INSTDIR\ca-certs.pem"
   Delete "$INSTDIR\stunnel.pem"
   Delete "$INSTDIR\stunnel.exe"
   Delete "$INSTDIR\stunnel.exe.manifest"

@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -119,7 +119,7 @@ int sthreads_init(void) {
     return 0;
 }
 
-int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
     CONTEXT *context;
 
     (void)ls; /* this parameter is only used with USE_FORK */
@@ -127,8 +127,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     s_log(LOG_DEBUG, "Creating a new context");
     context=new_context();
     if(!context) {
-        if(arg)
-            str_free(arg);
+        str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -137,8 +136,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     /* initialize context_t structure */
     if(getcontext(&context->context)<0) {
         str_free(context);
-        if(arg)
-            str_free(arg);
+        str_free(arg);
         if(s>=0)
             closesocket(s);
         ioerror("getcontext");
@@ -182,11 +180,10 @@ NOEXPORT void null_handler(int sig) {
     signal(SIGCHLD, null_handler);
 }
 
-int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
     switch(fork()) {
     case -1:    /* error */
-        if(arg)
-            str_free(arg);
+        str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -197,8 +194,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
         cli(arg);
         _exit(0);
     default:    /* parent */
-        if(arg)
-            str_free(arg);
+        str_free(arg);
         if(s>=0)
             closesocket(s);
     }
@@ -307,7 +303,7 @@ int sthreads_init(void) {
     return 0;
 }
 
-int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
     pthread_t thread;
     pthread_attr_t pth_attr;
     int error;
@@ -338,8 +334,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     if(error) {
         errno=error;
         ioerror("pthread_create");
-        if(arg)
-            str_free(arg);
+        str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -420,7 +415,8 @@ int sthreads_init(void) {
         InitializeCriticalSection(stunnel_cs+i);
 
     /* initialize OpenSSL locking callback */
-    lock_cs=str_alloc_detached(CRYPTO_num_locks()*sizeof(CRITICAL_SECTION));
+    lock_cs=str_alloc_detached(
+        (size_t)CRYPTO_num_locks()*sizeof(CRITICAL_SECTION));
     for(i=0; i<CRYPTO_num_locks(); i++)
         InitializeCriticalSection(lock_cs+i);
     CRYPTO_set_locking_callback(locking_callback);
@@ -433,14 +429,13 @@ int sthreads_init(void) {
     return 0;
 }
 
-int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
     if((long)_beginthread((void(*)(void *))cli, arg->opt->stack_size, arg)==-1) {
         ioerror("_beginthread");
-        if(arg)
-            str_free(arg);
-        if(s>=0)
+        str_free(arg);
+        if(s!=INVALID_SOCKET)
             closesocket(s);
         return -1;
     }
@@ -476,13 +471,12 @@ unsigned long stunnel_thread_id(void) {
     return (unsigned long)ppib->pib_ulpid;
 }
 
-int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
     if((long)_beginthread((void(*)(void *))cli, NULL, arg->opt->stack_size, arg)==-1L) {
         ioerror("_beginthread");
-        if(arg)
-            str_free(arg);
+        str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;

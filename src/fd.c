@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -49,19 +49,19 @@
 
 /**************************************** prototypes */
 
-NOEXPORT int setup_fd(int, int, char *);
+NOEXPORT SOCKET setup_fd(SOCKET, int, char *);
 
 /**************************************** internal limit of file descriptors */
 
 #ifndef USE_FORK
 
-static long max_fds;
+static SOCKET max_fds;
 
 void get_limits(void) { /* set max_fds and max_clients */
     /* start with current ulimit */
 #if defined(HAVE_SYSCONF)
     errno=0;
-    max_fds=sysconf(_SC_OPEN_MAX);
+    max_fds=(SOCKET)sysconf(_SC_OPEN_MAX);
     if(errno)
         ioerror("sysconf");
     if(max_fds<0)
@@ -89,7 +89,7 @@ void get_limits(void) { /* set max_fds and max_clients */
         max_fds=16;
 
     if(max_fds) {
-        max_clients=max_fds>=256 ? max_fds*125/256 : (max_fds-6)/2;
+        max_clients=(long)(max_fds>=256 ? max_fds*125/256 : (max_fds-6)/2);
         s_log(LOG_DEBUG, "Clients allowed=%ld", max_clients);
     } else {
         max_clients=0;
@@ -101,8 +101,8 @@ void get_limits(void) { /* set max_fds and max_clients */
 
 /**************************************** file descriptor validation */
 
-int s_socket(int domain, int type, int protocol, int nonblock, char *msg) {
-    int fd;
+SOCKET s_socket(int domain, int type, int protocol, int nonblock, char *msg) {
+    SOCKET fd;
 
 #ifdef USE_NEW_LINUX_API
     if(nonblock)
@@ -119,9 +119,9 @@ int s_socket(int domain, int type, int protocol, int nonblock, char *msg) {
     return setup_fd(fd, nonblock, msg);
 }
 
-int s_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen,
+SOCKET s_accept(SOCKET sockfd, struct sockaddr *addr, socklen_t *addrlen,
         int nonblock, char *msg) {
-    int fd;
+    SOCKET fd;
 
 #ifdef USE_NEW_LINUX_API
     if(nonblock)
@@ -136,7 +136,7 @@ int s_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen,
 
 #ifndef USE_WIN32
 
-int s_socketpair(int domain, int type, int protocol, int sv[2],
+int s_socketpair(int domain, int type, int protocol, SOCKET sv[2],
         int nonblock, char *msg) {
 #ifdef USE_NEW_LINUX_API
     if(nonblock)
@@ -186,21 +186,21 @@ int s_pipe(int pipefd[2], int nonblock, char *msg) {
 
 #endif /* USE_WIN32 */
 
-NOEXPORT int setup_fd(int fd, int nonblock, char *msg) {
+NOEXPORT SOCKET setup_fd(SOCKET fd, int nonblock, char *msg) {
 #if !defined USE_NEW_LINUX_API && defined FD_CLOEXEC
     int err;
 #endif
 
-    if(fd<0) {
+    if(fd==INVALID_SOCKET) {
         sockerror(msg);
-        return -1;
+        return INVALID_SOCKET;
     }
 #ifndef USE_FORK
     if(max_fds && fd>=max_fds) {
-        s_log(LOG_ERR, "%s: FD=%d out of range (max %ld)",
-            msg, fd, max_fds);
+        s_log(LOG_ERR, "%s: FD=%d out of range (max %d)",
+            msg, (int)fd, (int)max_fds);
         closesocket(fd);
-        return -1;
+        return INVALID_SOCKET;
     }
 #endif
 
@@ -225,7 +225,7 @@ NOEXPORT int setup_fd(int fd, int nonblock, char *msg) {
     return fd;
 }
 
-void set_nonblock(int fd, unsigned long nonblock) {
+void set_nonblock(SOCKET fd, unsigned long nonblock) {
 #if defined F_GETFL && defined F_SETFL && defined O_NONBLOCK && !defined __INNOTEK_LIBC__
     int err, flags;
 
@@ -246,7 +246,7 @@ void set_nonblock(int fd, unsigned long nonblock) {
     if(err<0)
         sockerror("fcntl SETFL"); /* non-critical */
 #else /* WIN32 or similar */
-    if(ioctlsocket(fd, FIONBIO, &nonblock)<0)
+    if(ioctlsocket(fd, (long)FIONBIO, &nonblock)<0)
         sockerror("ioctlsocket"); /* non-critical */
 #if 0
     else

@@ -67,7 +67,7 @@ print("setgid = $opt_g\n") if defined $opt_g;
 print("pid = $opt_P\n") if defined $opt_P;
 print("connect = $opt_r\n") if defined $opt_r;
 print("pty = yes\n"), $opt_l=$opt_L if defined $opt_L;
-print("exec = $opt_l\nexecargs = " . join(' ', $opt_l, @ARGV) . "\n") if defined $opt_l;
+print("exec = $opt_l\nexecArgs = " . join(' ', $opt_l, @ARGV) . "\n") if defined $opt_l;
 print("[stunnel3]\n") if defined $opt_d;
 
 close(STUNNEL);

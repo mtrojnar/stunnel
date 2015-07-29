@@ -1,11 +1,11 @@
 prefix=.
 DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DPACKAGE_TARNAME=\"stunnel\" \
-	-DPACKAGE_VERSION=\"5.14\" \
-	-DPACKAGE_STRING=\"stunnel\ 5.14\" \
+	-DPACKAGE_VERSION=\"5.15\" \
+	-DPACKAGE_STRING=\"stunnel\ 5.15\" \
 	-DPACKAGE_BUGREPORT=\"\" \
 	-DPACKAGE=\"stunnel\" \
-	-DVERSION=\"5.14\" \
+	-DVERSION=\"5.15\" \
 	-DSTDC_HEADERS=1 \
 	-DHAVE_SYS_TYPES_H=1 \
 	-DHAVE_SYS_STAT_H=1 \
@@ -42,7 +42,7 @@ OPENSSLDIR = u:/extras
 #SYSLOGDIR = /unixos2/workdir/syslog
 INCLUDES = -I$(OPENSSLDIR)/outinc
 LIBS = -lsocket -L$(OPENSSLDIR)/out -lssl -lcrypto -lz -lsyslog
-OBJS = file.o client.o log.o options.o protocol.o network.o ssl.o ctx.o verify.o sthreads.o stunnel.o pty.o resolver.o str.o fd.o
+OBJS = file.o client.o log.o options.o protocol.o network.o ssl.o ctx.o verify.o sthreads.o stunnel.o pty.o resolver.o str.o tls.o fd.o
 LIBDIR = .
 CFLAGS = -O2 -Wall -Wshadow -Wcast-align -Wpointer-arith
 
@@ -69,6 +69,7 @@ sthreads.o: sthreads.c common.h prototypes.h
 stunnel.o: stunnel.c common.h prototypes.h
 resolver.o: resolver.c common.h prototypes.h
 str.o: str.c common.h prototypes.h
+tls.o: tls.c common.h prototypes.h
 fd.o: fd.c common.h prototypes.h
 
 clean:

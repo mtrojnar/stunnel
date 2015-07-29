@@ -1,5 +1,5 @@
 /*
- *   stunnel       Universal SSL tunnel
+ *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
@@ -97,7 +97,7 @@ static const SSL_OPTION ssl_opts[] = {
 #ifdef SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
     {"DONT_INSERT_EMPTY_FRAGMENTS", SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS},
 #endif
-    {"ALL", SSL_OP_ALL},
+    {"ALL", (long)SSL_OP_ALL},
 #ifdef SSL_OP_NO_QUERY_MTU
     {"NO_QUERY_MTU", SSL_OP_NO_QUERY_MTU},
 #endif
@@ -147,7 +147,7 @@ static const SSL_OPTION ssl_opts[] = {
 #endif
     {"NETSCAPE_DEMO_CIPHER_CHANGE_BUG", SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG},
 #ifdef SSL_OP_CRYPTOPRO_TLSEXT_BUG
-    {"CRYPTOPRO_TLSEXT_BUG", SSL_OP_CRYPTOPRO_TLSEXT_BUG},
+    {"CRYPTOPRO_TLSEXT_BUG", (long)SSL_OP_CRYPTOPRO_TLSEXT_BUG},
 #endif
     {NULL, 0}
 };
@@ -203,7 +203,7 @@ static char *option_not_found=
     "Specified option name is not valid here";
 
 static char *stunnel_cipher_list=
-    "HIGH:MEDIUM:+3DES:+DH:!aNULL:!SSLv2";
+    "HIGH:+3DES:+DH:!aNULL:!SSLv2";
 
 /**************************************** parse commandline parameters */
 
@@ -609,7 +609,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "no"))
             new_global_options.option.fips=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
 #else
         if(strcasecmp(arg, "no"))
             return "FIPS support is not available";
@@ -643,7 +643,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "no"))
             new_global_options.option.foreground=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -741,7 +741,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "overwrite"))
             new_global_options.log_file_mode=FILE_MODE_OVERWRITE;
         else
-            return "Argument should be either 'append' or 'overwrite'";
+            return "The argument needs to be either 'append' or 'overwrite'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -863,7 +863,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "no"))
             new_global_options.option.rand_write=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -997,7 +997,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "no"))
             new_global_options.option.syslog=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1026,7 +1026,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else if(!strcasecmp(arg, "no"))
             new_global_options.option.taskbar=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1057,9 +1057,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         char *opt, char *arg) {
     char *tmp_str;
-    int tmp_int, endpoints=0;
+    int endpoints=0;
     long tmp_long;
-    unsigned long tmp_ulong;
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
@@ -1072,7 +1071,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->option.accept=0;
         memset(&section->local_addr, 0, sizeof(SOCKADDR_UNION));
         section->local_addr.in.sin_family=AF_INET;
-        section->fd=-1;
+        section->fd=INVALID_SOCKET;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "accept"))
@@ -1190,6 +1189,76 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
+#if OPENSSL_VERSION_NUMBER>=0x10002000L
+
+    /* checkEmail */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->check_email=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "checkEmail"))
+            break;
+        name_list_append(&section->check_email, arg);
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = peer certificate email address",
+            "checkEmail");
+        break;
+    }
+
+    /* checkHost */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->check_host=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "checkHost"))
+            break;
+        name_list_append(&section->check_host, arg);
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = peer certificate host name pattern",
+            "checkHost");
+        break;
+    }
+
+    /* checkIP */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->check_ip=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "checkIP"))
+            break;
+        name_list_append(&section->check_ip, arg);
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = peer certificate IP address",
+            "checkIP");
+        break;
+    }
+
+#endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
+
     /* ciphers */
     switch(cmd) {
     case CMD_BEGIN:
@@ -1243,7 +1312,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.client=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1260,25 +1329,26 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* connect */
     switch(cmd) {
     case CMD_BEGIN:
-        section->option.remote=0;
-        addrlist_init(&section->connect_addr, 1);
+        addrlist_clear(&section->connect_addr);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "connect"))
             break;
-        section->option.remote=1;
         name_list_append(&section->connect_addr.names, arg);
         return NULL; /* OK */
     case CMD_END:
-        if(!section->option.delayed_lookup &&
-                section->connect_addr.names &&
-                !addrlist_resolve(&section->connect_addr)) {
-            s_log(LOG_INFO,
-                "Cannot resolve connect target - delaying DNS lookup");
-            section->option.delayed_lookup=1;
-        }
-        if(section->option.remote)
+        if(section->connect_addr.names) {
+            if(!section->option.delayed_lookup &&
+                    !addrlist_resolve(&section->connect_addr)) {
+                s_log(LOG_INFO,
+                    "Cannot resolve connect target - delaying DNS lookup");
+                section->redirect_addr.num=0;
+                str_free(section->redirect_addr.names);
+                section->redirect_addr.names=NULL;
+                section->option.delayed_lookup=1;
+            }
             ++endpoints;
+        }
         break;
     case CMD_FREE:
         break;
@@ -1401,7 +1471,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.delayed_lookup=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1410,7 +1480,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = yes|no delay DNS lookup for 'connect' option",
+        s_log(LOG_NOTICE,
+            "%-22s = yes|no delay DNS lookup for 'connect' option",
             "delay");
         break;
     }
@@ -1447,10 +1518,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "engineNum"))
             break;
-        tmp_int=(int)strtol(arg, &tmp_str, 10);
-        if(tmp_str==arg || *tmp_str) /* not a number */
-            return "Illegal engine number";
-        section->engine=engine_get_by_num(tmp_int-1);
+        {
+            int tmp_int=(int)strtol(arg, &tmp_str, 10);
+            if(tmp_str==arg || *tmp_str) /* not a number */
+                return "Illegal engine number";
+            section->engine=engine_get_by_num(tmp_int-1);
+        }
         if(!section->engine)
             return "Illegal engine number";
         return NULL; /* OK */
@@ -1471,26 +1544,24 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* exec */
     switch(cmd) {
     case CMD_BEGIN:
-        section->option.program=0;
-        section->execname=NULL;
+        section->exec_name=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "exec"))
             break;
-        section->option.program=1;
-        section->execname=str_dup(arg);
+        section->exec_name=str_dup(arg);
 #ifdef USE_WIN32
-        section->execargs=str_dup(arg);
+        section->exec_args=str_dup(arg);
 #else
-        if(!section->execargs) {
-            section->execargs=str_alloc(2*sizeof(char *));
-            section->execargs[0]=section->execname;
-            section->execargs[1]=NULL; /* to show that it's null-terminated */
+        if(!section->exec_args) {
+            section->exec_args=str_alloc(2*sizeof(char *));
+            section->exec_args[0]=section->exec_name;
+            section->exec_args[1]=NULL; /* to show that it's null-terminated */
         }
 #endif
         return NULL; /* OK */
     case CMD_END:
-        if(section->option.program)
+        if(section->exec_name)
             ++endpoints;
         break;
     case CMD_FREE:
@@ -1503,18 +1574,18 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
-    /* execargs */
+    /* execArgs */
     switch(cmd) {
     case CMD_BEGIN:
-        section->execargs=NULL;
+        section->exec_args=NULL;
         break;
     case CMD_EXEC:
-        if(strcasecmp(opt, "execargs"))
+        if(strcasecmp(opt, "execArgs"))
             break;
 #ifdef USE_WIN32
-        section->execargs=str_dup(arg);
+        section->exec_args=str_dup(arg);
 #else
-        section->execargs=argalloc(arg);
+        section->exec_args=argalloc(arg);
 #endif
         return NULL; /* OK */
     case CMD_END:
@@ -1525,7 +1596,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-22s = arguments for 'exec' (including $0)",
-            "execargs");
+            "execArgs");
         break;
     }
 
@@ -1542,7 +1613,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else if(!strcasecmp(arg, "prio"))
             section->failover=FAILOVER_PRIO;
         else
-            return "Argument should be either 'rr' or 'prio'";
+            return "The argument needs to be either 'rr' or 'prio'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1613,7 +1684,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.libwrap=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1720,7 +1791,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.aia=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1742,10 +1813,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "OCSPflag"))
             break;
-        tmp_ulong=parse_ocsp_flag(arg);
-        if(!tmp_ulong)
-            return "Illegal OCSP flag";
-        section->ocsp_flags|=tmp_ulong;
+        {
+            unsigned long tmp_ulong=parse_ocsp_flag(arg);
+            if(!tmp_ulong)
+                return "Illegal OCSP flag";
+            section->ocsp_flags|=tmp_ulong;
+        }
         return NULL;
     case CMD_END:
         break;
@@ -1810,14 +1883,19 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->protocol=str_dup(arg);
         return NULL; /* OK */
     case CMD_END:
-        /* this also sets section->option.connect_before_ssl */
+        /* this also initializes section->option.connect_before_ssl */
         tmp_str=protocol(NULL, section, PROTOCOL_CHECK);
         if(tmp_str)
             return tmp_str;
         if(section->protocol && !strcasecmp(section->protocol, "socks")) {
-            section->option.remote=1;
             ++endpoints;
         }
+#ifdef SSL_OP_NO_TICKET
+        /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
+        /* session tickets do not support SSL_SESSION_*_ex_data() */
+        if(!section->option.connect_before_ssl) /* address cache can be used */
+            section->ssl_options_set|=SSL_OP_NO_TICKET;
+#endif
         break;
     case CMD_FREE:
         break;
@@ -2004,7 +2082,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.pty=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -2022,7 +2100,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* redirect */
     switch(cmd) {
     case CMD_BEGIN:
-        addrlist_init(&section->redirect_addr, 1);
+        addrlist_clear(&section->redirect_addr);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "redirect"))
@@ -2035,12 +2113,18 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         name_list_append(&section->redirect_addr.names, arg);
         return NULL; /* OK */
     case CMD_END:
-        if(!section->option.delayed_lookup &&
-                section->redirect_addr.names &&
-                !addrlist_resolve(&section->redirect_addr)) {
-            s_log(LOG_INFO,
-                "Cannot resolve redirect target - delaying DNS lookup");
-            section->option.delayed_lookup=1;
+        if(section->redirect_addr.names) {
+            if(!section->option.delayed_lookup &&
+                    !addrlist_resolve(&section->redirect_addr)) {
+                s_log(LOG_INFO,
+                    "Cannot resolve redirect target - delaying DNS lookup");
+                section->connect_addr.num=0;
+                str_free(section->connect_addr.names);
+                section->connect_addr.names=NULL;
+                section->option.delayed_lookup=1;
+            }
+            if(section->verify_level<1)
+                return "\"verify\" needs to be 1 or higher for \"redirect\" to work";
         }
         break;
     case CMD_FREE:
@@ -2048,7 +2132,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = [host:]port to redirect on authentication failures",
+        s_log(LOG_NOTICE,
+            "%-22s = [host:]port to redirect on authentication failures",
             "redirect");
         break;
     }
@@ -2066,7 +2151,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.renegotiation=0;
         else
-            return "argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -2093,7 +2178,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.reset=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -2120,7 +2205,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else if(!strcasecmp(arg, "no"))
             section->option.retry=0;
         else
-            return "Argument should be either 'yes' or 'no'";
+            return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -2507,6 +2592,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "Bad verify level";
         return NULL; /* OK */
     case CMD_END:
+        if(section->verify_level>0 && !section->ca_file && !section->ca_dir)
+            return "Either \"CAfile\" or \"CApath\" has to be configured";
         break;
     case CMD_FREE:
         break;
@@ -2863,7 +2950,7 @@ SOCK_OPT sock_opts[] = {
 };
 
 NOEXPORT int print_socket_options(void) {
-    int fd;
+    SOCKET fd;
     socklen_t optlen;
     SOCK_OPT *ptr;
     OPT_UNION val;
@@ -3179,7 +3266,7 @@ NOEXPORT void print_syntax(void) {
     s_log(LOG_NOTICE, "stunnel "
 #ifdef USE_WIN32
 #ifndef _WIN32_WCE
-        "[ [-install | -uninstall] "
+        "[ [-install | -uninstall | -reload | -reopen] "
 #endif
         "[-quiet] "
 #endif
@@ -3193,8 +3280,10 @@ NOEXPORT void print_syntax(void) {
 #ifndef _WIN32_WCE
     s_log(LOG_NOTICE, "    -install    - install NT service");
     s_log(LOG_NOTICE, "    -uninstall  - uninstall NT service");
+    s_log(LOG_NOTICE, "    -reload     - reload configuration for NT service");
+    s_log(LOG_NOTICE, "    -reopen     - reopen log file for NT service");
 #endif
-    s_log(LOG_NOTICE, "    -quiet      - don't display a message box on success");
+    s_log(LOG_NOTICE, "    -quiet      - don't display message boxes");
 #else
     s_log(LOG_NOTICE, "    -fd <n>     - read the config file from a file descriptor");
 #endif
