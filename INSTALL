@@ -1,6 +1,9 @@
-stunnel         Universal SSL tunnel for network daemons
+stunnel         Universal SSL tunnel
 
-1. Compile the software:
+1. If your machine supports POSIX threads make sure your SSL
+   library is compiled with -DTHREADS.
+
+2. Compile the software:
 
         ./configure
         make
@@ -20,7 +23,13 @@ stunnel         Universal SSL tunnel for network daemons
        make
        make install
 
-2. Modify /etc/services and /etc/inetd.conf startup file.
+3. Test with ./stunnel -f -d <ssl-port> -r <remote-service>:<remote-port>
+
+4. Install daemon in your startup file (daemon mode).
+
+     or
+
+   Modify /etc/services and /etc/inetd.conf, restart inetd (inetd mode).
 
    See stunnel manual for details.
 

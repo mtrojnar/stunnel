@@ -1,5 +1,23 @@
 /* config.h.in.  Generated automatically from configure.in by autoheader.  */
 
+/* SSL directory.  */
+#undef SSLDIR
+
+/* Stunnel version.  */
+#undef VERSION
+
+/* Stunnel HOST.  */
+#undef HOST
+
+/* Define if you have the TCP wrapper library (-lwrap).  */
+#undef HAVE_LIBWRAP
+
+/* Define if you have the <getopt.h> header file.  */
+#undef HAVE_GETOPT_H
+
+/* Define if you have the <pthread.h> header file.  */
+#undef HAVE_PTHREAD_H
+
 /* Define if you have the <strings.h> header file.  */
 #undef HAVE_STRINGS_H
 
@@ -15,8 +33,8 @@
 /* Define if you have the nsl library (-lnsl).  */
 #undef HAVE_LIBNSL
 
+/* Define if you have the pthread library (-lpthread).  */
+#undef HAVE_LIBPTHREAD
+
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET
-
-/* Define if you have the wrap library (-lwrap).  */
-#undef HAVE_LIBWRAP

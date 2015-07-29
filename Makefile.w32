@@ -1,0 +1,13 @@
+# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-1999
+
+SSLDIR=../ssl
+
+CC=gcc
+CFLAGS=-O2 -Wall -DUSE_WIN32 -I$(SSLDIR)/include
+LDFLAGS=-s
+LIBS=-L$(SSLDIR)/lib -lssl -lcrypto -lwsock32 -lgdi32
+OBJS=log.o sthreads.o stunnel.o
+
+stunnel.exe: $(OBJS)
+	$(CC) $(LDFLAGS) -o stunnel.exe $(OBJS) $(LIBS)
+

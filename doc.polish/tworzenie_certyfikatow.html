@@ -1,0 +1,744 @@
+<HTML>
+<HEAD>
+   <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-2">
+   <META NAME="Author" CONTENT="Adam Hernik">
+   <TITLE>Wszystko co powinieneś wiedzieć o tworzeniu certyfikatów ale nie chce Ci się poszukać w dokumentacji</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#CCCCCC" LINK="#0000EF" VLINK="#51188E" ALINK="#FF0000">
+
+<CENTER>
+<H1>
+<FONT SIZE=+2>Wszystko co powinieneś wiedzieć o tworzeniu certyfikatów
+ale nie chce Ci się</FONT></H1></CENTER>
+
+<CENTER>
+<H1>
+<FONT SIZE=+2>poszukać w dokumentacji.</FONT></H1></CENTER>
+&nbsp;
+
+<P><B><FONT SIZE=+1>Co powinno znajdować się na Twoim dysku zamin zostaniesz
+"Certificate Authorities".</FONT></B>
+
+<P>Podstawowym oprogramowaniem jest oczywiście <A HREF="http://www.openssl.org">openssl</A>.
+W tym miejscu należy zachować czujność
+<BR>bo openssl <B>MUSI</B> być co najmniej w wersji 0.9.2b dzięki czemu
+ominie Cię część karkołomnych
+<BR>operacji przy pomocy <A HREF="http://www.drh-consultancy.demon.co.uk">pcks12</A>
+ktory także musisz posiadać w swoich zasobach dyskowych.
+<BR>Jeśli masz już zainstalowane powyższe oprogramowanie możesz zacząć
+tworzyć certyfikaty.
+
+<P><B><FONT SIZE=+1>Konfiguracja openssl.</FONT></B>
+
+<P>Zakładam ze openssl jest zainstalowany standardowo czyli w <B>/usr/local/ssl</B>.
+Pierwszym krokiem jest
+<BR>przejrzenie i "dokonfigurowanie" <B>/usr/local/ssl/lib/openssl.cnf</B>.
+Mój domowy konfig wygląda następująco
+<BR>(kolorem czerwonym zaznaczylem opcje które raczej powinieneś zmienić)
+:
+<BR><FONT SIZE=-2><A HREF="#koniec openssl.cnf">jeśli nie chce Ci się tego
+czytać to skocz na koniec konfiga</A></FONT>
+
+<P><I>#</I>
+<BR><I># OpenSSL example configuration file.</I>
+<BR><I># This is mostly being used for generation of certificate requests.</I>
+<BR><I>#</I>
+<BR><I>&nbsp;</I>
+<BR><I>RANDFILE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= $ENV::HOME/.rnd</I>
+<BR><I>oid_file&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= $ENV::HOME/.oid</I>
+<BR><I>oid_section&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= new_oids</I>
+<BR><I>&nbsp;</I>
+<BR><I>[ new_oids ]</I>
+<BR><I>&nbsp;</I>
+<BR><I># We can add new OIDs in here for use by 'ca' and 'req'.</I>
+<BR><I># Add a simple OID like this:</I>
+<BR><I># testoid1=1.2.3.4</I>
+<BR><I># Or use config file substitution like this:</I>
+<BR><I># testoid2=${testoid1}.5.6</I>
+<BR><I>&nbsp;</I>
+<BR><I>####################################################################</I>
+<BR><I>[ ca ]</I>
+<BR><I>default_ca&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = CA_default&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# The default ca section</I>
+<BR><I>&nbsp;</I>
+<BR><I>####################################################################</I>
+<BR><I>[ CA_default ]</I>
+<BR><I>&nbsp;</I>
+<BR><I>dir&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= ./demoCA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# Where everything is kept</I>
+<BR><I>certs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= $dir/certs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# Where the issued certs are kept</I>
+<BR><I>crl_dir&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = $dir/crl&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# Where the issued crl are kept</I>
+<BR><I>database&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = $dir/index.txt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# database index file.</I>
+<BR><I>new_certs_dir&nbsp;&nbsp; = $dir/newcerts&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# default place for new certs.</I>
+<BR><I>&nbsp;</I>
+<BR><I>certificate&nbsp;&nbsp;&nbsp;&nbsp; = $dir/cacert.pem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# The CA certificate</I>
+<BR><I>serial&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = $dir/serial&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# The current serial number</I>
+<BR><I>crl&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= $dir/crl.pem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; #
+The current CRL</I>
+<BR><I>private_key&nbsp;&nbsp;&nbsp;&nbsp; = $dir/private/cakey.pem# The
+private key</I>
+<BR><I>RANDFILE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = $dir/private/.rand&nbsp;&nbsp;&nbsp;
+# private random number file</I>
+<BR><I>&nbsp;</I>
+<BR><I>x509_extensions = usr_cert&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# The extentions to add to the cert</I>
+<BR><I>crl_extensions&nbsp; = crl_ext&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# Extensions to add to CRL</I>
+<BR><I>default_days&nbsp;&nbsp;&nbsp; = 365&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# how long to certify for</I>
+<BR><I>default_crl_days= 30&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# how long before next CRL</I>
+<BR><I>default_md&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = md5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# which md to use.</I>
+<BR><I>preserve&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = no&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# keep passed DN ordering</I>
+<BR><I>&nbsp;</I>
+<BR><I># A few difference way of specifying how similar the request should
+look</I>
+<BR><I># For type CA, the listed attributes must be the same, and the optional</I>
+<BR><I># and supplied fields are just that :-)</I>
+<BR><I>policy&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = policy_match</I>
+<BR><I># For the CA policy</I>
+<BR><I>[ policy_match ]</I>
+<BR><I>countryName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= match</I>
+<BR><I>stateOrProvinceName&nbsp;&nbsp;&nbsp;&nbsp; = match</I>
+<BR><I>organizationName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = match</I>
+<BR><I>organizationalUnitName&nbsp; = optional</I>
+<BR><I>commonName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= supplied</I>
+<BR><I>emailAddress&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= optional</I>
+<BR><I>&nbsp;</I>
+<BR><I># For the 'anything' policy</I>
+<BR><I># At this point in time, you must list all acceptable 'object'</I>
+<BR><I># types.</I>
+<BR><I>[ policy_anything ]</I>
+<BR><I>countryName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= optional</I>
+<BR><I>stateOrProvinceName&nbsp;&nbsp;&nbsp;&nbsp; = optional</I>
+<BR><I>localityName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= optional</I>
+<BR><I>organizationName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = optional</I>
+<BR><I>organizationalUnitName&nbsp; = optional</I>
+<BR><I>commonName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= supplied</I>
+<BR><I>emailAddress&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= optional</I>
+<BR><I>&nbsp;</I>
+<BR><I>####################################################################</I>
+<BR><A NAME="req"></A><I>[ req ]</I>
+<BR><I>default_bits&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= <FONT COLOR="#FF0000">1024</FONT></I>
+<BR><I>default_keyfile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= privkey.pem</I>
+<BR><I>distinguished_name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = req_distinguished_name</I>
+<BR><I>attributes&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= req_attributes</I>
+<BR><I>x509_extensions = v3_ca # The extentions to add to the self signed
+cert</I>
+<BR><I>&nbsp;</I>
+<BR><I>[ req_distinguished_name ]</I>
+<BR><I>countryName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= Country Name (2 letter code)</I>
+<BR><I>countryName_default&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= <FONT COLOR="#FF0000">PL</FONT></I>
+<BR><I>countryName_min&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= 2</I>
+<BR><I>countryName_max&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= 2</I>
+<BR><I>&nbsp;</I>
+<BR><I>stateOrProvinceName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= State i Prowincja</I>
+<BR><I>stateOrProvinceName_default&nbsp;&nbsp;&nbsp;&nbsp; = <FONT COLOR="#FF0000">State-Prowincja
+domyslna</FONT></I>
+<BR><I>localityName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= Locality Name (eg, city)</I>
+<BR><I>localityName_default&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= <FONT COLOR="#FF0000">Lodz</FONT></I>
+<BR><I>&nbsp;</I>
+<BR><I>0.organizationName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= Organization Name (eg, company)</I>
+<BR><I>0.organizationName_default&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = <FONT COLOR="#FF0000">Nawza
+Organizacji</FONT></I>
+<BR><I>&nbsp;</I>
+<BR><I># we can do this but it is not needed normally :-)</I>
+<BR><I>#1.organizationName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= Second Organization Name (eg, company)</I>
+<BR><I>#1.organizationName_default&nbsp;&nbsp;&nbsp;&nbsp; = World Wide
+Web Pty Ltd</I>
+<BR><I>organizationalUnitName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= Organizational Unit Name (eg, section)</I>
+<BR><I>organizationalUnitName_default&nbsp; = <FONT COLOR="#FF0000">Unit
+name domyslny</FONT></I>
+<BR><I>&nbsp;</I>
+<BR><I>commonName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= Common Name (eg, YOUR name)</I>
+<BR><I>commonName_max&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= 64</I>
+<BR><I>&nbsp;</I>
+<BR><I>emailAddress&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= Email Address</I>
+<BR><I>emailAddress_max&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= 40</I>
+<BR><I>&nbsp;</I>
+<BR><I># SET-ex3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= SET extension number 3</I>
+<BR><I>&nbsp;</I>
+<BR><I>[ req_attributes ]</I>
+<BR><I>challengePassword&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= A challenge password</I>
+<BR><I>challengePassword_min&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 4</I>
+<BR><I>challengePassword_max&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 20</I>
+<BR><I>&nbsp;</I>
+<BR><I>unstructuredName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= An optional company name</I>
+<BR><I>&nbsp;</I>
+<BR><A NAME="usr_cert"></A><I>[ usr_cert ]</I>
+<BR><I>&nbsp;</I>
+<BR><I># These extensions are added when 'ca' signs a request.</I>
+<BR><I>&nbsp;</I>
+<BR><I># This goes against PKIX guidelines but some CAs do it and some
+software</I>
+<BR><I># requires this to avoid interpreting an end user certificate as
+a CA.</I>
+<BR><I>&nbsp;</I>
+<BR><I>basicConstraints=CA:FALSE</I>
+<BR><I>&nbsp;</I>
+<BR><I># Here are some examples of the usage of nsCertType. If it is omitted</I>
+<BR><I># the certificate can be used for anything *except* object signing.</I>
+<BR><I>&nbsp;</I>
+<BR><A NAME="server"></A><I># This is OK for an SSL server.</I>
+<BR><I><FONT COLOR="#006600">#nsCertType&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= server</FONT></I>
+<BR><I>&nbsp;</I>
+<BR><I># For an object signing certificate this would be used.</I>
+<BR><I>#nsCertType = objsign</I>
+<BR><I>&nbsp;</I>
+<BR><A NAME="klient"></A><I># For normal client use this is typical</I>
+<BR><I><FONT COLOR="#006600">nsCertType = client, email</FONT></I>
+<BR><I>&nbsp;</I>
+<BR><I># This is typical also</I>
+<BR><I>&nbsp;</I>
+<BR><I>keyUsage = nonRepudiation, digitalSignature, keyEncipherment</I>
+<BR><I>&nbsp;</I>
+<BR><I>nsComment&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= "<FONT COLOR="#FF0000">OpenSSL Generated Certificate</FONT>"</I>
+<BR><I>&nbsp;</I>
+<BR><I># PKIX recommendations</I>
+<BR><I>subjectKeyIdentifier=hash</I>
+<BR><I>authorityKeyIdentifier=keyid,issuer:always</I>
+<BR><I># Import the email address.</I>
+<BR><I>&nbsp;</I>
+<BR><I>subjectAltName=email:copy</I>
+<BR><I>&nbsp;</I>
+<BR><I># Copy subject details</I>
+<BR><I>&nbsp;</I>
+<BR><I>issuerAltName=issuer:copy</I>
+<BR><I>&nbsp;</I>
+<BR><I>#nsCaRevocationUrl&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= http://www.domain.dom/ca-crl.pem</I>
+<BR><I>#nsBaseUrl</I>
+<BR><I>#nsRevocationUrl</I>
+<BR><I>#nsRenewalUrl</I>
+<BR><I>#nsCaPolicyUrl</I>
+<BR><I>#nsSslServerName</I>
+<BR><I>&nbsp;</I>
+<BR><I>[ v3_ca]</I>
+<BR><I>&nbsp;</I>
+<BR><I># Extensions for a typical CA</I>
+<BR><I>&nbsp;</I>
+<BR><I># It's a CA certificate</I>
+<BR><I>basicConstraints = CA:true</I>
+<BR><I>&nbsp;</I>
+<BR><I># PKIX recommendation.</I>
+<BR><I>&nbsp;</I>
+<BR><I>subjectKeyIdentifier=hash</I>
+<BR><I>&nbsp;</I>
+<BR><I>authorityKeyIdentifier=keyid:always,issuer:always</I>
+<BR><I>&nbsp;</I>
+<BR><I># This is what PKIX recommends but some broken software chokes on
+critical</I>
+<BR><I># extensions.</I>
+<BR><I>#basicConstraints = critical,CA:true</I>
+<BR><I>&nbsp;</I>
+<BR><I># Key usage: again this should really be critical.</I>
+<BR><I>keyUsage = cRLSign, keyCertSign</I>
+<BR><I>&nbsp;</I>
+<BR><I># Some might want this also</I>
+<BR><I>nsCertType = sslCA, emailCA, objCA</I>
+<BR><I>&nbsp;</I>
+<BR><I># Include email address in subject alt name: another PKIX recommendation</I>
+<BR><I>subjectAltName=email:copy</I>
+<BR><I># Copy issuer details</I>
+<BR><I>issuerAltName=issuer:copy</I>
+<BR><I>&nbsp;</I>
+<BR><I># RAW DER hex encoding of an extension: beware experts only!</I>
+<BR><I># 1.2.3.5=RAW:02:03</I>
+<BR><I># You can even override a supported extension:</I>
+<BR><I># basicConstraints= critical, RAW:30:03:01:01:FF</I>
+<BR><I>&nbsp;</I>
+<BR><I>[ crl_ext ]</I>
+<BR><I>&nbsp;</I>
+<BR><I># CRL extensions.</I>
+<BR><I># Only issuerAltName and authorityKeyIdentifier make any sense in
+a CRL.</I>
+
+<P><I>issuerAltName=issuer:copy</I>
+<BR><I>authorityKeyIdentifier=keyid:always,issuer:always</I>
+<BR>################################################################################
+<BR>########## koniec pliku openssl.cnf
+
+<P><A NAME="koniec openssl.cnf"></A>Jak widać zmiany są praktycznie kosmetyczne.&nbsp;
+Należy zwrócic jedynie uwagę na opcję <A HREF="#req">default_bits</A> w
+sekcji req.
+<BR>W momencie generowania certyfikatu CA powinna mieć ona wartość 1024
+lub więcej, natomiast w trakcie tworzenia
+<BR>certyfikatów klienckich winno mieć się na uwadze wredną cechę produktów
+M$ dostępnych poza granicami USA.
+<BR>Nie są one w stanie zaimportować kluczy mających więcej niż 512 bitów.
+W takim przypadku default_bits należy
+<BR>zmniejszyć do tej wartości. Jeśli chodzi o Netscapa konieczność taka
+nie występuje, nawet gdy nie jest on
+<BR>patchowany przy pomocy <A HREF="http://www.fortify.net/">Fortify</A>.
+Jednakże klucz nie powinien być większy niż 1024 bity.
+
+<P><B><FONT SIZE=+1>Generowanie certyfikatu CA</FONT></B>
+
+<P>Pierwszyą czynnością jaką należy wykonać jest wygenerowanie certyfikatu
+CA czyli czegoś czym będą
+<BR>podpiswane certyfikaty udostępniane klientom. Uruchom rxvt lub coś
+innego i wykonaj polecenie:
+
+<P><I>adas:~# <B>cd /usr/local/ssl/bin</B></I>
+<BR><I>adas:/usr/local/ssl/bin# <B>./CA.pl -newca</B></I>
+
+<P><I>CA certificate filename (or enter to create)</I>
+
+<P><I>Making CA certificate ...</I>
+<BR><I>Using configuration from /usr/local/ssl/lib/openssl.cnf</I>
+<BR><I>Generating a 1024 bit RSA private key</I>
+<BR><I>..+++++</I>
+<BR><I>....+++++</I>
+<BR><I>writing new private key to './demoCA/private/cakey.pem'</I>
+<BR><A NAME="pem_pass"></A><I><FONT COLOR="#009900">Enter PEM pass phrase:</FONT></I>
+<BR><I><FONT COLOR="#009900">Verifying password - Enter PEM pass phrase:</FONT></I>
+<BR><I>-----</I>
+<BR><I>You are about to be asked to enter information that will be incorporated</I>
+<BR><I>into your certificate request.</I>
+<BR><I>What you are about to enter is what is called a Distinguished Name
+or a DN.</I>
+<BR><I>There are quite a few fields but you can leave some blank</I>
+<BR><I>For some fields there will be a default value,</I>
+<BR><I>If you enter '.', the field will be left blank.</I>
+<BR><I>-----</I>
+<BR><I>Country Name (2 letter code) [PL]:</I>
+<BR><I>State i Prowincja [Kraina Bezrobotnych Szwaczek]:</I>
+<BR><I>Locality Name (eg, city) [Lodz]:</I>
+<BR><I>Organization Name (eg, company) [Instytut Badan Czarow i Magii]:</I>
+<BR><I>Organizational Unit Name (eg, section) [Komorka d/s Egzorcyzmow
+i Opentan]:</I>
+<BR><I>Common Name (eg, YOUR name) []:Adam Hernik</I>
+<BR><I>Email Address []:adas@infocentrum.com</I>
+
+<P><I>adas:/usr/local/ssl/bin#</I>
+
+<P>Skrypt CA.pl uruchomiony poraz pierwszy tworzy w /usr/local/ssl/bin
+katalog o nazwie demoCA w którym znajduje się
+<BR>wygenerowany przed chwilą certyfikat publiczny <B>cacert.pem</B> (dołączany
+póżniej do certyfikatów klienckich) oraz tajny
+<BR>zabezpieczony <A HREF="#pem_pass">hasłem</A> klucz <B>cakey.pem</B>
+którym będziesz podpisywał certyfikaty wydawane użytkownikom. Klucz i hasło
+<BR>oczywiście należy dobrze chronić i najlepiej jest gdy znajduje się
+na serwerze tylko w momencie generowania certyfikatu.
+<BR>Ponowne uruchomienie CA.pl z parametrem -newca niszczy to co pracowicie
+stworzyłeś i generuje nowy klucz i certyfikat.
+<BR>&nbsp;
+
+<P><B><FONT SIZE=+1>Tworzenie certyfikatu dla stunnela i innych serwerów</FONT></B>
+<BR>&nbsp;
+
+<P>Zanim się do tego zabierzesz powinieneś lekko zmodyfikowac skrypt <B>CA.pl</B>
+oraz plik konfiguracyjny <B>openssl.cnf</B>.
+<BR>Skopiuj je odpowiednio do plików <B>/usr/local/ssl/bin/CAserv.pl</B>
+i <B>/usr/local/ssl/lib/openssl_serv.cnf</B>.<B></B>
+<BR>Generowane certyfikaty domyślnie zabezpieczone są hasłem, w takim przypadku
+w momencie startu stunnela zawsze
+<BR>będziesz pytany o haslo zabezpieczające, co skutecznie uniemożliwi
+automatyczne uruchamianie programu w czasie
+<BR>bootowania&nbsp; serwera, czy też przy próbie wystartowania go przez
+inetd. Należy poprawić <B>linie 40</B> i <B>41</B> skryptu
+<BR><B>CAserv.pl</B> z
+
+<P><FONT COLOR="#006600">linia 40:</FONT>
+<BR><B>$REQ="openssl req <I>$SSLEAY_CONFIG</I>";</B>
+<BR>na
+<BR><B>$REQ="openssl req <FONT COLOR="#FF0000">-nodes -config /usr/local/ssl/lib/openssl_serv.cnf</FONT>";</B>
+
+<P><FONT COLOR="#006600">linia 41:</FONT>
+<BR><B>$CA="openssl ca <I>$SSLEAY_CONFIG</I>";</B>
+<BR>na
+<BR><B>$CA="openssl ca <FONT COLOR="#FF0000">-config /usr/local/ssl/lib/openssl_serv.cnf</FONT>";</B>
+<BR>&nbsp;
+
+<P>Natomiast w pliku <B>/usr/local/ssl/lib/openssl_serv.cnf </B>nalezy&nbsp;
+w sekcji <A HREF="#usr_cert">usr_cert</A> "zahashować" linijkę
+<BR><A HREF="#klient">nsCertType = client, email</A>&nbsp; oraz "odhashować"
+linijkę <A HREF="#server">nsCertType&nbsp;&nbsp; = server</A> . Jeśli tego
+nie zrobisz klient nie będzie
+<BR>poprawnie rozpoznawał typu certyfikatu. A teraz kolej na wygenerowanie
+"requestu" posyłanego zazwyczaj do CA.
+<BR>Będąc w katalogu /usr/local/ssl/bin wykonaj:
+
+<P><I>adas:/usr/local/ssl/bin# .<B>/CAserv.pl -newreq</B></I>
+<BR><I>Using configuration from /usr/local/ssl/lib/openssl_serv.cnf</I>
+<BR><I>Generating a 1024 bit RSA private key</I>
+<BR><I>..............................+++++</I>
+<BR><I>.........+++++</I>
+<BR><I>writing new private key to 'newreq.pem'</I>
+<BR><I>-----</I>
+<BR><I>You are about to be asked to enter information that will be incorporated</I>
+<BR><I>into your certificate request.</I>
+<BR><I>What you are about to enter is what is called a Distinguished Name
+or a DN.</I>
+<BR><I>There are quite a few fields but you can leave some blank</I>
+<BR><I>For some fields there will be a default value,</I>
+<BR><I>If you enter '.', the field will be left blank.</I>
+<BR><I>-----</I>
+<BR><I>Country Name (2 letter code) [PL]:</I>
+<BR><I>State i Prowincja [Kraina Bezrobotnych Szwaczek]:Kraina latajacych
+scyzorykow</I>
+<BR><I>Locality Name (eg, city) [Lodz]:Sielpia</I>
+<BR><I>Organization Name (eg, company) [Instytut Badan Czarow i Magii]:Bar
+Sloneczko</I>
+<BR><I>Organizational Unit Name (eg, section) [Komorka d/s Egzorcyzmow
+i Opentan]:Kuflownia</I>
+<BR><I><FONT COLOR="#FF0000">Common Name (eg, YOUR name) []:adas.pl</FONT></I>
+<BR><I>Email Address []:adas@adas.pl</I>
+
+<P><I>Please enter the following 'extra' attributes</I>
+<BR><I>to be sent with your certificate request</I>
+<BR><I>A challenge password []:</I>
+<BR><I>An optional company name []:</I>
+<BR><I>Request (and private key) is in newreq.pem</I>
+<BR><I>adas:/usr/local/ssl/bin#</I>
+
+<P>Polem o którym warto wspomnieć jest "Common Name" (zaznaczone na czerwono).
+W trakcie generowania requestu
+<BR>należy w tym miejscu wpisać <B>FQDN serwera</B> na którym będzie on
+używany. W przeciwnym wypadku w chwili
+<BR>połączenia klient będzie twierdził, że certyfikat jakim przedstawia
+się serwer nie należy do niego. Unikniemy w ten
+<BR>sposób niepotrzebnego klikania. Kolejną czynnością jest podpisanie
+wygenerowanego requestu. W katalogu
+<BR>/usr/local/ssl/bin wykonaj polecenie:
+
+<P><I>adas:/usr/local/ssl/bin# .<B>/CAserv.pl -sign</B></I>
+<BR><I>Using configuration from /usr/local/ssl/lib/openssl.cnf</I>
+<BR><I><FONT COLOR="#009900">Enter PEM pass phrase:</FONT></I>
+<BR><I>Check that the request matches the signature</I>
+<BR><I>Signature ok</I>
+<BR><I>The Subjects Distinguished Name is as follows</I>
+<BR><I>countryName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+:PRINTABLE:'PL'</I>
+<BR><I>stateOrProvinceName&nbsp;&nbsp; :PRINTABLE:'Kraina latajacych scyzorykow'</I>
+<BR><I>localityName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+:PRINTABLE:'Sielpia'</I>
+<BR><I>organizationName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; :PRINTABLE:'Bar Sloneczko'</I>
+<BR><I>organizationalUnitName:PRINTABLE:'Kuflownia'</I>
+<BR><I>commonName&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+:PRINTABLE:'adas.pl'</I>
+<BR><I>emailAddress&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+:IA5STRING:'adas@adas.pl'</I>
+<BR><I>Certificate is to be certified until Mar 26 21:06:13 2000 GMT (365
+days)</I>
+<BR><I>Sign the certificate? [y/n]:y</I>
+<BR>&nbsp;
+
+<P><I>1 out of 1 certificate requests certified, commit? [y/n]y</I>
+<BR><I>Write out database with 1 new entries</I>
+<BR><I>Data Base Updated</I>
+<BR><I>Signed certificate is in newcert.pem</I>
+<BR><I>adas:/usr/local/ssl/bin#</I>
+
+<P>W trakcie podpisywania będziesz pytany o hasło zabezpieczające klucz
+prywatny CA (zaznaczone na zielono).
+<BR>Po tej operacji powinieneś w katalogu /usr/local/ssl/bin otrzymać 2
+pliki: <B>newcert.pem</B> oraz <B>newreq.pem</B>.
+<BR>Zanim zaczniesz ich używać musisz wykonać jeszcze jedną operacje, a
+mianowicie złorzyć wszystko do kupy.
+<BR>Wykonujesz: <B>cat newcert.pem newreq.pem > httpds.pem</B> a następnie
+poddajesz tak powstały certyfikat edycji.
+<BR>Należy z pliku httpds.pem należy usunąć wszystkie niepotrzebne informacje
+tak by pozostał jedynie certyfikat oraz
+<BR>klucz prywatny. Po tej operacji plik httpds.pem powinien wyglądać mniej
+więcej tak:
+
+<P><I>issuer :/C=PL/ST=Kraina Bezrobotnych Szwaczek/L=Lodz/O=Instytut Badan
+Czarow i Magii/OU=Komorka d/s Egzorcyzmow i opentan/CN=Adam Hernik/Email=adas@infocentrum.com</I>
+<BR><I>subject:/C=PL/ST=Kraina latajacych scyzorykow/L=Sielpia/O=Bar Sloneczko/OU=Kuflownia/CN=adas.pl/</I>
+<BR><I>Email=adas@adas.pl</I>
+<BR><I>-----BEGIN CERTIFICATE-----</I>
+<BR><I>&nbsp;Tu są magiczne dane</I>
+<BR><I>-----END CERTIFICATE-----</I>
+
+<P><I>-----BEGIN RSA PRIVATE KEY-----</I>
+<BR><I>&nbsp; I tu też są magiczne dane</I>
+<BR><I>-----END RSA PRIVATE KEY-----</I>
+
+<P>Spreparowany w ten sposób plik umieszczamy w katalogu /usr/local/ssl/certs
+i zajmujemy się generowaniem dwu
+<BR>certyfikatów klienckich.
+<BR>&nbsp;
+
+<P><B><FONT SIZE=+1>Generowanie i importowanie certyfikatów klienckich
+do Netscape Communikatora.</FONT></B>
+<BR>&nbsp;
+<BR>Generalnie są dwie metody tworzenia i importowania certyfikatów klienckich
+do Netscapa
+<BR><B>Sposób pierwszy:</B>
+<BR>Przy pomocy komendy <B>CA.pl -newreq</B> wygeneruj request a następnie
+przy pomocy <B>CA.pl -sign</B> podpisz go.
+<BR>Pytanie o <I>challenge password</I> zignoruj. Kolejną czynnością jest
+scalenie i podczyszczenie certyfikatu.
+<BR>W przypadku certyfikatu klienta ważne jest podanie <B>prawidłowego
+adresu email</B> <B>!</B> Bez tego nie będzie można
+<BR>podpisywać i szyfrować listów.&nbsp; Stwórz dwa certyfikaty. Będą one
+potrzebne do wyjaśnienia działania opcji -v 3
+<BR>programu stunnel. Zakładam że pierwszy certyfikat należy do Jana Kowalskiego
+jan@ibczim.pl zachowany w
+<BR>pliku jan.pem a drugi do Genowefy Pigwy pigwa@scyzoryki.pl znajdującym
+się w pliku pigwa.pem.&nbsp; Przed
+<BR>zaimportowaniem plików do Netscpea należy przekonwertować je z formatu
+PEM do PCKS12. Wykonuje się to
+<BR>przy pomocy wspomnianego na początku programu <B>pcks12</B>. Aby przekonwertować
+certyfikat Jan Kowalskiego,
+<BR>w katalogu w ktorym znajduje się plik jan.pem wykonaj:
+<BR>&nbsp;
+
+<P><B>pkcs12 -export -name "Jan Kowalski jan@ibczim.pl" -in jan.pem -out
+jan.p12 -certfile /usr/local/ssl/bin/demoCA/cacert.pem</B>
+
+<P>(<FONT COLOR="#990000">jest to jedna linia !!!</FONT>)
+<BR>w wyniku czego powstanie plik jan.p12 który można zaimportować do Netscapea.
+Bardzo ważną opcją jest
+<BR><B><I>-certfile /usr/local/ssl/bin/demoCA/cacert.pem</I></B>. Bez niej
+nie będzie można w prawidłowy sposób podpisywać listów.
+<BR>Przełącznik -certfile powoduje dołączenie publicznego certyfikatu CA
+do certyfikatu klienta dzięki czemu Netscape
+<BR>jest wstanie "wyekstrachować" certyfikat CA i dodać go do wewnętrznej
+bazy CA. Wykonaj powyższą operację także
+<BR>dla pigwy. Samo zaimportowanie certyfikatu jest bardzo proste wykonuje
+się to klikając w Netscape na
+
+<P><B>Security-> Yours -> Import a Certificate</B>
+
+<P>Po zaimportowaniu należy w <B>Security -> Signers</B> zaznaczyć nasz
+CA certyfikat a następnie kliknąć na przycisku Edit
+<BR>oraz "zaczekować" opcje:
+
+<P><I>Accept this Certificate Authority for Certifying network sites</I>
+<BR><I>Accept this Certificate Authority for Certifying e-mail users</I>
+
+<P>Od tej pory nasz certyfikat będzie traktowany na równi z innymi, komercyjnymi.
+
+<P><B>Sposób drugi:</B>
+<BR>Polega on na wygenerowaniu i imporcie certyfikatu poprzez strone www.
+Wraz z stunnelem dostarczane są
+<BR>przkładowe strony (dwie) i skrypty (dwa).&nbsp; Skrypty należy raczej
+traktować jako wzorzec i każdy powinien napisać
+<BR>swoje, bardziej bezpieczne. Pierwszym krokiem jest import certyfikatu
+CA. Używa się do tego strony <B>importCA.html</B>
+<BR>oraz skryptu <B>importCA.sh</B>. Sam skrypt wygląda tak:
+
+<P><I>#!/bin/bash</I>
+
+<P><I>echo "Content-type: application/x-x509-ca-cert"</I>
+<BR><I>echo</I>
+<BR><I>cat <FONT COLOR="#CC0000">/var/lib/httpds/cgi-bin/<B>cacert.pem</B></FONT></I>
+
+<P>cacert.pem jest to oczywiście certyfikat publiczny CA znajdujący się
+w katalogu /usr/local/ssl/bin/demoCA
+<BR>który należy przekopiować do katalogu cgi-bin serwera httpd oraz nadać
+mu odpowiednie prawa dostępu.
+<BR>Po zaimportowaniu certyfikatu CA należy w Security->Signers zaznaczyć
+do jakich celów będziemy uznawli
+<BR>go za wiarygodny. Do generowania certyfikatu klienta wykorzystamy pozostałą
+strone i skrypt. Zanim do tego dojdzie
+<BR>należy "dokonfigurować" skrypt i stworzyć potrzebne katalogi.&nbsp;
+W /tmp (lub w innym miejscu) nalezy stworzyć
+<BR>katalog ssl a następnie przekopiować do niego katalog <B>/usr/local/bin/demoCA</B>
+oraz plik <B>openssl.cnf</B>.
+<BR>Jako że skrypty domyślnie uruchamiane są z prawami użytkownika nobody
+należy uczynić go&nbsp; wlaścicielem
+<BR>katalogu /tmp/ssl i całej jego zawartości. Kolejną czynnością jest
+wygenerowanie pliku <B>.rnd</B>. W Linuxie robimy to
+<BR>tak:
+<BR><B>cat /dev/random > /tmp/ssl/.rnd</B>
+<BR>czekamy chwilkę tak by plik .rnd miał wielkość około 1024 B po czym
+właścicielem pliku robimy użytkownika nobody.
+<BR>Teraz trzeba przekonfigurować plik /tmp/ssl/openssl.cnf
+
+<P><I>#</I>
+<BR><I># OpenSSL example configuration file.</I>
+<BR><I># This is mostly being used for generation of certificate requests.</I>
+<BR><I>#</I>
+<BR><I>&nbsp;</I>
+<BR><I><FONT COLOR="#FF0000">RANDFILE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= /tmp/ssl/.rnd</FONT></I>
+<BR><I>#oid_file&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= /tmp/ssl/.oid</I>
+<BR><I>oid_section&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= new_oids</I>
+<BR><I>&nbsp;</I>
+<BR><I>[ new_oids ]</I>
+<BR><I>&nbsp;</I>
+<BR><I># We can add new OIDs in here for use by 'ca' and 'req'.</I>
+<BR><I># Add a simple OID like this:</I>
+<BR><I># testoid1=1.2.3.4</I>
+<BR><I># Or use config file substitution like this:</I>
+<BR><I># testoid2=${testoid1}.5.6</I><I></I>
+
+<P><I>####################################################################</I>
+<BR><I>[ ca ]</I>
+<BR><I>default_ca&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = CA_default&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# The default ca section</I><I></I>
+
+<P><I>####################################################################</I>
+<BR><I>[ CA_default ]</I>
+<BR><I>&nbsp;</I>
+<BR><I><FONT COLOR="#FF0000">dir&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= /tmp/ssl/demoCA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# Where everything is kept</FONT></I>
+<BR><I>certs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+= $dir/certs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# Where the issued certs are kept</I>
+<BR><I>crl_dir&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = $dir/crl&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# Where the issued crl are kept</I>
+<BR><I>database&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = $dir/index.txt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# database index file.</I>
+<BR><I>new_certs_dir&nbsp;&nbsp; = $dir/newcerts&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+# default place for new certs.</I>
+<BR>&nbsp;
+<BR>Należy zmienić opcje zaznaczone na czerwono. Ostatnią czynnością jest
+sprawdzenie i ewentualne poprawienie
+<BR>strony ca.html i skryptu ca.pl. W pliku ca.html nalezy wpisać poprawną
+nazwę serwera na którym znajduje się
+<BR>skrypt ca.pl czyli linijkę <B>&lt;FORM ACTION="<FONT COLOR="#FF0000">http://localhost/cgi-bin/ca.pl</FONT>"
+METHOD=POST></B>. W ca.pl
+<BR>należy skontrolować poprawność podanych ścieżek oraz wpisać hasło jakim
+zabezpieczony jest klucz prywatny CA
+<BR>(zmienna $certpass zaznaczona na czerwono).
+<BR>&nbsp;
+
+<P><I>#!/usr/bin/perl</I>
+<BR><I>#ca.pl</I><I></I>
+
+<P><I>$config&nbsp;&nbsp; = "/tmp/ssl/openssl.cnf";</I>
+<BR><I>$capath&nbsp;&nbsp; = "/usr/local/ssl/bin/openssl ca";</I>
+<BR><I><FONT COLOR="#FF0000">$certpass = "tu_jest_haslo";</FONT></I>
+<BR><I>$tempca&nbsp;&nbsp; = "/tmp/ssl/cli".rand 10000;</I>
+<BR><I>$tempout&nbsp; = "/tmp/ssl/certtmp".rand 10000;</I>
+<BR><I>$caout&nbsp;&nbsp;&nbsp; = "/tmp/ssl/certwynik.txt";</I>
+<BR><I>$CAcert&nbsp;&nbsp; = "/tmp/ssl/demoCA/cacert.pem";</I>
+<BR><I>...</I>
+<BR>&nbsp;
+
+<P>Po umieszczeniu tak przygotowanych stron i skryptów na serwerze będzie
+można generować certyfikaty dla klientów.
+
+<P><B>Wady i zalety obydwu sposobów generowania i instalowania certyfikatów.</B>
+
+<P><A NAME="usuwanie"></A>Jak wynika z powyższego opisu bezpieczniejszym
+i polecanym przeze mnie jest sposób pierwszy. Jego poważną wadą
+<BR>jest&nbsp; fakt że człowiek generujący certyfikaty znajduje się w posiadaniu
+klucza prywatnego osoby występującej o
+<BR>certyfikat.&nbsp; <FONT COLOR="#FF0000">Oczywiście uczciwy CA powinien
+skasować go, zaraz po utworzeniu</FONT>. W takim wypadku metoda pierwsza
+<BR>spełnia&nbsp; wszelkie wymogi. Sposób drugi prócz samych wad ma jedną
+acz ogromną zaletę. Mianowicie klucz prywatny
+<BR>klienta&nbsp; nigdy nie opuszcza jego komputera. Do wad można zaliczyć
+fakt że hasło zabezpieczające klucz prywatny CA
+<BR>znajduje się na serwerze i to w dodatku w żaden sposób nie chronione.&nbsp;
+Kolejną wadą jest generowanie kompletnych
+<BR>certyfikatów przez strone www, co może grozić wykradzeniem klucza prywatnego.
+Rozwiązaniem może być składowanie
+<BR>requestów w bazie danych a nastpnie ręczna ich obróbka przez administratora.
+Reasumując, sposób drugi należy
+<BR>potraktować jako demonstracje metody którą można przećwiczyć przed
+napisaniem porządnych skryptów.
+<BR>&nbsp;<B><FONT SIZE=+1></FONT></B>
+
+<P><B><FONT SIZE=+1>Tajemniczy przełącznik -v 3 w stunnelu</FONT></B>
+
+<P>Stunnel posiada trzy tryby weryfikacji klienta.
+<BR>Pierwszy opcja <B><FONT SIZE=+1>-v 1</FONT></B> oznacza że należy spróbować
+zweryfikować osobę nawiązującą połączenie czyli uzyskać jej
+<BR>ceryfikat. Jeśli operacja ta się nie powiedzie, mimo wszystko dostęp
+do serwera będzie zapewniony.
+<BR>Przełącznik <B><FONT SIZE=+1>-v 2</FONT></B> nakazuje stunnelowi zweryfikować
+klienta. Jeśli użytkownik nie posiada certyfikatu lub certyfikat
+<BR>jest nieważny, niewłaściwy czy też nie posiadamy certyfikatu CA którym
+podpisany jest certyfikat klienta
+<BR><FONT SIZE=-2>(straszny jest ten język polski)</FONT> nawiązanie połączenia
+z serwerem będzie niemożliwe. I wreszcie opcja <B><FONT SIZE=+1>-v 3</FONT></B>
+nakazująca
+<BR>stunnelowi zweryfikować klienta a także poszukać jego certyfikatu w
+naszej lokalnej bazie.
+<BR>Dzieki opcji -v 3 możemy stworzyć bardzo selektywny dostęp do usług
+oferowanych przez serwer, unikając generowania dużych ilości certyfikatów.
+<FONT COLOR="#FF0000">Uwaga ogólna: do poprawnej weryfikacji klienta KONIECZNE
+jest posiadanie certyfikatu CA którym podpisany&nbsp; jest sprawdzany certyfikat</FONT>.
+Bez tego stunnel nie jest wstanie przeprowadzić poprawnej autoryzacji klienta.
+Próba taka kończy się błędami "<B>VERIFY ERROR: self signed certificate
+for .....</B>" oraz "<B>SSL_accept: error:140890B1:SSL routines:</B> <B>SSL3_GET_CLIENT_CERTIFICATE:no
+certificate returned</B>". A teraz przykład praktyczny: chcemy aby do https
+będącym na <B>porcie 444</B> miały dostęp wszystkie osoby mające certyfikaty
+natomiast
+<BR>do do https na <B>porcie 445</B> dostęp miał tylko Jan Kowalski. Pierwszą
+czynnością jaką należy wykonać jest skopiowanie
+<BR>certyfikatu CA do katalogu <B>/usr/local/ssl/certs</B> (default cert
+area), następnie w tym katalogu należy utworzyć
+<BR>podkatalog o&nbsp; nazwie <B>mytrusted</B>, poczym skopiować do niego
+certyfikat klienta czyli jan.pem. <A HREF="#usuwanie"><B>Uwaga</B>: z pliku
+jan.pem</A>
+<BR><A HREF="#usuwanie"><B>MUSISZ</B> usunąć klucz prywatny</A> !!! Czyli&nbsp;
+to co się znajduje między
+
+<P>-----BEGIN RSA PRIVATE KEY-----
+<BR>.......
+<BR>-----END RSA PRIVATE KEY-----
+
+<P>łącznie z powyższymi liniami. Następnie w katalogach <B>/usr/local/ssl/certs</B>
+i <B>/usr/local/ssl/certs/mytrusted</B> należy
+<BR>wykonać polecenie
+<BR><B>/usr/local/ssl/bin/c_rehash ./</B>
+<BR>Teraz kolej na uruchomienie stunnela:
+<BR><B>stunnel -d 444 -r 80 -v 2</B>
+<BR>oraz
+<BR><B>stunnel -d 445 -r 80 -v 3</B>
+<BR>Netscapem należy połączyć sie z https://localhost:444/ a po pytaniu
+o certyfikat przedstawić certyfikat należący
+<BR>do pigwy. Dostęp do serwera będzie zapewniony. Czynnośc tę należy powtórzyć
+przedstawiając się za drugim razem
+<BR>certyfikatem Jana Kowalskiego. Połączenie także będzie zrealizowane.&nbsp;
+W przypadku https://localhost:445/ wejście
+<BR>na serwer będzie zapewnione tylko po wylegitymowaniu się certyfikatem
+Jana Kowalskiego. Po kazdej zmianie w
+<BR>katalogu /usr/local/ssl/certs/mytrusted należy wykonać komendę c_rehash
+./ i zrestartować stunnela.
+<BR>&nbsp;
+</BODY>
+</HTML>

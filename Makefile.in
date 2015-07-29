@@ -1,43 +1,63 @@
-################################################
-# Makefile for stunnel by Michal Trojnara 1998 #
-################################################
+#####################################################
+# Makefile for stunnel by Michal Trojnara 1998-1999 #
+#####################################################
 
-VERSION=2.1
+VERSION=@VERSION@
 HOST=@host@
-SBINDIR=/usr/sbin
-MANDIR=/usr/man/man8
+DESTDIR=/usr
+SBINDIR=$(DESTDIR)/sbin
+MANDIR=$(DESTDIR)/man/man8
+SSLDIR=@SSLDIR@
+CERTDIR=$(SSLDIR)/certs
 
 CC=@CC@
 INSTALL=@INSTALL@
-CFLAGS=@CFLAGS@ -Wall -I/usr/local/ssl/include
-LIBS=@LIBS@ -L/usr/local/ssl/lib -lssl -lcrypto
+CFLAGS=@CFLAGS@ -Wall -I$(SSLDIR)/include
+LIBS=-L$(SSLDIR)/lib @LIBS@ -lssl -lcrypto
+OBJS=stunnel.o sthreads.o log.o
 
-stunnel: stunnel.o
-	$(CC) $(LDFLAGS) -s -o stunnel stunnel.o $(LIBS)
-	mkdir -p ../distrib
-	gzip < stunnel > ../distrib/stunnel-$(VERSION)-$(HOST).gz
+stunnel: $(OBJS)
+	$(CC) $(LDFLAGS) -o stunnel $(OBJS) $(LIBS)
+#	mkdir -p ../distrib
+#	gzip < stunnel > ../distrib/stunnel-$(VERSION)-$(HOST).gz
 
-stunnel.o: stunnel.c
-	$(CC) -c $(CFLAGS) stunnel.c
+# .o:
+# 	$(CC) -c $(CFLAGS) $@
+
+stunnel.html: man2html.pl stunnel.8
+	./man2html.pl < stunnel.8 > stunnel.html
+
+cert:
+	rm -f stunnel.pem
+	make stunnel.pem
+
+stunnel.pem:
+	$(SSLDIR)/bin/openssl req -new -x509 -days 365 -config stunnel.cnf \
+		-out stunnel.pem -keyout stunnel.pem
+	$(SSLDIR)/bin/openssl x509 -subject -dates -fingerprint -noout \
+		-in stunnel.pem
 
 $(SBINDIR)/stunnel: stunnel
+	mkdir -p $(SBINDIR)
 	$(INSTALL) -m 711 stunnel $(SBINDIR)
 
 $(MANDIR)/stunnel.8: stunnel.8
+	mkdir -p $(MANDIR)
 	$(INSTALL) -m 644 stunnel.8 $(MANDIR)
 
-install: $(SBINDIR)/stunnel $(MANDIR)/stunnel.8
+$(CERTDIR)/stunnel.pem: stunnel.pem
+	mkdir -p $(CERTDIR)
+	$(INSTALL) -m 600 stunnel.pem $(CERTDIR)
 
-cert:
-	/usr/local/ssl/bin/ssleay req -new -x509 -nodes \
-		-out server.pem -days 365 -keyout server.pem
+install: $(SBINDIR)/stunnel $(MANDIR)/stunnel.8 $(CERTDIR)/stunnel.pem
 
 clean:
-	rm -f stunnel stunnel.o config.log core
+	rm -f stunnel $(OBJS) config.log core
 
 dist_clean: clean
 	rm -f config.cache Makefile config.h
 
 distrib: dist_clean
 	mkdir -p ../distrib
+	cp -f stunnel.exe ../distrib/stunnel-$(VERSION).exe
 	tar -cf - -C .. stunnel | gzip > ../distrib/stunnel-$(VERSION).tar.gz

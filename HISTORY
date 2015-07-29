@@ -1,8 +1,44 @@
-stunnel         Universal SSL tunnel for network daemons
+stunnel         Universal SSL tunnel
 
-2.1 1995.06.01	Few bugs fixed.
+3.0b7 1999.04.14
+		WIN32 native port fixed (looks quite stable).
+		New transfer() function algorithm.
+		New 'make cert' to be compatible with openssl-0.9.2b.
+		Removed support for memory leaks debugging.
 
-2.0 1995.05.25	Remote mode added!
+3.0b6 1999.04.01
+		Fixed problems with session cache (by Adam).
+		Added client mode session cache.
+		Source structure, autoconf script and Makefile changed.
+		Added -D option to set debug level.
+		Added support for memory leaks debugging
+		(SSL library needs to be compiled with -DMFUNC).
+
+3.0b5 1999.03.25
+		Lots of changes to make threads work.
+		Peer (client and server) authentication works!
+		Added -V option to display version.
+
+3.0b4 1999.03.22
+		Early POSIX threads implementation.
+		Work on porting to native Win32 application started.
+
+3.0b3 1999.03.05
+		Improved behavior on heavy load.
+
+3.0b2 1999.03.04
+		Fixed -v parsing bug.
+
+3.0b1 1999.01.18
+		New user interface.
+		Client mode added.
+		Peer certificate verification added (=strong authentication).
+		WIN32 port added.
+		Other minor problems fixed.
+
+2.1 1998.06.01	Few bugs fixed.
+
+2.0 1998.05.25	Remote mode added!
                 Standalone mode added!
 		tcpd functionality added by libwrap utilization.
 		DH callbacks removed by kravietZ.

@@ -1,0 +1,143 @@
+<HTML>
+<HEAD>
+   <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-2">
+   <TITLE>Gdy pojawiają się kłopoty</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" LINK="#0000EF" VLINK="#51188E" ALINK="#FF0000">
+<B>Q: </B>Próbuje kompilować stunnel jednak dostaje
+następujące komunikaty:
+<BR>stunnel.c:69: ssl.h: No such file or directory
+<BR>stunnel.c:71: bio.h: No such file or directory
+<BR>stunnel.c:72: pem.h: No such file or directory
+<BR>make: *** [stunnel.o] Error 1
+
+<P><B>A:</B> Są dwie prawdopodobne przyczyny: nie masz zainstalowanego
+w systemie pakietu SSLeay lub pakiet nie znajduje sie w miejscu domyślnym
+czyli<B> /usr/local/ssl. </B>Należy zainstalować SSLeay lub też poprawić
+Makefile tak by ścieżka była prawidłowa.
+<BR>
+<HR WIDTH="100%">
+<BR><B>Q:</B>&nbsp; Próbuje uruchomić stunnel jako wrapper dla httpd. Po
+wydaniu komendy: <B>stunnel 443 @localhost:80</B> demon się nie uruchamia
+a w syslogu pojawia się komunikat "<B>stunnel[2481]: getpeername: Socket
+operation on non-socket (88)"</B><B></B>
+
+<P><B>A</B>: Jest to błąd charakterystyczny dla Linuxa. Należy w pliku
+stunnel.c zmienić linię<B> #define INET_SOCKET_PAIR 1</B> na
+<BR><B>#define INET_SOCKET_PAIR 0</B> i zrekompilować program ponownie.
+<BR>
+<HR WIDTH="100%">
+<BR><B>Q:</B> Stunnel nadal się nie uruchamia a w syslogu pojawia się komunikat
+"<B>stunnel[2525]: /usr/local/ssl/certs/localhost:80.pem: No such file
+or directory (2)</B>"<B></B>
+
+<P><B>A:</B> Nie posiadasz odpowiedniego certyfikatu dla demona. Stunnel
+w celu poprawnego działania <B>MUSI</B> posiadać certyfikat. W celu wygenerowania
+odpowiedniego certyfikatu należy wydać komende: <B>/usr/local/ssl/bin/ssleay
+req -new -x509 -nodes -out server.pem -days 365 -keyout server.pem</B>&nbsp;
+bądź też użyć <B>Makefile</B> dołączonego do programu stunnel i przy pomocy
+komendy <B>make cert </B>stworzyć certyfikat. Tak utworzony certyfikat (server.pem)
+należy umieścić w katalogu <B>/usr/local/ssl/certs</B> i utworzyć doń odpowiednie
+linki lub zmieć nazwę certyfikatu na wymaganą przez stunnel.
+<BR>
+<HR WIDTH="100%">
+<BR><B>Q:</B> Wygenerowałem odpowiedni certyfikat przy pomocy skryptu CA.sh,
+a stunnel <B>przy starcie prosi o podanie hasła</B>. Jak można przekazać
+hasło zabezpieczające certyfikat do programu ?<B></B>
+
+<P><B>A:</B> W chwili obecnej jest to niemożliwe. Certyfikaty którymi posługuje
+sie stunnel nie mogą być zabezpieczane hasłem. Przy tworzeniu certyfikatu
+należy użyć opcji -nodes (lub utworzyć certyfikat przy pomocy makefile
+odstarczonego z programem).
+<BR>
+<HR WIDTH="100%">
+<BR><B>Q:</B> Po uruchomieniu programu stunnel w syslogu pojawia się komunikat:
+"<B>stunnel[2805]: WARNING: Wrong permissions on /usr/local/ssl/certs/localhost:80.pem</B>".
+Co jest nie tak ?<B></B>
+
+<P><B>A:</B> To tylko ostrzeżenie ! Certyfikat nie powien dać się odczytać
+przez innych użytkowników systemu. Prawidłowe prawa dostępu powinny być
+następujące: <B>-rw------&nbsp;&nbsp; 1 root&nbsp;&nbsp;&nbsp;&nbsp; root&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+1370 Nov 8 1997&nbsp; server.pem </B>(jeśli uruchamiającym stunnel jest
+root).
+<BR>
+<HR WIDTH="100%">
+<BR><B>Q:</B> Probowałem zrobić tunelowanie połączenia do demona <B>pop3</B>.
+Pomimo zrobienia prawidłowego wpisu do inetd.conf
+<BR>"spop3&nbsp; stream&nbsp; tcp&nbsp; nowait&nbsp; root&nbsp; /usr/sbin/stunnel&nbsp;
+qpopper -s" stunnel nie działa a w syslogu pojawia się komunikat:
+<BR><B>inetd[2949]: spop3/tcp: unknown service.</B><B></B>
+
+<P><B>A: </B>Nie zrobiłeś dodatkowych wpisów do pliku <B>/etc/services.</B>
+Zgodnie z rfc???? prawidłowymi portami na których działają demony posługujące
+się SSL są:
+<TABLE>
+<TR>
+<TD>https</TD>
+
+<TD>443/tcp</TD>
+
+<TD># HTTP over SSL&nbsp;</TD>
+</TR>
+
+<TR>
+<TD>ssmtp</TD>
+
+<TD>465/tcp</TD>
+
+<TD># SMTP over SSL&nbsp;</TD>
+</TR>
+
+<TR>
+<TD>snews</TD>
+
+<TD>563/tcp</TD>
+
+<TD># NNTP over SSL&nbsp;</TD>
+</TR>
+
+<TR>
+<TD>ssl-ldap</TD>
+
+<TD>636/tcp</TD>
+
+<TD># LDAP over SSL&nbsp;</TD>
+</TR>
+
+<TR>
+<TD>simap</TD>
+
+<TD>993/tcp</TD>
+
+<TD># IMAP over SSL&nbsp;</TD>
+</TR>
+
+<TR>
+<TD>spop3</TD>
+
+<TD>995/tcp</TD>
+
+<TD># POP-3 over SSL&nbsp;</TD>
+</TR>
+</TABLE>
+Jeśli nie chesz robić poprawek zamiast nazwy serwisu użyj numeru portu
+na którym on działa.
+<BR>
+<HR WIDTH="100%">
+<BR><B>Q:</B> Dobrze, zrobiłem wymagany wpis lecz w dalszym ciagu stunnel
+nie działa, natomiast w syslogu pojawia sie wpis:
+<BR>&nbsp;<B>stunnel[3015]: execvp: No such file or directory (2). </B>Co
+jeszcze jest nie tak ?<B></B>
+
+<P><B>A:</B>&nbsp; Prawdopodone są dwie przyczyny: pierwsza w twoim systemie
+nie ma demona dla ktorego zrobiłeś wpis w inetd.conf,
+<BR>(spop3&nbsp; stream&nbsp; tcp&nbsp; nowait&nbsp; root&nbsp; /usr/sbin/stunnel&nbsp;
+qpopper -s) lub też dany program jest w systemie, jednak ścieżka dostępu
+do niego nie jest wymieniona w zmiennej systemowej <B>$PATH</B>. Należy
+więc poprawić zapis w inetd.conf uzupełniając o pełna ścieżke dostępu do
+demona np.&nbsp; <B>spop3&nbsp; stream&nbsp; tcp&nbsp; nowait&nbsp; root&nbsp;
+/usr/sbin/stunnel&nbsp; /usr/sbin/qpopper -s</B>
+<BR>&nbsp;
+<BR>&nbsp;
+</BODY>
+</HTML>

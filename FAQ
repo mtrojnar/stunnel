@@ -1,0 +1,75 @@
+stunnel         Universal SSL tunnel
+
+Q: Is there a mailing list for stunnel?
+A: Sure.  You can subscribe the list in two simple steps:
+   1. Send an empty e-mail to stunnel-users-subscribe@mike.daewoo.com.pl
+   2. Follow the instructions you'll receive.  8-)
+
+Q: What do I need to build stunnel on a UNIX machine?
+A: You need:
+    - ANSI C compiler;
+    - Openssl or SSLeay library.
+   You shoud have (not nessesery):
+    - POSIX threads (make sure your SSL library is built with -DTHREADS);
+    - libwrap if you want to have tcp wrappers functionality.
+
+Q: Should I use daemon mode or inetd mode?
+A: Use daemon mode, if not sure.  It's better in most cases.
+
+Q: I'd like to use ssl in my IMAP client.  Could you give me an example?
+A: Use: "stunnel -d 993 -r imap"
+   Or:  "stunnel -d 993 -l /usr/sbin/imapd"
+
+Q: "stunnel -d 465 -l /usr/lib/sendmail" doesn't work...
+A: Sure it doesn't.  Sendmail is not a service to be started with imapd.
+   Use: "stunnel -d 465 -r smtp" instead.
+
+Q: I'd like to start stunnel from inetd.  Could you give me an example?
+A: If possible avoid starting stunnel from inetd.  It's slow (SSL needs
+   to be initialized every connection), does not support session cache
+   and will use more memory on heavy load.
+   The example /etc/inetd.conf line for imapd:
+   "simap stream tcp nowait root /usr/sbin/stunnel stunnel /usr/sbin/imapd".
+   Notice, that for better compatibility above syntax is different
+   than the old one (2.x).
+   Don't forget to add "simap 993/tcp" to /etc/services and restart inetd.
+
+Q: How to correctly use tcpd (tcp wrappers) with stunnel?
+A: You don't need to use tcpd with stunnel.  Stunnel can do it by itself.
+   Just make sure you have libwrap library when building stunnel.
+
+Q: Will stunnel work with [...] protocol?
+A: There are some simple rules to check this:
+   1. The protocol needs to be based on TCP (not UDP).
+   2. The protocol can't use multiple connections (like ftp).
+   3. The protocol can't depend on OOB data (like telnet).
+   4. Remote site can't use an application-specific protocol (like SMTP
+      from Netscape 4.5 or ssltelnet, where SSL is a negotiated option).
+
+Q: SMTP with SSL doesn't work with Netscape 4.5.  What should I do?
+A: Netscape uses specific protocol for SMTP - it's not just tunneling.
+   There's no way to use a general-purpose wrapper for this protocol.
+   IMAP works fine, anyway.
+   Workaround: Install stunnel in client mode on your Windows, instead
+               of enabling SSL via SMTP in Netscape client.
+
+Q: I have strange timeouts with my Outlook Express 4.  What to do?
+A: Do *NOT* use SSL of Outlook Express 4.
+   Upgrade, if you have to use Microsoft products.
+   Workaround: Install stunnel in client mode on your Windows, instead
+               of enabling SSL in Outlook.
+
+Q: None of the above helped me...
+A: Look into your syslog or use "-f" option.
+
+Q: I don't understand the error.  Please help!
+A: Prepare following data:
+   1. Description of your problem.
+   2. Output of "stunnel -f -d 7 <your-parameters>".
+   3. Output of "uname -a".
+   4. Output of "gcc -v".
+   5. Output of "openssl version" or "ssleay version" depending of you library.
+   Subscribe stunnel-users.
+   Send e-mail with the above informations to the list.
+
+* THE END *

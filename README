@@ -1,4 +1,4 @@
-stunnel         Universal SSL tunnel for network daemons
+stunnel         Universal SSL tunnel
 
 Short description
 
@@ -13,7 +13,7 @@ Short description
      without any changes in the programs' code.
 
 
-Author              Michal Trojnara  <mtrojnar@ddc.daewoo.com.pl>
+Author              Michal Trojnara  <Michal.Trojnara@centertel.pl>
 SSL support         Adam Hernik      <adas@infocentrum.com>
                     Pawel Krawczyk   <kravietz@ceti.com.pl>
  

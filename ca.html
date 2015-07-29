@@ -1,0 +1,56 @@
+<HTML>
+<HEAD>
+   <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+   <TITLE>Make your own certificate</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFCC" LINK="#0000EF" VLINK="#51188E" ALINK="#FF0000">
+<FORM ACTION="http://localhost/cgi-bin/ca.pl" METHOD=POST>
+<TABLE>
+
+<TR>
+<TD>Key bits:</TD>
+<TD><KEYGEN NAME="SPKAC"></TD>
+</TR>
+
+<TR>
+<TD>Your name:</TD>
+
+<TD><INPUT NAME="who" SIZE="40" MAXLENGTH=60 ALIGN=middle></TD>
+</TR>
+
+<TR>
+<TD>Your e-mail address:</TD>
+
+<TD><INPUT NAME="email" SIZE="40" MAXLENGTH=40 ALIGN=middle></TD>
+</TR>
+
+<TR>
+<TD>Country name:</TD>
+
+<TD><INPUT NAME="country" SIZE="40" MAXLENGTH=150 ALIGN=middle></TD>
+</TR>
+
+<TR>
+<TD>State or province name:</TD>
+
+<TD><INPUT NAME="state" SIZE="40" MAXLENGTH=40 ALIGN=middle></TD>
+</TR>
+
+<TR>
+<TD>Organization:</TD>
+
+<TD><INPUT NAME="organization" SIZE="40" MAXLENGTH=60 ALIGN=middle></TD>
+</TR>
+
+<TR>
+<TD>Comment:</TD>
+
+<TD><INPUT NAME="comment" SIZE="40" MAXLENGTH=40 ALIGN=middle></TD>
+</TR>
+</TABLE>
+
+<H3>
+<INPUT TYPE=submit VALUE="   Submit  ">&nbsp;<INPUT TYPE=reset VALUE="   Reset All   "></H3>
+</FORM>
+</BODY>
+</HTML>

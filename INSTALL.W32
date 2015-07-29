@@ -1,0 +1,11 @@
+stunnel         Universal SSL tunnel
+
+1. Download ssleay32.dll and libeay32.dll into \windows\system directory.
+
+2. Create a directory and download stunnel.exe and stunnel.pem
+   to the new directory.
+
+3. Just use it.
+
+   See stunnel -h for details.
+

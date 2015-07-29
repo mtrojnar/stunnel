@@ -1,9 +1,8 @@
-stunnel         Universal SSL tunnel for network daemons
+stunnel         Universal SSL tunnel
 
-1. Add client SSL redirection module/option.
+- Write FAQ, update manual, etc.
 
-2. If possible add certificate signed by a thrusted CA.
-   If not -> build a web page to add new certificate to browser.
+- Make port to WIN32 as a native application (no cygwin library).
 
-3. Write FAQ.
+- Test RSAREF support.
 

@@ -2,7 +2,7 @@
 # Generated automatically by configure.
 # Run this file to recreate the current configuration.
 # This directory was configured as follows,
-# on host netra:
+# on host moses:
 #
 # ./configure 
 #
@@ -26,7 +26,7 @@ do
 done
 
 ac_given_srcdir=.
-ac_given_INSTALL="./install-sh -c"
+ac_given_INSTALL="/usr/bin/install -c"
 
 trap 'rm -fr Makefile config.h conftest*; exit 1' 1 2 15
 
@@ -40,7 +40,7 @@ s%@CPPFLAGS@%%g
 s%@CXXFLAGS@%%g
 s%@DEFS@%-DHAVE_CONFIG_H%g
 s%@LDFLAGS@%%g
-s%@LIBS@%-lwrap -lsocket -lnsl %g
+s%@LIBS@%-lpthread -lnsl  -lwrap%g
 s%@exec_prefix@%${prefix}%g
 s%@prefix@%/usr/local%g
 s%@program_transform_name@%s,x,x,%g
@@ -56,15 +56,17 @@ s%@includedir@%${prefix}/include%g
 s%@oldincludedir@%/usr/include%g
 s%@infodir@%${prefix}/info%g
 s%@mandir@%${prefix}/man%g
-s%@host@%sparc-sun-solaris2.5.1%g
-s%@host_alias@%sparc-sun-solaris2.5.1%g
-s%@host_cpu@%sparc%g
-s%@host_vendor@%sun%g
-s%@host_os@%solaris2.5.1%g
+s%@host@%i586-pc-linux-gnu%g
+s%@host_alias@%i586-pc-linux-gnu%g
+s%@host_cpu@%i586%g
+s%@host_vendor@%pc%g
+s%@host_os@%linux-gnu%g
 s%@CC@%gcc%g
 s%@INSTALL_PROGRAM@%${INSTALL}%g
 s%@INSTALL_DATA@%${INSTALL} -m 644%g
 s%@SET_MAKE@%%g
+s%@VERSION@%3.0%g
+s%@SSLDIR@%/usr/local/ssl%g
 s%@CPP@%gcc -E%g
 
 CEOF
@@ -195,15 +197,33 @@ for ac_file in .. $CONFIG_HEADERS; do if test "x$ac_file" != x..; then
   cat $ac_file_inputs > conftest.in
 
   cat > conftest.frag <<CEOF
+${ac_dA}VERSION${ac_dB}VERSION${ac_dC}"3.0"${ac_dD}
+${ac_uA}VERSION${ac_uB}VERSION${ac_uC}"3.0"${ac_uD}
+${ac_eA}VERSION${ac_eB}VERSION${ac_eC}"3.0"${ac_eD}
+${ac_dA}SSLDIR${ac_dB}SSLDIR${ac_dC}"/usr/local/ssl"${ac_dD}
+${ac_uA}SSLDIR${ac_uB}SSLDIR${ac_uC}"/usr/local/ssl"${ac_uD}
+${ac_eA}SSLDIR${ac_eB}SSLDIR${ac_eC}"/usr/local/ssl"${ac_eD}
+${ac_dA}HOST${ac_dB}HOST${ac_dC}"i586-pc-linux-gnu"${ac_dD}
+${ac_uA}HOST${ac_uB}HOST${ac_uC}"i586-pc-linux-gnu"${ac_uD}
+${ac_eA}HOST${ac_eB}HOST${ac_eC}"i586-pc-linux-gnu"${ac_eD}
 ${ac_dA}HAVE_LIBNSL${ac_dB}HAVE_LIBNSL${ac_dC}1${ac_dD}
 ${ac_uA}HAVE_LIBNSL${ac_uB}HAVE_LIBNSL${ac_uC}1${ac_uD}
 ${ac_eA}HAVE_LIBNSL${ac_eB}HAVE_LIBNSL${ac_eC}1${ac_eD}
-${ac_dA}HAVE_LIBSOCKET${ac_dB}HAVE_LIBSOCKET${ac_dC}1${ac_dD}
-${ac_uA}HAVE_LIBSOCKET${ac_uB}HAVE_LIBSOCKET${ac_uC}1${ac_uD}
-${ac_eA}HAVE_LIBSOCKET${ac_eB}HAVE_LIBSOCKET${ac_eC}1${ac_eD}
+CEOF
+  sed -f conftest.frag conftest.in > conftest.out
+  rm -f conftest.in
+  mv conftest.out conftest.in
+
+  cat > conftest.frag <<CEOF
+${ac_dA}HAVE_LIBPTHREAD${ac_dB}HAVE_LIBPTHREAD${ac_dC}1${ac_dD}
+${ac_uA}HAVE_LIBPTHREAD${ac_uB}HAVE_LIBPTHREAD${ac_uC}1${ac_uD}
+${ac_eA}HAVE_LIBPTHREAD${ac_eB}HAVE_LIBPTHREAD${ac_eC}1${ac_eD}
 ${ac_dA}HAVE_LIBWRAP${ac_dB}HAVE_LIBWRAP${ac_dC}1${ac_dD}
 ${ac_uA}HAVE_LIBWRAP${ac_uB}HAVE_LIBWRAP${ac_uC}1${ac_uD}
 ${ac_eA}HAVE_LIBWRAP${ac_eB}HAVE_LIBWRAP${ac_eC}1${ac_eD}
+${ac_dA}HAVE_GETOPT_H${ac_dB}HAVE_GETOPT_H${ac_dC}1${ac_dD}
+${ac_uA}HAVE_GETOPT_H${ac_uB}HAVE_GETOPT_H${ac_uC}1${ac_uD}
+${ac_eA}HAVE_GETOPT_H${ac_eB}HAVE_GETOPT_H${ac_eC}1${ac_eD}
 ${ac_dA}HAVE_STRINGS_H${ac_dB}HAVE_STRINGS_H${ac_dC}1${ac_dD}
 ${ac_uA}HAVE_STRINGS_H${ac_uB}HAVE_STRINGS_H${ac_uC}1${ac_uD}
 ${ac_eA}HAVE_STRINGS_H${ac_eB}HAVE_STRINGS_H${ac_eC}1${ac_eD}
@@ -222,6 +242,15 @@ ${ac_eA}HAVE_SYS_SELECT_H${ac_eB}HAVE_SYS_SELECT_H${ac_eC}1${ac_eD}
 ${ac_dA}HAVE_TCPD_H${ac_dB}HAVE_TCPD_H${ac_dC}1${ac_dD}
 ${ac_uA}HAVE_TCPD_H${ac_uB}HAVE_TCPD_H${ac_uC}1${ac_uD}
 ${ac_eA}HAVE_TCPD_H${ac_eB}HAVE_TCPD_H${ac_eC}1${ac_eD}
+${ac_dA}HAVE_PTHREAD_H${ac_dB}HAVE_PTHREAD_H${ac_dC}1${ac_dD}
+${ac_uA}HAVE_PTHREAD_H${ac_uB}HAVE_PTHREAD_H${ac_uC}1${ac_uD}
+${ac_eA}HAVE_PTHREAD_H${ac_eB}HAVE_PTHREAD_H${ac_eC}1${ac_eD}
+CEOF
+  sed -f conftest.frag conftest.in > conftest.out
+  rm -f conftest.in
+  mv conftest.out conftest.in
+
+  cat > conftest.frag <<CEOF
 s%^[ 	]*#[ 	]*undef[ 	][ 	]*[a-zA-Z_][a-zA-Z_0-9]*%/* & */%
 CEOF
   sed -f conftest.frag conftest.in > conftest.out

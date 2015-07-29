@@ -1,11 +1,11 @@
 /*
- *   stunnel       Universal SSL tunnel for standard network daemons
- *   Copyright (c) 1998 Michal Trojnara <mtrojnar@ddc.daewoo.com.pl>
+ *   stunnel       Universal SSL tunnel
+ *   Copyright (c) 1998-1999 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
- *   Version:      2.1              (stunnel.c)
- *   Date:         1998.06.01
- *   Author:       Michal Trojnara  <mtrojnar@ddc.daewoo.com.pl>
+ *   Version:      3.0              (stunnel.c)
+ *   Date:         1999.04.16
+ *   Author:       Michal Trojnara  <Michal.Trojnara@centertel.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
  *
@@ -27,25 +27,83 @@
 /* Undefine if you have problems with make_sockets() */
 #define INET_SOCKET_PAIR
 
-/* DH is still a little bit experimental code */
-/* feel free to undefine this macro */
-#define USE_DH
+/* DH is an experimental code, so it's undefined by default */
+/* #define USE_DH */
 
+#ifdef USE_WIN32
+
+/* default certificate */
+#define DEFAULT_CERT "stunnel.pem"
+
+/* additional directory (hashed!) with trusted CA client certs */
+#define CA_DIR "mytrusted"
+
+/* certificate used for sign our client certs */
+#define CLIENT_CA "cacert.pem"
+
+#else /* USE_WIN32 */
+
+/* directory for certificate */
+#define CERT_DIR SSLDIR "/certs"
+
+/* default certificate */
+#define DEFAULT_CERT CERT_DIR "/stunnel.pem"
+
+/* additional directory (hashed!) with trusted CA client certs */
+#define CA_DIR CERT_DIR "/mytrusted"
+
+/* certificate used for sign our client certs */
+#define CLIENT_CA SSLDIR "/bin/demoCA/cacert.pem"
+
+#endif /* USE_WIN32 */
+
+#define MAX_CLIENTS 100  /* Max number of children */
 #define BUFFSIZE 8192    /* I/O buffer size */
 #define HOSTNAME_SIZE 256
 
-#include "config.h"
+#if defined __CYGWIN__ || defined __CYGWIN32__
+#define WIN32
+#endif
+
+#include "common.h"
+
+#ifdef USE_WIN32
+
+#define Win32_Winsock
+#include <windows.h>
+#include <io.h>
+#include <stdlib.h>
+#include <process.h>
+#include <malloc.h>
+#include <string.h>
+#include <sys/stat.h>
+#define LOG_EMERG       0
+#define LOG_ALERT       1
+#define LOG_CRIT        2
+#define LOG_ERR         3
+#define LOG_WARNING     4
+#define LOG_NOTICE      5
+#define LOG_INFO        6
+#define LOG_DEBUG       7
+#define ECONNRESET WSAECONNRESET
+
+static struct WSAData wsa_state;
+
+#else /* defined USE_WIN32 */
 
 /* General headers */
-#include <stdio.h>
 #include <errno.h>       /* errno */
 #include <sys/stat.h>    /* stat */
 #include <signal.h>      /* signal */
-#include <syslog.h>      /* openlog, syslog */
+#include <sys/wait.h>    /* wait */
 #include <string.h>      /* strerror */
 #include <ctype.h>
 #include <stdlib.h>
 #include <netdb.h>
+#include <syslog.h>
+#ifdef HAVE_GETOPT_H
+#include <getopt.h>      /* getopt */
+#endif
 #ifdef HAVE_STRINGS_H
 #include <strings.h>     /* rindex */
 #endif
@@ -69,17 +127,14 @@
 #define INADDR_LOOPBACK  (u_long)0x7F000001
 #endif
 
-/* SSL headers */
-#include <ssl.h>
-#include <err.h>
-#include <bio.h>
-#include <pem.h>
-
-/* libwrap header */
-#if HAVE_TCPD_H && HAVE_LIBWRAP
+/* TCP wrapper */
+#ifdef USE_LIBWRAP
 #include <tcpd.h>
-#define USE_LIBWRAP 1
+int allow_severity=LOG_NOTICE;
+int deny_severity=LOG_WARNING;
 #endif
+
+#endif /* defined USE_WIN32 */
 
 /* Correct callback definitions overriding ssl.h */
 #ifdef SSL_CTX_set_tmp_rsa_callback
@@ -94,182 +149,417 @@
     SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_DH_CB,0,(char *)dh)
 
 /* Prototypes */
-void daemon_loop(char **, SSL_CTX *);
-void client(struct sockaddr_in *, char **, int, SSL_CTX *);
-void transfer(SSL *, int);
-int listen_local(char *);
-int connect_remote(char *);
-u_short port2num(char *);
-char **host2num(char *);
-void make_sockets(int [2]);
-void daemonize();
-static RSA *tmp_rsa_cb(SSL *, int);
+static void get_options(int, char *[]);
+static void context_init();
+static void daemon_loop();
+#ifndef USE_WIN32
+static void daemonize();
+#endif
+    /* Socket functions */
+static void client(int);
+static void transfer(SSL *, int);
+static int listen_local();
+static int connect_local();
+static int connect_remote();
+static void name2nums(char *, u_long **, u_short *);
+static u_short port2num(char *);
+static void host2num(u_long **, char *);
+#ifndef USE_WIN32
+static int make_sockets(int [2]);
+#endif
+    /* SSL functions */
+static RSA *tmp_rsa_cb(SSL *, int, int);
 #ifdef USE_DH
 static DH *tmp_dh_cb(SSL *, int);
 #endif
-void ioerror(char *);
-void sslerror(char *);
-void signal_handler(int);
+static int verify_callback (int, X509_STORE_CTX *);
+static void info_callback(SSL *, int, int);
+static void print_stats();
+    /* Error/exceptions handling functions */
+static void ioerror(char *);
+static void sockerror(char *);
+static void sslerror(char *);
+#ifdef USE_FORK
+static void sigchld_handler(int);
+#endif
+#ifndef USE_WIN32
+static void signal_handler(int);
+#else
+static char *rindex(char *, int);
+static int getopt(int, char **, char*);
+#endif
+static void alloc(u_long **, int);
+static void print_help();
 
-/* certfile needs to be global - tmp_dh_cb() uses it */
-char certfile[128]; /* server certificate */
+#define OPT_CLIENT     0x01
+#define OPT_CERT       0x02
+#define OPT_DAEMON     0x04
+#define OPT_FOREGROUND 0x08
+#define OPT_LOCAL      0x10
+#define OPT_REMOTE     0x20
+
+    /* Global variables */
+SSL_CTX *ctx;           /* global SSL context */
+RSA *rsa_tmp;           /* temporary RSA key */
+char certfile[256];     /* name of the certificate */
+char clientdir[256];
+char signCAfile[256];
+#if SSLEAY_VERSION_NUMBER >= 0x0922
+static unsigned char *sid_ctx="stunnel SID"; /* const allowed here */
+#endif
+int clients;
+int option=0;
+int foreground;         /* force messages to stderr */
+u_short localport, remoteport;
+u_long *localnames=NULL, *remotenames=NULL;
+char *execname=NULL, **execargs;
+int verify_level=SSL_VERIFY_NONE;
+int verify_use_only_my=0;
+int debug_level=5;
+long session_timeout=0;
 
 int main(int argc, char* argv[]) /* execution begins here 8-) */
 {
-    char *name; /* name of service */
     struct stat st; /* buffer for stat */
-    struct sockaddr_in addr;
-    int addrlen;
-    SSL_CTX *ctx;
-    int inetd_mode;
-    char **parameters;
 
-    openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+#ifdef USE_WIN32
+    if(WSAStartup(0x0101, &wsa_state)!=0) {
+        sockerror("WSAStartup");
+        exit(1);
+    }
+#else
     signal(SIGPIPE, SIG_IGN); /* avoid 'broken pipe' signal */
-    signal(SIGCHLD, SIG_IGN); /* avoid zombie */
     signal(SIGTERM, signal_handler);
     signal(SIGQUIT, signal_handler);
-    signal(SIGSEGV, signal_handler);
-
-    /* check if started from inetd */
-    addrlen=sizeof(addr);
-    memset(&addr, 0, addrlen);
-    if(getpeername(0, (struct sockaddr *)&addr, &addrlen)) {
-        if(argc<3) {
-            fprintf(stderr, "ERROR: Not enough parameters for daemon mode\n");
-            exit(2);
-        }
-        syslog(LOG_NOTICE, "Daemon started for %s", argv[1]);
-        parameters=argv+2;
-        inetd_mode=0;
-    } else { /* started from inetd */
-        parameters=argv;
-        inetd_mode=1;
-    }
-
-    /* find server certificate filename */
-    if(*parameters[0]=='@') {
-        name=parameters[0]+1;
-    } else {
-        if((name=rindex(parameters[0], '/')))
-            name++; /* first character after '/' */
-        else
-            name=parameters[0]; /* relative name - no '/' */
-    }
-    sprintf(certfile, "%s/%s.pem", X509_get_default_cert_dir(), name);
-    if(stat(certfile, &st))
-        ioerror(certfile);
-    if(st.st_mode & 7)
-        syslog(LOG_WARNING, "WARNING: Wrong permissions on %s", certfile);
-
-    /* init SSL */
-    SSL_load_error_strings();
-    SSLeay_add_ssl_algorithms();
-    ctx=SSL_CTX_new(SSLv23_server_method());
-    if(!SSL_CTX_use_RSAPrivateKey_file(ctx, certfile, SSL_FILETYPE_PEM))
-        sslerror("SSL_CTX_use_RSAPrivateKey_file");
-    if(!SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM))
-        sslerror("SSL_CTX_use_certificate_file");
-    if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb))
-        sslerror("SSL_CTX_set_tmp_rsa_callback");
-#ifdef USE_DH
-    if(!SSL_CTX_set_tmp_dh_callback(ctx, tmp_dh_cb))
-    sslerror("SSL_CTX_set_tmp_dh_callback");
+    /* signal(SIGSEGV, signal_handler); */
 #endif
 
-    /* accept client(s) */
-    if(inetd_mode) {
-        client(&addr, argv, 0, ctx);
-    } else {
-        daemonize();
-        daemon_loop(argv+1, ctx);
+    /* process options */
+    foreground=1;
+    strcpy(certfile, DEFAULT_CERT);
+    strcpy(clientdir, CA_DIR);
+    get_options(argc, argv);
+    if(!(option&OPT_FOREGROUND)) {
+        foreground=0;
+#ifndef USE_WIN32
+        openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+#endif /* defined USE_WIN32 */
     }
 
+    /* check if certificate exists */
+    if(option&OPT_CERT) {
+        if(stat(certfile, &st)) {
+            ioerror(certfile);
+            exit(1);
+        }
+#ifndef WIN32
+        if(st.st_mode & 7)
+            log(LOG_WARNING, "Wrong permissions on %s", certfile);
+#endif /* defined WIN32 */
+    }
+
+    /* check if started from inetd */
+    context_init(); /* initialize global SSL context */
+    sthreads_init(); /* initialize threads */
+    log(LOG_NOTICE, STUNNEL_INFO);
+    if(option&OPT_DAEMON) {
+#ifndef USE_WIN32
+        if(!(option&OPT_FOREGROUND))
+            daemonize();
+#endif
+        daemon_loop(ctx);
+    } else { /* inetd mode */
+        clients=1; /* single client */
+        client(0); /* connection from fd 0 - stdin */
+    }
     /* close SSL */
     SSL_CTX_free(ctx);
     return 0; /* success */
 }
 
-void daemon_loop(char **parameters, SSL_CTX *ctx)
+static void get_options(int argc, char *argv[])
+{   /* get options and set global variables */
+    int c;
+    extern char *optarg;
+    extern int optind, opterr, optopt;
+
+    opterr=0;
+    while ((c = getopt(argc, argv, "a:cp:v:d:fl:r:t:hD:V")) != EOF)
+        switch (c) {
+            case 'a':
+                strcpy(clientdir,optarg);
+                break;
+            case 'c':
+                option|=OPT_CLIENT;
+                break;
+            case 'p':
+                option|=OPT_CERT;
+                strcpy(certfile, optarg);
+                break;
+            case 'v':
+                switch(atoi(optarg)) {
+                case 3:
+                    verify_use_only_my=1;
+                case 2:
+                    verify_level |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+                case 1:
+                    verify_level |= SSL_VERIFY_PEER;
+                    break;
+                default:
+                    log(LOG_ERR, "Bad verify level");
+                    print_help();
+                }
+                break;
+             case 'd':
+                if(option&OPT_DAEMON) {
+                    log(LOG_ERR, "Multiple daemons not allowed");
+                    print_help();
+                }
+                option|=OPT_DAEMON;
+                name2nums(optarg, &localnames, &localport);
+                if(!localnames) {
+                    alloc(&localnames, 1);
+                    localnames[0]=htonl(INADDR_ANY);
+                }
+                break;
+            case 'f':
+                option|=OPT_FOREGROUND;
+                break;
+            case 'l':
+                if(option&(OPT_LOCAL|OPT_REMOTE)) {
+                    log(LOG_ERR, "Multiple local/remote mode not allowed");
+                    print_help();
+                }
+                option|=OPT_LOCAL;
+                execname=optarg;
+                break;
+            case 'r':
+                if(option&(OPT_LOCAL|OPT_REMOTE)) {
+                    log(LOG_ERR, "Multiple local/remote mode not allowed");
+                    print_help();
+                }
+                option|=OPT_REMOTE;
+                execname=optarg;
+                name2nums(optarg, &remotenames, &remoteport);
+                if(!remotenames) {
+                    alloc(&remotenames, 1);
+                    remotenames[0]=htonl(INADDR_LOOPBACK);
+                }
+                break;
+            case 't':
+                session_timeout=atoi(optarg);
+                break;
+            case 'D':
+                debug_level=atoi(optarg);
+                break;
+            case 'V':
+                fprintf(stderr, "\n" STUNNEL_INFO "\n\n");
+                exit(0);
+            case '?':
+                log(LOG_ERR, "Illegal option '%c'", optopt);
+            case 'h':
+                print_help();
+            default:
+                log(LOG_ERR, "Internal error in get_options");
+                print_help();
+        }
+        if(!(option&(OPT_LOCAL|OPT_REMOTE))) {
+            log(LOG_ERR, "Either local or remote mode must be specified");
+            print_help();
+    }
+    if(!(option&OPT_CLIENT))
+        option|=OPT_CERT; /* Server always needs a certificate */
+    execargs=argv+optind-1;
+}
+
+static void context_init() /* init SSL */
+{
+    SSLeay_add_ssl_algorithms();
+    SSL_load_error_strings();
+    if(option&OPT_CLIENT) {
+        ctx=SSL_CTX_new(SSLv3_client_method());
+    } else {
+        ctx=SSL_CTX_new(SSLv23_server_method());
+    }
+    SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_BOTH);
+    SSL_CTX_set_timeout(ctx, session_timeout);
+    if(option&OPT_CERT) {
+        log(LOG_DEBUG, "Certificate: %s", certfile);
+        if(!SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM)) {
+            sslerror("SSL_CTX_use_certificate_file");
+            exit(1);
+        }
+        if(!SSL_CTX_use_RSAPrivateKey_file(ctx, certfile, SSL_FILETYPE_PEM)) {
+            sslerror("SSL_CTX_use_RSAPrivateKey_file");
+            exit(1);
+        }
+    }
+    if(verify_level!=SSL_VERIFY_NONE) {
+        if ((!SSL_CTX_set_default_verify_paths(ctx))
+                || (!SSL_CTX_load_verify_locations(ctx, CLIENT_CA, clientdir))){
+            sslerror("X509_load_verify_locations");
+            exit(1);
+        }
+        SSL_CTX_set_verify(ctx, verify_level, verify_callback);
+        SSL_CTX_set_client_CA_list(ctx, SSL_load_client_CA_file(CLIENT_CA));
+        if (verify_use_only_my)
+            log(LOG_NOTICE, "Peer certificate location %s", clientdir);
+    }
+    log(LOG_DEBUG, "Generating 512 bit RSA key...");
+#if SSLEAY_VERSION_NUMBER <= 0x0800
+    rsa_tmp=RSA_generate_key(512, RSA_F4, NULL);
+#else
+    rsa_tmp=RSA_generate_key(512, RSA_F4, NULL, NULL);
+#endif
+    if(!rsa_tmp) {
+        sslerror("tmp_rsa_cb");
+        exit(1);
+    }
+    if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb)) {
+        sslerror("SSL_CTX_set_tmp_rsa_callback");
+        exit(1);
+    }
+    if(!SSL_CTX_set_info_callback(ctx, info_callback)) {
+        sslerror("SSL_CTX_set_info_callback");
+        exit(1);
+    }
+#ifdef USE_DH
+    if(!SSL_CTX_set_tmp_dh_callback(ctx, tmp_dh_cb)) {
+        sslerror("SSL_CTX_set_tmp_dh_callback");
+        exit(1);
+    }
+#endif
+}
+
+static void daemon_loop()
 {
     int ls, s;
     struct sockaddr_in addr;
     int addrlen;
 
-    ls=listen_local(parameters[0]);
+    ls=listen_local();
+    clients=0;
+#ifdef USE_FORK
+    signal(SIGCHLD, sigchld_handler);
+#endif
     while(1) {
         addrlen=sizeof(addr);
-        if((s=accept(ls, (struct sockaddr *)&addr, &addrlen))<0)
-            ioerror("accept");
-        switch(fork()) {
-        case -1:    /* error */
-            ioerror("fork");
-        case  0:    /* child */
-            close(ls);
-            client(&addr, parameters+1, s, ctx);
-            _exit(0);
-        default:    /* parent */
-            close(s);
+        do s=accept(ls, (struct sockaddr *)&addr, &addrlen);
+        while(s<0 && errno==EINTR);
+        if(s<0) {
+            sockerror("accept");
+            exit(1);
+        }
+        if(clients<MAX_CLIENTS) {
+            if(create_client(ls, s, client))
+                log(LOG_WARNING,
+                    "%s fork failed - connection from %s:%d REJECTED",
+                    execname, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+            else
+                clients++;
+        } else {
+            log(LOG_WARNING,
+                "%s has too many clients - connection from %s:%d REJECTED",
+                execname, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+            closesocket(s);
         }
     }
 }
 
-void client(struct sockaddr_in *addr, char **parameters, int s, SSL_CTX *ctx)
+#ifndef USE_WIN32
+static void daemonize() /* go to background */
 {
+    switch (fork()) {
+    case -1:    /* fork failed */
+        ioerror("fork");
+        exit(1);
+    case 0:     /* child */
+        break;
+    default:    /* parent */
+        exit(0);
+    }
+    if (setsid() == -1) {
+        ioerror("setsid");
+        exit(1);
+    }
+    chdir("/");
+    close(0);
+    close(1);
+    close(2);
+}
+#endif /* defined USE_WIN32 */
+
+static void client(int s)
+{
+    struct sockaddr_in addr;
+    int addrlen;
     SSL *ssl;
-    int fd[2], remote; /* sockets */
+    int remote;
 #if SSLEAY_VERSION_NUMBER > 0x0800
     SSL_CIPHER *c;
     char *ver;
     int bits;
 #endif
-
 #ifdef USE_LIBWRAP
     struct request_info request;
-
-    request_init(&request, RQ_DAEMON, parameters[0], RQ_FILE, s, 0);
-    fromhost(&request);
-    if (!hosts_access(&request)) {
-        syslog(LOG_ERR, "%s connection refused from %s:%d", parameters[0],
-            inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
-	exit(2);
-    }
 #endif
 
-    syslog(LOG_NOTICE, "%s connected from %s:%d", parameters[0],
-        inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
-
-/* create connection to remote host/service */
-    if(*parameters[0]=='@') {
-        remote=connect_remote(parameters[0]+1);
-    } else {
-        make_sockets(fd);
-        switch(fork()) {
-        case -1:    /* error */
-            ioerror("fork");
-        case  0:    /* child */
-            close(fd[0]);
-            dup2(fd[1], 0);
-            dup2(fd[1], 1);
-            dup2(fd[1], 2);
-            close(fd[1]);
-            execvp(parameters[0], parameters);
-            ioerror("execvp"); /* execvp failed */
+    log(LOG_DEBUG, "%s started", execname);
+    addrlen=sizeof(addr);
+    if(!getpeername(s, (struct sockaddr *)&addr, &addrlen)) {
+#ifdef USE_LIBWRAP
+        request_init(&request, RQ_DAEMON, execname, RQ_FILE, s, 0);
+        fromhost(&request);
+        if (!hosts_access(&request)) {
+            log(LOG_WARNING, "%s connection from %s:%d REFUSED", execname,
+                inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+            goto cleanup_local;
         }
-        close(fd[1]);
-        remote=fd[0];
+#endif
+        log(LOG_NOTICE, "%s connected from %s:%d", execname,
+            inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+    }
+
+    /* create connection to host/service */
+    if(option&OPT_REMOTE) { /* remote host */
+        if((remote=connect_remote())<0)
+            goto cleanup_local; /* Failed to connect remote server */
+        log(LOG_DEBUG, "Remote host connected");
+    } else { /* local service */
+        if((remote=connect_local())<0)
+            goto cleanup_local; /* Failed to spawn local service */
+        log(LOG_DEBUG, "Local service connected");
     }
 
     /* do the job */
-    ssl=SSL_new(ctx);
-    SSL_set_fd(ssl, s);
-    if(SSL_accept(ssl)<=0)
-        sslerror("SSL_accept");
+    if(!(ssl=SSL_new(ctx))) {
+        sslerror("SSL_new");
+        goto cleanup_remote;
+    }
+
+#if SSLEAY_VERSION_NUMBER >= 0x0922
+    SSL_set_session_id_context(ssl, sid_ctx, strlen(sid_ctx));
+#endif
+
+    if(option&OPT_CLIENT) {
+        SSL_set_fd(ssl, remote);
+        SSL_set_connect_state(ssl);
+        if(SSL_connect(ssl)<=0) {
+            sslerror("SSL_connect");
+            goto cleanup_ssl;
+        }
+    } else {
+        SSL_set_fd(ssl, s);
+        SSL_set_accept_state(ssl);
+        if(SSL_accept(ssl)<=0) {
+            sslerror("SSL_accept");
+            goto cleanup_ssl;
+        }
+    }
+
 #if SSLEAY_VERSION_NUMBER <= 0x0800
-    syslog(LOG_INFO, "SSLv%d opened for %s, cipher %s",
-        ssl->session->ssl_version,
-        parameters[0],
-        SSL_get_cipher(ssl));
+    log(LOG_INFO, "%s opened with SSLv%d, cipher %s",
+        execname, ssl->session->ssl_version, SSL_get_cipher(ssl));
 #else
     switch(ssl->session->ssl_version) {
     case SSL2_VERSION:
@@ -283,121 +573,247 @@ void client(struct sockaddr_in *addr, char **parameters, int s, SSL_CTX *ctx)
     }
     c=SSL_get_current_cipher(ssl);
     SSL_CIPHER_get_bits(c, &bits);
-    syslog(LOG_INFO, "%s opened for %s, cipher %s (%u bits)",
-        ver, parameters[0], SSL_CIPHER_get_name(c), bits);
+    log(LOG_INFO, "%s opened with %s, cipher %s (%u bits)",
+        execname, ver, SSL_CIPHER_get_name(c), bits);
 #endif
-    transfer(ssl, remote);
+    if(option&OPT_CLIENT)
+        transfer(ssl, s);
+    else
+        transfer(ssl, remote);
+cleanup_ssl:
+    SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
     SSL_free(ssl);
+cleanup_remote:
+    closesocket(remote);
+cleanup_local:
+    closesocket(s);
+#ifndef USE_FORK
+    log(LOG_DEBUG, "%s finished (%d left)", execname, --clients);
+#endif
 }
 
-void transfer(SSL *ssl, int tunnel) /* transfer data */
+static void transfer(SSL *ssl, int fd_sock) /* transfer data */
 {
-    fd_set rin, rout;
-    int num, fdno, fd_ssl, bytes_in=0, bytes_out=0;
-    char buffer[BUFFSIZE];
+    fd_set rd_set, wr_set;
+    int num, fdno, fd_ssl, bytes_in, bytes_out;
+    char sock_buff[BUFFSIZE], ssl_buff[BUFFSIZE];
+    int sock_ptr, ssl_ptr, sock_open, ssl_open;
 
     fd_ssl=SSL_get_fd(ssl);
-    FD_ZERO(&rin);
-    FD_SET(fd_ssl, &rin);
-    FD_SET(tunnel, &rin);
-    fdno=(fd_ssl>tunnel ? fd_ssl : tunnel)+1;
-    while(1)
-    {
-        rout=rin;
-        if(select(fdno, &rout, NULL, NULL, NULL)<0)
-            ioerror("select");
-        if(FD_ISSET(tunnel, &rout))
-        {
-            num=read(tunnel, buffer, BUFFSIZE);
-            if(num<0 && errno==ECONNRESET)
-            {
-                syslog(LOG_INFO, "IPC reset (child died)");
+    fdno=(fd_ssl>fd_sock ? fd_ssl : fd_sock)+1;
+    sock_ptr=0;
+    ssl_ptr=0;
+    sock_open=1;
+    ssl_open=1;
+    bytes_in=0;
+    bytes_out=0;
+
+    while((sock_open||sock_ptr) && (ssl_open||ssl_ptr)) {
+        FD_ZERO(&rd_set);
+        if(sock_open && sock_ptr<BUFFSIZE) /* can read from socket */
+            FD_SET(fd_sock, &rd_set);
+        if(ssl_open && ssl_ptr<BUFFSIZE) /* can read from SSL */
+            FD_SET(fd_ssl, &rd_set);
+        FD_ZERO(&wr_set);
+        if(sock_open && ssl_ptr) /* can write to socket */
+            FD_SET(fd_sock, &wr_set);
+        if(ssl_open && sock_ptr) /* can write to SSL */
+            FD_SET(fd_ssl, &wr_set);
+        if(select(fdno, &rd_set, &wr_set, NULL, NULL)<0) {
+            sockerror("select");
+            return;
+        }
+        if(sock_open && FD_ISSET(fd_sock, &rd_set)) {
+            num=readsocket(fd_sock, sock_buff+sock_ptr, BUFFSIZE-sock_ptr);
+            if(num<0 && errno==ECONNRESET) {
+                log(LOG_NOTICE, "IPC reset (child died)");
                 break; /* close connection */
             }
-            if(num<0)
-                ioerror("read");
-            if(num==0)
-                break; /* close */
-            if(SSL_write(ssl, buffer, num)!=num)
-                sslerror("SSL_write");
-            bytes_out+=num;
+            if(num<0) {
+                sockerror("read");
+                return;
+            }
+            if(num) {
+                sock_ptr+=num;
+            } else { /* close */
+                log(LOG_DEBUG, "Socket closed on read");
+                sock_open=0;
+            }
         }
-        if(FD_ISSET(fd_ssl, &rout))
-        {
-            num=SSL_read(ssl, buffer, BUFFSIZE);
-            if(num<0)
+        if(ssl_open && FD_ISSET(fd_ssl, &rd_set)) {
+            num=SSL_read(ssl, ssl_buff+ssl_ptr, BUFFSIZE-ssl_ptr);
+            switch(SSL_get_error(ssl, num)) {
+            case SSL_ERROR_NONE:
+                ssl_ptr+=num;
+                break;
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_X509_LOOKUP:
+                log(LOG_DEBUG, "SSL_read returned WANT_ - retry");
+                break;
+            case SSL_ERROR_SYSCALL:
+                if(num) { /* not EOF */
+                    sockerror("SSL_read (socket)");
+                    return;
+                }
+            case SSL_ERROR_ZERO_RETURN:
+                log(LOG_DEBUG, "SSL closed on read");
+                ssl_open=0;
+                break;
+            case SSL_ERROR_SSL:
                 sslerror("SSL_read");
-            if(num==0)
-                break; /* close */
-            if(write(tunnel, buffer, num)!=num)
-                ioerror("write");
-            bytes_in+=num;
+                return;
+            }
+        }
+        if(sock_open && FD_ISSET(fd_sock, &wr_set)) {
+            num=writesocket(fd_sock, ssl_buff, ssl_ptr);
+            if(num<0) {
+                sockerror("write");
+                return;
+            }
+            if(num) {
+                memcpy(ssl_buff, ssl_buff+num, ssl_ptr-num);
+                ssl_ptr-=num;
+                bytes_in+=num;
+            } else { /* close */
+                log(LOG_DEBUG, "Socket closed on write");
+                sock_open=0;
+            }
+        }
+        if(ssl_open && FD_ISSET(fd_ssl, &wr_set)) {
+            num=SSL_write(ssl, sock_buff, sock_ptr);
+            switch(SSL_get_error(ssl, num)) {
+            case SSL_ERROR_NONE:
+                memcpy(sock_buff, sock_buff+num, sock_ptr-num);
+                sock_ptr-=num;
+                bytes_out+=num;
+                break;
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_X509_LOOKUP:
+                log(LOG_DEBUG, "SSL_write returned WANT_ - retry");
+                break;
+            case SSL_ERROR_SYSCALL:
+                if(num) { /* not EOF */
+                    sockerror("SSL_write (socket)");
+                    return;
+                }
+            case SSL_ERROR_ZERO_RETURN:
+                log(LOG_DEBUG, "SSL closed on write");
+                ssl_open=0;
+                break;
+            case SSL_ERROR_SSL:
+                sslerror("SSL_write");
+                return;
+            }
         }
     }
-    syslog(LOG_INFO, "Connection closed: %d bytes in, %d bytes out",
+    log(LOG_NOTICE, "Connection closed: %d bytes in, %d bytes out",
         bytes_in, bytes_out);
 }
 
-int listen_local(char *name) /* bind and listen on local interface */
+static int listen_local() /* bind and listen on local interface */
 {
-    char hostname[HOSTNAME_SIZE], *portname;
     struct sockaddr_in addr;
     int ls;
 
-    if((ls=socket(AF_INET, SOCK_STREAM, 0))<0)
-        ioerror("socket");
+    if((ls=socket(AF_INET, SOCK_STREAM, 0))<0) {
+        sockerror("socket");
+        exit(1);
+    }
     memset(&addr, 0, sizeof(addr));
     addr.sin_family=AF_INET;
+    addr.sin_addr.s_addr=*localnames;
+    addr.sin_port=localport;
+    if(bind(ls, (struct sockaddr *)&addr, sizeof(addr))) {
+        sockerror("bind");
+        exit(1);
+    }
+    log(LOG_DEBUG, "%s bound to %s:%d", execname,
+        inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+    if(listen(ls, 5)) {
+        sockerror("listen");
+        exit(1);
+    }
+    return ls;
+}
+
+static int connect_remote() /* connect to remote host */
+{
+    struct sockaddr_in addr;
+    int s; /* destination socket */
+    u_long *list; /* destination addresses list */
+
+    if((s=socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        sockerror("remote socket");
+        return -1;
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family=AF_INET;
+    addr.sin_port=remoteport;
+
+    /* connect each host from the list*/
+    for(list=remotenames; *list!=-1; list++) {
+        addr.sin_addr.s_addr=*list;
+        log(LOG_DEBUG, "%s connecting %s:%d", execname,
+            inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+        if(!connect(s, (struct sockaddr *) &addr, sizeof(addr)))
+            return s; /* success */
+    }
+    sockerror("remote connect");
+    return -1;
+}
+
+static int connect_local() /* connect to local host */
+{
+#ifdef USE_WIN32
+    log(LOG_ERR, "LOCAL MODE NOT SUPPORTED ON WIN32 PLATFORM");
+    return -1;
+#else
+    int fd[2];
+
+    if(make_sockets(fd))
+        return -1;
+    switch(fork()) {
+    case -1:    /* error */
+        closesocket(fd[0]);
+        closesocket(fd[1]);
+        ioerror("fork");
+        return -1;
+    case  0:    /* child */
+        log(LOG_DEBUG, "Child created");
+        closesocket(fd[0]);
+        dup2(fd[1], 0);
+        dup2(fd[1], 1);
+        if(!foreground)
+            dup2(fd[1], 2);
+        closesocket(fd[1]);
+        execvp(execname, execargs);
+        ioerror("execvp"); /* execvp failed */
+        exit(1);
+    }
+    /* parent */
+    closesocket(fd[1]);
+    return fd[0];
+#endif
+}
+
+static void name2nums(char *name, u_long **names, u_short *port)
+{
+    char hostname[HOSTNAME_SIZE], *portname;
+
     strncpy(hostname, name, HOSTNAME_SIZE-1);
     hostname[HOSTNAME_SIZE-1]='\0';
     if((portname=rindex(hostname, ':'))) {
         *portname++='\0';
-        memcpy((char *)&addr.sin_addr, *host2num(hostname),
-            sizeof(struct in_addr));
-        addr.sin_port=port2num(portname);
+        host2num(names, hostname);
+        *port=port2num(portname);
     } else {
-        addr.sin_addr.s_addr=htonl(INADDR_ANY);
-        addr.sin_port=port2num(hostname);
+        *port=port2num(hostname); /* no ':' - use default host IP */
     }
-    if(bind(ls, (struct sockaddr *)&addr, sizeof(addr)))
-        ioerror("bind");
-    if(listen(ls, 5))
-        ioerror("listen");
-    return ls;
 }
 
-int connect_remote(char *name) /* connect to remote host */
-{
-    char hostname[HOSTNAME_SIZE], *portname;
-    struct sockaddr_in addr;
-    int s; /* destination socket */
-    char **list; /* destination addresses list */
-
-    if((s=socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        ioerror("remote socket");
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family=AF_INET;
-    strncpy(hostname, name, HOSTNAME_SIZE-1);
-    hostname[HOSTNAME_SIZE-1]='\0';
-    if(!(portname=rindex(hostname, ':'))) {
-        syslog(LOG_ERR, "no port specified: \"%s\"", hostname);
-        exit(2);
-    }
-    *portname++='\0';
-    addr.sin_port=port2num(portname);
-
-    /* connect each host from the list*/
-    for(list=host2num(hostname); *list; list++) {
-        memcpy((char *)&addr.sin_addr, *list, sizeof(struct in_addr));
-        if(!connect(s, (struct sockaddr *) &addr, sizeof(addr))) {
-            return s; /* success */
-        }
-    }
-    ioerror("remote connect");
-    return 0; /* to satisfy compiler */
-}
-
-u_short port2num(char *portname) /* get port number */
+static u_short port2num(char *portname) /* get port number */
 {
     struct servent *p;
     u_short port;
@@ -407,144 +823,304 @@ u_short port2num(char *portname) /* get port number */
     else
         port=htons(atoi(portname));
     if(!port) {
-        syslog(LOG_ERR, "invalid port: %s", portname);
+        log(LOG_ERR, "Invalid port: %s", portname);
         exit(2);
     }
     return port;
 }
 
-char **host2num(char *hostname) /* get list of host addresses */
-{
+static void host2num(u_long **hostlist, char *hostname)
+{ /* get list of host addresses */
     struct hostent *h;
-    static struct in_addr ip;
-    static char *table[]={(char *)&ip, NULL};
+    u_long ip;
+    int i;
+    char **tab;
 
-    if((ip.s_addr=inet_addr(hostname))!=-1) /* dotted decimal */
-        return table;
+    ip=inet_addr(hostname);
+    if(ip!=-1) { /* dotted decimal */
+        alloc(hostlist, 1);
+        (*hostlist)[0]=ip;
+        return;
+    }
     /* not dotted decimal - we have to call resolver */
     if(!(h=gethostbyname(hostname))) /* get list of addresses */
-        ioerror("gethostbyname");
-    return h->h_addr_list;
+        sockerror("gethostbyname");
+    i=0;
+    tab=h->h_addr_list;
+    while(*tab++) /* count the addresses */
+        i++;
+    alloc(hostlist, i); /* allocate memory */
+    while(--i>=0)
+        (*hostlist)[i]=*(u_long *)(h->h_addr_list[i]);
 }
 
-void make_sockets(int fd[2]) /* make pair of connected sockets */
+#ifndef USE_WIN32
+static int make_sockets(int fd[2]) /* make pair of connected sockets */
 {
 #ifdef INET_SOCKET_PAIR
     struct sockaddr_in addr;
     int addrlen;
     int s; /* temporary socket awaiting for connection */
 
-    if((s=socket(AF_INET, SOCK_STREAM, 0))<0)
-        ioerror("socket#1");
-    if((fd[1]=socket(AF_INET, SOCK_STREAM, 0))<0)
-        ioerror("socket#2");
+    if((s=socket(AF_INET, SOCK_STREAM, 0))<0) {
+        sockerror("socket#1");
+        return -1;
+    }
+    if((fd[1]=socket(AF_INET, SOCK_STREAM, 0))<0) {
+        sockerror("socket#2");
+        return -1;
+    }
     addrlen=sizeof(addr);
     memset(&addr, 0, addrlen);
     addr.sin_family=AF_INET;
     addr.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
     addr.sin_port=0; /* dynamic port allocation */
     if(bind(s, (struct sockaddr *)&addr, addrlen))
-        syslog(LOG_DEBUG, "bind#1: %s (%d)", strerror(errno), errno);
+        log(LOG_DEBUG, "bind#1: %s (%d)", strerror(errno), errno);
     if(bind(fd[1], (struct sockaddr *)&addr, addrlen))
-        syslog(LOG_DEBUG, "bind#2: %s (%d)", strerror(errno), errno);
-    if(listen(s, 5))
-        ioerror("listen");
-    if(getsockname(s, (struct sockaddr *)&addr, &addrlen))
-        ioerror("getsockname");
-    if(connect(fd[1], (struct sockaddr *)&addr, addrlen))
-        ioerror("connect");
-    if((fd[0]=accept(s, (struct sockaddr *)&addr, &addrlen))<0)
-        ioerror("accept");
-    close(s); /* don't care about the result */
-#else
-    if(socketpair(AF_UNIX, SOCK_STREAM, 0, fd))
-        ioerror("socketpair");
-#endif
-}
-
-void daemonize() /* go to background */
-{
-    switch (fork()) {
-    case -1:
-        ioerror("fork");
-    case 0:
-        break;
-    default:
-        _exit(0);
+        log(LOG_DEBUG, "bind#2: %s (%d)", strerror(errno), errno);
+    if(listen(s, 5)) {
+        sockerror("listen");
+        return -1;
     }
-    if (setsid() == -1)
-        ioerror("setsid");
-    chdir("/");
-    close(0);
-    close(1);
-    close(2);
-}
-
-static RSA *tmp_rsa_cb(SSL *s, int export) /* temporary RSA key callback */
-{
-    static RSA *rsa_tmp = NULL;
-
-    if(rsa_tmp)
-        return(rsa_tmp);
-    syslog(LOG_DEBUG, "Generating 512 bit RSA key...");
-#if SSLEAY_VERSION_NUMBER <= 0x0800
-    rsa_tmp=RSA_generate_key(512, RSA_F4, NULL);
+    if(getsockname(s, (struct sockaddr *)&addr, &addrlen)) {
+        sockerror("getsockname");
+        return -1;
+    }
+    if(connect(fd[1], (struct sockaddr *)&addr, addrlen)) {
+        sockerror("connect");
+        return -1;
+    }
+    if((fd[0]=accept(s, (struct sockaddr *)&addr, &addrlen))<0) {
+        sockerror("accept");
+        return -1;
+    }
+    closesocket(s); /* don't care about the result */
 #else
-    rsa_tmp=RSA_generate_key(512, RSA_F4, NULL, NULL);
+    if(socketpair(AF_UNIX, SOCK_STREAM, 0, fd)) {
+        sockerror("socketpair");
+        return -1;
+    }
 #endif
-    if(rsa_tmp == NULL)
-        sslerror("tmp_rsa_cb");
-    return(rsa_tmp);
+    return 0;
+}
+#endif
+
+static RSA *tmp_rsa_cb(SSL *s, int export, int keylength)
+{ /* temporary RSA key callback */
+    return rsa_tmp;
 }
 
 #ifdef USE_DH
-static DH *tmp_dh_cb(SSL *s, int export) /* temporary DH key callback */
-{
+static DH *tmp_dh_cb(SSL *s, int export)
+{ /* temporary DH key callback */
     static DH *dh_tmp = NULL;
     BIO *in=NULL;
 
     if(dh_tmp)
         return(dh_tmp);
-    syslog(LOG_DEBUG, "Generating Diffie-Hellman key...");
+    log(LOG_DEBUG, "Generating Diffie-Hellman key...");
     in=BIO_new_file(certfile, "r");
     if(in == NULL) {
-        syslog(LOG_ERR, "DH: could not read %s: %s", certfile, strerror(errno));
+        log(LOG_ERR, "DH: could not read %s: %s", certfile, strerror(errno));
         return(NULL);
     }
     dh_tmp=PEM_read_bio_DHparams(in,NULL,NULL);
     if(dh_tmp==NULL) {
-        syslog(LOG_ERR, "could not load DH parameters");
+        log(LOG_ERR, "could not load DH parameters");
         return(NULL);
     }
     if(!DH_generate_key(dh_tmp)) {
-        syslog(LOG_ERR, "could not generate DH keys");
+        log(LOG_ERR, "could not generate DH keys");
         return(NULL);
     }
-    syslog(LOG_DEBUG, "Diffie-Hellman length: %d", DH_size(dh_tmp));
+    log(LOG_DEBUG, "Diffie-Hellman length: %d", DH_size(dh_tmp));
     if(in != NULL) BIO_free(in);
     return(dh_tmp);
 }
 #endif
 
-void ioerror(char *fun) /* Input/Output Error handler */
-{
-    syslog(LOG_ERR, "%s: %s (%d)", fun, strerror(errno), errno);
-    exit(1);
+static int verify_callback(int state, X509_STORE_CTX *ctx)
+{ /* our verify callback function */
+    char txt[256];
+    X509_OBJECT ret;
+
+    X509_NAME_oneline(X509_get_subject_name(ctx->current_cert),
+        txt, sizeof(txt));
+    if(!state) {
+        /* Remote site specified a certificate, but it's not correct */
+        log(LOG_WARNING, "VERIFY ERROR: depth=%d error=%s: %s",
+            ctx->error_depth,
+            X509_verify_cert_error_string (ctx->error), txt);
+        return 0; /* Reject connection */
+    }
+    if(verify_use_only_my && ctx->error_depth==0 &&
+            X509_STORE_get_by_subject(ctx, X509_LU_X509,
+                X509_get_subject_name(ctx->current_cert), &ret)!=1) {
+        log (LOG_WARNING, "VERIFY ERROR ONLY MY: no cert for: %s", txt);
+        return 0; /* Reject connection */
+    }
+    log(LOG_NOTICE, "VERIFY OK: depth=%d: %s", ctx->error_depth, txt);
+    return 1; /* Accept connection */
 }
 
-void sslerror(char *fun) /* SSL Error handler */
+static void info_callback(SSL *s, int where, int ret)
+{
+    if(where==SSL_CB_HANDSHAKE_DONE)
+        print_stats();
+}
+
+static void print_stats()
+{
+    log(LOG_DEBUG, "%4ld items in the session cache",
+        SSL_CTX_sess_number(ctx));
+    log(LOG_DEBUG, "%4d client connects (SSL_connect())",
+        SSL_CTX_sess_connect(ctx));
+    log(LOG_DEBUG, "%4d client connects that finished",
+        SSL_CTX_sess_connect_good(ctx));
+#if SSLEAY_VERSION_NUMBER >= 0x0922
+    log(LOG_DEBUG, "%4d client renegotiatations requested",
+        SSL_CTX_sess_connect_renegotiate(ctx));
+#endif
+    log(LOG_DEBUG, "%4d server connects (SSL_accept())",
+        SSL_CTX_sess_accept(ctx));
+    log(LOG_DEBUG, "%4d server connects that finished",
+        SSL_CTX_sess_accept_good(ctx));
+#if SSLEAY_VERSION_NUMBER >= 0x0922
+    log(LOG_DEBUG, "%4d server renegotiatiations requested",
+        SSL_CTX_sess_accept_renegotiate(ctx));
+#endif
+    log(LOG_DEBUG, "%4d session cache hits", SSL_CTX_sess_hits(ctx));
+    log(LOG_DEBUG, "%4d session cache misses", SSL_CTX_sess_misses(ctx));
+    log(LOG_DEBUG, "%4d session cache timeouts", SSL_CTX_sess_timeouts(ctx));
+}
+
+static void ioerror(char *txt) /* Input/Output error handler */
+{
+    int error;
+
+    error=get_last_error();
+    log(LOG_ERR, "%s: %s (%d)", txt, strerror(error), error);
+}
+
+static void sockerror(char *txt) /* Socket error handler */
+{
+    int error;
+
+    error=get_last_socket_error();
+    log(LOG_ERR, "%s: %s (%d)", txt, strerror(error), error);
+}
+
+static void sslerror(char *txt) /* SSL Error handler */
 {
     char string[120];
 
     ERR_error_string(ERR_get_error(), string);
-    syslog(LOG_ERR, "%s: %s", fun, string);
-    exit(2);
+    log(LOG_ERR, "%s: %s", txt, string);
 }
 
-void signal_handler(int sig) /* Signal handler */
+#ifdef USE_FORK
+
+static void sigchld_handler(int sig) /* Our child is dead */
 {
-    syslog(LOG_ERR, "Received signal %d; terminating.", sig);
+    int pid, status;
+
+    clients--; /* One client less */
+    pid=wait(&status);
+    log(LOG_DEBUG, "%s[%d] finished with code %d (%d left)",
+        execname, pid, status, clients);
+    signal(SIGCHLD, sigchld_handler);
+}
+#endif
+
+#ifndef USE_WIN32
+
+static void signal_handler(int sig) /* Signal handler */
+{
+    log(LOG_ERR, "Received signal %d; terminating.", sig);
     exit(3);
+}
+
+#else /* !defined USE_WIN32 */
+
+static char *rindex(char *txt, int c)
+{ /* Find last 'c' in "txt" */
+    char *retval;
+
+    for(retval=NULL; *txt; txt++)
+        if(*txt==c)
+            retval=txt;
+    return retval;
+}
+
+char *optarg;
+int optind=1, opterr=0, optopt=0;
+
+static int getopt(int argc, char **argv, char *options)
+{ /* simplified version for Win32 */
+    char *current, *option;
+
+    current=argv[optind++];
+    if(optind>argc || current[0]!='-')
+        return EOF;
+    option=rindex(options, current[1]);
+    if(!option)
+        return '?';
+    if(option[1]==':')
+        optarg=argv[optind++];
+    return current[1];
+}
+
+#endif /* !defined USE_WIN32 */
+
+static void alloc(u_long **ptr, int len)
+{ /* Allocate len+1 words terminated with -1 */
+    if (*ptr) /* Deallocate if not null */
+        free(*ptr);
+    *ptr=malloc((len+1)*sizeof(u_long));
+    if (!*ptr) {
+        log(LOG_ERR, "Fatal memory allocation error");
+        exit(2);
+    }
+    (*ptr)[len]=-1;
+}
+
+static void print_help()
+{
+    fprintf(stderr,
+        "\nstunnel [-c] [-p pemfile] [-v level] [-a directory] [-t timeout]"
+#ifndef USE_WIN32
+        "\n\t\t[-d [ip:]port [-f]] -l program | -r [ip:]port"
+#else
+        "\n\t\t[-d [ip:]port] -r [ip:]port"
+#endif
+        "\n\n  -c\t\tclient mode (remote service uses SSL)"
+        "\n\t\tdefault: server mode"
+        "\n  -p pemfile\tcertificate (*.pem) file name"
+        "\n\t\tdefault: " DEFAULT_CERT " for server mode,"
+        "\n\t\t\t none for client mode"
+        "\n  -v level\tverify peer certificate"
+        "\n\t\tlevel 1 - verify peer certificate if present"
+        "\n\t\tlevel 2 - verify peer certificate"
+        "\n\t\tlevel 3 - verify peer with localy installed certificate"
+        "\n\t\tdefault: no verify"
+        "\n  -a directory\tclient certificate directory for -v 3 option"
+        "\n\t\tdefault: " CA_DIR
+        "\n  -t timeout\tsession cache timeout"
+        "\n\t\tdefault: 300 s."
+        "\n  -d [ip:]port\tdaemon mode (ip defaults to INADDR_ANY)"
+        "\n\t\tdefault: inetd mode"
+#ifndef USE_WIN32
+        "\n  -f\t\tforeground mode (don't fork, log to stderr)"
+        "\n\t\tdefault: background in daemon mode"
+        "\n  -l program\texecute local inetd-type program"
+#endif
+        "\n  -r [ip:]port\tconnect to remote daemon"
+        " (ip defaults to INADDR_LOOPBACK)"
+        "\n  -h\t\tprint this help screen"
+        "\n  -D\t\tdebug level (0-7)  default: 5"
+        "\n  -V\t\tprint stunnel version\n");
+    exit(1);
 }
 
 /* End of stunnel.c */
