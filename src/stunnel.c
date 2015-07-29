@@ -193,7 +193,7 @@ void daemon_loop(void) {
                 if(signal_pipe_dispatch()) /* received SIGNAL_TERMINATE */
                     break; /* terminate daemon_loop */
             for(opt=service_options.next; opt; opt=opt->next)
-                if(s_poll_canread(fds, opt->fd))
+                if(opt->option.accept && s_poll_canread(fds, opt->fd))
                     if(accept_connection(opt))
                         temporary_lack_of_resources=1;
         } else {
@@ -276,9 +276,13 @@ void unbind_ports(void) {
 
     s_poll_init(fds);
     s_poll_add(fds, signal_pipe[0], 1, 0);
+
     for(opt=service_options.next; opt; opt=opt->next)
         if(opt->option.accept && opt->fd>=0) {
             closesocket(opt->fd);
+            s_log(LOG_DEBUG, "Service %s closed FD=%d",
+                opt->servname, opt->fd);
+            opt->fd=-1;
 #ifdef HAVE_STRUCT_SOCKADDR_UN
             if(opt->local_addr.sa.sa_family==AF_UNIX) {
                 if(lstat(opt->local_addr.un.sun_path, &st))
@@ -293,9 +297,6 @@ void unbind_ports(void) {
                         opt->local_addr.un.sun_path);
             }
 #endif
-            s_log(LOG_DEBUG, "Service %s closed FD=%d",
-                opt->servname, opt->fd);
-            opt->fd=-1;
         }
 }
 
@@ -314,6 +315,13 @@ int bind_ports(void) {
 
     s_poll_init(fds);
     s_poll_add(fds, signal_pipe[0], 1, 0);
+
+    /* allow clean unbind_ports() even though
+       bind_ports() was not fully performed */
+    for(opt=service_options.next; opt; opt=opt->next)
+        if(opt->option.accept)
+            opt->fd=-1;
+
     for(opt=service_options.next; opt; opt=opt->next) {
         if(opt->option.accept) {
             opt->fd=s_socket(opt->local_addr.sa.sa_family,

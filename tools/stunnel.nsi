@@ -42,6 +42,7 @@ skip_process_exit:
   SetOverwrite on
   File "${DLLS}/libeay32.dll"
   File "${DLLS}/ssleay32.dll"
+  File "${DLLS}/msvcr100.dll"
   #File "${DLLS}/*eay32.dll"
   #File "${DLLS}/zlib1.dll"
   File "src/stunnel.exe"
@@ -152,6 +153,7 @@ skip_service_uninstall:
   Delete "$INSTDIR\openssl.exe"
   Delete "$INSTDIR\libeay32.dll"
   Delete "$INSTDIR\ssleay32.dll"
+  Delete "$INSTDIR\msvcr100.dll"
   #Delete "$INSTDIR\*eay32.dll"
   #Delete "$INSTDIR\zlib1.dll"
   Delete "$INSTDIR\stunnel.html"

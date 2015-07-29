@@ -1,11 +1,17 @@
 stunnel change log
 
 
+Version 4.49, 2011.11.28, urgency: MEDIUM:
+* Bugfixes
+  - Missing Microsoft Visual C++ Redistributable (msvcr100.dll) required
+    by FIPS-compliant OpenSSL library was added to the Windows installer.
+  - A bug was fixed causing crashes on MacOS X and some other platforms.
+
 Version 4.48, 2011.11.26, urgency: MEDIUM:
 * New features
   - FIPS support on Win32 platform added.  OpenSSL 0.9.8r DLLs based on
     FIPS 1.2.3 canister are included with this version of stunnel.  FIPS
-    support can be disabled with "fips = no" configuration file option.
+    mode can be disabled with "fips = no" configuration file option.
 * Bugfixes
   - Fixed canary initialization problem on Win32 platform.
 
