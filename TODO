@@ -1,0 +1,4 @@
+1. Allow different certificates for different servers.
+2. Implement make_sockets implemented with Internet sockets
+   instead of Unix sockets for better compatibility.
+3. Add man pages.
