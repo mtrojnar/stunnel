@@ -1,31 +1,38 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
- *                 All Rights Reserved
+ *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
+ *   This program is free software; you can redistribute it and/or modify it
+ *   under the terms of the GNU General Public License as published by the
+ *   Free Software Foundation; either version 2 of the License, or (at your
+ *   option) any later version.
+ * 
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- *   In addition, as a special exception, Michal Trojnara gives
- *   permission to link the code of this program with the OpenSSL
- *   library (or with modified versions of OpenSSL that use the same
- *   license as OpenSSL), and distribute linked combinations including
- *   the two.  You must obey the GNU General Public License in all
- *   respects for all of the code used other than OpenSSL.  If you modify
- *   this file, you may extend this exception to your version of the
- *   file, but you are not obligated to do so.  If you do not wish to
- *   do so, delete this exception statement from your version.
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *   See the GNU General Public License for more details.
+ * 
+ *   You should have received a copy of the GNU General Public License along
+ *   with this program; if not, see <http://www.gnu.org/licenses>.
+ * 
+ *   Linking stunnel statically or dynamically with other modules is making
+ *   a combined work based on stunnel. Thus, the terms and conditions of
+ *   the GNU General Public License cover the whole combination.
+ * 
+ *   In addition, as a special exception, the copyright holder of stunnel
+ *   gives you permission to combine stunnel with free software programs or
+ *   libraries that are released under the GNU LGPL and with code included
+ *   in the standard release of OpenSSL under the OpenSSL License (or
+ *   modified versions of such code, with unchanged license). You may copy
+ *   and distribute such a system following the terms of the GNU GPL for
+ *   stunnel and the licenses of the other code concerned.
+ * 
+ *   Note that people who make modified versions of stunnel are not obligated
+ *   to grant this special exception for their modified versions; it is their
+ *   choice whether to do so. The GNU General Public License gives permission
+ *   to release a modified version without this exception; this exception
+ *   also makes it possible to release a modified version which carries
+ *   forward this exception.
  */
 
 #include "common.h"
@@ -52,13 +59,13 @@ void verify_init(LOCAL_OPTIONS *section) {
     if(section->verify_level>1 && !section->ca_file && !section->ca_dir) {
         s_log(LOG_ERR, "Either CApath or CAfile "
             "has to be used for authentication");
-        exit(1);
+        die(1);
     }
 
     section->revocation_store=X509_STORE_new();
     if(!section->revocation_store) {
         sslerror("X509_STORE_new");
-        exit(1);
+        die(1);
     }
 
     if(section->ca_file) {
@@ -67,7 +74,7 @@ void verify_init(LOCAL_OPTIONS *section) {
             s_log(LOG_ERR, "Error loading verify certificates from %s",
                 section->ca_file);
             sslerror("SSL_CTX_load_verify_locations");
-            exit(1);
+            die(1);
         }
         /* list of trusted CAs for the client to choose the right cert */
         SSL_CTX_set_client_CA_list(section->ctx,
@@ -83,7 +90,7 @@ void verify_init(LOCAL_OPTIONS *section) {
             s_log(LOG_ERR, "Error setting verify directory to %s",
                 section->ca_dir);
             sslerror("SSL_CTX_load_verify_locations");
-            exit(1);
+            die(1);
         }
         s_log(LOG_DEBUG, "Verify directory set to %s", section->ca_dir);
         add_dir_lookup(section->revocation_store, section->ca_dir);
@@ -110,12 +117,12 @@ static void load_file_lookup(X509_STORE *store, char *name) {
     lookup=X509_STORE_add_lookup(store, X509_LOOKUP_file());
     if(!lookup) {
         sslerror("X509_STORE_add_lookup");
-        exit(1);
+        die(1);
     }
     if(!X509_LOOKUP_load_file(lookup, name, X509_FILETYPE_PEM)) {
         s_log(LOG_ERR, "Failed to load %s revocation lookup file", name);
         sslerror("X509_LOOKUP_load_file");
-        exit(1);
+        die(1);
     }
     s_log(LOG_DEBUG, "Loaded %s revocation lookup file", name);
 }
@@ -126,12 +133,12 @@ static void add_dir_lookup(X509_STORE *store, char *name) {
     lookup=X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir());
     if(!lookup) {
         sslerror("X509_STORE_add_lookup");
-        exit(1);
+        die(1);
     }
     if(!X509_LOOKUP_add_dir(lookup, name, X509_FILETYPE_PEM)) {
         s_log(LOG_ERR, "Failed to add %s revocation lookup directory", name);
         sslerror("X509_LOOKUP_add_dir");
-        exit(1);
+        die(1);
     }
     s_log(LOG_DEBUG, "Added %s revocation lookup directory", name);
 }

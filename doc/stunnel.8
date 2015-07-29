@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2007.09.23" "4.08" "stunnel"
+.TH STUNNEL 8 "2008.03.27" "4.08" "stunnel"
 .SH "NAME"
 stunnel \- universal SSL tunnel
 .SH "SYNOPSIS"
@@ -327,6 +327,11 @@ Examples:
 \&    socket = a:SO_BINDTODEVICE=lo
 \&        only accept connections on loopback interface
 .Ve
+.IP "\fBsyslog\fR = yes | no (Unix only)" 4
+.IX Item "syslog = yes | no (Unix only)"
+enable logging via syslog
+.Sp
+default: yes
 .IP "\fBtaskbar\fR = yes | no (\s-1WIN32\s0 only)" 4
 .IX Item "taskbar = yes | no (WIN32 only)"
 enable the taskbar icon
@@ -511,6 +516,9 @@ session cache timeout
 select version of \s-1SSL\s0 protocol
 .Sp
 Allowed options: all, SSLv2, SSLv3, TLSv1
+.IP "\fBstack\fR = bytes (except for \s-1FORK\s0 model)" 4
+.IX Item "stack = bytes (except for FORK model)"
+thread stack size
 .IP "\fBTIMEOUTbusy\fR = seconds" 4
 .IX Item "TIMEOUTbusy = seconds"
 time to wait for expected data

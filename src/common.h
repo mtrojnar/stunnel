@@ -1,21 +1,38 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
- *                 All Rights Reserved
+ *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
+ *   This program is free software; you can redistribute it and/or modify it
+ *   under the terms of the GNU General Public License as published by the
+ *   Free Software Foundation; either version 2 of the License, or (at your
+ *   option) any later version.
+ * 
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *   See the GNU General Public License for more details.
+ * 
+ *   You should have received a copy of the GNU General Public License along
+ *   with this program; if not, see <http://www.gnu.org/licenses>.
+ * 
+ *   Linking stunnel statically or dynamically with other modules is making
+ *   a combined work based on stunnel. Thus, the terms and conditions of
+ *   the GNU General Public License cover the whole combination.
+ * 
+ *   In addition, as a special exception, the copyright holder of stunnel
+ *   gives you permission to combine stunnel with free software programs or
+ *   libraries that are released under the GNU LGPL and with code included
+ *   in the standard release of OpenSSL under the OpenSSL License (or
+ *   modified versions of such code, with unchanged license). You may copy
+ *   and distribute such a system following the terms of the GNU GPL for
+ *   stunnel and the licenses of the other code concerned.
+ * 
+ *   Note that people who make modified versions of stunnel are not obligated
+ *   to grant this special exception for their modified versions; it is their
+ *   choice whether to do so. The GNU General Public License gives permission
+ *   to release a modified version without this exception; this exception
+ *   also makes it possible to release a modified version which carries
+ *   forward this exception.
  */
 
 #ifndef COMMON_H
@@ -29,35 +46,23 @@
 
 #define LIBWRAP_CLIENTS 5
 
-#ifdef OPTIMIZE_SCALABILITY
-
 /* CPU stack size */
-#define STACK_SIZE      32768
-#define DEBUG_STACK_SIZE
+#define DEFAULT_STACK_SIZE 65536
+/* #define DEBUG_STACK_SIZE */
 
 /* I/O buffer size */
-#define BUFFSIZE        2048
-
-#else /* OPTIMIZE_SCALABILITY */
-
-/* CPU stack size */
-#define STACK_SIZE      65536
-
-/* I/O buffer size */
-#define BUFFSIZE        16384
-
-#endif /* OPTIMIZE_SCALABILITY */
+#define BUFFSIZE 16384
 
 /* Length of strings (including the terminating '\0' character) */
 /* It can't be lower than 256 bytes or NTLM authentication will break */
-#define STRLEN          256
+#define STRLEN 256
 
 /* IP address and TCP port textual representation length */
-#define IPLEN           128
+#define IPLEN 128
 
 /* How many bytes of random input to read from files for PRNG */
 /* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
-#define RANDOM_BYTES    64
+#define RANDOM_BYTES 64
 
 /* For FormatGuard */
 /* #define __NO_FORMATGUARD_ */
@@ -115,7 +120,9 @@ typedef int socklen_t;
 /* General headers */
 #include <stdio.h>
 /* Must be included before sys/stat.h for Ultrix */
+#ifndef _WIN32_WCE
 #include <errno.h>
+#endif
 #include <stdlib.h>
 #include <stdarg.h>      /* va_ */
 #include <string.h>
@@ -147,8 +154,6 @@ typedef unsigned long u32;
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
 #define sleep(c) Sleep(1000*(c))
-
-#define exit(c) exit_stunnel(c)
 
 #define get_last_socket_error() WSAGetLastError()
 #define get_last_error()        GetLastError()
@@ -392,6 +397,7 @@ extern char *sys_errlist[];
 #define LOG_INFO        6
 #define LOG_DEBUG       7
 #endif /* defined (USE_WIN32) || defined (__vms) */
+#define LOG_RAW         -1
 
 #endif /* defined COMMON_H */
 

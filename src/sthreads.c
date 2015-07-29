@@ -1,31 +1,38 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
- *                 All Rights Reserved
+ *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
+ *   This program is free software; you can redistribute it and/or modify it
+ *   under the terms of the GNU General Public License as published by the
+ *   Free Software Foundation; either version 2 of the License, or (at your
+ *   option) any later version.
+ * 
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- *   In addition, as a special exception, Michal Trojnara gives
- *   permission to link the code of this program with the OpenSSL
- *   library (or with modified versions of OpenSSL that use the same
- *   license as OpenSSL), and distribute linked combinations including
- *   the two.  You must obey the GNU General Public License in all
- *   respects for all of the code used other than OpenSSL.  If you modify
- *   this file, you may extend this exception to your version of the
- *   file, but you are not obligated to do so.  If you do not wish to
- *   do so, delete this exception statement from your version.
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *   See the GNU General Public License for more details.
+ * 
+ *   You should have received a copy of the GNU General Public License along
+ *   with this program; if not, see <http://www.gnu.org/licenses>.
+ * 
+ *   Linking stunnel statically or dynamically with other modules is making
+ *   a combined work based on stunnel. Thus, the terms and conditions of
+ *   the GNU General Public License cover the whole combination.
+ * 
+ *   In addition, as a special exception, the copyright holder of stunnel
+ *   gives you permission to combine stunnel with free software programs or
+ *   libraries that are released under the GNU LGPL and with code included
+ *   in the standard release of OpenSSL under the OpenSSL License (or
+ *   modified versions of such code, with unchanged license). You may copy
+ *   and distribute such a system following the terms of the GNU GPL for
+ *   stunnel and the licenses of the other code concerned.
+ * 
+ *   Note that people who make modified versions of stunnel are not obligated
+ *   to grant this special exception for their modified versions; it is their
+ *   choice whether to do so. The GNU General Public License gives permission
+ *   to release a modified version without this exception; this exception
+ *   also makes it possible to release a modified version which carries
+ *   forward this exception.
  */
 
 #ifdef USE_OS2
@@ -79,7 +86,7 @@ unsigned long stunnel_thread_id(void) {
     return ready_head ? ready_head->id : 0;
 }
 
-static CONTEXT *new_context(void) {
+static CONTEXT *new_context(int stack_size) {
     CONTEXT *ctx;
 
     /* allocate and fill the CONTEXT structure */
@@ -88,22 +95,28 @@ static CONTEXT *new_context(void) {
         s_log(LOG_ERR, "Unable to allocate CONTEXT structure");
         return NULL;
     }
+    ctx->stack=malloc(stack_size);
+    if(!ctx->stack) {
+        s_log(LOG_ERR, "Unable to allocate CONTEXT stack");
+        return NULL;
+    }
     ctx->id=next_id++;
     ctx->fds=NULL;
     ctx->ready=0;
     /* some manuals claim that initialization of ctx structure is required */
     if(getcontext(&ctx->ctx)<0) {
+        free(ctx->stack);
         free(ctx);
         ioerror("getcontext");
         return NULL;
     }
     ctx->ctx.uc_link=NULL; /* it should never happen */
 #if defined(__sgi) || ARGC==2 /* obsolete ss_sp semantics */
-    ctx->ctx.uc_stack.ss_sp=ctx->stack+STACK_SIZE-8;
+    ctx->ctx.uc_stack.ss_sp=ctx->stack+stack_size-8;
 #else
     ctx->ctx.uc_stack.ss_sp=ctx->stack;
 #endif
-    ctx->ctx.uc_stack.ss_size=STACK_SIZE;
+    ctx->ctx.uc_stack.ss_size=stack_size;
     ctx->ctx.uc_stack.ss_flags=0;
 
     /* attach to the tail of the ready queue */
@@ -116,20 +129,19 @@ static CONTEXT *new_context(void) {
     return ctx;
 }
 
-/* s_log is not initialized here, but we can use log_raw */
 void sthreads_init(void) {
     /* create the first (listening) context and put it in the running queue */
-    if(!new_context()) {
-        log_raw("Unable create the listening context");
-        exit(1);
+    if(!new_context(DEFAULT_STACK_SIZE)) {
+        s_log(LOG_RAW, "Unable create the listening context");
+        die(1);
     }
 }
 
-int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
+int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     CONTEXT *ctx;
 
     s_log(LOG_DEBUG, "Creating a new context");
-    ctx=new_context();
+    ctx=new_context(arg->opt->stack_size);
     if(!ctx)
         return -1;
     s_log(LOG_DEBUG, "Context %ld created", ctx->id);
@@ -157,7 +169,7 @@ static void null_handler(int sig) {
     signal(SIGCHLD, null_handler);
 }
 
-int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
+int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     switch(fork()) {
     case -1:    /* error */
         if(arg)
@@ -170,7 +182,7 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
             closesocket(ls);
         signal(SIGCHLD, null_handler);
         cli(arg);
-        exit(0);
+        _exit(0);
     default:    /* parent */
         if(arg)
             free(arg);
@@ -186,7 +198,6 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
 
 static pthread_mutex_t stunnel_cs[CRIT_SECTIONS];
 static pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
-static pthread_attr_t pth_attr;
 
 void enter_critical_section(SECTION_CODE i) {
     pthread_mutex_lock(stunnel_cs+i);
@@ -261,17 +272,18 @@ void sthreads_init(void) {
     CRYPTO_set_dynlock_create_callback(dyn_create_function);
     CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+}
+
+int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
+    pthread_attr_t pth_attr;
+    pthread_t thread;
+#ifdef HAVE_PTHREAD_SIGMASK
+    sigset_t newmask, oldmask;
 
     /* Initialize attributes for creating new threads */
     pthread_attr_init(&pth_attr);
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
-    pthread_attr_setstacksize(&pth_attr, STACK_SIZE);
-}
-
-int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
-    pthread_t thread;
-#ifdef HAVE_PTHREAD_SIGMASK
-    sigset_t newmask, oldmask;
+    pthread_attr_setstacksize(&pth_attr, arg->opt->stack_size);
 
     /* The idea is that only the main thread handles all the signals with
      * posix threads.  Signals are blocked for any other thread. */
@@ -378,9 +390,9 @@ void sthreads_init(void) {
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
 }
 
-int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
+int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     s_log(LOG_DEBUG, "Creating a new thread");
-    if(_beginthread((void(*)(void *))cli, STACK_SIZE, arg)==-1) {
+    if(_beginthread((void(*)(void *))cli, arg->opt->stack_size, arg)==-1) {
         ioerror("_beginthread");
         return -1;
     }

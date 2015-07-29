@@ -1,21 +1,38 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
- *                 All Rights Reserved
+ *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
+ *   This program is free software; you can redistribute it and/or modify it
+ *   under the terms of the GNU General Public License as published by the
+ *   Free Software Foundation; either version 2 of the License, or (at your
+ *   option) any later version.
+ * 
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *   See the GNU General Public License for more details.
+ * 
+ *   You should have received a copy of the GNU General Public License along
+ *   with this program; if not, see <http://www.gnu.org/licenses>.
+ * 
+ *   Linking stunnel statically or dynamically with other modules is making
+ *   a combined work based on stunnel. Thus, the terms and conditions of
+ *   the GNU General Public License cover the whole combination.
+ * 
+ *   In addition, as a special exception, the copyright holder of stunnel
+ *   gives you permission to combine stunnel with free software programs or
+ *   libraries that are released under the GNU LGPL and with code included
+ *   in the standard release of OpenSSL under the OpenSSL License (or
+ *   modified versions of such code, with unchanged license). You may copy
+ *   and distribute such a system following the terms of the GNU GPL for
+ *   stunnel and the licenses of the other code concerned.
+ * 
+ *   Note that people who make modified versions of stunnel are not obligated
+ *   to grant this special exception for their modified versions; it is their
+ *   choice whether to do so. The GNU General Public License gives permission
+ *   to release a modified version without this exception; this exception
+ *   also makes it possible to release a modified version which carries
+ *   forward this exception.
  */
 
 #ifndef PROTOTYPES_H
@@ -57,21 +74,16 @@ extern volatile int num_clients;
 void main_initialize(char *, char *);
 void main_execute(void);
 void stunnel_info(int);
-void drop_privileges(void);
+void die(int);
 
 /**************************************** Prototypes for log.c */
 
 void log_open(void);
 void log_close(void);
+void log_flush(void);
 void s_log(int, const char *, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 2, 3)));
-#else
-    ;
-#endif
-void log_raw(const char *, ...)
-#ifdef __GNUC__
-    __attribute__ ((format (printf, 1, 2)));
 #else
     ;
 #endif
@@ -132,7 +144,7 @@ typedef struct {
 #endif
 
         /* logging-support data for log.c */
-    int debug_level;                               /* debug level for syslog */
+    int debug_level;                              /* debug level for logging */
 #ifndef USE_WIN32
     int facility;                               /* debug facility for syslog */
 #endif
@@ -140,11 +152,12 @@ typedef struct {
 
         /* on/off switches */
     struct {
-        unsigned int foreground:1;
-        unsigned int syslog:1;                              /* log to syslog */
         unsigned int rand_write:1;                    /* overwrite rand_file */
 #ifdef USE_WIN32
         unsigned int taskbar:1;                   /* enable the taskbar icon */
+#else /* !USE_WIN32 */
+        unsigned int foreground:1;
+        unsigned int syslog:1;
 #endif
 #ifdef USE_FIPS
         unsigned int fips:1;                       /* enable FIPS 140-2 mode */
@@ -164,6 +177,9 @@ typedef struct local_options {
     char *servname;        /* service name for logging & permission checking */
     SSL_SESSION *session;                           /* jecently used session */
     char local_address[IPLEN];             /* dotted-decimal address to bind */
+#ifndef USE_FORK
+    int stack_size;                            /* stack size for this thread */
+#endif
 
         /* service-specific data for ctx.c */
     char *ca_dir;                              /* directory for hashed certs */
@@ -321,7 +337,7 @@ extern int max_clients;
 extern int max_fds;
 #endif
 
-void *alloc_client_session(LOCAL_OPTIONS *, int, int);
+CLI *alloc_client_session(LOCAL_OPTIONS *, int, int);
 void *client(void *);
 int connect_wait(CLI *);
 
@@ -367,10 +383,10 @@ void leave_critical_section(SECTION_CODE);
 void sthreads_init(void);
 unsigned long stunnel_process_id(void);
 unsigned long stunnel_thread_id(void);
-int create_client(int, int, void *, void *(*)(void *));
+int create_client(int, int, CLI *, void *(*)(void *));
 #ifdef USE_UCONTEXT
 typedef struct CONTEXT_STRUCTURE {
-    char stack[STACK_SIZE];
+    char *stack; /* CPU stack for this thread */
     unsigned long id;
     ucontext_t ctx;
     s_poll_set *fds;
@@ -398,7 +414,7 @@ typedef struct {
 
 #ifdef USE_WIN32
 void win_log(char *);
-void exit_stunnel(int);
+void exit_win32(int);
 int passwd_cb(char *, int, int, void *);
 #ifdef HAVE_OSSL_ENGINE_H
 int pin_cb(UI *, UI_STRING *);

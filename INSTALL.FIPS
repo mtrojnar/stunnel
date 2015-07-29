@@ -3,12 +3,43 @@ stunnel         Universal SSL tunnel
 
 FIPS support status:
 - Unix platforms are currently supported.
-  More testing is still required.
-- Win32 platform is currently unsupported due to some
-  problems with linking FIPS-enabled OpenSSL DLLs.
+- Win32 platform is currently unsupported due to some problems with
+  building and linking FIPS-enabled OpenSSL DLLs.
 
+Unix HOWTO:
 FIPS mode is autodetected if possible.  You can force it with:
-    ./configure --enable-fips
+  ./configure --enable-fips
 or disable with:
-    ./configure --disable-fips
+  ./configure --disable-fips
+
+Preliminary WIN32 HOWTO (does NOT work, now):
+- Download and install ActivePerl:
+    http://www.activestate.com/Products/activeperl/
+- Download and install MinGW-5.1.3.exe:
+    http://www.mingw.org/download.shtml#hdr2
+  Also select "g++ compiler" for installation
+- Download and install MSYS-1.0.10.exe:
+    http://www.mingw.org/download.shtml#hdr2
+- Download OpenSSL FIPS:
+    http://www.openssl.org/source/openssl-fips-1.1.2.tar.gz
+- Execute MSYS and unpack OpenSSL:
+    tar -xzf /c/downloads/openssl-fips-1.1.2.tar.gz
+- Build the OpenSSL:
+    cd openssl-fips-1.1.2
+    ./config fips
+    make
+    make install
+    cd /usr/local/ssl/lib
+    ar xv `gcc -print-libgcc-file-name` _chkstk.o _udivdi3.o _umoddi3.o
+    mkdir /c/fipscanister/
+    cp _* fips* /c/fipscanister/
+    exit
+- Download and unpack OpenSSL 0.9.7m:
+  http://www.openssl.org/source/openssl-0.9.7m.tar.gz
+- Download and install Visual C++ 2008 Express Edition:
+  http://www.microsoft.com/express/vc/
+- Execute "Open Visual Studio 2008 Command Prompt" and build OpenSSL:
+  perl Configure VC-WIN32 fips --with-fipslibdir=c:\fipscanister
+  ms\do_ms
+  nmake -f ms\ntdll.mak
 

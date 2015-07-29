@@ -1,36 +1,38 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
- *                 All Rights Reserved
+ *   Copyright (C) 1998-2008 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
- *   Version:      4.21             (stunnel.c)
- *   Date:         2007.10.27
- *
- *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
- *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
+ *   This program is free software; you can redistribute it and/or modify it
+ *   under the terms of the GNU General Public License as published by the
+ *   Free Software Foundation; either version 2 of the License, or (at your
+ *   option) any later version.
+ * 
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- *   In addition, as a special exception, Michal Trojnara gives
- *   permission to link the code of this program with the OpenSSL
- *   library (or with modified versions of OpenSSL that use the same
- *   license as OpenSSL), and distribute linked combinations including
- *   the two.  You must obey the GNU General Public License in all
- *   respects for all of the code used other than OpenSSL.  If you modify
- *   this file, you may extend this exception to your version of the
- *   file, but you are not obligated to do so.  If you do not wish to
- *   do so, delete this exception statement from your version.
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *   See the GNU General Public License for more details.
+ * 
+ *   You should have received a copy of the GNU General Public License along
+ *   with this program; if not, see <http://www.gnu.org/licenses>.
+ * 
+ *   Linking stunnel statically or dynamically with other modules is making
+ *   a combined work based on stunnel. Thus, the terms and conditions of
+ *   the GNU General Public License cover the whole combination.
+ * 
+ *   In addition, as a special exception, the copyright holder of stunnel
+ *   gives you permission to combine stunnel with free software programs or
+ *   libraries that are released under the GNU LGPL and with code included
+ *   in the standard release of OpenSSL under the OpenSSL License (or
+ *   modified versions of such code, with unchanged license). You may copy
+ *   and distribute such a system following the terms of the GNU GPL for
+ *   stunnel and the licenses of the other code concerned.
+ * 
+ *   Note that people who make modified versions of stunnel are not obligated
+ *   to grant this special exception for their modified versions; it is their
+ *   choice whether to do so. The GNU General Public License gives permission
+ *   to release a modified version without this exception; this exception
+ *   also makes it possible to release a modified version which carries
+ *   forward this exception.
  */
 
 #include "common.h"
@@ -41,7 +43,7 @@ static void daemon_loop(void);
 static void accept_connection(LOCAL_OPTIONS *);
 static void get_limits(void); /* setup global max_clients and max_fds */
 #if !defined (USE_WIN32) && !defined (__vms)
-static void make_chroot(void);
+static void drop_privileges(void);
 static void daemonize(void);
 static void create_pid(void);
 static void delete_pid(void);
@@ -88,7 +90,7 @@ void main_initialize(char *arg1, char *arg2) {
         if(!FIPS_mode_set(1)) {
             ERR_load_crypto_strings();
             sslerror("FIPS_mode_set");
-            exit(1);
+            die(1);
         } else
             s_log(LOG_NOTICE, "stunnel is in FIPS mode");
     } else
@@ -96,6 +98,7 @@ void main_initialize(char *arg1, char *arg2) {
 #endif /* USE_FIPS */
 
     log_open();
+    log_flush();
 #ifdef USE_LIBWRAP
     /* LIBWRAP_CLIENTS extra processes in daemon mode,
      * no extra processes in inetd mode */
@@ -111,9 +114,6 @@ void main_execute(void) {
     } else { /* inetd mode */
 #if !defined (USE_WIN32) && !defined (__vms)&&!defined(USE_OS2)
         max_fds=FD_SETSIZE; /* just in case */
-#ifdef HAVE_CHROOT
-        make_chroot();
-#endif /* HAVE_CHROOT */
         drop_privileges();
 #endif
         num_clients=1;
@@ -133,7 +133,7 @@ static void daemon_loop(void) {
 #endif
     if(!local_options.next) {
         s_log(LOG_ERR, "No connections defined in config file");
-        exit(1);
+        die(1);
     }
     num_clients=0;
 
@@ -144,23 +144,23 @@ static void daemon_loop(void) {
         memcpy(&addr, &opt->local_addr.addr[0], sizeof(SOCKADDR_UNION));
         if((opt->fd=socket(addr.sa.sa_family, SOCK_STREAM, 0))<0) {
             sockerror("local socket");
-            exit(1);
+            die(1);
         }
         if(alloc_fd(opt->fd))
-            exit(1);
+            die(1);
         if(set_socket_options(opt->fd, 0)<0)
-            exit(1);
+            die(1);
         s_ntop(opt->local_address, &addr);
         if(bind(opt->fd, &addr.sa, addr_len(addr))) {
             s_log(LOG_ERR, "Error binding %s to %s",
                 opt->servname, opt->local_address);
             sockerror("bind");
-            exit(1);
+            die(1);
         }
         s_log(LOG_DEBUG, "%s bound to %s", opt->servname, opt->local_address);
         if(listen(opt->fd, 5)) {
             sockerror("listen");
-            exit(1);
+            die(1);
         }
 #ifdef FD_CLOEXEC
         fcntl(opt->fd, F_SETFD, FD_CLOEXEC); /* close socket in child execvp */
@@ -171,9 +171,6 @@ static void daemon_loop(void) {
 #if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
     if(!(options.option.foreground))
         daemonize();
-#ifdef HAVE_CHROOT
-        make_chroot();
-#endif /* HAVE_CHROOT */
     drop_privileges();
     create_pid();
 #endif /* !defined USE_WIN32 && !defined (__vms) */
@@ -299,24 +296,9 @@ static void get_limits(void) {
 #endif
 }
 
-#ifdef HAVE_CHROOT
-static void make_chroot(void) {
-    if(options.chroot_dir) {
-        if(chroot(options.chroot_dir)) {
-            sockerror("chroot");
-            exit(1);
-        }
-        if(chdir("/")) {
-            sockerror("chdir");
-            exit(1);
-        }
-    }
-}
-#endif /* HAVE_CHROOT */
-
 #if !defined (USE_WIN32) && !defined (__vms)
-    /* set process user and group(s) id */
-void drop_privileges(void) {
+    /* chroot and set process user and group(s) id */
+static void drop_privileges(void) {
     int uid=0, gid=0;
     struct group *gr;
 #ifdef HAVE_SETGROUPS
@@ -334,7 +316,7 @@ void drop_privileges(void) {
         else {
             s_log(LOG_ERR, "Failed to get GID for group %s",
                 options.setgid_group);
-            exit(1);
+            die(1);
         }
     }
     if(options.setuid_user) {
@@ -346,28 +328,42 @@ void drop_privileges(void) {
         else {
             s_log(LOG_ERR, "Failed to get UID for user %s",
                 options.setuid_user);
-            exit(1);
+            die(1);
         }
     }
+
+#ifdef HAVE_CHROOT
+    /* chroot */
+    if(options.chroot_dir) {
+        if(chroot(options.chroot_dir)) {
+            sockerror("chroot");
+            die(1);
+        }
+        if(chdir("/")) {
+            sockerror("chdir");
+            die(1);
+        }
+    }
+#endif /* HAVE_CHROOT */
 
     /* Set uid and gid */
     if(gid) {
         if(setgid(gid)) {
             sockerror("setgid");
-            exit(1);
+            die(1);
         }
 #ifdef HAVE_SETGROUPS
         gr_list[0]=gid;
         if(setgroups(1, gr_list)) {
             sockerror("setgroups");
-            exit(1);
+            die(1);
         }
 #endif
     }
     if(uid) {
         if(setuid(uid)) {
             sockerror("setuid");
-            exit(1);
+            die(1);
         }
     }
 }
@@ -376,18 +372,18 @@ static void daemonize(void) { /* go to background */
 #if defined(HAVE_DAEMON) && !defined(__BEOS__)
     if(daemon(0,0)==-1) {
         ioerror("daemon");
-        exit(1);
+        die(1);
     }
 #else
     chdir("/");
     switch(fork()) {
     case -1:    /* fork failed */
         ioerror("fork");
-        exit(1);
+        die(1);
     case 0:     /* child */
         break;
     default:    /* parent */
-        exit(0);
+        die(0);
     }
     close(0);
     close(1);
@@ -411,7 +407,7 @@ static void create_pid(void) {
         /* Why?  Because we don't want to confuse by
            allowing '.', which would be '/' after
            daemonizing) */
-        exit(1);
+        die(1);
     }
     options.dpid=(unsigned long)getpid();
 
@@ -420,7 +416,7 @@ static void create_pid(void) {
     if((pf=open(options.pidfile, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL,0644))==-1) {
         s_log(LOG_ERR, "Cannot create pid file %s", options.pidfile);
         ioerror("create");
-        exit(1);
+        die(1);
     }
     sprintf(pid, "%lu\n", options.dpid);
     write(pf, pid, strlen(pid));
@@ -440,7 +436,7 @@ static void delete_pid(void) {
 static void signal_handler(int sig) { /* signal handler */
     s_log(sig==SIGTERM ? LOG_NOTICE : LOG_ERR,
         "Received signal %d; terminating", sig);
-    exit(3);
+    die(3);
 }
 #endif /* !defined USE_WIN32 */
 
@@ -449,10 +445,7 @@ void stunnel_info(int raw) {
 
     sprintf(line, "stunnel " VERSION " on " HOST " with %s",
         SSLeay_version(SSLEAY_VERSION));
-    if(raw)
-        log_raw("%s", line);
-    else
-        s_log(LOG_NOTICE, "%s", line);
+    s_log(raw ? LOG_RAW : LOG_NOTICE, "%s", line);
 
     safecopy(line, "Threading:");
 #ifdef USE_UCONTEXT
@@ -501,10 +494,16 @@ void stunnel_info(int raw) {
     safeconcat(line, " Auth:LIBWRAP");
 #endif
 
-    if(raw)
-        log_raw("%s", line);
-    else
-        s_log(LOG_NOTICE, "%s", line);
+    s_log(raw ? LOG_RAW : LOG_NOTICE, "%s", line);
+}
+
+void die(int status) { /* some cleanup and exit */
+    log_flush();
+#ifdef USE_WIN32
+    exit_win32(status);
+#else
+    exit(status);
+#endif
 }
 
 /* End of stunnel.c */

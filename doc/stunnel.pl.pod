@@ -264,6 +264,12 @@ Przyk³ady:
         przyjmuj po³±czenia wy³±cznie na
         interfejsie zwrotnym (ang. loopback)
 
+=item B<syslog> = yes | no (tylko Unix)
+
+w³±cz logowanie poprzez mechanizm syslog
+
+domy¶lnie: yes (w³±cz)
+
 =item B<taskbar> = yes | no (tylko WIN32)
 
 w³±cz ikonkê w prawym dolnym rogu ekranu
@@ -483,9 +489,13 @@ czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
 
 =item B<sslVersion> = wersja
 
-wybierz wersjê protoko³u SSL
+wersja protoko³u SSL
 
 Dozwolone opcje: all, SSLv2, SSLv3, TLSv1
+
+=item B<stack> = liczba_bajtów (z wyj±tkiem modelu FORK)
+
+rozmiar stosu procesora w±tku 
 
 =item B<TIMEOUTbusy> = liczba_sekund
 

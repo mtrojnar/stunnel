@@ -1,5 +1,23 @@
 stunnel         Universal SSL tunnel
 
+Version 4.22, 2008.03.28, urgency: MEDIUM:
+* New features
+  - Makefile was updated to use standard autoconf variables:
+    sysconfdir, localstatedir and pkglibdir.
+  - A new global option to control logging to syslog:
+      syslog = yes|no
+    Simultaneous logging to a file and the syslog is now possible.
+  - A new service level option to control stack size:
+      stack = <number of bytes>
+* Bugfixes
+  - Restored chroot() to be executed after decoding numerical
+    userid and groupid values in drop_privileges().
+  - A few bugs fixed the in the new libwrap support code.
+  - TLSv1 method used by default in FIPS mode instead of
+    SSLv3 client and SSLv23 server methods.
+  - OpenSSL GPL license exception update based on
+    http://www.gnu.org/licenses/gpl-faq.html#GPLIncompatibleLibs
+
 Version 4.21, 2007.10.27, urgency: LOW/EXPERIMENTAL:
 * New features sponsored by Open-Source Software Institute
   - Initial FIPS 140-2 support (see INSTALL.FIPS for details).
@@ -19,7 +37,7 @@ Version 4.21, 2007.10.27, urgency: LOW/EXPERIMENTAL:
   - Dynamic locking callbacks added (needed by some engines to work).
   - AC_ARG_ENABLE fixed in configure.am to accept yes/no arguments.
   - On some systems libwrap requires yp_get_default_domain from libnsl,
-    additional checking was added.
+    additional checking for libnsl was added to the ./configure script.
   - Sending a list of trusted CAs for the client to choose the right
     certificate restored.
   - Some compatibility issues with NTLM authentication fixed.
@@ -296,7 +314,7 @@ Version 4.05, 2004.02.14, urgency: MEDIUM:
     from a specified file descriptor instead of a file.
   - accept is reported as error when no '[section]' is
     defined (in stunnel 4.04 it was silently ignored causing
-    problems for lusers that did not read the fine manual).
+    problems for lusers who did not read the fine manual).
   - Use fcntl() instead of ioctlsocket() to set socket
     nonblocking where it is supported.
   - Basic support for hardware engines with OpenSSL >= 0.9.7.

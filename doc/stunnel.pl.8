@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2007.09.23" "4.08" "stunnel"
+.TH STUNNEL.PL 8 "2008.03.27" "4.08" "stunnel"
 .SH "NAZWA"
 .IX Header "NAZWA"
 stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
@@ -341,6 +341,11 @@ Przyk³ady:
 \&        przyjmuj po³±czenia wy³±cznie na
 \&        interfejsie zwrotnym (ang. loopback)
 .Ve
+.IP "\fBsyslog\fR = yes | no (tylko Unix)" 4
+.IX Item "syslog = yes | no (tylko Unix)"
+w³±cz logowanie poprzez mechanizm syslog
+.Sp
+domy¶lnie: yes (w³±cz)
 .IP "\fBtaskbar\fR = yes | no (tylko \s-1WIN32\s0)" 4
 .IX Item "taskbar = yes | no (tylko WIN32)"
 w³±cz ikonkê w prawym dolnym rogu ekranu
@@ -531,9 +536,12 @@ domy¶lnie: no
 czas w sekundach, po którym sesja \s-1SSL\s0 zostanie usuniêta z pamiêci podrêcznej
 .IP "\fBsslVersion\fR = wersja" 4
 .IX Item "sslVersion = wersja"
-wybierz wersjê protoko³u \s-1SSL\s0
+wersja protoko³u \s-1SSL\s0
 .Sp
 Dozwolone opcje: all, SSLv2, SSLv3, TLSv1
+.IP "\fBstack\fR = liczba_bajtów (z wyj±tkiem modelu \s-1FORK\s0)" 4
+.IX Item "stack = liczba_bajtów (z wyj±tkiem modelu FORK)"
+rozmiar stosu procesora w±tku 
 .IP "\fBTIMEOUTbusy\fR = liczba_sekund" 4
 .IX Item "TIMEOUTbusy = liczba_sekund"
 czas oczekiwania na spodziewane dane

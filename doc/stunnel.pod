@@ -251,6 +251,12 @@ Examples:
     socket = a:SO_BINDTODEVICE=lo
         only accept connections on loopback interface
 
+=item B<syslog> = yes | no (Unix only)
+
+enable logging via syslog
+
+default: yes
+
 =item B<taskbar> = yes | no (WIN32 only)
 
 enable the taskbar icon
@@ -465,6 +471,10 @@ session cache timeout
 select version of SSL protocol
 
 Allowed options: all, SSLv2, SSLv3, TLSv1
+
+=item B<stack> = bytes (except for FORK model)
+
+thread stack size
 
 =item B<TIMEOUTbusy> = seconds
 

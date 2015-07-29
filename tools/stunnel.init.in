@@ -3,9 +3,8 @@
 # Copyright by Michal Trojnara 2002,2007
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-PREFIX=@prefix@
-DAEMON=$PREFIX/bin/stunnel
-PIDFILE=$PREFIX/var/stunnel/stunnel.pid
+DAEMON=@prefix@/etc/stunnel
+PIDFILE=@prefix@/var/run/stunnel/stunnel.pid
 
 test -f $DAEMON || exit 0
 

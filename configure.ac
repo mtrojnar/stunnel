@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.21])
+AC_INIT([stunnel],[4.22])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.21)
+AM_INIT_AUTOMAKE(stunnel, 4.22)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -264,7 +264,7 @@ LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
 # Check for obsolete RSAref library
 AC_MSG_CHECKING([for obsolete RSAref library])
 saved_LIBS="$LIBS"
-LIBS="$saved_LIBS -lRSAglue -L$prefix/lib -lrsaref"
+LIBS="$saved_LIBS -lRSAglue -L$libdir -lrsaref"
 AC_LINK_IFELSE(
     [AC_LANG_PROGRAM([[]], [[]])],
     [AC_MSG_RESULT([yes])],
