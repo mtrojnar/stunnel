@@ -1256,10 +1256,10 @@ NOEXPORT unsigned connect_index(CLI *c) {
     if(c->ssl && SSL_session_reused(c->ssl)) {
         enter_critical_section(CRIT_ADDR);
         ptr=SSL_SESSION_get_ex_data(SSL_get_session(c->ssl), index_addr);
-        len=addr_len(ptr);
-        memcpy(&addr, ptr, (size_t)len);
-        leave_critical_section(CRIT_ADDR);
         if(ptr) { /* address was copied, ptr itself is no longer valid */
+            len=addr_len(ptr);
+            memcpy(&addr, ptr, (size_t)len);
+            leave_critical_section(CRIT_ADDR);
             for(i=0; i<c->connect_addr.num; ++i) {
                 if(addr_len(&c->connect_addr.addr[i])==len &&
                         !memcmp(&c->connect_addr.addr[i],
@@ -1270,6 +1270,7 @@ NOEXPORT unsigned connect_index(CLI *c) {
             }
             s_log(LOG_ERR, "Cached address not configured");
         } else {
+            leave_critical_section(CRIT_ADDR);
             s_log(LOG_NOTICE, "No cached address found");
         }
     }

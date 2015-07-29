@@ -1,6 +1,11 @@
 stunnel change log
 
 
+Version 5.17, 2015.04.29, urgency: HIGH:
+* Bugfixes
+  - Fixed a NULL pointer dereference causing the service to crash.
+    This bug was introduced in stunnel 5.15.
+
 Version 5.16, 2015.04.19, urgency: MEDIUM:
 * Bugfixes
   - Fixed compilation with old versions of gcc.
