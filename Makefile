@@ -2,6 +2,7 @@
 # Makefile for stunnel by Michal Trojnara 1998 #
 ################################################
 
+VERSION=1.1
 CC=gcc
 CFLAGS=-O2 -Wall -I/usr/local/ssl/include
 LIBS=-L/usr/local/ssl/lib -lssl -lcrypto
@@ -26,5 +27,5 @@ clean:
 	rm -f $(TARGET) $(TARGET).o core
 
 distrib: clean
-	tar -cf - -C .. $(TARGET) | gzip > ../$(TARGET).tar.gz
+	tar -cf - -C .. $(TARGET) | gzip > ../$(TARGET)-$(VERSION).tar.gz
 

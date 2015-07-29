@@ -1,10 +1,12 @@
 /*****************************************************/
-/* stunnel.c          version 1.00          97.02.11 */
+/* stunnel.c          version 1.1           97.02.14 */
 /* by Michal Trojnara   <mtrojnar@ddc.daewoo.com.pl> */
-/* special thx to Adam Hernik <adas@infocentrum.com> */
+/* SSLeay support Adam Hernik <adas@infocentrum.com> */
+/*             Pawel Krawczyk <kravietz@ceti.com.pl> */
 /*****************************************************/
 
-#define MYCERT "/etc/server.pem"
+#define STUNNELCERT "/etc/server.pem"
+#define STUNNELKEY "/etc/server.pem"
 #define BUFFSIZE 8192	/* I/O buffer size */
 
 #include <stdio.h>
@@ -19,12 +21,19 @@
 #include <ssl.h>
 #include <err.h>
 
-void make_sockets(int [2]);
+/* Correct callback definitions overriding ssl.h */
+#define SSL_CTX_set_tmp_rsa_callback(ctx,cb) \
+        SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_RSA_CB,0,(char *)cb)
+#define SSL_CTX_set_tmp_dh_callback(ctx,dh) \
+        SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_DH_CB,0,(char *)dh)
+
 void transfer(SSL *, int);
-void signal_handler(int sig);
-void ioerror(char*);
-void sslerror(char*);
-void generror(char*);
+void make_sockets(int [2]);
+static RSA *tmp_rsa_cb(SSL *, int);
+static DH *tmp_dh_cb(SSL *, int);
+void ioerror(char *);
+void sslerror(char *);
+void signal_handler(int);
 
 int main(int argc, char* argv[])
 {
@@ -50,12 +59,18 @@ int main(int argc, char* argv[])
         ioerror("execvp"); /* execvp failed */
     default:	/* parent */
         close(fd[1]);
+        openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+        SSL_load_error_strings();
         SSLeay_add_ssl_algorithms();
         ctx=SSL_CTX_new(SSLv23_server_method());
-        if(!SSL_CTX_use_RSAPrivateKey_file(ctx, MYCERT, SSL_FILETYPE_PEM))
+        if(!SSL_CTX_use_RSAPrivateKey_file(ctx, STUNNELKEY, SSL_FILETYPE_PEM))
             sslerror("SSL_CTX_use_RSAPrivateKey_file");
-        if(!SSL_CTX_use_certificate_file(ctx, MYCERT, SSL_FILETYPE_PEM))
+        if(!SSL_CTX_use_certificate_file(ctx, STUNNELCERT, SSL_FILETYPE_PEM))
             sslerror("SSL_CTX_use_certificate_file");
+        if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb))
+            sslerror("SSL_CTX_set_tmp_rsa_callback");
+        if(!SSL_CTX_set_tmp_dh_callback(ctx, tmp_dh_cb))
+            sslerror("SSL_CTX_set_tmp_dh_callback");
         ssl=SSL_new(ctx);
         SSL_set_fd(ssl, 0);
         if(!SSL_accept(ssl))
@@ -67,14 +82,7 @@ int main(int argc, char* argv[])
     return 0; /* success */
 }
 
-/* Should be done with AF_INET instead of AF_UNIX */
-void make_sockets(int fd[2])
-{
-    if(socketpair(AF_UNIX, SOCK_STREAM, 0, fd))
-        ioerror("socketpair");
-}
-
-void transfer(SSL *ssl, int tunnel)
+void transfer(SSL *ssl, int tunnel) /* main loop */
 {
     fd_set rin, rout;
     int num, fdno, fd_ssl;
@@ -107,44 +115,67 @@ void transfer(SSL *ssl, int tunnel)
                 ioerror("read");
             if(num==0)
                 return; /* close */
-            /* replace next line with ssl function */
             if(SSL_write(ssl, buffer, num)!=num)
                 ioerror("SSL_write");
         }
     }
 }
 
-void signal_handler(int sig) /* Signal handler */
+/* Should be done with AF_INET instead of AF_UNIX */
+void make_sockets(int fd[2]) /* make pair of connected sockets */
 {
-    char buffer[256];
+    if(socketpair(AF_UNIX, SOCK_STREAM, 0, fd))
+        ioerror("socketpair");
+}
 
-    sprintf(buffer, "received signal %d; terminating.", sig);
-    generror(buffer);
+static RSA *tmp_rsa_cb(SSL *s, int export) /* temporary RSA key callback */
+{
+    static RSA *rsa_tmp = NULL;
+ 
+    if(rsa_tmp == NULL)
+    {
+        syslog(LOG_DEBUG, "Generating 512 bit RSA key...");
+        rsa_tmp=RSA_generate_key(512, RSA_F4, NULL);
+        if(rsa_tmp == NULL)
+            sslerror("tmp_rsa_cb");
+    }
+    return(rsa_tmp);
+}
+
+static DH *tmp_dh_cb(SSL *s, int export) /* temporary DH key callback */
+{
+    static DH *dh_tmp = NULL;
+
+    if(dh_tmp == NULL)
+    {
+        syslog(LOG_DEBUG, "Generating Diffie-Hellman key...");
+        if((dh_tmp = DH_new()) == NULL)
+            sslerror("DH_new");
+        if(!DH_generate_key(dh_tmp))
+	    sslerror("DH_generate_key");
+        syslog(LOG_DEBUG, "Diffie-Hellman length %d", DH_size(dh_tmp));
+    }
+    return(dh_tmp);
 }
 
 void ioerror(char *fun) /* Input/Output Error handler */
 {
-    char buffer[256];
-
-    sprintf(buffer, "%s: %s (%d)", fun, strerror(errno), errno);
-    generror(buffer);
+    syslog(LOG_ERR, "%s: %s (%d)", fun, strerror(errno), errno);
+    exit(1);
 }
 
 void sslerror(char *fun) /* SSL Error handler */
 {
-    char buffer[256], string[120];
+    char string[120];
 
-    SSL_load_error_strings();
     ERR_error_string(ERR_get_error(), string);
-    sprintf(buffer, "%s: %s", fun, string);
-    generror(buffer);
+    syslog(LOG_ERR, "%s: %s", fun, string);
+    exit(2);
 }
 
-void generror(char *text) /* Generic Error handler */
+void signal_handler(int sig) /* Signal handler */
 {
-    openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-    syslog(LOG_ERR, text);
-    closelog();
-    exit(1);
+    syslog(LOG_ERR, "Received signal %d; terminating.", sig);
+    exit(3);
 }
 
