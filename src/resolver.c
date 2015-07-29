@@ -124,8 +124,11 @@ int hostport2addrlist(SOCKADDR_LIST *addr_list,
 
     err=getaddrinfo(hostname, portname, &hints, &res);
     if(err) {
-        s_log(LOG_ERR, "Error resolving '%s': %s",
-            hostname, s_gai_strerror(err));
+        if(err==EAI_SERVICE)
+            s_log(LOG_ERR, "Unknown TCP service '%s'", portname);
+        else
+            s_log(LOG_ERR, "Error resolving '%s': %s",
+                hostname, s_gai_strerror(err));
         if(res)
             freeaddrinfo(res);
         return 0; /* Error */

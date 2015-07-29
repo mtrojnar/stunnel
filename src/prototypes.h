@@ -73,6 +73,9 @@ extern volatile int num_clients;
 
 void main_initialize(char *, char *);
 void main_execute(void);
+#if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
+void drop_privileges(void);
+#endif
 void stunnel_info(int);
 void die(int);
 
@@ -134,8 +137,7 @@ typedef struct {
 #endif
     unsigned long dpid;
     char *pidfile;
-    char *setuid_user;
-    char *setgid_group;
+    int uid, gid;
 #endif
 
         /* Win32 specific data for gui.c */

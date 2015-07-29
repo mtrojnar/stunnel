@@ -1,9 +1,9 @@
 #!/bin/sh
 # Sample stunnel SysV startup file
-# Copyright by Michal Trojnara 2002,2007
+# Copyright by Michal Trojnara 2002,2007,2008
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=@prefix@/etc/stunnel
+DAEMON=@prefix@/bin/stunnel
 PIDFILE=@prefix@/var/run/stunnel/stunnel.pid
 
 test -f $DAEMON || exit 0

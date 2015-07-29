@@ -80,6 +80,10 @@ static char *option_not_found=
 
 static char *global_options(CMD cmd, char *opt, char *arg) {
     char *tmpstr;
+#ifndef USE_WIN32
+    struct group *gr;
+    struct passwd *pw;
+#endif
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_RAW, "Global options");
@@ -392,12 +396,18 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     /* setgid */
     switch(cmd) {
     case CMD_INIT:
-        options.setgid_group=NULL;
+        options.gid=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "setgid"))
             break;
-        options.setgid_group=stralloc(arg);
+        gr=getgrnam(arg);
+        if(gr)
+            options.gid=gr->gr_gid;
+        else if(atoi(arg)) /* numerical? */
+            options.gid=atoi(arg);
+        else
+            return "Illegal GID";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -411,12 +421,18 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     /* setuid */
     switch(cmd) {
     case CMD_INIT:
-        options.setuid_user=NULL;
+        options.uid=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "setuid"))
             break;
-        options.setuid_user=stralloc(arg);
+        pw=getpwnam(arg);
+        if(pw)
+            options.uid=pw->pw_uid;
+        else if(atoi(arg)) /* numerical? */
+            options.uid=atoi(arg);
+        else
+            return "Illegal UID";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;

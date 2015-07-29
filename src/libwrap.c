@@ -57,7 +57,7 @@ static int *ipc_socket, *busy;
 
 void libwrap_init(int num) {
 #ifdef USE_PTHREAD
-    int i, rfd, result;
+    int i, j, rfd, result;
     char servname[STRLEN];
 
     num_processes=num;
@@ -79,9 +79,14 @@ void libwrap_init(int num) {
             ioerror("fork");
             die(1);
         case  0:    /* child */
-            close(ipc_socket[2*i]); /* server side */
+            drop_privileges(); /* libwrap processes are not chrooted */
+            /* FIXME: other file descriptors are not closed */
+            close(ipc_socket[2*i]); /* server-side socket */
+            for(j=0; j<i; ++j) /* previously created client-side sockets */
+                close(ipc_socket[2*j+1]);
             while(1) { /* main libwrap client loop */
-                read_fd(ipc_socket[2*i+1], servname, STRLEN, &rfd);
+                if(read_fd(ipc_socket[2*i+1], servname, STRLEN, &rfd)<=0)
+                    _exit(0);
                 result=check_libwrap(servname, rfd);
                 write(ipc_socket[2*i+1], (u8 *)&result, sizeof(result));
                 if(rfd>=0)
@@ -89,9 +94,9 @@ void libwrap_init(int num) {
             }
         default:    /* parent */
 #ifdef FD_CLOEXEC
-            fcntl(ipc_socket[2*i], F_SETFD, FD_CLOEXEC); /* server side */
+            fcntl(ipc_socket[2*i], F_SETFD, FD_CLOEXEC); /* server-side socket */
 #endif
-            close(ipc_socket[2*i+1]); /* client side */
+            close(ipc_socket[2*i+1]); /* client-side socket */
         }
     }
 #endif /* USE_PTHREAD */
@@ -104,7 +109,6 @@ void auth_libwrap(CLI *c) {
     int retval, my_process;
     static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
     static pthread_cond_t cond=PTHREAD_COND_INITIALIZER;
-
 
     if(num_processes) {
         s_log(LOG_DEBUG, "Waiting for a libwrap process");

@@ -38,11 +38,11 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-/**************************************** Common constants */
-
 #ifndef VERSION
-#define VERSION "undefined"
+#define VERSION "unknown"
 #endif
+
+/**************************************** Common constants */
 
 #define LIBWRAP_CLIENTS 5
 
@@ -84,6 +84,8 @@ typedef int socklen_t;
 #ifdef USE_WIN32
 #define HAVE_OPENSSL
 #define HAVE_OSSL_ENGINE_H
+/* prevent including wincrypt.h, as it defines it's own OCSP_RESPONSE */
+#define __WINCRYPT_H__
 #endif
 
 /**************************************** Generic headers */
@@ -139,7 +141,13 @@ typedef int socklen_t;
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else
+#ifdef _MSC_VER
+#define _QUOTEME(x) #x
+#define QUOTEME(x) _QUOTEME(x)
+#define HOST "x86-pc-msvc-" ## QUOTEME(_MSC_VER)
+#else
 #define HOST "x86-pc-unknown"
+#endif
 #endif
 #endif
 

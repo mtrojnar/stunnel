@@ -43,7 +43,7 @@ static void daemon_loop(void);
 static void accept_connection(LOCAL_OPTIONS *);
 static void get_limits(void); /* setup global max_clients and max_fds */
 #if !defined (USE_WIN32) && !defined (__vms)
-static void drop_privileges(void);
+static void change_root(void);
 static void daemonize(void);
 static void create_pid(void);
 static void delete_pid(void);
@@ -94,9 +94,15 @@ void main_initialize(char *arg1, char *arg2) {
         } else
             s_log(LOG_NOTICE, "stunnel is in FIPS mode");
     } else
-        s_log(LOG_DEBUG, "FIPS mode not compiled");
+        s_log(LOG_DEBUG, "FIPS mode disabled");
 #endif /* USE_FIPS */
 
+#ifdef USE_LIBWRAP
+    /* spawn LIBWRAP_CLIENTS processes unless inetd mode is configured */
+    /* execute after parse_config() to know local_options.next, */
+    /* but as early as possible to avoid leaking file descriptors */
+    libwrap_init(local_options.next ? LIBWRAP_CLIENTS : 0);
+#endif /* USE_LIBWRAP */
     log_open();
     log_flush();
     stunnel_info(0);
@@ -107,13 +113,13 @@ void main_execute(void) {
     if(local_options.next) { /* there are service sections -> daemon mode */
         daemon_loop();
     } else { /* inetd mode */
-#if !defined (USE_WIN32) && !defined (__vms)&&!defined(USE_OS2)
+#if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
         max_fds=FD_SETSIZE; /* just in case */
+#ifdef HAVE_CHROOT
+        change_root();
+#endif /* HAVE_CHROOT */
         drop_privileges();
-#endif
-#ifdef USE_LIBWRAP
-        libwrap_init(0); /* no additional processes */
-#endif /* USE_LIBWRAP */
+#endif /* standard Unix */
         num_clients=1;
         client(alloc_client_session(&local_options, 0, 1));
     }
@@ -169,12 +175,12 @@ static void daemon_loop(void) {
 #if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
     if(!(options.option.foreground))
         daemonize();
+#ifdef HAVE_CHROOT
+    change_root();
+#endif /* HAVE_CHROOT */
     drop_privileges();
-#ifdef USE_LIBWRAP
-    libwrap_init(LIBWRAP_CLIENTS); /* spawn LIBWRAP_CLIENTS processes */
-#endif /* USE_LIBWRAP */
     create_pid();
-#endif /* !defined USE_WIN32 && !defined (__vms) */
+#endif /* standard Unix */
     /* create exec+connect services */
     for(opt=local_options.next; opt; opt=opt->next) {
         if(opt->option.accept) /* skip ordinary (accepting) services */
@@ -297,44 +303,10 @@ static void get_limits(void) {
 #endif
 }
 
-#if !defined (USE_WIN32) && !defined (__vms)
-    /* chroot and set process user and group(s) id */
-static void drop_privileges(void) {
-    int uid=0, gid=0;
-    struct group *gr;
-#ifdef HAVE_SETGROUPS
-    gid_t gr_list[1];
-#endif
-    struct passwd *pw;
-
-    /* Get the integer values */
-    if(options.setgid_group) {
-        gr=getgrnam(options.setgid_group);
-        if(gr)
-            gid=gr->gr_gid;
-        else if(atoi(options.setgid_group)) /* numerical? */
-            gid=atoi(options.setgid_group);
-        else {
-            s_log(LOG_ERR, "Failed to get GID for group %s",
-                options.setgid_group);
-            die(1);
-        }
-    }
-    if(options.setuid_user) {
-        pw=getpwnam(options.setuid_user);
-        if(pw)
-            uid=pw->pw_uid;
-        else if(atoi(options.setuid_user)) /* numerical? */
-            uid=atoi(options.setuid_user);
-        else {
-            s_log(LOG_ERR, "Failed to get UID for user %s",
-                options.setuid_user);
-            die(1);
-        }
-    }
+#if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
 
 #ifdef HAVE_CHROOT
-    /* chroot */
+static void change_root(void) {
     if(options.chroot_dir) {
         if(chroot(options.chroot_dir)) {
             sockerror("chroot");
@@ -345,24 +317,30 @@ static void drop_privileges(void) {
             die(1);
         }
     }
+}
 #endif /* HAVE_CHROOT */
 
+void drop_privileges(void) {
+#ifdef HAVE_SETGROUPS
+    gid_t gr_list[1];
+#endif
+
     /* Set uid and gid */
-    if(gid) {
-        if(setgid(gid)) {
+    if(options.gid) {
+        if(setgid(options.gid)) {
             sockerror("setgid");
             die(1);
         }
 #ifdef HAVE_SETGROUPS
-        gr_list[0]=gid;
+        gr_list[0]=options.gid;
         if(setgroups(1, gr_list)) {
             sockerror("setgroups");
             die(1);
         }
 #endif
     }
-    if(uid) {
-        if(setuid(uid)) {
+    if(options.uid) {
+        if(setuid(options.uid)) {
             sockerror("setuid");
             die(1);
         }
@@ -371,7 +349,7 @@ static void drop_privileges(void) {
 
 static void daemonize(void) { /* go to background */
 #if defined(HAVE_DAEMON) && !defined(__BEOS__)
-    if(daemon(0,0)==-1) {
+    if(daemon(0, 0)==-1) {
         ioerror("daemon");
         die(1);
     }
@@ -439,7 +417,8 @@ static void signal_handler(int sig) { /* signal handler */
         "Received signal %d; terminating", sig);
     die(3);
 }
-#endif /* !defined USE_WIN32 */
+
+#endif /* standard Unix */
 
 void stunnel_info(int raw) {
     char line[STRLEN];
