@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2005.01.22" "4.08" "stunnel"
+.TH STUNNEL 8 "2005.09.29" "4.08" "stunnel"
 .SH "NAME"
 stunnel \- universal SSL tunnel
 .SH "SYNOPSIS"
@@ -139,8 +139,8 @@ stunnel \- universal SSL tunnel
 \&\fBstunnel\fR [<filename>] | \-fd\ n | \-help | \-version | \-sockets
 .IP "\fB\s-1WIN32:\s0\fR" 4
 .IX Item "WIN32:"
-\&\fBstunnel\fR [ [\-install | \-uninstall] [\-quiet] [<filename>] ]
-    | \-help | \-version | \-sockets
+\&\fBstunnel\fR [ [\-install | \-uninstall | \-start | \-stop]
+    [\-quiet] [<filename>] ] | \-help | \-version | \-sockets
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
 The \fBstunnel\fR program is designed to work as \fI\s-1SSL\s0\fR encryption wrapper 
@@ -179,6 +179,12 @@ Install \s-1NT\s0 Service
 .IP "\fB\-uninstall\fR (\s-1NT/2000/XP\s0 only)" 4
 .IX Item "-uninstall (NT/2000/XP only)"
 Uninstall \s-1NT\s0 Service
+.IP "\fB\-start\fR (\s-1NT/2000/XP\s0 only)" 4
+.IX Item "-start (NT/2000/XP only)"
+Start \s-1NT\s0 Service
+.IP "\fB\-stop\fR (\s-1NT/2000/XP\s0 only)" 4
+.IX Item "-stop (NT/2000/XP only)"
+Stop \s-1NT\s0 Service
 .IP "\fB\-quiet\fR (\s-1NT/2000/XP\s0 only)" 4
 .IX Item "-quiet (NT/2000/XP only)"
 Don't display a message box when successfully installed or uninstalled \s-1NT\s0 service
@@ -384,7 +390,7 @@ Examples:
 \&    socket = r:TCP_NODELAY=1
 \&        turn off the Nagle algorithm for remote sockets
 \&    socket = r:SO_OOBINLINE=1
-\&        place out-of-band data directly into the
+\&        place out\-of\-band data directly into the
 \&        receive data stream for remote sockets
 \&    socket = a:SO_REUSEADDR=0
 \&        disable address reuse (enabled by default)
@@ -401,10 +407,10 @@ default: yes
 verify peer certificate
 .Sp
 .Vb 4
-\&    level 1 - verify peer certificate if present
-\&    level 2 - verify peer certificate
-\&    level 3 - verify peer with locally installed certificate
-\&    default - no verify
+\&    level 1 \- verify peer certificate if present
+\&    level 2 \- verify peer certificate
+\&    level 3 \- verify peer with locally installed certificate
+\&    default \- no verify
 .Ve
 .Sh "SERVICE-LEVEL \s-1OPTIONS\s0"
 .IX Subsection "SERVICE-LEVEL OPTIONS"
@@ -577,13 +583,13 @@ Plaintext certificate information appended on the top of generated certificate
 should be discarded. So the file should look like this:
 .PP
 .Vb 8
-\&    -----BEGIN RSA PRIVATE KEY-----
+\&    \-\-\-\-\-BEGIN RSA PRIVATE KEY\-\-\-\-\-
 \&    [encoded key]
-\&    -----END RSA PRIVATE KEY-----
+\&    \-\-\-\-\-END RSA PRIVATE KEY\-\-\-\-\-
 \&    [empty line]
-\&    -----BEGIN CERTIFICATE-----
+\&    \-\-\-\-\-BEGIN CERTIFICATE\-\-\-\-\-
 \&    [encoded certificate]
-\&    -----END CERTIFICATE-----
+\&    \-\-\-\-\-END CERTIFICATE\-\-\-\-\-
 \&    [empty line]
 .Ve
 .Sh "\s-1RANDOMNESS\s0"

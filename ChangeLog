@@ -1,5 +1,22 @@
 stunnel         Universal SSL tunnel
 
+Version 4.12, 2005.09.29, urgency: MEDIUM:
+* New features
+  - Win32 installer added.
+  - New Win32 commandline options: -start and -stop.
+  - Log level and thread number are reported to syslog.
+  - DLLs for OpenSSL 0.9.8.
+  - stunnel.spec updated by neeo <neeo@irc.pl>.
+* Bugfixes
+  - Use of broken poll() is disabled on Mac OS X.
+  - Yet another transfer() infinite loop condition fixed.
+  - Workaround for a serious M$ bug (KB177346).
+  - IPv6 DLLs allocation problem resulting in GPF on W2K fixed.
+  - zlib added to shared libraries (OpenSSL may need it).
+  - size_t printf() fixed in stack_info().
+* Release notes
+  - This is a bugfix release.  Upgrade is recommended.
+
 Version 4.11, 2005.07.09, urgency: MEDIUM:
 * New features
   - New ./configure option --with-threads to select thread model.

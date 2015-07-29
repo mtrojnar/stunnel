@@ -387,14 +387,15 @@ static int transfer(CLI *c) {
         s_poll_zero(&c->fds); /* Initialize the structure */
         if(sock_rd && c->sock_ptr<BUFFSIZE) /* socket input buffer not full*/
             s_poll_add(&c->fds, c->sock_rfd->fd, 1, 0);
-        if((ssl_rd && c->ssl_ptr<BUFFSIZE) /* SSL input buffer not full */ ||
+        if((ssl_rd && c->ssl_ptr<BUFFSIZE && !want_wr) ||
+                /* SSL input buffer not full */
                 ((c->sock_ptr || ssl_closing==CL_RETRY) && want_rd))
                 /* want to SSL_write or SSL_shutdown but read from the
                  * underlying socket needed for the SSL protocol */
             s_poll_add(&c->fds, c->ssl_rfd->fd, 1, 0);
         if(c->ssl_ptr) /* SSL input buffer not empty */
             s_poll_add(&c->fds, c->sock_wfd->fd, 0, 1);
-        if(c->sock_ptr /* socket input buffer not empty */ ||
+        if((c->sock_ptr && !want_rd) || /* socket input buffer not empty */
                 ssl_closing==CL_INIT /* need to send close_notify */ ||
                 ((c->ssl_ptr<BUFFSIZE || ssl_closing==CL_RETRY) && want_wr))
                 /* want to SSL_read or SSL_shutdown but write to the
@@ -622,8 +623,8 @@ static int transfer(CLI *c) {
                 ssl_can_rd ? "yes" : "no", ssl_can_wr ? "yes" : "no");
             s_log(LOG_ERR, "ssl want: rd=%s wr=%s",
                 want_rd ? "yes" : "no", want_wr ? "yes" : "no");
-            s_log(LOG_ERR, "socket write buffer: %d byte(s), "
-                "ssl write buffer: %d byte(s)", c->sock_ptr, c->ssl_ptr);
+            s_log(LOG_ERR, "socket input buffer: %d byte(s), "
+                "ssl input buffer: %d byte(s)", c->sock_ptr, c->ssl_ptr);
             s_log(LOG_ERR, "check_SSL_pending=%d, ssl_closing=%d",
                 check_SSL_pending, ssl_closing);
             return -1;
@@ -641,6 +642,7 @@ static int parse_socket_error(const char *text) {
         return 0;
     case EWOULDBLOCK:
         s_log(LOG_NOTICE, "%s would block: retrying", text);
+        sleep(1); /* Microsoft bug KB177346 */
         return 0;
 #if EAGAIN!=EWOULDBLOCK
     case EAGAIN:

@@ -436,6 +436,9 @@ distdir: $(DISTFILES)
 	      || exit 1; \
 	  fi; \
 	done
+	$(MAKE) $(AM_MAKEFLAGS) \
+	  top_distdir="$(top_distdir)" distdir="$(distdir)" \
+	  dist-hook
 	-find $(distdir) -type d ! -perm -777 -exec chmod a+rwx {} \; -o \
 	  ! -type d ! -perm -444 -links 1 -exec chmod a+r {} \; -o \
 	  ! -type d ! -perm -400 -exec chmod a+r {} \; -o \
@@ -620,7 +623,7 @@ uninstall-info: uninstall-info-recursive
 .PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am am--refresh check \
 	check-am clean clean-generic clean-libtool clean-recursive \
 	ctags ctags-recursive dist dist-all dist-bzip2 dist-gzip \
-	dist-shar dist-tarZ dist-zip distcheck distclean \
+	dist-hook dist-shar dist-tarZ dist-zip distcheck distclean \
 	distclean-generic distclean-libtool distclean-local \
 	distclean-recursive distclean-tags distcleancheck distdir \
 	distuninstallcheck dvi dvi-am html html-am info info-am \
@@ -636,16 +639,22 @@ uninstall-info: uninstall-info-recursive
 
 distclean-local:
 	rm -rf autom4te.cache
+	rm -f $(distdir)-installer.exe
 
 cert:
 	(cd tools; rm -f stunnel.pem; $(MAKE) stunnel.pem)
 
+dist-hook:
+	makensis -NOCD -DSRCDIR=$(srcdir)/ $(srcdir)/tools/stunnel.nsi
+
 sign: dist
 	cp -f $(distdir).tar.gz ../dist
-	cp -f src/stunnel.exe ../dist/$(distdir).exe
-	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir).tar.gz
-	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir).exe
-	sha1sum $(distdir).tar.gz
+	cp -f $(distdir)-installer.exe ../dist
+	gpg --yes --armor --detach-sign --force-v3-sigs \
+		../dist/$(distdir).tar.gz
+	gpg --yes --armor --detach-sign --force-v3-sigs \
+		../dist/$(distdir)-installer.exe
+	sha1sum $(distdir).tar.gz | tee ../dist/$(distdir).tar.gz.sha1
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

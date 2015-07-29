@@ -45,7 +45,7 @@ static void client_status(void); /* dead children detected */
 
 static void setnonblock(int, unsigned long);
 
-#ifdef HAVE_POLL
+#ifdef USE_POLL
 
 void s_poll_zero(s_poll_set *fds) {
     fds->nfds=0;
@@ -310,7 +310,7 @@ int s_poll_wait(s_poll_set *fds, int timeout) {
     return retval;
 }
 
-#endif /* HAVE_POLL */
+#endif /* USE_POLL */
 
 #ifndef USE_WIN32
 

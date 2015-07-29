@@ -1138,7 +1138,7 @@ void parse_config(char *name, char *parameter) {
         exit(1);
     }
     fclose(fp);
-    if(!local_options.next) {
+    if(!local_options.next) { /* inetd mode */
         if (section->option.accept) {
             log_raw("accept option is not allowed in inetd mode");
             log_raw("remove accept option or define a [section]");

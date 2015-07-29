@@ -337,10 +337,10 @@ void stack_info(int init) { /* 1-initialize, 0-display */
         s_log(LOG_NOTICE,
             "stack_info: size=%d, current=%d (%d%%), maximum=%d (%d%%)",
             STACK_SIZE,
-            (VERIFY_AREA-num)*sizeof(u32),
-            (VERIFY_AREA-num)*sizeof(u32)*100/STACK_SIZE,
-            (VERIFY_AREA-min_num)*sizeof(u32),
-            (VERIFY_AREA-min_num)*sizeof(u32)*100/STACK_SIZE);
+            (int)(VERIFY_AREA-num)*sizeof(u32),
+            (int)(VERIFY_AREA-num)*sizeof(u32)*100/STACK_SIZE,
+            (int)(VERIFY_AREA-min_num)*sizeof(u32),
+            (int)(VERIFY_AREA-min_num)*sizeof(u32)*100/STACK_SIZE);
     }
 }
 

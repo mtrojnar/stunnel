@@ -19,14 +19,20 @@ distcleancheck_listfiles = \
 
 distclean-local:
 	rm -rf autom4te.cache
+	rm -f $(distdir)-installer.exe
 
 cert:
 	(cd tools; rm -f stunnel.pem; $(MAKE) stunnel.pem)
 
+dist-hook:
+	makensis -NOCD -DSRCDIR=$(srcdir)/ $(srcdir)/tools/stunnel.nsi
+
 sign: dist
 	cp -f $(distdir).tar.gz ../dist
-	cp -f src/stunnel.exe ../dist/$(distdir).exe
-	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir).tar.gz
-	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir).exe
-	sha1sum $(distdir).tar.gz
+	cp -f $(distdir)-installer.exe ../dist
+	gpg --yes --armor --detach-sign --force-v3-sigs \
+		../dist/$(distdir).tar.gz
+	gpg --yes --armor --detach-sign --force-v3-sigs \
+		../dist/$(distdir)-installer.exe
+	sha1sum $(distdir).tar.gz | tee ../dist/$(distdir).tar.gz.sha1
 

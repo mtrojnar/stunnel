@@ -159,7 +159,7 @@ ssldir = @ssldir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
-	stunnel.spec stunnel.mak stunnel.cnf
+	stunnel.spec stunnel.mak stunnel.cnf stunnel.nsi stunnel.conf
 
 confdir = $(sysconfdir)/stunnel
 conf_DATA = stunnel.conf-sample

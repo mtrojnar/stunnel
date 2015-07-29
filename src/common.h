@@ -27,7 +27,7 @@
 /* #define DEBUG_STACK_SIZE */
 
 #ifndef VERSION
-#define VERSION "4.11"
+#define VERSION "4.12"
 #endif
 
 #ifndef USE_WIN32
@@ -189,13 +189,19 @@ typedef unsigned long u32;
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>  /* for aix */
 #endif
+
+#ifndef BROKEN_POLL
 #ifdef HAVE_POLL_H
 #include <poll.h>
+#define USE_POLL
 #else /* HAVE_POLL_H */
 #ifdef HAVE_SYS_POLL_H
 #include <sys/poll.h>
+#define USE_POLL
 #endif /* HAVE_SYS_POLL_H */
 #endif /* HAVE_POLL_H */
+#endif /* BROKEN_POLL */
+
 #ifdef HAVE_SYS_FILIO_H
 #include <sys/filio.h>   /* for FIONBIO */
 #endif

@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2005.01.22" "4.08" "stunnel"
+.TH STUNNEL.PL 8 "2005.09.29" "4.08" "stunnel"
 .SH "NAZWA"
 .IX Header "NAZWA"
 stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
@@ -140,8 +140,8 @@ stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
 \&\fBstunnel\fR [<plik>] | \-fd\ n | \-help | \-version | \-sockets
 .IP "\fB\s-1WIN32:\s0\fR" 4
 .IX Item "WIN32:"
-\&\fBstunnel\fR [ [\-install | \-uninstall] [\-quiet] [<plik>] ]
-    | \-help | \-version | \-sockets
+\&\fBstunnel\fR [ [\-install | \-uninstall | \-start | \-stop ]
+    [\-quiet] [<plik>] ] | \-help | \-version | \-sockets
 .SH "OPIS"
 .IX Header "OPIS"
 Program \fBstunnel\fR zosta³ zaprojektowany do opakowywania w protokó³ \fI\s-1SSL\s0\fR
@@ -178,6 +178,12 @@ instaluj serwis \s-1NT\s0
 .IP "\fB\-uninstall\fR (tylko \s-1NT/2000/XP\s0)" 4
 .IX Item "-uninstall (tylko NT/2000/XP)"
 odinstaluj serwis \s-1NT\s0
+.IP "\fB\-start\fR (tylko \s-1NT/2000/XP\s0)" 4
+.IX Item "-start (tylko NT/2000/XP)"
+uruchom serwis \s-1NT\s0
+.IP "\fB\-stop\fR (tylko \s-1NT/2000/XP\s0)" 4
+.IX Item "-stop (tylko NT/2000/XP)"
+zatrzymaj serwis \s-1NT\s0
 .IP "\fB\-quiet\fR (tylko \s-1NT/2000/XP\s0)" 4
 .IX Item "-quiet (tylko NT/2000/XP)"
 nie wy¶wietlaj okienka informuj±cego o pomy¶lnym zainstalowaniu lub
@@ -401,7 +407,7 @@ Przyk³ady:
 \&        wy³±cz algorytm Nagle'a na zdalnych
 \&        gniazdach
 \&    socket = r:SO_OOBINLINE=1
-\&        umie¶æ dane pozapasmowe (out-of-band)
+\&        umie¶æ dane pozapasmowe (out\-of\-band)
 \&        bezpo¶rednio w strumieniu danych
 \&        wej¶ciowych dla zdalnych gniazd
 \&    socket = a:SO_REUSEADDR=0
@@ -421,13 +427,13 @@ domy¶lnie: yes (w³±cz)
 weryfikuj certyfikat drugiej strony po³±czenia
 .Sp
 .Vb 7
-\&    poziom 1 - weryfikuj, je¿eli zosta³
+\&    poziom 1 \- weryfikuj, je¿eli zosta³
 \&        przedstawiony
-\&    poziom 2 - weryfikuj z zainstalowanym
+\&    poziom 2 \- weryfikuj z zainstalowanym
 \&        certyfikatem Centrum Certyfikacji
-\&    poziom 3 - weryfikuj z lokalnie
+\&    poziom 3 \- weryfikuj z lokalnie
 \&        zainstalowanym certyfikatem drugiej strony
-\&    domy¶lnie - nie weryfikuj
+\&    domy¶lnie \- nie weryfikuj
 .Ve
 .Sh "\s-1OPCJE\s0 US£UG"
 .IX Subsection "OPCJE US£UG"
@@ -618,13 +624,13 @@ to powinny one zostaæ usuniête.  Otrzymany plik powinien mieæ
 nastêpuj±c± postaæ:
 .PP
 .Vb 8
-\&    -----BEGIN RSA PRIVATE KEY-----
+\&    \-\-\-\-\-BEGIN RSA PRIVATE KEY\-\-\-\-\-
 \&    [zakodowany klucz]
-\&    -----END RSA PRIVATE KEY-----
+\&    \-\-\-\-\-END RSA PRIVATE KEY\-\-\-\-\-
 \&    [pusta linia]
-\&    -----BEGIN CERTIFICATE-----
+\&    \-\-\-\-\-BEGIN CERTIFICATE\-\-\-\-\-
 \&    [zakodowany certyfikat]
-\&    -----END CERTIFICATE-----
+\&    \-\-\-\-\-END CERTIFICATE\-\-\-\-\-
 \&    [pusta linia]
 .Ve
 .Sh "LOSOWO¦Æ"

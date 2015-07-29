@@ -13,8 +13,8 @@ B<stunnel> [<S<plik>>] | S<-fd n> | S<-help> | S<-version> | S<-sockets>
 
 =item B<WIN32:>
 
-B<stunnel> [ [S<-install> | S<-uninstall>] [S<-quiet>] [<S<plik>>] ]
-    | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop> ]
+    [S<-quiet>] [<S<plik>>] ] | S<-help> | S<-version> | S<-sockets>
 
 =back
 
@@ -65,6 +65,14 @@ instaluj serwis NT
 =item B<-uninstall> (tylko NT/2000/XP)
 
 odinstaluj serwis NT
+
+=item B<-start> (tylko NT/2000/XP)
+
+uruchom serwis NT
+
+=item B<-stop> (tylko NT/2000/XP)
+
+zatrzymaj serwis NT
 
 =item B<-quiet> (tylko NT/2000/XP)
 

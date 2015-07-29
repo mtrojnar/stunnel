@@ -13,8 +13,8 @@ B<stunnel> [<S<filename>>] | S<-fd n> | S<-help> | S<-version> | S<-sockets>
 
 =item B<WIN32:>
 
-B<stunnel> [ [S<-install> | S<-uninstall>] [S<-quiet>] [<S<filename>>] ]
-    | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop>]
+    [S<-quiet>] [<S<filename>>] ] | S<-help> | S<-version> | S<-sockets>
 
 =back
 
@@ -67,6 +67,14 @@ Install NT Service
 =item B<-uninstall> (NT/2000/XP only)
 
 Uninstall NT Service
+
+=item B<-start> (NT/2000/XP only)
+
+Start NT Service
+
+=item B<-stop> (NT/2000/XP only)
+
+Stop NT Service
 
 =item B<-quiet> (NT/2000/XP only)
 

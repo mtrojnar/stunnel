@@ -216,7 +216,7 @@ void parse_config(char *, char *);
 #define MAX_FD 64
 
 typedef struct {
-#ifdef HAVE_POLL
+#ifdef USE_POLL
     struct pollfd ufds[MAX_FD];
     unsigned int nfds;
 #else

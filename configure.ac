@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel], [4.11])
+AC_INIT([stunnel], [4.12])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.11)
+AM_INIT_AUTOMAKE(stunnel, 4.12)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -38,7 +38,57 @@ AC_MSG_NOTICE([**************************************** PTY device files])
 AC_CHECK_FILE("/dev/ptmx", AC_DEFINE(HAVE_DEV_PTMX))
 AC_CHECK_FILE("/dev/ptc", AC_DEFINE(HAVE_DEV_PTS_AND_PTC))
 
-AC_MSG_NOTICE([**************************************** SSL and entropy])
+AC_MSG_NOTICE([**************************************** libraries])
+# Checks for standard libraries
+#AC_CHECK_LIB(dl, dlopen)
+#AC_CHECK_LIB(dld, shl_load)
+AC_CHECK_LIB(nsl, gethostbyname)
+AC_CHECK_LIB(socket, socket)
+AC_CHECK_LIB(util, openpty)
+AC_CHECK_LIB(z, inflateEnd)
+
+# Add BeOS libraries
+if test "$host_os" = "beos"
+then LIBS="$LIBS -lbe -lroot -lbind"
+fi
+
+AC_MSG_NOTICE([**************************************** header files])
+# AC_HEADER_DIRENT
+# AC_HEADER_STDC
+# AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS(ucontext.h pthread.h)
+AC_CHECK_HEADERS(sys/select.h poll.h sys/poll.h tcpd.h)
+AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h stropts.h)
+AC_CHECK_HEADERS(grp.h unistd.h util.h libutil.h sys/resource.h pty.h)
+
+AC_MSG_NOTICE([**************************************** library functions])
+# safe string operations
+AC_CHECK_FUNCS(snprintf vsnprintf)
+# pseudoterminal
+AC_CHECK_FUNCS(openpty _getpty)
+# Unix
+AC_CHECK_FUNCS(daemon waitpid wait4 setsid setgroups chroot)
+# limits
+AC_CHECK_FUNCS(sysconf getrlimit)
+# threads/reentrant functions
+AC_CHECK_FUNCS(pthread_sigmask localtime_r)
+# threads
+AC_CHECK_FUNCS(getcontext __makecontext_v2)
+# sockets
+AC_CHECK_FUNCS(poll endhostent getaddrinfo getnameinfo)
+# poll() is not recommended on Mac OS X <=10.3 and broken on Mac OS X >=10.4
+AC_MSG_CHECKING([for broken poll() implementation])
+case "$host_os" in
+darwin*)
+    AC_MSG_RESULT([yes (poll() disabled)])
+    AC_DEFINE(BROKEN_POLL)
+    ;;
+*)
+    AC_MSG_RESULT([no])
+    ;;
+esac
+
+AC_MSG_NOTICE([**************************************** SSL])
 checkssldir() { :
     if test -f "$1/include/openssl/ssl.h"
     then AC_DEFINE(HAVE_OPENSSL)
@@ -81,9 +131,25 @@ AC_MSG_RESULT([$ssldir])
 AC_SUBST(ssldir)
 AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
 
+# Add SSL includes and libraries
+CFLAGS="$CFLAGS -I$ssldir/include"
+LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
+
+# Check for obsolete RSAref library
+AC_MSG_CHECKING([for obsolete RSAref library])
+saved_LIBS="$LIBS"
+LIBS="$saved_LIBS -lRSAglue -L$prefix/lib -lrsaref"
+AC_LINK_IFELSE(
+    [AC_LANG_PROGRAM([[]], [[]])],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"]
+)
+
 AC_CHECK_HEADER([$ssldir/include/openssl/engine.h],
     [AC_DEFINE([HAVE_OSSL_ENGINE_H])],
     [AC_MSG_WARN([Openssl engine header not found])])
+
+AC_MSG_NOTICE([**************************************** entropy])
 
 AC_ARG_WITH(egd-socket,
     [  --with-egd-socket=FILE  Entropy Gathering Daemon socket pathname],
@@ -107,59 +173,38 @@ then AC_SUBST(RANDOM_FILE)
     AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE")
 fi
 
-AC_MSG_NOTICE([**************************************** libraries])
-# Checks for standard libraries
-AC_CHECK_LIB(dl, dlopen)
-AC_CHECK_LIB(dld, shl_load)
-AC_CHECK_LIB(nsl, gethostbyname)
-AC_CHECK_LIB(socket, socket)
-AC_CHECK_LIB(util, openpty)
-
-# Add BeOS libraries
-if test "$host_os" = "beos"
-then LIBS="$LIBS -lbe -lroot -lbind"
-fi
-
-# Add SSL includes and libraries
-CFLAGS="$CFLAGS -I$ssldir/include"
-LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
-
-# Check for obsolete RSAref library
-AC_MSG_CHECKING([for obsolete RSAref library])
-saved_LIBS="$LIBS"
-LIBS="$saved_LIBS -lRSAglue -L$prefix/lib -lrsaref"
-AC_LINK_IFELSE(
-    [AC_LANG_PROGRAM([[]], [[]])],
-    [AC_MSG_RESULT([yes])],
-    [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"]
-)
-
-AC_MSG_NOTICE([**************************************** header files])
-# AC_HEADER_DIRENT
-# AC_HEADER_STDC
-# AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(ucontext.h pthread.h)
-AC_CHECK_HEADERS(sys/select.h poll.h sys/poll.h tcpd.h)
-AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h stropts.h)
-AC_CHECK_HEADERS(grp.h unistd.h util.h libutil.h sys/resource.h pty.h)
-
-AC_MSG_NOTICE([**************************************** library functions])
-# safe string operations
-AC_CHECK_FUNCS(snprintf vsnprintf)
-# pseudoterminal
-AC_CHECK_FUNCS(openpty _getpty)
-# Unix
-AC_CHECK_FUNCS(daemon waitpid wait4 setsid setgroups chroot)
-# limits
-AC_CHECK_FUNCS(sysconf getrlimit)
-# threads/reentrant functions
-AC_CHECK_FUNCS(pthread_sigmask localtime_r)
-# sockets
-AC_CHECK_FUNCS(poll endhostent getaddrinfo getnameinfo)
-# threads
-AC_CHECK_FUNCS(getcontext __makecontext_v2)
-
 AC_MSG_NOTICE([**************************************** thread model])
+
+checkpthreadlib() { :
+    # OSF hack instead of simple AC_CHECK_LIB here
+    AC_MSG_CHECKING([for pthread_create in -lpthread])
+    saved_LIBS="$LIBS"
+    LIBS="$saved_LIBS -lpthread"
+    AC_LINK_IFELSE(
+        [AC_LANG_PROGRAM(
+            [[#include <pthread.h>]],
+            [[pthread_create((void *)0, (void *)0, (void *)0, (void *)0)]]
+        )],
+        [
+            AC_MSG_RESULT([yes])
+            HAVE_LIBPTHREAD="yes"
+            AC_DEFINE(HAVE_LIBPTHREAD)
+        ], [
+            AC_MSG_RESULT([no])
+            LIBS="$saved_LIBS"
+        ]
+    )
+
+    # BSD hack
+    AC_CHECK_LIB(c_r, pthread_create,
+        [
+            LIBS="$LIBS -pthread"
+            HAVE_LIBPTHREAD="yes"
+            AC_DEFINE(HAVE_LIBPTHREAD)
+        ]
+    )
+}
+
 AC_ARG_WITH(threads,
 [  --with-threads=model    select threading model (ucontext/pthread/fork)],
 [
@@ -169,6 +214,7 @@ AC_ARG_WITH(threads,
             AC_DEFINE(USE_UCONTEXT)
             ;;
         pthread)
+            checkpthreadlib
             AC_MSG_NOTICE([PTHREAD mode selected])
             AC_DEFINE(USE_PTHREAD)
             ;;
@@ -188,35 +234,7 @@ AC_ARG_WITH(threads,
     then AC_MSG_NOTICE([UCONTEXT thread model detected])
         AC_DEFINE(USE_UCONTEXT)
     else
-
-        # OSF hack instead of simple AC_CHECK_LIB here
-        AC_MSG_CHECKING([for pthread_create in -lpthread])
-        saved_LIBS="$LIBS"
-        LIBS="$saved_LIBS -lpthread"
-        AC_LINK_IFELSE(
-            [AC_LANG_PROGRAM(
-                [[#include <pthread.h>]],
-                [[pthread_create((void *)0, (void *)0, (void *)0, (void *)0)]]
-            )],
-            [
-                AC_MSG_RESULT([yes])
-                HAVE_LIBPTHREAD="yes"
-                AC_DEFINE(HAVE_LIBPTHREAD)
-            ], [
-                AC_MSG_RESULT([no])
-                LIBS="$saved_LIBS"
-            ]
-        )
-
-        # BSD hack
-        AC_CHECK_LIB(c_r, pthread_create,
-            [
-                LIBS="$LIBS -pthread"
-                HAVE_LIBPTHREAD="yes"
-                AC_DEFINE(HAVE_LIBPTHREAD)
-            ]
-        )
-        
+        checkpthreadlib
         if test "$HAVE_LIBPTHREAD" = "yes" -a "$ac_cv_header_pthread_h" = "yes"
         then AC_MSG_NOTICE([PTHREAD thread model detected])
             AC_DEFINE(USE_PTHREAD)

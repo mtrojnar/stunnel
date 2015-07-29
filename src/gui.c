@@ -45,7 +45,7 @@ int unix_main(int, char *[]);
 /* Prototypes */
 static void parse_cmdline(LPSTR);
 static int set_cwd(void);
-static int load_ws2(char *);
+static int initialize_winsock(void);
 static void ThreadFunc(void *);
 static LRESULT CALLBACK wndProc(HWND, UINT, WPARAM, LPARAM);
 static int win_main(HINSTANCE, HINSTANCE, LPSTR, int);
@@ -56,11 +56,14 @@ static char *log_txt(void);
 static void set_visible(int);
 
 /* NT Service related function */
-static int start_service(void);
-static int install_service(LPTSTR);
-static int uninstall_service(void);
+static int service_initialize(void);
+static int service_install(LPTSTR);
+static int service_uninstall(void);
+static int service_start(void);
+static int service_stop(void);
 static void WINAPI service_main(DWORD, LPTSTR *);
 static void WINAPI control_handler(DWORD);
+static void error_box(char *text);
 
 /* Global variables */
 static struct LIST {
@@ -84,19 +87,17 @@ static jmp_buf jump_buf;
 
 static char passphrase[STRLEN];
 
-GETADDRINFO s_getaddrinfo=NULL;
-FREEADDRINFO s_freeaddrinfo=NULL;
-GETNAMEINFO s_getnameinfo=NULL;
+GETADDRINFO s_getaddrinfo;
+FREEADDRINFO s_freeaddrinfo;
+GETNAMEINFO s_getnameinfo;
 
 static struct {
     char config_file[STRLEN];
-    unsigned int install, uninstall, service, quiet;
+    unsigned int install:1, uninstall:1, start:1, stop:1, service:1, quiet:1;
 } cmdline;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     LPSTR lpszCmdLine, int nCmdShow) {
-
-    static struct WSAData wsa_state;
 
     ghInst=hInstance;
 
@@ -104,27 +105,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     if(set_cwd()) /* set current working directory */
         return 1;
 
-    if(WSAStartup(MAKEWORD( 2, 2 ), &wsa_state)) {
-        MessageBox(hwnd, "Failed to initialize winsock",
-            "stunnel", MB_ICONERROR);
+    if(initialize_winsock())
         return 1;
-    }
-    if(load_ws2("ws2_32.dll"))
-        load_ws2("wship6.dll");
 
     if(!setjmp(jump_buf)) { /* TRY */
         main_initialize(cmdline.config_file, NULL);
         if(!cmdline.service) {
             if(cmdline.install)
-                return install_service(lpszCmdLine);
+                return service_install(lpszCmdLine);
             if(cmdline.uninstall)
-                return uninstall_service();
+                return service_uninstall();
+            if(cmdline.start)
+                return service_start();
+            if(cmdline.stop)
+                return service_stop();
         }
     }
 
     /* CATCH */
     if(cmdline.service)
-        return start_service();
+        return service_initialize();
     else
         return win_main(hInstance, hPrevInstance, lpszCmdLine, nCmdShow);
 }
@@ -146,6 +146,10 @@ static void parse_cmdline(LPSTR lpszCmdLine) {
             cmdline.install=1;
         else if(!strcmpi(opt+1, "uninstall"))
             cmdline.uninstall=1;
+        else if(!strcmpi(opt+1, "start"))
+            cmdline.start=1;
+        else if(!strcmpi(opt+1, "stop"))
+            cmdline.stop=1;
         else if(!strcmpi(opt+1, "service"))
             cmdline.service=1;
         else if(!strcmpi(opt+1, "quiet"))
@@ -179,29 +183,37 @@ static int set_cwd(void) {
 }
 
 /* try to load winsock2 resolver functions from a specified dll name */
-static int load_ws2(char *name) {
+static int initialize_winsock() {
+    static struct WSAData wsa_state;
     HINSTANCE handle;
     
-    handle=LoadLibrary(name);
-    if(!handle)
-        return 1;
-    s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
-    if(!s_getaddrinfo) {
-        FreeLibrary(handle);
-        return 1;
+    if(WSAStartup(MAKEWORD( 2, 2 ), &wsa_state)) {
+        MessageBox(hwnd, "Failed to initialize winsock",
+            "stunnel", MB_ICONERROR);
+        return 1; /* error */
     }
-    s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
-    if(!s_freeaddrinfo) {
+    handle=LoadLibrary("ws2_32.dll"); /* IPv6 in Windows XP or higher */
+    if(handle) {
+        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
+        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
+        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
+        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
+            return 0; /* IPv6 detected -> OK */
         FreeLibrary(handle);
-        return 1;
     }
-    s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
-    if(!s_getnameinfo) {
+    handle=LoadLibrary("wship6.dll"); /* Experimental IPv6 for Windows 2000 */
+    if(handle) {
+        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
+        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
+        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
+        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
+            return 0; /* IPv6 detected -> OK */
         FreeLibrary(handle);
-        return 1;
     }
-    FreeLibrary(handle);
-    return 0; /* OK */
+    s_getaddrinfo=NULL;
+    s_freeaddrinfo=NULL;
+    s_getnameinfo=NULL;
+    return 0; /* IPv4 detected -> OK */
 }
 
 static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
@@ -535,7 +547,7 @@ static void save_file(HWND hwnd) {
     if((hFile=CreateFile((LPCSTR)szFileName, GENERIC_WRITE,
             0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
             (HANDLE) NULL))==INVALID_HANDLE_VALUE) {
-        MessageBox(hwnd, "File open failed", options.win32_name, MB_ICONERROR);
+        error_box("CreateFile");
         return;
     }
 
@@ -544,7 +556,7 @@ static void save_file(HWND hwnd) {
     bResult=WriteFile(hFile, txt, nToWrite, &nWritten, NULL);
     free(txt);
     if(!bResult)
-        MessageBox(hwnd, "File write failed", options.win32_name, MB_ICONERROR);
+        error_box("WriteFile");
     CloseHandle(hFile);
 }
 
@@ -632,28 +644,26 @@ void exit_stunnel(int code) { /* used instead of exit() on Win32 */
     longjmp(jump_buf, 1);
 }
 
-static int start_service(void) {
+static int service_initialize(void) {
     SERVICE_TABLE_ENTRY serviceTable[]={
         {options.win32_service, service_main},
         {0, 0}
     };
 
     if(!StartServiceCtrlDispatcher(serviceTable)) {
-        MessageBox(hwnd, "Unable to start the service",
-            options.win32_name, MB_ICONERROR);
+        error_box("StartServiceCtrlDispatcher");
         return 1;
     }
     return 0; /* NT service started */
 }
 
-static int install_service(LPSTR lpszCmdLine) {
+static int service_install(LPSTR lpszCmdLine) {
     SC_HANDLE scm, service;
     char exe_file_name[STRLEN], service_path[STRLEN];
 
     scm=OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
     if(!scm) {
-        MessageBox(hwnd, "Failed to open service control manager",
-            options.win32_name, MB_ICONERROR);
+        error_box("OpenSCManager");
         return 1;
     }
     GetModuleFileName(0, exe_file_name, STRLEN);
@@ -667,40 +677,37 @@ static int install_service(LPSTR lpszCmdLine) {
         SERVICE_AUTO_START, SERVICE_ERROR_NORMAL, service_path,
         NULL, NULL, NULL, NULL, NULL);
     if(!service) {
-        MessageBox(hwnd, "Failed to create a new service",
-            options.win32_name, MB_ICONERROR);
+        error_box("CreateService");
         CloseServiceHandle(scm);
         return 1;
     }
     if(!cmdline.quiet)
-        MessageBox(hwnd, "Service installed", options.win32_name,
-            MB_ICONINFORMATION);
+        MessageBox(hwnd, "Service installed",
+            options.win32_name, MB_ICONINFORMATION);
     CloseServiceHandle(service);
     CloseServiceHandle(scm);
     return 0;
 }
 
-static int uninstall_service(void) {
+static int service_uninstall(void) {
     SC_HANDLE scm, service;
     SERVICE_STATUS serviceStatus;
 
     scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
     if(!scm) {
-        MessageBox(hwnd, "Failed to open service control manager",
-            options.win32_name, MB_ICONERROR);
+        error_box("OpenSCManager");
         return 1;
     }
     service=OpenService(scm, options.win32_service,
         SERVICE_QUERY_STATUS | DELETE);
     if(!service) {
-        MessageBox(hwnd, "Failed to open the service",
-            options.win32_name, MB_ICONERROR);
+        if(!cmdline.quiet)
+            error_box("OpenService");
         CloseServiceHandle(scm);
         return 1;
     }
     if(!QueryServiceStatus(service, &serviceStatus)) {
-        MessageBox(hwnd, "Failed to query service status",
-            options.win32_name, MB_ICONERROR);
+        error_box("QueryServiceStatus");
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
         return 1;
@@ -713,14 +720,113 @@ static int uninstall_service(void) {
         return 1;
     }
     if(!DeleteService(service)) {
-        MessageBox(hwnd, "Failed to delete the service",
-            options.win32_name, MB_ICONERROR);
+        error_box("DeleteService");
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
         return 1;
     }
     if(!cmdline.quiet)
         MessageBox(hwnd, "Service uninstalled", options.win32_name,
+            MB_ICONINFORMATION);
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+    return 0;
+}
+
+static int service_start(void) {
+    SC_HANDLE scm, service;
+    SERVICE_STATUS serviceStatus;
+
+    scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
+    if(!scm) {
+        error_box("OpenSCManager");
+        return 1;
+    }
+    service=OpenService(scm, options.win32_service,
+        SERVICE_QUERY_STATUS | SERVICE_START);
+    if(!service) {
+        error_box("OpenService");
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(!StartService(service, 0, NULL)) {
+        error_box("StartService");
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    do {
+        sleep(1);
+        if(!QueryServiceStatus(service, &serviceStatus)) {
+            error_box("QueryServiceStatus");
+            CloseServiceHandle(service);
+            CloseServiceHandle(scm);
+            return 1;
+        }
+    } while(serviceStatus.dwCurrentState==SERVICE_START_PENDING);
+    if(serviceStatus.dwCurrentState!=SERVICE_RUNNING) {
+        MessageBox(hwnd, "Failed to start service",
+            options.win32_name, MB_ICONERROR);
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(!cmdline.quiet)
+        MessageBox(hwnd, "Service started", options.win32_name,
+            MB_ICONINFORMATION);
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+    return 0;
+}
+
+static int service_stop(void) {
+    SC_HANDLE scm, service;
+    SERVICE_STATUS serviceStatus;
+
+    scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
+    if(!scm) {
+        error_box("OpenSCManager");
+        return 1;
+    }
+    service=OpenService(scm, options.win32_service,
+        SERVICE_QUERY_STATUS | SERVICE_STOP);
+    if(!service) {
+        if(!cmdline.quiet)
+            error_box("OpenService");
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(!QueryServiceStatus(service, &serviceStatus)) {
+        error_box("QueryServiceStatus");
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(serviceStatus.dwCurrentState==SERVICE_STOPPED) {
+        if(!cmdline.quiet)
+            MessageBox(hwnd, "The service is already stopped",
+                options.win32_name, MB_ICONERROR);
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    if(!ControlService(service, SERVICE_CONTROL_STOP, &serviceStatus)) {
+        error_box("ControlService");
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return 1;
+    }
+    do {
+        sleep(1);
+        if(!QueryServiceStatus(service, &serviceStatus)) {
+            error_box("QueryServiceStatus");
+            CloseServiceHandle(service);
+            CloseServiceHandle(scm);
+            return 1;
+        }
+    } while(serviceStatus.dwCurrentState!=SERVICE_STOPPED);
+    if(!cmdline.quiet)
+        MessageBox(hwnd, "Service stopped", options.win32_name,
             MB_ICONINFORMATION);
     CloseServiceHandle(service);
     CloseServiceHandle(scm);
@@ -799,6 +905,20 @@ static void WINAPI control_handler(DWORD controlCode) {
     }
 
     SetServiceStatus(serviceStatusHandle, &serviceStatus);
+}
+
+static void error_box(char *text) {
+    char to_print[STRLEN]; 
+    char *buff;
+    long dw;
+    
+    dw=GetLastError(); 
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM,
+        NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR) &buff, 0, NULL);
+    snprintf(to_print, STRLEN, "%s: error %ld: %s", text, dw, buff); 
+    MessageBox(hwnd, to_print, options.win32_name, MB_ICONERROR);
+    LocalFree(buff);
 }
 
 /* End of gui.c */

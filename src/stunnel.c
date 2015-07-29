@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.11             (stunnel.c)
- *   Date:         2005.07.09
+ *   Version:      4.12             (stunnel.c)
+ *   Date:         2005.09.29
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -263,7 +263,7 @@ static void get_limits(void) {
 #endif
     s_log(LOG_INFO, "file ulimit = %d%s (can be changed with 'ulimit -n')",
         max_fds, max_fds ? "" : " (unlimited)");
-#ifdef HAVE_POLL
+#ifdef USE_POLL
     s_log(LOG_INFO, "poll() used - no FD_SETSIZE limit for file descriptors");
 #else
     s_log(LOG_INFO,
@@ -444,9 +444,11 @@ char *stunnel_info(void) {
 #ifdef USE_FORK
     safeconcat(retval, " FORK");
 #endif
-#ifdef HAVE_POLL
+#ifdef USE_POLL
     safeconcat(retval, "+POLL");
-#endif
+#else /* defined(USE_POLL) */
+    safeconcat(retval, "+SELECT");
+#endif /* defined(USE_POLL) */
 #ifdef USE_WIN32
     if(s_getaddrinfo)
         safeconcat(retval, "+IPv6");

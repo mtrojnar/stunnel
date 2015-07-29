@@ -9,6 +9,7 @@ stunnel         Universal SSL tunnel
   - In transparent proxy mode bind source port (not only IP).
   - In transparent proxy mode add an option to connect destination address
     of the the original connection instead of a fixed IP list.
+  - Modify ./configure to support cross-compilation.
 
 * Low priority features I'm going to support (sponsorship welcomed):
   - Replace protocol.c with a scripting engine.

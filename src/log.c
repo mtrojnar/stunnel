@@ -83,9 +83,9 @@ void log_open(void) { /* Unix version */
     }
     if(options.option.syslog) {
 #ifdef __ultrix__
-        openlog("stunnel", LOG_PID);
+        openlog("stunnel", 0);
 #else
-        openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, options.facility);
+        openlog("stunnel", LOG_CONS | LOG_NDELAY, options.facility);
 #endif /* __ultrix__ */
     }
     if(options.output_file)
@@ -124,7 +124,8 @@ void s_log(int level, const char *format, ...) {
     va_end(arglist);
 #if !defined (USE_WIN32) && !defined (__vms)
     if(!outfile && options.option.syslog) {
-        syslog(level, "%s", text);
+        syslog(level, "LOG%d[%lu:%lu]: %s",
+            level, stunnel_process_id(), stunnel_thread_id(), text);
         return;
     }
 #endif /* USE_WIN32, __vms */
