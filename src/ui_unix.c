@@ -153,7 +153,7 @@ NOEXPORT int daemonize(int fd) { /* go to background */
         exit(0);
     }
 #endif
-    tls_alloc(NULL); /* for the main thread */
+    tls_alloc(NULL, "main");
 #ifdef HAVE_SETSID
     setsid(); /* ignore the error */
 #endif

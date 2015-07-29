@@ -3,7 +3,7 @@
 
 Summary: Program that wraps normal socket connections with SSL/TLS
 Name: stunnel
-Version: 5.12
+Version: 5.13
 Release: 1
 Copyright: GPL
 Group: Applications/Networking

@@ -81,7 +81,7 @@ void *client_thread(void *arg) {
     CLI *c=arg;
 
     c->tls=NULL; /* do not reuse */
-    tls_alloc(c);
+    tls_alloc(c, NULL);
 #ifdef DEBUG_STACK_SIZE
     stack_info(1); /* initialize */
 #endif
@@ -1105,7 +1105,7 @@ NOEXPORT int connect_local(CLI *c) { /* spawn local process */
         ioerror("fork");
         longjmp(c->err, 1);
     case  0:    /* child */
-        tls_alloc(c); /* reuse the current thread-local storage */
+        tls_alloc(c, NULL); /* reuse the current thread-local storage */
         closesocket(fd[0]);
         set_nonblock(fd[1], 0); /* switch back to blocking mode */
         /* dup2() does not copy FD_CLOEXEC flag */

@@ -59,9 +59,10 @@ void syslog_open(void) {
     syslog_close();
     if(global_options.option.syslog)
 #ifdef __ultrix__
-        openlog("stunnel", 0);
+        openlog(service_options.servname, 0);
 #else
-        openlog("stunnel", LOG_CONS|LOG_NDELAY, global_options.log_facility);
+        openlog(service_options.servname,
+            LOG_CONS|LOG_NDELAY, global_options.log_facility);
 #endif /* __ultrix__ */
     syslog_opened=1;
 }
@@ -146,6 +147,11 @@ void s_log(int level, const char *format, ...) {
     TLS_DATA *tls_data;
 
     tls_data=tls_get();
+    if(!tls_data) {
+        tls_data=tls_alloc(NULL, "log");
+        s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized TLS at %s, line %d",
+            __FILE__, __LINE__);
+    }
 
     /* performance optimization: skip the trivial case early */
     if(mode==LOG_MODE_CONFIGURED && level>tls_data->opt->log_level)
@@ -250,8 +256,6 @@ char *log_id(CLI *c) {
     size_t i;
     unsigned long tid;
 
-    if(!c) /* main thread */
-        return str_dup("main");
     switch(c->opt->log_id) {
     case LOG_ID_SEQENTIAL:
         enter_critical_section(CRIT_ID);

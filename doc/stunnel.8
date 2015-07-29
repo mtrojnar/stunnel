@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2015.03.19" "5.12" "stunnel"
+.TH STUNNEL 8 "2015.03.20" "5.13" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -325,7 +325,11 @@ overwrite the random seed files with new random data
 default: yes
 .IP "\fBservice\fR = \s-1SERVICE \s0(Unix only)" 4
 .IX Item "service = SERVICE (Unix only)"
-use specified string as \fIinetd\fR mode service name for \s-1TCP\s0 Wrapper library
+stunnel service name
+.Sp
+The specified service name is used for syslog and as the \fIinetd\fR mode service
+name for \s-1TCP\s0 Wrappers.  While this option can technically be specified in the
+service sections, it is only useful in global options.
 .Sp
 default: stunnel
 .IP "\fBsetgid\fR = \s-1GROUP \s0(Unix only)" 4

@@ -186,12 +186,11 @@ void *str_alloc_debug(size_t size, const char *file, int line) {
     if(!tls_initialized)
         fatal_debug("str not initialized", file, line);
     tls_data=tls_get();
-    if(!tls_data) /* an allocation without initialized thread-local storage */
-#if 0
-        fatal_debug("thread-local storage not initialized", file, line);
-#else
-        tls_data=tls_alloc(NULL); /* TODO: test it and change to fatal error */
-#endif
+    if(!tls_data) {
+        tls_data=tls_alloc(NULL, "alloc");
+        s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized TLS at %s, line %d",
+            file, line);
+    }
 
     alloc_list=(ALLOC_LIST *)str_alloc_detached_debug(size, file, line)-1;
     alloc_list->prev=NULL;
@@ -334,11 +333,11 @@ int safe_memcmp(const void *s1, const void *s2, size_t n) {
 
 /**************************************** thread local storage */
 
-/* this has to be the first function called by main() */
+/* this has to be the first function called from ui_*.c */
 void tls_init() {
     tls_platform_init();
     tls_initialized=1;
-    tls_alloc(NULL); /* for the main thread */
+    tls_alloc(NULL, "ui");
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
     CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
         str_realloc_debug, str_free_function);
@@ -346,7 +345,7 @@ void tls_init() {
 }
 
 /* this has to be the first function called by a new thread */
-TLS_DATA *tls_alloc(CLI *c) {
+TLS_DATA *tls_alloc(CLI *c, char *txt) {
     TLS_DATA *tls_data;
 
     if(c && c->tls) { /* reuse the thread-local storage after fork() */
@@ -367,7 +366,7 @@ TLS_DATA *tls_alloc(CLI *c) {
     tls_set(tls_data);
 
     /* str.c functions can be used below this point */
-    tls_data->id=log_id(c); /* c is NULL unless in a client thread */
+    tls_data->id=c ? log_id(c) : str_dup(txt);
     str_detach(tls_data->id); /* it is deallocated after str_stats() */
 
     return tls_data;

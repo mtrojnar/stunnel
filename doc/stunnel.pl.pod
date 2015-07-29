@@ -328,7 +328,12 @@ domyślnie: yes (nadpisz)
 
 =item B<service> = SERWIS (tylko Unix)
 
-użyj parametru jako nazwy serwisu dla biblioteki TCP Wrapper w trybie I<inetd>
+nazwa usługi
+
+Podana nazwa usługi będzie używana jako nazwa usługi dla inicjalizacji sysloga,
+oraz dla biblioteki TCP Wrapper w trybie I<inetd>.  Chociaż technicznie można
+użyć tej opcji w trybie w sekcji usług, to jest ona użyteczna jedynie w opcjach
+globalnych.
 
 domyślnie: stunnel
 

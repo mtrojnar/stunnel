@@ -1,6 +1,13 @@
 stunnel change log
 
 
+Version 5.13, 2015.03.20, urgency: MEDIUM:
+* New features
+  - The "service" option was modified to also control the syslog
+    service name.
+* Bugfixes
+  - Fixed Windows service crash.
+
 Version 5.12, 2015.03.19, urgency: HIGH:
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2a.

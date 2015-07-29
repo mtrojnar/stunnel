@@ -88,8 +88,11 @@ typedef unsigned short      uint16_t;
 typedef unsigned int        uint32_t;
 typedef unsigned long long  uint64_t;
 #ifndef __MINGW32__
-typedef long                ssize_t;
-typedef unsigned long       size_t;
+#ifdef  _WIN64
+typedef __int64             ssize_t;
+#else
+typedef int                 ssize_t;
+#endif
 #endif
 #define USE_IPv6
 #define _CRT_SECURE_NO_DEPRECATE

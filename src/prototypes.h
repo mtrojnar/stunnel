@@ -687,7 +687,7 @@ void str_free_debug(void *, const char *, int);
 int safe_memcmp(const void *, const void *, size_t);
 
 void tls_init();
-TLS_DATA *tls_alloc(CLI *c);
+TLS_DATA *tls_alloc(CLI *, char *);
 void tls_free();
 TLS_DATA *tls_get();
 
