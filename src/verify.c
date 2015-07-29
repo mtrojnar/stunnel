@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  *   In addition, as a special exception, Michal Trojnara gives
  *   permission to link the code of this program with the OpenSSL
@@ -69,10 +69,9 @@ void verify_init(LOCAL_OPTIONS *section) {
             sslerror("SSL_CTX_load_verify_locations");
             exit(1);
         }
-#if 0
+        /* list of trusted CAs for the client to choose the right cert */
         SSL_CTX_set_client_CA_list(section->ctx,
             SSL_load_client_CA_file(section->ca_file));
-#endif
         s_log(LOG_DEBUG, "Loaded verify certificates from %s",
             section->ca_file);
         load_file_lookup(section->revocation_store, section->ca_file);

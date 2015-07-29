@@ -20,14 +20,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 
 use POSIX;
 use Getopt::Std;
 
 # Configuration - path to stunnel (version >=4.05)
-$stunnel_bin='@prefix@/sbin/stunnel';
+$stunnel_bin='@prefix@/bin/stunnel';
 
 # stunnel3 script body begins here
 ($read_fd, $write_fd)=POSIX::pipe();

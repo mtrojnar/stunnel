@@ -322,9 +322,15 @@ default: no (server mode)
 
 =item B<connect> = [host:]port
 
-connect to remote host:port
+connect to a remote host:port
 
-If no host specified, defaults to localhost.
+If no host is specified, the host defaults to localhost.
+
+Multiple B<connect> options are allowed in a single service section.
+
+If host resolves to multiple addresses and/or if multiple B<connect>
+options are specified, then the remote address is chosen using a
+round-robin algorithm.
 
 =item B<CRLpath> = directory
 
@@ -588,7 +594,7 @@ or I<tcpserver>.
 
 For example, if you have the following line in I<inetd.conf>:
 
-    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf
+    imaps stream tcp nowait root /usr/bin/stunnel stunnel /etc/stunnel/imaps.conf
 
 In these cases, the I<inetd>-style program is responsible
 for binding a network socket (I<imaps> above) and handing

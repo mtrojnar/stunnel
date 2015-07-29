@@ -483,7 +483,7 @@ I<xinetd> ou I<tcpserver>.
 
 Si, par exemple, la ligne suivante se trouve dans I<inetd.conf>E<nbsp>:
 
-    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf
+    imaps stream tcp nowait root /usr/bin/stunnel stunnel /etc/stunnel/imaps.conf
 
 Dans ces cas, c'est le programme du genre I<inetd>-style qui est
 responsable de l'établissement de la connexion (I<imaps> ci-dessus) et de passer

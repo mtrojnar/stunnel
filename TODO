@@ -3,27 +3,26 @@ stunnel         Universal SSL tunnel
 * High priority features I'm going to support (sponsorship welcomed):
   - Add service-level logging.
   - Optional use of syslog in foreground mode.
+  - Log file rotation with a signal on Unix and with GUI on Windows.
+  - Graceful configuration reload with a signal on Unix and with GUI on Windows.
   - Provide transparent proxy for Linux 2.6.x with TPROXY patch.
     http://www.balabit.com/products/oss/tproxy/
   - In transparent proxy mode bind source port (not only IP).
   - In transparent proxy mode add an option to connect destination address
     of the the original connection instead of a fixed IP list.
-  - Modify ./configure to support cross-compilation.
 
 * Low priority features I'm going to support (sponsorship welcomed):
   - Replace protocol.c with a scripting engine.
   - Add some scripting capabilities *after* SSL negotiations.
-  - Log file rotation on a signal.
   - Key renegotiation (re-handshake) for long connections.
   - Internationalization of logged messages (i18n).
   - Logging to NT eventlog.
-  - IMAP protocol support (RFC 2595).
-    http://www.ietf.org/rfc/rfc2595.txt
   - SOCKS 4 protocol support.
     http://archive.socks.permeo.com/protocol/socks4.protocol
-  - Graceful configuration reload with a signal on Unix and with GUI on Windows.
+  - Modify ./configure to support cross-compilation.
 
 * Features I'd prefer NOT to support (waiting for a wealthy sponsor):
-  - HTTP protocol support (X-Forwarded-For header).
-  - SMTP protocol support (X-Forwarded-For header).
+  - HTTP protocol support (adding X-Forwarded-For header to each request,
+    URL rewriting).
+  - SMTP protocol support (adding X-Forwarded-For header to each email).
 

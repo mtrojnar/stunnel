@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel], [4.20])
+AC_INIT([stunnel],[4.21])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.20)
+AM_INIT_AUTOMAKE(stunnel, 4.21)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -91,6 +91,7 @@ AC_CHECK_HEADERS(grp.h unistd.h util.h libutil.h sys/resource.h pty.h)
 AC_MSG_NOTICE([**************************************** libraries])
 # Checks for standard libraries
 AC_SEARCH_LIBS(gethostbyname, nsl)
+AC_SEARCH_LIBS(yp_get_default_domain, nsl)
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(util, openpty)
 # Checks for dynamic loader and zlib needed by OpenSSL
@@ -279,7 +280,17 @@ AC_MSG_NOTICE([**************************************** optional features])
 AC_MSG_CHECKING([whether to disable RSA support])
 AC_ARG_ENABLE(rsa,
 [  --disable-rsa           Disable RSA support],
-    [AC_MSG_RESULT([yes]); AC_DEFINE(NO_RSA)],
+    [
+        case "$enableval" in
+            yes) AC_MSG_RESULT([no])
+                ;;
+            no) AC_MSG_RESULT([yes])
+                AC_DEFINE(NO_RSA)
+                ;;
+            *) AC_MSG_ERROR([bad value ${enableval}])
+                ;;
+        esac
+    ],
     [AC_MSG_RESULT([no])]
 )
 
@@ -287,7 +298,19 @@ AC_ARG_ENABLE(rsa,
 AC_MSG_CHECKING([whether to enable DH support])
 AC_ARG_ENABLE(dh,
 [  --enable-dh             Enable DH support],
-    [AC_MSG_RESULT([yes]); USE_DH=1; AC_DEFINE(USE_DH)],
+    [
+        case "$enableval" in
+            yes)
+                AC_MSG_RESULT([yes])
+                USE_DH=1
+                AC_DEFINE(USE_DH)
+                ;;
+            no) AC_MSG_RESULT([no])
+                ;;
+            *) AC_MSG_ERROR([bad value ${enableval}])
+                ;;
+        esac
+    ],
     [AC_MSG_RESULT([no])]
 )
 AC_SUBST(USE_DH)
@@ -296,6 +319,17 @@ AC_SUBST(USE_DH)
 AC_MSG_CHECKING([whether to enable IPv6 support])
 AC_ARG_ENABLE(ipv6,
 [  --enable-ipv6           Enable IPv6 support],
+    [
+        case "$enableval" in
+            yes) AC_MSG_RESULT([yes])
+                AC_DEFINE(USE_IPv6)
+                ;;
+            no) AC_MSG_RESULT([no])
+                ;;
+            *) AC_MSG_ERROR([bad value ${enableval}])
+                ;;
+        esac
+    ],
     [AC_MSG_RESULT([yes]); AC_DEFINE(USE_IPv6)],
     [AC_MSG_RESULT([no])]
 )
@@ -305,9 +339,19 @@ AC_ARG_ENABLE(ipv6,
 AC_MSG_CHECKING([whether to disable TCP wrappers library support])
 AC_ARG_ENABLE(libwrap,
 [  --disable-libwrap       Disable TCP wrappers library support],
-    [AC_MSG_RESULT([yes])],
     [
-        AC_MSG_RESULT([no (autodetecting)])
+        case "$enableval" in
+            yes) AC_MSG_RESULT([no])
+                AC_DEFINE(HAVE_LIBWRAP)
+                ;;
+            no) AC_MSG_RESULT([yes])
+                ;;
+            *) AC_MSG_ERROR([bad value ${enableval}])
+                ;;
+        esac
+    ],
+    [
+        AC_MSG_RESULT([autodetecting])
         AC_MSG_CHECKING([for hosts_access in -lwrap])
         saved_LIBS="$LIBS"
         LIBS="$saved_LIBS -lwrap"
@@ -321,6 +365,44 @@ AC_ARG_ENABLE(libwrap,
         )
     ]
 )
+
+# FIPS Mode
+AC_MSG_CHECKING([whether to enable FIPS mode support])
+AC_ARG_ENABLE(fips,
+[  --enable-fips           Enable OpenSSL FIPS mode],
+    [
+        case "$enableval" in
+            yes) AC_MSG_RESULT([yes])
+                CCLD="FIPSLD_CC=$CC $ssldir/bin/fipsld"
+                AC_DEFINE(USE_FIPS)
+                ;;
+            no) AC_MSG_RESULT([no])
+                CCLD="$CC"
+                ;;
+            *) AC_MSG_ERROR([bad value ${enableval}])
+                ;;
+        esac
+    ],
+    [
+        AC_MSG_RESULT([autodetecting])
+        AC_MSG_CHECKING([for FIPS_mode_set])
+        INCLUDES="=l$ssldir/include"
+        AC_LINK_IFELSE(
+            [AC_LANG_PROGRAM(
+                [[#include <openssl/fips.h>]],
+                [[FIPS_mode_set(1);]],
+            )],
+            [AC_MSG_RESULT([yes])
+                CCLD="FIPSLD_CC=$CC $ssldir/bin/fipsld"
+                AC_DEFINE(USE_FIPS)
+            ], [
+                AC_MSG_RESULT([no])
+                CCLD="$CC"
+            ]
+        )
+    ]
+)
+AC_SUBST(CCLD)
 
 AC_MSG_NOTICE([**************************************** write the results])
 AC_CONFIG_FILES([Makefile src/Makefile src/stunnel3 doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init])

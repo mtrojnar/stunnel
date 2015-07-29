@@ -1,5 +1,7 @@
-!define VERSION "4.20"
-!define DLLS "/home/ftp/stunnel/openssl/binary-0.9.8d-zdll/"
+!define VERSION "4.21"
+!define DLLS "/home/ftp/openssl/binary-0.9.8g-zdll/"
+# !define DLLS "../FIPS/"
+# !define DLLS "/usr/src/openssl-0.9.7m-fips/"
 !define WIN32 "/home/ftp/stunnel/obsolete/"
 
 Name "stunnel ${VERSION}"
@@ -27,6 +29,8 @@ Section "stunnel (required)"
   File "${WIN32}stunnel.pem"
   SetOverwrite on
   File "src/stunnel.exe"
+#  File "${DLLS}cryptoeay32.dll"
+#  File "${DLLS}ssleay32.dll"
   File "${DLLS}libeay32.dll"
   File "${DLLS}libssl32.dll"
   File "${DLLS}zlib1.dll"

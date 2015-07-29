@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  *   In addition, as a special exception, Michal Trojnara gives
  *   permission to link the code of this program with the OpenSSL
@@ -44,13 +44,6 @@
 #define SHUT_RDWR 2
 #endif
 
-/* TCP wrapper */
-#ifdef USE_LIBWRAP
-#include <tcpd.h>
-int allow_severity=LOG_NOTICE;
-int deny_severity=LOG_WARNING;
-#endif
-
 #if SSLEAY_VERSION_NUMBER >= 0x0922
 static char *sid_ctx="stunnel SID";
     /* const allowed here */
@@ -65,7 +58,6 @@ static void transfer(CLI *);
 static void parse_socket_error(CLI *, const char *);
 
 static void print_cipher(CLI *);
-static void auth_libwrap(CLI *);
 static void auth_user(CLI *);
 static int connect_local(CLI *);
 #ifndef USE_WIN32
@@ -238,7 +230,9 @@ static void init_local(CLI *c) {
         /* It's a socket: lets setup options */
         if(set_socket_options(c->local_rfd.fd, 1)<0)
             longjmp(c->err, 1);
+#ifdef USE_LIBWRAP
         auth_libwrap(c);
+#endif /* USE_LIBWRAP */
         auth_user(c);
         s_log(LOG_NOTICE, "%s accepted connection from %s",
             c->opt->servname, c->accepted_address);
@@ -278,6 +272,9 @@ static void init_remote(CLI *c) {
 static void init_ssl(CLI *c) {
     int i, err;
     SSL_SESSION *old_session;
+#ifdef USE_FIPS
+    const unsigned char key[8]={0, 0, 0, 0, 0, 0, 0, 0};
+#endif /* USE_FIPS */
 
     if(!(c->ssl=SSL_new(c->opt->ctx))) {
         sslerror("SSL_new");
@@ -319,10 +316,21 @@ static void init_ssl(CLI *c) {
     }
 
     while(1) {
+        /* There are two reasons for a critical section here:
+         * 1. SSL_accept session negotiation has some MT-safety problems
+         * 2. openssl-fips-1.1.1 has a nasty bug in PRNG initialization
+         *    and the workaround must be inside a critical section */
+        enter_critical_section(CRIT_SSL);
+#ifdef USE_FIPS
+        /* workaround for openssl-fips-1.1.1 bug */
+        FIPS_set_prng_key(key, key); /* doesn't it break PRNG security? */
+        FIPS_rand_seed(NULL, 0);
+#endif /* USE_FIPS */
         if(c->opt->option.client)
             i=SSL_connect(c->ssl);
         else
             i=SSL_accept(c->ssl);
+        leave_critical_section(CRIT_SSL);
         err=SSL_get_error(c->ssl, i);
         if(err==SSL_ERROR_NONE)
             break; /* ok -> done */
@@ -716,55 +724,6 @@ static void print_cipher(CLI *c) { /* print negotiated cipher */
         }
     } while(*i++);
     s_log(LOG_INFO, "Negotiated ciphers: %s", buf);
-#endif
-}
-
-static void auth_libwrap(CLI *c) {
-#ifdef USE_LIBWRAP
-    struct request_info request;
-    int fd[2];
-    int result=0; /* deny by default */
-
-    if(pipe(fd)<0) {
-        ioerror("pipe");
-        longjmp(c->err, 1);
-    }
-    if(alloc_fd(fd[0]) || alloc_fd(fd[1]))
-        longjmp(c->err, 1);
-    switch(fork()) {
-    case -1:    /* error */
-        close(fd[0]);
-        close(fd[1]);
-        ioerror("fork");
-        longjmp(c->err, 1);
-    case  0:    /* child */
-        close(fd[0]); /* read side */
-        request_init(&request,
-            RQ_DAEMON, c->opt->servname, RQ_FILE, c->local_rfd.fd, 0);
-        fromhost(&request);
-        result=hosts_access(&request);
-        write_blocking(c, fd[1], (u8 *)&result, sizeof(result));
-            /* ignore the returned error */
-        close(fd[1]); /* write side */
-        _exit(0);
-    default:    /* parent */
-        close(fd[1]); /* write side */
-        read_blocking(c, fd[0], (u8 *)&result, sizeof(result));
-            /* ignore the returned error */
-        close(fd[0]); /* read side */
-        /* no need to wait() for zombies here:
-         *  - in UCONTEXT/PTHREAD mode they're removed using the signal pipe
-         *  - in FORK mode they're removed with the client process */
-    }
-
-    if(!result) {
-        s_log(LOG_WARNING, "Connection from %s REFUSED by libwrap",
-            c->accepted_address);
-        s_log(LOG_DEBUG, "See hosts_access(5) manual for details");
-        longjmp(c->err, 1);
-    }
-    s_log(LOG_DEBUG, "Connection from %s permitted by libwrap",
-        c->accepted_address);
 #endif
 }
 

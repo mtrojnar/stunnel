@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #ifndef COMMON_H
@@ -26,6 +26,8 @@
 #ifndef VERSION
 #define VERSION "undefined"
 #endif
+
+#define LIBWRAP_CLIENTS 5
 
 #ifdef OPTIMIZE_SCALABILITY
 
@@ -64,6 +66,7 @@
 
 #ifdef USE_WIN32
 #define USE_IPv6
+/* #define USE_FIPS */
 #endif
 
 #ifdef _WIN32_WCE
@@ -308,6 +311,13 @@ extern char *sys_errlist[];
 /**************************************** OpenSSL headers */
 
 #ifdef HAVE_OPENSSL
+
+#define OPENSSL_THREAD_DEFINES
+#include <openssl/opensslconf.h>
+#if !defined(OPENSSL_THREADS) && defined(USE_PTHREAD)
+#error OpenSSL library compiled without thread support
+#endif /* !OPENSSL_THREADS && USE_PTHREAD */
+
 #include <openssl/lhash.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -315,19 +325,29 @@ extern char *sys_errlist[];
 #include <openssl/rand.h>
 #include <openssl/md4.h>
 #include <openssl/des.h>
+
 #ifdef HAVE_OSSL_ENGINE_H
 #include <openssl/engine.h>
-#endif
+#endif /* HAVE_OSSL_ENGINE_H */
+
 #if SSLEAY_VERSION_NUMBER >= 0x00907000L
 #include <openssl/ocsp.h>
 #endif /* OpenSSL-0.9.7 */
+
+#ifdef USE_FIPS
+#include <openssl/fips.h>
+#include <openssl/fips_rand.h>
+#endif /* USE_FIPS */
+
 #else /* HAVE_OPENSSL */
+
 #include <lhash.h>
 #include <ssl.h>
 #include <err.h>
-#include <crypto.h> /* for CRYPTO_* and SSLeay_version */
+#include <crypto.h>
 #include <md4.h>
 #include <des.h>
+
 #endif /* HAVE_OPENSSL */
 
 /**************************************** Other defines */
@@ -339,7 +359,7 @@ extern char *sys_errlist[];
     (dst[STRLEN-1]='\0', strncat((dst), (src), STRLEN-strlen(dst)-1))
 /* change all non-printable characters to '.' */
 #define safestring(s) \
-    do {unsigned char *p; for(p=(s); *p; p++) \
+    do {unsigned char *p; for(p=(unsigned char *)(s); *p; p++) \
         if(!isprint((int)*p)) *p='.';} while(0)
 /* change all unsafe characters to '.' */
 #define safename(s) \

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  *   In addition, as a special exception, Michal Trojnara gives
  *   permission to link the code of this program with the OpenSSL
@@ -202,6 +202,31 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         break;
     }
 #endif
+
+    /* fips */
+#ifdef USE_FIPS
+    switch(cmd) {
+    case CMD_INIT:
+        options.option.fips=1;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "fips"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            options.option.fips=1;
+        else if(!strcasecmp(arg, "no"))
+            options.option.fips=0;
+        else
+            return "Argument should be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = yes|no FIPS 140-2 mode",
+            "fips");
+        break;
+    }
+#endif /* USE_FIPS */
 
     /* foreground */
 #ifndef USE_WIN32
@@ -554,9 +579,14 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     }
 
     /* ciphers */
+#ifdef USE_FIPS
+#define STUNNEL_DEFAULT_CIPHER_LIST "FIPS"
+#else
+#define STUNNEL_DEFAULT_CIPHER_LIST SSL_DEFAULT_CIPHER_LIST
+#endif /* USE_FIPS */
     switch(cmd) {
     case CMD_INIT:
-        section->cipher_list=SSL_DEFAULT_CIPHER_LIST;
+        section->cipher_list=STUNNEL_DEFAULT_CIPHER_LIST;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "ciphers"))
@@ -564,7 +594,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         section->cipher_list=stralloc(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
-        log_raw("%-15s = %s", "ciphers", SSL_DEFAULT_CIPHER_LIST);
+        log_raw("%-15s = %s", "ciphers", STUNNEL_DEFAULT_CIPHER_LIST);
         break;
     case CMD_HELP:
         log_raw("%-15s = list of permitted SSL ciphers", "ciphers");
@@ -1043,7 +1073,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         } else if(!strcasecmp(arg, "SSLv3")) {
             section->client_method=SSLv3_client_method;
             section->server_method=SSLv3_server_method;
-	    } else if(!strcasecmp(arg, "TLSv1")) {
+        } else if(!strcasecmp(arg, "TLSv1")) {
             section->client_method=TLSv1_client_method;
             section->server_method=TLSv1_server_method;
         } else
@@ -1217,11 +1247,11 @@ static void syntax(char *confname) {
 #endif
         "[-quiet] "
 #endif
-	"[<filename>] ] "
+        "[<filename>] ] "
 #ifndef USE_WIN32
         "-fd <n> "
 #endif
-	"| -help | -version | -sockets");
+        "| -help | -version | -sockets");
     log_raw("    <filename>  - use specified config file instead of %s",
         confname);
 #ifdef USE_WIN32

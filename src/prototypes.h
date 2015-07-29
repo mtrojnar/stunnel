@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #ifndef PROTOTYPES_H
@@ -57,6 +57,7 @@ extern volatile int num_clients;
 void main_initialize(char *, char *);
 void main_execute(void);
 void stunnel_info(int);
+void drop_privileges(void);
 
 /**************************************** Prototypes for log.c */
 
@@ -144,6 +145,9 @@ typedef struct {
         unsigned int rand_write:1;                    /* overwrite rand_file */
 #ifdef USE_WIN32
         unsigned int taskbar:1;                   /* enable the taskbar icon */
+#endif
+#ifdef USE_FIPS
+        unsigned int fips:1;                       /* enable FIPS 140-2 mode */
 #endif
     } option;
 } GLOBAL_OPTIONS;
@@ -355,7 +359,7 @@ char *s_ntop(char *, SOCKADDR_UNION *);
 
 typedef enum {
     CRIT_KEYGEN, CRIT_INET, CRIT_CLIENTS, CRIT_WIN_LOG, CRIT_SESSION,
-    CRIT_SECTIONS
+    CRIT_LIBWRAP, CRIT_SSL, CRIT_SECTIONS
 } SECTION_CODE;
 
 void enter_critical_section(SECTION_CODE);
@@ -435,6 +439,11 @@ int file_putline(DISK_FILE *, char *);
 LPTSTR str2tstr(const LPSTR);
 LPSTR tstr2str(const LPTSTR);
 #endif
+
+/**************************************** Prototypes for libwrap.c */
+
+void libwrap_init(int);
+void auth_libwrap(CLI *);
 
 #endif /* defined PROTOTYPES_H */
 

@@ -1,11 +1,38 @@
 stunnel         Universal SSL tunnel
 
+Version 4.21, 2007.10.27, urgency: LOW/EXPERIMENTAL:
+* New features sponsored by Open-Source Software Institute
+  - Initial FIPS 140-2 support (see INSTALL.FIPS for details).
+    Win32 platform is not currently supported.
+* New features
+  - Experimental fast support for non-MT-safe libwrap is provided
+    with pre-spawned processes.
+  - Stunnel binary moved from /usr/local/sbin to /usr/local/bin
+    in order to meet FHS and LSB requirements.
+    Please delete the /usr/local/sbin/stunnel when upgrading.
+  - Added code to disallow compiling stunnel with pthreads when
+    OpenSSL is compiled without threads support.
+  - Win32 DLLs for OpenSSL 0.9.8g.
+  - Minor manual update.
+  - TODO file updated.
+* Bugfixes
+  - Dynamic locking callbacks added (needed by some engines to work).
+  - AC_ARG_ENABLE fixed in configure.am to accept yes/no arguments.
+  - On some systems libwrap requires yp_get_default_domain from libnsl,
+    additional checking was added.
+  - Sending a list of trusted CAs for the client to choose the right
+    certificate restored.
+  - Some compatibility issues with NTLM authentication fixed.
+  - Taskbar icon (unless there is a config file parsing error) and
+    "Save As" disabled in the service mode for local Win32 security
+    (it's much like Yeti -- some people claim they have seen it).
+
 Version 4.20, 2006.11.30, urgency: MEDIUM:
 * Release notes
   - The new transfer() function has been well tested.
     I recommend upgrading any previous version with this one.
 * Bugfixes
-  - Fixed support for encrypted passphases (broken in 4.19).
+  - Fixed support for encrypted passphases on Unix (broken in 4.19).
   - Reduced amount of debug logs.
   - A minor man page update.
 

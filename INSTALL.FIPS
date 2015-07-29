@@ -1,0 +1,14 @@
+stunnel         Universal SSL tunnel
+
+
+FIPS support status:
+- Unix platforms are currently supported.
+  More testing is still required.
+- Win32 platform is currently unsupported due to some
+  problems with linking FIPS-enabled OpenSSL DLLs.
+
+FIPS mode is autodetected if possible.  You can force it with:
+    ./configure --enable-fips
+or disable with:
+    ./configure --disable-fips
+

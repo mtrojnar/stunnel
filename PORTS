@@ -2,12 +2,11 @@ stunnel         Universal SSL tunnel
 
 Stunnel ports maintainers:
 
-FreeBSD:
-	Martti Kuparinen <martti.kuparinen@iki.fi>
-
-Debian Linux:
-	Paolo Molaro <lupus@debian.org>
-
-RedHat Linux:
-	Damien Miller <dmiller@ilogic.com.au>
+AmigaOS  Diego Casorran    <dcr8520@amiga.org>
+OpenBSD  Jakob Schlyter    <jakob@openbsd.org>
+FreeBSD  Peter Pentchev    <roam@FreeBSD.org>
+NetBSD   Martti Kuparinen  <martti.kuparinen@iki.fi>
+Cygwin   Andrew Schulman   <andrex@alumni.utexas.net>
+Debian   Julien Lemoine    <speedblue@debian.org>
+RedHat   Damien Miller     <dmiller@ilogic.com.au>
 

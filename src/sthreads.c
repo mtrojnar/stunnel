@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  *   In addition, as a special exception, Michal Trojnara gives
  *   permission to link the code of this program with the OpenSSL
@@ -207,6 +207,43 @@ static void locking_callback(int mode, int type,
         pthread_mutex_unlock(lock_cs+type);
 }
 
+struct CRYPTO_dynlock_value {
+    pthread_mutex_t mutex;
+};
+
+static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
+        int line) {
+    struct CRYPTO_dynlock_value *value;
+
+    value=malloc(sizeof(struct CRYPTO_dynlock_value));
+    if(!value)
+        return NULL;
+    pthread_mutex_init(&value->mutex, NULL);
+    return value;
+}
+
+static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
+        const char *file, int line) {
+    if(mode&CRYPTO_LOCK)
+        pthread_mutex_lock(&value->mutex);
+    else
+        pthread_mutex_unlock(&value->mutex);
+}
+
+static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
+        const char *file, int line) {
+    pthread_mutex_destroy(&value->mutex);
+    free(value);
+}
+
+unsigned long stunnel_process_id(void) {
+    return (unsigned long)getpid();
+}
+
+unsigned long stunnel_thread_id(void) {
+    return (unsigned long)pthread_self();
+}
+
 void sthreads_init(void) {
     int i;
 
@@ -220,17 +257,15 @@ void sthreads_init(void) {
     CRYPTO_set_id_callback(stunnel_thread_id);
     CRYPTO_set_locking_callback(locking_callback);
 
+    /* Initialize OpenSSL dynamic locks callbacks */
+    CRYPTO_set_dynlock_create_callback(dyn_create_function);
+    CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
+    CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+
+    /* Initialize attributes for creating new threads */
     pthread_attr_init(&pth_attr);
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
     pthread_attr_setstacksize(&pth_attr, STACK_SIZE);
-}
-
-unsigned long stunnel_process_id(void) {
-    return (unsigned long)getpid();
-}
-
-unsigned long stunnel_thread_id(void) {
-    return (unsigned long)pthread_self();
 }
 
 int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
@@ -288,6 +323,43 @@ static void locking_callback(int mode, int type,
         LeaveCriticalSection(lock_cs+type);
 }
 
+struct CRYPTO_dynlock_value {
+    CRITICAL_SECTION mutex;
+};
+
+static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
+        int line) {
+    struct CRYPTO_dynlock_value *value;
+
+    value=malloc(sizeof(struct CRYPTO_dynlock_value));
+    if(!value)
+        return NULL;
+    InitializeCriticalSection(&value->mutex);
+    return value;
+}
+
+static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
+        const char *file, int line) {
+    if(mode&CRYPTO_LOCK)
+        EnterCriticalSection(&value->mutex);
+    else
+        LeaveCriticalSection(&value->mutex);
+}
+
+static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
+        const char *file, int line) {
+    DeleteCriticalSection(&value->mutex);
+    free(value);
+}
+
+unsigned long stunnel_process_id(void) {
+    return GetCurrentProcessId() & 0x00ffffff;
+}
+
+unsigned long stunnel_thread_id(void) {
+    return GetCurrentThreadId() & 0x00ffffff;
+}
+
 void sthreads_init(void) {
     int i;
 
@@ -299,14 +371,11 @@ void sthreads_init(void) {
     for(i=0; i<CRYPTO_NUM_LOCKS; i++)
         InitializeCriticalSection(lock_cs+i);
     CRYPTO_set_locking_callback(locking_callback);
-}
 
-unsigned long stunnel_process_id(void) {
-    return GetCurrentProcessId() & 0x00ffffff;
-}
-
-unsigned long stunnel_thread_id(void) {
-    return GetCurrentThreadId() & 0x00ffffff;
+    /* Initialize OpenSSL dynamic locks callbacks */
+    CRYPTO_set_dynlock_create_callback(dyn_create_function);
+    CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
+    CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
 }
 
 int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {

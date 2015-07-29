@@ -1,11 +1,11 @@
-# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-2006
+# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-2007
 #
 # Modified by David Gillingham (dgillingham@gmail.com) for Visual
 # Studio
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=..\openssl-0.9.8d
+SSLDIR=..\openssl-0.9.8e
 
 OBJS=stunnel.obj ssl.obj ctx.obj verify.obj file.obj client.obj \
 	protocol.obj sthreads.obj log.obj options.obj network.obj \

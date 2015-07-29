@@ -342,6 +342,10 @@ po³±cz siê ze zdalnym serwerem na podany port
 Je¿eli nie zosta³ podany adres, I<stunnel> domy¶lnie ³±czy siê
 z lokalnym serwerem.
 
+Komenda mo¿e byc u¿yta wielokrotnie w pojedynczej sekcji
+celem zapewnienia wysokiej niezawodno¶ci lub roz³o¿enia
+ruchu pomiêdzy wiele serwerów.
+
 =item B<CRLpath> = katalog_CRL
 
 katalog List Odwo³anych Certyfikatów (CRL)
@@ -620,7 +624,7 @@ programów s± inetd, xinetd i tcpserver.
 
 Przyk³adowa linia pliku /etc/inetd.conf mo¿e wygl±daæ tak:
 
-    imaps stream tcp nowait root /usr/sbin/stunnel
+    imaps stream tcp nowait root /usr/bin/stunnel
         stunnel /etc/stunnel/imaps.conf
 
 Poniewa¿ w takich przypadkach po³±czenie na zdefiniowanym porcie

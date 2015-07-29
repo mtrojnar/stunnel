@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  *   In addition, as a special exception, Michal Trojnara gives
  *   permission to link the code of this program with the OpenSSL
@@ -123,7 +123,6 @@ void context_init(LOCAL_OPTIONS *section) { /* init SSL context */
         load_certificate(section);
 
     verify_init(section); /* initialize certificate verification */
-
     SSL_CTX_set_info_callback(section->ctx, info_callback);
     s_log(LOG_DEBUG, "SSL context initialized for service %s",
         section->servname);

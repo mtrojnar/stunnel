@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  *   In addition, as a special exception, Michal Trojnara gives
  *   permission to link the code of this program with the OpenSSL
@@ -33,8 +33,8 @@
 
 /* \n is not a character expected in the string */
 #define LINE "%[^\n]"
-
 #define isprefix(a, b) (strncasecmp((a), (b), strlen(b))==0)
+#define s_min(a, b) ((a)>(b)?(b):(a))
 
 /* protocol-specific function prototypes */
 static void cifs_client(CLI *);
@@ -357,6 +357,8 @@ static void nntp_client(CLI *c) {
 
 static void connect_client(CLI *c) {
     char line[STRLEN], ntlm2[STRLEN], *encoded;
+    long content_length;
+    char buf[BUFSIZ];
 
     if(!c->opt->protocol_host) {
         s_log(LOG_ERR, "protocolHost not specified");
@@ -369,6 +371,7 @@ static void connect_client(CLI *c) {
         if(!strcasecmp(c->opt->protocol_authentication, "NTLM")) {
 
             /* send Proxy-Authorization (phase 1) */
+            fdprintf(c, c->remote_fd.fd, "Proxy-Connection: keep-alive");
             fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s",
                 ntlm1());
             fdputline(c, c->remote_fd.fd, ""); /* empty line */
@@ -383,11 +386,21 @@ static void connect_client(CLI *c) {
                 longjmp(c->err, 1);
             }
             *ntlm2='\0';
+            content_length=0; /* no HTTP content */
             do { /* read all headers */
                 fdgetline(c, c->remote_fd.fd, line);
                 if(isprefix(line, "Proxy-Authenticate: NTLM "))
                     safecopy(ntlm2, line+25);
+                else if(isprefix(line, "Content-Length: "))
+                    content_length=atol(line+16);
             } while(*line);
+
+            /* read and ignore HTTP content (if any) */
+            while(content_length) {
+                read_blocking(c, c->remote_fd.fd, buf,
+                    s_min(content_length, BUFSIZ));
+                content_length-=s_min(content_length, BUFSIZ);
+            }
 
             /* send Proxy-Authorization (phase 3) */
             fdprintf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1",
@@ -441,15 +454,13 @@ static char *ntlm1() {
     return base64(1, phase1, sizeof(phase1)); /* encode */
 }
 
-#define s_min(a, b) ((a)>(b)?(b):(a))
-
 static char *ntlm3(char *username, char *password, char *phase2) {
+    MD4_CTX md4;
     char *decoded; /* decoded reply from proxy */
     char phase3[146];
-    char md4_hash[21];
+    unsigned char md4_hash[21];
     int userlen=strlen(username);
     int phase3len=s_min(88+userlen, sizeof(phase3));
-    MD4_CTX md4;
 
     /* setup phase3 structure */
     memset(phase3, 0, sizeof(phase3));
@@ -479,9 +490,12 @@ static char *ntlm3(char *username, char *password, char *phase2) {
 
     /* decode challenge and calculate response */
     decoded=base64(0, phase2, strlen(phase2)); /* decode */
-    crypt_DES(phase3+64, decoded+24, md4_hash);
-    crypt_DES(phase3+72, decoded+24, md4_hash+7);
-    crypt_DES(phase3+80, decoded+24, md4_hash+14);
+    crypt_DES((unsigned char *)phase3+64,
+        (unsigned char *)decoded+24, md4_hash);
+    crypt_DES((unsigned char *)phase3+72,
+        (unsigned char *)decoded+24, md4_hash+7);
+    crypt_DES((unsigned char *)phase3+80,
+        (unsigned char *)decoded+24, md4_hash+14);
     free(decoded);
 
     strncpy(phase3+88, username, sizeof(phase3)-88);
@@ -520,7 +534,7 @@ static char *base64(int encode, char *in, int len) {
     if(encode)
         bio=BIO_push(b64, bio);
     BIO_write(bio, in, len);
-    BIO_flush(bio);
+    (void)BIO_flush(bio); /* ignore the error if any */
     if(encode) {
         bio=BIO_pop(bio);
         BIO_free(b64);

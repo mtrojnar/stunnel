@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  *   In addition, as a special exception, Michal Trojnara gives
  *   permission to link the code of this program with the OpenSSL
@@ -72,7 +72,7 @@ static struct LIST {
 } *head=NULL, *tail=NULL;
 static HINSTANCE ghInst;
 static HWND EditControl=NULL;
-static HMENU htraymenu;
+static HMENU htraymenu=NULL;
 #ifndef _WIN32_WCE
 static HMENU hmainmenu;
 #endif
@@ -297,7 +297,7 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #endif
 
     /* create main window */
-    if(options.option.taskbar) {/* save menu resources */
+    if(options.option.taskbar) { /* save menu resources */
         htraymenu=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
         hpopup=GetSubMenu(htraymenu, 0);
     }
@@ -313,12 +313,15 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         NULL, hmainmenu, hInstance, NULL);
 #endif
 
+    if(cmdline.service) /* do not allow to save file in the service mode */
+        EnableMenuItem(hmainmenu, IDM_SAVEAS, MF_GRAYED);
+
     if(error_mode) /* log window is hidden by default */
         set_visible(1);
     else /* create the main thread */
         _beginthread(ThreadFunc, 0, NULL);
 
-    while (GetMessage(&msg, NULL, 0, 0)) {
+    while(GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
@@ -367,9 +370,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
     if(message!=WM_CTLCOLORSTATIC && message!=WM_TIMER)
         s_log(LOG_DEBUG, "Window message: %d", message);
 #endif
-    switch (message) {
+    switch(message) {
     case WM_CREATE:
-        if (options.option.taskbar) /* taskbar update enabled? */
+        if(options.option.taskbar) /* taskbar update enabled? */
             SetTimer(hwnd, 0x29a, 1000, NULL); /* 1-second timer */
 
 #ifdef _WIN32_WCE
@@ -586,6 +589,9 @@ static void save_file(HWND hwnd) {
     LPSTR str;
     DWORD nWritten;
 
+    if(cmdline.service) /* do not allow to save file in the service mode */
+        return;
+
     ZeroMemory(&ofn, sizeof(ofn));
     szFileName[0]='\0';
 
@@ -728,6 +734,7 @@ static int service_initialize(void) {
         {0, 0}
     };
 
+    options.option.taskbar=0; /* disable taskbar for security */
     if(!StartServiceCtrlDispatcher(serviceTable)) {
         error_box(TEXT("StartServiceCtrlDispatcher"));
         return 1;

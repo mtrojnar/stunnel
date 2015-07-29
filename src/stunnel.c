@@ -1,10 +1,10 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2006 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2007 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.20             (stunnel.c)
- *   Date:         2006.11.30
+ *   Version:      4.21             (stunnel.c)
+ *   Date:         2007.10.27
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -20,7 +20,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  *   In addition, as a special exception, Michal Trojnara gives
  *   permission to link the code of this program with the OpenSSL
@@ -41,7 +41,7 @@ static void daemon_loop(void);
 static void accept_connection(LOCAL_OPTIONS *);
 static void get_limits(void); /* setup global max_clients and max_fds */
 #if !defined (USE_WIN32) && !defined (__vms)
-static void drop_privileges(void);
+static void make_chroot(void);
 static void daemonize(void);
 static void create_pid(void);
 static void delete_pid(void);
@@ -82,7 +82,25 @@ void main_initialize(char *arg1, char *arg2) {
     ssl_init(); /* initialize SSL library */
     sthreads_init(); /* initialize critical sections & SSL callbacks */
     parse_config(arg1, arg2);
+
+#ifdef USE_FIPS
+    if(options.option.fips) {
+        if(!FIPS_mode_set(1)) {
+            ERR_load_crypto_strings();
+            sslerror("FIPS_mode_set");
+            exit(1);
+        } else
+            s_log(LOG_NOTICE, "stunnel is in FIPS mode");
+    } else
+        s_log(LOG_DEBUG, "FIPS mode not compiled");
+#endif /* USE_FIPS */
+
     log_open();
+#ifdef USE_LIBWRAP
+    /* LIBWRAP_CLIENTS extra processes in daemon mode,
+     * no extra processes in inetd mode */
+    libwrap_init(local_options.next ? LIBWRAP_CLIENTS : 0);
+#endif /* USE_LIBWRAP */
     stunnel_info(0);
 }
 
@@ -93,6 +111,9 @@ void main_execute(void) {
     } else { /* inetd mode */
 #if !defined (USE_WIN32) && !defined (__vms)&&!defined(USE_OS2)
         max_fds=FD_SETSIZE; /* just in case */
+#ifdef HAVE_CHROOT
+        make_chroot();
+#endif /* HAVE_CHROOT */
         drop_privileges();
 #endif
         num_clients=1;
@@ -150,6 +171,9 @@ static void daemon_loop(void) {
 #if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
     if(!(options.option.foreground))
         daemonize();
+#ifdef HAVE_CHROOT
+        make_chroot();
+#endif /* HAVE_CHROOT */
     drop_privileges();
     create_pid();
 #endif /* !defined USE_WIN32 && !defined (__vms) */
@@ -275,9 +299,24 @@ static void get_limits(void) {
 #endif
 }
 
+#ifdef HAVE_CHROOT
+static void make_chroot(void) {
+    if(options.chroot_dir) {
+        if(chroot(options.chroot_dir)) {
+            sockerror("chroot");
+            exit(1);
+        }
+        if(chdir("/")) {
+            sockerror("chdir");
+            exit(1);
+        }
+    }
+}
+#endif /* HAVE_CHROOT */
+
 #if !defined (USE_WIN32) && !defined (__vms)
-    /* chroot and set process user and group(s) id */
-static void drop_privileges(void) {
+    /* set process user and group(s) id */
+void drop_privileges(void) {
     int uid=0, gid=0;
     struct group *gr;
 #ifdef HAVE_SETGROUPS
@@ -310,20 +349,6 @@ static void drop_privileges(void) {
             exit(1);
         }
     }
-
-#ifdef HAVE_CHROOT
-    /* chroot */
-    if(options.chroot_dir) {
-        if(chroot(options.chroot_dir)) {
-            sockerror("chroot");
-            exit(1);
-        }
-        if(chdir("/")) {
-            sockerror("chdir");
-            exit(1);
-        }
-    }
-#endif /* HAVE_CHROOT */
 
     /* Set uid and gid */
     if(gid) {
@@ -443,9 +468,15 @@ void stunnel_info(int raw) {
     safeconcat(line, "FORK");
 #endif
 
+    safeconcat(line, " SSL:");
 #ifdef HAVE_OSSL_ENGINE_H
-    safeconcat(line, " SSL:ENGINE");
-#endif
+    safeconcat(line, "ENGINE");
+#else /* defined(HAVE_OSSL_ENGINE_H) */
+    safeconcat(line, "NOENGINE");
+#endif /* defined(HAVE_OSSL_ENGINE_H) */
+#ifdef USE_FIPS
+    safeconcat(line, ",FIPS");
+#endif /* USE_FIPS */
 
     safeconcat(line, " Sockets:");
 #ifdef USE_POLL

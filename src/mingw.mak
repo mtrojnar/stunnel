@@ -1,4 +1,4 @@
-# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-2006
+# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-2007
 #
 # Modified by Brian Hatch  (bri@stunnel.org)
 
@@ -8,7 +8,7 @@
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=../openssl-0.9.8d
+SSLDIR=../openssl-0.9.8e
 
 DEFINES=-DUSE_WIN32 -DHAVE_OPENSSL
 
