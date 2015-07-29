@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT(stunnel, 4.01)
+AC_INIT(stunnel, 4.02)
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.01)
+AM_INIT_AUTOMAKE(stunnel, 4.02)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST

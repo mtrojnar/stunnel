@@ -25,7 +25,7 @@
 /* #define __NO_FORMATGUARD_ */
 
 #ifndef VERSION
-#define VERSION "4.01"
+#define VERSION "4.02"
 #endif
 
 #ifndef USE_WIN32

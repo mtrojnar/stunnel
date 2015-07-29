@@ -451,9 +451,6 @@ static int transfer(CLI *c) { /* transfer data */
                     log(LOG_DEBUG,
                         "readsocket interrupted by a signal: retrying");
                     break;
-                case ECONNRESET:
-                    log(LOG_NOTICE, "IPC reset (child died)");
-                    break;
                 case EWOULDBLOCK:
                     log(LOG_NOTICE, "readsocket would block: retrying");
                     break;

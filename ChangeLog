@@ -1,5 +1,8 @@
 stunnel         Universal SSL tunnel
 
+Version 4.02, 2002.10.21, urgency: HIGH:
+* Serious bug in ECONNRESET handling fixed.
+
 Version 4.01, 2002.10.20, urgency: MEDIUM:
 * New features
   - OpenVMS support.
