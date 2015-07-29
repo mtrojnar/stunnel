@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-1999 Michal Trojnara <Michal.Trojnara@centertel.pl>
+ *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.5"
+#define VERSION "3.6"
 #define HOST "i586-pc-mingw32-gnu"
 
 #define HAVE_VSNPRINTF

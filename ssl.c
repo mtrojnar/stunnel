@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-1999 Michal Trojnara <Michal.Trojnara@centertel.pl>
+ *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -19,10 +19,16 @@
  */
 
 /* For US citizens having problems with patents, undefined by default */
-#define NO_RSA
+/* Uncomment the next line to disable RSA support */
+/* #define NO_RSA */
 
 /* Experimental DH support is disabled by default */
+/* Comment out the next line if you need it */
 #define NO_DH
+
+/* Non-blocking sockets are disabled by default */
+/* It works on most systems so feel free to uncomment the next line */
+/* #define USE_NBIO */
 
 /* Length of temporary RSA key */
 #ifndef NO_RSA
@@ -397,7 +403,7 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
     int num, fdno, ssl_fd, ssl_bytes, sock_bytes, retval;
     char sock_buff[BUFFSIZE], ssl_buff[BUFFSIZE];
     int sock_ptr, ssl_ptr, sock_open, ssl_open;
-#ifdef FIONBIO
+#if defined FIONBIO && defined USE_NBIO
     unsigned long l;
 #endif
 
@@ -410,7 +416,7 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
     sock_bytes=0;
     ssl_bytes=0;
 
-#ifdef FIONBIO
+#if defined FIONBIO && defined USE_NBIO
     l=1; /* ON */
     if(ioctlsocket(sock_fd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (sock)"); /* non-critical */
@@ -524,7 +530,7 @@ error:
     retval=-1;
 done:
 
-#ifdef FIONBIO
+#if defined FIONBIO && defined USE_NBIO
     l=0; /* OFF */
     if(ioctlsocket(sock_fd, FIONBIO, &l)<0)
         sockerror("ioctlsocket (sock)"); /* non-critical */

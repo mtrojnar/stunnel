@@ -6,7 +6,7 @@ stunnel \- universal SSL tunnel
 [-T] [-p pemfile] [-v level] [-a directory]
 [-t timeout] [-u username] [-n protocol]
 [-d [ip:]port [-f]] [ -l program | -r [ip:]port | -L program [-- args] ]
-
+.PP
 .B stunnel
 {-c} [-p pemfile] [-v level] [-a directory]
 [-t timeout] [-u username] [-n protocol]
@@ -88,7 +88,9 @@ default: background in daemon mode
 .RE
 .TP
 .B -l program [-- args]
+.RS
 execute local inetd-type program
+.RE
 .TP
 .B -L program [-- args]
 open local pty and execute program
@@ -101,19 +103,21 @@ connect to remote service
 
 .SH EXAMPLES
 In order to provide SSL encapsulation to your local \fIimapd\fR service, use
-.nf
 .sp
-.in +5
+.RS
+.nf
 stunnel -d 993 -l /usr/sbin/imapd -- imapd
 .fi
+.RE
 .PP
 If you want to provide tunneling to your \fIpppd\fR daemon on port 2020,
 use something like
-.nf
 .sp
-.in +5
+.RS
+.nf
 stunnel -d 2020 -L /usr/sbin/pppd -- pppd local
 .fi
+.RE
 
 .SH CERTIFICATES
 Each SSL enabled daemon needs to present a valid X.509 certificate
@@ -155,13 +159,11 @@ There are available SSL enabled versions of FTP and telnet daemons, however.
 .BR inetd (8)
 .TP
 .BI http://mike.daewoo.com.pl/computer/stunnel
-Stunnel home page
+Stunnel homepage
 .TP
 .BI http://www.openssl.org
 OpenSSL project website
 .SH AUTHORS
-.na
-.nf
 Michal Trojnara <Michal.Trojnara@centertel.pl>
 Adam Hernik <adas@infocentrum.com>
 Pawel Krawczyk <kravietz@ceti.com.pl>

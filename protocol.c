@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-1999 Michal Trojnara <Michal.Trojnara@centertel.pl>
+ *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -26,8 +26,9 @@
 #endif
 
 #include <stdio.h>
-#include <stdarg.h> /* for va_* */
-#include <unistd.h> /* for read(), write() */
+#include <stdarg.h>   /* for va_* */
+#include <unistd.h>   /* for read(), write() */
+#include <sys/time.h> /* for select() */
 
 /* protocol-specific function prototypes */
 static int smb_client(int, int);
@@ -36,6 +37,7 @@ static int smtp_client(int, int);
 static int smtp_server(int, int);
 static int telnet_client(int, int);
 static int telnet_server(int, int);
+static int RFC2487(int);
 
 /* descriptor versions of fprintf/fscanf */
 static int fdprintf(int, char *, ...);
@@ -91,6 +93,9 @@ static int smtp_client(int local, int remote)
 static int smtp_server(int local, int remote)
 {
     char line[STRLEN];
+
+    if(RFC2487(local)==0)
+        return 0; /* Return if RFC 2487 is not used */
 
     if(fdscanf(remote, "220%[^\n]", line)!=1) {
         log(LOG_ERR, "Unknown server welcome");
@@ -177,5 +182,37 @@ static int fdscanf(int fd, char *format, char *buffer)
     line[ptr]='\0';
     log(LOG_DEBUG, " <- %s", line);
     return sscanf(line, format, buffer);
+}
+
+/* 
+*
+* stunnel can recognize a TLS-RFC2487 connection 
+* Use checkConnectionTyp routine from sendmail-tls.c
+* If response is true return 1
+*
+* Pascual Perez       pps@posta.unizar.es 
+* Borja Perez         borja@posta.unizar.es 
+*
+*/
+
+static int RFC2487(int fd)
+{
+    fd_set         fdsRead;
+    struct timeval timeout;
+
+    FD_ZERO(&fdsRead);
+    FD_SET(fd, &fdsRead);
+    memset(&timeout, 0, sizeof(timeout)); /* don't wait */
+
+    switch(select(fd+1, &fdsRead, NULL, NULL, &timeout)) {
+    case 0: /* fd not ready to read */
+        log(LOG_DEBUG, "RFC 2487 detected");
+        return 1;
+    case 1: /* fd ready to read */
+        log(LOG_DEBUG, "RFC 2487 not detected");
+        return 0;
+    }
+    sockerror("RFC2487 (select)");
+    return -1;
 }
 

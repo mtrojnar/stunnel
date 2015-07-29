@@ -9,143 +9,114 @@ stunnel - universal SSL tunnel
 [-T] [-p pemfile] [-v level] [-a directory]
 [-t timeout] [-u username] [-n protocol]
 [-d [ip:]port [-f]] [ -l program | -r [ip:]port | -L program [-- args] ]
-
+<DD>
 <B>stunnel</B>
 {-c} [-p pemfile] [-v level] [-a directory]
 [-t timeout] [-u username] [-n protocol]
 -r [ip:]port [ -d [ip:]port [-f] | -l program | -L program [-- args] ]
 <DD><BR><DT><B>DESCRIPTION</B><DD>
 <DD>
-
 The <B>stunnel</B> program is designed to work as <I>SSL</I> encryption wrapper 
 between remote clients and local (<I>inetd</I>-startable) or remote
 servers. The concept is that having non-SSL aware daemons running on
 your system you can easily set them up to communicate with clients over
 secure SSL channels.
 <DD>
-
 <B>stunnel</B>
 can be used to add SSL functionality to commonly used <I>inetd</I>
 daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
 NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
 changes to the source code.
 <DD>
-
 This product includes cryptographic software written by
 Eric Young (<A HREF="MAILTO:eay@cryptsoft.com">eay@cryptsoft.com</A>)
 <DD><BR><DT><B>OPTIONS</B><DD>
 <DD>
-
 <B>-c</B>
 client mode (remote service uses SSL)
 <BLOCKQUOTE>
-
 default: server mode
 </BLOCKQUOTE>
-
 <DD>
-
 <B>-T</B>
 transparent proxy mode (on hosts that support it)
 <DD>
-
 <B>-p pemfile</B>
 certificate (*.pem) file name
 <BLOCKQUOTE>
-
 default: /var/openssl/certs/stunnel.pem for server mode,
 none for client mode
 </BLOCKQUOTE>
-
 <DD>
-
 <B>-v level</B>
 verify peer certificate
 <BLOCKQUOTE>
-
 level 1 - verify peer certificate if present
 level 2 - verify peer certificate
 level 3 - verify peer with locally installed certificate
 default: no verify
 </BLOCKQUOTE>
-
 <DD>
-
 <B>-a directory</B>
 client certificate directory for -v 3 option
 <BLOCKQUOTE>
-
 default: /var/openssl/certs/trusted
 </BLOCKQUOTE>
-
 <DD>
-
 <B>-t timeout</B>
 session cache timeout
 <BLOCKQUOTE>
-
 default: 300 s.
 </BLOCKQUOTE>
-
 <DD>
-
 <B>-u user</B>
 Use IDENT (RFC 1413) username checking
 <DD>
-
 <B>-n proto</B>
 Negotiate SSL with specified protocol
 <BLOCKQUOTE>
-
 currenty supported: smtp
 </BLOCKQUOTE>
-
 <DD>
-
 <B>-d [ip:]port</B>
 daemon mode (ip defaults to INADDR_ANY)
 <BLOCKQUOTE>
-
 default: inetd mode
 </BLOCKQUOTE>
-
 <DD>
-
 <B>-f</B>
 foreground mode (don't fork, log to stderr)
 <BLOCKQUOTE>
-
 default: background in daemon mode
 </BLOCKQUOTE>
-
 <DD>
-
 <B>-l program [-- args]</B>
+<BLOCKQUOTE>
 execute local inetd-type program
+</BLOCKQUOTE>
 <DD>
-
 <B>-L program [-- args]</B>
 open local pty and execute program
 <DD>
-
 <B>-r [ip:]port</B>
 connect to remote service
 <BLOCKQUOTE>
-
 (ip defaults to INADDR_LOOPBACK)
 </BLOCKQUOTE>
 
 <DD><BR><DT><B>EXAMPLES</B><DD>
 In order to provide SSL encapsulation to your local <I>imapd</I> service, use
-<PRE><SUB><I>.in +5</I></SUB>
-stunnel -d 993 -l /usr/sbin/imapd -- imapd</PRE>
 
+<BLOCKQUOTE>
+<PRE>stunnel -d 993 -l /usr/sbin/imapd -- imapd</PRE>
+</BLOCKQUOTE>
 <DD>
-
 If you want to provide tunneling to your <I>pppd</I> daemon on port 2020,
 use something like
-<PRE><SUB><I>.in +5</I></SUB>
-stunnel -d 2020 -L /usr/sbin/pppd -- pppd local</PRE>
+
+<BLOCKQUOTE>
+<PRE>stunnel -d 2020 -L /usr/sbin/pppd -- pppd local</PRE>
+</BLOCKQUOTE>
 
 <DD><BR><DT><B>CERTIFICATES</B><DD>
 Each SSL enabled daemon needs to present a valid X.509 certificate
@@ -154,14 +125,12 @@ data. The easiest way to obtain a certificate and a key is to
 generate them with the free <I>openssl</I> package. You can find more
 information on certificates generation on pages listed below.
 <DD>
-
 Two things are important when generating certificate-key pairs for
 <B>stunnel</B>. The private key cannot be encrypted, because the server
 has no way to obtain the password from the user. To produce an
 unencrypted key add the <I>-nodes</I> option when running the <I>req</I>
 command from the <I>openssl</I> kit.
 <DD>
-
 The order of contents of the <I>.pem</I> file is also important.
 It should contain the unencrypted private key first, then a signed certificate
 (not certificate request).
@@ -186,16 +155,13 @@ There are available SSL enabled versions of FTP and telnet daemons, however.
 <FONT FACE="Roman"><B>tcpd (8),</FONT></B>
 <FONT FACE="Roman"><B>inetd (8)</FONT></B>
 <DD>
-
 <I><B><A HREF="http://mike.daewoo.com.pl/computer/stunnel">http://mike.daewoo.com.pl/computer/stunnel</A></I></B>
-Stunnel home page
+Stunnel homepage
 <DD>
-
 <I><B><A HREF="http://www.openssl.org">http://www.openssl.org</A></I></B>
 OpenSSL project website
 <DD><BR><DT><B>AUTHORS</B><DD>
-
-<PRE>Michal Trojnara &lt;<A HREF="MAILTO:Michal.Trojnara@centertel.pl">Michal.Trojnara@centertel.pl</A>&gt;
+Michal Trojnara &lt;<A HREF="MAILTO:Michal.Trojnara@centertel.pl">Michal.Trojnara@centertel.pl</A>&gt;
 Adam Hernik &lt;<A HREF="MAILTO:adas@infocentrum.com">adas@infocentrum.com</A>&gt;
 Pawel Krawczyk &lt;<A HREF="MAILTO:kravietz@ceti.com.pl">kravietz@ceti.com.pl</A>&gt;
 PTY support by Dirk O. Siebnich &lt;<A HREF="MAILTO:dok@vossnet.de">dok@vossnet.de</A>&gt;

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# by M. Trojnara 1998 for stunnel only
+# by M. Trojnara 1998,2000 for stunnel only
 
 # use strict;
 
@@ -15,17 +15,17 @@ s/^\.B (.*)/<B>$1<\/B>/gm;
 s/^\.BI (.*)/<I><B>$1<\/I><\/B>/gm;
 s/^\.BR (.*)/<FONT FACE="Roman"><B>$1<\/FONT><\/B>/gm;
 
-s/^\.RS/<BLOCKQUOTE>\n/gm;
-s/^\.RE/<\/BLOCKQUOTE>\n/gm;
+s/^\.RS/<BLOCKQUOTE>/gm;
+s/^\.RE/<\/BLOCKQUOTE>/gm;
 
 s/^\.TH\s+(\S+)\s+(\S+).*/<H1>$1($2)<\/H1>/gm;
-s/^\.nf/<PRE>\n/gm;
-s/^\.fi/<\/PRE>\n/gm;
+s/^\.nf/<PRE>/gm;
+s/^\.fi/<\/PRE>/gm;
 s/^\.SH *(.*)/<DD><BR><DT><B>$1<\/B><DD>/gm;
 
-s/^\.TP/<DD>\n/gm;
-s/^\.br/<DD>\n/gm;
-s/^\.PP/<DD>\n/gm;
+s/^\.TP/<DD>/gm;
+s/^\.br/<DD>/gm;
+s/^\.PP/<DD>/gm;
 
 s/^\.sp.*//gm;
 s/^\.na.*//gm;

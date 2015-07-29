@@ -1,4 +1,4 @@
-# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-1999
+# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-2000
 
 SSLDIR=../openssl-0.9.4
 
