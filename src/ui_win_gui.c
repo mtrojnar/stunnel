@@ -868,7 +868,7 @@ NOEXPORT LPTSTR log_txt(void) {
 NOEXPORT void daemon_thread(void *arg) {
     (void)arg; /* skip warning about unused parameter */
 
-    tls_alloc(NULL, "main");
+    tls_alloc(NULL, NULL, "main"); /* new thread-local storage */
     main_init();
     SetEvent(main_initialized); /* unlock the GUI thread */
     /* get a valid configuration */
@@ -1368,7 +1368,7 @@ NOEXPORT void WINAPI service_main(DWORD argc, LPTSTR* argv) {
     (void)argc; /* skip warning about unused parameter */
     (void)argv; /* skip warning about unused parameter */
 
-    tls_alloc(NULL, "service");
+    tls_alloc(NULL, NULL, "service"); /* new thread-local storage */
 
     /* initialise service status */
     serviceStatus.dwServiceType=SERVICE_WIN32;

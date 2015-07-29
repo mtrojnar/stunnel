@@ -74,6 +74,7 @@ CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
     c->opt=opt;
     c->local_rfd.fd=rfd;
     c->local_wfd.fd=wfd;
+    c->redirect=REDIRECT_OFF;
     return c;
 }
 
@@ -81,7 +82,7 @@ void *client_thread(void *arg) {
     CLI *c=arg;
 
     c->tls=NULL; /* do not reuse */
-    tls_alloc(c, NULL);
+    tls_alloc(c, NULL, NULL);
 #ifdef DEBUG_STACK_SIZE
     stack_info(1); /* initialize */
 #endif
@@ -157,7 +158,7 @@ NOEXPORT void client_run(CLI *c) {
         c->ssl_wfd=&(c->local_wfd);
     }
     c->fds=s_poll_alloc();
-    addrlist_init(&c->connect_addr);
+    addrlist_init(&c->connect_addr, 1);
 
         /* try to process the request */
     err=setjmp(c->err);
@@ -227,10 +228,8 @@ NOEXPORT void client_run(CLI *c) {
 #endif
 
         /* free the client context */
-    if(c->connect_addr.addr) {
+    if(c->connect_addr.addr)
         str_free(c->connect_addr.addr);
-        c->connect_addr.addr=NULL;
-    }
     s_poll_free(c->fds);
     c->fds=NULL;
 }
@@ -375,7 +374,7 @@ NOEXPORT void ssl_start(CLI *c) {
         }
         SSL_set_fd(c->ssl, c->remote_fd.fd);
         SSL_set_connect_state(c->ssl);
-    } else {
+    } else { /* SSL server */
         if(c->local_rfd.fd==c->local_wfd.fd)
             SSL_set_fd(c->ssl, c->local_rfd.fd);
         else {
@@ -445,21 +444,31 @@ NOEXPORT void ssl_start(CLI *c) {
             sslerror("SSL_accept");
         longjmp(c->err, 1);
     }
+    s_log(LOG_INFO, "SSL %s: %s",
+        c->opt->option.client ? "connected" : "accepted",
+        SSL_session_reused(c->ssl) ?
+            "previous session reused" : "new session negotiated");
     if(SSL_session_reused(c->ssl)) {
-        s_log(LOG_INFO, "SSL %s: previous session reused",
-            c->opt->option.client ? "connected" : "accepted");
+        c->redirect=(uintptr_t)SSL_SESSION_get_ex_data(SSL_get_session(c->ssl),
+            redirect_index);
+        if(c->opt->redirect_addr.names && !c->redirect) {
+            s_log(LOG_ERR, "No application data found in the reused session");
+            longjmp(c->err, 1);
+        }
     } else { /* a new session was negotiated */
         new_chain(c);
+        SSL_SESSION_set_ex_data(SSL_get_session(c->ssl),
+            redirect_index, (void *)c->redirect);
         if(c->opt->option.client) {
-            s_log(LOG_INFO, "SSL connected: new session negotiated");
             enter_critical_section(CRIT_SESSION);
             old_session=c->opt->session;
             c->opt->session=SSL_get1_session(c->ssl); /* store it */
             if(old_session)
                 SSL_SESSION_free(old_session); /* release the old one */
             leave_critical_section(CRIT_SESSION);
-        } else
-            s_log(LOG_INFO, "SSL accepted: new session negotiated");
+        } else { /* SSL server */
+            SSL_CTX_add_session(c->opt->ctx, SSL_get_session(c->ssl));
+        }
         print_cipher(c);
     }
 }
@@ -1105,7 +1114,7 @@ NOEXPORT int connect_local(CLI *c) { /* spawn local process */
         ioerror("fork");
         longjmp(c->err, 1);
     case  0:    /* child */
-        tls_alloc(c, NULL); /* reuse the current thread-local storage */
+        tls_alloc(NULL, c->tls, NULL); /* reuse thread-local storage */
         closesocket(fd[0]);
         set_nonblock(fd[1], 0); /* switch back to blocking mode */
         /* dup2() does not copy FD_CLOEXEC flag */
@@ -1174,6 +1183,10 @@ NOEXPORT int connect_remote(CLI *c) {
     unsigned ind_start, ind_try, ind_cur;
 
     setup_connect_addr(c);
+    if(!c->connect_addr.num) {
+        s_log(LOG_ERR, "No host resolved");
+        longjmp(c->err, 1);
+    }
     ind_start=*c->connect_addr.rr_ptr;
     /* the race condition here can be safely ignored */
     if(c->opt->failover==FAILOVER_RR)
@@ -1209,12 +1222,21 @@ NOEXPORT void setup_connect_addr(CLI *c) {
     socklen_t addrlen=sizeof(SOCKADDR_UNION);
 #endif /* SO_ORIGINAL_DST */
 
-    /* check if the address was already set by the verify callback,
-     * or a dynamic protocol
-     * implemented protocols: CONNECT, SOCKS */
+    /* process "redirect" first */
+    if(c->redirect==REDIRECT_ON) {
+        s_log(LOG_NOTICE, "Redirecting connection");
+        if(c->connect_addr.addr) /* allocated in protocol negotiations */
+            str_free(c->connect_addr.addr);
+        addrlist_dup(&c->connect_addr, &c->opt->redirect_addr);
+        return;
+    }
+
+    /* check if the address was already set in protocol negotiations */
+    /* used by the following protocols: CONNECT, SOCKS */
     if(c->connect_addr.num)
         return;
 
+    /* transparent destination */
 #ifdef SO_ORIGINAL_DST
     if(c->opt->option.transparent_dst) {
         c->connect_addr.num=1;
@@ -1228,18 +1250,8 @@ NOEXPORT void setup_connect_addr(CLI *c) {
     }
 #endif /* SO_ORIGINAL_DST */
 
-    if(c->opt->connect_addr.num) { /* pre-resolved addresses */
-        addrlist_dup(&c->connect_addr, &c->opt->connect_addr);
-        return;
-    }
-
-    /* delayed lookup */
-    if(namelist2addrlist(&c->connect_addr,
-            c->opt->connect_list, DEFAULT_LOOPBACK))
-        return;
-
-    s_log(LOG_ERR, "No host resolved");
-    longjmp(c->err, 1);
+    /* default "connect" target */
+    addrlist_dup(&c->connect_addr, &c->opt->connect_addr);
 }
 
 NOEXPORT void local_bind(CLI *c) {

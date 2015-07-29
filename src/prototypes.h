@@ -46,6 +46,10 @@ typedef struct tls_data_struct TLS_DATA;
 
 /**************************************** data structures */
 
+/* non-zero constants for the "redirect" option */
+#define REDIRECT_ON         1
+#define REDIRECT_OFF        2
+
 #if defined (USE_WIN32)
 #define ICON_IMAGE HICON
 #elif defined(__APPLE__)
@@ -98,6 +102,7 @@ typedef struct sockaddr_list {                          /* list of addresses */
     SOCKADDR_UNION *addr;                           /* the list of addresses */
     unsigned *rr_ptr, rr_val;             /* current address for round-robin */
     unsigned num;                             /* how many addresses are used */
+    NAME_LIST *names;                          /* a list of unresolved names */
 } SOCKADDR_LIST;
 
 #ifndef OPENSSL_NO_COMP
@@ -236,7 +241,6 @@ typedef struct service_options_struct {
 #endif
     SOCKADDR_UNION local_addr, source_addr;
     SOCKADDR_LIST connect_addr, redirect_addr;
-    NAME_LIST *connect_list, *redirect_list;
     int timeout_busy;                       /* maximum waiting for data time */
     int timeout_close;                          /* maximum close_notify time */
     int timeout_connect;                           /* maximum connect() time */
@@ -385,6 +389,7 @@ typedef struct {
     FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
     uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and SSL */
     s_poll_set *fds; /* file descriptors */
+    uintptr_t redirect; /* redirect to another destination after failed auth */
 } CLI;
 
 /**************************************** prototypes for stunnel.c */
@@ -447,7 +452,7 @@ int pty_allocate(int *, int *, char *);
 
 /**************************************** prototypes for ssl.c */
 
-extern int cli_index, opt_index;
+extern int cli_index, opt_index, redirect_index;
 
 int ssl_init(void);
 int ssl_configure(GLOBAL_OPTIONS *);
@@ -543,12 +548,17 @@ char *protocol(CLI *, SERVICE_OPTIONS *opt, const PHASE);
 /**************************************** prototypes for resolver.c */
 
 void resolver_init();
+
 unsigned name2addr(SOCKADDR_UNION *, char *, char *);
 unsigned hostport2addr(SOCKADDR_UNION *, char *, char *);
-unsigned namelist2addrlist(SOCKADDR_LIST *, NAME_LIST *, char *);
+
+unsigned name2addrlist(SOCKADDR_LIST *, char *, char *);
 unsigned hostport2addrlist(SOCKADDR_LIST *, char *, char *);
-void addrlist_init(SOCKADDR_LIST *);
-void addrlist_dup(SOCKADDR_LIST *, const SOCKADDR_LIST *);
+
+void addrlist_init(SOCKADDR_LIST *, int);
+unsigned addrlist_dup(SOCKADDR_LIST *, const SOCKADDR_LIST *);
+unsigned addrlist_resolve(SOCKADDR_LIST *);
+
 char *s_ntop(SOCKADDR_UNION *, socklen_t);
 socklen_t addr_len(const SOCKADDR_UNION *);
 const char *s_gai_strerror(int);
@@ -592,7 +602,7 @@ typedef enum {
 #ifndef USE_WIN32
     CRIT_LIBWRAP,                           /* libwrap.c */
 #endif
-    CRIT_LOG, CRIT_ID,                      /* log.c */
+    CRIT_LOG, CRIT_ID, CRIT_LEAK,           /* log.c */
     CRIT_SECTIONS                           /* number of critical sections */
 } SECTION_CODE;
 
@@ -647,6 +657,7 @@ void libwrap_auth(CLI *, char *);
 
 /**************************************** prototypes for str.c */
 
+extern TLS_DATA *ui_tls;
 typedef struct alloc_list_struct ALLOC_LIST;
 
 struct tls_data_struct {
@@ -687,7 +698,7 @@ void str_free_debug(void *, const char *, int);
 int safe_memcmp(const void *, const void *, size_t);
 
 void tls_init();
-TLS_DATA *tls_alloc(CLI *, char *);
+TLS_DATA *tls_alloc(CLI *, TLS_DATA *, char *);
 void tls_free();
 TLS_DATA *tls_get();
 

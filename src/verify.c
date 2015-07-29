@@ -191,15 +191,8 @@ NOEXPORT int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         return 1; /* accept */
     if(c->opt->option.client || c->opt->protocol)
         return 0; /* reject */
-    if(c->opt->redirect_addr.num) { /* pre-resolved addresses */
-        addrlist_dup(&c->connect_addr, &c->opt->redirect_addr);
-        s_log(LOG_INFO, "Redirecting connection");
-        return 1; /* accept */
-    }
-    /* delayed lookup */
-    if(namelist2addrlist(&c->connect_addr,
-            c->opt->redirect_list, DEFAULT_LOOPBACK)) {
-        s_log(LOG_INFO, "Redirecting connection");
+    if(c->opt->redirect_addr.names) {
+        c->redirect=REDIRECT_ON;
         return 1; /* accept */
     }
     return 0; /* reject */

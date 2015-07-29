@@ -58,12 +58,14 @@ struct alloc_list_struct {
 NOEXPORT LPTSTR str_vtprintf(LPCTSTR, va_list);
 #endif /* USE_WIN32 */
 
+NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
+NOEXPORT void str_free_function(void *);
+NOEXPORT void str_leak_debug(ALLOC_LIST *, int);
+
 NOEXPORT void tls_platform_init();
 NOEXPORT void tls_set(TLS_DATA *);
 
-NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
-NOEXPORT void str_free_function(void *);
-
+TLS_DATA *ui_tls;
 static uint8_t canary[10]; /* 80-bit canary value */
 static volatile int canary_initialized=0, tls_initialized=0;
 
@@ -187,7 +189,7 @@ void *str_alloc_debug(size_t size, const char *file, int line) {
         fatal_debug("str not initialized", file, line);
     tls_data=tls_get();
     if(!tls_data) {
-        tls_data=tls_alloc(NULL, "alloc");
+        tls_data=tls_alloc(NULL, NULL, "alloc");
         s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized TLS at %s, line %d",
             file, line);
     }
@@ -223,6 +225,7 @@ void *str_alloc_detached_debug(size_t size, const char *file, int line) {
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
     memcpy((uint8_t *)(alloc_list+1)+size, canary, sizeof canary);
     alloc_list->magic=0xdeadbeef;
+    str_leak_debug(alloc_list, 1);
 
     return alloc_list+1;
 }
@@ -233,6 +236,7 @@ void *str_realloc_debug(void *ptr, size_t size, const char *file, int line) {
     if(!ptr)
         return str_alloc_debug(size, file, line);
     prev_alloc_list=get_alloc_list_ptr(ptr, file, line);
+    str_leak_debug(prev_alloc_list, -1);
     if(prev_alloc_list->size>size) /* shrinking the allocation */
         memset((uint8_t *)ptr+size, 0, prev_alloc_list->size-size); /* paranoia */
     alloc_list=realloc(prev_alloc_list,
@@ -258,6 +262,7 @@ void *str_realloc_debug(void *ptr, size_t size, const char *file, int line) {
     alloc_list->line=line;
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
     memcpy((uint8_t *)ptr+size, canary, sizeof canary);
+    str_leak_debug(alloc_list, 1);
     return ptr;
 }
 
@@ -294,6 +299,7 @@ void str_free_debug(void *ptr, const char *file, int line) {
         return;
     str_detach_debug(ptr, file, line);
     alloc_list=(ALLOC_LIST *)ptr-1;
+    str_leak_debug(alloc_list, -1);
     alloc_list->magic=0xdefec8ed; /* to detect double free attempts */
     memset(ptr, 0, alloc_list->size); /* paranoia */
     free(alloc_list);
@@ -319,6 +325,46 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
     return alloc_list;
 }
 
+/* #define STR_LEAK_DEBUG */
+/* the implementation is slow, but it's not going to be used in production */
+NOEXPORT void str_leak_debug(ALLOC_LIST *alloc_list, int change) {
+#ifndef STR_LEAK_DEBUG
+    (void)alloc_list; /* skip warning about unused parameter */
+    (void)change; /* skip warning about unused parameter */
+#else
+#define ALLOC_TABLE_SIZE 1000
+#define MAX_ALLOCS 200
+    static struct {
+        const char *file;
+        int line;
+        int num;
+    } alloc_table[ALLOC_TABLE_SIZE];
+    static size_t alloc_num=0;
+    size_t i;
+
+    enter_critical_section(CRIT_LEAK);
+    for(i=0; i<alloc_num; ++i)
+        if(alloc_table[i].file==alloc_list->file &&
+                alloc_table[i].line==alloc_list->line)
+            break;
+    if(i==alloc_num) {
+        if(alloc_num==ALLOC_TABLE_SIZE) {
+            leave_critical_section(CRIT_LEAK);
+            return;
+        }
+        alloc_table[i].file=alloc_list->file;
+        alloc_table[i].line=alloc_list->line;
+        alloc_table[i].num=0;
+        ++alloc_num;
+    }
+    alloc_table[i].num+=change;
+    leave_critical_section(CRIT_LEAK);
+    if(alloc_table[i].num>MAX_ALLOCS && strcmp(alloc_table[i].file, "lhash.c"))
+        fprintf(stderr, "%d allocations detected at %s:%d\n",
+            alloc_table[i].num, alloc_table[i].file, alloc_table[i].line);
+#endif
+}
+
 /**************************************** memcmp() replacement */
 
 /* a version of memcmp() with execution time not dependent on data values */
@@ -337,7 +383,7 @@ int safe_memcmp(const void *s1, const void *s2, size_t n) {
 void tls_init() {
     tls_platform_init();
     tls_initialized=1;
-    tls_alloc(NULL, "ui");
+    ui_tls=tls_alloc(NULL, NULL, "ui");
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
     CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
         str_realloc_debug, str_free_function);
@@ -345,29 +391,39 @@ void tls_init() {
 }
 
 /* this has to be the first function called by a new thread */
-TLS_DATA *tls_alloc(CLI *c, char *txt) {
+TLS_DATA *tls_alloc(CLI *c, TLS_DATA *inherited, char *txt) {
     TLS_DATA *tls_data;
+    char *old_id=NULL;
 
-    if(c && c->tls) { /* reuse the thread-local storage after fork() */
-        tls_set(c->tls);
-        return c->tls;
+    if(inherited) { /* reuse the thread-local storage after fork() */
+        tls_data=inherited;
+        if(txt)
+            old_id=tls_data->id; /* delayed deallocation */
+    } else {
+        tls_data=calloc(1, sizeof(TLS_DATA));
+        if(!tls_data)
+            fatal("Out of memory");
+        if(c)
+            c->tls=tls_data;
+
+        tls_data->alloc_head=NULL;
+        tls_data->alloc_bytes=tls_data->alloc_blocks=0;
+        tls_data->c=c;
+        tls_data->opt=c?c->opt:&service_options;
     }
-    tls_data=calloc(1, sizeof(TLS_DATA));
-    if(!tls_data)
-        fatal("Out of memory");
-    if(c)
-        c->tls=tls_data;
-
-    tls_data->alloc_head=NULL;
-    tls_data->alloc_bytes=tls_data->alloc_blocks=0;
     tls_data->id="unconfigured";
-    tls_data->c=c;
-    tls_data->opt=c?c->opt:&service_options;
     tls_set(tls_data);
 
     /* str.c functions can be used below this point */
-    tls_data->id=c ? log_id(c) : str_dup(txt);
-    str_detach(tls_data->id); /* it is deallocated after str_stats() */
+    if(txt) {
+        tls_data->id=str_dup(txt);
+        str_detach(tls_data->id); /* it is deallocated after str_stats() */
+    } else if(c) {
+        tls_data->id=log_id(c);
+        str_detach(tls_data->id); /* it is deallocated after str_stats() */
+    }
+    if(old_id)
+        str_free(old_id);
 
     return tls_data;
 }

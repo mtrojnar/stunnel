@@ -43,15 +43,21 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *);
 NOEXPORT int prng_init(GLOBAL_OPTIONS *);
 NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
 
-int cli_index, opt_index; /* to keep structure for callbacks */
+int cli_index, opt_index, redirect_index; /* to keep structure for callbacks */
 
 int ssl_init(void) { /* init SSL before parsing configuration file */
     SSL_load_error_strings();
     SSL_library_init();
-    cli_index=SSL_get_ex_new_index(0, "cli index", NULL, NULL, NULL);
-    opt_index=SSL_CTX_get_ex_new_index(0, "opt index", NULL, NULL, NULL);
-    if(cli_index<0 || opt_index<0)
+    cli_index=SSL_get_ex_new_index(0, "cli pointer index",
+        NULL, NULL, NULL);
+    opt_index=SSL_CTX_get_ex_new_index(0, "opt pointer index",
+        NULL, NULL, NULL);
+    redirect_index=SSL_SESSION_get_ex_new_index(0, "redirect value index",
+        NULL, NULL, NULL);
+    if(cli_index<0 || opt_index<0 || redirect_index<0) {
+        s_log(LOG_ERR, "Application specific data initialization failed");
         return 1;
+    }
 #ifndef OPENSSL_NO_ENGINE
     ENGINE_load_builtin_engines();
 #endif

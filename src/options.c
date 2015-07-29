@@ -176,6 +176,8 @@ NOEXPORT ENGINE *engine_get_by_num(const int);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
 NOEXPORT void print_syntax(void);
+
+NOEXPORT void name_list_append(NAME_LIST **, char *);
 #ifndef USE_WIN32
 NOEXPORT char **argalloc(char *);
 #endif
@@ -1058,7 +1060,6 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     int tmp_int, endpoints=0;
     long tmp_long;
     unsigned long tmp_ulong;
-    NAME_LIST *tmplist;
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
@@ -1260,23 +1261,18 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     switch(cmd) {
     case CMD_BEGIN:
         section->option.remote=0;
-        section->connect_list=NULL;
-        addrlist_init(&section->connect_addr);
+        addrlist_init(&section->connect_addr, 1);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "connect"))
             break;
         section->option.remote=1;
-        tmplist=str_alloc(sizeof(NAME_LIST));
-        tmplist->name=str_dup(arg);
-        tmplist->next=section->connect_list;
-        section->connect_list=tmplist;
+        name_list_append(&section->connect_addr.names, arg);
         return NULL; /* OK */
     case CMD_END:
         if(!section->option.delayed_lookup &&
-                section->connect_list &&
-                !namelist2addrlist(&section->connect_addr,
-                    section->connect_list, DEFAULT_LOOPBACK)) {
+                section->connect_addr.names &&
+                !addrlist_resolve(&section->connect_addr)) {
             s_log(LOG_INFO,
                 "Cannot resolve connect target - delaying DNS lookup");
             section->option.delayed_lookup=1;
@@ -2026,23 +2022,25 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* redirect */
     switch(cmd) {
     case CMD_BEGIN:
-        section->redirect_list=NULL;
-        addrlist_init(&section->redirect_addr);
+        addrlist_init(&section->redirect_addr, 1);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "redirect"))
             break;
-        tmplist=str_alloc(sizeof(NAME_LIST));
-        tmplist->name=str_dup(arg);
-        tmplist->next=section->redirect_list;
-        section->redirect_list=tmplist;
+#ifdef SSL_OP_NO_TICKET
+        /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
+        /* session tickets do not support SSL_SESSION_*_ex_data() */
+        section->ssl_options_set|=SSL_OP_NO_TICKET;
+#endif
+        name_list_append(&section->redirect_addr.names, arg);
         return NULL; /* OK */
     case CMD_END:
-        if(section->redirect_list &&
-                !namelist2addrlist(&section->redirect_addr,
-                    section->redirect_list, DEFAULT_LOOPBACK)) {
+        if(!section->option.delayed_lookup &&
+                section->redirect_addr.names &&
+                !addrlist_resolve(&section->redirect_addr)) {
             s_log(LOG_INFO,
                 "Cannot resolve redirect target - delaying DNS lookup");
+            section->option.delayed_lookup=1;
         }
         break;
     case CMD_FREE:
@@ -2598,8 +2596,8 @@ NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
         /* setup host_name for SNI, prefer SNI and protocolHost if specified */
         if(section->protocol_host) /* 'protocolHost' option */
             section->sni=str_dup(section->protocol_host);
-        else if(section->connect_list) /* 'connect' option */
-            section->sni=str_dup(section->connect_list->name); /* first hostname */
+        else if(section->connect_addr.names) /* 'connect' option */
+            section->sni=str_dup(section->connect_addr.names->name); /* first hostname */
         if(section->sni) { /* either 'protocolHost' or 'connect' specified */
             tmp_str=strrchr(section->sni, ':');
             if(tmp_str) { /* 'host:port' -> drop ':port' */
@@ -3206,6 +3204,14 @@ NOEXPORT void print_syntax(void) {
 }
 
 /**************************************** various supporting functions */
+
+NOEXPORT void name_list_append(NAME_LIST **ptr, char *name) {
+    while(*ptr) /* find the null pointer */
+        ptr=&(*ptr)->next;
+    *ptr=str_alloc(sizeof(NAME_LIST));
+    (*ptr)->name=str_dup(name);
+    (*ptr)->next=NULL;
+}
 
 #ifndef USE_WIN32
 

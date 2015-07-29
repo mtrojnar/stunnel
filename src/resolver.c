@@ -40,7 +40,6 @@
 
 /**************************************** prototypes */
 
-NOEXPORT unsigned name2addrlist(SOCKADDR_LIST *, char *, char *);
 NOEXPORT void addrlist2addr(SOCKADDR_UNION *, SOCKADDR_LIST *);
 
 #ifndef HAVE_GETADDRINFO
@@ -129,7 +128,7 @@ unsigned name2addr(SOCKADDR_UNION *addr, char *name,
     unsigned retval;
 
     addr_list=str_alloc(sizeof(SOCKADDR_LIST));
-    addrlist_init(addr_list);
+    addrlist_init(addr_list, 1);
     retval=name2addrlist(addr_list, name, default_host);
     if(retval)
         addrlist2addr(addr, addr_list);
@@ -145,7 +144,7 @@ unsigned hostport2addr(SOCKADDR_UNION *addr,
     unsigned retval;
 
     addr_list=str_alloc(sizeof(SOCKADDR_LIST));
-    addrlist_init(addr_list);
+    addrlist_init(addr_list, 1);
     retval=hostport2addrlist(addr_list, host_name, port_name);
     if(retval)
         addrlist2addr(addr, addr_list);
@@ -176,21 +175,10 @@ NOEXPORT void addrlist2addr(SOCKADDR_UNION *addr, SOCKADDR_LIST *addr_list) {
     memcpy(addr, &addr_list->addr[0], sizeof(SOCKADDR_UNION));
 }
 
-unsigned namelist2addrlist(SOCKADDR_LIST *addr_list,
-        NAME_LIST *name_list, char *default_host) {
-    /* recursive implementation to reverse the list */
-    if(!name_list)
-        return 0;
-    return namelist2addrlist(addr_list, name_list->next, default_host) +
-        name2addrlist(addr_list, name_list->name, default_host);
-}
-
-NOEXPORT unsigned name2addrlist(SOCKADDR_LIST *addr_list,
+unsigned name2addrlist(SOCKADDR_LIST *addr_list,
         char *name, char *default_host) {
     char *tmp, *host_name, *port_name;
     unsigned retval;
-
-    addrlist_init(addr_list);
 
     /* first check if this is a UNIX socket */
 #ifdef HAVE_STRUCT_SOCKADDR_UN
@@ -275,7 +263,7 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
     return addr_list->num; /* ok - return the number of addresses */
 }
 
-void addrlist_init(SOCKADDR_LIST *addr_list) {
+void addrlist_init(SOCKADDR_LIST *addr_list, int clear_names) {
     addr_list->num=0;
     if(addr_list->addr)
         str_free(addr_list->addr);
@@ -284,14 +272,29 @@ void addrlist_init(SOCKADDR_LIST *addr_list) {
     /* allow structures created with sockaddr_dup() to modify
      * the original rr_val rather than its local copy */
     addr_list->rr_ptr=&addr_list->rr_val;
+    if(clear_names)
+        addr_list->names=NULL;
 }
 
-void addrlist_dup(SOCKADDR_LIST *dst, const SOCKADDR_LIST *src) {
+unsigned addrlist_dup(SOCKADDR_LIST *dst, const SOCKADDR_LIST *src) {
     memcpy(dst, src, sizeof(SOCKADDR_LIST));
-    if(src->addr) {
+    if(src->num) { /* already resolved */
         dst->addr=str_alloc(src->num*sizeof(SOCKADDR_UNION));
         memcpy(dst->addr, src->addr, src->num*sizeof(SOCKADDR_UNION));
+    } else { /* delayed resolver */
+        addrlist_resolve(dst);
     }
+    return dst->num;
+}
+
+unsigned addrlist_resolve(SOCKADDR_LIST *addr_list) {
+    unsigned num=0;
+    NAME_LIST *host;
+
+    addrlist_init(addr_list, 0);
+    for(host=addr_list->names; host; host=host->next)
+        num+=name2addrlist(addr_list, host->name, DEFAULT_LOOPBACK);
+    return num;
 }
 
 char *s_ntop(SOCKADDR_UNION *addr, socklen_t addrlen) {

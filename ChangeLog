@@ -1,6 +1,20 @@
 stunnel change log
 
 
+Version 5.14, 2015.03.25, urgency: HIGH:
+* Security bugfixes
+  - The "redirect" option now also redirects clients on SSL session
+    reuse.  In stunnel versions 5.00 to 5.12 reused sessions were
+    never redirected regardless of their certificate verification
+    result.
+    This vulnerability was reported by Johan Olofsson.
+* New features
+  - Windows service is automatically restarted after upgrade.
+* Bugfixes
+  - Fixed a memory allocation error during Unix daemon shutdown.
+  - Fixed handling multiple connect/redirect destinations.
+  - OpenSSL FIPS builds are now correctly reported on startup.
+
 Version 5.13, 2015.03.20, urgency: MEDIUM:
 * New features
   - The "service" option was modified to also control the syslog

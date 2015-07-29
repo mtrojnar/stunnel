@@ -838,7 +838,6 @@ NOEXPORT char *nntp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 
 NOEXPORT char *connect_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *request, *proto, *header;
-    NAME_LIST host_list;
 
     (void)opt; /* skip warning about unused parameter */
     if(phase!=PROTOCOL_EARLY)
@@ -868,9 +867,7 @@ NOEXPORT char *connect_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     } while(*header); /* not empty */
     str_free(header);
 
-    host_list.name=request+8;
-    host_list.next=NULL;
-    if(!namelist2addrlist(&c->connect_addr, &host_list, DEFAULT_LOOPBACK)) {
+    if(!name2addrlist(&c->connect_addr, request+8, DEFAULT_LOOPBACK)) {
         fd_putline(c, c->local_wfd.fd, "HTTP/1.0 404 Not Found");
         fd_putline(c, c->local_wfd.fd, "Server: stunnel/" STUNNEL_VERSION);
         fd_putline(c, c->local_wfd.fd, "");

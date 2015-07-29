@@ -3,7 +3,7 @@
 !include "Sections.nsh"
 
 !ifndef VERSION
-!define VERSION 5.13
+!define VERSION 5.14
 !endif
 
 !ifndef ZLIBDIR
@@ -40,10 +40,12 @@ Section "Stunnel Core Files (required)"
   SetOutPath "$INSTDIR"
 
   # stop the service, exit stunnel
+  Var /GLOBAL service
+  StrCpy $service 1
   ReadRegStr $R0 HKLM \
     "Software\Microsoft\Windows NT\CurrentVersion" CurrentVersion
   IfErrors skip_service_stop
-  ExecWait '"$INSTDIR\stunnel.exe" -stop -quiet'
+  ExecWait '"$INSTDIR\stunnel.exe" -stop -quiet' $service
 skip_service_stop:
   ExecWait '"$INSTDIR\stunnel.exe" -exit -quiet'
 
@@ -101,6 +103,12 @@ skip_service_stop:
   WriteRegDWORD HKLM \
     "Software\Microsoft\Windows\CurrentVersion\Uninstall\stunnel" \
     "NoRepair" 1
+
+  # start the service
+  IntCmp $service 0 lbl_start_service lbl_skip_service lbl_skip_service
+lbl_start_service:
+  ExecWait '"$INSTDIR\stunnel.exe" -start -quiet'
+lbl_skip_service:
 SectionEnd
 
 Section "Self-signed Certificate Tools" sectionCA

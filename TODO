@@ -25,6 +25,7 @@ A sponsor could allocate my time to get them faster.
   Visual Studio Professional Edition in order to retain FIPS compliance.
 * MSI installer for Windows.
 * Database and/or directory interface for retrieving PSK secrets.
+* Extend the sessiond protocol to also store the "redirect" state.
 
 Low priority features.  They will unlikely ever be supported.
 * Support static FIPS-enabled build.

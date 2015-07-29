@@ -148,7 +148,7 @@ void s_log(int level, const char *format, ...) {
 
     tls_data=tls_get();
     if(!tls_data) {
-        tls_data=tls_alloc(NULL, "log");
+        tls_data=tls_alloc(NULL, NULL, "log");
         s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized TLS at %s, line %d",
             __FILE__, __LINE__);
     }

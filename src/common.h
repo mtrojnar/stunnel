@@ -396,14 +396,15 @@ extern char *sys_errlist[];
 
 /**************************************** OpenSSL headers */
 
-#include <openssl/opensslv.h>
-
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>
 #if defined(USE_PTHREAD) && !(defined(OPENSSL_THREADS) || \
     (OPENSSL_VERSION_NUMBER<0x0090700fL && defined(THREADS)))
 #error OpenSSL library compiled without thread support
 #endif /* !OPENSSL_THREADS && USE_PTHREAD */
+
+/* opensslv.h requires prior opensslconf.h to include -fips in version string */
+#include <openssl/opensslv.h>
 
 #if OPENSSL_VERSION_NUMBER<0x0090700fL
 #define OPENSSL_NO_MD4

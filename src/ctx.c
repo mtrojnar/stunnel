@@ -147,7 +147,8 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
             return 1; /* FAILED */
         }
     }
-    SSL_CTX_set_session_cache_mode(section->ctx, SSL_SESS_CACHE_BOTH);
+    SSL_CTX_set_session_cache_mode(section->ctx,
+        SSL_SESS_CACHE_SERVER|SSL_SESS_CACHE_NO_INTERNAL_STORE);
     SSL_CTX_sess_set_cache_size(section->ctx, section->session_size);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
     if(section->option.sessiond) {
