@@ -8,7 +8,7 @@ stunnel \- universal SSL tunnel
 [-d [ip:]port [-f]] [ -l program | -r [ip:]port | -L program [-- args] ]
 
 .B stunnel
-{-c} [-T] [-p pemfile] [-v level] [-a directory]
+{-c} [-p pemfile] [-v level] [-a directory]
 [-t timeout] [-u username] [-n protocol]
 -r [ip:]port [ -d [ip:]port [-f] | -l program | -L program [-- args] ]
 .SH DESCRIPTION
@@ -165,3 +165,4 @@ OpenSSL project website
 Michal Trojnara <Michal.Trojnara@centertel.pl>
 Adam Hernik <adas@infocentrum.com>
 Pawel Krawczyk <kravietz@ceti.com.pl>
+PTY support by Dirk O. Siebnich <dok@vossnet.de>

@@ -1,16 +1,13 @@
 #!/usr/bin/perl
 
-$config   = "/tmp/ssl/openssl.cnf";
-$capath   = "/usr/local/ssl/bin/openssl ca";
-$certpass = "adas";
+$config   = "/var/openssl/openssl.cnf";
+$capath   = "/usr/bin/openssl ca";
+$certpass = "mypassword";
 $tempca   = "/tmp/ssl/cli".rand 10000;
 $tempout  = "/tmp/ssl/certtmp".rand 10000;
-$caout    = "/tmp/ssl/certwynik.txt";
-$CAcert   = "/tmp/ssl/demoCA/cacert.pem";
+$caout    = "/tmp/ssl/certout.txt";
+$CAcert   = "/var/openssl/localCA/cacert.pem";
 $spkac	  = "";
-
-
-
 
 &ReadForm;
 
@@ -28,24 +25,19 @@ close(TEMPCE);
 
 system("$capath -batch -config $config -spkac $tempca -out $tempout -key $certpass -cert $CAcert>> $caout 2>&1"); 
 open(CERT,"$tempout") || die &Error;
-@certyfikat = <CERT>;
+@certificate = <CERT>;
 close(CERT);
 
 #system("rm -f $tempca");
 #system("rm -f $tempout");
 
 print "Content-type: application/x-x509-user-cert\n\n";
-print @certyfikat;
-
-
-
-
+print @certificate;
 
 ##############################################################
 ####
-####     Procedury 
+####     Procedures
 ####
-
 
 sub ReadForm {
 
@@ -54,30 +46,20 @@ sub ReadForm {
    }
    elsif ($ENV{'REQUEST_METHOD'} eq 'POST') {
       read(STDIN, $buffer, $ENV{'CONTENT_LENGTH'});
-
       @pairs = split(/&/, $buffer);
    }
-  
    foreach $pair (@pairs) {
       ($name, $value) = split(/=/, $pair);
-
       $name =~ tr/+/ /;
       $name =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
-
       $value =~ tr/+/ /;
       $value =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
-
       $value =~ s/<!--(.|\n)*-->//g;
-
       $FIELDS{$name} = $value;
-      
       }
- 
 }
 
 sub Error {
-
     print "Content-type: text/html\n\n";
     print "<P><P><center><H1>Cant open file</H1></center>\n";
-
 }

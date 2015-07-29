@@ -8,7 +8,8 @@ sbindir=@sbindir@
 libdir=@libdir@
 mandir=@mandir@/man8
 ssldir=@ssldir@
-certdir=$(ssldir)/certs
+sslcnf=@sslcnf@
+certdir=$(sslcnf)/certs
 @SET_MAKE@
 VERSION=stunnel-@VERSION@
 CC=@CC@
@@ -21,7 +22,7 @@ DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(mandir)/stunnel.8 \
 
 # standard external rules
 
-all: stunnel stunnel.so
+all: stunnel stunnel.so stunnel.pem
 
 install: installdirs $(DESTFILES)
 
@@ -67,7 +68,11 @@ stunnel: $(OBJS)
 
 stunnel.so: Makefile env.c
 	$(CC) -fPIC -shared $(LDFLAGS) -o stunnel.so env.c $(LIBS) || \
-	(touch stunnel.so && echo && echo "You can ignore this error" && echo)
+	touch stunnel.so
+	@test -s stunnel.pem || echo
+	@test -s stunnel.pem || echo "You can ignore this error"
+	@test -s stunnel.pem || echo "Shared library won't work on your system"
+	@test -s stunnel.pem || echo
 
 Makefile: configure Makefile.in
 	./configure
@@ -79,9 +84,9 @@ configure: configure.in
 
 $(OBJS): Makefile common.h
 
-stunnel.pem:
-	$(ssldir)/bin/openssl req -new -x509 -days 365 -config stunnel.cnf \
-		-out stunnel.pem -keyout stunnel.pem
+stunnel.pem: stunnel.cnf
+	$(ssldir)/bin/openssl req -new -x509 -days 365 -nodes \
+		-config stunnel.cnf -out stunnel.pem -keyout stunnel.pem
 	$(ssldir)/bin/openssl gendh -rand \
 		`test -c /dev/random && echo /dev/random` 512 >> stunnel.pem
 	$(ssldir)/bin/openssl x509 -subject -dates -fingerprint -noout \
@@ -91,7 +96,7 @@ $(sbindir)/stunnel: stunnel
 	$(INSTALL) -m 711 stunnel $(sbindir)
 
 $(libdir)/stunnel.so: stunnel.so
-	test ! -s stunnel.so || $(INSTALL) -m 755 stunnel.so $(libdir)
+	test -s stunnel.so && $(INSTALL) -m 755 stunnel.so $(libdir)
 
 $(mandir)/stunnel.8: stunnel.8
 	$(INSTALL) -m 644 stunnel.8 $(mandir)

@@ -1,16 +1,16 @@
 
 Transparent proxying support:
 
-(with much thanks to Bernd Eckenfels, who has been maintaing redir for
+(With much thanks to Bernd Eckenfels, who has been maintaing redir for
 debian, and pointed out to me that this could be done at all.)
 
 Most semi-recent versions of the linux kernel have an option which can
 be used with IP firewalls entitled "transparent proxying".  Basically,
-it allows one to add rules with ipfwadm which will redirect all
+it allows one to add rules with ipfwadm/ipchains which will redirect all
 connections to certain hosts, on certain ports, to a port on the
 firewall machine.
 
-An convienent upshot of this feature is that, when it is enabled, a
+A convenient upshot of this feature is that, when it is enabled, a
 program running as root may explicitly specify the outgoing address to
 be used when making a connection to just about anything it pleases,
 which allows us to, when redirecting a connection, make the connection
@@ -42,7 +42,7 @@ Note the following side effects:
    IP 10.0.0.1, and a netmask of 255.0.0.0 (that is, inside network is
    considered to encompass the entire 10.0.0.0 network).  All machines
    inside the network are configured to use 10.0.0.1 as their gateway
-   address. We want toredirect all connections to the firewall on port 
+   address. We want to redirect all connections to the firewall on port 
    2323 to port 23 on 10.0.0.2, and we'd like to use --transproxy, so we run:
 
    redir --transproxy 10.0.0.2 23 2323

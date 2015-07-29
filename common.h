@@ -22,13 +22,14 @@
 #define OPT_CERT        0x02
 #define OPT_DAEMON      0x04
 #define OPT_FOREGROUND  0x08
-#define OPT_LOCAL       0x10
+#define OPT_PROGRAM     0x10
 #define OPT_REMOTE      0x20
 #define OPT_TRANSPARENT 0x40
+#define OPT_PTY         0x80
 
 #ifdef USE_WIN32
 
-#define VERSION "3.3"
+#define VERSION "3.5"
 #define HOST "i586-pc-mingw32-gnu"
 
 #define HAVE_VSNPRINTF

@@ -1,5 +1,14 @@
 stunnel         Universal SSL tunnel
 
+3.5 2000.02.02	Support for openssl 0.9.4 added.
+		/usr/ssl added to configure by Christian Zuckschwerdt.
+		Added tunneling for PPP through the addition of PTY handling,
+		and some documentation.
+
+3.4a 1999.07.13	(bugfix release)
+		Problem with cipher negotiation fixed.
+		setenv changed to putenv.
+
 3.4 1999.07.12	Local transparent proxy added with LD_PRELOADed shared library.
 		DH code rewritten.
 		Added -C option to set cipher list.

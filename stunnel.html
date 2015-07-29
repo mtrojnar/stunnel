@@ -11,7 +11,7 @@ stunnel - universal SSL tunnel
 [-d [ip:]port [-f]] [ -l program | -r [ip:]port | -L program [-- args] ]
 
 <B>stunnel</B>
-{-c} [-T] [-p pemfile] [-v level] [-a directory]
+{-c} [-p pemfile] [-v level] [-a directory]
 [-t timeout] [-u username] [-n protocol]
 -r [ip:]port [ -d [ip:]port [-f] | -l program | -L program [-- args] ]
 <DD><BR><DT><B>DESCRIPTION</B><DD>
@@ -53,7 +53,7 @@ transparent proxy mode (on hosts that support it)
 certificate (*.pem) file name
 <BLOCKQUOTE>
 
-default: @sslcnf@/certs/stunnel.pem for server mode,
+default: /var/openssl/certs/stunnel.pem for server mode,
 none for client mode
 </BLOCKQUOTE>
 
@@ -75,7 +75,7 @@ default: no verify
 client certificate directory for -v 3 option
 <BLOCKQUOTE>
 
-default: @sslcnf@/certs/trusted
+default: /var/openssl/certs/trusted
 </BLOCKQUOTE>
 
 <DD>
@@ -198,5 +198,6 @@ OpenSSL project website
 <PRE>Michal Trojnara &lt;<A HREF="MAILTO:Michal.Trojnara@centertel.pl">Michal.Trojnara@centertel.pl</A>&gt;
 Adam Hernik &lt;<A HREF="MAILTO:adas@infocentrum.com">adas@infocentrum.com</A>&gt;
 Pawel Krawczyk &lt;<A HREF="MAILTO:kravietz@ceti.com.pl">kravietz@ceti.com.pl</A>&gt;
+PTY support by Dirk O. Siebnich &lt;<A HREF="MAILTO:dok@vossnet.de">dok@vossnet.de</A>&gt;
 </DL></BODY>
 </HTML>

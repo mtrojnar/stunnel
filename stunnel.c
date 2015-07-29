@@ -3,11 +3,12 @@
  *   Copyright (c) 1998-1999 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
- *   Version:      3.4              (stunnel.c)
- *   Date:         1999.07.12
+ *   Version:      3.5              (stunnel.c)
+ *   Date:         2000.02.02
  *   Author:       Michal Trojnara  <Michal.Trojnara@centertel.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
+ *   PTY support:  Dirk O. Siebnich <dok@vossnet.de>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -36,18 +37,18 @@
 #define DEFAULT_CERT "stunnel.pem"
 
 /* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR "mytrusted"
+#define CA_DIR "trusted"
 
 #else /* USE_WIN32 */
 
 /* directory for certificate */
-#define CERT_DIR ssldir "/certs"
+#define CERT_DIR sslcnf "/certs"
 
 /* default certificate */
 #define DEFAULT_CERT CERT_DIR "/stunnel.pem"
 
 /* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR CERT_DIR "/mytrusted"
+#define CA_DIR CERT_DIR "/trusted"
 
 #endif /* USE_WIN32 */
 
@@ -80,6 +81,10 @@ static struct WSAData wsa_state;
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>      /* getpid, fork, execvp, exit */
 #endif
+#ifdef HAVE_PTY_H
+#include <pty.h>
+#endif
+#include <fcntl.h>
 
     /* Networking headers */
 #include <sys/types.h>   /* u_short, u_long */
@@ -128,7 +133,7 @@ static void sigchld_handler(int);
 static void signal_handler(int);
 #endif
 #ifndef HAVE_GETOPT
-static int getopt(int, char **, char*);
+static int getopt(int, char **, char *);
 #endif
 static void safestring(char *);
 static void alloc(u_long **, int);
@@ -140,6 +145,8 @@ server_options options;
 /* Safe copy for strings declarated as char[STRLEN] */
 #define safecopy(dst, src) \
     (dst[STRLEN-1]='\0', strncpy((dst), (src), STRLEN-1))
+#define safeconcat(dst, src) \
+    (dst[STRLEN-1]='\0', strncat((dst), (src), STRLEN-strlen(dst)-1))
 
     /* Functions */
 int main(int argc, char* argv[])
@@ -184,15 +191,26 @@ int main(int argc, char* argv[])
     context_init(); /* initialize global SSL context */
     sthreads_init(); /* initialize threads */
     log(LOG_NOTICE, STUNNEL_INFO);
-    if(options.option&OPT_DAEMON) {
+    if (options.option & OPT_DAEMON) {
+        /* client or server, daemon mode */
 #ifndef USE_WIN32
-        if(!(options.option&OPT_FOREGROUND))
+        if (!(options.option & OPT_FOREGROUND))
             daemonize();
         create_pid();
 #endif
         daemon_loop();
-    } else { /* inetd mode */
-        options.clients=1; /* single client */
+    } else if ((options.option & OPT_CLIENT) &&
+        (options.option & OPT_PROGRAM)) {
+        /* client, program mode */
+        int local;
+        u_long ip = 0; /* local program or stdin/stdout */
+        if ((local = connect_local(ip)) >= 0) {
+            options.clients = 1;
+            client(local);
+        }
+    } else {
+        /* client or server, inetd mode */
+        options.clients = 1;
         client(0); /* connection from fd 0 - stdin */
     }
     /* close SSL */
@@ -201,8 +219,8 @@ int main(int argc, char* argv[])
     return 0; /* success */
 }
 
-static void get_options(int argc, char *argv[])
-{   /* get options and set global variables */
+static void get_options(int argc, char *argv[]) {
+    /* get options and set global variables */
     int c;
     extern char *optarg;
     extern int optind, opterr, optopt;
@@ -218,7 +236,7 @@ static void get_options(int argc, char *argv[])
     options.username=NULL;
     options.protocol=NULL;
     opterr=0;
-    while ((c = getopt(argc, argv, "a:cp:v:d:fTl:r:t:u:n:hC:D:V")) != EOF)
+    while ((c = getopt(argc, argv, "a:cp:v:d:fTl:L:r:t:u:n:hC:D:V")) != EOF)
         switch (c) {
             case 'a':
                 safecopy(options.clientdir, optarg);
@@ -265,33 +283,32 @@ static void get_options(int argc, char *argv[])
             case 'T':
                 options.option|=OPT_TRANSPARENT;
                 break;
+#ifdef USE_PTY
+            case 'L':
+                options.option |= OPT_PTY;
+#endif
             case 'l':
-                if(options.option&(OPT_LOCAL|OPT_REMOTE)) {
-                    log(LOG_ERR, "Multiple local/remote mode not allowed");
-                    print_help();
-                }
-                options.option|=OPT_LOCAL;
-                options.execname=optarg;
+                options.option |= OPT_PROGRAM;
+                options.execname = optarg;
                 /* Default servname is options.execname w/o path */
-                safecopy(options.servname, optarg);
-                tmpstr=strrchr(options.servname, '/');
-                if(tmpstr)
+                tmpstr = strrchr(options.execname, '/');
+                if (tmpstr)
                     safecopy(options.servname, tmpstr+1);
+                else
+                    safecopy(options.servname, options.execname);
                 break;
             case 'r':
-                if(options.option&(OPT_LOCAL|OPT_REMOTE)) {
-                    log(LOG_ERR, "Multiple local/remote mode not allowed");
-                    print_help();
+                options.option |= OPT_REMOTE;
+                if (!(options.option & OPT_PROGRAM)) {
+                    /* Default servname is optarg with '.' instead of ':' */
+                    safecopy(options.servname, optarg);
+                    safestring(options.servname);
                 }
-                options.option|=OPT_REMOTE;
-                /* Default servname is optarg with '.' instead of ':' */
-                safecopy(options.servname, optarg);
-		safestring(options.servname);
                 options.remotenames=NULL;
                 name2nums(optarg, &options.remotenames, &options.remoteport);
-                if(!options.remotenames) {
+                if (!options.remotenames) {
                     alloc(&options.remotenames, 1);
-                    options.remotenames[0]=htonl(INADDR_LOOPBACK);
+                    options.remotenames[0] = htonl(INADDR_LOOPBACK);
                 }
                 break;
             case 't':
@@ -327,18 +344,39 @@ static void get_options(int argc, char *argv[])
                 log(LOG_ERR, "Internal error in get_options");
                 print_help();
         }
-        if(!(options.option&(OPT_LOCAL|OPT_REMOTE))) {
-            log(LOG_ERR, "Either local or remote mode must be specified");
+    if (options.option & OPT_CLIENT) {
+        if (!(options.option & OPT_REMOTE)) {
+            log(LOG_ERR, "Remote service must be specified");
             print_help();
+        }
+        if (options.option & OPT_TRANSPARENT) {
+            log(LOG_ERR,
+                "Client mode not available in transparent proxy mode");
+            print_help();
+        }
+        if ((options.option & OPT_PROGRAM) &&
+            (options.option & OPT_DAEMON)) {
+            log(LOG_ERR,
+                "Only one of program or daemon mode can be specified");
+            print_help();
+        }
+    } else {
+        options.option |= OPT_CERT; /* Server always needs a certificate */
+        if (!(options.option & (OPT_PROGRAM | OPT_REMOTE))) {
+            log(LOG_ERR, "Either program or remote service must be specified");
+            print_help();
+        }
+        if ((options.option & OPT_PROGRAM) && (options.option & OPT_REMOTE)) {
+            log(LOG_ERR, "Only one of program or remote service can be specified");
+            print_help();
+        }
     }
-    if(!(options.option&OPT_CLIENT))
-        options.option|=OPT_CERT; /* Server always needs a certificate */
-    if(optind==argc) { /* No arguments - use servname as execargs */
-        default_args[0]=options.servname;
-        default_args[1]=NULL;
-        options.execargs=default_args;
+    if (optind == argc) { /* No arguments - use servname as execargs */
+        default_args[0] = options.servname;
+        default_args[1] = 0;
+        options.execargs = default_args;
     } else { /* There are some arguments - use execargs[0] as servname */
-        options.execargs=argv+optind;
+        options.execargs = argv + optind;
         safecopy(options.servname, options.execargs[0]);
     }
     log(LOG_DEBUG, "Service name to be used: %s", options.servname);
@@ -365,7 +403,7 @@ static void daemon_loop()
         while(s<0 && errno==EINTR);
         if(s<0) {
             sockerror("accept");
-            exit(1);
+            continue;
         }
         if(options.clients<MAX_CLIENTS) {
             if(create_client(ls, s, client))
@@ -474,38 +512,55 @@ int connect_local(u_long ip) /* connect to local host */
     log(LOG_ERR, "LOCAL MODE NOT SUPPORTED ON WIN32 PLATFORM");
     return -1;
 #else
-    int fd[2];
-    struct in_addr addr;
+    {
+        struct in_addr addr;
+        char text[STRLEN];
+        int fd[2];
 
-    if(make_sockets(fd))
-        return -1;
-    switch(fork()) {
-    case -1:    /* error */
-        closesocket(fd[0]);
-        closesocket(fd[1]);
-        ioerror("fork");
-        return -1;
-    case  0:    /* child */
-        log(LOG_DEBUG, "Child created");
-        closesocket(fd[0]);
-        dup2(fd[1], 0);
-        dup2(fd[1], 1);
-        if(!options.foreground)
-            dup2(fd[1], 2);
-        closesocket(fd[1]);
-        if(ip) {
-            setenv("LD_PRELOAD", libdir "/stunnel.so", 1);
-            addr.s_addr=ip;
-            setenv("REMOTE_HOST", inet_ntoa(addr), 1);
+#ifdef USE_PTY
+        char tty[STRLEN];
+
+        if (options.option & OPT_PTY) {
+            if(openpty(fd, fd+1, tty, NULL, NULL)<0) {
+                ioerror("openpty");
+                return -1;
+            }
+            log(LOG_DEBUG, "%s allocated", tty);
+        } else
+#endif /* USE_PTY */
+        {
+            if(make_sockets(fd))
+                return -1;
         }
-        execvp(options.execname, options.execargs);
-        ioerror("execvp"); /* execvp failed */
-        exit(1);
+        switch (fork()) {
+        case -1:    /* error */
+            closesocket(fd[0]);
+            closesocket(fd[1]);
+            ioerror("fork");
+            return -1;
+        case  0:    /* child */
+            closesocket(fd[0]);
+            dup2(fd[1], 0);
+            dup2(fd[1], 1);
+            if (!options.foreground)
+                dup2(fd[1], 2);
+            closesocket(fd[1]);
+            if (ip) {
+                putenv("LD_PRELOAD=" libdir "/stunnel.so");
+                addr.s_addr = ip;
+                safecopy(text, "REMOTE_HOST=");
+                safeconcat(text, inet_ntoa(addr));
+                putenv(text);
+            }
+            execvp(options.execname, options.execargs);
+            ioerror("execvp"); /* execv failed */
+            exit(1);
+        }
+        /* parent */
+        closesocket(fd[1]);
+        return fd[0];
     }
-    /* parent */
-    closesocket(fd[1]);
-    return fd[0];
-#endif
+#endif /* USE_WIN32 */
 }
 
 int connect_remote(u_long ip) /* connect to remote host */
@@ -798,12 +853,21 @@ static void alloc(u_long **ptr, int len)
 static void print_help()
 {
     fprintf(stderr,
-        "\nstunnel [-c] [-T] [-p pemfile] [-v level] [-a directory]"
-        "\n\t\t[-t timeout] [-u username] [-n protocol] "
+        "\nstunnel [-T] [-p pemfile] [-v level] [-a directory]"
+        "\n\t[-t timeout] [-u username] [-n protocol]"
 #ifndef USE_WIN32
-        "\n\t\t[-d [ip:]port [-f]] -l program | -r [ip:]port"
+        "\n\t[-d [ip:]port [-f]]"
+        "\n\t[ -l program | -r [ip:]port | -L program [-- args] ]"
 #else
-        "\n\t\t-d [ip:]port -r [ip:]port"
+        "\n\t-d [ip:]port -r [ip:]port"
+#endif
+        "\nstunnel {-c} [-p pemfile] [-v level] [-a directory]"
+        "\n\t[-t timeout] [-u username] [-n protocol]"
+#ifndef USE_WIN32
+        "\n\t-r [ip:]port"
+        "\n\t[ -d [ip:]port [-f] | -l program | -L program [-- args] ]"
+#else
+        "\n\t-r [ip:]port -d [ip:]port"
 #endif
         "\n\n  -c\t\tclient mode (remote service uses SSL)"
         "\n\t\tdefault: server mode"
@@ -814,7 +878,7 @@ static void print_help()
         "\n  -v level\tverify peer certificate"
         "\n\t\tlevel 1 - verify peer certificate if present"
         "\n\t\tlevel 2 - verify peer certificate"
-        "\n\t\tlevel 3 - verify peer with localy installed certificate"
+        "\n\t\tlevel 3 - verify peer with locally installed certificate"
         "\n\t\tdefault: no verify"
         "\n  -a directory\tclient certificate directory for -v 3 option"
         "\n\t\tdefault: " CA_DIR
@@ -829,8 +893,9 @@ static void print_help()
         "\n  -f\t\tforeground mode (don't fork, log to stderr)"
         "\n\t\tdefault: background in daemon mode"
         "\n  -l program\texecute local inetd-type program"
+        "\n  -L program\topen local pty and execute program"
 #endif
-        "\n  -r [ip:]port\tconnect to remote daemon"
+        "\n  -r [ip:]port\tconnect to remote service"
         " (ip defaults to INADDR_LOOPBACK)"
         "\n  -h\t\tprint this help screen"
         "\n  -C list\tset permitted SSL ciphers"

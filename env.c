@@ -20,9 +20,10 @@
 
 /* getpeername can't be declarated in a normal way */
 #define getpeername no_getpeername
-#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/socket.h> /* for AF_INET */
 #include <netinet/in.h>
-#include <stdlib.h>
+#include <stdlib.h>     /* for getenv */
 #undef getpeername
 
 int getpeername(int s, struct sockaddr_in *name, int *len) {

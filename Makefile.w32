@@ -1,6 +1,6 @@
 # Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-1999
 
-SSLDIR=../openssl-0.9.3
+SSLDIR=../openssl-0.9.4
 
 CC=gcc
 CFLAGS=-O2 -Wall -DUSE_WIN32 -DHAVE_OPENSSL -I$(SSLDIR)/outinc

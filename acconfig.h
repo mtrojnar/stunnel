@@ -1,6 +1,9 @@
 /* SSL directory.  */
 #undef ssldir
 
+/* SSL config directory.  */
+#undef sslcnf
+
 /* Stunnel version.  */
 #undef VERSION
 

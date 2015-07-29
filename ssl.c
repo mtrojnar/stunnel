@@ -19,10 +19,10 @@
  */
 
 /* For US citizens having problems with patents, undefined by default */
-/* #define NO_RSA */
+#define NO_RSA
 
-/* DH is an experimental code, so feel free to uncomment the next line */
-/* #define NO_DH */
+/* Experimental DH support is disabled by default */
+#define NO_DH
 
 /* Length of temporary RSA key */
 #ifndef NO_RSA
@@ -44,7 +44,7 @@
 #define DEFAULT_CERT "stunnel.pem"
 
 /* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR "mytrusted"
+#define CA_DIR "trusted"
 
 /* certificate used for sign our client certs */
 #define CLIENT_CA "cacert.pem"
@@ -52,16 +52,16 @@
 #else /* USE_WIN32 */
 
 /* directory for certificate */
-#define CERT_DIR ssldir "/certs"
+#define CERT_DIR sslcnf "/certs"
 
 /* default certificate */
 #define DEFAULT_CERT CERT_DIR "/stunnel.pem"
 
 /* additional directory (hashed!) with trusted CA client certs */
-#define CA_DIR CERT_DIR "/mytrusted"
+#define CA_DIR CERT_DIR "/trusted"
 
-/* certificate used for sign our client certs */
-#define CLIENT_CA ssldir "/bin/demoCA/cacert.pem"
+/* certificate used for signing our client certs */
+#define CLIENT_CA sslcnf "/localCA/cacert.pem"
 
 #endif /* USE_WIN32 */
 
@@ -107,7 +107,7 @@
 #include <getopt.h>      /* getopt */
 #endif
 #ifdef HAVE_UNISTD_H
-#include <unistd.h>      /* getpid, fork, execvp, exit */
+#include <unistd.h>      /* getpid, fork, execv, exit */
 #endif
 
 /* Networking headers */
@@ -176,9 +176,9 @@ void context_init() /* init SSL */
     SSLeay_add_ssl_algorithms();
     SSL_load_error_strings();
     if(options.option&OPT_CLIENT) {
-        ctx=SSL_CTX_new(TLSv1_client_method());
+        ctx=SSL_CTX_new(SSLv3_client_method());
     } else { /* Server mode */
-        ctx=SSL_CTX_new(TLSv1_server_method());
+        ctx=SSL_CTX_new(SSLv23_server_method());
 #ifndef NO_RSA
         log(LOG_DEBUG, "Generating %d bit temporary RSA key...", KEYLENGTH);
 #if SSLEAY_VERSION_NUMBER <= 0x0800
@@ -191,10 +191,7 @@ void context_init() /* init SSL */
             exit(1);
         }
         log(LOG_DEBUG, "Temporary RSA key generated");
-        if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb)) {
-            sslerror("SSL_CTX_set_tmp_rsa_callback");
-            exit(1);
-        }
+        SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb);
 #endif /* NO_RSA */
 #ifndef NO_DH
         if(!(bio=BIO_new_file(options.certfile, "r"))) {
@@ -202,7 +199,11 @@ void context_init() /* init SSL */
                 strerror(errno));
             goto dh_failed;
         }
-        if(!(dh=PEM_read_bio_DHparams(bio, NULL, NULL))) {
+        if(!(dh=PEM_read_bio_DHparams(bio, NULL, NULL
+#if SSLEAY_VERSION_NUMBER >= 0x00904000L
+                , NULL
+#endif
+                ))) {
             log(LOG_ERR, "Could not load DH parameters from %s",
                 options.certfile);
             goto dh_failed;
@@ -255,10 +256,7 @@ dh_done:
         if (options.verify_use_only_my)
             log(LOG_NOTICE, "Peer certificate location %s", options.clientdir);
     }
-    if(!SSL_CTX_set_info_callback(ctx, info_callback)) {
-        sslerror("SSL_CTX_set_info_callback");
-        exit(1);
-    }
+    SSL_CTX_set_info_callback(ctx, info_callback);
     if(options.cipher_list) {
         if (!SSL_CTX_set_cipher_list(ctx, options.cipher_list)) {
             sslerror("SSL_CTX_set_cipher_list");
@@ -299,8 +297,9 @@ void client(int local)
         request_init(&request, RQ_DAEMON, options.servname, RQ_FILE, local, 0);
         fromhost(&request);
         if (!hosts_access(&request)) {
-            log(LOG_WARNING, "Connection from %s:%d REFUSED by LIBWRAP",
+            log(LOG_WARNING, "Connection from %s:%d REFUSED by libwrap",
                 inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+            log(LOG_DEBUG, "See hosts_access(5) for details");
             goto cleanup_local;
         }
 #endif
@@ -373,12 +372,16 @@ cleanup_ssl: /* close SSL and reset sockets */
     SSL_free(ssl);
     ERR_remove_state(0);
 cleanup_remote: /* reset remote and local socket */
-    setsockopt(remote, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l));
-    /* Ignore the error */
+    if ((options.option & OPT_REMOTE) &&
+        setsockopt(remote, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l)) < 0 &&
+        errno != ENOTSOCK)
+        sockerror("linger (remote)");
     closesocket(remote);
 cleanup_local: /* reset local socket */
-    setsockopt(local, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l));
-    /* Ignore the error */
+    if (!((options.option & OPT_CLIENT) && (options.option & OPT_PROGRAM)) &&
+        setsockopt(local, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l)) < 0 &&
+        errno != ENOTSOCK)
+        sockerror("linger (local)");
     closesocket(local);
 done:
 #ifndef USE_FORK
@@ -437,15 +440,14 @@ static int transfer(SSL *ssl, int sock_fd) /* transfer data */
                 log(LOG_NOTICE, "IPC reset (child died)");
                 break; /* close connection */
             }
-            if(num<0) {
+            if (num < 0 && errno != EIO) {
                 sockerror("read");
                 goto error;
-            }
-            if(num) {
-                sock_ptr+=num;
+            } else if (num > 0) {
+                sock_ptr += num;
             } else { /* close */
                 log(LOG_DEBUG, "Socket closed on read");
-                sock_open=0;
+                sock_open = 0;
             }
         }
         if(ssl_open && FD_ISSET(ssl_fd, &rd_set)) {

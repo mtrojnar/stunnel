@@ -2,5 +2,5 @@ stunnel         Universal SSL tunnel
 
 KNOWN BUGS
 
-- None (known).  8-)
+- Shared library is not too portable.
 

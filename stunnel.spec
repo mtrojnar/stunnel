@@ -1,11 +1,10 @@
 Summary: Program that wraps normal socket connections with SSL/TLS
 Name: stunnel
-Version: 3.4
+Version: 3.5
 Release: 1
 Copyright: GPL
 Group: Applications/Networking
-Source: stunnel-3.3.tar.gz
-Patch: stunnel-3.3-3.4.patch
+Source: stunnel-%{version}.tar.gz
 Requires: openssl >= 0.9.3a
 Buildroot: /var/tmp/stunnel-root
 
@@ -21,17 +20,15 @@ NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
 changes to the source code.
  
 %prep
-%setup -n stunnel-3.3
-%patch -p1 -b .orig
+%setup -n stunnel-%{version}
 
 %build
 autoconf
 autoheader
 
-# !!! import settings !!!
-# '-DNO_IDEA' in USA, Europe, Japan, where Ascom Systec Ltd. holds patents
+# !!! important settings !!!
 # '-DNO_RSA' in USA
-CFLAGS="${RPM_OPT_FLAGS} -DNO_IDEA" ./configure
+CFLAGS="${RPM_OPT_FLAGS}" ./configure
 
 make
 make stunnel.html
@@ -39,23 +36,36 @@ make stunnel.html
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
+mkdir -p $RPM_BUILD_ROOT/usr/lib
 mkdir -p $RPM_BUILD_ROOT/usr/man/man8
 mkdir -p $RPM_BUILD_ROOT/var/openssl/certs/trusted
 
 install -m755 -s stunnel $RPM_BUILD_ROOT/usr/sbin
+install -m755 -s stunnel.so $RPM_BUILD_ROOT/usr/lib
 install -m644 stunnel.8 $RPM_BUILD_ROOT/usr/man/man8
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%post
+ldconfig
+
+%postun
+ldconfig
+
 %files
 %defattr(-,root,root)
-%doc FAQ stunnel.html ca.html ca.pl importCA.html importCA.sh stunnel.cnf 
+%doc FAQ stunnel.html transproxy.txt
+%doc ca.html ca.pl importCA.html importCA.sh stunnel.cnf
 /usr/sbin/stunnel
+/usr/lib/stunnel.so
 /usr/man/man8/stunnel.8
 %dir /var/openssl/certs/trusted
 
 %changelog
+* Wed Jul 14 1999 Dirk O. Siebnich <dok@vossnet.de>
+- updated for 3.5.
+
 * Mon Jun 07 1999 Dirk O. Siebnich <dok@vossnet.de>
 - adapted from sslwrap RPM spec file
 

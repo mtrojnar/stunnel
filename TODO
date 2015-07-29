@@ -1,12 +1,8 @@
 stunnel         Universal SSL tunnel
 
-- Add PTY feature.
-
 - Add Win32 GUI.
 
 - Log to file on Win32, log to EventLog on NT.
 
 - Update manual, etc.
-
-- Test RSAREF support.
 

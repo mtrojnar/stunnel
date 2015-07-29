@@ -9,9 +9,20 @@ if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.4"
+VERSION="3.5"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
+
+AC_MSG_CHECKING([for SSL config directory])
+for dir in /usr/local/openssl /usr/lib/openssl /var/openssl; do
+    sslcnf="$dir"
+    if test -d "$dir/certs"; then
+        break
+    fi
+done
+AC_MSG_RESULT($sslcnf)
+AC_SUBST(sslcnf)
+AC_DEFINE_UNQUOTED(sslcnf, "$sslcnf")
 
 AC_SUBST(host)
 AC_DEFINE_UNQUOTED(HOST, "$host")
@@ -20,7 +31,7 @@ dnl Checks for standard libraries.
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(pthread, pthread_create)
-AC_CHECK_LIB(util, forkpty)
+AC_CHECK_LIB(util, openpty)
 
 dnl Check for libwrap library.
 AC_MSG_CHECKING([for hosts_access in -lwrap])
@@ -33,7 +44,7 @@ AC_TRY_LINK([int hosts_access(); int allow_severity, deny_severity;],
 
 dnl Check for SSL directories.
 AC_MSG_CHECKING([for SSL directory])
-for dir in /usr/local/ssl /usr/lib/ssl /usr/pkg /usr/local /usr; do
+for dir in ${prefix} /usr/local/ssl /usr/lib/ssl /usr/ssl /usr/pkg /usr/local /usr; do
     ssldir="$dir"
     if test -f "$dir/include/openssl/ssl.h"; then
         AC_DEFINE(HAVE_OPENSSL)

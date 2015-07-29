@@ -103,12 +103,23 @@ A: Look into your syslog or use "-f" option.
 Q: I don't understand the error.  Please help!
 A: Prepare following data:
    1. Description of your problem.
-   2. Output of "stunnel -f -d 7 <your-parameters>".
+   2. Output of "stunnel -f -D 7 <your-parameters>".
    3. Output of "uname -a".
    4. Your libc version if you use Linux.
    5. Output of "gcc -v".
    6. Output of "openssl version" or "ssleay version" depending of you library.
    Subscribe stunnel-users.
    Send e-mail with the above informations to the list.
+
+Q: How do I use stunnel to create a secure PPP session over the internet?
+A: Follow these steps:
+   1. Set up your PPP stuff as you would otherwise do for a serial (dialup)
+      connection, passwords and all.
+   2. Decide on how you want stunnel to run on the server system, i.e. inetd
+      vs. daemon mode.
+   3. On the server, use something like (observe the -L for pty mode)
+      "stunnel -d 2020 -L /usr/sbin/pppd -- pppd local"
+   4. On the client system, in order to bring up the secure PPP link run
+      "stunnel -c -r server:2020 -L /usr/sbin/pppd -- pppd local"
 
 * THE END *
