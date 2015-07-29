@@ -1,12 +1,6 @@
 stunnel         Universal SSL tunnel
 
-* Use poll(2) instead of socket(2) where possibe.
+* Drop the threads for non-blocking sockets.
 
-* New user interface with configuration file and long options (--option).
-
-* Log to file on Win32, log to EventLog on NT.
-
-* CRL support.
-
-* Win32 GUI. 8-)
+* Build stunnel.so with libtool
 

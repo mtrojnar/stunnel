@@ -1,17 +1,16 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT
-AC_CONFIG_SRCDIR([stunnel.c])
+AC_INIT(stunnel, 4.00)
+AC_CONFIG_AUX_DIR(auto)
+AM_INIT_AUTOMAKE(stunnel, 4.00)
+AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
 AC_PROG_CC
 if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
-
-VERSION="3.22"
-AC_SUBST(VERSION)
-AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
+AC_PROG_LIBTOOL
 
 checkssldir() { :
     if test -f "$1/include/openssl/ssl.h"; then
@@ -55,33 +54,6 @@ AC_MSG_RESULT([$ssldir])
 AC_SUBST(ssldir)
 AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
 
-dnl PEM dir
-AC_ARG_WITH(pem-dir,
-    [  --with-pem-dir=DIR      Default dir for stunnel.pem],
-    [ PEM_DIR="$withval" ]
-)
-if test -n "$PEM_DIR" ; then
-	AC_DEFINE_UNQUOTED(PEM_DIR, "$PEM_DIR")
-fi
-AC_SUBST(PEM_DIR)
-AC_DEFINE_UNQUOTED(PEM_DIR, "$PEM_DIR")
-
-AC_ARG_WITH(cert-file,
-    [  --with-cert-file=FILE   Default cert verify file],
-    [ CERT_FILE="$withval" ]
-)
-if test -n "$CERT_FILE" ; then
-	AC_DEFINE_UNQUOTED(CERT_FILE, "$CERT_FILE")
-fi
-
-AC_ARG_WITH(cert-dir,
-    [  --with-cert-dir=DIR     Default cert verify dir],
-    [ CERT_DIR="$withval" ]
-)
-if test -n "$CERT_DIR" ; then
-	AC_DEFINE_UNQUOTED(CERT_DIR, "$CERT_DIR")
-fi
-
 AC_ARG_WITH(egd-socket,
     [  --with-egd-socket=FILE  Entropy Gathering Daemon socket pathname],
     [ EGD_SOCKET="$withval" ]
@@ -108,37 +80,28 @@ if test -n "$RANDOM_FILE" ; then
 	AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE")
 fi
 
-dnl Use SSL certificate defaults?
-AC_MSG_CHECKING([whether to enable SSL certificate defaults])
-AC_ARG_ENABLE(ssllib-cs,
-[  --enable-ssllib-cs      Use the default SSL library cert verify sources],
-    [ AC_MSG_RESULT([yes]); AC_DEFINE(SSLLIB_CS) ],
-    [ AC_MSG_RESULT([no]); ]
-)
-
 dnl Use RSA?
 AC_MSG_CHECKING([whether to disable RSA support])
-AC_ARG_ENABLE(no-rsa,
-[  --enable-no-rsa         Disable RSA support],
+AC_ARG_ENABLE(rsa,
+[  --disable-rsa           Disable RSA support],
     [ AC_MSG_RESULT([yes]); AC_DEFINE(NO_RSA) ],
-    [ AC_MSG_RESULT([no]); ]
+    [ AC_MSG_RESULT([no]) ]
 )
 
 dnl Use DH?
 AC_MSG_CHECKING([whether to enable DH support])
 AC_ARG_ENABLE(dh,
 [  --enable-dh             Enable DH support],
-    [ AC_MSG_RESULT([yes]); NO_DH="0" ],
-    [ AC_MSG_RESULT([no]); NO_DH="1"; AC_DEFINE(NO_DH) ]
+    [ AC_MSG_RESULT([yes]); USE_DH=1; AC_DEFINE(USE_DH) ],
+    [ AC_MSG_RESULT([no]); USE_DH=0 ]
 )
-AC_SUBST(NO_DH)
+AC_SUBST(USE_DH)
 
 dnl Substitute host.
 AC_SUBST(host)
 AC_DEFINE_UNQUOTED(HOST, "$host")
 
 dnl Checks for standard libraries.
-AC_CHECK_LIB(dl, dlopen)
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
 
@@ -172,7 +135,7 @@ AC_ARG_WITH(tcp-wrappers,
       AC_TRY_LINK([int hosts_access(); int allow_severity, deny_severity;],
         [hosts_access()],
         [AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_LIBWRAP) wrap_LIB="-lwrap"],
-	[AC_MSG_RESULT([not found]); exit 1])
+	    [AC_MSG_RESULT([not found]); exit 1])
     else
       AC_MSG_RESULT([no])
     fi
@@ -190,7 +153,6 @@ AC_ARG_WITH(tcp-wrappers,
        
   ]
 )
-
 
 dnl Add SSL includes and libraries
 CFLAGS="$CFLAGS -I$ssldir/include"
@@ -212,7 +174,7 @@ dnl Checks for header files.
 # AC_HEADER_DIRENT
 # AC_HEADER_STDC
 # AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(getopt.h unistd.h sys/select.h tcpd.h pthread.h sys/ioctl.h util.h pty.h stropts.h sys/filio.h sys/resource.h)
+AC_CHECK_HEADERS(unistd.h sys/select.h tcpd.h pthread.h sys/ioctl.h util.h pty.h stropts.h sys/filio.h sys/resource.h)
 
 # dnl Checks for typedefs, structures, and compiler characteristics.
 # AC_C_CONST
@@ -222,18 +184,19 @@ AC_CHECK_HEADERS(getopt.h unistd.h sys/select.h tcpd.h pthread.h sys/ioctl.h uti
 # AC_HEADER_TIME
 
 dnl Checks for library functions.
-AC_CHECK_FUNCS(getopt snprintf vsnprintf openpty _getpty daemon waitpid wait4 sysconf getrlimit pthread_sigmask)
+AC_CHECK_FUNCS(snprintf vsnprintf openpty _getpty daemon waitpid wait4 sysconf getrlimit pthread_sigmask setgroups localtime_r)
 
 dnl Checks for integer sizes
 AC_CHECK_SIZEOF(unsigned char)
 AC_CHECK_SIZEOF(unsigned short)
 AC_CHECK_SIZEOF(unsigned int)
 AC_CHECK_SIZEOF(unsigned long)
-AC_CHECK_SIZEOF(unsigned long long)
 
 LIBS="$LIBS $wrap_LIB"
 
-AC_CONFIG_FILES([Makefile])
+CPPFLAGS="-DLIBDIR=\\\"$libdir\\\" -DCONFDIR=\\\"$sysconfdir/stunnel\\\" -DPIDFILE=\\\"$localstatedir/run/stunnel.pid\\\""
+
+AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init])
 AC_OUTPUT
 
 # End of configure.in

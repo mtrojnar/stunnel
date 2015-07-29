@@ -1,0 +1,30 @@
+#include <windows.h>
+#include "resources.h"
+
+IDI_MYICON ICON stunnel.ico
+
+IDM_TRAYMENU MENU
+BEGIN
+    POPUP "Ooops?"
+    BEGIN
+        MENUITEM "&About", IDM_ABOUT
+        MENUITEM "&Log", IDM_LOG
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit", IDM_EXIT
+    END
+END
+
+IDM_MAINMENU MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Save As", IDM_SAVEAS
+        MENUITEM SEPARATOR
+        MENUITEM "&Close", IDM_CLOSE
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About", IDM_ABOUT
+//        MENUITEM "S&etup", IDM_SETUP
+    END
+END

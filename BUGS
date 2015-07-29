@@ -2,6 +2,7 @@ stunnel         Universal SSL tunnel
 
 KNOWN BUGS
 
-- Shared library is not too portable.
+- Shared library to be LD_PRELOADed with `transparent' option
+  is not too portable.  stunnel should support creating shared
+  libraries on non-gcc compilers.
 
-- No way to show the ssl library default certificate sources

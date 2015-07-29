@@ -11,65 +11,29 @@ stunnel         Universal SSL tunnel
 
    (see potential options for 'configure' at the end of this file)
 
-   If you have problems with Internet Domain implementation of
-   make_sockets() change line:
+3. Create stunnel configuration file (stunnel.conf).
 
-       #define INET_SOCKET_PAIR 1
-
-   in file stunnel.h to be:
-
-       #define INET_SOCKET_PAIR 0
-
-   and repeat:
-
-       make
-       make install
-
-3. Test with ./stunnel -f -d <ssl-port> -r <remote-service>:<remote-port>
-
-4. Install daemon in your startup file (daemon mode).
+4. Add stunnel invocation to your system's startup files.
+   For SysV-compatible init you can use stunnel.init script.
 
      or
 
    Modify /etc/services and /etc/inetd.conf, restart inetd (inetd mode).
 
-   See stunnel manual for details.
+   See the manual for details.
 
 5. There are a variety of compile-time options you may supply when
-   running configure:
+   running configure.  Most commonly used are:
 
-	--with-ssl=DIR		where are your SSL libraries/include files
-				are installed
+   --with-ssl=DIR
+        where your SSL libraries and include files are installed
 
-	--with-random=FILE	read randomness from FILE for PRNG seeding
+   --with-random=FILE
+        read randomness from FILE for PRNG seeding
 
-	--with-egd-socket=FILE	location of Entropy Gathering Daemon socket,
-				if running EGD (for example on a machine
-				that lacks a /dev/urandom device)
+   --with-egd-socket=FILE
+        location of Entropy Gathering Daemon socket, if running EGD
+        (for example on a machine that lacks a /dev/urandom device)
 
-	--with-cert-dir=DIR	directory in which stunnel will look for
-				certificate files for the '-v' options.
-				This is the default used when the '-a' flag
-				is not specified.
+   Use `./configure --help' to see all the options.
 
-	--with-cert-file=FILE	file with multiple certificates used with
-				the '-v' options.  This is the default
-				used when the '-A' flag is not specified.
-
-	--enable-ssllib-cs	Have stunnel use the default certificate
-				sources specified by your SSL library.
-
-				This is no longer enabled by default, because
-				it has been causing far too much confusion
-				to most users.  To be fully compatible with
-				previous versions of stunnel, specify this
-				option when running configure.
-				The '-S' flag can always be used to allow
-				the ssl certificate defaults when desired.
-
-	--with-pem-dir=DIR	default directory for your stunnel.pem
-				server key/certificate.  No default
-				exists unless specified, which means
-				stunnel will expect your stunnel.pem to
-				be in the directory from which you run
-				stunnel.

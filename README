@@ -2,21 +2,15 @@ stunnel         Universal SSL tunnel
 
 Short description
 
-     The stunnel program is designed to work  as  SSL  encryption
+     The stunnel program is designed to work as an SSL encryption
      wrapper between remote client and local (inetd-startable) or
-     remote server. The concept is that having non-SSL aware dae-
-     mons  running  on  your  system you can easily setup them to
-     communicate with clients over secure SSL channel.
+     remote servers. The goal is to facilitate SSL encryption and
+     authentication for non-SSL-aware programs.
 
      stunnel can be used to add  SSL  functionality  to  commonly
      used  inetd  daemons  like  POP-2,  POP-3  and  IMAP servers
      without any changes in the programs' code.
 
-
-Author              Michal Trojnara  <Michal.Trojnara@mirt.net>
-SSL support         Adam Hernik      <adas@infocentrum.com>
-                    Pawel Krawczyk   <kravietz@ceti.com.pl>
- 
 Compile instructions
 
      See INSTALL file.
@@ -27,8 +21,8 @@ License
 
 Other files you should read
 
-     HISTORY        What we did
-     TODO           What we're going to do
+     Changelog      What I did
+     TODO           What I'm going to do
 
 Reporting problems and other contacts
 

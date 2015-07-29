@@ -1,0 +1,477 @@
+=head1 NAME
+
+stunnel - universal SSL tunnel
+
+
+=head1 SYNOPSIS
+
+B<stunnel> S<[filename]> | S<-help> | S<-version> | S<-sockets>
+
+
+=head1 DESCRIPTION
+
+The B<stunnel> program is designed to work as I<SSL> encryption wrapper 
+between remote clients and local (I<inetd>-startable) or remote
+servers. The concept is that having non-SSL aware daemons running on
+your system you can easily set them up to communicate with clients over
+secure SSL channels.
+
+B<stunnel> can be used to add SSL functionality to commonly used I<inetd>
+daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
+NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
+changes to the source code.
+
+This product includes cryptographic software written by
+Eric Young (eay@cryptsoft.com)
+
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<[filename]>
+
+Use specified configuration file
+
+=item B<-help>
+
+Print stunnel help menu
+
+=item B<-version>
+
+Print stunnel version and compile time defaults
+
+=item B<-sockets>
+
+Print default socket options
+
+=back
+
+
+=head1 CONFIGURATION FILE
+
+=head2 GLOBAL OPTIONS
+
+=over 4
+
+=item B<CApath> = directory
+
+Certificate Authority directory
+
+This is the directory in which stunnel will look for certificates when
+using the I<verify>. Note that the certificates in this directory
+should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.
+
+=item B<CAfile> = certfile
+
+Certificate Authority file
+
+This file contains multiple CA certificates, used with the I<verify>.
+
+=item B<cert> = pemfile
+
+certificate chain PEM file name
+
+A PEM is always needed in server mode.
+Specifying this flag in client mode will use this certificate chain
+as a client side certificate chain.  Using client side certs is optional.
+The certificates must be in PEM format and must be sorted starting with the
+certificate to the highest level (root CA).
+
+=item B<chroot> = directory
+
+directory to chroot stunnel process
+
+B<chroot> keeps stunnel in chrooted jail.  I<CApath>, I<pid> and I<exec>
+are located inside the jail and the patches have to be relative to the
+directory specified with B<chroot>.
+
+=item B<ciphers> = cipherlist
+
+Select permitted SSL ciphers
+
+A colon delimited list of the ciphers to allow in the SSL connection.
+For example DES-CBC3-SHA:IDEA-CBC-MD5
+
+=item B<client> = yes | no
+
+client mode (remote service uses SSL)
+
+default: no (server mode)
+
+=item B<debug> = level[.facility]
+
+debugging level
+
+Level is a one of the syslog level names or numbers
+emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
+info (6), or debug (7).  All logs for the specified level and
+all levels numerically less than it will be shown.  Use B<debug = debug> or
+B<debug = 7> for greatest debugging output.  The default is notice (5).
+
+The syslog facility 'daemon' will be used unless a facility name is supplied.
+(Facilities are not supported on Win32.)
+
+Case is ignored for both facilities and levels.
+
+=item B<EGD> = egd path
+
+path to Entropy Gathering Daemon socket
+
+Entropy Gathering Daemon socket to use to feed OpenSSL random number
+generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)
+
+=item B<foreground> = yes | no
+
+foreground mode
+
+Stay in foreground (don't fork) and log to stderr
+instead of via syslog (unless B<output> is specified).
+
+default: background in daemon mode
+
+=item B<key> = keyfile
+
+private key for certificate specified with I<cert> option
+
+Private key is needed to authenticate certificate owner.
+Since this file should be kept secret it should only be readable
+to its owner.  On Unix systems you can use the following command:
+
+    chmod 600 keyfile
+
+default: value of I<cert> option
+
+=item B<output> = file
+
+append log messages to a file instead of using syslog
+
+=item B<pid> = file
+
+pid file location
+
+If the argument is empty, then no pid file will be created.
+
+=item B<RNDbytes> = bytes
+
+bytes to read from random seed files
+
+Number of bytes of data read from random seed files.  With SSL versions
+less than 0.9.5a, also determines how many bytes of data are considered
+sufficient to seed the PRNG.  More recent OpenSSL versions have a builtin
+function to determine when sufficient randomness is available.
+
+=item B<RNDfile> = file
+
+path to file with random seed data
+
+The SSL library will use data from this file first to seed the random
+number generator.
+
+=item B<RNDoverwrite> = yes | no
+
+overwrite the random seed files with new random data
+
+default: yes
+
+=item B<timeout> = timeout
+
+session cache timeout
+
+=item B<setgid> = groupname
+
+setgid() to groupname in daemon mode and clears all other groups
+
+=item B<setuid> = username
+
+setuid() to username in daemon mode
+
+=item B<socket> = a|l|r:option=value[:value]
+
+Set an option on accept/local/remote socket
+
+The values for linger option are l_onof:l_linger.
+The values for time are tv_sec:tv_usec.
+
+Examples:
+
+    socket = l:SO_LINGER=1:60
+        set one minute timeout for closing local socket
+    socket = r:TCP_NODELAY=1
+        turn off the Nagle algorithm for remote sockets
+    socket = r:SO_OOBINLINE=1
+        place out-of-band data directly into the
+        receive data stream for remote sockets
+    socket = a:SO_REUSEADDR=0
+        disable address reuse (enabled by default)
+    socket = a:SO_BINDTODEVICE=lo
+        only accept connections on loopback interface
+
+=item B<verify> = level
+
+verify peer certificate
+
+    level 1 - verify peer certificate if present
+    level 2 - verify peer certificate
+    level 3 - verify peer with locally installed certificate
+    default - no verify
+
+=back
+
+
+=head2 SERVICE-LEVEL OPTIONS
+
+Each configuration section begins with service name in square brackets.
+Service name is used for libwrap (TCP wrappers) access control and lets
+you distinguish stunnel services in your log files.
+
+=over 4
+
+=item B<accept> = [host:]port
+
+accept connections on specified host:port
+
+If no host specified, defaults to all IP addresses for the local host.
+
+=item B<connect> = [host:]port
+
+connect to remote host:port
+
+If no host specified, defaults to localhost.
+
+=item B<delay> = yes | no
+
+delay DNS lookup for 'connect' option
+
+=item B<exec> = executable_path
+
+execute local inetd-type program 
+
+=item B<execargs> = $0 $1 $2 ...
+
+arguments for I<exec> including program name ($0)
+
+Quoting is currently not supported.
+Arguments are speparated with arbitrary number of whitespaces.
+
+=item B<ident> = username
+
+use IDENT (RFC 1413) username checking
+
+=item B<local> = host
+
+IP of the outgoing interface is used as source for remote connections.
+Use this option to bind a static local IP address, instead.
+
+=item B<protocol> = proto
+
+Negotiate SSL with specified protocol
+
+currently supported: smtp, pop3, nntp
+
+=item B<pty> = yes | no
+
+allocate pseudo terminal for 'exec' option
+
+=item B<transparent> = yes | no
+
+transparent proxy mode
+
+Re-write address to appear as if wrapped daemon is connecting
+from the SSL client machine instead of the machine running stunnel.
+Available only on some operating systems (Linux 2.2 only)
+and then only in server mode. Note that this option will not combine
+with proxy mode (I<connect>) unless the client's default route to the target
+machine lies through the host running stunnel, which cannot be localhost.
+
+=back
+
+
+=head1 RETURN VALUE
+
+B<stunnel> returns zero on success, non-zero on error.
+
+
+=head1 EXAMPLES
+
+In order to provide SSL encapsulation to your local I<imapd> service, use
+
+    [imapd]
+    accept = 993
+    exec = /usr/sbin/imapd
+    execargs = imapd
+
+If you want to provide tunneling to your I<pppd> daemon on port 2020,
+use something like
+
+    [vpn]
+    accept = 2020
+    exec = /usr/sbin/pppd
+    execargs = pppd local
+    pty = yes
+
+
+=head1 FILES
+
+=over 4
+
+=item F<stunnel.conf>
+
+stunnel configuration file
+
+=item F<stunnel.pem>
+
+stunnel certificate and private key
+
+=back
+
+
+=head1 BUGS
+
+Shared library to be LD_PRELOADed with I<transparent> option is not too
+portable.  I<stunnel> should support creating shared libraries on non-gcc
+compilers.
+
+
+=head1 RESTRICTIONS
+
+I<stunnel> cannot be used for the FTP daemon because of the nature
+of the FTP protocol which utilizes multiple ports for data transfers.
+There are available SSL enabled versions of FTP and telnet daemons, however.
+
+
+=head1 NOTES
+
+=head2 CERTIFICATES
+
+Each SSL enabled daemon needs to present a valid X.509 certificate
+to the peer. It also needs a private key to decrypt the incoming
+data. The easiest way to obtain a certificate and a key is to 
+generate them with the free I<openssl> package. You can find more
+information on certificates generation on pages listed below.
+
+Two things are important when generating certificate-key pairs for
+B<stunnel>. The private key cannot be encrypted, because the server
+has no way to obtain the password from the user. To produce an
+unencrypted key add the I<-nodes> option when running the B<req>
+command from the I<openssl> kit.
+
+The order of contents of the I<.pem> file is also important.
+It should contain the unencrypted private key first, then a signed certificate
+(not certificate request).
+There should be also empty lines after certificate and private key.
+Plaintext certificate information appended on the top of generated certificate
+should be discarded. So the file should look like this:
+
+    -----BEGIN RSA PRIVATE KEY-----
+    [encoded key]
+    -----END RSA PRIVATE KEY-----
+    [empty line]
+    -----BEGIN CERTIFICATE-----
+    [encoded certificate]
+    -----END CERTIFICATE-----
+    [empty line]
+
+=head2 RANDOMNESS
+
+I<stunnel> needs to seed the PRNG (pseudo random number generator) in
+order for SSL to use good randomness.  The following sources are loaded
+in order until sufficient random data has been gathered:
+
+=over 4
+
+=item *
+
+The file specified with the I<RNDfile> flag.
+
+=item *
+
+The file specified by the RANDFILE environment variable, if set.
+
+=item *
+
+The file .rnd in your home directory, if RANDFILE not set.
+
+=item *
+
+The file specified with '--with-random' at compile time.
+
+=item *
+
+The contents of the screen if running on Windows.
+
+=item *
+
+The egd socket specified with the I<EGD> flag.
+
+=item *
+
+The egd socket specified with '--with-egd-sock' at compile time.
+
+=item *
+
+The /dev/urandom device.
+
+=back
+
+With recent (>=OpenSSL 0.9.5a) version of SSL it will stop loading
+random data automatically when sufficient entropy has been gathered.
+With previous versions it will continue to gather from all the above
+sources since no SSL function exists to tell when enough data is available.
+
+Note that on Windows machines that do not have console user interaction
+(mouse movements, creating windows, etc) the screen contents are not
+variable enough to be sufficient, and you should provide a random file
+for use with the I<RNDfile> flag.
+
+Note that the file specified with the I<RNDfile> flag should contain
+random data -- that means it should contain different information
+each time I<stunnel> is run.  This is handled automatically
+unless the I<RNDoverwrite> flag is used.  If you wish to update this file
+manually, the I<openssl rand> command in recent versions of OpenSSL,
+would be useful.
+
+One important note -- if /dev/urandom is available, OpenSSL has a habit of
+seeding the PRNG with it even when checking the random state, so on
+systems with /dev/urandom you're likely to use it even though it's listed
+at the very bottom of the list above.  This isn't stunnel's behaviour, it's
+OpenSSLs.
+
+
+=head1 SEE ALSO
+
+=over 4
+
+=item L<tcpd(8)>
+
+access control facility for internet services
+
+=item L<inetd(8)>
+
+internet ``super-server''
+
+=item F<http://stunnel.mirt.net/>
+
+Stunnel homepage
+
+=item F<http://www.stunnel.org/>
+
+Stunnel Frequently Asked Questions
+
+=item F<http://www.openssl.org/>
+
+OpenSSL project website
+
+=back
+
+
+=head1 AUTHOR
+
+=over 4
+
+=item Michal Trojnara
+
+<F<Michal.Trojnara@mirt.net>>
+
+=back
+

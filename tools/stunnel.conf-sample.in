@@ -1,0 +1,54 @@
+# Sample stunnel configuration file
+# Copyright by Michal Trojnara 2002
+
+# Comment it out on Win32
+cert = @prefix@/etc/stunnel/mail.pem
+chroot = @prefix@/var/run/stunnel/
+# PID is created inside chroot jail
+pid = /stunnel.pid
+setuid = nobody
+setgid = nogroup
+
+# Authentication stuff
+#verify = 2
+# don't forget about c_rehash CApath
+# it is located inside chroot jail:
+#CApath = /certs
+# or simply use CAfile instead:
+#CAfile = @prefix@/etc/stunnel/certs.pem
+
+# Some debugging stuff
+#debug = 7
+#output = stunnel.log
+
+# Use it for client mode
+#client = yes
+
+# Service-level configuration
+
+[pop3s]
+accept  = 995
+connect = 110
+
+[imaps]
+accept  = 993
+connect = 143
+
+[ssmtp]
+accept  = 465
+connect = 25
+
+[s1]
+accept  = 5000
+connect = mail.osw.pl:110
+# delay = yes
+
+[s2]
+accept  = 5001
+connect = mail.osw.pl:25
+
+#[https]
+#accept  = 443
+#connect = 80
+#TIMEOUTclose = 0
+
