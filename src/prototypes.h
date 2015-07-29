@@ -154,6 +154,7 @@ typedef struct service_options_struct {
     SOCKADDR_LIST local_addr, remote_addr, source_addr;
     char *username;
     char *remote_address;
+    char *host_name;
     int timeout_busy; /* maximum waiting for data time */
     int timeout_close; /* maximum close_notify time */
     int timeout_connect; /* maximum connect() time */
@@ -255,6 +256,7 @@ int s_socketpair(int, int, int, int [2], int, char *);
 int s_accept(int, struct sockaddr *, socklen_t *, int, char *);
 void stunnel_info(int);
 void die(int);
+void set_nonblock(int, unsigned long);
 
 /**************************************** prototypes for log.c */
 
@@ -321,7 +323,6 @@ int signal_pipe_init(void);
 void child_status(void);  /* dead libwrap or 'exec' process detected */
 #endif
 int set_socket_options(int, int);
-void set_nonblock(int, unsigned long);
 int get_socket_error(const int);
 
 /**************************************** prototypes for client.c */
@@ -332,24 +333,26 @@ typedef struct {
 } FD;
 
 typedef struct {
+    SSL *ssl; /* SSL connnection */
     SERVICE_OPTIONS *opt;
-    char accepted_address[IPLEN]; /* text */
+    jmp_buf err; /* exception handler */
+
+    char accepted_address[IPLEN]; /* IP address as text for logging */
     SOCKADDR_LIST peer_addr; /* peer address */
     FD local_rfd, local_wfd; /* read and write local descriptors */
     FD remote_fd; /* remote file descriptor */
-    SSL *ssl; /* SSL Connection */
     SOCKADDR_LIST bind_addr;
         /* IP for explicit local bind or transparent proxy */
-    unsigned long pid; /* PID of local process */
+    unsigned long pid; /* PID of the local process */
     int fd; /* temporary file descriptor */
-    jmp_buf err;
 
+    /* data for transfer() function */
     char sock_buff[BUFFSIZE]; /* socket read buffer */
     char ssl_buff[BUFFSIZE]; /* SSL read buffer */
     int sock_ptr, ssl_ptr; /* index of first unused byte in buffer */
     FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
     FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
-    int sock_bytes, ssl_bytes; /* bytes written to socket and ssl */
+    int sock_bytes, ssl_bytes; /* bytes written to socket and SSL */
     s_poll_set fds; /* file descriptors */
 } CLI;
 
@@ -407,6 +410,7 @@ typedef struct CONTEXT_STRUCTURE {
     int ready; /* number of ready file descriptors */
     time_t finish; /* when to finish poll() for this context */
     struct CONTEXT_STRUCTURE *next; /* next context on a list */
+    void *tls; /* thread local storage for str.c */
 } CONTEXT;
 extern CONTEXT *ready_head, *ready_tail;
 extern CONTEXT *waiting_head, *waiting_tail;

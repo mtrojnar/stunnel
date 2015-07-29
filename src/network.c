@@ -119,10 +119,10 @@ static void scan_waiting_queue(void) {
     int retval, retry;
     CONTEXT *context, *prev;
     int min_timeout;
-    int nfds, i;
+    unsigned int nfds, i;
     time_t now;
     short *signal_revents;
-    static int max_nfds=0;
+    static unsigned int max_nfds=0;
     static struct pollfd *ufds=NULL;
 
     time(&now);
@@ -216,51 +216,56 @@ static void scan_waiting_queue(void) {
 }
 
 int s_poll_wait(s_poll_set *fds, int sec, int msec) {
-    /* FIXME: msec parameter is currently ignored with UCONTEXT threads */
     CONTEXT *context; /* current context */
     static CONTEXT *to_free=NULL; /* delayed memory deallocation */
+
+    /* FIXME: msec parameter is currently ignored with UCONTEXT threads */
+    (void)msec; /* skip warning about unused parameter */
 
     /* remove the current context from ready queue */
     context=ready_head;
     ready_head=ready_head->next;
     if(!ready_head) /* the queue is empty */
         ready_tail=NULL;
+    /* it it safe to s_log() after new ready_head is set */
 
+    /* it's illegal to deallocate the stack of the current context */
+    if(to_free) { /* a delayed deallocation is scheduled */
+        s_log(LOG_DEBUG, "Releasing context %ld", to_free->id);
+        free(to_free->stack);
+        free(to_free);
+        to_free=NULL;
+    }
+
+    /* manage the current thread */
     if(fds) { /* something to wait for -> swap the context */
         context->fds=fds; /* set file descriptors to wait for */
         context->finish=sec<0 ? -1 : time(NULL)+sec;
-        /* move (append) the current context to the waiting queue */
+
+        /* append the current context to the waiting queue */
         context->next=NULL;
         if(waiting_tail)
             waiting_tail->next=context;
         waiting_tail=context;
         if(!waiting_head)
             waiting_head=context;
-        while(!ready_head) /* no context ready */
-            scan_waiting_queue();
+    } else { /* nothing to wait for -> drop the context */
+        to_free=context; /* schedule for delayed deallocation */
+    }
+
+    while(!ready_head) /* wait until there is a thread to switch to */
+        scan_waiting_queue();
+
+    /* switch threads */
+    if(fds) { /* swap the current context */
         if(context->id!=ready_head->id) {
             s_log(LOG_DEBUG, "Context swap: %ld -> %ld",
                 context->id, ready_head->id);
             swapcontext(&context->context, &ready_head->context);
             s_log(LOG_DEBUG, "Current context: %ld", ready_head->id);
-            if(to_free) {
-                s_log(LOG_DEBUG, "Releasing context %ld", to_free->id);
-                free(to_free->stack);
-                free(to_free);
-                to_free=NULL;
-            }
         }
         return ready_head->ready;
-    } else { /* nothing to wait for -> drop the context */
-        /* it's illegal to deallocate the stack of the current context */
-        if(to_free) {
-            s_log(LOG_DEBUG, "Releasing context %ld", to_free->id);
-            free(to_free->stack);
-            free(to_free);
-        }
-        to_free=context;
-        while(!ready_head) /* no context ready */
-            scan_waiting_queue();
+    } else { /* drop the current context */
         s_log(LOG_DEBUG, "Context set: %ld (dropped) -> %ld",
             context->id, ready_head->id);
         setcontext(&ready_head->context);
@@ -701,6 +706,10 @@ char *fdgetline(CLI *c, int fd) {
             longjmp(c->err, 1); /* error */
         }
         line=str_realloc(line, ptr+1);
+        if(!line) {
+            s_log(LOG_CRIT, "Memory allocation failed");
+            longjmp(c->err, 1); /* error */
+        }
         switch(readsocket(fd, line+ptr, 1)) {
         case -1: /* error */
             sockerror("readsocket (fdgetline)");

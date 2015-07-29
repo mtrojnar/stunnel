@@ -101,9 +101,15 @@ typedef int socklen_t;
 #endif
 
 #ifdef USE_PTHREAD
+#ifndef THREADS
 #define THREADS
+#endif
+#ifndef _REENTRANT
 #define _REENTRANT
+#endif
+#ifndef _THREAD_SAFE
 #define _THREAD_SAFE
+#endif
 #include <pthread.h>
 #endif
 

@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.36])
+AC_INIT([stunnel],[4.37])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.36)
+AM_INIT_AUTOMAKE(stunnel, 4.37)
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE(_GNU_SOURCE)
 
@@ -27,27 +27,33 @@ AC_PROG_MAKE_SET
 # AC_HEADER_TIME
 
 AC_MSG_NOTICE([**************************************** C compiler flags])
+AC_MSG_CHECKING([whether $CC accepts -pthread])
+valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -pthread"
+AC_LINK_IFELSE([int main() {return 0;}],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
+
 AC_MSG_CHECKING([whether $CC accepts -Wall])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wall"
-AC_COMPILE_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([int main() {return 0;}],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
 AC_MSG_CHECKING([whether $CC accepts -Wextra])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wextra"
-AC_COMPILE_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([int main() {return 0;}],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
 AC_MSG_CHECKING([whether $CC accepts -pedantic])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -pedantic"
-AC_COMPILE_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([int main() {return 0;}],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
 AC_MSG_CHECKING([whether $CC accepts -Wno-long-long])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wno-long-long"
-AC_COMPILE_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([int main() {return 0;}],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
@@ -68,8 +74,7 @@ AC_EGREP_HEADER(socklen_t, sys/socket.h,
     AC_DEFINE(socklen_t, int))
 
 AC_MSG_NOTICE([**************************************** PTY device files])
-if test "$cross_compiling" = no
-then
+if test "$cross_compiling" = "no"; then
     AC_CHECK_FILE("/dev/ptmx", AC_DEFINE(HAVE_DEV_PTMX))
     AC_CHECK_FILE("/dev/ptc", AC_DEFINE(HAVE_DEV_PTS_AND_PTC))
 else
@@ -78,14 +83,12 @@ fi
 
 AC_MSG_NOTICE([**************************************** entropy sources])
 
-if test "$cross_compiling" = no
-then
+if test "$cross_compiling" = "no"; then
     AC_ARG_WITH(egd-socket,
         [  --with-egd-socket=FILE  Entropy Gathering Daemon socket pathname],
         [EGD_SOCKET="$withval"]
     )
-    if test -n "$EGD_SOCKET"
-    then
+    if test -n "$EGD_SOCKET"; then
         AC_DEFINE_UNQUOTED(EGD_SOCKET, "$EGD_SOCKET")
     fi
 
@@ -98,8 +101,8 @@ then
             AC_CHECK_FILE("/dev/urandom", RANDOM_FILE="/dev/urandom")
         ]
     )
-    if test -n "$RANDOM_FILE"
-    then AC_SUBST(RANDOM_FILE)
+    if test -n "$RANDOM_FILE"; then
+        AC_SUBST(RANDOM_FILE)
         AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE")
     fi
 else
@@ -108,8 +111,7 @@ fi
 
 AC_MSG_NOTICE([**************************************** default group])
 DEFAULT_GROUP=nobody
-if test "$cross_compiling" = no
-then
+if test "$cross_compiling" = "no"; then
     grep '^nogroup:' /etc/group >/dev/null && DEFAULT_GROUP=nogroup
 else
     AC_MSG_WARN([cross-compilation: assuming nogroup is not available])
@@ -150,8 +152,8 @@ AC_CHECK_LIB(dld, shl_load)
 AC_CHECK_LIB(z, inflateEnd)
 
 # Add BeOS libraries
-if test "$host_os" = "beos"
-then LIBS="$LIBS -lbe -lroot -lbind"
+if test "$host_os" = "beos"; then
+    LIBS="$LIBS -lbe -lroot -lbind"
 fi
 
 AC_MSG_NOTICE([**************************************** thread model])
@@ -204,23 +206,20 @@ AC_ARG_WITH(threads,
             AC_DEFINE(USE_FORK)
             ;;
         *)
-            echo
-            echo "Unknown thread model \"$withval\""
-            echo
-            exit 1
+            AC_MSG_ERROR([Unknown thread model \"${withval}\"])
             ;;
     esac
 ], [
     checkpthreadlib
-    if test "$HAVE_LIBPTHREAD" = "yes" -a "$ac_cv_header_pthread_h" = "yes"
-    then AC_MSG_NOTICE([PTHREAD thread model detected])
+    if test "$HAVE_LIBPTHREAD" = "yes" -a "$ac_cv_header_pthread_h" = "yes"; then
+        AC_MSG_NOTICE([PTHREAD thread model detected])
         AC_DEFINE(USE_PTHREAD)
-    else if test "$ac_cv_func_getcontext" = "yes" -a "$ac_cv_header_ucontext_h" = "yes"
-        then AC_MSG_NOTICE([UCONTEXT thread model detected])
-            AC_DEFINE(USE_UCONTEXT)
-        else AC_MSG_NOTICE([FORK thread model detected])
-            AC_DEFINE(USE_FORK)
-        fi
+    elif test "$ac_cv_func_getcontext" = "yes" -a "$ac_cv_header_ucontext_h" = "yes"; then
+        AC_MSG_NOTICE([UCONTEXT thread model detected])
+        AC_DEFINE(USE_UCONTEXT)
+    else
+        AC_MSG_NOTICE([FORK thread model detected])
+        AC_DEFINE(USE_FORK)
     fi
 ])
 
@@ -266,68 +265,6 @@ esac
 # GNU extensions
 AC_CHECK_FUNCS(pipe2 accept4)
 
-AC_MSG_NOTICE([**************************************** SSL])
-checkssldir() { :
-    if test -f "$1/include/openssl/ssl.h"
-    then AC_DEFINE(HAVE_OPENSSL)
-        ssldir="$1"
-        return 0
-    fi
-    if test -f "$1/include/ssl.h"
-    then ssldir="$1"
-        return 0
-    fi
-    return 1
-}
-
-# Check for SSL directory
-AC_MSG_CHECKING([for SSL directory])
-AC_ARG_WITH(ssl,
-[  --with-ssl=DIR          location of installed SSL libraries/include files],
-    [
-        # Check the specified localtion only
-        checkssldir "$withval"
-    ],
-    [
-        # Search default localtions of SSL library
-        for maindir in /usr/local /usr/lib /usr/pkg /opt/local /opt /usr; do
-            for dir in $maindir/ssl/fips $maindir/ssl/fips-1.0 \
-                    $maindir/ssl $maindir/openssl $maindir; do
-                checkssldir $dir && break 2
-            done
-        done
-    ]
-)
-if test -z "$ssldir"
-then AC_MSG_RESULT([Not found])
-    echo
-    echo "Couldn't find your SSL library installation dir"
-    echo "Use --with-ssl option to fix this problem"
-    echo
-    exit 1
-fi
-AC_MSG_RESULT([$ssldir])
-AC_SUBST(ssldir)
-AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
-
-# Add SSL includes and libraries
-CFLAGS="$CFLAGS -I$ssldir/include"
-LIBS="$LIBS -L$ssldir/lib64 -L$ssldir/lib -lssl -lcrypto"
-
-# Check for obsolete RSAref library
-AC_MSG_CHECKING([for obsolete RSAref library])
-saved_LIBS="$LIBS"
-LIBS="$saved_LIBS -lRSAglue -L$libdir -lrsaref"
-AC_LINK_IFELSE(
-    [AC_LANG_PROGRAM([[]], [[]])],
-    [AC_MSG_RESULT([yes])],
-    [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"]
-)
-
-AC_CHECK_HEADER([$ssldir/include/openssl/engine.h],
-    [AC_DEFINE([HAVE_OSSL_ENGINE_H])],
-    [AC_MSG_WARN([OpenSSL engine header not found])])
-
 AC_MSG_NOTICE([**************************************** optional features])
 # Use IPv6?
 AC_MSG_CHECKING([whether to enable IPv6 support])
@@ -336,12 +273,13 @@ AC_ARG_ENABLE(ipv6,
     [
         case "$enableval" in
             yes) AC_MSG_RESULT([yes])
-                AC_DEFINE(USE_IPv6)
-                ;;
-            no) AC_MSG_RESULT([no])
-                ;;
-            *) AC_MSG_ERROR([bad value ${enableval}])
-                ;;
+                 AC_DEFINE(USE_IPv6)
+                 ;;
+            no)  AC_MSG_RESULT([no])
+                 ;;
+            *)   AC_MSG_RESULT([error])
+                 AC_MSG_ERROR([bad value \"${enableval}\"])
+                 ;;
         esac
     ],
     [AC_MSG_RESULT([yes]); AC_DEFINE(USE_IPv6)],
@@ -356,13 +294,14 @@ AC_ARG_ENABLE(libwrap,
     [
         case "$enableval" in
             yes) AC_MSG_RESULT([no])
-                AC_DEFINE(HAVE_LIBWRAP)
-                LIBS="$LIBS -lwrap"
-                ;;
-            no) AC_MSG_RESULT([yes])
-                ;;
-            *) AC_MSG_ERROR([bad value ${enableval}])
-                ;;
+                 AC_DEFINE(HAVE_LIBWRAP)
+                 LIBS="$LIBS -lwrap"
+                 ;;
+            no)  AC_MSG_RESULT([yes])
+                 ;;
+            *)   AC_MSG_RESULT([error])
+                 AC_MSG_ERROR([Bad value \"${enableval}\"])
+                 ;;
         esac
     ],
     [
@@ -388,31 +327,97 @@ AC_ARG_ENABLE(fips,
     [
         case "$enableval" in
             yes) AC_MSG_RESULT([yes])
-                AC_DEFINE(USE_FIPS)
-                ;;
-            no) AC_MSG_RESULT([no])
-                ;;
-            *) AC_MSG_ERROR([bad value ${enableval}])
-                ;;
+                 sub_dirs="/ssl/fips /ssl/fips-1.0 /"
+                 fips="yes"
+                 AC_DEFINE(USE_FIPS)
+                 ;;
+            no)  AC_MSG_RESULT([no])
+                 sub_dirs="/ssl /openssl /"
+                 fips="no"
+                 ;;
+            *)   AC_MSG_RESULT([error])
+                 AC_MSG_ERROR([bad value \"${enableval}\"])
+                 ;;
         esac
     ],
     [
+        sub_dirs="/ssl/fips /ssl/fips-1.0 /ssl /openssl /"
+        fips="auto"
         AC_MSG_RESULT([autodetecting])
-        AC_MSG_CHECKING([for FIPS_mode_set])
-        INCLUDES="=l$ssldir/include"
-        AC_LINK_IFELSE(
-            [AC_LANG_PROGRAM(
-                [[#include <openssl/fips.h>]],
-                [[FIPS_mode_set(1);]],
-            )],
-            [AC_MSG_RESULT([yes])
-                AC_DEFINE(USE_FIPS)
-            ], [
-                AC_MSG_RESULT([no])
-            ]
-        )
     ]
 )
+
+AC_MSG_NOTICE([**************************************** SSL])
+check_ssl_dir() { :
+    ssldir="$1"
+    if test -f "$1/include/openssl/ssl.h"; then
+        AC_DEFINE(HAVE_OPENSSL)
+        return 0
+    fi
+    if test -f "$1/include/ssl.h"; then
+        return 0
+    fi
+    return 1
+}
+
+# Check for SSL directory
+AC_MSG_CHECKING([for SSL directory])
+AC_ARG_WITH(ssl,
+[  --with-ssl=DIR          location of installed SSL libraries/include files],
+    [
+        check_ssl_dir "$withval"
+    ],
+    [
+        for main_dir in /usr/local /usr/lib /usr/pkg /opt/local /opt /usr; do
+            for sub_dir in $sub_dirs; do
+                check_ssl_dir "$main_dir$sub_dir" && break 2
+            done
+        done
+    ]
+)
+if test ! -d "$ssldir"; then
+AC_MSG_RESULT([not found])
+AC_MSG_ERROR([
+Couldn't find your SSL library installation dir
+Use --with-ssl option to fix this problem
+]) 
+fi
+AC_MSG_RESULT([$ssldir])
+AC_SUBST(ssldir)
+AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
+
+CFLAGS="$CFLAGS -I$ssldir/include"
+LIBS="$LIBS -L$ssldir/lib64 -L$ssldir/lib -lssl -lcrypto"
+
+AC_MSG_CHECKING([for obsolete RSAref library])
+saved_LIBS="$LIBS"
+LIBS="$saved_LIBS -lRSAglue -L$libdir -lrsaref"
+AC_LINK_IFELSE(
+    [AC_LANG_PROGRAM([[]], [[]])],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"]
+)
+
+AC_CHECK_HEADER([$ssldir/include/openssl/engine.h],
+    [AC_DEFINE([HAVE_OSSL_ENGINE_H])],
+    [AC_MSG_WARN([OpenSSL engine header not found])])
+
+AC_MSG_CHECKING([for FIPS_mode_set])
+if test "$fips" = "auto"; then
+    AC_LINK_IFELSE(
+        [AC_LANG_PROGRAM(
+            [[#include <openssl/fips.h>]],
+            [[FIPS_mode_set(1);]],
+        )],
+        [AC_MSG_RESULT([yes])
+            AC_DEFINE(USE_FIPS)
+        ], [
+            AC_MSG_RESULT([no])
+        ]
+    )
+else
+    AC_MSG_RESULT([test skipped])
+fi
 
 AC_MSG_NOTICE([**************************************** write the results])
 AC_CONFIG_FILES([Makefile src/Makefile src/stunnel3 doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init tools/stunnel.service])

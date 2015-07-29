@@ -416,6 +416,10 @@ static void connect_client(CLI *c) {
                 c->opt->protocol_username, c->opt->protocol_password);
             encoded=base64(1, line, strlen(line));
             str_free(line);
+            if(!encoded) {
+                s_log(LOG_ERR, "Base64 encoder failed");
+                longjmp(c->err, 1);
+            }
             fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: basic %s",
                 encoded);
             str_free(encoded);
@@ -447,13 +451,18 @@ static void connect_client(CLI *c) {
 
 static void ntlm(CLI *c) {
 #ifndef OPENSSL_NO_MD4
-    char *line, *encoded;
-    char buf[BUFSIZ], *ntlm2=NULL;
+    char *line, buf[BUFSIZ], *ntlm1_txt, *ntlm2_txt, *ntlm3_txt;
     long content_length=0; /* no HTTP content */
 
     /* send Proxy-Authorization (phase 1) */
     fdprintf(c, c->remote_fd.fd, "Proxy-Connection: keep-alive");
-    fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", ntlm1());
+    ntlm1_txt=ntlm1();
+    if(!ntlm1_txt) {
+        s_log(LOG_ERR, "Proxy-Authenticate: Failed to build NTLM request");
+        longjmp(c->err, 1);
+    }
+    fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", ntlm1_txt);
+    str_free(ntlm1_txt);
     fdputline(c, c->remote_fd.fd, ""); /* empty line */
     line=fdgetline(c, c->remote_fd.fd);
 
@@ -465,14 +474,15 @@ static void ntlm(CLI *c) {
         } while(*line);
         longjmp(c->err, 1);
     }
+    ntlm2_txt=NULL;
     do { /* read all headers */
         line=fdgetline(c, c->remote_fd.fd);
         if(isprefix(line, "Proxy-Authenticate: NTLM "))
-            ntlm2=str_dup(line+25);
+            ntlm2_txt=str_dup(line+25);
         else if(isprefix(line, "Content-Length: "))
             content_length=atol(line+16);
     } while(*line);
-    if(!ntlm2) { /* no Proxy-Authenticate: NTLM header */
+    if(!ntlm2_txt) { /* no Proxy-Authenticate: NTLM header */
         s_log(LOG_ERR, "Proxy-Authenticate: NTLM header not found");
         longjmp(c->err, 1);
     }
@@ -486,10 +496,14 @@ static void ntlm(CLI *c) {
     /* send Proxy-Authorization (phase 3) */
     fdprintf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1", c->opt->protocol_host);
     fdprintf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
-    encoded=ntlm3(c->opt->protocol_username, c->opt->protocol_password, ntlm2);
-    str_free(ntlm2);
-    fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", encoded);
-    str_free(encoded);
+    ntlm3_txt=ntlm3(c->opt->protocol_username, c->opt->protocol_password, ntlm2_txt);
+    str_free(ntlm2_txt);
+    if(!ntlm3_txt) {
+        s_log(LOG_ERR, "Proxy-Authenticate: Failed to build NTLM response");
+        longjmp(c->err, 1);
+    }
+    fdprintf(c, c->remote_fd.fd, "Proxy-Authorization: NTLM %s", ntlm3_txt);
+    str_free(ntlm3_txt);
 #else
     s_log(LOG_ERR, "NTLM authentication is not available");
     longjmp(c->err, 1);
@@ -545,6 +559,8 @@ static char *ntlm3(char *username, char *password, char *phase2) {
 
     /* decode challenge and calculate response */
     decoded=base64(0, phase2, strlen(phase2)); /* decode */
+    if(!decoded)
+        return NULL;
     crypt_DES((unsigned char *)phase3+64,
         (unsigned char *)decoded+24, md4_hash);
     crypt_DES((unsigned char *)phase3+72,
@@ -584,10 +600,17 @@ static void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
 static char *base64(int encode, char *in, int len) {
     BIO *bio, *b64;
     char *out;
+    int n;
 
     b64=BIO_new(BIO_f_base64());
+    if(!b64)
+        return NULL;
     BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
     bio=BIO_new(BIO_s_mem());
+    if(!bio) {
+        str_free(b64);
+        return NULL;
+    }
     if(encode)
         bio=BIO_push(b64, bio);
     BIO_write(bio, in, len);
@@ -598,15 +621,21 @@ static char *base64(int encode, char *in, int len) {
     } else {
         bio=BIO_push(b64, bio);
     }
-    len=BIO_pending(bio);
+    n=BIO_pending(bio);
     /* 32 bytes as a safety precaution for passing decoded data to crypt_DES */
-    /* len+1 to get null-terminated string on encode */
-    out=str_alloc(len<32?32:len+1);
+    /* n+1 to get null-terminated string on encode */
+    out=str_alloc(n<32?32:n+1);
     if(!out) {
-        s_log(LOG_ERR, "Fatal memory allocation error");
-        die(2);
+        s_log(LOG_ERR, "Memory allocation error");
+        BIO_free_all(bio);
+        return NULL;
     }
-    BIO_read(bio, out, len);
+    n=BIO_read(bio, out, n);
+    if(n<0) {
+        BIO_free_all(bio);
+        str_free(out);
+        return NULL;
+    }
     BIO_free_all(bio);
     return out;
 }

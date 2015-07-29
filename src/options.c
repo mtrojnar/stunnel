@@ -91,7 +91,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
 #endif
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP)
-        s_log(LOG_NOTICE, "Global options");
+        s_log(LOG_NOTICE, "Global option defaults");
 
     /* chroot */
 #ifdef HAVE_CHROOT
@@ -536,7 +536,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
-        s_log(LOG_NOTICE, "Service-level options");
+        s_log(LOG_NOTICE, "Service-level option defaults");
     }
 
     /* accept */
@@ -641,13 +641,13 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* ciphers */
 #ifdef USE_FIPS
-#define STUNNEL_DEFAULT_CIPHER_LIST "FIPS"
+#define STUNNEL_CIPHER_LIST "FIPS"
 #else
-#define STUNNEL_DEFAULT_CIPHER_LIST SSL_DEFAULT_CIPHER_LIST
+#define STUNNEL_CIPHER_LIST "RC4-MD5:HIGH:!aNULL:!SSLv2"
 #endif /* USE_FIPS */
     switch(cmd) {
     case CMD_INIT:
-        section->cipher_list=STUNNEL_DEFAULT_CIPHER_LIST;
+        section->cipher_list=STUNNEL_CIPHER_LIST;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "ciphers"))
@@ -655,7 +655,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->cipher_list=str_dup_err(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_NOTICE, "%-15s = %s", "ciphers", STUNNEL_DEFAULT_CIPHER_LIST);
+        s_log(LOG_NOTICE, "%-15s = %s", "ciphers", STUNNEL_CIPHER_LIST);
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-15s = list of permitted SSL ciphers", "ciphers");
@@ -691,6 +691,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->option.remote=0;
         section->remote_address=NULL;
         section->remote_addr.num=0;
+        section->host_name=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "connect"))
@@ -702,6 +703,10 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             s_log(LOG_INFO, "Cannot resolve '%s' - delaying DNS lookup", arg);
             section->option.delayed_lookup=1;
         }
+        tmpstr=strrchr(arg, ':');
+        if(tmpstr)
+            *tmpstr='\0';
+        section->host_name=str_dup_err(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -1249,40 +1254,28 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #define DEFAULT_SSLVER_SERVER "TLSv1"
         section->client_method=(SSL_METHOD *)TLSv1_client_method();
         section->server_method=(SSL_METHOD *)TLSv1_server_method();
-
 #else /* OPENSSL_NO_TLS */
 #error Need TLSv1 for FIPS mode
 #endif /* OPENSSL_NO_TLS */
 
 #else /* USE_FIPS */
 
-#if !defined(OPENSSL_NO_SSL3) && !defined(OPENSSL_NO_SSL2)
-#define DEFAULT_SSLVER_CLIENT "SSLv3"
-#define DEFAULT_SSLVER_SERVER "all"
-        section->client_method=(SSL_METHOD *)SSLv3_client_method();
-        section->server_method=(SSL_METHOD *)SSLv23_server_method();
-
+#if !defined(OPENSSL_NO_TLS1)
+#define DEFAULT_SSLVER_CLIENT "TLSv1"
+        section->client_method=(SSL_METHOD *)TLSv1_client_method();
 #elif !defined(OPENSSL_NO_SSL3)
 #define DEFAULT_SSLVER_CLIENT "SSLv3"
-#define DEFAULT_SSLVER_SERVER "SSLv3"
         section->client_method=(SSL_METHOD *)SSLv3_client_method();
-        section->server_method=(SSL_METHOD *)SSLv3_server_method();
-
-#elif !defined(OPENSSL_NO_TLS1)
-#define DEFAULT_SSLVER_CLIENT "TLSv1"
-#define DEFAULT_SSLVER_SERVER "TLSv1"
-        section->client_method=(SSL_METHOD *)TLSv1_client_method();
-        section->server_method=(SSL_METHOD *)TLSv1_server_method();
-
 #elif !defined(OPENSSL_NO_SSL2)
 #define DEFAULT_SSLVER_CLIENT "SSLv2"
-#define DEFAULT_SSLVER_SERVER "SSLv2"
         section->client_method=(SSL_METHOD *)SSLv2_client_method();
-        section->server_method=(SSL_METHOD *)SSLv2_server_method();
-
 #else /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
 #error No supported SSL methods found
 #endif /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
+
+        /* SSLv23_server_method() is an always available catch-all */
+        section->server_method=(SSL_METHOD *)SSLv23_server_method();
+#define DEFAULT_SSLVER_SERVER "all"
 
 #endif /* USE_FIPS */
 

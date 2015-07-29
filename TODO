@@ -8,7 +8,7 @@ High priority features I'm going to support (sponsorship welcomed)
   - Support for FIPS mode on Windows.
   - Support for CryptoAPI certificates and private keys with CAPI engine.
 * Service-level logging configuration (separate verbosity and destination).
-* Support for Server Name Indication SSL extension
+* Support for Server Name Indication SSL extension in server mode
   with SSL_CTX_set_tlsext_servername_callback().
 
 Low priority features I'm going to support (sponsorship welcomed)

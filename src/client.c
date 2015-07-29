@@ -106,10 +106,8 @@ void *client(void *arg) {
             if(!c->opt->option.retry)
                 break;
             sleep(1); /* FIXME: not a good idea in ucontext threading */
-#ifndef USE_UCONTEXT
             str_stats();
             str_cleanup();
-#endif
         }
     } else
         run_client(c);
@@ -119,18 +117,17 @@ void *client(void *arg) {
 #ifdef DEBUG_STACK_SIZE
     stack_info(0); /* display computed value */
 #endif
+#ifdef USE_UCONTEXT
+    s_log(LOG_DEBUG, "Context %ld closed", ready_head->id);
+#endif
     str_stats();
-#if defined(USE_WIN32) && !defined(_WIN32_WCE)
     str_cleanup();
+    /* s_log() is not allowed after str_cleanup() */
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
     _endthread();
 #endif
 #ifdef USE_UCONTEXT
-    s_log(LOG_DEBUG, "Context %ld closed", ready_head->id);
-    /* no str_cleanup() here, as all contexts share the same CPU thread */
     s_poll_wait(NULL, 0, 0); /* wait on poll() */
-    s_log(LOG_ERR, "INTERNAL ERROR: failed to drop context");
-#else
-    str_cleanup();
 #endif
     return NULL;
 }
@@ -283,6 +280,15 @@ static void init_ssl(CLI *c) {
     SSL_set_session_id_context(c->ssl, (unsigned char *)sid_ctx,
         strlen(sid_ctx));
     if(c->opt->option.client) {
+#ifndef OPENSSL_NO_TLSEXT
+        if(c->opt->host_name) {
+            s_log(LOG_DEBUG, "SNI host name: %s", c->opt->host_name);
+            if(!SSL_set_tlsext_host_name(c->ssl, c->opt->host_name)) {
+                sslerror("SSL_set_tlsext_host_name");
+                longjmp(c->err, 1);
+            }
+        }
+#endif
         if(c->opt->session) {
             enter_critical_section(CRIT_SESSION);
             SSL_set_session(c->ssl, c->opt->session);
@@ -314,9 +320,9 @@ static void init_ssl(CLI *c) {
 
     while(1) {
 #if OPENSSL_VERSION_NUMBER<0x1000002f
-        /* this critical section is a crude workaround for CVE-2010-3864 */
-        /* see http://www.securityfocus.com/bid/44884 for details */
-        /* NOTE: this critical section also covers callbacks (e.g. OCSP) */
+        /* this critical section is a crude workaround for CVE-2010-3864 *
+         * see http://www.securityfocus.com/bid/44884 for details        *
+         * NOTE: this critical section also covers callbacks (e.g. OCSP) */
         enter_critical_section(CRIT_SSL);
 #endif /* OpenSSL version < 1.0.0b */
         if(c->opt->option.client)
@@ -821,22 +827,26 @@ static void auth_user(CLI *c) {
     type=strchr(line, ':');
     if(!type) {
         s_log(LOG_ERR, "Malformed IDENT response");
+        str_free(line);
         longjmp(c->err, 1);
     }
     *type++='\0';
     system=strchr(type, ':');
     if(!system) {
         s_log(LOG_ERR, "Malformed IDENT response");
+        str_free(line);
         longjmp(c->err, 1);
     }
     *system++='\0';
     if(strcmp(type, " USERID ")) {
         s_log(LOG_ERR, "Incorrect INETD response type");
+        str_free(line);
         longjmp(c->err, 1);
     }
     user=strchr(system, ':');
     if(!user) {
         s_log(LOG_ERR, "Malformed IDENT response");
+        str_free(line);
         longjmp(c->err, 1);
     }
     *user++='\0';
@@ -846,9 +856,11 @@ static void auth_user(CLI *c) {
         safestring(user);
         s_log(LOG_WARNING, "Connection from %s REFUSED by IDENT (user %s)",
             c->accepted_address, user);
+        str_free(line);
         longjmp(c->err, 1);
     }
     s_log(LOG_INFO, "IDENT authentication passed");
+    str_free(line);
 }
 
 #if defined(_WIN32_WCE) || defined(__vms)
@@ -878,8 +890,8 @@ static int connect_local(CLI *c) { /* spawn local process */
     execname_l=str2tstr(c->opt->execname);
     execargs_l=str2tstr(c->opt->execargs);
     CreateProcess(execname_l, execargs_l, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
-    free(execname_l);
-    free(execargs_l);
+    str_free(execname_l);
+    str_free(execargs_l);
 
     closesocket(fd[1]);
     CloseHandle(pi.hProcess);
@@ -916,6 +928,7 @@ static int connect_local(CLI *c) { /* spawn local process */
         longjmp(c->err, 1);
     case  0:    /* child */
         closesocket(fd[0]);
+        set_nonblock(fd[1], 0); /* switch back to blocking mode */
         /* dup2() does not copy FD_CLOEXEC flag */
         dup2(fd[1], 0);
         dup2(fd[1], 1);
@@ -969,9 +982,10 @@ static void make_sockets(CLI *c, int fd[2]) { /* make a pair of connected socket
     s=s_socket(AF_INET, SOCK_STREAM, 0, 1, "socket#1");
     if(s<0)
         longjmp(c->err, 1);
-    fd[1]=s_socket(AF_INET, SOCK_STREAM, 0, 1, "socket#2");
-    if(fd[1]<0)
+    c->fd=s_socket(AF_INET, SOCK_STREAM, 0, 1, "socket#2");
+    if(c->fd<0)
         longjmp(c->err, 1);
+
     addrlen=sizeof addr;
     memset(&addr, 0, addrlen);
     addr.in.sin_family=AF_INET;
@@ -979,22 +993,30 @@ static void make_sockets(CLI *c, int fd[2]) { /* make a pair of connected socket
     addr.in.sin_port=htons(0); /* dynamic port allocation */
     if(bind(s, &addr.sa, addrlen))
         log_error(LOG_DEBUG, get_last_socket_error(), "bind#1");
-    if(bind(fd[1], &addr.sa, addrlen))
+    if(bind(c->fd, &addr.sa, addrlen))
         log_error(LOG_DEBUG, get_last_socket_error(), "bind#2");
+
     if(listen(s, 1)) {
+        closesocket(s);
         sockerror("listen");
         longjmp(c->err, 1);
     }
     if(getsockname(s, &addr.sa, &addrlen)) {
+        closesocket(s);
         sockerror("getsockname");
         longjmp(c->err, 1);
     }
-    if(connect(fd[1], &addr.sa, addrlen)) {
-        sockerror("connect");
+    if(connect_blocking(c, &addr, addr_len(addr))) {
+        closesocket(s);
         longjmp(c->err, 1);
     }
-    if((fd[0]=s_accept(s, &addr.sa, &addrlen, 1, "accept"))<0)
+    fd[0]=s_accept(s, &addr.sa, &addrlen, 1, "accept");
+    if(fd[0]<0) {
+        closesocket(s);
         longjmp(c->err, 1);
+    }
+    fd[1]=c->fd;
+    c->fd=-1;
     closesocket(s); /* don't care about the result */
 #else
     if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, fd, 1, "socketpair"))

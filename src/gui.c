@@ -56,6 +56,7 @@ static int win_main(HINSTANCE, HINSTANCE, LPSTR, int);
 static void save_file(HWND);
 static LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
 static LRESULT CALLBACK pass_proc(HWND, UINT, WPARAM, LPARAM);
+static void update_logs(void);
 static LPTSTR log_txt(void);
 static void set_visible(int);
 static void error_box(const LPTSTR);
@@ -389,7 +390,6 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
     NOTIFYICONDATA nid;
     POINT pt;
     RECT rect;
-    LPTSTR txt;
 
 #if 0
     if(message!=WM_CTLCOLORSTATIC && message!=WM_TIMER)
@@ -436,9 +436,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
         return TRUE;
 
     case WM_SETFOCUS:
-        txt=log_txt();
-        SetWindowText(EditControl, txt);
-        str_free(txt);
+        update_logs();
         SetFocus(EditControl);
         return TRUE;
 
@@ -543,9 +541,12 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
         WPARAM wParam, LPARAM lParam) {
     char *titlebar;
     LPTSTR tstr;
-    WORD cchPassword;
-    TCHAR sPassword[PEM_BUFSIZE];
-    char* cPassword;
+    union {
+        TCHAR txt[PEM_BUFSIZE];
+        WORD len;
+    } pass_dialog;
+    WORD pass_len;
+    char* pass_txt;
 
     switch(message) {
     case WM_INITDIALOG:
@@ -561,30 +562,30 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
 
     case WM_COMMAND:
         /* set the default push button to "OK" when the user enters text */
-        if(HIWORD (wParam) == EN_CHANGE && LOWORD(wParam) == IDE_PASSEDIT)
-            SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDOK, (LPARAM) 0);
+        if(HIWORD(wParam)==EN_CHANGE && LOWORD(wParam)==IDE_PASSEDIT)
+            SendMessage(hDlg, DM_SETDEFID, (WPARAM)IDOK, (LPARAM)0);
         switch(wParam) {
         case IDOK:
             /* get number of characters */
-            cchPassword=(WORD)SendDlgItemMessage(hDlg,
-                IDE_PASSEDIT, EM_LINELENGTH, (WPARAM) 0, (LPARAM) 0);
-            if(!cchPassword || cchPassword>=PEM_BUFSIZE) {
+            pass_len=(WORD)SendDlgItemMessage(hDlg,
+                IDE_PASSEDIT, EM_LINELENGTH, (WPARAM)0, (LPARAM)0);
+            if(!pass_len || pass_len>=PEM_BUFSIZE) {
                 EndDialog(hDlg, FALSE);
                 return FALSE;
             }
 
             /* put the number of characters into first word of buffer */
-            *((LPWORD) sPassword)=cchPassword;
+            pass_dialog.len=pass_len;
 
             /* get the characters */
             SendDlgItemMessage(hDlg, IDE_PASSEDIT, EM_GETLINE,
-                (WPARAM) 0, /* line 0 */ (LPARAM)sPassword);
-            sPassword[cchPassword]='\0'; /* null-terminate the string */
+                (WPARAM)0 /* line 0 */, (LPARAM)pass_dialog.txt);
+            pass_dialog.txt[pass_len]='\0'; /* null-terminate the string */
 
             /* convert input password to ANSI string (as ui_data->pass) */
-            cPassword=tstr2str(sPassword);
-            strcpy(ui_data->pass, cPassword);
-            str_free(cPassword);
+            pass_txt=tstr2str(pass_dialog.txt);
+            strcpy(ui_data->pass, pass_txt);
+            str_free(pass_txt);
 
             EndDialog(hDlg, TRUE);
             return TRUE;
@@ -661,9 +662,17 @@ static void save_file(HWND hwnd) {
         return;
     }
 
-    txt=log_txt();
+    txt=log_txt(); /* need to convert the result to plain ASCII */
+    if(!txt) {
+        CloseHandle(hFile);
+        error_box(TEXT("Out of memory"));
+    }
     str=tstr2str(txt);
     str_free(txt);
+    if(!str) {
+        CloseHandle(hFile);
+        error_box(TEXT("Out of memory"));
+    }
     bResult=WriteFile(hFile, str, strlen(str), &nWritten, NULL);
     str_free(str);
     if(!bResult)
@@ -702,8 +711,15 @@ void win_log(LPSTR line) { /* also used in log.c */
     }
     leave_critical_section(CRIT_WIN_LOG);
 
-    if(visible) {
-        txt=log_txt();
+    if(visible)
+        update_logs();
+}
+
+static void update_logs(void) {
+    LPTSTR txt;
+
+    txt=log_txt();
+    if(txt) {
         SetWindowText(EditControl, txt);
         str_free(txt);
     }
@@ -718,6 +734,10 @@ static LPTSTR log_txt(void) {
     for(curr=head; curr; curr=curr->next)
         len+=curr->len+2; /* +2 for trailing '\r\n' */
     buff=str_alloc((len+1)*sizeof(TCHAR)); /* +1 for trailing '\0' */
+    if(!buff) {
+        leave_critical_section(CRIT_WIN_LOG);
+        return NULL;
+    }
     for(curr=head; curr; curr=curr->next) {
         memcpy(buff+ptr, curr->txt, curr->len*sizeof(TCHAR));
         ptr+=curr->len;
@@ -733,15 +753,11 @@ static LPTSTR log_txt(void) {
 }
 
 static void set_visible(int i) {
-    LPTSTR txt;
-
     visible=i; /* setup global variable */
     CheckMenuItem(hpopup, IDM_LOG,
         visible?MF_CHECKED:MF_UNCHECKED); /* check or uncheck menu item */
     if(visible) {
-        txt=log_txt();
-        SetWindowText(EditControl, txt); /* setup window content */
-        str_free(txt);
+        update_logs();
         ShowWindow(hwnd, SW_SHOWNORMAL); /* show window */
         SetForegroundWindow(hwnd); /* bring on top */
     } else

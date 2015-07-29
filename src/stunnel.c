@@ -496,11 +496,9 @@ int s_pipe(int pipefd[2], int nonblock, char *msg) {
 #endif
 
 static int setup_fd(int fd, int nonblock, char *msg) {
-#ifdef USE_WIN32
-    unsigned long l;
-#else /* USE_WIN32 */
-    int err, flags;
-#endif /* USE_WIN32 */
+#ifdef FD_CLOEXEC
+    int err;
+#endif /* FD_CLOEXEC */
 
     if(fd<0) {
         sockerror(msg);
@@ -513,10 +511,31 @@ static int setup_fd(int fd, int nonblock, char *msg) {
         return -1;
     }
 #ifndef USE_NEW_LINUX_API
+    set_nonblock(fd, nonblock);
+#ifdef FD_CLOEXEC
+    do {
+        err=fcntl(fd, F_SETFD, FD_CLOEXEC);
+    } while(err<0 && get_last_socket_error()==EINTR);
+    if(err<0)
+        sockerror("fcntl SETFD"); /* non-critical */
+#endif /* FD_CLOEXEC */
+#endif /* USE_NEW_LINUX_API */
+    s_log(LOG_DEBUG, "%s: FD=%d allocated (%sblocking mode)",
+        msg, fd, nonblock?"non-":"");
+    return fd;
+}
+
+void set_nonblock(int fd, unsigned long nonblock) {
 #if defined F_GETFL && defined F_SETFL && defined O_NONBLOCK && !defined __INNOTEK_LIBC__
+    int err, flags;
+
     do {
         flags=fcntl(fd, F_GETFL, 0);
     } while(flags<0 && get_last_socket_error()==EINTR);
+    if(flags<0) {
+        sockerror("fcntl GETFL"); /* non-critical */
+        return;
+    }
     if(nonblock)
         flags|=O_NONBLOCK;
     else
@@ -526,28 +545,23 @@ static int setup_fd(int fd, int nonblock, char *msg) {
     } while(err<0 && get_last_socket_error()==EINTR);
     if(err<0)
         sockerror("fcntl SETFL"); /* non-critical */
-#ifdef FD_CLOEXEC
-    do {
-        err=fcntl(fd, F_SETFD, FD_CLOEXEC);
-    } while(err<0 && get_last_socket_error()==EINTR);
-    if(err<0)
-        sockerror("fcntl SETFD"); /* non-critical */
-#endif /* FD_CLOEXEC */
 #else /* use fcntl() */
-    if(ioctlsocket(fd, FIONBIO, &l)<0)
+    if(ioctlsocket(fd, FIONBIO, &nonblock)<0)
         sockerror("ioctlsocket"); /* non-critical */
 #endif /* use fcntl() */
-#endif /* USE_NEW_LINUX_API */
-    s_log(LOG_DEBUG, "%s: FD=%d allocated (%sblocking mode)",
-        msg, fd, nonblock?"non-":"");
-    return fd;
 }
 
 /**************************************** log messages to identify  build */
 
 void stunnel_info(int level) {
-    s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " with %s",
-        SSLeay_version(SSLEAY_VERSION));
+    s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " platform");
+    if(SSLeay()==SSLEAY_VERSION_NUMBER) {
+        s_log(level, "Compiled/running with " OPENSSL_VERSION_TEXT);
+    } else {
+        s_log(level, "Compiled with " OPENSSL_VERSION_TEXT);
+        s_log(level, "Running  with %s", SSLeay_version(SSLEAY_VERSION));
+        s_log(level, "Update OpenSSL shared libraries or rebuild stunnel");
+    }
     s_log(level,
         "Threading:"
 #ifdef USE_UCONTEXT

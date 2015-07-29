@@ -191,14 +191,15 @@ static int getaddrinfo(const char *node, const char *service,
     u_short port;
     struct addrinfo *ai;
     int retval;
+    char *tmpstr;
 
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
     if(s_getaddrinfo)
         return s_getaddrinfo(node, service, hints, res);
 #endif
     /* decode service name */
-    port=htons((u_short)atoi(service));
-    if(!port) { /* zero is an illegal value for port number */
+    port=htons((u_short)strtol(service, &tmpstr, 10));
+    if(tmpstr==service || *tmpstr) { /* not a number */
 #ifdef _WIN32_WCE
         return EAI_NONAME;
 #else /* defined(_WIN32_WCE) */
