@@ -8,7 +8,7 @@ if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.10"
+VERSION="3.11"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
@@ -172,6 +172,13 @@ AC_CHECK_HEADERS(getopt.h unistd.h sys/select.h tcpd.h pthread.h pty.h stropts.h
 
 dnl Checks for library functions.
 AC_CHECK_FUNCS(getopt snprintf vsnprintf openpty _getpty daemon waitpid)
+
+dnl Checks for integer sizes
+AC_CHECK_SIZEOF(unsigned char)
+AC_CHECK_SIZEOF(unsigned short)
+AC_CHECK_SIZEOF(unsigned int)
+AC_CHECK_SIZEOF(unsigned long)
+AC_CHECK_SIZEOF(unsigned long long)
 
 AC_OUTPUT(Makefile)
 

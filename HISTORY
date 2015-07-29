@@ -1,5 +1,10 @@
 stunnel         Universal SSL tunnel
 
+Version 3.11, 2000.12.21, urgency: MEDIUM:
+* New problem with zombies fixed.
+* Attempt to be integer-size independed.
+* SIGHUP handler added.
+
 Version 3.10, 2000.12.19, urgency: MEDIUM:
 * Internal thread synchronization code added.
 * libdl added to stunnel dependencies if it exists.

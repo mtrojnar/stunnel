@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.10                  (stunnel.c)
- *   Date:         2000.12.19
+ *   Version:      3.11                  (stunnel.c)
+ *   Date:         2000.12.21
  *   
  *   Author:   		Michal Trojnara  <Michal.Trojnara@mirt.net>
  *   SSL support:  	Adam Hernik      <adas@infocentrum.com>
@@ -113,9 +113,9 @@ static int listen_local();
 #ifndef USE_WIN32
 static int make_sockets(int [2]);
 #endif
-static void name2nums(char *, u_long **, u_short *);
+static void name2nums(char *, u32 **, u_short *);
 static u_short port2num(char *);
-static void host2num(u_long **, char *);
+static void host2num(u32 **, char *);
 
     /* Error/exceptions handling functions */
 static void ioerror(char *);
@@ -130,7 +130,7 @@ static void signal_handler(int);
 static int getopt(int, char **, char *);
 #endif
 static void safestring(char *);
-static void alloc(u_long **, int);
+static void alloc(u32 **, int);
 static void print_help();
 static void print_version();
 
@@ -151,6 +151,7 @@ int main(int argc, char* argv[])
     signal(SIGTERM, signal_handler);
     signal(SIGQUIT, signal_handler);
     signal(SIGINT, signal_handler);
+    signal(SIGHUP, signal_handler);
     /* signal(SIGSEGV, signal_handler); */
 #endif
 
@@ -696,7 +697,7 @@ int connect_remote(u_long ip) /* connect to remote host */
 {
     struct sockaddr_in addr;
     int s; /* destination socket */
-    u_long *list; /* destination addresses list */
+    u32 *list; /* destination addresses list */
 
     if((s=socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         sockerror("remote socket");
@@ -841,7 +842,7 @@ static int make_sockets(int fd[2]) /* make pair of connected sockets */
 }
 #endif
 
-static void name2nums(char *name, u_long **names, u_short *port)
+static void name2nums(char *name, u32 **names, u_short *port)
 {
     char hostname[STRLEN], *portname;
 
@@ -871,7 +872,7 @@ static u_short port2num(char *portname) /* get port number */
     return port;
 }
 
-static void host2num(u_long **hostlist, char *hostname)
+static void host2num(u32 **hostlist, char *hostname)
 { /* get list of host addresses */
     struct hostent *h;
     u_long ip;
@@ -895,7 +896,7 @@ static void host2num(u_long **hostlist, char *hostname)
         i++;
     alloc(hostlist, i); /* allocate memory */
     while(--i>=0)
-        (*hostlist)[i]=*(u_long *)(h->h_addr_list[i]);
+        (*hostlist)[i]=*(u32 *)(h->h_addr_list[i]);
 }
 
 static void ioerror(char *txt) /* Input/Output error handler */
@@ -935,8 +936,8 @@ static void sigchld_handler(int sig) /* Dead children detected */
     options.clients--; /* One client less */
     log(LOG_DEBUG, "%s[%d] finished with code %d (%d left)",
         options.servname, pid, status, options.clients);
-    signal(SIGCHLD, sigchld_handler);
 #endif
+    signal(SIGCHLD, sigchld_handler);
 }
 #endif
 
@@ -980,11 +981,11 @@ static void safestring(char *string)
 		*string='.';
 }
 
-static void alloc(u_long **ptr, int len)
+static void alloc(u32 **ptr, int len)
 { /* Allocate len+1 words terminated with -1 */
     if (*ptr) /* Deallocate if not null */
         free(*ptr);
-    *ptr=malloc((len+1)*sizeof(u_long));
+    *ptr=malloc((len+1)*sizeof(u32));
     if (!*ptr) {
         log(LOG_ERR, "Fatal memory allocation error");
         exit(2);

@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdarg.h>    /* for va_* */
 #include <unistd.h>    /* for read(), write() */
+#include <string.h>
 #include <sys/time.h>  /* for select() */
 #include <sys/types.h> /* Ultrix needs it for fd_set */
 

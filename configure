@@ -897,7 +897,7 @@ else
 fi
 
 
-VERSION="3.10"
+VERSION="3.11"
 
 cat >> confdefs.h <<EOF
 #define VERSION "$VERSION"
@@ -1664,6 +1664,202 @@ else
   echo "$ac_t""no" 1>&6
 fi
 done
+
+
+echo $ac_n "checking size of unsigned char""... $ac_c" 1>&6
+echo "configure:1671: checking size of unsigned char" >&5
+if eval "test \"`echo '$''{'ac_cv_sizeof_unsigned_char'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test "$cross_compiling" = yes; then
+    { echo "configure: error: can not run test program while cross compiling" 1>&2; exit 1; }
+else
+  cat > conftest.$ac_ext <<EOF
+#line 1679 "configure"
+#include "confdefs.h"
+#include <stdio.h>
+main()
+{
+  FILE *f=fopen("conftestval", "w");
+  if (!f) exit(1);
+  fprintf(f, "%d\n", sizeof(unsigned char));
+  exit(0);
+}
+EOF
+if { (eval echo configure:1690: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext} && (./conftest; exit) 2>/dev/null
+then
+  ac_cv_sizeof_unsigned_char=`cat conftestval`
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -fr conftest*
+  ac_cv_sizeof_unsigned_char=0
+fi
+rm -fr conftest*
+fi
+
+fi
+echo "$ac_t""$ac_cv_sizeof_unsigned_char" 1>&6
+cat >> confdefs.h <<EOF
+#define SIZEOF_UNSIGNED_CHAR $ac_cv_sizeof_unsigned_char
+EOF
+
+
+echo $ac_n "checking size of unsigned short""... $ac_c" 1>&6
+echo "configure:1710: checking size of unsigned short" >&5
+if eval "test \"`echo '$''{'ac_cv_sizeof_unsigned_short'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test "$cross_compiling" = yes; then
+    { echo "configure: error: can not run test program while cross compiling" 1>&2; exit 1; }
+else
+  cat > conftest.$ac_ext <<EOF
+#line 1718 "configure"
+#include "confdefs.h"
+#include <stdio.h>
+main()
+{
+  FILE *f=fopen("conftestval", "w");
+  if (!f) exit(1);
+  fprintf(f, "%d\n", sizeof(unsigned short));
+  exit(0);
+}
+EOF
+if { (eval echo configure:1729: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext} && (./conftest; exit) 2>/dev/null
+then
+  ac_cv_sizeof_unsigned_short=`cat conftestval`
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -fr conftest*
+  ac_cv_sizeof_unsigned_short=0
+fi
+rm -fr conftest*
+fi
+
+fi
+echo "$ac_t""$ac_cv_sizeof_unsigned_short" 1>&6
+cat >> confdefs.h <<EOF
+#define SIZEOF_UNSIGNED_SHORT $ac_cv_sizeof_unsigned_short
+EOF
+
+
+echo $ac_n "checking size of unsigned int""... $ac_c" 1>&6
+echo "configure:1749: checking size of unsigned int" >&5
+if eval "test \"`echo '$''{'ac_cv_sizeof_unsigned_int'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test "$cross_compiling" = yes; then
+    { echo "configure: error: can not run test program while cross compiling" 1>&2; exit 1; }
+else
+  cat > conftest.$ac_ext <<EOF
+#line 1757 "configure"
+#include "confdefs.h"
+#include <stdio.h>
+main()
+{
+  FILE *f=fopen("conftestval", "w");
+  if (!f) exit(1);
+  fprintf(f, "%d\n", sizeof(unsigned int));
+  exit(0);
+}
+EOF
+if { (eval echo configure:1768: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext} && (./conftest; exit) 2>/dev/null
+then
+  ac_cv_sizeof_unsigned_int=`cat conftestval`
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -fr conftest*
+  ac_cv_sizeof_unsigned_int=0
+fi
+rm -fr conftest*
+fi
+
+fi
+echo "$ac_t""$ac_cv_sizeof_unsigned_int" 1>&6
+cat >> confdefs.h <<EOF
+#define SIZEOF_UNSIGNED_INT $ac_cv_sizeof_unsigned_int
+EOF
+
+
+echo $ac_n "checking size of unsigned long""... $ac_c" 1>&6
+echo "configure:1788: checking size of unsigned long" >&5
+if eval "test \"`echo '$''{'ac_cv_sizeof_unsigned_long'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test "$cross_compiling" = yes; then
+    { echo "configure: error: can not run test program while cross compiling" 1>&2; exit 1; }
+else
+  cat > conftest.$ac_ext <<EOF
+#line 1796 "configure"
+#include "confdefs.h"
+#include <stdio.h>
+main()
+{
+  FILE *f=fopen("conftestval", "w");
+  if (!f) exit(1);
+  fprintf(f, "%d\n", sizeof(unsigned long));
+  exit(0);
+}
+EOF
+if { (eval echo configure:1807: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext} && (./conftest; exit) 2>/dev/null
+then
+  ac_cv_sizeof_unsigned_long=`cat conftestval`
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -fr conftest*
+  ac_cv_sizeof_unsigned_long=0
+fi
+rm -fr conftest*
+fi
+
+fi
+echo "$ac_t""$ac_cv_sizeof_unsigned_long" 1>&6
+cat >> confdefs.h <<EOF
+#define SIZEOF_UNSIGNED_LONG $ac_cv_sizeof_unsigned_long
+EOF
+
+
+echo $ac_n "checking size of unsigned long long""... $ac_c" 1>&6
+echo "configure:1827: checking size of unsigned long long" >&5
+if eval "test \"`echo '$''{'ac_cv_sizeof_unsigned_long_long'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test "$cross_compiling" = yes; then
+    { echo "configure: error: can not run test program while cross compiling" 1>&2; exit 1; }
+else
+  cat > conftest.$ac_ext <<EOF
+#line 1835 "configure"
+#include "confdefs.h"
+#include <stdio.h>
+main()
+{
+  FILE *f=fopen("conftestval", "w");
+  if (!f) exit(1);
+  fprintf(f, "%d\n", sizeof(unsigned long long));
+  exit(0);
+}
+EOF
+if { (eval echo configure:1846: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext} && (./conftest; exit) 2>/dev/null
+then
+  ac_cv_sizeof_unsigned_long_long=`cat conftestval`
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -fr conftest*
+  ac_cv_sizeof_unsigned_long_long=0
+fi
+rm -fr conftest*
+fi
+
+fi
+echo "$ac_t""$ac_cv_sizeof_unsigned_long_long" 1>&6
+cat >> confdefs.h <<EOF
+#define SIZEOF_UNSIGNED_LONG_LONG $ac_cv_sizeof_unsigned_long_long
+EOF
+
 
 
 trap '' 1 2 15

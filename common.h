@@ -54,13 +54,17 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.10"
+#define VERSION "3.11"
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else
 #define HOST "x86-pc-unknown"
 #endif
 
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned long u32;
+typedef unsigned long long u64;
 
 #define HAVE_VSNPRINTF
 #define vsnprintf _vsnprintf
@@ -83,6 +87,28 @@ int _vsnprintf(char *, int, char *, ...);
 #define LOG_DEBUG       7
 
 #else /* USE_WIN32 */
+
+#if SIZEOF_UNSIGNED_CHAR == 1
+typedef unsigned char u8;
+#endif
+
+#if SIZEOF_UNSIGNED_SHORT == 2
+typedef unsigned short u16;
+#else
+typedef unsigned int u16;
+#endif
+
+#if SIZEOF_UNSIGNED_INT == 4
+typedef unsigned int u32;
+#else
+typedef unsigned long u32;
+#endif
+
+#if SIZEOF_UNSIGNED_LONG == 8
+typedef unsigned long u64;
+#else
+typedef unsigned long long u64;
+#endif
 
 #define get_last_socket_error() errno
 #define get_last_error()        errno
@@ -154,7 +180,7 @@ typedef struct {
     int option;
     int foreground;         /* force messages to stderr */
     unsigned short localport, remoteport;
-    unsigned long *localnames, *remotenames;
+    u32 *localnames, *remotenames;
     char *execname, **execargs; /* program name and arguments for local mode */
     char servname[STRLEN];  /* service name for loggin & permission checking */
     int verify_level;
