@@ -1,12 +1,25 @@
 stunnel change log
 
 
+Version 4.56, 2013.03.22, urgency: HIGH:
+* New features
+  - Win32 installer automatically configures firewall exceptions.
+  - Win32 installer configures administrative shortcuts to invoke UAC.
+  - Improved Win32 GUI shutdown time.
+* Bugfixes
+  - Fixed a regression bug introduced in version 4.55 causing random
+    crashes on several platforms, including Windows 7.
+  - Fixed startup crashes on some Win32 systems.
+  - Fixed incorrect "stunnel -exit" process synchronisation.
+  - Fixed FIPS detection with new versions of the OpenSSL library.
+  - Failure to open the log file at startup is no longer ignored.
+
 Version 4.55, 2013.03.03, urgency: HIGH:
-* Security bugfix
-  - OpenSSL updated to version 1.0.1e in Win32/Android builds.
+* Security bugfixes
   - Buffer overflow vulnerability fixed in the NTLM authentication
     of the CONNECT protocol negotiation.
     See https://www.stunnel.org/CVE-2013-1762.html for details.
+  - OpenSSL updated to version 1.0.1e in Win32/Android builds.
 * New features
   - SNI wildcard matching in server mode.
   - Terminal version of stunnel (tstunnel.exe) build for Win32.
@@ -18,7 +31,7 @@ Version 4.55, 2013.03.03, urgency: HIGH:
   - Fixed memory leaks in protocol negotiation (thx to Arthur Mesh).
   - Fixed a file descriptor leak during configuration file reload (thx to
     Arthur Mesh).
-  - Closed SSL sockets were removed from the the transfer() c->fds poll.
+  - Closed SSL sockets were removed from the transfer() c->fds poll.
   - Minor fix in handling exotic inetd-mode configurations.
   - WCE compilation fixes.
   - IPv6 compilation fix in protocol.c.
@@ -50,7 +63,7 @@ Version 4.54, 2012.10.09, urgency: MEDIUM:
     to Andrew Skalski).
   - Session cache purged at configuration file reload to reduce memory leak.
     Remaining leak of a few kilobytes per section is yet to be fixed.
-  - Fixed regression bug in "transparent = destination" functionality (thx
+  - Fixed a regression bug in "transparent = destination" functionality (thx
     to Stefan Lauterbach). This bug was introduced in stunnel 4.51.
   - "transparent = destination" is now a valid endpoint in inetd mode.
   - "delay = yes" fixed to work even if specified *after* "connect" option.

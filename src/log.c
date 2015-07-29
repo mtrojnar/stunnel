@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -73,14 +73,17 @@ void syslog_close(void) {
 
 #endif /* !defined(USE_WIN32) && !defined(__vms) */
 
-void log_open(void) {
+int log_open(void) {
     if(global_options.output_file) { /* 'output' option specified */
         outfile=file_open(global_options.output_file, 1);
-        if(!outfile)
-            s_log(LOG_ERR, "Unable to open output file: %s",
+        if(!outfile) {
+            s_log(LOG_ERR, "Cannot open log file: %s",
                 global_options.output_file);
+        return 1;
+        }
     }
     log_flush(LOG_MODE_CONFIGURED);
+    return 0;
 }
 
 void log_close(void) {

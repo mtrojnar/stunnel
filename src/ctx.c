@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -321,7 +321,7 @@ static int init_ecdh(SERVICE_OPTIONS *section) {
     ecdh=EC_KEY_new_by_curve_name(section->curve);
     if(!ecdh) {
         sslerror("EC_KEY_new_by_curve_name");
-        s_log(LOG_ERR, "Unable to create curve %s",
+        s_log(LOG_ERR, "Cannot create curve %s",
             OBJ_nid2ln(section->curve));
         return 1; /* FAILED */
     }

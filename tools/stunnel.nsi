@@ -1,9 +1,9 @@
-# NSIS stunnel installer by Michal Trojnara 1998-2012
+# NSIS stunnel installer by Michal Trojnara 1998-2013
 
 !include "Sections.nsh"
 
 !ifndef VERSION
-!define VERSION 4.55
+!define VERSION 4.56
 !endif
 
 !ifndef ZLIBDIR
@@ -13,6 +13,9 @@
 !ifndef OPENSSLDIR
 !define OPENSSLDIR openssl-1.0.1e
 !endif
+
+!addplugindir "plugins/SimpleFC"
+!addplugindir "plugins/ShellLink/Plugins"
 
 Name "stunnel ${VERSION}"
 OutFile "stunnel-${VERSION}-installer.exe" 
@@ -42,11 +45,7 @@ Section "Stunnel Core Files (required)"
   IfErrors skip_service_stop
   ExecWait '"$INSTDIR\stunnel.exe" -stop -quiet'
 skip_service_stop:
-  # skip if the previously installed stunnel version is older than 4.40
-  GetDLLVersion "$INSTDIR\stunnel.exe" $R0 $R1
-  IfErrors skip_process_exit
   ExecWait '"$INSTDIR\stunnel.exe" -exit -quiet'
-skip_process_exit:
 
   # write files
   SetOverwrite off
@@ -79,9 +78,15 @@ skip_process_exit:
   !cd ".."
   !cd "stunnel"
   !cd "tools"
-  WriteUninstaller "uninstall.exe"
 
-  # add uninstaller registry entries
+  # add firewall rule
+  SimpleFC::AddApplication "stunnel (GUI Version)" \
+    "$INSTDIR\stunnel.exe" 0 2 "" 1
+  Pop $0 # returns error(1)/success(0)
+  DetailPrint "SimpleFC::AddApplication: $0"
+
+  # write uninstaller and its registry entries
+  WriteUninstaller "uninstall.exe"
   WriteRegStr HKLM "Software\NSIS_stunnel" "Install_Dir" "$INSTDIR"
   WriteRegStr HKLM \
     "Software\Microsoft\Windows\CurrentVersion\Uninstall\stunnel" \
@@ -126,6 +131,11 @@ Section "Terminal Version of stunnel" sectionTERM
   !cd ".."
   !cd ".."
   !cd "tools"
+  # add firewall rule
+  SimpleFC::AddApplication "stunnel (Terminal Version)" \
+    "$INSTDIR\tstunnel.exe" 0 2 "" 1
+  Pop $0 # returns error(1)/success(0)
+  DetailPrint "SimpleFC::AddApplication: $0"
 SectionEnd
 
 Section "Start Menu Shortcuts"
@@ -155,19 +165,43 @@ lbl_noTERM:
   ReadRegStr $R0 HKLM \
     "Software\Microsoft\Windows NT\CurrentVersion" CurrentVersion
   IfErrors skip_service_links
+
   CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Install.lnk" \
     "$INSTDIR\stunnel.exe" "-install" "$INSTDIR\stunnel.exe" 0
+  ShellLink::SetRunAsAdministrator \
+    "$SMPROGRAMS\stunnel\stunnel Service Install.lnk"
+  Pop $0 # returns error(-1)/success(0)
+  DetailPrint "ShellLink::SetRunAsAdministrator: $0"
+
   CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Uninstall.lnk" \
     "$INSTDIR\stunnel.exe" "-uninstall" "$INSTDIR\stunnel.exe" 0
+  ShellLink::SetRunAsAdministrator \
+    "$SMPROGRAMS\stunnel\stunnel Service Uninstall.lnk"
+  Pop $0 # returns error(-1)/success(0)
+  DetailPrint "ShellLink::SetRunAsAdministrator: $0"
+
   CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Start.lnk" \
     "$INSTDIR\stunnel.exe" "-start" "$INSTDIR\stunnel.exe" 0
+  ShellLink::SetRunAsAdministrator \
+    "$SMPROGRAMS\stunnel\stunnel Service Start.lnk"
+  Pop $0 # returns error(-1)/success(0)
+  DetailPrint "ShellLink::SetRunAsAdministrator: $0"
+
   CreateShortCut "$SMPROGRAMS\stunnel\stunnel Service Stop.lnk" \
     "$INSTDIR\stunnel.exe" "-stop" "$INSTDIR\stunnel.exe" 0
+  ShellLink::SetRunAsAdministrator \
+    "$SMPROGRAMS\stunnel\stunnel Service Stop.lnk"
+  Pop $0 # returns error(-1)/success(0)
+  DetailPrint "ShellLink::SetRunAsAdministrator: $0"
 skip_service_links:
 
   # edit config file
   CreateShortCut "$SMPROGRAMS\stunnel\Edit stunnel.conf.lnk" \
-    "notepad.exe" "stunnel.conf" "notepad.exe" 0
+    "notepad.exe" "$INSTDIR\stunnel.conf" "notepad.exe" 0
+  ShellLink::SetRunAsAdministrator \
+    "$SMPROGRAMS\stunnel\Edit stunnel.conf.lnk"
+  Pop $0 # returns error(-1)/success(0)
+  DetailPrint "ShellLink::SetRunAsAdministrator: $0"
 
   SectionGetFlags ${sectionCA} $0
   IntOp $0 $0 & ${SF_SELECTED}
@@ -181,6 +215,10 @@ skip_service_links:
   CreateShortCut "$SMPROGRAMS\stunnel\Build Self-signed stunnel.pem.lnk" \
     "$INSTDIR\openssl.exe" \
     "req -new -x509 -days 365 -config stunnel.cnf -out stunnel.pem -keyout stunnel.pem"
+  ShellLink::SetRunAsAdministrator \
+    "$SMPROGRAMS\stunnel\\Build Self-signed stunnel.pem.lnk"
+  Pop $0 # returns error(-1)/success(0)
+  DetailPrint "ShellLink::SetRunAsAdministrator: $0"
 
 lbl_noCA:
 
@@ -233,6 +271,14 @@ skip_service_uninstall:
   Delete "$SMPROGRAMS\stunnel\*.lnk"
   Delete "$SMPROGRAMS\stunnel\*.url"
   RMDir "$SMPROGRAMS\stunnel"
+
+  # remove firewall rules
+  SimpleFC::RemoveApplication "$INSTDIR\stunnel.exe"
+  Pop $0 # returns error(1)/success(0)
+  DetailPrint "SimpleFC::RemoveApplication: $0"
+  SimpleFC::RemoveApplication "$INSTDIR\tstunnel.exe"
+  Pop $0 # returns error(1)/success(0)
+  DetailPrint "SimpleFC::RemoveApplication: $0"
 
   # remove uninstaller registry entires
   DeleteRegKey HKLM \

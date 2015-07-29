@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -329,7 +329,7 @@ void set_nonblock(int, unsigned long);
 void syslog_open(void);
 void syslog_close(void);
 #endif
-void log_open(void);
+int log_open(void);
 void log_close(void);
 void log_flush(LOG_MODE);
 void s_log(int, const char *, ...)

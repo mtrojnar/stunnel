@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -112,7 +112,7 @@ static CONTEXT *new_context(void) {
 int sthreads_init(void) {
     /* create the first (listening) context and put it in the running queue */
     if(!new_context()) {
-        s_log(LOG_ERR, "Unable create the listening context");
+        s_log(LOG_ERR, "Cannot create the listening context");
         return 1;
     }
     /* no need to initialize ucontext_t structure here

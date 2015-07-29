@@ -169,10 +169,10 @@ default: no compression
 
 deflate is the standard compression method as described in RFC 1951.
 
-zlib compression of OpenSSL 0.9.8 or above is not backward compatible with
-OpenSSL 0.9.7.
+zlib compression of B<OpenSSL 0.9.8> or above is not backward compatible with
+B<OpenSSL 0.9.7>.
 
-rle compression is currently not implemented by the OpenSSL library.
+rle compression is currently not implemented by the B<OpenSSL> library.
 
 =item B<debug> = [facility.]level
 
@@ -193,8 +193,8 @@ Case is ignored for both facilities and levels.
 
 path to Entropy Gathering Daemon socket
 
-Entropy Gathering Daemon socket to use to feed OpenSSL random number
-generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)
+Entropy Gathering Daemon socket to use to feed B<OpenSSL> random number
+generator.  (Available only if compiled with B<OpenSSL 0.9.5a> or higher)
 
 =item B<engine> = auto | <engine id>
 
@@ -228,8 +228,8 @@ engine cryptogaphic module.
 
 Enable or disable FIPS 140-2 mode.
 
-This option allows to disable entering FIPS mode if stunnel was compiled with
-FIPS 140-2 support.
+This option allows to disable entering FIPS mode if B<stunnel> was compiled
+with FIPS 140-2 support.
 
 default: yes
 
@@ -261,9 +261,9 @@ I<pid> path is relative to I<chroot> directory if specified.
 
 bytes to read from random seed files
 
-Number of bytes of data read from random seed files.  With SSL versions
-less than 0.9.5a, also determines how many bytes of data are considered
-sufficient to seed the PRNG.  More recent OpenSSL versions have a builtin
+Number of bytes of data read from random seed files.  With SSL versions less
+than B<0.9.5a>, also determines how many bytes of data are considered
+sufficient to seed the PRNG.  More recent B<OpenSSL> versions have a builtin
 function to determine when sufficient randomness is available.
 
 =item B<RNDfile> = file
@@ -360,8 +360,8 @@ the I<verify>.  Note that the certificates in this directory should be named
 XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the
 cert.
 
-The hash algorithm has been changed in OpenSSL 1.0.0.  It is required to
-c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.
+The hash algorithm has been changed in B<OpenSSL 1.0.0>.  It is required to
+c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
 
 I<CApath> path is relative to I<chroot> directory if specified.
 
@@ -414,8 +414,8 @@ This is the directory in which B<stunnel> will look for CRLs when
 using the I<verify>. Note that the CRLs in this directory should
 be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.
 
-The hash algorithm has been changed in OpenSSL 1.0.0.  It is required to
-c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.
+The hash algorithm has been changed in B<OpenSSL 1.0.0>.  It is required to
+c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
 
 I<CRLpath> path is relative to I<chroot> directory if specified.
 
@@ -440,7 +440,7 @@ default: prime256v1
 delay DNS lookup for 'connect' option
 
 This option is useful for dynamic DNS, or when DNS is not available during
-stunnel startup (road warrior VPN, dial-up configurations).
+B<stunnel> startup (road warrior VPN, dial-up configurations).
 
 =item B<engineNum> = engine number
 
@@ -518,14 +518,14 @@ specified, as I<protocol> connects remote host before TLS handshake.
 Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.
 
-Option I<sni> is only available when compiled with OpenSSL 1.0.0 and later.
+Option I<sni> is only available when compiled with B<OpenSSL 1.0.0> and later.
 
 =item B<sni> = server_name (client mode)
 
 Use the parameter as the value of TLS Server Name Indication (RFC 3546)
 extension.
 
-Option I<sni> is only available when compiled with OpenSSL 1.0.0 and later.
+Option I<sni> is only available when compiled with B<OpenSSL 1.0.0> and later.
 
 =item B<OCSP> = url
 
@@ -542,9 +542,9 @@ NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
 
 =item B<options> = SSL_options
 
-OpenSSL library options
+B<OpenSSL> library options
 
-The parameter is the OpenSSL option name as described in the
+The parameter is the B<OpenSSL> option name as described in the
 I<SSL_CTX_set_options(3ssl)> manual, but without I<SSL_OP_> prefix.
 Several I<options> can be used to specify multiple options.
 
@@ -610,13 +610,19 @@ authentication type for protocol negotiations
 
 currently supported: basic, NTLM
 
-Currently authentication type only applies to 'connect' protocol.
+Currently authentication type only applies to the 'connect' protocol.
 
 default: basic
 
 =item B<protocolHost> = host:port
 
 destination address for protocol negotiations
+
+I<protocolHost> specifies the final SSL server to be connected by the proxy,
+and not the proxy server directly connected by B<stunnel>.
+The proxy server should be specified with the 'connect' option.
+
+Currently protocol destination address only applies to 'connect' protocol.
 
 =item B<protocolPassword> = password
 
@@ -645,7 +651,7 @@ http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html
 Please note that disabling SSL renegotiation does not fully mitigate
 this issue.
 
-default: yes (if supported by OpenSSL)
+default: yes (if supported by B<OpenSSL>)
 
 =item B<reset> = yes | no
 
@@ -665,7 +671,7 @@ default: no
 
 session cache size
 
-The parameter specifies the maximum number of the internal session cache
+I<sessionCacheSize> specifies the maximum number of the internal session cache
 entries.
 
 The value of 0 can be used for unlimited size.  It is not recommended
@@ -730,7 +736,7 @@ This option is currently available in:
 
 =item Remote mode (I<connect> option) on I<Linux E<gt>=2.6.28>
 
-This configuration requires stunnel to be executed as root and without
+This configuration requires B<stunnel> to be executed as root and without
 I<setuid> option.
 
 This configuration requires the following setup for iptables and routing
@@ -748,9 +754,10 @@ B<stunnel> must also to be executed as root and without I<setuid> option.
 
 =item Remote mode (I<connect> option) on I<Linux 2.2.x>
 
-This configuration requires kernel to be compiled with I<transparent proxy> option.
+This configuration requires kernel to be compiled with I<transparent proxy>
+option.
 Connected service must be installed on a separate host.
-Routing towards the clients has to go through the stunnel box.
+Routing towards the clients has to go through the B<stunnel> box.
 
 B<stunnel> must also to be executed as root and without I<setuid> option.
 
@@ -855,7 +862,7 @@ B<stunnel> returns zero on success, non-zero on error.
 
 =head1 SIGNALS
 
-The following signals can be used to control stunnel in Unix environment:
+The following signals can be used to control B<stunnel> in Unix environment:
 
 =over 4
 
@@ -889,21 +896,21 @@ setuid
 
 =back
 
-The use of 'setuid' option will also prevent stunnel from binding privileged
+The use of 'setuid' option will also prevent B<stunnel> from binding privileged
 (<1024) ports during configuration reloading.
 
-When 'chroot' option is used, stunnel will look for all its files (including
+When 'chroot' option is used, B<stunnel> will look for all its files (including
 configuration file, certificates, log file and pid file) within the chroot
 jail.
 
 =item SIGUSR1
 
-Close and reopen stunnel log file.
+Close and reopen B<stunnel> log file.
 This function can be used for log rotation.
 
 =item SIGTERM, SIGQUIT, SIGINT
 
-Shut stunnel down.
+Shut B<stunnel> down.
 
 =back
 
@@ -973,7 +980,7 @@ configurations.
 Each SSL enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
-generate them with the free I<OpenSSL> package. You can find more
+generate them with the free B<OpenSSL> package. You can find more
 information on certificates generation on pages listed below.
 
 The order of contents of the I<.pem> file is important.  It should contain the
@@ -1004,6 +1011,7 @@ in order until sufficient random data has been gathered:
 The file specified with the I<RNDfile> flag.
 
 =item *
+
 The file specified by the RANDFILE environment variable, if set.
 
 =item *
@@ -1032,10 +1040,10 @@ The /dev/urandom device.
 
 =back
 
-With recent (>=OpenSSL 0.9.5a) version of SSL it will stop loading
-random data automatically when sufficient entropy has been gathered.
-With previous versions it will continue to gather from all the above
-sources since no SSL function exists to tell when enough data is available.
+With recent (B<OpenSSL 0.9.5a> or later) version of SSL it will stop loading
+random data automatically when sufficient entropy has been gathered.  With
+previous versions it will continue to gather from all the above sources since
+no SSL function exists to tell when enough data is available.
 
 Note that on Windows machines that do not have console user interaction
 (mouse movements, creating windows, etc.) the screen contents are not
@@ -1046,14 +1054,13 @@ Note that the file specified with the I<RNDfile> flag should contain
 random data -- that means it should contain different information
 each time B<stunnel> is run.  This is handled automatically
 unless the I<RNDoverwrite> flag is used.  If you wish to update this file
-manually, the I<openssl rand> command in recent versions of OpenSSL,
+manually, the I<openssl rand> command in recent versions of B<OpenSSL>,
 would be useful.
 
-One important note -- if /dev/urandom is available, OpenSSL has a habit of
-seeding the PRNG with it even when checking the random state, so on
-systems with /dev/urandom you're likely to use it even though it's listed
-at the very bottom of the list above.  This isn't B<stunnel's> behaviour, it's
-OpenSSLs.
+Important note: If /dev/urandom is available, B<OpenSSL> often seeds the PRNG
+with it while checking the random state.  On systems with /dev/urandom
+B<OpenSSL> is likely to use it even though it is listed at the very bottom of
+the list above.  This is the behaviour of B<OpenSSL> and not B<stunnel>.
 
 =head2 DH PARAMETERS
 
@@ -1100,7 +1107,7 @@ B<stunnel> homepage
 
 =item F<http://www.openssl.org/>
 
-OpenSSL project website
+B<OpenSSL> project website
 
 =back
 

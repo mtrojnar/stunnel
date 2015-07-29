@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -431,10 +431,10 @@ extern char *sys_errlist[];
 #include <openssl/ocsp.h>
 #endif /* HAVE_OSSL_OCSP_H */
 
-#ifdef USE_FIPS
+#ifdef HAVE_OSSL_FIPS_H
 #include <openssl/fips.h>
 #include <openssl/fips_rand.h>
-#endif /* USE_FIPS */
+#endif /* HAVE_OSSL_FIPS_H */
 
 #if OPENSSL_VERSION_NUMBER<0x0090800fL
 #define OPENSSL_NO_ECDH

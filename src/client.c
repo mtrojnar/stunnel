@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -688,6 +688,8 @@ static void transfer(CLI *c) {
             case -1:
                 if(parse_socket_error(c, "readsocket"))
                     break; /* a non-critical error: retry */
+                sock_open_rd=sock_open_wr=0;
+                break;
             case 0: /* close */
                 s_log(LOG_INFO, "Read socket closed (readsocket)");
                 sock_open_rd=0;
@@ -705,6 +707,8 @@ static void transfer(CLI *c) {
             case -1: /* error */
                 if(parse_socket_error(c, "writesocket"))
                     break; /* a non-critical error: retry */
+                sock_open_rd=sock_open_wr=0;
+                break;
             default:
                 memmove(c->ssl_buff, c->ssl_buff+num, c->ssl_ptr-num);
                 c->ssl_ptr-=num;

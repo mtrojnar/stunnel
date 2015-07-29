@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -118,8 +118,6 @@ static HANDLE small_icon; /* 16x16 icon */
 static TCHAR *win32_name=TEXT("stunnel ") TEXT(STUNNEL_VERSION)
     TEXT(" on ") TEXT(STUNNEL_PLATFORM) TEXT(" (not configured)");
 
-static HANDLE daemon_handle=NULL;
-
 #ifndef _WIN32_WCE
 static SERVICE_STATUS serviceStatus;
 static SERVICE_STATUS_HANDLE serviceStatusHandle=0;
@@ -134,7 +132,7 @@ static UI_DATA *ui_data=NULL;
 
 static struct {
     char *config_file;
-    unsigned int install:1, uninstall:1, start:1, stop:1, service:1,
+    unsigned int service:1, install:1, uninstall:1, start:1, stop:1,
         quiet:1, exit:1;
 } cmdline;
 
@@ -170,7 +168,12 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
     GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
 
     /* find previous instances of the same executable */
-    EnumWindows(enum_windows, (LPARAM)stunnel_exe_path);
+    if(!cmdline.service && !cmdline.install && !cmdline.uninstall &&
+            !cmdline.start && !cmdline.stop) {
+        EnumWindows(enum_windows, (LPARAM)stunnel_exe_path);
+        if(cmdline.exit)
+            return 0; /* in case EnumWindows didn't find a previous instance */
+    }
 
     /* change current working directory */
     c=strrchr(stunnel_exe_path, '\\'); /* last backslash */
@@ -182,16 +185,13 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
         str_free(errmsg);
         return 1;
     }
-
-    if(cmdline.exit)
-        return 0; /* in case EnumWindows didn't find a previous instance */
 #endif
 
     if(initialize_winsock())
         return 1;
 
 #ifndef _WIN32_WCE
-    if(cmdline.service) /* it must be checked before "-install" */
+    if(cmdline.service) /* "-service" must be processed before "-install" */
         return service_initialize();
     if(cmdline.install)
         return service_install(command_line);
@@ -208,7 +208,7 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
 #ifndef _WIN32_WCE
 
 static BOOL CALLBACK enum_windows(HWND other_window_handle, LPARAM lParam) {
-    DWORD pid;
+    DWORD pid, exit_code;
     HINSTANCE hInstance;
     char window_exe_path[MAX_PATH];
     HANDLE process_handle;
@@ -218,9 +218,14 @@ static BOOL CALLBACK enum_windows(HWND other_window_handle, LPARAM lParam) {
         return TRUE;
     hInstance=(HINSTANCE)GetWindowLong(other_window_handle, GWL_HINSTANCE);
     GetWindowThreadProcessId(other_window_handle, &pid);
-    process_handle=OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ,
+    process_handle=OpenProcess(SYNCHRONIZE        /* WaitForSingleObject() */ |
+        PROCESS_TERMINATE                         /* TerminateProcess()    */ |
+        PROCESS_QUERY_INFORMATION|PROCESS_VM_READ /* GetModuleFileNameEx() */,
         FALSE, pid);
-    if(!GetModuleFileNameEx(process_handle, hInstance, window_exe_path, MAX_PATH)) {
+    if(!process_handle)
+        return TRUE;
+    if(!GetModuleFileNameEx(process_handle,
+            hInstance, window_exe_path, MAX_PATH)) {
         CloseHandle(process_handle);
         return TRUE;
     }
@@ -229,8 +234,11 @@ static BOOL CALLBACK enum_windows(HWND other_window_handle, LPARAM lParam) {
         return TRUE;
     }
     if(cmdline.exit) {
-        SendMessage(other_window_handle, WM_COMMAND, IDM_EXIT, 0);
-        WaitForSingleObject(process_handle, 3000);
+        PostMessage(other_window_handle, WM_COMMAND, IDM_EXIT, 0);
+        if(WaitForSingleObject(process_handle, 3000)==WAIT_TIMEOUT) {
+            TerminateProcess(process_handle, 0);
+            WaitForSingleObject(process_handle, 3000);
+        }
     } else {
         ShowWindow(other_window_handle, SW_SHOWNORMAL); /* show window */
         SetForegroundWindow(other_window_handle); /* bring on top */
@@ -346,7 +354,7 @@ static int gui_loop() {
 #endif
     /* auto-reset, non-signaled */
     config_ready=CreateEvent(NULL, FALSE, FALSE, NULL);
-    daemon_handle=(HANDLE)_beginthread(daemon_thread, DEFAULT_STACK_SIZE, NULL);
+    _beginthread(daemon_thread, DEFAULT_STACK_SIZE, NULL);
 
     while(GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
@@ -484,10 +492,8 @@ static LRESULT CALLBACK window_proc(HWND main_window_handle,
             ShowWindow(main_window_handle, SW_HIDE); /* hide window */
             break;
         case IDM_EXIT:
-            if(!error_mode) { /* signal_pipe is active */
+            if(!error_mode) /* signal_pipe is active */
                 signal_post(SIGNAL_TERMINATE);
-                WaitForSingleObject(daemon_handle, 3000);
-            }
             DestroyWindow(main_window_handle);
             break;
         case IDM_SAVE_LOG:

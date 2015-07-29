@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -210,7 +210,8 @@ int main_configure(char *arg1, char *arg2) {
      * or logfile rotation won't be possible */
     /* log_open() must be be called before daemonize()
      * since daemonize() invalidates stderr */
-    log_open();
+    if(log_open())
+        return 1;
     return 0;
 }
 
@@ -684,7 +685,7 @@ static void signal_handler(int sig) {
 
 #endif /* !defined(USE_WIN32) && !defined(USE_OS2) */
 
-/**************************************** log messages to identify  build */
+/**************************************** log build details */
 
 void stunnel_info(int level) {
     s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " platform");
@@ -696,6 +697,7 @@ void stunnel_info(int level) {
         s_log(level, "Update OpenSSL shared libraries or rebuild stunnel");
     }
     s_log(level,
+
         "Threading:"
 #ifdef USE_UCONTEXT
         "UCONTEXT"
@@ -710,35 +712,37 @@ void stunnel_info(int level) {
         "FORK"
 #endif
 
-        " SSL:"
-#if defined HAVE_OSSL_ENGINE_H || defined HAVE_OSSL_OCSP_H || defined USE_FIPS
-#ifdef HAVE_OSSL_ENGINE_H
-        "+ENGINE"
-#endif
-#ifdef HAVE_OSSL_OCSP_H
-        "+OCSP"
-#endif
-#ifdef USE_FIPS
-        "+FIPS"
-#endif
-#else
-        "none"
-#endif
-
-        " Auth:"
-#ifdef USE_LIBWRAP
-        "LIBWRAP"
-#else
-        "none"
-#endif
-
         " Sockets:"
 #ifdef USE_POLL
         "POLL"
 #else /* defined(USE_POLL) */
         "SELECT"
 #endif /* defined(USE_POLL) */
-        "+IPv%c",
+        ",IPv%c"
+
+#if defined HAVE_OSSL_ENGINE_H || defined HAVE_OSSL_OCSP_H || defined USE_FIPS
+        " SSL:"
+#define ITEM_SEPARATOR ""
+#ifdef HAVE_OSSL_ENGINE_H
+        "ENGINE"
+#undef ITEM_SEPARATOR
+#define ITEM_SEPARATOR ","
+#endif /* defined(HAVE_OSSL_ENGINE_H) */
+#ifdef HAVE_OSSL_OCSP_H
+        ITEM_SEPARATOR "OCSP"
+#undef ITEM_SEPARATOR
+#define ITEM_SEPARATOR ","
+#endif /* HAVE_OSSL_OCSP_H */
+#ifdef USE_FIPS
+        ITEM_SEPARATOR "FIPS"
+#endif /* USE_FIPS */
+#endif /* an SSL optional feature enabled */
+
+#ifdef USE_LIBWRAP
+        " Auth:LIBWRAP"
+#endif
+
+        , /* supported IP version parameter */
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
         s_getaddrinfo ? '6' : '4'
 #else /* defined(USE_WIN32) */

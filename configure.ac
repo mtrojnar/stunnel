@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.55])
+AC_INIT([stunnel],[4.56])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.55)
+AM_INIT_AUTOMAKE(stunnel, 4.56)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -455,32 +455,27 @@ valid_CPPFLAGS="$CPPFLAGS"; CPPFLAGS="$CPPFLAGS -I$SSLDIR/include"
 valid_LIBS="$LIBS"; LIBS="$LIBS -L$SSLDIR/lib64 -L$SSLDIR/lib -lssl -lcrypto"
 
 AC_CHECK_HEADER([$SSLDIR/include/openssl/engine.h],
-    [AC_DEFINE([HAVE_OSSL_ENGINE_H], [1], [Define to 1 if you have <engine.h> header file.])],
+    [AC_DEFINE([HAVE_OSSL_ENGINE_H], [1],
+    [Define to 1 if you have <engine.h> header file.])],
     [AC_MSG_WARN([OpenSSL engine header not found])])
 
 AC_CHECK_HEADER([$SSLDIR/include/openssl/ocsp.h],
-    [AC_DEFINE([HAVE_OSSL_OCSP_H], [1], [Define to 1 if you have <ocsp.h> header file.])],
+    [AC_DEFINE([HAVE_OSSL_OCSP_H], [1],
+    [Define to 1 if you have <ocsp.h> header file.])],
     [AC_MSG_WARN([OpenSSL ocsp header not found])])
 
-AC_MSG_CHECKING([for FIPS_mode_set])
+AC_CHECK_HEADER([$SSLDIR/include/openssl/fips.h],
+    [AC_DEFINE([HAVE_OSSL_FIPS_H], [1],
+    [Define to 1 if you have <fips.h> header file.])],
+    [AC_MSG_WARN([OpenSSL fips header not found])])
+
 if test "$fips" = "auto"; then
-    AC_LINK_IFELSE(
-        [AC_LANG_PROGRAM(
-            [
-#include <openssl/fips.h>
-            ],
-            [
-FIPS_mode_set(1);
-            ],
-        )],
-        [AC_MSG_RESULT([yes])
-            AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS mode.])
-        ], [
-            AC_MSG_RESULT([no])
-        ]
-    )
-else
-    AC_MSG_RESULT([test skipped])
+    AC_CHECK_FUNCS(FIPS_mode_set, [
+        AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS mode.])
+        AC_MSG_NOTICE([FIPS mode detected])
+    ], [
+        AC_MSG_NOTICE([FIPS mode not detected])
+    ])
 fi
 
 CPPFLAGS="$valid_CPPFLAGS"

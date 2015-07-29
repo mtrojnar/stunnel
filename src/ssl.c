@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -230,7 +230,7 @@ static int add_rand_file(GLOBAL_OPTIONS *global, const char *filename) {
         s_log(LOG_DEBUG, "Snagged %d random bytes from %s",
             readbytes, filename);
     else
-        s_log(LOG_INFO, "Unable to retrieve any random data from %s",
+        s_log(LOG_INFO, "Cannot retrieve any random data from %s",
             filename);
     /* write new random data for future seeding if it's a regular file */
     if(global->option.rand_write && (sb.st_mode & S_IFREG)) {

@@ -213,9 +213,9 @@ oraz <em>exec</em> muszą być umieszczone wewnątrz katalogu podanego w opcji
 <p>wybór algorytmu kompresji przesyłanych danych</p>
 <p>domyślnie: bez kompresji</p>
 <p>Algorytm deflate jest standardową metodą kompresji zgodnie z <a href="http://www.ietf.org/rfc/rfc1951.txt" class="rfc">RFC 1951</a>.</p>
-<p>Kompresja zlib zaimplementowana w OpenSSL 0.9.8 i nowszych nie jest
-kompatybilna implementacją OpenSSL 0.9.7.</p>
-<p>Kompresja rle nie jest zaimplementowana w aktualnych wersjach OpenSSL.</p>
+<p>Kompresja zlib zaimplementowana w <strong>OpenSSL 0.9.8</strong> i nowszych nie jest
+kompatybilna implementacją <strong>OpenSSL 0.9.7</strong>.</p>
+<p>Kompresja rle nie jest zaimplementowana w aktualnych wersjach <strong>OpenSSL</strong>.</p>
 </dd>
 <dt><strong><a name="debug_poziom_podsystem" class="item"><strong>debug</strong> = poziom[.podsystem]</a></strong></dt>
 
@@ -237,7 +237,7 @@ Podsystemy nie są wspierane przez platformę Win32.</p>
 <p>ścieżka do gniazda programu Entropy Gathering Daemon</p>
 <p>Opcja pozwala określić ścieżkę do gniazda programu Entropy Gathering Daemon
 używanego do zainicjalizowania generatora ciągów pseudolosowych biblioteki
-OpenSSL.  Opcja jest dostępna z biblioteką OpenSSL 0.9.5a lub nowszą.</p>
+<strong>OpenSSL</strong>.  Opcja jest dostępna z biblioteką <strong>OpenSSL 0.9.5a</strong> lub nowszą.</p>
 </dd>
 <dt><strong><a name="engine_auto_identyfikator_urz_dzenia" class="item"><strong>engine</strong> = auto | &lt;identyfikator urządzenia&gt;</a></strong></dt>
 
@@ -270,15 +270,15 @@ modułu kryptograficznego urządzenia.</p>
 
 <dd>
 <p>Włącz lub wyłącz tryb FIPS 140-2.</p>
-<p>Opcja pozwala wyłączyć wejście w tryb FIPS, jeśli stunnel został skompilowany
-ze wsparciem dla FIPS 140-2.</p>
+<p>Opcja pozwala wyłączyć wejście w tryb FIPS, jeśli <strong>stunnel</strong> został
+skompilowany ze wsparciem dla FIPS 140-2.</p>
 <p>domyślnie: yes (pracuj w trybie FIPS 140-2)</p>
 </dd>
 <dt><strong><a name="no" class="item"><strong>foreground</strong> = yes | no (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>tryb pierwszoplanowy</p>
-<p>Użycie tej opcji powoduje, że <em>stunnel</em> nie przechodzi w tło logując
+<p>Użycie tej opcji powoduje, że <strong>stunnel</strong> nie przechodzi w tło logując
 swoje komunikaty na konsolę zamiast przez <em>syslog</em> (o ile nie użyto
 opcji <em>output</em>).</p>
 </dd>
@@ -303,7 +303,7 @@ względem tego katalogu.</p>
 
 <dd>
 <p>liczba bajtów do zainicjowania generatora pseudolosowego</p>
-<p>W wersjach biblioteki OpenSSL starszych niż 0.9.5a opcja ta określa
+<p>W wersjach biblioteki <strong>OpenSSL</strong> starszych niż <strong>0.9.5a</strong> opcja ta określa
 również liczbę bajtów wystarczających do zainicjowania PRNG.
 Nowsze wersje biblioteki mają wbudowaną funkcję określającą, czy
 dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.</p>
@@ -312,7 +312,7 @@ dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.<
 
 <dd>
 <p>ścieżka do pliku zawierającego losowe dane</p>
-<p>Biblioteka OpenSSL użyje danych z tego pliku do zainicjowania
+<p>Biblioteka <strong>OpenSSL</strong> użyje danych z tego pliku do zainicjowania
 generatora pseudolosowego.</p>
 </dd>
 <dt><strong><a name="rndoverwrite_yes_no" class="item"><strong>RNDoverwrite</strong> = yes | no</a></strong></dt>
@@ -330,12 +330,12 @@ generatora pseudolosowego.</p>
 <dt><strong><a name="identyfikator_grupy" class="item"><strong>setgid</strong> = identyfikator_grupy (tylko Unix)</a></strong></dt>
 
 <dd>
-<p>grupa z której prawami pracował będzie <em>stunnel</em></p>
+<p>grupa z której prawami pracował będzie <strong>stunnel</strong></p>
 </dd>
 <dt><strong><a name="ytkownika" class="item"><strong>setuid</strong> = identyfikator_użytkownika (tylko Unix)</a></strong></dt>
 
 <dd>
-<p>użytkownik, z którego prawami pracował będzie <em>stunnel</em></p>
+<p>użytkownik, z którego prawami pracował będzie <strong>stunnel</strong></p>
 </dd>
 <dt><strong><a name="socket_a_l_r_option_value_value" class="item"><strong>socket</strong> = a|l|r:option=value[:value]</a></strong></dt>
 
@@ -387,7 +387,7 @@ lub <em>tcpserver</em>), należy przeczytać sekcję <em>TRYB INETD</em> poniże
 
 <dd>
 <p>nasłuchuje na połączenia na podanym adresie i porcie</p>
-<p>Jeżeli nie został podany adres, <em>stunnel</em> domyślnie nasłuchuje
+<p>Jeżeli nie został podany adres, <strong>stunnel</strong> domyślnie nasłuchuje
 na wszystkich adresach IPv4 lokalnych interfejsów.</p>
 <p>Aby nasłuchiwać na wszystkich adresach IPv6 należy użyć:</p>
 <pre>
@@ -401,8 +401,8 @@ na wszystkich adresach IPv4 lokalnych interfejsów.</p>
 jeżeli użyta została opcja <em>verify</em>.  Pliki z certyfikatami muszą
 posiadać specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu.</p>
-<p>Funkcja skrótu została zmieniona w wersji 1.0.0 biblioteki OpenSSL.
-Należy wykonać c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.</p>
+<p>Funkcja skrótu została zmieniona w <strong>OpenSSL 1.0.0</strong>.
+Należy wykonać c_rehash przy zmianie <strong>OpenSSL 0.x.x</strong> na <strong>1.x.x</strong>.</p>
 <p>Jeżeli zdefiniowano katalog <em>chroot</em>, to ścieżka do <em>CApath</em> jest określona
 względem tego katalogu.</p>
 </dd>
@@ -439,7 +439,7 @@ otwieraniu nowych połączeń SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5</p>
 
 <dd>
 <p>połącz się ze zdalnym serwerem na podany port</p>
-<p>Jeżeli nie został podany adres, <em>stunnel</em> domyślnie łączy się
+<p>Jeżeli nie został podany adres, <strong>stunnel</strong> domyślnie łączy się
 z lokalnym serwerem.</p>
 <p>Komenda może byc użyta wielokrotnie w pojedynczej sekcji
 celem zapewnienia wysokiej niezawodności lub rozłożenia
@@ -453,8 +453,8 @@ ruchu pomiędzy wiele serwerów.</p>
 jeżeli użyta została opcja <em>verify</em>.  Pliki z listami CRL muszą
 posiadać specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skrótem
 listy CRL.</p>
-<p>Funkcja skrótu została zmieniona w wersji 1.0.0 biblioteki OpenSSL.
-Należy wykonać c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.</p>
+<p>Funkcja skrótu została zmieniona <strong>OpenSSL 1.0.0</strong>.
+Należy wykonać c_rehash przy zmianie <strong>OpenSSL 0.x.x</strong> na <strong>1.x.x</strong>.</p>
 <p>Jeżeli zdefiniowano katalog <em>chroot</em>, to ścieżka do <em>CRLpath</em> jest określona
 względem tego katalogu.</p>
 </dd>
@@ -479,7 +479,7 @@ przez opcję <em>verify</em>.</p>
 <dd>
 <p>opóźnij rozwinięcie adresu DNS podanego w opcji <em>connect</em></p>
 <p>Opcja jest przydatna przy dynamicznym DNS, albo gdy usługa DNS nie jest
-dostępna przy starcie programu stunnel (klient VPN, połączenie wdzwaniane).</p>
+dostępna przy starcie programu <strong>stunnel</strong> (klient VPN, połączenie wdzwaniane).</p>
 </dd>
 <dt><strong><a name="enginenum_numer_urz_dzenia" class="item"><strong>engineNum</strong> = &lt;numer urządzenia&gt;</a></strong></dt>
 
@@ -559,14 +559,14 @@ przed negocjacją TLS.</p>
 <p>Uwierzytelnienie przy pomocy biblioteki libwrap jest realizowane dwukrotnie:
 najpierw dla usługi nadrzędnej po odebraniu połączenia TCP, a następnie dla
 usługi podrzędnej podczas negocjacji TLS.</p>
-<p>Opcja <em>sni</em> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.</p>
+<p>Opcja <em>sni</em> jest dostępna począwszy od <strong>OpenSSL 1.0.0</strong>.</p>
 </dd>
 <dt><strong><a name="nazwa_serwera" class="item"><strong>sni</strong> = nazwa_serwera (tryb klienta)</a></strong></dt>
 
 <dd>
 <p>Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
 (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>).</p>
-<p>Opcja <em>sni</em> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.</p>
+<p>Opcja <em>sni</em> jest dostępna począwszy od <strong>OpenSSL 1.0.0</strong>.</p>
 </dd>
 <dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = URL</a></strong></dt>
 
@@ -584,7 +584,7 @@ NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
 <dt><strong><a name="options_opcje_ssl" class="item"><strong>options</strong> = opcje_SSL</a></strong></dt>
 
 <dd>
-<p>opcje biblioteki OpenSSL</p>
+<p>opcje biblioteki <strong>OpenSSL</strong></p>
 <p>Parametrem jest nazwa opcji zgodnie z opisem w <em>SSL_CTX_set_options(3ssl)</em>,
 ale bez przedrostka <em>SSL_OP_</em>.
 Aby wyspecyfikować kilka opcji należy użyć <em>options</em> wielokrotnie.</p>
@@ -659,6 +659,11 @@ Wsparcie dla tego rozrzeczenia zostało zarzucone w wersji 3.0.0 serwera Samba.<
 
 <dd>
 <p>adres docelowy do negocjacji protokołu</p>
+<p><em>protocolHost</em> określa docelowy serwer SSL, do którego połączyć ma się proxy.
+Nie jest to adres serwera proxy, do którego połączenie zestawia <strong>stunnel</strong>.
+Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.</p>
+<p>W obecnej wersji adres docelowy protokołu ma zastosowanie wyłącznie w protokole
+'connect'.</p>
 </dd>
 <dt><strong><a name="protocolpassword_has_o" class="item"><strong>protocolPassword</strong> = hasło</a></strong></dt>
 
@@ -686,7 +691,7 @@ wygenerowanie obciążenia procesora:</p>
 <p><a href="http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html">http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html</a></p>
 <p>Warto zauważyć, że zablokowanie renegocjacji SSL nie zebezpiecza w pełni
 przed opisanym problemem.</p>
-<p>domyślnie: yes (o ile wspierane przez OpenSSL)</p>
+<p>domyślnie: yes (o ile wspierane przez <strong>OpenSSL</strong>)</p>
 </dd>
 <dt><strong><a name="reset_yes_no" class="item"><strong>reset</strong> = yes | no</a></strong></dt>
 
@@ -769,7 +774,7 @@ pamięci podręcznej.</p>
 
 <dd>
 <p>Przepisz adres, aby nawiązywane połączenie wydawało się pochodzić
-bezpośrednio od klienta, a nie od programu <em>stunnel</em>.</p>
+bezpośrednio od klienta, a nie od programu <strong>stunnel</strong>.</p>
 <p>Opcja jest aktualnie obsługiwana w:</p>
 <dl>
 <dt><strong><a name="zdalnym" class="item">Trybie zdalnym (opcja <em>connect</em>) w systemie <em>Linux &gt;=2.6.28</em></a></strong></dt>
@@ -792,7 +797,7 @@ bezpośrednio od klienta, a nie od programu <em>stunnel</em>.</p>
 <dd>
 <p>Konfiguracja ta wymaga skompilowania jądra z opcją <em>transparent proxy</em>.
 Docelowa usługa musi być umieszczona na osobnej maszynie, do której routing
-kierowany jest poprzez serwer stunnela.</p>
+kierowany jest poprzez serwer <strong>stunnela</strong>.</p>
 <p>Dodatkowo <strong>stunnel</strong> powinien być wykonywany jako root i bez opcji <em>setuid</em>.</p>
 </dd>
 <dt><strong>Trybie zdalnym (opcja <em>connect</em>) w systemie <em>FreeBSD &gt;=8.0</em></strong></dt>
@@ -920,9 +925,9 @@ w przypadku błędu.</p>
 <p>setuid</p>
 </li>
 </ul>
-<p>Jeżeli wykorzystywana jest opcja 'setuid' stunnel nie będzie mógł załadować
+<p>Jeżeli wykorzystywana jest opcja 'setuid' <strong>stunnel</strong> nie będzie mógł załadować
 ponownie konfiguracji wykorzystującej uprzywilejowane (&lt;1024) porty.</p>
-<p>Jeżeli wykorzystywana jest opcja 'chroot' stunnel będzie szukał wszystkich
+<p>Jeżeli wykorzystywana jest opcja 'chroot' <strong>stunnel</strong> będzie szukał wszystkich
 potrzebnych plików (łącznie z plikiem konfiguracyjnym, certyfikatami, logiem i
 plikiem pid) wewnątrz katalogu wskazanego przez 'chroot'.</p>
 </dd>
@@ -930,7 +935,7 @@ plikiem pid) wewnątrz katalogu wskazanego przez 'chroot'.</p>
 
 <dd>
 <p>Zamknij i otwórz ponownie log.
-Funkcja ta może zostać użyta w skrypcie rotującym log programu stunnel.</p>
+Funkcja ta może zostać użyta w skrypcie rotującym log programu <strong>stunnel</strong>.</p>
 </dd>
 <dt><strong><a name="sigterm_sigquit_sigint" class="item">SIGTERM, SIGQUIT, SIGINT</a></strong></dt>
 
@@ -976,7 +981,7 @@ konfiguracyjnym nie ma sekcji <em>[nazwa_usługi]</em>.</p>
 <p>
 </p>
 <h2><a name="ograniczenia">OGRANICZENIA</a></h2>
-<p><em>stunnel</em> nie może być używany do szyfrowania protokołu <em>FTP</em>,
+<p><strong>stunnel</strong> nie może być używany do szyfrowania protokołu <em>FTP</em>,
 ponieważ do przesyłania poszczególnych plików używa on dodatkowych
 połączeń otwieranych na portach o dynamicznie przydzielanych numerach.
 Istnieją jednak specjalne wersje klientów i serwerów FTP pozwalające
@@ -1009,9 +1014,9 @@ globalnymi.  Przykład takiej konfiguracji znajduje się w sekcji
 połączenie klientowi prawidłowym certyfikatem X.509.
 Potwierdzenie tożsamości serwera polega na wykazaniu, że posiada on
 odpowiadający certyfikatowi klucz prywatny.
-Najprostszą metodą uzyskania certyfikatu jest wygenerowanie
-go przy pomocy wolnego pakietu <em>OpenSSL</em>.  Więcej informacji na temat
-generowania certyfikatów można znaleźć na umieszczonych poniżej stronach.</p>
+Najprostszą metodą uzyskania certyfikatu jest wygenerowanie go przy pomocy
+wolnego pakietu <strong>OpenSSL</strong>.  Więcej informacji na temat generowania
+certyfikatów można znaleźć na umieszczonych poniżej stronach.</p>
 <p>Istotną kwestią jest kolejność zawartości pliku <em>.pem</em>.
 W pierwszej kolejności powinien on zawierać klucz prywatny,
 a dopiero za nim podpisany certyfikat (nie żądanie certyfikatu).
@@ -1064,11 +1069,11 @@ programu.</p>
 <p>Urządzenie /dev/urandom.</p>
 </li>
 </ul>
-<p>Współczesne (&gt;=0.9.5a) wersje biblioteki <em>OpenSSL</em> automatycznie
+<p>Współczesne (<strong>0.9.5a</strong> lub nowsze) wersje biblioteki <strong>OpenSSL</strong> automatycznie
 zaprzestają ładowania kolejnych danych w momencie uzyskania wystarczającej
 ilości entropii.  Wcześniejsze wersje biblioteki wykorzystają wszystkie
-powyższe źródła, gdyż nie istnieje tam funkcja pozwalająca określić,
-czy uzyskano już wystarczająco dużo danych.</p>
+powyższe źródła, gdyż nie istnieje tam funkcja pozwalająca określić, czy
+uzyskano już wystarczająco dużo danych.</p>
 <p>Warto zwrócić uwagę, że na maszynach z systemem Windows, na których
 konsoli nie pracuje użytkownik, zawartość ekranu nie jest wystarczająco
 zmienna, aby zainicjować PRNG.  W takim przypadku do zainicjowania
@@ -1078,17 +1083,17 @@ generatora należy użyć opcji <em>RNDfile</em>.</p>
 O ile nie użyta została opcja <em>RNDoverwrite</em> jest to robione
 automatycznie.  Do ręcznego uzyskania takiego pliku użyteczna
 może być komenda <em>openssl rand</em> dostarczana ze współczesnymi
-wersjami pakietu <em>OpenSSL</em>.</p>
+wersjami pakietu <strong>OpenSSL</strong>.</p>
 <p>Jeszcze jedna istotna informacja -- jeżeli dostępne jest urządzenie
-<em>/dev/urandom</em> biblioteka <em>OpenSSL</em> ma zwyczaj zasilania nim PRNG w trakcie
+<em>/dev/urandom</em> biblioteka <strong>OpenSSL</strong> ma zwyczaj zasilania nim PRNG w trakcie
 sprawdzania stanu generatora.  W systemach z <em>/dev/urandom</em> urządzenie
 to będzie najprawdopodobniej użyte, pomimo że znajduje się na samym końcu
-powyższej listy.  Jest to właściwość biblioteki <em>OpenSSL</em>, a nie programu
-<em>stunnel</em>.</p>
+powyższej listy.  Jest to właściwość biblioteki <strong>OpenSSL</strong>, a nie programu
+<strong>stunnel</strong>.</p>
 <p>
 </p>
 <h2><a name="parametry_dh">PARAMETRY DH</a></h2>
-<p>Począwszy od wersji 4.40 stunnel zawiera w kodzie programu 2048-bitowe
+<p>Począwszy od wersji 4.40 <strong>stunnel</strong> zawiera w kodzie programu 2048-bitowe
 parametry DH.</p>
 <p>Alternatywnie parametry DH można umieścić w pliku razem z certyfikatem:</p>
 <pre>
@@ -1128,12 +1133,12 @@ parametry DH.</p>
 <dt><strong><a name="http_www_stunnel_org" class="item"><em class="file"><a href="http://www.stunnel.org/">http://www.stunnel.org/</a></em></a></strong></dt>
 
 <dd>
-<p>strona domowa programu <em>stunnel</em></p>
+<p>strona domowa programu <strong>stunnel</strong></p>
 </dd>
 <dt><strong><a name="http_www_openssl_org" class="item"><em class="file"><a href="http://www.openssl.org/">http://www.openssl.org/</a></em></a></strong></dt>
 
 <dd>
-<p>strona projektu <em>OpenSSL</em></p>
+<p>strona projektu <strong>OpenSSL</strong></p>
 </dd>
 </dl>
 <p>

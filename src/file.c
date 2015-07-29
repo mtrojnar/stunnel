@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -50,11 +50,9 @@ DISK_FILE *file_open(char *name, int wr) {
     fh=CreateFile(tstr, wr ? GENERIC_WRITE : GENERIC_READ,
         FILE_SHARE_READ, NULL, wr ? OPEN_ALWAYS : OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
-    str_free(tstr);
-    if(fh==INVALID_HANDLE_VALUE) {
-        ioerror(name);
+    str_free(tstr); /* str_free() overwrites GetLastError() value */
+    if(fh==INVALID_HANDLE_VALUE)
         return NULL;
-    }
     if(wr) /* append */
         SetFilePointer(fh, 0, NULL, FILE_END);
 
@@ -92,10 +90,8 @@ DISK_FILE *file_open(char *name, int wr) {
     flags|=O_CLOEXEC;
 #endif /* O_CLOEXEC */
     fd=open(name, flags, 0640);
-    if(fd<0) {
-        ioerror(name);
+    if(fd<0)
         return NULL;
-    }
 
     /* setup df structure */
     df=str_alloc(sizeof df);

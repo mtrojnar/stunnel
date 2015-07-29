@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2013.01.13" "4.55" "stunnel"
+.TH STUNNEL.PL 8 "2013.03.22" "4.56" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -178,10 +178,10 @@ domyślnie: bez kompresji
 .Sp
 Algorytm deflate jest standardową metodą kompresji zgodnie z \s-1RFC\s0 1951.
 .Sp
-Kompresja zlib zaimplementowana w OpenSSL 0.9.8 i nowszych nie jest
-kompatybilna implementacją OpenSSL 0.9.7.
+Kompresja zlib zaimplementowana w \fBOpenSSL 0.9.8\fR i nowszych nie jest
+kompatybilna implementacją \fBOpenSSL 0.9.7\fR.
 .Sp
-Kompresja rle nie jest zaimplementowana w aktualnych wersjach OpenSSL.
+Kompresja rle nie jest zaimplementowana w aktualnych wersjach \fBOpenSSL\fR.
 .IP "\fBdebug\fR = poziom[.podsystem]" 4
 .IX Item "debug = poziom[.podsystem]"
 szczegółowość logowania
@@ -203,7 +203,7 @@ Wielkość liter jest ignorowana zarówno dla poziomu jak podsystemu.
 .Sp
 Opcja pozwala określić ścieżkę do gniazda programu Entropy Gathering Daemon
 używanego do zainicjalizowania generatora ciągów pseudolosowych biblioteki
-OpenSSL.  Opcja jest dostępna z biblioteką OpenSSL 0.9.5a lub nowszą.
+\&\fBOpenSSL\fR.  Opcja jest dostępna z biblioteką \fBOpenSSL 0.9.5a\fR lub nowszą.
 .IP "\fBengine\fR = auto | <identyfikator urządzenia>" 4
 .IX Item "engine = auto | <identyfikator urządzenia>"
 wybór sprzętowego urządzenia kryptograficznego
@@ -236,15 +236,15 @@ modułu kryptograficznego urządzenia.
 .IX Item "fips = yes | no"
 Włącz lub wyłącz tryb \s-1FIPS\s0 140\-2.
 .Sp
-Opcja pozwala wyłączyć wejście w tryb \s-1FIPS\s0, jeśli stunnel został skompilowany
-ze wsparciem dla \s-1FIPS\s0 140\-2.
+Opcja pozwala wyłączyć wejście w tryb \s-1FIPS\s0, jeśli \fBstunnel\fR został
+skompilowany ze wsparciem dla \s-1FIPS\s0 140\-2.
 .Sp
 domyślnie: yes (pracuj w trybie \s-1FIPS\s0 140\-2)
 .IP "\fBforeground\fR = yes | no (tylko Unix)" 4
 .IX Item "foreground = yes | no (tylko Unix)"
 tryb pierwszoplanowy
 .Sp
-Użycie tej opcji powoduje, że \fIstunnel\fR nie przechodzi w tło logując
+Użycie tej opcji powoduje, że \fBstunnel\fR nie przechodzi w tło logując
 swoje komunikaty na konsolę zamiast przez \fIsyslog\fR (o ile nie użyto
 opcji \fIoutput\fR).
 .IP "\fBoutput\fR = plik" 4
@@ -268,7 +268,7 @@ względem tego katalogu.
 .IX Item "RNDbytes = liczba_bajtów"
 liczba bajtów do zainicjowania generatora pseudolosowego
 .Sp
-W wersjach biblioteki OpenSSL starszych niż 0.9.5a opcja ta określa
+W wersjach biblioteki \fBOpenSSL\fR starszych niż \fB0.9.5a\fR opcja ta określa
 również liczbę bajtów wystarczających do zainicjowania \s-1PRNG\s0.
 Nowsze wersje biblioteki mają wbudowaną funkcję określającą, czy
 dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.
@@ -276,7 +276,7 @@ dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.
 .IX Item "RNDfile = plik"
 ścieżka do pliku zawierającego losowe dane
 .Sp
-Biblioteka OpenSSL użyje danych z tego pliku do zainicjowania
+Biblioteka \fBOpenSSL\fR użyje danych z tego pliku do zainicjowania
 generatora pseudolosowego.
 .IP "\fBRNDoverwrite\fR = yes | no" 4
 .IX Item "RNDoverwrite = yes | no"
@@ -290,10 +290,10 @@ użyj parametru jako nazwy serwisu dla biblioteki \s-1TCP\s0 Wrapper w trybie \f
 domyślnie: stunnel
 .IP "\fBsetgid\fR = identyfikator_grupy (tylko Unix)" 4
 .IX Item "setgid = identyfikator_grupy (tylko Unix)"
-grupa z której prawami pracował będzie \fIstunnel\fR
+grupa z której prawami pracował będzie \fBstunnel\fR
 .IP "\fBsetuid\fR = identyfikator_użytkownika (tylko Unix)" 4
 .IX Item "setuid = identyfikator_użytkownika (tylko Unix)"
-użytkownik, z którego prawami pracował będzie \fIstunnel\fR
+użytkownik, z którego prawami pracował będzie \fBstunnel\fR
 .IP "\fBsocket\fR = a|l|r:option=value[:value]" 4
 .IX Item "socket = a|l|r:option=value[:value]"
 ustaw opcję na akceptującym/lokalnym/zdalnym gnieździe
@@ -342,7 +342,7 @@ lub \fItcpserver\fR), należy przeczytać sekcję \fI\s-1TRYB\s0 \s-1INETD\s0\fR
 .IX Item "accept = [adres:]port"
 nasłuchuje na połączenia na podanym adresie i porcie
 .Sp
-Jeżeli nie został podany adres, \fIstunnel\fR domyślnie nasłuchuje
+Jeżeli nie został podany adres, \fBstunnel\fR domyślnie nasłuchuje
 na wszystkich adresach IPv4 lokalnych interfejsów.
 .Sp
 Aby nasłuchiwać na wszystkich adresach IPv6 należy użyć:
@@ -359,8 +359,8 @@ jeżeli użyta została opcja \fIverify\fR.  Pliki z certyfikatami muszą
 posiadać specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
 kryptograficznym reprezentacji \s-1DER\s0 nazwy podmiotu certyfikatu.
 .Sp
-Funkcja skrótu została zmieniona w wersji 1.0.0 biblioteki OpenSSL.
-Należy wykonać c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.
+Funkcja skrótu została zmieniona w \fBOpenSSL 1.0.0\fR.
+Należy wykonać c_rehash przy zmianie \fBOpenSSL 0.x.x\fR na \fB1.x.x\fR.
 .Sp
 Jeżeli zdefiniowano katalog \fIchroot\fR, to ścieżka do \fICApath\fR jest określona
 względem tego katalogu.
@@ -393,7 +393,7 @@ domyślnie: no (tryb serwerowy)
 .IX Item "connect = [adres:]port"
 połącz się ze zdalnym serwerem na podany port
 .Sp
-Jeżeli nie został podany adres, \fIstunnel\fR domyślnie łączy się
+Jeżeli nie został podany adres, \fBstunnel\fR domyślnie łączy się
 z lokalnym serwerem.
 .Sp
 Komenda może byc użyta wielokrotnie w pojedynczej sekcji
@@ -408,8 +408,8 @@ jeżeli użyta została opcja \fIverify\fR.  Pliki z listami \s-1CRL\s0 muszą
 posiadać specjalne nazwy \s-1XXXXXXXX\s0.r0, gdzie \s-1XXXXXXXX\s0 jest skrótem
 listy \s-1CRL\s0.
 .Sp
-Funkcja skrótu została zmieniona w wersji 1.0.0 biblioteki OpenSSL.
-Należy wykonać c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.
+Funkcja skrótu została zmieniona \fBOpenSSL 1.0.0\fR.
+Należy wykonać c_rehash przy zmianie \fBOpenSSL 0.x.x\fR na \fB1.x.x\fR.
 .Sp
 Jeżeli zdefiniowano katalog \fIchroot\fR, to ścieżka do \fICRLpath\fR jest określona
 względem tego katalogu.
@@ -435,7 +435,7 @@ domyślnie: prime256v1
 opóźnij rozwinięcie adresu \s-1DNS\s0 podanego w opcji \fIconnect\fR
 .Sp
 Opcja jest przydatna przy dynamicznym \s-1DNS\s0, albo gdy usługa \s-1DNS\s0 nie jest
-dostępna przy starcie programu stunnel (klient \s-1VPN\s0, połączenie wdzwaniane).
+dostępna przy starcie programu \fBstunnel\fR (klient \s-1VPN\s0, połączenie wdzwaniane).
 .IP "\fBengineNum\fR = <numer urządzenia>" 4
 .IX Item "engineNum = <numer urządzenia>"
 wybierz urządzenie do odczyta klucza prywatnego
@@ -515,13 +515,13 @@ Uwierzytelnienie przy pomocy biblioteki libwrap jest realizowane dwukrotnie:
 najpierw dla usługi nadrzędnej po odebraniu połączenia \s-1TCP\s0, a następnie dla
 usługi podrzędnej podczas negocjacji \s-1TLS\s0.
 .Sp
-Opcja \fIsni\fR jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
+Opcja \fIsni\fR jest dostępna począwszy od \fBOpenSSL 1.0.0\fR.
 .IP "\fBsni\fR = nazwa_serwera (tryb klienta)" 4
 .IX Item "sni = nazwa_serwera (tryb klienta)"
 Użyj parametru jako wartości rozszerzenia \s-1TLS\s0 Server Name Indication
 (\s-1RFC\s0 3546).
 .Sp
-Opcja \fIsni\fR jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
+Opcja \fIsni\fR jest dostępna począwszy od \fBOpenSSL 1.0.0\fR.
 .IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
 .IX Item "OCSP = URL"
 serwer \s-1OCSP\s0 do weryfikacji certyfikatów
@@ -535,7 +535,7 @@ aktualnie wspierane flagi: \s-1NOCERTS\s0, \s-1NOINTERN\s0 \s-1NOSIGS\s0, \s-1NO
 Aby wyspecyfikować kilka flag należy użyć \fIOCSPflag\fR wielokrotnie.
 .IP "\fBoptions\fR = opcje_SSL" 4
 .IX Item "options = opcje_SSL"
-opcje biblioteki OpenSSL
+opcje biblioteki \fBOpenSSL\fR
 .Sp
 Parametrem jest nazwa opcji zgodnie z opisem w \fI\fISSL_CTX_set_options\fI\|(3ssl)\fR,
 ale bez przedrostka \fI\s-1SSL_OP_\s0\fR.
@@ -601,6 +601,13 @@ domyślnie: basic
 .IP "\fBprotocolHost\fR = adres:port" 4
 .IX Item "protocolHost = adres:port"
 adres docelowy do negocjacji protokołu
+.Sp
+\&\fIprotocolHost\fR określa docelowy serwer \s-1SSL\s0, do którego połączyć ma się proxy.
+Nie jest to adres serwera proxy, do którego połączenie zestawia \fBstunnel\fR.
+Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.
+.Sp
+W obecnej wersji adres docelowy protokołu ma zastosowanie wyłącznie w protokole
+\&'connect'.
 .IP "\fBprotocolPassword\fR = hasło" 4
 .IX Item "protocolPassword = hasło"
 hasło do negocjacji protokołu
@@ -625,7 +632,7 @@ http://vincent.bernat.im/en/blog/2011\-ssl\-dos\-mitigation.html
 Warto zauważyć, że zablokowanie renegocjacji \s-1SSL\s0 nie zebezpiecza w pełni
 przed opisanym problemem.
 .Sp
-domyślnie: yes (o ile wspierane przez OpenSSL)
+domyślnie: yes (o ile wspierane przez \fBOpenSSL\fR)
 .IP "\fBreset\fR = yes | no" 4
 .IX Item "reset = yes | no"
 sygnalizuj wystąpienie błędu przy pomocy flagi \s-1TCP\s0 \s-1RST\s0
@@ -689,7 +696,7 @@ Zablokuj wsparcie dla przezroczystago proxy.  Jest to wartość domyślna.
 .IP "\fBsource\fR" 4
 .IX Item "source"
 Przepisz adres, aby nawiązywane połączenie wydawało się pochodzić
-bezpośrednio od klienta, a nie od programu \fIstunnel\fR.
+bezpośrednio od klienta, a nie od programu \fBstunnel\fR.
 .Sp
 Opcja jest aktualnie obsługiwana w:
 .RS 4
@@ -713,7 +720,7 @@ Konfiguracja ta wymaga, aby \fBstunnel\fR był wykonywany jako root i bez opcji 
 .IX Item "Trybie zdalnym (opcja connect) w systemie Linux 2.2.x"
 Konfiguracja ta wymaga skompilowania jądra z opcją \fItransparent proxy\fR.
 Docelowa usługa musi być umieszczona na osobnej maszynie, do której routing
-kierowany jest poprzez serwer stunnela.
+kierowany jest poprzez serwer \fBstunnela\fR.
 .Sp
 Dodatkowo \fBstunnel\fR powinien być wykonywany jako root i bez opcji \fIsetuid\fR.
 .IP "Trybie zdalnym (opcja \fIconnect\fR) w systemie \fIFreeBSD >=8.0\fR" 4
@@ -818,17 +825,17 @@ setuid
 .RE
 .RS 4
 .Sp
-Jeżeli wykorzystywana jest opcja 'setuid' stunnel nie będzie mógł załadować
+Jeżeli wykorzystywana jest opcja 'setuid' \fBstunnel\fR nie będzie mógł załadować
 ponownie konfiguracji wykorzystującej uprzywilejowane (<1024) porty.
 .Sp
-Jeżeli wykorzystywana jest opcja 'chroot' stunnel będzie szukał wszystkich
+Jeżeli wykorzystywana jest opcja 'chroot' \fBstunnel\fR będzie szukał wszystkich
 potrzebnych plików (łącznie z plikiem konfiguracyjnym, certyfikatami, logiem i
 plikiem pid) wewnątrz katalogu wskazanego przez 'chroot'.
 .RE
 .IP "\s-1SIGUSR1\s0" 4
 .IX Item "SIGUSR1"
 Zamknij i otwórz ponownie log.
-Funkcja ta może zostać użyta w skrypcie rotującym log programu stunnel.
+Funkcja ta może zostać użyta w skrypcie rotującym log programu \fBstunnel\fR.
 .IP "\s-1SIGTERM\s0, \s-1SIGQUIT\s0, \s-1SIGINT\s0" 4
 .IX Item "SIGTERM, SIGQUIT, SIGINT"
 Zakończ działanie programu.
@@ -877,7 +884,7 @@ konfiguracyjnym nie ma sekcji \fI[nazwa_usługi]\fR.
 .IX Header "NOTKI"
 .SS "\s-1OGRANICZENIA\s0"
 .IX Subsection "OGRANICZENIA"
-\&\fIstunnel\fR nie może być używany do szyfrowania protokołu \fI\s-1FTP\s0\fR,
+\&\fBstunnel\fR nie może być używany do szyfrowania protokołu \fI\s-1FTP\s0\fR,
 ponieważ do przesyłania poszczególnych plików używa on dodatkowych
 połączeń otwieranych na portach o dynamicznie przydzielanych numerach.
 Istnieją jednak specjalne wersje klientów i serwerów \s-1FTP\s0 pozwalające
@@ -912,9 +919,9 @@ Protokół \s-1SSL\s0 wymaga, aby każdy serwer przedstawiał się nawiązujące
 połączenie klientowi prawidłowym certyfikatem X.509.
 Potwierdzenie tożsamości serwera polega na wykazaniu, że posiada on
 odpowiadający certyfikatowi klucz prywatny.
-Najprostszą metodą uzyskania certyfikatu jest wygenerowanie
-go przy pomocy wolnego pakietu \fIOpenSSL\fR.  Więcej informacji na temat
-generowania certyfikatów można znaleźć na umieszczonych poniżej stronach.
+Najprostszą metodą uzyskania certyfikatu jest wygenerowanie go przy pomocy
+wolnego pakietu \fBOpenSSL\fR.  Więcej informacji na temat generowania
+certyfikatów można znaleźć na umieszczonych poniżej stronach.
 .PP
 Istotną kwestią jest kolejność zawartości pliku \fI.pem\fR.
 W pierwszej kolejności powinien on zawierać klucz prywatny,
@@ -960,11 +967,11 @@ programu.
 .IP "\(bu" 4
 Urządzenie /dev/urandom.
 .PP
-Współczesne (>=0.9.5a) wersje biblioteki \fIOpenSSL\fR automatycznie
+Współczesne (\fB0.9.5a\fR lub nowsze) wersje biblioteki \fBOpenSSL\fR automatycznie
 zaprzestają ładowania kolejnych danych w momencie uzyskania wystarczającej
 ilości entropii.  Wcześniejsze wersje biblioteki wykorzystają wszystkie
-powyższe źródła, gdyż nie istnieje tam funkcja pozwalająca określić,
-czy uzyskano już wystarczająco dużo danych.
+powyższe źródła, gdyż nie istnieje tam funkcja pozwalająca określić, czy
+uzyskano już wystarczająco dużo danych.
 .PP
 Warto zwrócić uwagę, że na maszynach z systemem Windows, na których
 konsoli nie pracuje użytkownik, zawartość ekranu nie jest wystarczająco
@@ -976,17 +983,17 @@ Plik \fIRNDfile\fR powinien zawierać dane losowe \*(-- również w tym sensie,
 O ile nie użyta została opcja \fIRNDoverwrite\fR jest to robione
 automatycznie.  Do ręcznego uzyskania takiego pliku użyteczna
 może być komenda \fIopenssl rand\fR dostarczana ze współczesnymi
-wersjami pakietu \fIOpenSSL\fR.
+wersjami pakietu \fBOpenSSL\fR.
 .PP
 Jeszcze jedna istotna informacja \*(-- jeżeli dostępne jest urządzenie
-\&\fI/dev/urandom\fR biblioteka \fIOpenSSL\fR ma zwyczaj zasilania nim \s-1PRNG\s0 w trakcie
+\&\fI/dev/urandom\fR biblioteka \fBOpenSSL\fR ma zwyczaj zasilania nim \s-1PRNG\s0 w trakcie
 sprawdzania stanu generatora.  W systemach z \fI/dev/urandom\fR urządzenie
 to będzie najprawdopodobniej użyte, pomimo że znajduje się na samym końcu
-powyższej listy.  Jest to właściwość biblioteki \fIOpenSSL\fR, a nie programu
-\&\fIstunnel\fR.
+powyższej listy.  Jest to właściwość biblioteki \fBOpenSSL\fR, a nie programu
+\&\fBstunnel\fR.
 .SS "\s-1PARAMETRY\s0 \s-1DH\s0"
 .IX Subsection "PARAMETRY DH"
-Począwszy od wersji 4.40 stunnel zawiera w kodzie programu 2048\-bitowe
+Począwszy od wersji 4.40 \fBstunnel\fR zawiera w kodzie programu 2048\-bitowe
 parametry \s-1DH\s0.
 .PP
 Alternatywnie parametry \s-1DH\s0 można umieścić w pliku razem z certyfikatem:
@@ -1014,10 +1021,10 @@ biblioteka kontroli dostępu do usług internetowych
 \&'super\-serwer' internetowy
 .IP "\fIhttp://www.stunnel.org/\fR" 4
 .IX Item "http://www.stunnel.org/"
-strona domowa programu \fIstunnel\fR
+strona domowa programu \fBstunnel\fR
 .IP "\fIhttp://www.openssl.org/\fR" 4
 .IX Item "http://www.openssl.org/"
-strona projektu \fIOpenSSL\fR
+strona projektu \fBOpenSSL\fR
 .SH "AUTOR"
 .IX Header "AUTOR"
 .IP "Michał Trojnara" 4

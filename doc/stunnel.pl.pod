@@ -170,10 +170,10 @@ domyślnie: bez kompresji
 
 Algorytm deflate jest standardową metodą kompresji zgodnie z RFC 1951.
 
-Kompresja zlib zaimplementowana w OpenSSL 0.9.8 i nowszych nie jest
-kompatybilna implementacją OpenSSL 0.9.7.
+Kompresja zlib zaimplementowana w B<OpenSSL 0.9.8> i nowszych nie jest
+kompatybilna implementacją B<OpenSSL 0.9.7>.
 
-Kompresja rle nie jest zaimplementowana w aktualnych wersjach OpenSSL.
+Kompresja rle nie jest zaimplementowana w aktualnych wersjach B<OpenSSL>.
 
 =item B<debug> = poziom[.podsystem]
 
@@ -197,7 +197,7 @@ Wielkość liter jest ignorowana zarówno dla poziomu jak podsystemu.
 
 Opcja pozwala określić ścieżkę do gniazda programu Entropy Gathering Daemon
 używanego do zainicjalizowania generatora ciągów pseudolosowych biblioteki
-OpenSSL.  Opcja jest dostępna z biblioteką OpenSSL 0.9.5a lub nowszą.
+B<OpenSSL>.  Opcja jest dostępna z biblioteką B<OpenSSL 0.9.5a> lub nowszą.
 
 =item B<engine> = auto | <identyfikator urządzenia>
 
@@ -231,8 +231,8 @@ modułu kryptograficznego urządzenia.
 
 Włącz lub wyłącz tryb FIPS 140-2.
 
-Opcja pozwala wyłączyć wejście w tryb FIPS, jeśli stunnel został skompilowany
-ze wsparciem dla FIPS 140-2.
+Opcja pozwala wyłączyć wejście w tryb FIPS, jeśli B<stunnel> został
+skompilowany ze wsparciem dla FIPS 140-2.
 
 domyślnie: yes (pracuj w trybie FIPS 140-2)
 
@@ -240,7 +240,7 @@ domyślnie: yes (pracuj w trybie FIPS 140-2)
 
 tryb pierwszoplanowy
 
-Użycie tej opcji powoduje, że I<stunnel> nie przechodzi w tło logując
+Użycie tej opcji powoduje, że B<stunnel> nie przechodzi w tło logując
 swoje komunikaty na konsolę zamiast przez I<syslog> (o ile nie użyto
 opcji I<output>).
 
@@ -267,7 +267,7 @@ względem tego katalogu.
 
 liczba bajtów do zainicjowania generatora pseudolosowego
 
-W wersjach biblioteki OpenSSL starszych niż 0.9.5a opcja ta określa
+W wersjach biblioteki B<OpenSSL> starszych niż B<0.9.5a> opcja ta określa
 również liczbę bajtów wystarczających do zainicjowania PRNG.
 Nowsze wersje biblioteki mają wbudowaną funkcję określającą, czy
 dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.
@@ -276,7 +276,7 @@ dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.
 
 ścieżka do pliku zawierającego losowe dane
 
-Biblioteka OpenSSL użyje danych z tego pliku do zainicjowania
+Biblioteka B<OpenSSL> użyje danych z tego pliku do zainicjowania
 generatora pseudolosowego.
 
 =item B<RNDoverwrite> = yes | no
@@ -293,11 +293,11 @@ domyślnie: stunnel
 
 =item B<setgid> = identyfikator_grupy (tylko Unix)
 
-grupa z której prawami pracował będzie I<stunnel>
+grupa z której prawami pracował będzie B<stunnel>
 
 =item B<setuid> = identyfikator_użytkownika (tylko Unix)
 
-użytkownik, z którego prawami pracował będzie I<stunnel>
+użytkownik, z którego prawami pracował będzie B<stunnel>
 
 =item B<socket> = a|l|r:option=value[:value]
 
@@ -354,7 +354,7 @@ lub I<tcpserver>), należy przeczytać sekcję I<TRYB INETD> poniżej.
 
 nasłuchuje na połączenia na podanym adresie i porcie
 
-Jeżeli nie został podany adres, I<stunnel> domyślnie nasłuchuje
+Jeżeli nie został podany adres, B<stunnel> domyślnie nasłuchuje
 na wszystkich adresach IPv4 lokalnych interfejsów.
 
 Aby nasłuchiwać na wszystkich adresach IPv6 należy użyć:
@@ -370,8 +370,8 @@ jeżeli użyta została opcja I<verify>.  Pliki z certyfikatami muszą
 posiadać specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu.
 
-Funkcja skrótu została zmieniona w wersji 1.0.0 biblioteki OpenSSL.
-Należy wykonać c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.
+Funkcja skrótu została zmieniona w B<OpenSSL 1.0.0>.
+Należy wykonać c_rehash przy zmianie B<OpenSSL 0.x.x> na B<1.x.x>.
 
 Jeżeli zdefiniowano katalog I<chroot>, to ścieżka do I<CApath> jest określona
 względem tego katalogu.
@@ -409,7 +409,7 @@ domyślnie: no (tryb serwerowy)
 
 połącz się ze zdalnym serwerem na podany port
 
-Jeżeli nie został podany adres, I<stunnel> domyślnie łączy się
+Jeżeli nie został podany adres, B<stunnel> domyślnie łączy się
 z lokalnym serwerem.
 
 Komenda może byc użyta wielokrotnie w pojedynczej sekcji
@@ -425,8 +425,8 @@ jeżeli użyta została opcja I<verify>.  Pliki z listami CRL muszą
 posiadać specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skrótem
 listy CRL.
 
-Funkcja skrótu została zmieniona w wersji 1.0.0 biblioteki OpenSSL.
-Należy wykonać c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.
+Funkcja skrótu została zmieniona B<OpenSSL 1.0.0>.
+Należy wykonać c_rehash przy zmianie B<OpenSSL 0.x.x> na B<1.x.x>.
 
 Jeżeli zdefiniowano katalog I<chroot>, to ścieżka do I<CRLpath> jest określona
 względem tego katalogu.
@@ -453,7 +453,7 @@ domyślnie: prime256v1
 opóźnij rozwinięcie adresu DNS podanego w opcji I<connect>
 
 Opcja jest przydatna przy dynamicznym DNS, albo gdy usługa DNS nie jest
-dostępna przy starcie programu stunnel (klient VPN, połączenie wdzwaniane).
+dostępna przy starcie programu B<stunnel> (klient VPN, połączenie wdzwaniane).
 
 =item B<engineNum> = <numer urządzenia>
 
@@ -537,14 +537,14 @@ Uwierzytelnienie przy pomocy biblioteki libwrap jest realizowane dwukrotnie:
 najpierw dla usługi nadrzędnej po odebraniu połączenia TCP, a następnie dla
 usługi podrzędnej podczas negocjacji TLS.
 
-Opcja I<sni> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
+Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
 =item B<sni> = nazwa_serwera (tryb klienta)
 
 Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
 (RFC 3546).
 
-Opcja I<sni> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
+Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
 =item B<OCSP> = URL
 
@@ -561,7 +561,7 @@ Aby wyspecyfikować kilka flag należy użyć I<OCSPflag> wielokrotnie.
 
 =item B<options> = opcje_SSL
 
-opcje biblioteki OpenSSL
+opcje biblioteki B<OpenSSL>
 
 Parametrem jest nazwa opcji zgodnie z opisem w I<SSL_CTX_set_options(3ssl)>,
 ale bez przedrostka I<SSL_OP_>.
@@ -637,6 +637,13 @@ domyślnie: basic
 
 adres docelowy do negocjacji protokołu
 
+I<protocolHost> określa docelowy serwer SSL, do którego połączyć ma się proxy.
+Nie jest to adres serwera proxy, do którego połączenie zestawia B<stunnel>.
+Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.
+
+W obecnej wersji adres docelowy protokołu ma zastosowanie wyłącznie w protokole
+'connect'.
+
 =item B<protocolPassword> = hasło
 
 hasło do negocjacji protokołu
@@ -664,7 +671,7 @@ http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html
 Warto zauważyć, że zablokowanie renegocjacji SSL nie zebezpiecza w pełni
 przed opisanym problemem.
 
-domyślnie: yes (o ile wspierane przez OpenSSL)
+domyślnie: yes (o ile wspierane przez B<OpenSSL>)
 
 =item B<reset> = yes | no
 
@@ -743,7 +750,7 @@ Zablokuj wsparcie dla przezroczystago proxy.  Jest to wartość domyślna.
 =item B<source>
 
 Przepisz adres, aby nawiązywane połączenie wydawało się pochodzić
-bezpośrednio od klienta, a nie od programu I<stunnel>.
+bezpośrednio od klienta, a nie od programu B<stunnel>.
 
 Opcja jest aktualnie obsługiwana w:
 
@@ -768,7 +775,7 @@ Konfiguracja ta wymaga, aby B<stunnel> był wykonywany jako root i bez opcji I<s
 
 Konfiguracja ta wymaga skompilowania jądra z opcją I<transparent proxy>.
 Docelowa usługa musi być umieszczona na osobnej maszynie, do której routing
-kierowany jest poprzez serwer stunnela.
+kierowany jest poprzez serwer B<stunnela>.
 
 Dodatkowo B<stunnel> powinien być wykonywany jako root i bez opcji I<setuid>.
 
@@ -902,17 +909,17 @@ setuid
 
 =back
 
-Jeżeli wykorzystywana jest opcja 'setuid' stunnel nie będzie mógł załadować
+Jeżeli wykorzystywana jest opcja 'setuid' B<stunnel> nie będzie mógł załadować
 ponownie konfiguracji wykorzystującej uprzywilejowane (<1024) porty.
 
-Jeżeli wykorzystywana jest opcja 'chroot' stunnel będzie szukał wszystkich
+Jeżeli wykorzystywana jest opcja 'chroot' B<stunnel> będzie szukał wszystkich
 potrzebnych plików (łącznie z plikiem konfiguracyjnym, certyfikatami, logiem i
 plikiem pid) wewnątrz katalogu wskazanego przez 'chroot'.
 
 =item SIGUSR1
 
 Zamknij i otwórz ponownie log.
-Funkcja ta może zostać użyta w skrypcie rotującym log programu stunnel.
+Funkcja ta może zostać użyta w skrypcie rotującym log programu B<stunnel>.
 
 =item SIGTERM, SIGQUIT, SIGINT
 
@@ -960,7 +967,7 @@ konfiguracyjnym nie ma sekcji I<[nazwa_usługi]>.
 
 =head2 OGRANICZENIA
 
-I<stunnel> nie może być używany do szyfrowania protokołu I<FTP>,
+B<stunnel> nie może być używany do szyfrowania protokołu I<FTP>,
 ponieważ do przesyłania poszczególnych plików używa on dodatkowych
 połączeń otwieranych na portach o dynamicznie przydzielanych numerach.
 Istnieją jednak specjalne wersje klientów i serwerów FTP pozwalające
@@ -995,9 +1002,9 @@ Protokół SSL wymaga, aby każdy serwer przedstawiał się nawiązującemu
 połączenie klientowi prawidłowym certyfikatem X.509.
 Potwierdzenie tożsamości serwera polega na wykazaniu, że posiada on
 odpowiadający certyfikatowi klucz prywatny.
-Najprostszą metodą uzyskania certyfikatu jest wygenerowanie
-go przy pomocy wolnego pakietu I<OpenSSL>.  Więcej informacji na temat
-generowania certyfikatów można znaleźć na umieszczonych poniżej stronach.
+Najprostszą metodą uzyskania certyfikatu jest wygenerowanie go przy pomocy
+wolnego pakietu B<OpenSSL>.  Więcej informacji na temat generowania
+certyfikatów można znaleźć na umieszczonych poniżej stronach.
 
 Istotną kwestią jest kolejność zawartości pliku I<.pem>.
 W pierwszej kolejności powinien on zawierać klucz prywatny,
@@ -1062,11 +1069,11 @@ Urządzenie /dev/urandom.
 
 =back
 
-Współczesne (>=0.9.5a) wersje biblioteki I<OpenSSL> automatycznie
+Współczesne (B<0.9.5a> lub nowsze) wersje biblioteki B<OpenSSL> automatycznie
 zaprzestają ładowania kolejnych danych w momencie uzyskania wystarczającej
 ilości entropii.  Wcześniejsze wersje biblioteki wykorzystają wszystkie
-powyższe źródła, gdyż nie istnieje tam funkcja pozwalająca określić,
-czy uzyskano już wystarczająco dużo danych.
+powyższe źródła, gdyż nie istnieje tam funkcja pozwalająca określić, czy
+uzyskano już wystarczająco dużo danych.
 
 Warto zwrócić uwagę, że na maszynach z systemem Windows, na których
 konsoli nie pracuje użytkownik, zawartość ekranu nie jest wystarczająco
@@ -1078,18 +1085,18 @@ Plik I<RNDfile> powinien zawierać dane losowe -- również w tym sensie,
 O ile nie użyta została opcja I<RNDoverwrite> jest to robione
 automatycznie.  Do ręcznego uzyskania takiego pliku użyteczna
 może być komenda I<openssl rand> dostarczana ze współczesnymi
-wersjami pakietu I<OpenSSL>.
+wersjami pakietu B<OpenSSL>.
 
 Jeszcze jedna istotna informacja -- jeżeli dostępne jest urządzenie
-I</dev/urandom> biblioteka I<OpenSSL> ma zwyczaj zasilania nim PRNG w trakcie
+I</dev/urandom> biblioteka B<OpenSSL> ma zwyczaj zasilania nim PRNG w trakcie
 sprawdzania stanu generatora.  W systemach z I</dev/urandom> urządzenie
 to będzie najprawdopodobniej użyte, pomimo że znajduje się na samym końcu
-powyższej listy.  Jest to właściwość biblioteki I<OpenSSL>, a nie programu
-I<stunnel>.
+powyższej listy.  Jest to właściwość biblioteki B<OpenSSL>, a nie programu
+B<stunnel>.
 
 =head2 PARAMETRY DH
 
-Począwszy od wersji 4.40 stunnel zawiera w kodzie programu 2048-bitowe
+Począwszy od wersji 4.40 B<stunnel> zawiera w kodzie programu 2048-bitowe
 parametry DH.
 
 Alternatywnie parametry DH można umieścić w pliku razem z certyfikatem:
@@ -1129,11 +1136,11 @@ biblioteka kontroli dostępu do usług internetowych
 
 =item F<http://www.stunnel.org/>
 
-strona domowa programu I<stunnel>
+strona domowa programu B<stunnel>
 
 =item F<http://www.openssl.org/>
 
-strona projektu I<OpenSSL>
+strona projektu B<OpenSSL>
 
 =back
 

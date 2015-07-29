@@ -211,9 +211,9 @@ to the directory specified with <strong>chroot</strong>.</p>
 <p>select data compression algorithm</p>
 <p>default: no compression</p>
 <p>deflate is the standard compression method as described in <a href="http://www.ietf.org/rfc/rfc1951.txt" class="rfc">RFC 1951</a>.</p>
-<p>zlib compression of OpenSSL 0.9.8 or above is not backward compatible with
-OpenSSL 0.9.7.</p>
-<p>rle compression is currently not implemented by the OpenSSL library.</p>
+<p>zlib compression of <strong>OpenSSL 0.9.8</strong> or above is not backward compatible with
+<strong>OpenSSL 0.9.7</strong>.</p>
+<p>rle compression is currently not implemented by the <strong>OpenSSL</strong> library.</p>
 </dd>
 <dt><strong><a name="debug_facility_level" class="item"><strong>debug</strong> = [facility.]level</a></strong></dt>
 
@@ -232,8 +232,8 @@ all levels numerically less than it will be shown.  Use <em>debug = debug</em> o
 
 <dd>
 <p>path to Entropy Gathering Daemon socket</p>
-<p>Entropy Gathering Daemon socket to use to feed OpenSSL random number
-generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)</p>
+<p>Entropy Gathering Daemon socket to use to feed <strong>OpenSSL</strong> random number
+generator.  (Available only if compiled with <strong>OpenSSL 0.9.5a</strong> or higher)</p>
 </dd>
 <dt><strong><a name="engine_auto_engine_id" class="item"><strong>engine</strong> = auto | &lt;engine id&gt;</a></strong></dt>
 
@@ -266,8 +266,8 @@ engine cryptogaphic module.</p>
 
 <dd>
 <p>Enable or disable FIPS 140-2 mode.</p>
-<p>This option allows to disable entering FIPS mode if stunnel was compiled with
-FIPS 140-2 support.</p>
+<p>This option allows to disable entering FIPS mode if <strong>stunnel</strong> was compiled
+with FIPS 140-2 support.</p>
 <p>default: yes</p>
 </dd>
 <dt><strong><a name="no" class="item"><strong>foreground</strong> = yes | no (Unix only)</a></strong></dt>
@@ -296,9 +296,9 @@ output (for example to log them with daemontools splogger).</p>
 
 <dd>
 <p>bytes to read from random seed files</p>
-<p>Number of bytes of data read from random seed files.  With SSL versions
-less than 0.9.5a, also determines how many bytes of data are considered
-sufficient to seed the PRNG.  More recent OpenSSL versions have a builtin
+<p>Number of bytes of data read from random seed files.  With SSL versions less
+than <strong>0.9.5a</strong>, also determines how many bytes of data are considered
+sufficient to seed the PRNG.  More recent <strong>OpenSSL</strong> versions have a builtin
 function to determine when sufficient randomness is available.</p>
 </dd>
 <dt><strong><a name="rndfile_file" class="item"><strong>RNDfile</strong> = file</a></strong></dt>
@@ -389,8 +389,8 @@ below.</p>
 the <em>verify</em>.  Note that the certificates in this directory should be named
 XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the
 cert.</p>
-<p>The hash algorithm has been changed in OpenSSL 1.0.0.  It is required to
-c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.</p>
+<p>The hash algorithm has been changed in <strong>OpenSSL 1.0.0</strong>.  It is required to
+c_rehash the directory on upgrade from <strong>OpenSSL 0.x.x</strong> to <strong>OpenSSL 1.x.x</strong>.</p>
 <p><em>CApath</em> path is relative to <em>chroot</em> directory if specified.</p>
 </dd>
 <dt><strong><a name="cafile_certfile" class="item"><strong>CAfile</strong> = certfile</a></strong></dt>
@@ -439,8 +439,8 @@ round-robin algorithm.</p>
 <p>This is the directory in which <strong>stunnel</strong> will look for CRLs when
 using the <em>verify</em>. Note that the CRLs in this directory should
 be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.</p>
-<p>The hash algorithm has been changed in OpenSSL 1.0.0.  It is required to
-c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.</p>
+<p>The hash algorithm has been changed in <strong>OpenSSL 1.0.0</strong>.  It is required to
+c_rehash the directory on upgrade from <strong>OpenSSL 0.x.x</strong> to <strong>OpenSSL 1.x.x</strong>.</p>
 <p><em>CRLpath</em> path is relative to <em>chroot</em> directory if specified.</p>
 </dd>
 <dt><strong><a name="crlfile_certfile" class="item"><strong>CRLfile</strong> = certfile</a></strong></dt>
@@ -463,7 +463,7 @@ c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.</p>
 <dd>
 <p>delay DNS lookup for 'connect' option</p>
 <p>This option is useful for dynamic DNS, or when DNS is not available during
-stunnel startup (road warrior VPN, dial-up configurations).</p>
+<strong>stunnel</strong> startup (road warrior VPN, dial-up configurations).</p>
 </dd>
 <dt><strong><a name="enginenum_engine_number" class="item"><strong>engineNum</strong> = engine number</a></strong></dt>
 
@@ -538,14 +538,14 @@ mode.</p>
 specified, as <em>protocol</em> connects remote host before TLS handshake.</p>
 <p>Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.</p>
-<p>Option <em>sni</em> is only available when compiled with OpenSSL 1.0.0 and later.</p>
+<p>Option <em>sni</em> is only available when compiled with <strong>OpenSSL 1.0.0</strong> and later.</p>
 </dd>
 <dt><strong><a name="server_name" class="item"><strong>sni</strong> = server_name (client mode)</a></strong></dt>
 
 <dd>
 <p>Use the parameter as the value of TLS Server Name Indication (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>)
 extension.</p>
-<p>Option <em>sni</em> is only available when compiled with OpenSSL 1.0.0 and later.</p>
+<p>Option <em>sni</em> is only available when compiled with <strong>OpenSSL 1.0.0</strong> and later.</p>
 </dd>
 <dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = url</a></strong></dt>
 
@@ -563,8 +563,8 @@ NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
 <dt><strong><a name="options_ssl_options" class="item"><strong>options</strong> = SSL_options</a></strong></dt>
 
 <dd>
-<p>OpenSSL library options</p>
-<p>The parameter is the OpenSSL option name as described in the
+<p><strong>OpenSSL</strong> library options</p>
+<p>The parameter is the <strong>OpenSSL</strong> option name as described in the
 <em>SSL_CTX_set_options(3ssl)</em> manual, but without <em>SSL_OP_</em> prefix.
 Several <em>options</em> can be used to specify multiple options.</p>
 <p>For example for compatibility with erroneous Eudora SSL implementation
@@ -631,13 +631,17 @@ Support for this extension was dropped in Samba 3.0.0.</p>
 <dd>
 <p>authentication type for protocol negotiations</p>
 <p>currently supported: basic, NTLM</p>
-<p>Currently authentication type only applies to 'connect' protocol.</p>
+<p>Currently authentication type only applies to the 'connect' protocol.</p>
 <p>default: basic</p>
 </dd>
 <dt><strong><a name="protocolhost_host_port" class="item"><strong>protocolHost</strong> = host:port</a></strong></dt>
 
 <dd>
 <p>destination address for protocol negotiations</p>
+<p><em>protocolHost</em> specifies the final SSL server to be connected by the proxy,
+and not the proxy server directly connected by <strong>stunnel</strong>.
+The proxy server should be specified with the 'connect' option.</p>
+<p>Currently protocol destination address only applies to 'connect' protocol.</p>
 </dd>
 <dt><strong><a name="protocolpassword_password" class="item"><strong>protocolPassword</strong> = password</a></strong></dt>
 
@@ -665,7 +669,7 @@ DoS attack:</p>
 <p><a href="http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html">http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html</a></p>
 <p>Please note that disabling SSL renegotiation does not fully mitigate
 this issue.</p>
-<p>default: yes (if supported by OpenSSL)</p>
+<p>default: yes (if supported by <strong>OpenSSL</strong>)</p>
 </dd>
 <dt><strong><a name="reset_yes_no" class="item"><strong>reset</strong> = yes | no</a></strong></dt>
 
@@ -684,7 +688,7 @@ this issue.</p>
 
 <dd>
 <p>session cache size</p>
-<p>The parameter specifies the maximum number of the internal session cache
+<p><em>sessionCacheSize</em> specifies the maximum number of the internal session cache
 entries.</p>
 <p>The value of 0 can be used for unlimited size.  It is not recommended
 for production use due to the risk of memory exhaustion DoS attack.</p>
@@ -752,7 +756,7 @@ from the SSL client machine instead of the machine running <strong>stunnel</stro
 <dt><strong><a name="mode" class="item">Remote mode (<em>connect</em> option) on <em>Linux &gt;=2.6.28</em></a></strong></dt>
 
 <dd>
-<p>This configuration requires stunnel to be executed as root and without
+<p>This configuration requires <strong>stunnel</strong> to be executed as root and without
 <em>setuid</em> option.</p>
 <p>This configuration requires the following setup for iptables and routing
 (possibly in /etc/rc.local or equivalent file):</p>
@@ -769,9 +773,10 @@ from the SSL client machine instead of the machine running <strong>stunnel</stro
 <dt><strong>Remote mode (<em>connect</em> option) on <em>Linux 2.2.x</em></strong></dt>
 
 <dd>
-<p>This configuration requires kernel to be compiled with <em>transparent proxy</em> option.
+<p>This configuration requires kernel to be compiled with <em>transparent proxy</em>
+option.
 Connected service must be installed on a separate host.
-Routing towards the clients has to go through the stunnel box.</p>
+Routing towards the clients has to go through the <strong>stunnel</strong> box.</p>
 <p><strong>stunnel</strong> must also to be executed as root and without <em>setuid</em> option.</p>
 </dd>
 <dt><strong>Remote mode (<em>connect</em> option) on <em>FreeBSD &gt;=8.0</em></strong></dt>
@@ -878,7 +883,7 @@ for webservers.  Level 3 is preferred for point-to-point connections.</p>
 </p>
 <hr />
 <h1><a name="signals">SIGNALS</a></h1>
-<p>The following signals can be used to control stunnel in Unix environment:</p>
+<p>The following signals can be used to control <strong>stunnel</strong> in Unix environment:</p>
 <dl>
 <dt><strong><a name="sighup" class="item">SIGHUP</a></strong></dt>
 
@@ -902,22 +907,22 @@ for webservers.  Level 3 is preferred for point-to-point connections.</p>
 <p>setuid</p>
 </li>
 </ul>
-<p>The use of 'setuid' option will also prevent stunnel from binding privileged
+<p>The use of 'setuid' option will also prevent <strong>stunnel</strong> from binding privileged
 (&lt;1024) ports during configuration reloading.</p>
-<p>When 'chroot' option is used, stunnel will look for all its files (including
+<p>When 'chroot' option is used, <strong>stunnel</strong> will look for all its files (including
 configuration file, certificates, log file and pid file) within the chroot
 jail.</p>
 </dd>
 <dt><strong><a name="sigusr1" class="item">SIGUSR1</a></strong></dt>
 
 <dd>
-<p>Close and reopen stunnel log file.
+<p>Close and reopen <strong>stunnel</strong> log file.
 This function can be used for log rotation.</p>
 </dd>
 <dt><strong><a name="sigterm_sigquit_sigint" class="item">SIGTERM, SIGQUIT, SIGINT</a></strong></dt>
 
 <dd>
-<p>Shut stunnel down.</p>
+<p>Shut <strong>stunnel</strong> down.</p>
 </dd>
 </dl>
 <p>The result of sending any other signals to the server is undefined.</p>
@@ -982,7 +987,7 @@ configurations.</p>
 <p>Each SSL enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
-generate them with the free <em>OpenSSL</em> package. You can find more
+generate them with the free <strong>OpenSSL</strong> package. You can find more
 information on certificates generation on pages listed below.</p>
 <p>The order of contents of the <em>.pem</em> file is important.  It should contain the
 unencrypted private key first, then a signed certificate (not certificate
@@ -1008,8 +1013,8 @@ in order until sufficient random data has been gathered:</p>
 <li>
 <p>The file specified with the <em>RNDfile</em> flag.</p>
 </li>
-<li><strong><a name="the_file_specified_by_the_randfile_environment_variable_if_set" class="item">The file specified by the RANDFILE environment variable, if set.</a></strong>
-
+<li>
+<p>The file specified by the RANDFILE environment variable, if set.</p>
 </li>
 <li>
 <p>The file .rnd in your home directory, if RANDFILE not set.</p>
@@ -1030,10 +1035,10 @@ in order until sufficient random data has been gathered:</p>
 <p>The /dev/urandom device.</p>
 </li>
 </ul>
-<p>With recent (&gt;=OpenSSL 0.9.5a) version of SSL it will stop loading
-random data automatically when sufficient entropy has been gathered.
-With previous versions it will continue to gather from all the above
-sources since no SSL function exists to tell when enough data is available.</p>
+<p>With recent (<strong>OpenSSL 0.9.5a</strong> or later) version of SSL it will stop loading
+random data automatically when sufficient entropy has been gathered.  With
+previous versions it will continue to gather from all the above sources since
+no SSL function exists to tell when enough data is available.</p>
 <p>Note that on Windows machines that do not have console user interaction
 (mouse movements, creating windows, etc.) the screen contents are not
 variable enough to be sufficient, and you should provide a random file
@@ -1042,13 +1047,12 @@ for use with the <em>RNDfile</em> flag.</p>
 random data -- that means it should contain different information
 each time <strong>stunnel</strong> is run.  This is handled automatically
 unless the <em>RNDoverwrite</em> flag is used.  If you wish to update this file
-manually, the <em>openssl rand</em> command in recent versions of OpenSSL,
+manually, the <em>openssl rand</em> command in recent versions of <strong>OpenSSL</strong>,
 would be useful.</p>
-<p>One important note -- if /dev/urandom is available, OpenSSL has a habit of
-seeding the PRNG with it even when checking the random state, so on
-systems with /dev/urandom you're likely to use it even though it's listed
-at the very bottom of the list above.  This isn't <strong>stunnel's</strong> behaviour, it's
-OpenSSLs.</p>
+<p>Important note: If /dev/urandom is available, <strong>OpenSSL</strong> often seeds the PRNG
+with it while checking the random state.  On systems with /dev/urandom
+<strong>OpenSSL</strong> is likely to use it even though it is listed at the very bottom of
+the list above.  This is the behaviour of <strong>OpenSSL</strong> and not <strong>stunnel</strong>.</p>
 <p>
 </p>
 <h2><a name="dh_parameters">DH PARAMETERS</a></h2>
@@ -1096,7 +1100,7 @@ OpenSSLs.</p>
 <dt><strong><a name="http_www_openssl_org" class="item"><em class="file"><a href="http://www.openssl.org/">http://www.openssl.org/</a></em></a></strong></dt>
 
 <dd>
-<p>OpenSSL project website</p>
+<p><strong>OpenSSL</strong> project website</p>
 </dd>
 </dl>
 <p>
