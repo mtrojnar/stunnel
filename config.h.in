@@ -36,5 +36,8 @@
 /* Define if you have the pthread library (-lpthread).  */
 #undef HAVE_LIBPTHREAD
 
+/* Define if you have the rsaref library (-lrsaref).  */
+#undef HAVE_LIBRSAREF
+
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET

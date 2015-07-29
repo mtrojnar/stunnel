@@ -8,7 +8,7 @@ AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.1"
+VERSION="3.2"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
@@ -27,7 +27,7 @@ dnl Checks for libraries.
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(pthread, pthread_create)
-# AC_CHECK_LIB(wrap, hosts_access)
+AC_CHECK_LIB(rsaref, RSA_PKCS1_RSAref)
 AC_MSG_CHECKING([for hosts_access in -lwrap])
 saved_LIBS="$LIBS"
 LIBS="$saved_LIBS -lwrap"

@@ -1,8 +1,16 @@
 stunnel         Universal SSL tunnel
 
+3.2 1999.04.28	RSAref support (not tested).
+		Added full duplex with non-blocking sockets.
+		RST sent instead of FIN on peer error (on error peer
+		socket is reset - not just closed).
+		RSA temporary key length changed back to 512 bits to fix
+		problem with Netscape.
+		Added NO_RSA for US citizens having problems with patents.
+
 3.1 1999.04.22	Changed -l syntax (first argument specified is now argv[0]).
 		Fixed problem with options passed to locally executed daemon.
-		Fixed problem with ':' passed to libwrap as a service name:
+		Fixed problem with ':' passed to libwrap in a service name:
 		 - ':' has been changed to '.';
 		 - user can specify his own service name as an argument.
 		RSA temporary key length changed from 512 to 1024 bits.

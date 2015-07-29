@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-1999 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
- *   Version:      3.1              (stunnel.c)
- *   Date:         1999.04.16
+ *   Version:      3.2              (stunnel.c)
+ *   Date:         1999.04.28
  *   Author:       Michal Trojnara  <Michal.Trojnara@centertel.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
@@ -24,14 +24,19 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-/* Undefine if you have problems with make_sockets() */
-#define INET_SOCKET_PAIR
+/* For US citizens having problems with patents, undefined by default */
+/* #define NO_RSA */
 
-/* DH is an experimental code, so it's undefined by default */
-/* #define USE_DH */
+/* DH is an experimental code, so it's defined by default */
+#define NO_DH
 
 /* Lentgh of temporary RSA key */
-#define KEYLENGTH      1024
+#ifndef NO_RSA
+#define KEYLENGTH      512
+#endif /* NO_RSA */
+
+/* Undefine if you have problems with make_sockets() */
+#define INET_SOCKET_PAIR
 
 /* Max number of children */
 #define MAX_CLIENTS    100
@@ -125,6 +130,7 @@ static struct WSAData wsa_state;
 #include <sys/socket.h>  /* getpeername */
 #include <arpa/inet.h>   /* inet_ntoa */
 #include <sys/time.h>    /* select */
+#include <sys/ioctl.h>   /* ioctl */
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>  /* for aix */
 #endif
@@ -145,16 +151,20 @@ int deny_severity=LOG_WARNING;
 #endif /* defined USE_WIN32 */
 
 /* Correct callback definitions overriding ssl.h */
+#ifndef NO_RSA
 #ifdef SSL_CTX_set_tmp_rsa_callback
     #undef SSL_CTX_set_tmp_rsa_callback
 #endif
 #define SSL_CTX_set_tmp_rsa_callback(ctx,cb) \
     SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_RSA_CB,0,(char *)cb)
+#endif /* NO_RSA */
+#ifndef NO_DH
 #ifdef SSL_CTX_set_tmp_dh_callback
     #undef SSL_CTX_set_tmp_dh_callback
 #endif
 #define SSL_CTX_set_tmp_dh_callback(ctx,dh) \
     SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_DH_CB,0,(char *)dh)
+#endif /* NO_DH */
 
 /* Prototypes */
 static void get_options(int, char *[]);
@@ -165,7 +175,7 @@ static void daemonize();
 #endif
     /* Socket functions */
 static void client(int);
-static void transfer(SSL *, int);
+static int transfer(SSL *, int);
 static int listen_local();
 static int connect_local();
 static int connect_remote();
@@ -176,13 +186,16 @@ static void host2num(u_long **, char *);
 static int make_sockets(int [2]);
 #endif
     /* SSL functions */
+#ifndef NO_RSA
 static RSA *tmp_rsa_cb(SSL *, int, int);
-#ifdef USE_DH
+#endif /* NO_RSA */
+#ifndef NO_DH
 static DH *tmp_dh_cb(SSL *, int);
-#endif
+#endif /* NO_DH */
 static int verify_callback (int, X509_STORE_CTX *);
 static void info_callback(SSL *, int, int);
 static void print_stats();
+static void print_cipher(SSL *);
     /* Error/exceptions handling functions */
 static void ioerror(char *);
 static void sockerror(char *);
@@ -208,7 +221,9 @@ static void print_help();
 
     /* Global variables */
 SSL_CTX *ctx;           /* global SSL context */
+#ifndef NO_RSA
 RSA *rsa_tmp;           /* temporary RSA key */
+#endif /* NO_RSA */
 #if SSLEAY_VERSION_NUMBER >= 0x0922
 static unsigned char *sid_ctx="stunnel SID"; /* const allowed here */
 #endif
@@ -429,10 +444,17 @@ static void context_init() /* init SSL */
             sslerror("SSL_CTX_use_certificate_file");
             exit(1);
         }
+#ifdef NO_RSA
+        if(!SSL_CTX_use_PrivateKey_file(ctx, certfile, SSL_FILETYPE_PEM)) {
+            sslerror("SSL_CTX_use_PrivateKey_file");
+            exit(1);
+        }
+#else /* NO_RSA */
         if(!SSL_CTX_use_RSAPrivateKey_file(ctx, certfile, SSL_FILETYPE_PEM)) {
             sslerror("SSL_CTX_use_RSAPrivateKey_file");
             exit(1);
         }
+#endif /* NO_RSA */
     }
     if(verify_level!=SSL_VERIFY_NONE) {
         if ((!SSL_CTX_set_default_verify_paths(ctx))
@@ -445,6 +467,7 @@ static void context_init() /* init SSL */
         if (verify_use_only_my)
             log(LOG_NOTICE, "Peer certificate location %s", clientdir);
     }
+#ifndef NO_RSA
     log(LOG_DEBUG, "Generating %d bit temporary RSA key...", KEYLENGTH);
 #if SSLEAY_VERSION_NUMBER <= 0x0800
     rsa_tmp=RSA_generate_key(KEYLENGTH, RSA_F4, NULL);
@@ -460,16 +483,17 @@ static void context_init() /* init SSL */
         sslerror("SSL_CTX_set_tmp_rsa_callback");
         exit(1);
     }
-    if(!SSL_CTX_set_info_callback(ctx, info_callback)) {
-        sslerror("SSL_CTX_set_info_callback");
-        exit(1);
-    }
-#ifdef USE_DH
+#endif /* NO_RSA */
+#ifndef NO_DH
     if(!SSL_CTX_set_tmp_dh_callback(ctx, tmp_dh_cb)) {
         sslerror("SSL_CTX_set_tmp_dh_callback");
         exit(1);
     }
-#endif
+#endif /* NO_DH */
+    if(!SSL_CTX_set_info_callback(ctx, info_callback)) {
+        sslerror("SSL_CTX_set_info_callback");
+        exit(1);
+    }
 }
 
 static void daemon_loop()
@@ -530,26 +554,24 @@ static void daemonize() /* go to background */
 }
 #endif /* defined USE_WIN32 */
 
-static void client(int s)
+static void client(int local)
 {
     struct sockaddr_in addr;
     int addrlen;
     SSL *ssl;
     int remote;
-#if SSLEAY_VERSION_NUMBER > 0x0800
-    SSL_CIPHER *c;
-    char *ver;
-    int bits;
-#endif
+    struct linger l;
 #ifdef USE_LIBWRAP
     struct request_info request;
 #endif
 
     log(LOG_DEBUG, "%s started", servname);
+    l.l_onoff=1;
+    l.l_linger=0;
     addrlen=sizeof(addr);
-    if(!getpeername(s, (struct sockaddr *)&addr, &addrlen)) {
+    if(!getpeername(local, (struct sockaddr *)&addr, &addrlen)) {
 #ifdef USE_LIBWRAP
-        request_init(&request, RQ_DAEMON, servname, RQ_FILE, s, 0);
+        request_init(&request, RQ_DAEMON, servname, RQ_FILE, local, 0);
         fromhost(&request);
         if (!hosts_access(&request)) {
             log(LOG_WARNING, "Connection from %s:%d to service %s REFUSED",
@@ -577,11 +599,9 @@ static void client(int s)
         sslerror("SSL_new");
         goto cleanup_remote;
     }
-
 #if SSLEAY_VERSION_NUMBER >= 0x0922
     SSL_set_session_id_context(ssl, sid_ctx, strlen(sid_ctx));
 #endif
-
     if(option&OPT_CLIENT) {
         SSL_set_fd(ssl, remote);
         SSL_set_connect_state(ssl);
@@ -589,90 +609,95 @@ static void client(int s)
             sslerror("SSL_connect");
             goto cleanup_ssl;
         }
+        print_cipher(ssl);
+        if(transfer(ssl, local)<0)
+            goto cleanup_ssl;
     } else {
-        SSL_set_fd(ssl, s);
+        SSL_set_fd(ssl, local);
         SSL_set_accept_state(ssl);
         if(SSL_accept(ssl)<=0) {
             sslerror("SSL_accept");
             goto cleanup_ssl;
         }
+        print_cipher(ssl);
+        if(transfer(ssl, remote)<0)
+            goto cleanup_ssl;
     }
-
-#if SSLEAY_VERSION_NUMBER <= 0x0800
-    log(LOG_INFO, "%s opened with SSLv%d, cipher %s",
-        servname, ssl->session->ssl_version, SSL_get_cipher(ssl));
-#else
-    switch(ssl->session->ssl_version) {
-    case SSL2_VERSION:
-        ver="SSLv2"; break;
-    case SSL3_VERSION:
-        ver="SSLv3"; break;
-    case TLS1_VERSION:
-        ver="TLSv1"; break;
-    default:
-        ver="UNKNOWN";
-    }
-    c=SSL_get_current_cipher(ssl);
-    SSL_CIPHER_get_bits(c, &bits);
-    log(LOG_INFO, "%s opened with %s, cipher %s (%u bits)",
-        servname, ver, SSL_CIPHER_get_name(c), bits);
-#endif
-    if(option&OPT_CLIENT)
-        transfer(ssl, s);
-    else
-        transfer(ssl, remote);
-cleanup_ssl:
+    /* No error - normal shutdown */
     SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
     SSL_free(ssl);
-cleanup_remote:
     closesocket(remote);
-cleanup_local:
-    closesocket(s);
+    closesocket(local);
+    goto done;
+cleanup_ssl: /* close SSL and reset sockets */
+    SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+    SSL_free(ssl);
+cleanup_remote: /* reset remote and local socket */
+    if(setsockopt(remote, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l))<0)
+        sockerror("linger (remote)");
+    closesocket(remote);
+cleanup_local: /* reset local socket */
+    if(setsockopt(local, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l))<0)
+        sockerror("linger (local)");
+    closesocket(local);
+done:
 #ifndef USE_FORK
     log(LOG_DEBUG, "%s finished (%d left)", servname, --clients);
 #endif
 }
 
-static void transfer(SSL *ssl, int fd_sock) /* transfer data */
+static int transfer(SSL *ssl, int sock_fd) /* transfer data */
 {
     fd_set rd_set, wr_set;
-    int num, fdno, fd_ssl, bytes_in, bytes_out;
+    int num, fdno, ssl_fd, ssl_bytes, sock_bytes, retval;
     char sock_buff[BUFFSIZE], ssl_buff[BUFFSIZE];
     int sock_ptr, ssl_ptr, sock_open, ssl_open;
+#ifdef FIONBIO
+    unsigned long l;
+#endif
 
-    fd_ssl=SSL_get_fd(ssl);
-    fdno=(fd_ssl>fd_sock ? fd_ssl : fd_sock)+1;
+    ssl_fd=SSL_get_fd(ssl);
+    fdno=(ssl_fd>sock_fd ? ssl_fd : sock_fd)+1;
     sock_ptr=0;
     ssl_ptr=0;
     sock_open=1;
     ssl_open=1;
-    bytes_in=0;
-    bytes_out=0;
+    sock_bytes=0;
+    ssl_bytes=0;
+
+#ifdef FIONBIO
+    l=1; /* ON */
+    if(ioctlsocket(sock_fd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (sock)"); /* non-critical */
+    if(ioctlsocket(ssl_fd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (ssl)"); /* non-critical */
+    log(LOG_DEBUG, "Sockets set to non-blocking mode");
+#endif
 
     while((sock_open||sock_ptr) && (ssl_open||ssl_ptr)) {
         FD_ZERO(&rd_set);
         if(sock_open && sock_ptr<BUFFSIZE) /* can read from socket */
-            FD_SET(fd_sock, &rd_set);
+            FD_SET(sock_fd, &rd_set);
         if(ssl_open && ssl_ptr<BUFFSIZE) /* can read from SSL */
-            FD_SET(fd_ssl, &rd_set);
+            FD_SET(ssl_fd, &rd_set);
         FD_ZERO(&wr_set);
         if(sock_open && ssl_ptr) /* can write to socket */
-            FD_SET(fd_sock, &wr_set);
+            FD_SET(sock_fd, &wr_set);
         if(ssl_open && sock_ptr) /* can write to SSL */
-            FD_SET(fd_ssl, &wr_set);
+            FD_SET(ssl_fd, &wr_set);
         if(select(fdno, &rd_set, &wr_set, NULL, NULL)<0) {
             sockerror("select");
-            return;
+            goto error;
         }
-        if(sock_open && FD_ISSET(fd_sock, &rd_set)) {
-            num=readsocket(fd_sock, sock_buff+sock_ptr, BUFFSIZE-sock_ptr);
+        if(sock_open && FD_ISSET(sock_fd, &rd_set)) {
+            num=readsocket(sock_fd, sock_buff+sock_ptr, BUFFSIZE-sock_ptr);
             if(num<0 && errno==ECONNRESET) {
                 log(LOG_NOTICE, "IPC reset (child died)");
                 break; /* close connection */
             }
             if(num<0) {
                 sockerror("read");
-                return;
+                goto error;
             }
             if(num) {
                 sock_ptr+=num;
@@ -681,7 +706,7 @@ static void transfer(SSL *ssl, int fd_sock) /* transfer data */
                 sock_open=0;
             }
         }
-        if(ssl_open && FD_ISSET(fd_ssl, &rd_set)) {
+        if(ssl_open && FD_ISSET(ssl_fd, &rd_set)) {
             num=SSL_read(ssl, ssl_buff+ssl_ptr, BUFFSIZE-ssl_ptr);
             switch(SSL_get_error(ssl, num)) {
             case SSL_ERROR_NONE:
@@ -695,7 +720,7 @@ static void transfer(SSL *ssl, int fd_sock) /* transfer data */
             case SSL_ERROR_SYSCALL:
                 if(num) { /* not EOF */
                     sockerror("SSL_read (socket)");
-                    return;
+                    goto error;
                 }
             case SSL_ERROR_ZERO_RETURN:
                 log(LOG_DEBUG, "SSL closed on read");
@@ -703,31 +728,31 @@ static void transfer(SSL *ssl, int fd_sock) /* transfer data */
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_read");
-                return;
+                goto error;
             }
         }
-        if(sock_open && FD_ISSET(fd_sock, &wr_set)) {
-            num=writesocket(fd_sock, ssl_buff, ssl_ptr);
+        if(sock_open && FD_ISSET(sock_fd, &wr_set)) {
+            num=writesocket(sock_fd, ssl_buff, ssl_ptr);
             if(num<0) {
                 sockerror("write");
-                return;
+                goto error;
             }
             if(num) {
                 memcpy(ssl_buff, ssl_buff+num, ssl_ptr-num);
                 ssl_ptr-=num;
-                bytes_in+=num;
+                sock_bytes+=num;
             } else { /* close */
                 log(LOG_DEBUG, "Socket closed on write");
                 sock_open=0;
             }
         }
-        if(ssl_open && FD_ISSET(fd_ssl, &wr_set)) {
+        if(ssl_open && FD_ISSET(ssl_fd, &wr_set)) {
             num=SSL_write(ssl, sock_buff, sock_ptr);
             switch(SSL_get_error(ssl, num)) {
             case SSL_ERROR_NONE:
                 memcpy(sock_buff, sock_buff+num, sock_ptr-num);
                 sock_ptr-=num;
-                bytes_out+=num;
+                ssl_bytes+=num;
                 break;
             case SSL_ERROR_WANT_WRITE:
             case SSL_ERROR_WANT_READ:
@@ -737,7 +762,7 @@ static void transfer(SSL *ssl, int fd_sock) /* transfer data */
             case SSL_ERROR_SYSCALL:
                 if(num) { /* not EOF */
                     sockerror("SSL_write (socket)");
-                    return;
+                    goto error;
                 }
             case SSL_ERROR_ZERO_RETURN:
                 log(LOG_DEBUG, "SSL closed on write");
@@ -745,12 +770,28 @@ static void transfer(SSL *ssl, int fd_sock) /* transfer data */
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_write");
-                return;
+                goto error;
             }
         }
     }
-    log(LOG_NOTICE, "Connection closed: %d bytes in, %d bytes out",
-        bytes_in, bytes_out);
+    retval=0;
+    goto done;
+error:
+    retval=-1;
+done:
+
+#ifdef FIONBIO
+    l=0; /* OFF */
+    if(ioctlsocket(sock_fd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (sock)"); /* non-critical */
+    if(ioctlsocket(ssl_fd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket (ssl)"); /* non-critical */
+#endif
+
+    log(LOG_NOTICE,
+        "Connection %s: %d bytes sent to SSL, %d bytes sent to socket",
+        retval<0 ? "reset" : "closed", sock_bytes, ssl_bytes);
+    return retval;
 }
 
 static int listen_local() /* bind and listen on local interface */
@@ -948,12 +989,14 @@ static int make_sockets(int fd[2]) /* make pair of connected sockets */
 }
 #endif
 
+#ifndef NO_RSA
 static RSA *tmp_rsa_cb(SSL *s, int export, int keylength)
 { /* temporary RSA key callback */
     return rsa_tmp;
 }
+#endif /* NO_RSA */
 
-#ifdef USE_DH
+#ifndef NO_DH
 static DH *tmp_dh_cb(SSL *s, int export)
 { /* temporary DH key callback */
     static DH *dh_tmp = NULL;
@@ -980,7 +1023,7 @@ static DH *tmp_dh_cb(SSL *s, int export)
     if(in != NULL) BIO_free(in);
     return(dh_tmp);
 }
-#endif
+#endif /* NO_DH */
 
 static int verify_callback(int state, X509_STORE_CTX *ctx)
 { /* our verify callback function */
@@ -1012,7 +1055,7 @@ static void info_callback(SSL *s, int where, int ret)
         print_stats();
 }
 
-static void print_stats()
+static void print_stats() /* print statistics */
 {
     log(LOG_DEBUG, "%4ld items in the session cache",
         SSL_CTX_sess_number(ctx));
@@ -1035,6 +1078,35 @@ static void print_stats()
     log(LOG_DEBUG, "%4d session cache hits", SSL_CTX_sess_hits(ctx));
     log(LOG_DEBUG, "%4d session cache misses", SSL_CTX_sess_misses(ctx));
     log(LOG_DEBUG, "%4d session cache timeouts", SSL_CTX_sess_timeouts(ctx));
+}
+
+static void print_cipher(SSL *ssl) /* print negotiated cipher */
+{
+#if SSLEAY_VERSION_NUMBER > 0x0800
+    SSL_CIPHER *c;
+    char *ver;
+    int bits;
+#endif
+
+#if SSLEAY_VERSION_NUMBER <= 0x0800
+    log(LOG_INFO, "%s opened with SSLv%d, cipher %s",
+        servname, ssl->session->ssl_version, SSL_get_cipher(ssl));
+#else
+    switch(ssl->session->ssl_version) {
+    case SSL2_VERSION:
+        ver="SSLv2"; break;
+    case SSL3_VERSION:
+        ver="SSLv3"; break;
+    case TLS1_VERSION:
+        ver="TLSv1"; break;
+    default:
+        ver="UNKNOWN";
+    }
+    c=SSL_get_current_cipher(ssl);
+    SSL_CIPHER_get_bits(c, &bits);
+    log(LOG_INFO, "%s opened with %s, cipher %s (%u bits)",
+        servname, ver, SSL_CIPHER_get_name(c), bits);
+#endif
 }
 
 static void ioerror(char *txt) /* Input/Output error handler */

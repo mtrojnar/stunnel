@@ -21,6 +21,9 @@
 #include <stdio.h>
 
 /* SSL headers */
+#ifdef HAVE_LIBRSAREF
+#define RSAref
+#endif
 #define NO_BLOWFISH
 #include <ssl.h>
 #include <err.h>
@@ -29,7 +32,7 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.1"
+#define VERSION "3.2"
 #define HOST "i586-pc-mingw32-gnu"
 
 #define get_last_socket_error() WSAGetLastError()

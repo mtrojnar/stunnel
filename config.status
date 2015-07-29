@@ -65,7 +65,7 @@ s%@CC@%gcc%g
 s%@INSTALL_PROGRAM@%${INSTALL}%g
 s%@INSTALL_DATA@%${INSTALL} -m 644%g
 s%@SET_MAKE@%%g
-s%@VERSION@%3.1%g
+s%@VERSION@%3.2%g
 s%@SSLDIR@%/usr/local/ssl%g
 s%@CPP@%gcc -E%g
 
@@ -197,9 +197,9 @@ for ac_file in .. $CONFIG_HEADERS; do if test "x$ac_file" != x..; then
   cat $ac_file_inputs > conftest.in
 
   cat > conftest.frag <<CEOF
-${ac_dA}VERSION${ac_dB}VERSION${ac_dC}"3.1"${ac_dD}
-${ac_uA}VERSION${ac_uB}VERSION${ac_uC}"3.1"${ac_uD}
-${ac_eA}VERSION${ac_eB}VERSION${ac_eC}"3.1"${ac_eD}
+${ac_dA}VERSION${ac_dB}VERSION${ac_dC}"3.2"${ac_dD}
+${ac_uA}VERSION${ac_uB}VERSION${ac_uC}"3.2"${ac_uD}
+${ac_eA}VERSION${ac_eB}VERSION${ac_eC}"3.2"${ac_eD}
 ${ac_dA}SSLDIR${ac_dB}SSLDIR${ac_dC}"/usr/local/ssl"${ac_dD}
 ${ac_uA}SSLDIR${ac_uB}SSLDIR${ac_uC}"/usr/local/ssl"${ac_uD}
 ${ac_eA}SSLDIR${ac_eB}SSLDIR${ac_eC}"/usr/local/ssl"${ac_eD}
