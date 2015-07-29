@@ -1,5 +1,6 @@
 #include <windows.h>
 #include "resources.h"
+#include "version.h" // pdelaage 20101024
 
 IDI_MYICON ICON "stunnel.ico"
 
@@ -39,8 +40,8 @@ CAPTION "About stunnel"
 BEGIN
     ICON            IDI_MYICON,-1,9,8,18,20
     LTEXT           "stunnel version",-1,30,4,52,8
-    LTEXT           VERSION,-1,82,4,30,8
-    LTEXT           "© by Michal Trojnara 2010",-1,30,12,104,8
+    LTEXT           STUNNEL_VERSION,-1,82,4,30,8
+    LTEXT           "© by Michal Trojnara 2011",-1,30,12,104,8
     LTEXT           "All Rights Reserved",-1,30,20,104,8
     LTEXT           "Licensed under the GNU GPL version 2",-1,4,28,130,8
     DEFPUSHBUTTON   "OK",IDOK,52,40,32,14,WS_GROUP

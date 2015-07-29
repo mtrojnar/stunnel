@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -39,10 +39,15 @@
 #include "prototypes.h"
 
 #ifndef OPENSSL_NO_RSA
-/* cache temporary keys up to 2048 bits */
-#define KEY_CACHE_LENGTH 2049
+/* cache temporary keys up to 4096 bits */
+#define KEY_CACHE_LENGTH 4097
 /* cache temporary keys up to 1 hour */
 #define KEY_CACHE_TIME 3600
+static struct keytabstruct {
+    RSA *key;
+    time_t timeout;
+} key_table[KEY_CACHE_LENGTH];
+static BIGNUM *e_value;
 #endif /* OPENSSL_NO_RSA */
 
 /**************************************** prototypes */
@@ -82,6 +87,9 @@ static void sslerror_queue(void);
 
 int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     struct stat st; /* buffer for stat */
+#ifndef OPENSSL_NO_RSA
+    int i;
+#endif /* OPENSSL_NO_RSA */
 
     /* check if certificate exists */
     if(!section->key) /* key file not specified */
@@ -108,6 +116,19 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
     if(!section->option.client) { /* RSA/DH/ECDH server mode initialization */
 #ifndef OPENSSL_NO_RSA
+        for(i=0; i<KEY_CACHE_LENGTH; ++i) {
+            key_table[i].key=NULL;
+            key_table[i].timeout=0;
+        }
+        e_value=BN_new();
+        if(!e_value) {
+            sslerror("BN_new");
+            return 0;
+        }
+        if(!BN_set_word(e_value, RSA_F4)) {
+            sslerror("BN_set_word");
+            return 0;
+        }
         SSL_CTX_set_tmp_rsa_callback(section->ctx, tmp_rsa_cb);
 #endif /* OPENSSL_NO_RSA */
 #ifndef OPENSSL_NO_DH
@@ -160,61 +181,46 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
 #ifndef OPENSSL_NO_RSA
 
 static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
-    static int initialized=0;
-    static struct keytabstruct {
-        RSA *key;
-        time_t timeout;
-    } keytable[KEY_CACHE_LENGTH];
-    static RSA *longkey=NULL;
-    static int longlen=0;
-    static time_t longtime=0;
-    RSA *oldkey, *retval;
+    RSA *rsa;
     time_t now;
-    int i;
+    int idx, key_is_long;
+    static int long_keylen=0;
 
     (void)s; /* skip warning about unused parameter */
     (void)export; /* skip warning about unused parameter */
-    enter_critical_section(CRIT_KEYGEN);
-        /* only one make_temp_key() at a time */
-    if(!initialized) {
-        for(i=0; i<KEY_CACHE_LENGTH; i++) {
-            keytable[i].key=NULL;
-            keytable[i].timeout=0;
-        }
-        initialized=1;
-    }
+    key_is_long=keylen>=KEY_CACHE_LENGTH;
+    idx=key_is_long ? 0 : keylen;
     time(&now);
-    if(keylen<KEY_CACHE_LENGTH) {
-        if(keytable[keylen].timeout<now) {
-            oldkey=keytable[keylen].key;
-            keytable[keylen].key=make_temp_key(keylen);
-            keytable[keylen].timeout=now+KEY_CACHE_TIME;
-            if(oldkey)
-                RSA_free(oldkey);
-        }
-        retval=keytable[keylen].key;
-    } else { /* temp key > 2048 bits */
-        if(longtime<now || longlen!=keylen) {
-            oldkey=longkey;
-            longkey=make_temp_key(keylen);
-            longtime=now+KEY_CACHE_TIME;
-            longlen=keylen;
-            if(oldkey)
-                RSA_free(oldkey);
-        }
-        retval=longkey;
+    enter_critical_section(CRIT_KEYGEN);
+    if(key_table[idx].timeout<now || (key_is_long && keylen!=long_keylen)) {
+        rsa=key_table[idx].key;
+        key_table[idx].key=make_temp_key(keylen);
+        if(rsa)
+            RSA_free(rsa);
+        key_table[idx].timeout=now+KEY_CACHE_TIME;
+        if(key_is_long)
+            long_keylen=keylen;
     }
+    rsa=key_table[idx].key;
     leave_critical_section(CRIT_KEYGEN);
-    return retval;
+    return rsa;
 }
 
 static RSA *make_temp_key(int keylen) {
-    RSA *result;
+    RSA *rsa;
 
     s_log(LOG_DEBUG, "Generating %d bit temporary RSA key...", keylen);
-    result=RSA_generate_key(keylen, RSA_F4, NULL, NULL);
+    rsa=RSA_new();
+    if(!rsa) {
+        sslerror("RSA_new");
+        return NULL;
+    }
+    if(RSA_generate_key_ex(rsa, keylen, e_value, NULL)) {
+        sslerror("RSA_generate_key_ex");
+        return NULL;
+    }
     s_log(LOG_DEBUG, "Temporary RSA key created");
-    return result;
+    return rsa;
 }
 
 #endif /* OPENSSL_NO_RSA */
@@ -476,14 +482,13 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     /* setup packet */
     packet->version=1;
     packet->type=type;
-    packet->timeout=htons(timeout<64800?timeout:64800); /* 18 hours */
+    packet->timeout=htons((u_short)(timeout<64800?timeout:64800));/* 18 hours */
     memcpy(packet->key, key, key_len);
     memcpy(packet->val, val, val_len);
 
     /* create the socket */
-    s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if(s==-1) {
-        sockerror("cache_transfer: socket");
+    s=s_socket(AF_INET, SOCK_DGRAM, 0, 0, "cache_transfer: socket");
+    if(s<0) {
         free(packet);
         return;
     }
@@ -492,7 +497,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     opt=SSL_CTX_get_ex_data(ctx, opt_index);
     memcpy(&addr, &opt->sessiond_addr.addr[0], sizeof addr);
     if(sendto(s, (void *)packet, sizeof(CACHE_PACKET)-MAX_VAL_LEN+val_len, 0,
-            &addr.sa, addr_len(addr))==-1) {
+            &addr.sa, addr_len(addr))<0) {
         sockerror("cache_transfer: sendto");
         closesocket(s);
         free(packet);
@@ -508,7 +513,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     /* set recvfrom timeout to 200ms */
     t.tv_sec=0;
     t.tv_usec=200;
-    if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (void *)&t, sizeof t)==-1) {
+    if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (void *)&t, sizeof t)<0) {
         sockerror("cache_transfer: setsockopt SO_RCVTIMEO");
         closesocket(s);
         free(packet);
@@ -518,7 +523,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     /* retrieve response */
     len=recv(s, (void *)packet, sizeof(CACHE_PACKET), 0);
     closesocket(s);
-    if(len==-1) {
+    if(len<0) {
         if(get_last_socket_error()==EAGAIN)
             s_log(LOG_INFO, "cache_transfer: recv timeout");
         else

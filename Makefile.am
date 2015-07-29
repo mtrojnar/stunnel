@@ -35,5 +35,5 @@ sign: dist
 		../dist/$(distdir).tar.gz
 	gpg --yes --armor --detach-sign --force-v3-sigs \
 		../dist/$(distdir)-installer.exe
-	sha1sum $(distdir).tar.gz | tee ../dist/$(distdir).tar.gz.sha1
+	sha256sum $(distdir).tar.gz | tee ../dist/$(distdir).tar.gz.sha256
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -67,12 +67,12 @@ static void auth_user(CLI *);
 static int connect_local(CLI *);
 static void make_sockets(CLI *, int [2]);
 static int connect_remote(CLI *);
+#ifdef SO_ORIGINAL_DST
+static int connect_transparent(CLI *);
+#endif /* SO_ORIGINAL_DST */
 static void local_bind(CLI *c);
 static void print_bound_address(CLI *);
 static void reset(int, char *);
-
-int max_clients;
-int max_fds;
 
 /* allocate local data structure for the new thread */
 CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
@@ -96,7 +96,6 @@ void *client(void *arg) {
     stack_info(1); /* initialize */
 #endif
     s_log(LOG_DEBUG, "Service %s started", c->opt->servname);
-#ifndef USE_WIN32
     if(c->opt->option.remote && c->opt->option.program) {
             /* connect and exec options specified together */
             /* -> spawn a local program instead of stdio */
@@ -107,15 +106,7 @@ void *client(void *arg) {
             sleep(1); /* FIXME: not a good idea in ucontext threading */
         }
     } else
-#endif
-    {
-        if(alloc_fd(c->local_rfd.fd))
-            return NULL;
-        if(c->local_wfd.fd!=c->local_rfd.fd)
-            if(alloc_fd(c->local_wfd.fd))
-                return NULL;
         run_client(c);
-    }
     free(c);
 #ifdef DEBUG_STACK_SIZE
     stack_info(0); /* display computed value */
@@ -147,7 +138,7 @@ static void run_client(CLI *c) {
         "Connection %s: %d bytes sent to SSL, %d bytes sent to socket",
          error==1 ? "reset" : "closed", c->ssl_bytes, c->sock_bytes);
 
-        /* cleanup IDENT socket */
+        /* cleanup temporary (e.g. IDENT) socket */
     if(c->fd>=0)
         closesocket(c->fd);
 
@@ -215,7 +206,7 @@ static void init_local(CLI *c) {
 #ifdef USE_WIN32
         if(get_last_socket_error()!=ENOTSOCK) {
 #else
-        if(c->opt->option.transparent || get_last_socket_error()!=ENOTSOCK) {
+        if(c->opt->option.transparent_src || get_last_socket_error()!=ENOTSOCK) {
 #endif
             sockerror("getpeerbyname");
             longjmp(c->err, 1);
@@ -245,7 +236,7 @@ static void init_remote(CLI *c) {
     if(c->opt->source_addr.num)
         memcpy(&c->bind_addr, &c->opt->source_addr, sizeof(SOCKADDR_LIST));
 #ifndef USE_WIN32
-    else if(c->opt->option.transparent)
+    else if(c->opt->option.transparent_src)
         memcpy(&c->bind_addr, &c->peer_addr, sizeof(SOCKADDR_LIST));
 #endif
     else {
@@ -253,16 +244,15 @@ static void init_remote(CLI *c) {
     }
 
     /* setup c->remote_fd, now */
-    if(c->opt->option.remote) {
+    if(c->opt->option.remote)
         c->remote_fd.fd=connect_remote(c);
-    } else /* NOT in remote mode */
+#ifdef SO_ORIGINAL_DST
+    else if(c->opt->option.transparent_dst)
+        c->remote_fd.fd=connect_transparent(c);
+#endif /* SO_ORIGINAL_DST */
+    else /* NOT in remote mode */
         c->remote_fd.fd=connect_local(c);
     c->remote_fd.is_socket=1; /* always! */
-    if(max_fds && c->remote_fd.fd>=max_fds) {
-        s_log(LOG_ERR, "Remote file descriptor out of range (%d>=%d)",
-            c->remote_fd.fd, max_fds);
-        longjmp(c->err, 1);
-    }
     s_log(LOG_DEBUG, "Remote FD=%d initialized", c->remote_fd.fd);
     if(set_socket_options(c->remote_fd.fd, 2)<0)
         longjmp(c->err, 1);
@@ -310,14 +300,19 @@ static void init_ssl(CLI *c) {
     }
 
     while(1) {
-        /* crude workaround for random MT-safety problems in OpenSSL */
-        /* performance penalty is not huge, as it's a non-blocking code */
+#if OPENSSL_VERSION_NUMBER<0x1000002f
+        /* this critical section is a crude workaround for CVE-2010-3864 */
+        /* see http://www.securityfocus.com/bid/44884 for details */
+        /* NOTE: this critical section also covers callbacks (e.g. OCSP) */
         enter_critical_section(CRIT_SSL);
+#endif /* OpenSSL version < 1.0.0b */
         if(c->opt->option.client)
             i=SSL_connect(c->ssl);
         else
             i=SSL_accept(c->ssl);
+#if OPENSSL_VERSION_NUMBER<0x1000002f
         leave_critical_section(CRIT_SSL);
+#endif /* OpenSSL version < 1.0.0b */
         err=SSL_get_error(c->ssl, i);
         if(err==SSL_ERROR_NONE)
             break; /* ok -> done */
@@ -331,12 +326,13 @@ static void init_ssl(CLI *c) {
                 sockerror("init_ssl: s_poll_wait");
                 longjmp(c->err, 1);
             case 0:
-                s_log(LOG_INFO, "init_ssl: s_poll_wait timeout");
+                s_log(LOG_INFO, "init_ssl: s_poll_wait:"
+                    " TIMEOUTbusy exceeded: sending reset");
                 longjmp(c->err, 1);
             case 1:
                 break; /* OK */
             default:
-                s_log(LOG_ERR, "init_ssl: s_poll_wait unknown result");
+                s_log(LOG_ERR, "init_ssl: s_poll_wait: unknown result");
                 longjmp(c->err, 1);
             }
             continue; /* ok -> retry */
@@ -420,10 +416,12 @@ static void transfer(CLI *c) {
             longjmp(c->err, 1);
         case 0: /* timeout */
             if((sock_open_rd && ssl_open_rd) || c->ssl_ptr || c->sock_ptr) {
-                s_log(LOG_INFO, "s_poll_wait timeout: connection reset");
+                s_log(LOG_INFO, "transfer: s_poll_wait:"
+                    " TIMEOUTidle exceeded: sending reset");
                 longjmp(c->err, 1);
             } else { /* already closing connection */
-                s_log(LOG_INFO, "s_poll_wait timeout: connection close");
+                s_log(LOG_ERR, "transfer: s_poll_wait:"
+                    " TIMEOUTclose exceeded: closing");
                 return; /* OK */
             }
         }
@@ -487,7 +485,7 @@ static void transfer(CLI *c) {
             }
             if(c->ssl_ptr) { /* anything left to write */
                 s_log(LOG_ERR, "INTERNAL ERROR: "
-                    "Closed socket ready to read: reset");
+                    "Closed socket ready to read: sending reset");
                 longjmp(c->err, 1);
             }
             s_log(LOG_ERR, "INTERNAL ERROR: "
@@ -782,12 +780,9 @@ static void auth_user(CLI *c) {
 
     if(!c->opt->username)
         return; /* -u option not specified */
-    if((c->fd=
-            socket(c->peer_addr.addr[0].sa.sa_family, SOCK_STREAM, 0))<0) {
-        sockerror("socket (auth_user)");
-        longjmp(c->err, 1);
-    }
-    if(alloc_fd(c->fd))
+    c->fd=s_socket(c->peer_addr.addr[0].sa.sa_family, SOCK_STREAM,
+        0, 1, "socket (auth_user)");
+    if(c->fd<0)
         longjmp(c->err, 1);
     memcpy(&ident, &c->peer_addr.addr[0], sizeof ident);
 #ifndef _WIN32_WCE
@@ -821,36 +816,43 @@ static void auth_user(CLI *c) {
     s_log(LOG_INFO, "IDENT authentication passed");
 }
 
-#ifdef USE_WIN32
+#if defined(_WIN32_WCE) || defined(__vms)
+
+static int connect_local(CLI *c) { /* spawn local process */
+    s_log(LOG_ERR, "Local mode is not supported on this platform");
+    longjmp(c->err, 1);
+    return -1; /* some C compilers require a return value */
+}
+
+#elif defined(USE_WIN32)
 
 static int connect_local(CLI *c) { /* spawn local process */
     int fd[2];
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
+    LPTSTR execname_l, execargs_l;
 
     make_sockets(c, fd);
-    ZeroMemory(&si, sizeof si);
+    memset(&si, 0, sizeof si);
     si.cb=sizeof si;
     si.wShowWindow=SW_HIDE;
     si.dwFlags=STARTF_USESHOWWINDOW|STARTF_USESTDHANDLES;
     si.hStdInput=si.hStdOutput=si.hStdError=(HANDLE)fd[1];
-    ZeroMemory(&pi, sizeof pi);
-    CreateProcess(c->opt->execname, c->opt->execargs, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    memset(&pi, 0, sizeof pi);
+
+    execname_l=str2tstr(c->opt->execname);
+    execargs_l=str2tstr(c->opt->execargs);
+    CreateProcess(execname_l, execargs_l, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    free(execname_l);
+    free(execargs_l);
+
     closesocket(fd[1]);
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
     return fd[0];
 }
 
-#elif defined(__vms)
-
-static int connect_local(CLI *c) { /* spawn local process */
-    s_log(LOG_ERR, "Local mode not supported on OpenVMS");
-    longjmp(c->err, 1);
-    return -1; /* some C compilers require a return value */
-}
-
-#else /* not USE_WIN32 or __vms */
+#else /* standard Unix version */
 
 static int connect_local(CLI *c) { /* spawn local process */
     char env[3][STRLEN], name[STRLEN], *portname;
@@ -868,6 +870,7 @@ static int connect_local(CLI *c) { /* spawn local process */
         s_log(LOG_DEBUG, "TTY=%s allocated", tty);
     } else
         make_sockets(c, fd);
+
     pid=fork();
     c->pid=(unsigned long)pid;
     switch(pid) {
@@ -878,18 +881,19 @@ static int connect_local(CLI *c) { /* spawn local process */
         longjmp(c->err, 1);
     case  0:    /* child */
         closesocket(fd[0]);
+        /* dup2() does not copy FD_CLOEXEC flag */
         dup2(fd[1], 0);
         dup2(fd[1], 1);
         if(!global_options.option.foreground)
             dup2(fd[1], 2);
-        closesocket(fd[1]);
+        closesocket(fd[1]); /* not really needed due to FD_CLOEXEC */
         safecopy(env[0], "REMOTE_HOST=");
         safeconcat(env[0], c->accepted_address);
         portname=strrchr(env[0], ':');
         if(portname) /* strip the port name */
             *portname='\0';
         putenv(env[0]);
-        if(c->opt->option.transparent) {
+        if(c->opt->option.transparent_src) {
             putenv("LD_PRELOAD=" LIBDIR "/libstunnel.so");
             /* for Tru64 _RLD_LIST is used instead */
             putenv("_RLD_LIST=" LIBDIR "/libstunnel.so:DEFAULT");
@@ -917,16 +921,11 @@ static int connect_local(CLI *c) { /* spawn local process */
         execvp(c->opt->execname, c->opt->execargs);
         ioerror(c->opt->execname); /* execv failed */
         _exit(1);
-    default:
-        break;
+    default: /* parent */
+        s_log(LOG_INFO, "Local mode child started (PID=%lu)", c->pid);
+        closesocket(fd[1]);
+        return fd[0];
     }
-    /* parent */
-    s_log(LOG_INFO, "Local mode child started (PID=%lu)", c->pid);
-    closesocket(fd[1]);
-#ifdef FD_CLOEXEC
-    fcntl(fd[0], F_SETFD, FD_CLOEXEC);
-#endif
-    return fd[0];
 }
 
 #endif /* not USE_WIN32 or __vms */
@@ -937,14 +936,12 @@ static void make_sockets(CLI *c, int fd[2]) { /* make a pair of connected socket
     socklen_t addrlen;
     int s; /* temporary socket awaiting for connection */
 
-    if((s=socket(AF_INET, SOCK_STREAM, 0))<0) {
-        sockerror("socket#1");
+    s=s_socket(AF_INET, SOCK_STREAM, 0, 1, "socket#1");
+    if(s<0)
         longjmp(c->err, 1);
-    }
-    if((fd[1]=socket(AF_INET, SOCK_STREAM, 0))<0) {
-        sockerror("socket#2");
+    fd[1]=s_socket(AF_INET, SOCK_STREAM, 0, 1, "socket#2");
+    if(fd[1]<0)
         longjmp(c->err, 1);
-    }
     addrlen=sizeof addr;
     memset(&addr, 0, addrlen);
     addr.in.sin_family=AF_INET;
@@ -966,20 +963,16 @@ static void make_sockets(CLI *c, int fd[2]) { /* make a pair of connected socket
         sockerror("connect");
         longjmp(c->err, 1);
     }
-    if((fd[0]=accept(s, &addr.sa, &addrlen))<0) {
-        sockerror("accept");
+    if((fd[0]=s_accept(s, &addr.sa, &addrlen, 1, "accept"))<0)
         longjmp(c->err, 1);
-    }
     closesocket(s); /* don't care about the result */
 #else
-    if(socketpair(AF_UNIX, SOCK_STREAM, 0, fd)) {
-        sockerror("socketpair");
+    if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, fd, 1, "socketpair"))
         longjmp(c->err, 1);
-    }
 #endif
 }
 
-static int connect_remote(CLI *c) { /* connect to remote host */
+static int connect_remote(CLI *c) { /* connect remote host */
     SOCKADDR_UNION addr;
     SOCKADDR_LIST resolved_list, *address_list;
     int fd, ind_try, ind_cur;
@@ -1007,11 +1000,8 @@ static int connect_remote(CLI *c) { /* connect to remote host */
         }
         memcpy(&addr, address_list->addr+ind_cur, sizeof addr);
 
-        if((c->fd=socket(addr.sa.sa_family, SOCK_STREAM, 0))<0) {
-            sockerror("remote socket");
-            longjmp(c->err, 1);
-        }
-        if(alloc_fd(c->fd))
+        c->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "remote socket");
+        if(c->fd<0)
             longjmp(c->err, 1);
 
         if(c->bind_addr.num) /* explicit local bind or transparent proxy */
@@ -1031,20 +1021,72 @@ static int connect_remote(CLI *c) { /* connect to remote host */
     return -1; /* some C compilers require a return value */
 }
 
+#ifdef SO_ORIGINAL_DST
+static int connect_transparent(CLI *c) { /* connect the original dst */
+    SOCKADDR_UNION addr;
+    socklen_t addrlen=sizeof addr;
+    int retval;
+
+    if(getsockopt(c->local_rfd.fd, SOL_IP, SO_ORIGINAL_DST,
+            &addr, &addrlen)) {
+        sockerror("setsockopt SO_ORIGINAL_DST");
+        longjmp(c->err, 1);
+    }
+    c->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "remote socket");
+    if(c->fd<0)
+        longjmp(c->err, 1);
+    if(c->bind_addr.num) /* explicit local bind or transparent proxy */
+        local_bind(c);
+    if(connect_blocking(c, &addr, addr_len(addr)))
+        longjmp(c->err, 1); /* socket closed on cleanup */
+    print_bound_address(c);
+    retval=c->fd;
+    c->fd=-1;
+    return retval; /* success! */
+}
+#endif /* SO_ORIGINAL_DST */
+
 static void local_bind(CLI *c) {
     SOCKADDR_UNION addr;
+    int on;
 
-#ifdef IP_TRANSPARENT
-    int on=1;
-    if(c->opt->option.transparent) {
+    on=1;
+    memcpy(&addr, &c->bind_addr.addr[0], sizeof addr);
+
+#if defined(USE_WIN32)
+    /* do nothing */
+#elif defined(IP_TRANSPARENT)
+    /* non-local bind on Linux */
+    if(c->opt->option.transparent_src) {
         if(setsockopt(c->fd, SOL_IP, IP_TRANSPARENT, &on, sizeof on))
             sockerror("setsockopt IP_TRANSPARENT");
         /* ignore the error to retain Linux 2.2 compatibility */
         /* the error will be handled by bind(), anyway */
     }
-#endif /* IP_TRANSPARENT */
+#elif defined(IP_BINDANY) && defined(IPV6_BINDANY)
+    /* non-local bind on FreeBSD */
+    if(c->opt->option.transparent_src) {
+        if(addr.sa.sa_family==AF_INET) { /* IPv4 */
+            if(setsockopt(c->fd, IPPROTO_IP, IP_BINDANY, &on, sizeof on)) {
+                sockerror("setsockopt IP_BINDANY");
+                longjmp(c->err, 1);
+            }
+        } else { /* IPv6 */
+            if(setsockopt(c->fd, IPPROTO_IPV6, IPV6_BINDANY, &on, sizeof on)) {
+                sockerror("setsockopt IPV6_BINDANY");
+                longjmp(c->err, 1);
+            }
+        }
+    }
+#else
+    /* unsupported platform */
+    if(c->opt->option.transparent_src) {
+        s_log(LOG_ERR, "Transparent proxy in remote mode is not supported"
+            " on this platform");
+        longjmp(c->err, 1);
+    }
+#endif
 
-    memcpy(&addr, &c->bind_addr.addr[0], sizeof addr);
     if(ntohs(addr.in.sin_port)>=1024) { /* security check */
         if(!bind(c->fd, &addr.sa, addr_len(addr))) {
             s_log(LOG_INFO, "local_bind succeeded on the original port");
@@ -1052,7 +1094,7 @@ static void local_bind(CLI *c) {
         }
         if(get_last_socket_error()!=EADDRINUSE
 #ifndef USE_WIN32
-                || !c->opt->option.transparent
+                || !c->opt->option.transparent_src
 #endif /* USE_WIN32 */
                 ) {
             sockerror("local_bind (original port)");

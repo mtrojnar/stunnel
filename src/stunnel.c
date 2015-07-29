@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -38,7 +38,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-    /* prototypes */
+/**************************************** prototypes */
 
 static void daemon_loop(void);
 static void accept_connection(SERVICE_OPTIONS *);
@@ -49,12 +49,12 @@ static void daemonize(void);
 static void create_pid(void);
 static void delete_pid(void);
 #endif
+static int setup_fd(int, int, char *);
 
-    /* error/exceptions handling functions */
+/**************************************** global variables */
 
-#ifndef USE_WIN32
-static void signal_handler(int);
-#endif
+static int max_fds;
+static int max_clients=0;
 
 int volatile num_clients=0; /* current number of clients */
 s_poll_set fds; /* file descriptors of listening sockets */
@@ -62,21 +62,12 @@ s_poll_set fds; /* file descriptors of listening sockets */
 int signal_fd;
 #endif
 
-    /* functions */
+/**************************************** startup */
 
 #ifndef USE_WIN32
 int main(int argc, char* argv[]) { /* execution begins here 8-) */
 
     main_initialize(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL);
-
-    signal(SIGPIPE, SIG_IGN); /* avoid 'broken pipe' signal */
-    if(signal(SIGTERM, SIG_IGN)!=SIG_IGN)
-        signal(SIGTERM, signal_handler);
-    if(signal(SIGQUIT, SIG_IGN)!=SIG_IGN)
-        signal(SIGQUIT, signal_handler);
-    if(signal(SIGINT, SIG_IGN)!=SIG_IGN)
-        signal(SIGINT, signal_handler);
-    /* signal(SIGSEGV, signal_handler); */
 
     main_execute();
 
@@ -151,6 +142,8 @@ void main_execute(void) {
     }
 }
 
+/**************************************** main loop */
+
 static void daemon_loop(void) {
     SERVICE_OPTIONS *opt;
 
@@ -165,66 +158,6 @@ static void daemon_loop(void) {
     }
 }
 
-    /* close old ports, open new ports, update fds */
-int bind_ports(void) {
-    SERVICE_OPTIONS *opt;
-    static SERVICE_OPTIONS *prev_opt=NULL;
-    SOCKADDR_UNION addr;
-
-    s_poll_init(&fds);
-#if !defined(USE_WIN32) && !defined(USE_OS2)
-    s_poll_add(&fds, signal_fd, 1, 0);
-#endif
-
-    for(opt=prev_opt; opt; opt=opt->next)
-        if(opt->option.accept) {
-            closesocket(opt->fd);
-            s_log(LOG_DEBUG, "Service %s closed FD=%d",
-                opt->servname, opt->fd);
-        }
-    prev_opt=service_options.next;
-
-    for(opt=prev_opt; opt; opt=opt->next) {
-        if(opt->option.accept) {
-            memcpy(&addr, &opt->local_addr.addr[0], sizeof addr);
-            if((opt->fd=socket(addr.sa.sa_family, SOCK_STREAM, 0))<0) {
-                sockerror("local socket");
-                return 0;
-            }
-            if(alloc_fd(opt->fd))
-                return 0;
-            if(set_socket_options(opt->fd, 0)<0)
-                return 0;
-            s_ntop(opt->local_address, &addr);
-            if(bind(opt->fd, &addr.sa, addr_len(addr))) {
-                s_log(LOG_ERR, "Error binding %s to %s",
-                    opt->servname, opt->local_address);
-                sockerror("bind");
-                return 0;
-            }
-            s_log(LOG_DEBUG, "Service %s bound to %s",
-                opt->servname, opt->local_address);
-            if(listen(opt->fd, 5)) {
-                sockerror("listen");
-                return 0;
-            }
-#ifdef FD_CLOEXEC
-            /* close socket in child execvp */
-            fcntl(opt->fd, F_SETFD, FD_CLOEXEC);
-#endif
-            s_poll_add(&fds, opt->fd, 1, 0);
-            s_log(LOG_DEBUG, "Service %s opened FD=%d",
-                opt->servname, opt->fd);
-        } else { /* create exec+connect services */
-            enter_critical_section(CRIT_CLIENTS);
-            ++num_clients;
-            leave_critical_section(CRIT_CLIENTS);
-            create_client(-1, -1, alloc_client_session(opt, -1, -1), client);
-        }
-    }
-    return 1; /* OK */
-}
-
 static void accept_connection(SERVICE_OPTIONS *opt) {
     SOCKADDR_UNION addr;
     char from_address[IPLEN];
@@ -232,7 +165,10 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
     socklen_t addrlen;
 
     addrlen=sizeof addr;
-    while((s=accept(opt->fd, &addr.sa, &addrlen))<0) {
+    for(;;) {
+        s=s_accept(opt->fd, &addr.sa, &addrlen, 1, "local socket");
+        if(s>=0) /* success! */
+            break;
         switch(get_last_socket_error()) {
             case EINTR:
                 break; /* retry */
@@ -259,9 +195,6 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
         closesocket(s);
         return;
     }
-#ifdef FD_CLOEXEC
-    fcntl(s, F_SETFD, FD_CLOEXEC); /* close socket in child execvp */
-#endif
     if(create_client(opt->fd, s, alloc_client_session(opt, s, s), client)) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
         closesocket(s);
@@ -270,6 +203,61 @@ static void accept_connection(SERVICE_OPTIONS *opt) {
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
     ++num_clients;
     leave_critical_section(CRIT_CLIENTS);
+}
+
+/**************************************** initialization helpers */
+
+/* close old ports, open new ports, update fds */
+int bind_ports(void) {
+    SERVICE_OPTIONS *opt;
+    static SERVICE_OPTIONS *prev_opt=NULL;
+    SOCKADDR_UNION addr;
+
+    s_poll_init(&fds);
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+    s_poll_add(&fds, signal_fd, 1, 0);
+#endif
+
+    for(opt=prev_opt; opt; opt=opt->next)
+        if(opt->option.accept) {
+            closesocket(opt->fd);
+            s_log(LOG_DEBUG, "Service %s closed FD=%d",
+                opt->servname, opt->fd);
+        }
+    prev_opt=service_options.next;
+
+    for(opt=prev_opt; opt; opt=opt->next) {
+        if(opt->option.accept) {
+            memcpy(&addr, &opt->local_addr.addr[0], sizeof addr);
+            opt->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "accept socket");
+            if(opt->fd<0)
+                return 0;
+            if(set_socket_options(opt->fd, 0)<0)
+                return 0;
+            s_ntop(opt->local_address, &addr);
+            if(bind(opt->fd, &addr.sa, addr_len(addr))) {
+                s_log(LOG_ERR, "Error binding %s to %s",
+                    opt->servname, opt->local_address);
+                sockerror("bind");
+                return 0;
+            }
+            s_log(LOG_DEBUG, "Service %s bound to %s",
+                opt->servname, opt->local_address);
+            if(listen(opt->fd, 5)) {
+                sockerror("listen");
+                return 0;
+            }
+            s_poll_add(&fds, opt->fd, 1, 0);
+            s_log(LOG_DEBUG, "Service %s opened FD=%d",
+                opt->servname, opt->fd);
+        } else { /* create exec+connect services */
+            enter_critical_section(CRIT_CLIENTS);
+            ++num_clients;
+            leave_critical_section(CRIT_CLIENTS);
+            create_client(-1, -1, alloc_client_session(opt, -1, -1), client);
+        }
+    }
+    return 1; /* OK */
 }
 
 static void get_limits(void) {
@@ -417,18 +405,147 @@ static void delete_pid(void) {
         ioerror(global_options.pidfile); /* not critical */
 }
 
-static void signal_handler(int sig) { /* signal handler */
-    s_log(sig==SIGTERM ? LOG_NOTICE : LOG_ERR,
-        "Received signal %d; terminating", sig);
-    die(3);
+#endif /* standard Unix */
+
+/**************************************** file descriptor validation */
+
+#if defined USE_NEW_LINUX_API && defined HAVE_SOCKET4
+#define USE_NEW_LINUX_API 1
+#endif
+
+int s_socket(int domain, int type, int protocol, int nonblock, char *msg) {
+#ifdef USE_NEW_LINUX_API
+    if(nonblock)
+        type|=SOCK_NONBLOCK|SOCK_CLOEXEC;
+    else
+        type|=SOCK_CLOEXEC;
+#endif
+    return setup_fd(socket(domain, type, protocol), nonblock, msg);
 }
 
-#endif /* standard Unix */
+int s_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen,
+        int nonblock, char *msg) {
+    int fd;
+
+#ifdef USE_NEW_LINUX_API
+    if(nonblock)
+        fd=accept4(sockfd, addr, addrlen, SOCK_NONBLOCK|SOCK_CLOEXEC);
+    else
+        fd=accept4(sockfd, addr, addrlen, SOCK_CLOEXEC);
+#else
+    fd=accept(sockfd, addr, addrlen);
+#endif
+    return setup_fd(fd, nonblock, msg);
+}
+
+#ifndef USE_WIN32
+
+int s_socketpair(int domain, int type, int protocol, int sv[2],
+        int nonblock, char *msg) {
+#ifdef USE_NEW_LINUX_API
+    if(nonblock)
+        type|=SOCK_NONBLOCK|SOCK_CLOEXEC;
+    else
+        type|=SOCK_CLOEXEC;
+#endif
+    if(socketpair(domain, type, protocol, sv)<0) {
+        ioerror(msg);
+        return -1;
+    }
+    if(setup_fd(sv[0], nonblock, msg)<0) {
+        closesocket(sv[1]);
+        return -1;
+    }
+    if(setup_fd(sv[1], nonblock, msg)<0) {
+        closesocket(sv[0]);
+        return -1;
+    }
+    return 0;
+}
+
+int s_pipe(int pipefd[2], int nonblock, char *msg) {
+    int retval;
+
+#ifdef USE_NEW_LINUX_API
+    if(nonblock)
+        retval=pipe2(pipefd, O_NONBLOCK|O_CLOEXEC);
+    else
+        retval=pipe2(pipefd, O_CLOEXEC);
+#else
+    retval=pipe(pipefd);
+#endif
+    if(retval<0) {
+        ioerror(msg);
+        return -1;
+    }
+    if(setup_fd(pipefd[0], nonblock, msg)<0) {
+        close(pipefd[1]);
+        return -1;
+    }
+    if(setup_fd(pipefd[1], nonblock, msg)<0) {
+        close(pipefd[0]);
+        return -1;
+    }
+    return 0;
+}
+
+#endif /* USE_WIN32 */
+
+/* try to use non-POSIX O_NDELAY on obsolete BSD systems */
+#if !defined O_NONBLOCK && defined O_NDELAY
+#define O_NONBLOCK O_NDELAY
+#endif
+
+static int setup_fd(int fd, int nonblock, char *msg) {
+#ifdef USE_WIN32
+    unsigned long l;
+#else /* USE_WIN32 */
+    int err, flags;
+#endif /* USE_WIN32 */
+
+    if(fd<0) {
+        sockerror(msg);
+        return -1;
+    }
+    if(max_fds && fd>=max_fds) {
+        s_log(LOG_ERR,
+            "%s: FD=%d out of range (max %d)", msg, fd, max_fds);
+        closesocket(fd);
+        return -1;
+    }
+#ifndef USE_NEW_LINUX_API
+#if defined F_GETFL && defined F_SETFL && defined O_NONBLOCK && !defined __INNOTEK_LIBC__
+    do {
+        flags=fcntl(fd, F_GETFL, 0);
+    } while(flags<0 && get_last_socket_error()==EINTR);
+    if(nonblock)
+        flags|=O_NONBLOCK;
+    else
+        flags&=~O_NONBLOCK;
+#ifdef FD_CLOEXEC
+    flags|=FD_CLOEXEC;
+#endif /* FD_CLOEXEC */
+    do {
+        err=fcntl(fd, F_SETFL, flags);
+    } while(err<0 && get_last_socket_error()==EINTR);
+    if(err<0)
+        sockerror("fcntl"); /* non-critical */
+#else /* use fcntl() */
+    if(ioctlsocket(fd, FIONBIO, &l)<0)
+        sockerror("ioctlsocket"); /* non-critical */
+#endif /* use fcntl() */
+#endif /* USE_NEW_LINUX_API */
+    s_log(LOG_DEBUG, "%s: FD=%d allocated (%sblocking mode)",
+        msg, fd, nonblock?"non-":"");
+    return fd;
+}
+
+/**************************************** log messages to identify  build */
 
 void stunnel_info(int level) {
     char line[STRLEN];
 
-    s_log(level, "stunnel " VERSION " on " HOST " with %s",
+    s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " with %s",
         SSLeay_version(SSLEAY_VERSION));
 
     safecopy(line, "Threading:");
@@ -480,6 +597,8 @@ void stunnel_info(int level) {
 
     s_log(level, "%s", line);
 }
+
+/**************************************** fatal error */
 
 void die(int status) { /* some cleanup and exit */
     log_flush(LOG_MODE_ERROR);

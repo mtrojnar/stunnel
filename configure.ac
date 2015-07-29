@@ -1,11 +1,12 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.34])
+AC_INIT([stunnel],[4.35])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.34)
+AM_INIT_AUTOMAKE(stunnel, 4.35)
 AC_CONFIG_SRCDIR([src/stunnel.c])
+AC_DEFINE(_GNU_SOURCE)
 
 AC_CANONICAL_HOST
 AC_SUBST(host)
@@ -16,9 +17,6 @@ AC_DEFINE_UNQUOTED(esc(VENDOR_$host_vendor))
 AC_DEFINE_UNQUOTED(esc(OS_$host_os))
 
 AC_PROG_CC
-if test "$GCC" = "yes"
-then CFLAGS="$CFLAGS -Wall -Wextra -pedantic -Wno-long-long"
-fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
@@ -27,6 +25,31 @@ AC_PROG_MAKE_SET
 # AC_TYPE_SIZE_T
 # AC_TYPE_PID_T
 # AC_HEADER_TIME
+
+AC_MSG_NOTICE([**************************************** C compiler flags])
+AC_MSG_CHECKING([whether $CC accepts -Wall])
+valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wall"
+AC_COMPILE_IFELSE([int main() {return 0;}],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
+
+AC_MSG_CHECKING([whether $CC accepts -Wextra])
+valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wextra"
+AC_COMPILE_IFELSE([int main() {return 0;}],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
+
+AC_MSG_CHECKING([whether $CC accepts -pedantic])
+valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -pedantic"
+AC_COMPILE_IFELSE([int main() {return 0;}],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
+
+AC_MSG_CHECKING([whether $CC accepts -Wno-long-long])
+valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wno-long-long"
+AC_COMPILE_IFELSE([int main() {return 0;}],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
 AC_MSG_NOTICE([**************************************** libtool])
 LT_INIT([disable-static])
@@ -107,6 +130,13 @@ AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
   [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL])], [],
   [@%:@include <sys/socket.h>])
+AC_CHECK_HEADERS([linux/netfilter_ipv4.h], , , 
+  [[
+#include <limits.h>
+#include <linux/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+  ]] )
 
 AC_MSG_NOTICE([**************************************** libraries])
 # Checks for standard libraries
@@ -233,6 +263,8 @@ darwin*)
     AC_MSG_RESULT([no])
     ;;
 esac
+# GNU extensions
+AC_CHECK_FUNCS(pipe2 accept4)
 
 AC_MSG_NOTICE([**************************************** SSL])
 checkssldir() { :
@@ -280,7 +312,7 @@ AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
 
 # Add SSL includes and libraries
 CFLAGS="$CFLAGS -I$ssldir/include"
-LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
+LIBS="$LIBS -L$ssldir/lib64 -L$ssldir/lib -lssl -lcrypto"
 
 # Check for obsolete RSAref library
 AC_MSG_CHECKING([for obsolete RSAref library])

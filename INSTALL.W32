@@ -1,4 +1,4 @@
-stunnel         Universal SSL tunnel
+stunnel Windows install notes
 
 
 Building stunnel from source (optional):
@@ -24,7 +24,7 @@ Building stunnel from source (optional):
       cd /usr/src && tar zvxf ~/openssl-(version).tar.gz
 
  4) Build OpenSSL with cross_mingw32.sh script.
-      ftp://stunnel.mirt.net/stunnel/openssl/cross_mingw32.sh
+      ftp://ftp.stunnel.org/stunnel/openssl/cross_mingw32.sh
 
  5) Download and unpack stunnel-(version).tar.gz.
 

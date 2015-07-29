@@ -606,13 +606,9 @@ Service de contrôle d'accès pour les services internet
 
 «E<nbsp>super-serveurE<nbsp>» internet
 
-=item F<http://stunnel.mirt.net/>
-
-Page de référence de B<stunnel>
-
 =item F<http://www.stunnel.org/>
 
-Foire aux questions B<stunnel>
+Page de référence de B<stunnel>
 
 =item F<http://www.openssl.org/>
 

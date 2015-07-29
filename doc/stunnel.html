@@ -206,7 +206,20 @@ generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)</p>
 <dd>
 <p>select hardware engine</p>
 <p>default: software-only cryptography</p>
-<p>There's an example in 'EXAMPLES' section.</p>
+<p>Here is an example of advanced engine configuration to read private key from an
+OpenSC engine</p>
+<pre>
+    engine=dynamic
+    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+    engineCtrl=ID:pkcs11
+    engineCtrl=LIST_ADD:1
+    engineCtrl=LOAD
+    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
+    engineCtrl=INIT</pre>
+<pre>
+    [service]
+    engineNum=1
+    key=id_45</pre>
 </dd>
 <dt><strong><a name="enginectrl_command_parameter" class="item"><strong>engineCtrl</strong> = command[:parameter]</a></strong></dt>
 
@@ -340,9 +353,11 @@ below.</p>
 <dd>
 <p>Certificate Authority directory</p>
 <p>This is the directory in which <strong>stunnel</strong> will look for certificates when using
-the <em>verify</em>. Note that the certificates in this directory should be named
+the <em>verify</em>.  Note that the certificates in this directory should be named
 XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the
-cert (the first 4 bytes of the MD5 hash in least significant byte order).</p>
+cert.</p>
+<p>The hash algorithm has been changed in OpenSSL 1.0.0.  It is required to
+c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.</p>
 <p><em>CApath</em> path is relative to <em>chroot</em> directory if specified.</p>
 </dd>
 <dt><strong><a name="cafile_certfile" class="item"><strong>CAfile</strong> = certfile</a></strong></dt>
@@ -390,7 +405,9 @@ round-robin algorithm.</p>
 <p>Certificate Revocation Lists directory</p>
 <p>This is the directory in which <strong>stunnel</strong> will look for CRLs when
 using the <em>verify</em>. Note that the CRLs in this directory should
-be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.</p>
+be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.</p>
+<p>The hash algorithm has been changed in OpenSSL 1.0.0.  It is required to
+c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.</p>
 <p><em>CRLpath</em> path is relative to <em>chroot</em> directory if specified.</p>
 </dd>
 <dt><strong><a name="crlfile_certfile" class="item"><strong>CRLfile</strong> = certfile</a></strong></dt>
@@ -576,20 +593,30 @@ connections via HTTP proxy.</p>
 <dd>
 <p>time to keep an idle connection</p>
 </dd>
-<dt><strong><strong>transparent</strong> = yes | no (Unix only)</strong></dt>
+<dt><strong><a name="both" class="item"><strong>transparent</strong> = none | source | destination | both (Unix only)</a></strong></dt>
 
 <dd>
-<p>transparent proxy mode</p>
+<p>enable transparent proxy support on selected platforms</p>
+<p>Supported options:</p>
+<dl>
+<dt><strong><a name="none" class="item"><strong>none</strong></a></strong></dt>
+
+<dd>
+<p>Disable transparent proxy support.  This is the default.</p>
+</dd>
+<dt><strong><a name="source" class="item"><strong>source</strong></a></strong></dt>
+
+<dd>
 <p>Re-write address to appear as if wrapped daemon is connecting
 from the SSL client machine instead of the machine running <strong>stunnel</strong>.</p>
 <p>This option is currently available in:</p>
-<pre>
-    remote mode (I&lt;connect&gt; option) on Linux &gt;=2.6.28
-    remote mode (I&lt;connect&gt; option) 2.2.x
-    local mode (I&lt;exec&gt; option)</pre>
-<p><strong>Remote mode</strong> (either 2.2.x and &gt;=2.6.28) requires stunnel to be executed as
-root.  <strong>setuid</strong> option will also break this functionality.</p>
-<p><strong>Linux &gt;=2.6.28</strong> requires the following setup for iptables and routing
+<dl>
+<dt><strong><a name="mode" class="item">Remote mode (<strong>connect</strong> option) on <strong>Linux &gt;=2.6.28</strong></a></strong></dt>
+
+<dd>
+<p>This configuration requires stunnel to be executed as root and without
+<strong>setuid</strong> option.</p>
+<p>This configuration requires the following setup for iptables and routing
 (possibly in /etc/rc.local or equivalent file):</p>
 <pre>
     iptables -t mangle -N DIVERT
@@ -597,21 +624,84 @@ root.  <strong>setuid</strong> option will also break this functionality.</p>
     iptables -t mangle -A DIVERT -j MARK --set-mark 1
     iptables -t mangle -A DIVERT -j ACCEPT
     ip rule add fwmark 1 lookup 100
-    ip route add local 0.0.0.0/0 dev lo table 100</pre>
-<p><strong>Linux 2.2.x</strong> requires kernel to be compiled with <em>transparent proxy</em> option.
+    ip route add local 0.0.0.0/0 dev lo table 100
+    echo 0 &gt;/proc/sys/net/ipv4/conf/lo/rp_filter</pre>
+<p><strong>stunnel</strong> must also to be executed as root and without <strong>setuid</strong> option.</p>
+</dd>
+<dt><strong>Remote mode (<strong>connect</strong> option) on <strong>Linux 2.2.x</strong></strong></dt>
+
+<dd>
+<p>This configuration requires kernel to be compiled with <em>transparent proxy</em> option.
 Connected service must be installed on a separate host.
 Routing towards the clients has to go through the stunnel box.</p>
-<p><strong>Local mode</strong> works by LD_PRELOADing env.so shared library.</p>
+<p><strong>stunnel</strong> must also to be executed as root and without <strong>setuid</strong> option.</p>
+</dd>
+<dt><strong>Remote mode (<strong>connect</strong> option) on <strong>FreeBSD &gt;=8.0</strong></strong></dt>
+
+<dd>
+<p>This configuration requires additional firewall and routing setup.
+<strong>stunnel</strong> must also to be executed as root and without <strong>setuid</strong> option.</p>
+</dd>
+<dt><strong>Local mode (<strong>exec</strong> option)</strong></dt>
+
+<dd>
+<p>This configuration works by pre-loading <strong>libstunnel.so</strong> shared library.
+_RLD_LIST environment variable is used on Tru64, and LD_PRELOAD variable on
+other platforms.</p>
+</dd>
+</dl>
+</dd>
+<dt><strong><a name="destination" class="item"><strong>destination</strong></a></strong></dt>
+
+<dd>
+<p>Original destination is used instead of <strong>connect</strong> option.</p>
+<p>A service section for transparent destination may look like this:</p>
+<pre>
+    [transparent]
+    client=yes
+    accept=&lt;stunnel_port&gt;
+    transparent=destination</pre>
+<p>This configuration requires the following setup for iptables
+(possibly in /etc/rc.local or equivalent file):</p>
+<pre>
+    /sbin/iptables -I INPUT -i eth0 -p tcp --dport &lt;stunnel_port&gt; -j ACCEPT
+    /sbin/iptables -t nat -I PREROUTING -i eth0 -p tcp --dport &lt;redirected_port&gt; -j DNAT --to-destination &lt;local_ip&gt;:&lt;stunnel_port&gt;</pre>
+<p>Transparent destination option is currently only supported on Linux.</p>
+</dd>
+<dt><strong><strong>both</strong></strong></dt>
+
+<dd>
+<p>Use both <strong>source</strong> and <strong>destination</strong> transparent proxy.</p>
+</dd>
+</dl>
+<p>Two legacy options are also supported for backward compatibility:</p>
+<dl>
+<dt><strong><a name="yes" class="item"><strong>yes</strong></a></strong></dt>
+
+<dd>
+<p>This options has been renamed to <strong>source</strong>.</p>
+</dd>
+<dt><strong><strong>no</strong></strong></dt>
+
+<dd>
+<p>This options has been renamed to <strong>none</strong>.</p>
+</dd>
+</dl>
 </dd>
 <dt><strong><a name="verify_level" class="item"><strong>verify</strong> = level</a></strong></dt>
 
 <dd>
 <p>verify peer certificate</p>
-<pre>
-    level 1 - verify peer certificate if present
-    level 2 - verify peer certificate
-    level 3 - verify peer with locally installed certificate
-    default - no verify</pre>
+<dl>
+<dt><strong><a name="level_1_verify_peer_certificate_if_present" class="item"><strong>level 1</strong> - verify peer certificate if present</a></strong></dt>
+
+<dt><strong><a name="level_2_verify_peer_certificate" class="item"><strong>level 2</strong> - verify peer certificate</a></strong></dt>
+
+<dt><strong><a name="level_3_verify_peer_with_locally_installed_certificate" class="item"><strong>level 3</strong> - verify peer with locally installed certificate</a></strong></dt>
+
+<dt><strong><a name="default_no_verify" class="item"><strong>default</strong> - no verify</a></strong></dt>
+
+</dl>
 <p>It is important to understand, that this option was solely designed for access
 control and not for authorization.  Specifically for level 2 every non-revoked
 certificate is accepted regardless of its Common Name.  For this reason a
@@ -698,20 +788,6 @@ Note there must be no <em>[service_name]</em> section.</p>
 <pre>
     exec = /usr/sbin/imapd
     execargs = imapd</pre>
-<p>Here is an example of advanced engine configuration to read private key from an
-OpenSC engine</p>
-<pre>
-    engine=dynamic
-    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-    engineCtrl=ID:pkcs11
-    engineCtrl=LIST_ADD:1
-    engineCtrl=LOAD
-    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
-    engineCtrl=INIT</pre>
-<pre>
-    [service]
-    engineNum=1
-    key=id_45</pre>
 <p>
 </p>
 <hr />
@@ -847,15 +923,10 @@ OpenSSLs.</p>
 <dd>
 <p>internet 'super-server'</p>
 </dd>
-<dt><strong><a name="http_stunnel_mirt_net" class="item"><em class="file"><a href="http://stunnel.mirt.net/">http://stunnel.mirt.net/</a></em></a></strong></dt>
-
-<dd>
-<p><strong>stunnel</strong> homepage</p>
-</dd>
 <dt><strong><a name="http_www_stunnel_org" class="item"><em class="file"><a href="http://www.stunnel.org/">http://www.stunnel.org/</a></em></a></strong></dt>
 
 <dd>
-<p><strong>stunnel</strong> Frequently Asked Questions</p>
+<p><strong>stunnel</strong> homepage</p>
 </dd>
 <dt><strong><a name="http_www_openssl_org" class="item"><em class="file"><a href="http://www.openssl.org/">http://www.openssl.org/</a></em></a></strong></dt>
 

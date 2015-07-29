@@ -1,12 +1,22 @@
-stunnel         Universal SSL tunnel
+stunnel known port maintainers
 
-Stunnel ports maintainers:
 
-AmigaOS      Diego Casorran              <dcr8520@amiga.org>
-Cygwin       Andrew Schulman             <andrex@alumni.utexas.net>
-Debian       Luis Rodrigo Gallardo Cruz  <rodrigo@debian.org>
-FreeBSD      Peter Pentchev              <roam@FreeBSD.org>
-NetBSD       Martti Kuparinen            <martti.kuparinen@iki.fi>
-OpenBSD      Jakob Schlyter              <jakob@openbsd.org>
-OpenSolaris  Mark Fenwick                <Mark.Fenwick@sun.com>
-RedHat       Damien Miller               <dmiller@ilogic.com.au>
+* AmigaOS
+  - Diego Casorran <dcr8520@amiga.org>
+* Cygwin
+  - Andrew Schulman <andrex@alumni.utexas.net>
+* Debian GNU/Linux
+  - Luis Rodrigo Gallardo Cruz <rodrigo@nul-unu.com>
+* FreeBSD
+  - Peter Pentchev <roam@FreeBSD.org>
+* NetBSD
+  - Martti Kuparinen <martti.kuparinen@iki.fi>
+* OpenBSD
+  - Jakob Schlyter <jakob@openbsd.org>
+* OpenSolaris
+  - Mark Fenwick <Mark.Fenwick@sun.com>
+* OS/2
+  - Paul Smedley <paul@smedley.info>
+* RedHat Linux
+  - Damien Miller <dmiller@ilogic.com.au>
+

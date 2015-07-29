@@ -1,4 +1,5 @@
-stunnel         Universal SSL tunnel
+stunnel Unix install notes
+
 
 1. If your machine supports POSIX threads make sure your SSL
    library is compiled with -DTHREADS.

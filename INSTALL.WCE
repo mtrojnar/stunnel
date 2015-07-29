@@ -1,4 +1,4 @@
-stunnel         Universal SSL tunnel
+stunnel Windows CE install notes
 
 
 Two stunnel executables are available for Windows CE platform:
@@ -17,7 +17,7 @@ Building stunnel from source (optional):
        http://www.mirrorservice.org/sites/ftp.info-zip.org/pub/infozip/WIN32/
 
   2) download the OpenSSL source files (the whole directory):
-     ftp://stunnel.mirt.net/stunnel/openssl/ce/
+     ftp://ftp.stunnel.org/stunnel/openssl/ce/
   
   3) your directory should look like this:
      build.bat

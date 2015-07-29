@@ -1,4 +1,27 @@
-stunnel         Universal SSL tunnel
+stunnel change log
+
+Version 4.35, 2011.02.05, urgency: LOW:
+* New features
+  - Updated Win32 DLLs for OpenSSL 1.0.0c.
+  - Transparent source (non-local bind) added for FreeBSD 8.x.
+  - Transparent destination ("transparent = destination") added for Linux.
+* Bugfixes
+  - Fixed reload of FIPS-enabled stunnel.
+  - Compiler options are now auto-detected by ./configure script
+    in order to support obsolete versions of gcc.
+  - Async-signal-unsafe s_log() removed from SIGTERM/SIGQUIT/SIGINT handler.
+  - CLOEXEC file descriptor leaks fixed on Linux >= 2.6.28 with glibc >= 2.10.
+    Irreparable race condition leaks remain on other Unix platforms.
+    This issue may have security implications on some deployments.
+  - Directory lib64 included in the OpenSSL library search path.
+  - Windows CE compilation fixes (thx to Pierre Delaage).
+  - Deprecated RSA_generate_key() replaced with RSA_generate_key_ex().
+* Domain name changes (courtesy of Bri Hatch)
+  - http://stunnel.mirt.net/ --> http://www.stunnel.org/
+  - ftp://stunnel.mirt.net/ --> http://ftp.stunnel.org/
+  - stunnel.mirt.net::stunnel --> rsync.stunnel.org::stunnel
+  - stunnel-users@mirt.net --> stunnel-users@stunnel.org
+  - stunnel-announce@mirt.net --> stunnel-announce@stunnel.org
 
 Version 4.34, 2010.09.19, urgency: LOW:
 * New features
@@ -54,7 +77,7 @@ Version 4.29, 2009.12.02, urgency: MEDIUM:
 * New feature sponsored by Searchtech Limited http://www.astraweb.com/
   - sessiond, a high performance SSL session cache was built for stunnel.
     A new service-level "sessiond" option was added.  sessiond is
-    available for download on ftp://stunnel.mirt.net/stunnel/sessiond/ .
+    available for download on ftp://ftp.stunnel.org/stunnel/sessiond/ .
     stunnel clusters will be a lot faster, now!
 * Bugfixes
   - "execargs" defaults to the "exec" parameter (thx to Peter Pentchev).

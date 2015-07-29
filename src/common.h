@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -38,9 +38,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#ifndef VERSION
-#define VERSION "unknown"
-#endif
+#include "version.h"
+
 
 /**************************************** common constants */
 
@@ -173,13 +172,16 @@ typedef unsigned long u32;
 #define __USE_W32_SOCKETS
 
 /* Winsock2 header for IPv6 definitions */
-#ifdef _WIN32_WCE
-#include <winsock.h>
-#else
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#endif
 #include <windows.h>
+
+/* needed for winsock2 (not for winsock) */
+#define ENOTSOCK WSAENOTSOCK
+#define ENOPROTOOPT WSAENOPROTOOPT
+#define EINPROGRESS WSAEINPROGRESS
+#define EWOULDBLOCK WSAEWOULDBLOCK
+#define EADDRINUSE WSAEADDRINUSE
 
 #define ECONNRESET WSAECONNRESET
 #define ENOTSOCK WSAENOTSOCK
@@ -269,7 +271,7 @@ typedef unsigned long u32;
 #include <sys/select.h>  /* for aix */
 #endif
 
-#ifndef BROKEN_POLL
+#if defined(HAVE_POLL) && !defined(BROKEN_POLL)
 #ifdef HAVE_POLL_H
 #include <poll.h>
 #define USE_POLL
@@ -279,7 +281,7 @@ typedef unsigned long u32;
 #define USE_POLL
 #endif /* HAVE_SYS_POLL_H */
 #endif /* HAVE_POLL_H */
-#endif /* BROKEN_POLL */
+#endif /* HAVE_POLL && !BROKEN_POLL */
 
 #ifdef HAVE_SYS_FILIO_H
 #include <sys/filio.h>   /* for FIONBIO */
@@ -337,6 +339,10 @@ extern char *sys_errlist[];
 /* old kernel headers without IP_TRANSPARENT definition */
 #define IP_TRANSPARENT 19
 #endif /* IP_TRANSPARENT */
+#ifdef HAVE_LINUX_NETFILTER_IPV4_H
+#include <limits.h>
+#include <linux/netfilter_ipv4.h>
+#endif /* HAVE_LINUX_NETFILTER_IPV4_H */
 #endif /* __linux__ */
 
 #endif /* USE_WIN32 */

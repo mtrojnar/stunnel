@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -178,7 +178,8 @@ typedef struct service_options_struct {
         unsigned int program:1;
 #ifndef USE_WIN32
         unsigned int pty:1;
-        unsigned int transparent:1;
+        unsigned int transparent_src:1;
+        unsigned int transparent_dst:1;
 #endif
         unsigned int ocsp:1;
 #ifdef USE_LIBWRAP
@@ -248,6 +249,10 @@ int bind_ports(void);
 #if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
 void drop_privileges(void);
 #endif
+int s_socket(int, int, int, int, char *);
+int s_pipe(int [2], int, char *);
+int s_socketpair(int, int, int, int [2], int, char *);
+int s_accept(int, struct sockaddr *, socklen_t *, int, char *);
 void stunnel_info(int);
 void die(int);
 
@@ -310,12 +315,12 @@ int s_poll_canread(s_poll_set *, int);
 int s_poll_canwrite(s_poll_set *, int);
 int s_poll_error(s_poll_set *, int);
 int s_poll_wait(s_poll_set *, int, int);
-#ifndef USE_WIN32
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+void signal_handler(int);
 int signal_pipe_init(void);
 void child_status(void);  /* dead libwrap or 'exec' process detected */
 #endif
 int set_socket_options(int, int);
-int alloc_fd(int);
 void set_nonblock(int, unsigned long);
 int get_socket_error(const int);
 
@@ -347,8 +352,6 @@ typedef struct {
     int sock_bytes, ssl_bytes; /* bytes written to socket and ssl */
     s_poll_set fds; /* file descriptors */
 } CLI;
-
-extern int max_fds, max_clients;
 
 CLI *alloc_client_session(SERVICE_OPTIONS *, int, int);
 void *client(void *);
@@ -387,8 +390,12 @@ char *s_ntop(char *, SOCKADDR_UNION *);
 /**************************************** prototypes for sthreads.c */
 
 typedef enum {
-    CRIT_KEYGEN, CRIT_INET, CRIT_CLIENTS, CRIT_WIN_LOG, CRIT_SESSION,
-    CRIT_LIBWRAP, CRIT_SSL, CRIT_SECTIONS
+    CRIT_KEYGEN, CRIT_INET, CRIT_CLIENTS,
+    CRIT_WIN_LOG, CRIT_SESSION, CRIT_LIBWRAP,
+#if OPENSSL_VERSION_NUMBER<0x1000002f
+    CRIT_SSL,
+#endif /* OpenSSL version < 1.0.0b */
+    CRIT_SECTIONS
 } SECTION_CODE;
 
 void enter_critical_section(SECTION_CODE);
@@ -411,7 +418,7 @@ extern CONTEXT *ready_head, *ready_tail;
 extern CONTEXT *waiting_head, *waiting_tail;
 #endif
 #ifdef _WIN32_WCE
-int _beginthread(void (*)(void *), int, void *);
+long _beginthread(void (*)(void *), int, void *);
 void _endthread(void);
 #endif
 #ifdef DEBUG_STACK_SIZE

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -332,13 +332,10 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     int status, reason;
 
     /* connect specified OCSP server (responder) */
-    if((c->fd=
-        socket(c->opt->ocsp_addr.addr[0].sa.sa_family, SOCK_STREAM, 0))<0) {
-        sockerror("OCSP: socket (auth_user)");
+    c->fd=s_socket(c->opt->ocsp_addr.addr[0].sa.sa_family, SOCK_STREAM, 0,
+        0, "OCSP: socket (auth_user)");
+    if(c->fd<0)
         return 0; /* reject connection */
-    }
-    if(alloc_fd(c->fd))
-        goto cleanup;
     memcpy(&addr, &c->opt->ocsp_addr.addr[0], sizeof addr);
     if(connect_blocking(c, &addr, addr_len(addr)))
         goto cleanup;
@@ -372,9 +369,7 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     /* FIXME: this code won't work with ucontext threading */
     /* (blocking sockets are used) */
     bio=BIO_new_fd(c->fd, BIO_NOCLOSE);
-    set_nonblock(c->fd, 0);
     response=OCSP_sendreq_bio(bio, c->opt->ocsp_path, request);
-    set_nonblock(c->fd, 1);
     if(!response) {
         sslerror("OCSP: OCSP_sendreq_bio");
         goto cleanup;

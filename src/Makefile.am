@@ -2,7 +2,7 @@
 
 # File lists
 
-common_headers = common.h prototypes.h
+common_headers = common.h prototypes.h version.h
 common_sources = file.c client.c log.c options.c protocol.c network.c resolver.c ssl.c ctx.c verify.c sthreads.c stunnel.c
 unix_sources = pty.c libwrap.c
 shared_sources = env.c
@@ -31,19 +31,19 @@ AM_CPPFLAGS = -DLIBDIR='"$(pkglibdir)"' -DCONFDIR='"$(sysconfdir)/stunnel"' -DPI
 
 # Win32 executable
 
-EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak nogui.c os2.mak
+EXTRA_DIST = stunnel.exe make.bat mingw.mak makece.bat evc.mak vc.mak makew32.bat version.rc nogui.c os2.mak
 EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES =  $(common_headers) $(common_sources) $(win32_sources)
 
-OPENSSLDIR=/usr/src/openssl-1.0.0a
-WINCFLAGS=-O2 -Wall -Wextra -pedantic -Wno-long-long -I$(OPENSSLDIR)/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
+OPENSSLDIR=/usr/src/openssl-1.0.0c
+WINCFLAGS=-O2 -Wall -Wextra -pedantic -Wno-long-long -I$(OPENSSLDIR)/include -DUSE_WIN32=1
 WINLIBS=-L$(OPENSSLDIR) -lzdll -lcrypto.dll -lssl.dll -lws2_32 -lgdi32 -mwindows
 
 # OPENSSLDIR=/usr/src/openssl-0.9.7m-fips
-# WINCFLAGS=-O2 -Wall -Wextra -pedantic -Wno-long-long -I$(OPENSSLDIR)/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
+# WINCFLAGS=-O2 -Wall -Wextra -pedantic -Wno-long-long -I$(OPENSSLDIR)/include -DUSE_WIN32=1
 # WINLIBS=-L$(OPENSSLDIR) -lzdll -lcrypto -lssl -lws2_32 -lgdi32 -mwindows
 
-# WINCFLAGS=-O2 -Wall -Wextra -pedantic -Wno-long-long -I/usr/src/openssl-0.9.7m/include -DUSE_WIN32=1 -DVERSION=\"@VERSION@\"
+# WINCFLAGS=-O2 -Wall -Wextra -pedantic -Wno-long-long -I/usr/src/openssl-0.9.7m/include -DUSE_WIN32=1
 # WINLIBS=-L../../FIPS -leay32 -lssl32 -lws2_32 -lgdi32 -mwindows
 
 WINOBJ=file.obj client.obj log.obj options.obj protocol.obj network.obj resolver.obj ssl.obj ctx.obj verify.obj sthreads.obj stunnel.obj gui.obj resources.obj
@@ -60,7 +60,7 @@ stunnel.exe: $(WINOBJ)
 	$(WINGCC) -c $(WINCFLAGS) -o $@ $<
 
 resources.obj: resources.rc resources.h
-	$(WINDRES) --define VERSION=\\\"@VERSION@\\\" --include-dir $(srcdir) $< $@
+	$(WINDRES) --include-dir $(srcdir) $< $@
 
 mostlyclean-local:
 	-rm -f *.obj

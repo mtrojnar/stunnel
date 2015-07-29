@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -38,7 +38,38 @@
 #include "common.h"
 #include "prototypes.h"
 
-#ifndef USE_WIN32
+#ifdef USE_WIN32
+
+DISK_FILE *file_open(char *name, int wr) {
+    DISK_FILE *df;
+    LPTSTR tstr;
+    HANDLE fh;
+
+    /* open file */
+    tstr=str2tstr(name);
+    fh=CreateFile(tstr, wr ? GENERIC_WRITE : GENERIC_READ,
+        FILE_SHARE_READ, NULL, wr ? OPEN_ALWAYS : OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
+    free(tstr);
+    if(fh==INVALID_HANDLE_VALUE) {
+        ioerror(name);
+        return NULL;
+    }
+    if(wr) /* append */
+        SetFilePointer(fh, 0, NULL, FILE_END);
+
+    /* setup df structure */
+    df=calloc(1, sizeof df);
+    if(!df) {
+        CloseHandle(df->fh);
+        return NULL;
+    }
+    df->fh=fh;
+    return df;
+}
+
+#else /* USE_WIN32 */
+
 DISK_FILE *file_fdopen(int fd) {
     DISK_FILE *df;
 
@@ -48,42 +79,42 @@ DISK_FILE *file_fdopen(int fd) {
     df->fd=fd;
     return df;
 }
-#endif /* USE_WIN32 */
+
+/* try to use non-POSIX O_NDELAY on obsolete BSD systems */
+#if !defined O_NONBLOCK && defined O_NDELAY
+#define O_NONBLOCK O_NDELAY
+#endif
 
 DISK_FILE *file_open(char *name, int wr) {
     DISK_FILE *df;
-#ifdef USE_WIN32
-    LPTSTR tstr;
-#endif /* USE_WIN32 */
+    int fd, flags;
 
-    df=calloc(1, sizeof(DISK_FILE));
-    if(!df)
+    /* open file */
+    if(wr)
+        flags=O_CREAT|O_WRONLY|O_APPEND;
+    else
+        flags=O_RDONLY;
+    flags|=O_NONBLOCK;
+#ifdef O_CLOEXEC
+    flags|=O_CLOEXEC;
+#endif /* O_CLOEXEC */
+    fd=open(name, flags, 0640);
+    if(fd<0) {
+        ioerror(name);
         return NULL;
-#ifdef USE_WIN32
-    tstr=str2tstr(name);
-    df->fh=CreateFile(tstr, wr ? GENERIC_WRITE : GENERIC_READ,
-        FILE_SHARE_READ, NULL, wr ? OPEN_ALWAYS : OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
-    free(tstr);
-    if(df->fh!=INVALID_HANDLE_VALUE) { /* OK! */
-        if(wr) /* append */
-            SetFilePointer(df->fh, 0, NULL, FILE_END);
-        return df;
     }
-#else /* USE_WIN32 */
-    df->fd=open(name, wr ? O_CREAT|O_WRONLY|O_APPEND : O_RDONLY, 0640);
-    if(df->fd>=0) { /* OK! */
-#ifndef __vms
-        fcntl(df->fd, F_SETFD, FD_CLOEXEC);
-#endif /* ! __vms */
-        return df;
+
+    /* setup df structure */
+    df=calloc(1, sizeof df);
+    if(!df) {
+        close(df->fd);
+        return NULL;
     }
-#endif /* USE_WIN32 */
-    /* failed to open the file */
-    free(df);
-    ioerror(name);
-    return NULL;
+    df->fd=fd;
+    return df;
 }
+
+#endif /* USE_WIN32 */
 
 void file_close(DISK_FILE *df) {
     if(!df) /* nothing to do */

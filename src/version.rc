@@ -1,0 +1,40 @@
+#include <windows.h>
+
+#include "version.h"
+
+// pdelaage TODO 20101111: this file works with MS VC / EVC 
+// But with MINGW, properties are NOT displayed in Windows Explorer
+// although they are embedded in the final exe program.
+// anyway, using a .o coming from MS VC does not change anything,
+// and linking the gcc version.o with ms tools works! 
+// so the problem is in fact in gcc-linking, not in version.o. 
+
+1 VERSIONINFO 
+FILEVERSION STUNNEL_VERSION_FIELDS
+PRODUCTVERSION STUNNEL_VERSION_FIELDS 
+FILEFLAGSMASK 0x0L 
+FILEFLAGS 0x0L 
+FILEOS VOS__WINDOWS32 
+FILETYPE VFT_APP  
+FILESUBTYPE 0
+{
+BLOCK "StringFileInfo" {  
+BLOCK "040904B0" { // 04E4 is codepage 1252, 04B0 is 1200 ie UNICODE 
+VALUE "Comments", "stunnel - multiplatform SSL tunneling proxy -\0" // not shown in Vista
+VALUE "CompanyName", "Michal Trojnara\0" // shown in Vista balloon and explorer extra columns
+VALUE "FileDescription", "stunnel - multiplatform SSL tunneling proxy\0"
+VALUE "FileVersion", STUNNEL_VERSION_STR 
+VALUE "InternalName", "InternalName\0"  // not shown in Vista
+VALUE "LegalCopyright", "© by Michal Trojnara 2011, All Rights Reserved, Licensed under the GNU GPL version 2\0"
+VALUE "LegalTrademarks","Legal Trademarks"
+VALUE "OriginalFilename","stunnel.c\0" // not shown in Vista
+//VALUE "PrivateBuild", ""      
+VALUE "ProductName", STUNNEL_PRODUCTNAME_STR
+VALUE "ProductVersion", STUNNEL_VERSION_STR 
+//VALUE "SpecialBuild", ""
+}}
+
+BLOCK "VarFileInfo" { VALUE "Translation", 0x0409, 1200 }
+
+}
+

@@ -1,25 +1,25 @@
-stunnel         Universal SSL tunnel
+stunnel TODO
+
 
 * High priority features I'm going to support (sponsorship welcomed):
-  - Add service-level logging.
-  - Log file rotation with with GUI on Windows.
-  - In transparent proxy mode add an option to connect destination address
-    of the the original connection instead of a fixed IP list.
-  - Support SSL_CTX_set_tlsext_servername_callback.
+  - Support for CryptoAPI certificates and private keys with CAPI engine.
+  - Support for Server Name Indication SSL extension
+    with SSL_CTX_set_tlsext_servername_callback.
+  - Service-level logging configuration (separate verbosity and destination).
 
 * Low priority features I'm going to support (sponsorship welcomed):
-  - Replace protocol.c with a scripting engine.
-  - Add some scripting capabilities *after* SSL negotiations.
-  - Key renegotiation (re-handshake) for long connections.
-  - Internationalization of logged messages (i18n).
-  - Logging to NT eventlog.
   - SOCKS 4 protocol support.
     http://archive.socks.permeo.com/protocol/socks4.protocol
-  - Add support for Server Name Indication SSL extension.
+  - Key renegotiation (re-handshake) for long connections.
+  - Logging to NT EventLog on Windows.
+  - Log file rotation with with GUI on Windows.
+  - Internationalization of logged messages (i18n).
+  - Generic scripting engine instead or static protocol.c.
 
-* Features I'd prefer NOT to support (waiting for a wealthy sponsor):
-  - Authentication based on reverse DNS lookup matching CN of X.509.
-  - HTTP protocol support (adding X-Forwarded-For header to each request,
-    URL rewriting).
-  - SMTP protocol support (adding X-Forwarded-For header to each email).
+* Features I prefer *not* to support (waiting for a wealthy sponsor):
+  - Additional certificate checks (including wildcard comparison) based on
+    CN and X509v3 Subject Alternative Name.
+  - Protocol support *after* SSL is negotiated.
+  - Support for adding X-Forwarded-For to HTTP request headers.
+  - Support for adding X-Forwarded-For to SMTP email headers.
 

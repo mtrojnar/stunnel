@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2010.09.15" "4.34" "stunnel"
+.TH STUNNEL 8 "2011.02.05" "4.35" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -181,7 +181,22 @@ select hardware engine
 .Sp
 default: software-only cryptography
 .Sp
-There's an example in '\s-1EXAMPLES\s0' section.
+Here is an example of advanced engine configuration to read private key from an
+OpenSC engine
+.Sp
+.Vb 7
+\&    engine=dynamic
+\&    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+\&    engineCtrl=ID:pkcs11
+\&    engineCtrl=LIST_ADD:1
+\&    engineCtrl=LOAD
+\&    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc\-pkcs11.so
+\&    engineCtrl=INIT
+\&
+\&    [service]
+\&    engineNum=1
+\&    key=id_45
+.Ve
 .IP "\fBengineCtrl\fR = command[:parameter]" 4
 .IX Item "engineCtrl = command[:parameter]"
 control hardware engine
@@ -303,9 +318,12 @@ If no host specified, defaults to all \s-1IP\s0 addresses for the local host.
 Certificate Authority directory
 .Sp
 This is the directory in which \fBstunnel\fR will look for certificates when using
-the \fIverify\fR. Note that the certificates in this directory should be named
+the \fIverify\fR.  Note that the certificates in this directory should be named
 \&\s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1DER\s0 encoded subject of the
-cert (the first 4 bytes of the \s-1MD5\s0 hash in least significant byte order).
+cert.
+.Sp
+The hash algorithm has been changed in OpenSSL 1.0.0.  It is required to
+c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.
 .Sp
 \&\fICApath\fR path is relative to \fIchroot\fR directory if specified.
 .IP "\fBCAfile\fR = certfile" 4
@@ -350,7 +368,10 @@ Certificate Revocation Lists directory
 .Sp
 This is the directory in which \fBstunnel\fR will look for CRLs when
 using the \fIverify\fR. Note that the CRLs in this directory should
-be named \s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1CRL\s0.
+be named \s-1XXXXXXXX\s0.r0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1CRL\s0.
+.Sp
+The hash algorithm has been changed in OpenSSL 1.0.0.  It is required to
+c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.
 .Sp
 \&\fICRLpath\fR path is relative to \fIchroot\fR directory if specified.
 .IP "\fBCRLfile\fR = certfile" 4
@@ -506,57 +527,121 @@ time to wait to connect a remote host
 .IP "\fBTIMEOUTidle\fR = seconds" 4
 .IX Item "TIMEOUTidle = seconds"
 time to keep an idle connection
-.IP "\fBtransparent\fR = yes | no (Unix only)" 4
-.IX Item "transparent = yes | no (Unix only)"
-transparent proxy mode
+.IP "\fBtransparent\fR = none | source | destination | both (Unix only)" 4
+.IX Item "transparent = none | source | destination | both (Unix only)"
+enable transparent proxy support on selected platforms
 .Sp
+Supported options:
+.RS 4
+.IP "\fBnone\fR" 4
+.IX Item "none"
+Disable transparent proxy support.  This is the default.
+.IP "\fBsource\fR" 4
+.IX Item "source"
 Re-write address to appear as if wrapped daemon is connecting
 from the \s-1SSL\s0 client machine instead of the machine running \fBstunnel\fR.
 .Sp
 This option is currently available in:
+.RS 4
+.IP "Remote mode (\fBconnect\fR option) on \fBLinux >=2.6.28\fR" 4
+.IX Item "Remote mode (connect option) on Linux >=2.6.28"
+This configuration requires stunnel to be executed as root and without
+\&\fBsetuid\fR option.
 .Sp
-.Vb 3
-\&    remote mode (I<connect> option) on Linux >=2.6.28
-\&    remote mode (I<connect> option) 2.2.x
-\&    local mode (I<exec> option)
-.Ve
-.Sp
-\&\fBRemote mode\fR (either 2.2.x and >=2.6.28) requires stunnel to be executed as
-root.  \fBsetuid\fR option will also break this functionality.
-.Sp
-\&\fBLinux >=2.6.28\fR requires the following setup for iptables and routing
+This configuration requires the following setup for iptables and routing
 (possibly in /etc/rc.local or equivalent file):
 .Sp
-.Vb 6
+.Vb 7
 \&    iptables \-t mangle \-N DIVERT
 \&    iptables \-t mangle \-A PREROUTING \-p tcp \-m socket \-j DIVERT
 \&    iptables \-t mangle \-A DIVERT \-j MARK \-\-set\-mark 1
 \&    iptables \-t mangle \-A DIVERT \-j ACCEPT
 \&    ip rule add fwmark 1 lookup 100
 \&    ip route add local 0.0.0.0/0 dev lo table 100
+\&    echo 0 >/proc/sys/net/ipv4/conf/lo/rp_filter
 .Ve
 .Sp
-\&\fBLinux 2.2.x\fR requires kernel to be compiled with \fItransparent proxy\fR option.
+\&\fBstunnel\fR must also to be executed as root and without \fBsetuid\fR option.
+.IP "Remote mode (\fBconnect\fR option) on \fBLinux 2.2.x\fR" 4
+.IX Item "Remote mode (connect option) on Linux 2.2.x"
+This configuration requires kernel to be compiled with \fItransparent proxy\fR option.
 Connected service must be installed on a separate host.
 Routing towards the clients has to go through the stunnel box.
 .Sp
-\&\fBLocal mode\fR works by LD_PRELOADing env.so shared library.
+\&\fBstunnel\fR must also to be executed as root and without \fBsetuid\fR option.
+.IP "Remote mode (\fBconnect\fR option) on \fBFreeBSD >=8.0\fR" 4
+.IX Item "Remote mode (connect option) on FreeBSD >=8.0"
+This configuration requires additional firewall and routing setup.
+\&\fBstunnel\fR must also to be executed as root and without \fBsetuid\fR option.
+.IP "Local mode (\fBexec\fR option)" 4
+.IX Item "Local mode (exec option)"
+This configuration works by pre-loading \fBlibstunnel.so\fR shared library.
+_RLD_LIST environment variable is used on Tru64, and \s-1LD_PRELOAD\s0 variable on
+other platforms.
+.RE
+.RS 4
+.RE
+.IP "\fBdestination\fR" 4
+.IX Item "destination"
+Original destination is used instead of \fBconnect\fR option.
+.Sp
+A service section for transparent destination may look like this:
+.Sp
+.Vb 4
+\&    [transparent]
+\&    client=yes
+\&    accept=<stunnel_port>
+\&    transparent=destination
+.Ve
+.Sp
+This configuration requires the following setup for iptables
+(possibly in /etc/rc.local or equivalent file):
+.Sp
+.Vb 2
+\&    /sbin/iptables \-I INPUT \-i eth0 \-p tcp \-\-dport <stunnel_port> \-j ACCEPT
+\&    /sbin/iptables \-t nat \-I PREROUTING \-i eth0 \-p tcp \-\-dport <redirected_port> \-j DNAT \-\-to\-destination <local_ip>:<stunnel_port>
+.Ve
+.Sp
+Transparent destination option is currently only supported on Linux.
+.IP "\fBboth\fR" 4
+.IX Item "both"
+Use both \fBsource\fR and \fBdestination\fR transparent proxy.
+.RE
+.RS 4
+.Sp
+Two legacy options are also supported for backward compatibility:
+.IP "\fByes\fR" 4
+.IX Item "yes"
+This options has been renamed to \fBsource\fR.
+.IP "\fBno\fR" 4
+.IX Item "no"
+This options has been renamed to \fBnone\fR.
+.RE
+.RS 4
+.RE
 .IP "\fBverify\fR = level" 4
 .IX Item "verify = level"
 verify peer certificate
-.Sp
-.Vb 4
-\&    level 1 \- verify peer certificate if present
-\&    level 2 \- verify peer certificate
-\&    level 3 \- verify peer with locally installed certificate
-\&    default \- no verify
-.Ve
+.RS 4
+.IP "\fBlevel 1\fR \- verify peer certificate if present" 4
+.IX Item "level 1 - verify peer certificate if present"
+.PD 0
+.IP "\fBlevel 2\fR \- verify peer certificate" 4
+.IX Item "level 2 - verify peer certificate"
+.IP "\fBlevel 3\fR \- verify peer with locally installed certificate" 4
+.IX Item "level 3 - verify peer with locally installed certificate"
+.IP "\fBdefault\fR \- no verify" 4
+.IX Item "default - no verify"
+.RE
+.RS 4
+.PD
 .Sp
 It is important to understand, that this option was solely designed for access
 control and not for authorization.  Specifically for level 2 every non-revoked
 certificate is accepted regardless of its Common Name.  For this reason a
 dedicated \s-1CA\s0 should be used with level 2, and not a generic \s-1CA\s0 commonly used
 for webservers.  Level 3 is preferred for point-to-point connections.
+.RE
 .SH "RETURN VALUE"
 .IX Header "RETURN VALUE"
 \&\fBstunnel\fR returns zero on success, non-zero on error.
@@ -629,23 +714,6 @@ Note there must be no \fI[service_name]\fR section.
 .Vb 2
 \&    exec = /usr/sbin/imapd
 \&    execargs = imapd
-.Ve
-.PP
-Here is an example of advanced engine configuration to read private key from an
-OpenSC engine
-.PP
-.Vb 7
-\&    engine=dynamic
-\&    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-\&    engineCtrl=ID:pkcs11
-\&    engineCtrl=LIST_ADD:1
-\&    engineCtrl=LOAD
-\&    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc\-pkcs11.so
-\&    engineCtrl=INIT
-\&
-\&    [service]
-\&    engineNum=1
-\&    key=id_45
 .Ve
 .SH "NOTES"
 .IX Header "NOTES"
@@ -762,12 +830,9 @@ access control facility for internet services
 .IP "\fIinetd\fR\|(8)" 4
 .IX Item "inetd"
 internet 'super\-server'
-.IP "\fIhttp://stunnel.mirt.net/\fR" 4
-.IX Item "http://stunnel.mirt.net/"
-\&\fBstunnel\fR homepage
 .IP "\fIhttp://www.stunnel.org/\fR" 4
 .IX Item "http://www.stunnel.org/"
-\&\fBstunnel\fR Frequently Asked Questions
+\&\fBstunnel\fR homepage
 .IP "\fIhttp://www.openssl.org/\fR" 4
 .IX Item "http://www.openssl.org/"
 OpenSSL project website

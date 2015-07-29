@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -139,10 +139,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     /* setup the initial window caption before reading the configuration file
      * global_options.win32_service may not be used here */
 #ifdef _WIN32_WCE
-    _tcscpy(win32_name, TEXT("stunnel ") TEXT(VERSION)
+    _tcscpy(win32_name, TEXT("stunnel ") TEXT(STUNNEL_VERSION)
         TEXT(" on Windows CE (not configured)"));
 #else
-    _tcscpy(win32_name, TEXT("stunnel ") TEXT(VERSION)
+    _tcscpy(win32_name, TEXT("stunnel ") TEXT(STUNNEL_VERSION)
         TEXT(" on Win32 (not configured)"));
 #endif
 
@@ -153,11 +153,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         main_initialize(
             cmdline.config_file[0] ? cmdline.config_file : NULL, NULL);
 #ifdef _WIN32_WCE
-        _tcscpy(win32_name, TEXT("stunnel ") TEXT(VERSION)
+        _tcscpy(win32_name, TEXT("stunnel ") TEXT(STUNNEL_VERSION)
             TEXT(" on Windows CE"));
 #else
+        /* update the information */
         _snprintf(win32_name, STRLEN, "stunnel %s on Win32 (%s)",
-            VERSION, global_options.win32_service); /* update the information */
+            STUNNEL_VERSION, global_options.win32_service);
         if(!cmdline.service) {
             if(cmdline.install)
                 return service_install(command_line);
@@ -329,10 +330,12 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     if(error_mode) { /* log window is hidden by default */
         set_visible(1);
+#ifndef _WIN32_WCE
         EnableMenuItem(hmainmenu, IDM_RELOAD, MF_GRAYED);
+#endif  
         EnableMenuItem(htraymenu, IDM_RELOAD, MF_GRAYED);
     } else /* create the main thread */
-        _beginthread(ThreadFunc, 0, NULL);
+        _beginthread(ThreadFunc, DEFAULT_STACK_SIZE, NULL);
 
     while(GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
@@ -373,7 +376,9 @@ static void ThreadFunc(void *arg) {
     } else {
         /* FIXME: could be unsafe to call it from another thread */
         set_visible(1);
+#ifndef _WIN32_WCE
         EnableMenuItem(hmainmenu, IDM_RELOAD, MF_GRAYED);
+#endif		
         EnableMenuItem(htraymenu, IDM_RELOAD, MF_GRAYED);
     }
     _endthread();

@@ -10,8 +10,10 @@
 
 <body style="background-color: white">
 
-<p><a name="__index__"></a></p>
+
 <!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
 
 <ul>
 
@@ -43,9 +45,11 @@
 	<li><a href="#auteur">AUTEUR</a></li>
 	<li><a href="#adaptation_fran_aise">ADAPTATION FRANÇAISE</a></li>
 </ul>
+
+<hr name="index" />
+</div>
 <!-- INDEX END -->
 
-<hr />
 <p>
 </p>
 <h1><a name="nom">NOM</a></h1>
@@ -55,18 +59,16 @@
 <hr />
 <h1><a name="synopsis">SYNOPSIS</a></h1>
 <dl>
-<dt><strong><a name="item_unix_3a"><strong>Unix:</strong></a></strong>
+<dt><strong><a name="unix" class="item"><strong>Unix:</strong></a></strong></dt>
 
 <dd>
 <p><strong>stunnel</strong> [fichier] | -fd&nbsp;[n] | -help | -version | -sockets</p>
 </dd>
-</li>
-<dt><strong><a name="item_win32_3a"><strong>WIN32:</strong></a></strong>
+<dt><strong><a name="win32" class="item"><strong>WIN32:</strong></a></strong></dt>
 
 <dd>
 <p><strong>stunnel</strong> [fichier] | -install | -uninstall | -help | -version | -sockets</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -88,49 +90,42 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <hr />
 <h1><a name="options">OPTIONS</a></h1>
 <dl>
-<dt><strong><a name="item__5bfichier_5d"><strong>[fichier]</strong></a></strong>
+<dt><strong><a name="fichier" class="item"><strong>[fichier]</strong></a></strong></dt>
 
 <dd>
 <p>Utilisation du fichier de configuration spécifié.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2dfd__5bn_5d__28unix_seulement_29"><strong>-fd [n]</strong> (Unix seulement)</a></strong>
+<dt><strong><a name="fd_n_unix_seulement" class="item"><strong>-fd [n]</strong> (Unix seulement)</a></strong></dt>
 
 <dd>
 <p>Lecture du fichier de configuration depuis le descripteur de
 fichier indiqué.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2dhelp"><strong>-help</strong></a></strong>
+<dt><strong><a name="help" class="item"><strong>-help</strong></a></strong></dt>
 
 <dd>
 <p>Affiche le menu d'aide de <strong>stunnel</strong>.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2dversion"><strong>-version</strong></a></strong>
+<dt><strong><a name="version" class="item"><strong>-version</strong></a></strong></dt>
 
 <dd>
 <p>Affiche la version de <strong>stunnel</strong> et les options de compilation.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2dsockets"><strong>-sockets</strong></a></strong>
+<dt><strong><a name="sockets" class="item"><strong>-sockets</strong></a></strong></dt>
 
 <dd>
 <p>Affiche les options socket par défaut.</p>
 </dd>
-</li>
-<dt><strong><a name="item_install"><strong>-install</strong> (NT/2000/XP seulement)</a></strong>
+<dt><strong><a name="install" class="item"><strong>-install</strong> (NT/2000/XP seulement)</a></strong></dt>
 
 <dd>
 <p>Installe un service NT.</p>
 </dd>
-</li>
-<dt><strong><a name="item_uninstall"><strong>-uninstall</strong> (NT/2000/XP only)</a></strong>
+<dt><strong><a name="uninstall" class="item"><strong>-uninstall</strong> (NT/2000/XP only)</a></strong></dt>
 
 <dd>
 <p>Désinstalle un service NT.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -155,282 +150,190 @@ fichier indiqué.</p>
 </p>
 <h2><a name="options_globales">OPTIONS GLOBALES</a></h2>
 <dl>
-<dt><strong><a name="item_capath__3d_r_e9pertoire"><strong>CApath</strong> = répertoire</a></strong>
+<dt><strong><a name="capath_r_pertoire" class="item"><strong>CApath</strong> = répertoire</a></strong></dt>
 
 <dd>
 <p>Répertoire des autorités de certification (CA)</p>
-</dd>
-<dd>
 <p>C'est le répertoire dans lequel <strong>stunnel</strong> cherche les certificats si
 l'on utilise <em>verify</em>. Les certificats doivent être dénommés selon la
 forme XXXXXXXX.0, où XXXXXXXX est la valeur de hachage du certificat.</p>
-</dd>
-<dd>
 <p>Le cas échéant, le répertoire <em>CApath</em> est relatif au répertoire <em>chroot</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_cafile__3d_fichier"><strong>CAfile</strong> = fichier</a></strong>
+<dt><strong><a name="cafile_fichier" class="item"><strong>CAfile</strong> = fichier</a></strong></dt>
 
 <dd>
 <p>Fichier d'autorités de certification</p>
-</dd>
-<dd>
 <p>Ce fichier, utilisé avec <em>verify</em>, contient plusieurs certificats de CA.</p>
 </dd>
-</li>
-<dt><strong><a name="item_cert__3d_fichier"><strong>cert</strong> = fichier</a></strong>
+<dt><strong><a name="cert_fichier" class="item"><strong>cert</strong> = fichier</a></strong></dt>
 
 <dd>
 <p>Fichier de chaîne de certificats PEM</p>
-</dd>
-<dd>
 <p>Une PEM est toujours nécessaire en mode serveur.
 En mode client, cette option utilise cette PEM comme une chaîne côté client.
 L'utilisation de certificats côté client est optionnelle. Les certificats
 doivent être au format PEM et triés par ordre de niveau décroissant (CA racine
 en premier).</p>
 </dd>
-</li>
-<dt><strong><a name="item_pertoire"><strong>chroot</strong> = répertoire (Unix seulement)</a></strong>
+<dt><strong><a name="pertoire" class="item"><strong>chroot</strong> = répertoire (Unix seulement)</a></strong></dt>
 
 <dd>
 <p>Répertoire de chroot du processus <strong>stunnel</strong></p>
-</dd>
-<dd>
 <p><strong>chroot</strong> enferme <strong>stunnel</strong> dans une cellule chroot.  <em>CApath</em>, <em>CRLpath</em>, <em>pid</em>
 et <em>exec</em> sont situés à l'intérieur de la cellule et les répertoires doivent être
 relatifs au répertoire correspondant.</p>
-</dd>
-<dd>
 <p>Pour que le contrôle de libwrap (wrappeur TCP) soit effectif dans un environnement
 chroot, il faut aussi y recopier leurs fichiers de configuration (/etc/hosts.allow et
 /etc/hosts.deny).</p>
 </dd>
-</li>
-<dt><strong><a name="item_ciphers__3d_listes_de_chiffre"><strong>ciphers</strong> = listes de chiffre</a></strong>
+<dt><strong><a name="ciphers_listes_de_chiffre" class="item"><strong>ciphers</strong> = listes de chiffre</a></strong></dt>
 
 <dd>
 <p>Sélection des chiffres SSL autorisés</p>
-</dd>
-<dd>
 <p>Liste délimitée par deux-points («&nbsp;:&nbsp;») des chiffres autorisés pour la connexion SSL.
 Exemple&nbsp;:  DES-CBC3-SHA:IDEA-CBC-MD5</p>
 </dd>
-</li>
-<dt><strong><a name="item_client__3d_yes__7c_no"><strong>client</strong> = yes | no</a></strong>
+<dt><strong><a name="client_yes_no" class="item"><strong>client</strong> = yes | no</a></strong></dt>
 
 <dd>
 <p>Mode client (Le service distant utilise SSL)</p>
-</dd>
-<dd>
 <p>Par défaut&nbsp;: no (mode server)</p>
 </dd>
-</li>
-<dt><strong><a name="item_crlpath__3d_r_e9pertoire"><strong>CRLpath</strong> = répertoire</a></strong>
+<dt><strong><a name="crlpath_r_pertoire" class="item"><strong>CRLpath</strong> = répertoire</a></strong></dt>
 
 <dd>
 <p>Répertoire des listes de révocation de certificats (CRL)</p>
-</dd>
-<dd>
 <p>C'est le répertoire dans lequel <strong>stunnel</strong> recherche les CRL avec
 l'option <em>verify</em>. Les CRL doivent être dénommés selon la
 forme XXXXXXXX.0 où XXXXXXXX est la valeur de hachage de la CRL.</p>
-</dd>
-<dd>
 <p>Le cas échéant, le répertoire <em>CRLpath</em> est relatif au répertoire <em>chroot</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_crlfile__3d_fichier"><strong>CRLfile</strong> = fichier</a></strong>
+<dt><strong><a name="crlfile_fichier" class="item"><strong>CRLfile</strong> = fichier</a></strong></dt>
 
 <dd>
 <p>Fichier de listes de révocation de certificats (CRL)</p>
-</dd>
-<dd>
 <p>Ce fichier, utilisé avec <em>verify</em>, contient plusieurs CRL.</p>
 </dd>
-</li>
-<dt><strong><a name="item_debug__3d__5bfacilit_e9_2e_5dniveau"><strong>debug</strong> = [facilité.]niveau</a></strong>
+<dt><strong><a name="debug_facilit_niveau" class="item"><strong>debug</strong> = [facilité.]niveau</a></strong></dt>
 
 <dd>
 <p>niveau de déverminage</p>
-</dd>
-<dd>
 <p>Le niveau est un nom ou un numéro conforme à ceux de syslog&nbsp;:
 emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
 info (6) ou debug (7). Toutes les traces du niveau indiqué et des niveaux
 numériquement inférieurs seront affichées. <strong>debug = debug</strong> ou
 <strong>debug = 7</strong> donneront le maximum d'informations. La valeur par défaut
 est notice (5).</p>
-</dd>
-<dd>
 <p>La facilité syslog «&nbsp;daemon&nbsp;» est utilisée, sauf si un autre nom est spécifié
 (Win32 ne permet pas l'usage des facilités.)</p>
-</dd>
-<dd>
 <p>La casse est ignorée, aussi bien pour la facilité que pour le niveau.</p>
 </dd>
-</li>
-<dt><strong><a name="item_chemin"><strong>EGD</strong> = chemin (Unix seulement)</a></strong>
+<dt><strong><a name="chemin" class="item"><strong>EGD</strong> = chemin (Unix seulement)</a></strong></dt>
 
 <dd>
 <p>Emplacement du socket du daemon de recueil d'entropie (EGD - Entropy Gathering Daemon)</p>
-</dd>
-<dd>
 <p>Socket EGD à utiliser pour alimenter le générateur d'aléatoires de OpenSSL (disponible
 seulement si la compilation a été effectuée avec OpenSSL 0.9.5a ou supérieur).</p>
 </dd>
-</li>
-<dt><strong><a name="item_no"><strong>foreground</strong> = yes | no (Unix seulement)</a></strong>
+<dt><strong><a name="no" class="item"><strong>foreground</strong> = yes | no (Unix seulement)</a></strong></dt>
 
 <dd>
 <p>Mode avant-plan</p>
-</dd>
-<dd>
 <p>Reste en avant-plan (sans fork) et dirige la trace sur stderr
 au lieu de syslog (sauf si <strong>output</strong> est spécifié).</p>
-</dd>
-<dd>
 <p>Par défault&nbsp;: arrière-plan en mode daemon.</p>
 </dd>
-</li>
-<dt><strong><a name="item_key__3d_fichier"><strong>key</strong> = fichier</a></strong>
+<dt><strong><a name="key_fichier" class="item"><strong>key</strong> = fichier</a></strong></dt>
 
 <dd>
 <p>Fichier de clef privée pour le certificat spécifié par <em>cert</em></p>
-</dd>
-<dd>
 <p>La clef privée est nécessaire pour authentifier le titulaire du
 certificat.
 Puisque ce fichier doit rester secret, il ne doit être lisible que
 par son propriétaire. Sur les systèmes Unix, on peut utiliser la
 commande suivante&nbsp;:</p>
-</dd>
-<dd>
 <pre>
     chmod 600 fichier</pre>
-</dd>
-<dd>
 <p>Par défault&nbsp;: Valeur de <em>cert</em></p>
 </dd>
-</li>
-<dt><strong><a name="item_options__3d_options_ssl"><strong>options</strong> = Options_SSL</a></strong>
+<dt><strong><a name="options_options_ssl" class="item"><strong>options</strong> = Options_SSL</a></strong></dt>
 
 <dd>
 <p>Options de la bibliothèque OpenSSL</p>
-</dd>
-<dd>
 <p>Le paramètre est l'option OpenSSL décrite dans la page de man
 <em>SSL_CTX_set_options(3ssl)</em>, débarassée du préfixe <em>SSL_OP_</em>.
 Plusieurs <em>options</em> peuvent être spécifiées.</p>
-</dd>
-<dd>
 <p>Par exemple, pour la compatibilité avec l'implantation SSL défaillante
 d'Eudora, on peut utiliser&nbsp;:</p>
-</dd>
-<dd>
 <pre>
     options = DONT_INSERT_EMPTY_FRAGMENTS</pre>
 </dd>
-</li>
-<dt><strong><a name="item_output__3d_fichier"><strong>output</strong> = fichier</a></strong>
+<dt><strong><a name="output_fichier" class="item"><strong>output</strong> = fichier</a></strong></dt>
 
 <dd>
 <p>Ajoute la trace à la fin d'un fichier au lieu d'utiliser syslog.</p>
-</dd>
-<dd>
 <p>/dev/stdout peut être utilisé pour afficher les traces sur la sortie standard
 (par exemple pour les traiter avec les outils splogger).</p>
 </dd>
-</li>
-<dt><strong><a name="item_fichier"><strong>pid</strong> = fichier (Unix seulement)</a></strong>
+<dt><strong><strong>pid</strong> = fichier (Unix seulement)</strong></dt>
 
 <dd>
 <p>Emplacement du fichier pid</p>
-</dd>
-<dd>
 <p>Si l'argument est vide, aucun fichier ne sera créé.</p>
-</dd>
-<dd>
 <p>Le cas échéant, le chemin <em>pid</em> est relatif au répertoire <em>chroot</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_rndbytes__3d_nombre"><strong>RNDbytes</strong> = nombre</a></strong>
+<dt><strong><a name="rndbytes_nombre" class="item"><strong>RNDbytes</strong> = nombre</a></strong></dt>
 
 <dd>
 <p>Nombre d'octets à lire depuis les fichiers de «&nbsp;sel&nbsp;» aléatoire</p>
-</dd>
-<dd>
 <p>Avec les SSL de version inférieure à 0.9.5a, détermine aussi le nombre
 d'octets considérés comme suffisants pour «&nbsp;saler&nbsp;» le PRNG. Les versions plus
 récentes d'OpenSSL ont une fonction intégrée qui détermine lorsque l'aléatoire
 est suffisant.</p>
 </dd>
-</li>
-<dt><strong><a name="item_rndfile__3d_fichier"><strong>RNDfile</strong> = fichier</a></strong>
+<dt><strong><a name="rndfile_fichier" class="item"><strong>RNDfile</strong> = fichier</a></strong></dt>
 
 <dd>
 <p>chemin du fichier de données de «&nbsp;sel&nbsp;» aléatoire</p>
-</dd>
-<dd>
 <p>La bibliothèque SSL utilise prioritairement les données de ce fichier pour
 «&nbsp;saler&nbsp;» le générateur d'aléatoire.</p>
 </dd>
-</li>
-<dt><strong><a name="item_rndoverwrite__3d_yes__7c_no"><strong>RNDoverwrite</strong> = yes | no</a></strong>
+<dt><strong><a name="rndoverwrite_yes_no" class="item"><strong>RNDoverwrite</strong> = yes | no</a></strong></dt>
 
 <dd>
 <p>Recouvre les fichiers de «&nbsp;sel&nbsp;» avec de nouvelles données aléatoires.</p>
-</dd>
-<dd>
 <p>Par défaut&nbsp;: yes</p>
 </dd>
-</li>
-<dt><strong><a name="item_service__3d_nom"><strong>service</strong> = nom</a></strong>
+<dt><strong><a name="service_nom" class="item"><strong>service</strong> = nom</a></strong></dt>
 
 <dd>
 <p>Définit le nom de service à utiliser</p>
-</dd>
-<dd>
 <p><strong>Sous Unix&nbsp;:</strong> nom de service du mode <em>inetd</em> pour la bibliothèque TCP Wrapper.</p>
-</dd>
-<dd>
 <p><strong>Sous NT/2000/XP&nbsp;:</strong> nom de service NT dans le gestionnaire de tâches.</p>
-</dd>
-<dd>
 <p>Par défaut&nbsp;: stunnel</p>
 </dd>
-</li>
-<dt><strong><a name="item_session__3d_timeout"><strong>session</strong> = timeout</a></strong>
+<dt><strong><a name="session_timeout" class="item"><strong>session</strong> = timeout</a></strong></dt>
 
 <dd>
 <p>Timeout du cache de session</p>
 </dd>
-</li>
-<dt><strong><a name="item_nom"><strong>setgid</strong> = nom (Unix seulement)</a></strong>
+<dt><strong><a name="nom" class="item"><strong>setgid</strong> = nom (Unix seulement)</a></strong></dt>
 
 <dd>
 <p>Nom de groupe utilisé en mode daemon (les éventuels autres noms de groupe attribués sont supprimés)</p>
 </dd>
-</li>
-<dt><strong><strong>setuid</strong> = nom (Unix seulement)</strong>
+<dt><strong><strong>setuid</strong> = nom (Unix seulement)</strong></dt>
 
 <dd>
 <p>Nom d'utilisateur utilisé en mode daemon</p>
 </dd>
-</li>
-<dt><strong><a name="item_socket__3d_a_7cl_7cr_3aoption_3dvaleur_5b_3avaleur"><strong>socket</strong> = a|l|r:option=valeur[:valeur]</a></strong>
+<dt><strong><a name="socket_a_l_r_option_valeur_valeur" class="item"><strong>socket</strong> = a|l|r:option=valeur[:valeur]</a></strong></dt>
 
 <dd>
 <p>Configure une option de socket accept (a), locale (l) ou distante (r)</p>
-</dd>
-<dd>
 <p>Les valeurs de l'option linger sont&nbsp;: l_onof:l_linger.
 Les valeurs de l'option time   sont&nbsp;: tv_sec:tv_usec.</p>
-</dd>
-<dd>
 <p>Exemples&nbsp;:</p>
-</dd>
-<dd>
 <pre>
     socket = l:SO_LINGER=1:60
         définit un délai d'une minute pour la clôture des sockets locaux
@@ -444,31 +347,22 @@ Les valeurs de l'option time   sont&nbsp;: tv_sec:tv_usec.</p>
     socket = a:SO_BINDTODEVICE=lo
         limite l'acceptation des connexions sur la seule interface de bouclage</pre>
 </dd>
-</li>
-<dt><strong><strong>taskbar</strong> = yes | no (WIN32 seulement)</strong>
+<dt><strong><strong>taskbar</strong> = yes | no (WIN32 seulement)</strong></dt>
 
 <dd>
 <p>active l'icône de la barre de tâches</p>
-</dd>
-<dd>
 <p>Par défaut&nbsp;: yes</p>
 </dd>
-</li>
-<dt><strong><a name="item_verify__3d_niveau"><strong>verify</strong> = niveau</a></strong>
+<dt><strong><a name="verify_niveau" class="item"><strong>verify</strong> = niveau</a></strong></dt>
 
 <dd>
 <p>Vérifie le certificat du correspondant</p>
-</dd>
-<dd>
 <pre>
     niveau 1 - vérifie le certificat s'il est présent
     niveau 2 - vérifie le certificat
     niveau 3 - contrôle le correspondant avec le certificat local</pre>
-</dd>
-<dd>
 <p>Par défaut - pas de vérification</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -480,102 +374,78 @@ Celui-ci est utilisé par le contrôle d'accès de libwrap (TCP Wrappers) et sert
 fourni par un serveur comme <em>inetd</em>, <em>xinetd</em> ou <em>tcpserver</em>), il faut se
 reporter à la section <em>MODE INETD</em> plus bas.</p>
 <dl>
-<dt><strong><a name="item_accept__3d__5bh_f4te_3a_5dport"><strong>accept</strong> = [hôte:]port</a></strong>
+<dt><strong><a name="accept_h_te_port" class="item"><strong>accept</strong> = [hôte:]port</a></strong></dt>
 
 <dd>
 <p>Accepte des connexions sur le port spécifié</p>
-</dd>
-<dd>
 <p>Si l'hôte n'est pas indiqué, le port est ouvert pour toutes les adresses IP de
 la machine locale.</p>
 </dd>
-</li>
-<dt><strong><a name="item_connect__3d__5bh_f4te_3a_5dport"><strong>connect</strong> = [hôte:]port</a></strong>
+<dt><strong><a name="connect_h_te_port" class="item"><strong>connect</strong> = [hôte:]port</a></strong></dt>
 
 <dd>
 <p>Se connecte au port distant indiqué</p>
-</dd>
-<dd>
 <p>Par défaut, l'hôte est localhost.</p>
 </dd>
-</li>
-<dt><strong><a name="item_delay__3d_yes__7c_no"><strong>delay</strong> = yes | no</a></strong>
+<dt><strong><a name="delay_yes_no" class="item"><strong>delay</strong> = yes | no</a></strong></dt>
 
 <dd>
 <p>Retarde la recherche DNS pour l'option «&nbsp;connect&nbsp;»</p>
 </dd>
-</li>
-<dt><strong><a name="item_cutable"><strong>exec</strong> = chemin_exécutable (Unix seulement)</a></strong>
+<dt><strong><a name="cutable" class="item"><strong>exec</strong> = chemin_exécutable (Unix seulement)</a></strong></dt>
 
 <dd>
 <p>Exécute un programme local de type inetd</p>
-</dd>
-<dd>
 <p>Le cas échéant, le chemin <em>exec</em> est relatif au répertoire <em>chroot</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_execargs__3d__240__241__242__2e_2e_2e__28unix_seul"><strong>execargs</strong> = $0 $1 $2 ... (Unix seulement)</a></strong>
+<dt><strong><a name="execargs_0_1_2_unix_seulement" class="item"><strong>execargs</strong> = $0 $1 $2 ... (Unix seulement)</a></strong></dt>
 
 <dd>
 <p>Arguments pour <em>exec</em>, y compris le nom du programme ($0)</p>
-</dd>
-<dd>
 <p>Les quotes ne peuvent actuellement pas être utilisées.
 Les arguments sont séparés par un nombre quelconque d'espaces.</p>
 </dd>
-</li>
-<dt><strong><a name="item_ident__3d_nom"><strong>ident</strong> = nom</a></strong>
+<dt><strong><a name="ident_nom" class="item"><strong>ident</strong> = nom</a></strong></dt>
 
 <dd>
-<p>Applique le contrôle d'identité d'utilisateur IDENT (RFC 1413)</p>
+<p>Applique le contrôle d'identité d'utilisateur IDENT (<a href="http://www.ietf.org/rfc/rfc1413.txt" class="rfc">RFC 1413</a>)</p>
 </dd>
-</li>
-<dt><strong><a name="item_local__3d_h_f4te"><strong>local</strong> = hôte</a></strong>
+<dt><strong><a name="local_h_te" class="item"><strong>local</strong> = hôte</a></strong></dt>
 
 <dd>
 <p>Adresse IP de l'interface de sortie utilisée pour les connexions distantes.
 Cette option permet de relier une adresse statique locale.</p>
 </dd>
-</li>
-<dt><strong><a name="item_protocol__3d_protocole"><strong>protocol</strong> = protocole</a></strong>
+<dt><strong><a name="protocol_protocole" class="item"><strong>protocol</strong> = protocole</a></strong></dt>
 
 <dd>
 <p>Négocie avec SSL selon le protocole indiqué</p>
-</dd>
-<dd>
 <p>Actuellement gérés&nbsp;: cifs, nntp, pop3, smtp</p>
 </dd>
-</li>
-<dt><strong><strong>pty</strong> = yes | no (Unix seulement)</strong>
+<dt><strong><strong>pty</strong> = yes | no (Unix seulement)</strong></dt>
 
 <dd>
 <p>Alloue un pseudo-terminal pour l'option «&nbsp;exec&nbsp;»</p>
 </dd>
-</li>
-<dt><strong><a name="item_timeoutbusy__3d_secondes"><strong>TIMEOUTbusy</strong> = secondes</a></strong>
+<dt><strong><a name="timeoutbusy_secondes" class="item"><strong>TIMEOUTbusy</strong> = secondes</a></strong></dt>
 
 <dd>
 <p>Durée d'attente de données</p>
 </dd>
-</li>
-<dt><strong><a name="item_timeoutclose__3d_secondes"><strong>TIMEOUTclose</strong> = secondes</a></strong>
+<dt><strong><a name="timeoutclose_secondes" class="item"><strong>TIMEOUTclose</strong> = secondes</a></strong></dt>
 
 <dd>
 <p>Durée d'attente du close_notify (mis à 0 pour MSIE qui est bogué)</p>
 </dd>
-</li>
-<dt><strong><a name="item_timeoutidle__3d_secondes"><strong>TIMEOUTidle</strong> = secondes</a></strong>
+<dt><strong><a name="timeoutidle_secondes" class="item"><strong>TIMEOUTidle</strong> = secondes</a></strong></dt>
 
 <dd>
 <p>Durée d'attente sur une connexion inactive</p>
 </dd>
-</li>
-<dt><strong><strong>transparent</strong> = yes | no (Unix seulement)</strong>
+<dt><strong><strong>transparent</strong> = yes | no (Unix seulement)</strong></dt>
 
 <dd>
 <p>Mode mandataire transparent</p>
-</dd>
-<dd>
 <p>Ré-écrit les adresses pour qu'elles apparaissent provenir de la
 machine client SSL plutôt que de celle qui exécute <strong>stunnel</strong>.
 Cette option n'est disponible en mode local (option <em>exec</em>) qu'avec
@@ -586,7 +456,6 @@ option ne se combine pas au mode mandataire (<em>connect</em>) sauf si la
 route par défaut du client vers la cible passe par l'hôte qui fait
 tourner <strong>stunnel</strong>, qui ne peut être localhost.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -620,18 +489,16 @@ qui lance imapd à son tour (il ne doit pas y avoir de section <em>[service_name]
 <hr />
 <h1><a name="fichiers">FICHIERS</a></h1>
 <dl>
-<dt><strong><a name="item_stunnel_2econf"><em>stunnel.conf</em></a></strong>
+<dt><strong><a name="stunnel_conf" class="item"><em class="file">stunnel.conf</em></a></strong></dt>
 
 <dd>
 <p>Fichier de configuration de <strong>stunnel</strong></p>
 </dd>
-</li>
-<dt><strong><a name="item_stunnel_2epem"><em>stunnel.pem</em></a></strong>
+<dt><strong><a name="stunnel_pem" class="item"><em class="file">stunnel.pem</em></a></strong></dt>
 
 <dd>
 <p>Certificat et clef privée de <strong>stunnel</strong></p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -755,60 +622,48 @@ Ce n'est pas le comportement de <strong>stunnel</strong>, c'est celui d'OpenSSL.
 <hr />
 <h1><a name="voir_aussi">VOIR AUSSI</a></h1>
 <dl>
-<dt><strong><a name="item_tcpd"><a href="#item_tcpd">tcpd(8)</a></a></strong>
+<dt><strong><a name="tcpd" class="item"><a href="#tcpd">tcpd(8)</a></a></strong></dt>
 
 <dd>
 <p>Service de contrôle d'accès pour les services internet</p>
 </dd>
-</li>
-<dt><strong><a name="item_inetd"><a href="#item_inetd">inetd(8)</a></a></strong>
+<dt><strong><a name="inetd" class="item"><a href="#inetd">inetd(8)</a></a></strong></dt>
 
 <dd>
 <p>«&nbsp;super-serveur&nbsp;» internet</p>
 </dd>
-</li>
-<dt><strong><a name="item_http_3a_2f_2fstunnel_2emirt_2enet_2f"><em><a href="http://stunnel.mirt.net/">http://stunnel.mirt.net/</a></em></a></strong>
+<dt><strong><a name="http_www_stunnel_org" class="item"><em class="file"><a href="http://www.stunnel.org/">http://www.stunnel.org/</a></em></a></strong></dt>
 
 <dd>
 <p>Page de référence de <strong>stunnel</strong></p>
 </dd>
-</li>
-<dt><strong><a name="item_http_3a_2f_2fwww_2estunnel_2eorg_2f"><em><a href="http://www.stunnel.org/">http://www.stunnel.org/</a></em></a></strong>
-
-<dd>
-<p>Foire aux questions <strong>stunnel</strong></p>
-</dd>
-</li>
-<dt><strong><a name="item_http_3a_2f_2fwww_2eopenssl_2eorg_2f"><em><a href="http://www.openssl.org/">http://www.openssl.org/</a></em></a></strong>
+<dt><strong><a name="http_www_openssl_org" class="item"><em class="file"><a href="http://www.openssl.org/">http://www.openssl.org/</a></em></a></strong></dt>
 
 <dd>
 <p>Site web du projet OpenSSL</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
 <hr />
 <h1><a name="auteur">AUTEUR</a></h1>
 <dl>
-<dt><strong><a name="item_michal_trojnara">Michal Trojnara</a></strong>
+<dt><strong><a name="michal_trojnara" class="item">Michal Trojnara</a></strong></dt>
 
 <dd>
-<p>&lt;<em><a href="mailto:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net</a></em>&gt;</p>
+<p>&lt;<em class="file"><a href="mailto:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net</a></em>&gt;</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
 <hr />
 <h1><a name="adaptation_fran_aise">ADAPTATION FRANÇAISE</a></h1>
 <dl>
-<dt><strong><a name="item_bernard_choppy">Bernard Choppy</a></strong>
+<dt><strong><a name="bernard_choppy" class="item">Bernard Choppy</a></strong></dt>
 
 <dd>
-<p>&lt;<em>choppy AT free POINT fr</em>&gt;</p>
+<p>&lt;<em class="file">choppy AT free POINT fr</em>&gt;</p>
 </dd>
-</li>
 </dl>
 
 </body>

@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2010.09.15" "4.34" "stunnel"
+.TH STUNNEL.PL 8 "2011.02.05" "4.35" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -185,7 +185,22 @@ wybór sprzętowego urządzenia kryptograficznego
 .Sp
 domyślnie: bez wykorzystania urządzeń kryptograficznych
 .Sp
-Przykład wykorzystania w sekcji 'PRZYKŁADY'.
+Przykładowa konfiguracja umożliwiająca odczytanie klucza prywatnego z
+urządzenia zgodnego z OpenSC:
+.Sp
+.Vb 7
+\&    engine=dynamic
+\&    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+\&    engineCtrl=ID:pkcs11
+\&    engineCtrl=LIST_ADD:1
+\&    engineCtrl=LOAD
+\&    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc\-pkcs11.so
+\&    engineCtrl=INIT
+\&
+\&    [service]
+\&    engineNum=1
+\&    key=id_45
+.Ve
 .IP "\fBengineCtrl\fR = <command>[:<parameter>]" 4
 .IX Item "engineCtrl = <command>[:<parameter>]"
 konfiguracja urządzenia kryptograficznego
@@ -319,8 +334,10 @@ katalog Centrum Certyfikacji
 Opcja określa katalog, w którym \fBstunnel\fR będzie szukał certyfikatów,
 jeżeli użyta została opcja \fIverify\fR.  Pliki z certyfikatami muszą
 posiadać specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
-kryptograficznym reprezentacji \s-1DER\s0 nazwy podmiotu certyfikatu
-(4 pierwsze bajty skrótu \s-1MD5\s0 począwszy od najmniej znaczacego).
+kryptograficznym reprezentacji \s-1DER\s0 nazwy podmiotu certyfikatu.
+.Sp
+Funkcja skrótu została zmieniona w wersji 1.0.0 biblioteki OpenSSL.
+Należy wykonać c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.
 .Sp
 Jeżeli zdefiniowano katalog \fIchroot\fR, to ścieżka do \fICApath\fR jest określona
 względem tego katalogu.
@@ -365,8 +382,11 @@ katalog List Odwołanych Certyfikatów (\s-1CRL\s0)
 .Sp
 Opcja określa katalog, w którym \fBstunnel\fR będzie szukał list \s-1CRL\s0,
 jeżeli użyta została opcja \fIverify\fR.  Pliki z listami \s-1CRL\s0 muszą
-posiadać specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
+posiadać specjalne nazwy \s-1XXXXXXXX\s0.r0, gdzie \s-1XXXXXXXX\s0 jest skrótem
 listy \s-1CRL\s0.
+.Sp
+Funkcja skrótu została zmieniona w wersji 1.0.0 biblioteki OpenSSL.
+Należy wykonać c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.
 .Sp
 Jeżeli zdefiniowano katalog \fIchroot\fR, to ścieżka do \fICRLpath\fR jest określona
 względem tego katalogu.
@@ -527,56 +547,113 @@ czas oczekiwania na nawiązanie połączenia
 .IP "\fBTIMEOUTidle\fR = liczba_sekund" 4
 .IX Item "TIMEOUTidle = liczba_sekund"
 maksymalny czas utrzymywania bezczynnego połączenia
-.IP "\fBtransparent\fR = yes | no (tylko Unix)" 4
-.IX Item "transparent = yes | no (tylko Unix)"
-tryb przezroczystego proxy
+.IP "\fBtransparent\fR = none | source | destination | both (tylko Unix)" 4
+.IX Item "transparent = none | source | destination | both (tylko Unix)"
+tryb przezroczystego proxy na wspieranych platformach
 .Sp
+Wspierane opcje:
+.RS 4
+.IP "\fBnone\fR" 4
+.IX Item "none"
+Zablokuj wsparcie dla przezroczystago proxy.  Jest to wartość domyślna.
+.IP "\fBsource\fR" 4
+.IX Item "source"
 Przepisz adres, aby nawiązywane połączenie wydawało się pochodzić
 bezpośrednio od klienta, a nie od programu \fIstunnel\fR.
 .Sp
 Opcja jest aktualnie obsługiwana w:
-.Sp
-.Vb 3
-\&    trybie zdalnym (opcja I<connect> na jądrze Linux >=2.6.28
-\&    trybie zdalnym (opcja I<connect> na jądrze Linux 2.2.x
-\&    trybie lokalnym (opcja I<exec>)
-.Ve
-.Sp
-\&\fBTryb zdalny\fR (zarówno 2.2.x jak i >=2.6.28) wymaga, aby stunnel był pracował
-z prawami użytkownika root.  W szczególności opcja \fBsetuid\fR nie pozwoli na
-pracę przezroczystego proxy.
-.Sp
-\&\fBLinux >=2.6.28\fR wymaga następujących ustawień iptables oraz routingu
+.RS 4
+.IP "Trybie zdalnym (opcja \fBconnect\fR) w systemie \fBLinux >=2.6.28\fR" 4
+.IX Item "Trybie zdalnym (opcja connect) w systemie Linux >=2.6.28"
+Konfiguracja wymaga następujących ustawień iptables oraz routingu
 (na przykład w pliku /etc/rc.local lub analogicznym):
 .Sp
-.Vb 6
+.Vb 7
 \&    iptables \-t mangle \-N DIVERT
 \&    iptables \-t mangle \-A PREROUTING \-p tcp \-m socket \-j DIVERT
 \&    iptables \-t mangle \-A DIVERT \-j MARK \-\-set\-mark 1
 \&    iptables \-t mangle \-A DIVERT \-j ACCEPT
 \&    ip rule add fwmark 1 lookup 100
 \&    ip route add local 0.0.0.0/0 dev lo table 100
+\&    echo 0 >/proc/sys/net/ipv4/conf/lo/rp_filter
 .Ve
 .Sp
-\&\fBLinux 2.2.x\fR wymaga skompilowania jądra z opcją \fItransparent proxy\fR.
+Konfiguracja ta wymaga, aby \fBstunnel\fR był wykonywany jako root i bez opcji \fBsetuid\fR.
+.IP "Trybie zdalnym (opcja \fBconnect\fR) w systemie \fBLinux 2.2.x\fR" 4
+.IX Item "Trybie zdalnym (opcja connect) w systemie Linux 2.2.x"
+Konfiguracja ta wymaga skompilowania jądra z opcją \fItransparent proxy\fR.
 Docelowa usługa musi być umieszczona na osobnej maszynie, do której routing
 kierowany jest poprzez serwer stunnela.
 .Sp
-\&\fBTryb lokalny\fR jest realizowany poprzez załadowanie przy pomocy \s-1LD_PRELOAD\s0
-biblioteki env.so.
+Dodatkowo \fBstunnel\fR powinien być wykonywany jako root i bez opcji \fBsetuid\fR.
+.IP "Trybie zdalnym (opcja \fBconnect\fR) w systemie \fBFreeBSD >=8.0\fR" 4
+.IX Item "Trybie zdalnym (opcja connect) w systemie FreeBSD >=8.0"
+Konfiguracja ta wymaga skonfigurowania firewalla i routingu.
+\&\fBstunnel\fR musi być wykonywany jako root i bez opcji \fBsetuid\fR.
+.IP "Trybie lokalnym (opcja \fBexec\fR)" 4
+.IX Item "Trybie lokalnym (opcja exec)"
+Konfiguracja ta jest realizowana przy pomocy biblioteki \fBlibstunnel.so\fR.
+Do załadowania biblioteki wykorzystywana jest zmienna środowiskowa _RLD_LIST na
+platformie Tru64 lub \s-1LD_PRELOAD\s0 na innych platformach.
+.RE
+.RS 4
+.RE
+.IP "\fBdestination\fR" 4
+.IX Item "destination"
+Oryginalny adres docelowy jest używany zamiast opcji \fBconnect\fR.
+.Sp
+Przykładowana konfiguracja przezroczystego adresu docelowego:
+.Sp
+.Vb 4
+\&    [transparent]
+\&    client=yes
+\&    accept=<port_stunnela>
+\&    transparent=destination
+.Ve
+.Sp
+Konfiguracja wymaga następujących ustawień iptables
+(na przykład w pliku /etc/rc.local lub analogicznym):
+.Sp
+.Vb 2
+\&    /sbin/iptables \-I INPUT \-i eth0 \-p tcp \-\-dport <port_stunnela> \-j ACCEPT
+\&    /sbin/iptables \-t nat \-I PREROUTING \-i eth0 \-p tcp \-\-dport <port_przekierowany> \-j DNAT \-\-to\-destination <lokalne_ip>:<port_stunnela>
+.Ve
+.Sp
+Przezroczysty adres docelowy jest aktualnie wspierany wyłącznie w systemie Linux.
+.IP "\fBboth\fR" 4
+.IX Item "both"
+Użyj przezroczystego proxy zarówno dla adresu źródłowego jak i docelowego.
+.RE
+.RS 4
+.Sp
+Dla zapewnienia kompatybilności z wcześniejszymim wersjami wspierane są dwie
+dodatkowe opcje:
+.IP "\fByes\fR" 4
+.IX Item "yes"
+Opcja została przemianowana na \fBsource\fR.
+.IP "\fBno\fR" 4
+.IX Item "no"
+Opcja została przemianowana na \fBnone\fR.
+.RE
+.RS 4
+.RE
 .IP "\fBverify\fR = poziom" 4
 .IX Item "verify = poziom"
 weryfikuj certyfikat drugiej strony połączenia
-.Sp
-.Vb 7
-\&    poziom 1 \- weryfikuj, jeżeli został
-\&        przedstawiony
-\&    poziom 2 \- weryfikuj z zainstalowanym
-\&        certyfikatem Centrum Certyfikacji
-\&    poziom 3 \- weryfikuj z lokalnie
-\&        zainstalowanym certyfikatem drugiej strony
-\&    domyślnie \- nie weryfikuj
-.Ve
+.RS 4
+.IP "\fBpoziom 1\fR \- weryfikuj, jeżeli został przedstawiony" 4
+.IX Item "poziom 1 - weryfikuj, jeżeli został przedstawiony"
+.PD 0
+.IP "\fBpoziom 2\fR \- weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji" 4
+.IX Item "poziom 2 - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji"
+.IP "\fBpoziom 3\fR \- weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony" 4
+.IX Item "poziom 3 - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony"
+.IP "\fBdomyślnie\fR \- nie weryfikuj" 4
+.IX Item "domyślnie - nie weryfikuj"
+.RE
+.RS 4
+.RE
+.PD
 .SH "ZWRACANA WARTOŚĆ"
 .IX Header "ZWRACANA WARTOŚĆ"
 \&\fBstunnel\fR zwraca zero w przypadku sukcesu, lub wartość niezerową
@@ -659,23 +736,6 @@ konfiguracyjnym nie ma sekcji \fI[nazwa_usługi]\fR.
 .Vb 2
 \&    exec = /usr/sbin/imapd
 \&    execargs = imapd
-.Ve
-.PP
-Przykładowa konfiguracja umożliwiająca odczytanie klucza prywatnego z
-urządzenia zgodnego z OpenSC
-.PP
-.Vb 7
-\&    engine=dynamic
-\&    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-\&    engineCtrl=ID:pkcs11
-\&    engineCtrl=LIST_ADD:1
-\&    engineCtrl=LOAD
-\&    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc\-pkcs11.so
-\&    engineCtrl=INIT
-\&
-\&    [service]
-\&    engineNum=1
-\&    key=id_45
 .Ve
 .SH "NOTKI"
 .IX Header "NOTKI"
@@ -804,12 +864,9 @@ biblioteka kontroli dostępu do usług internetowych
 .IP "\fIinetd\fR\|(8)" 4
 .IX Item "inetd"
 \&'super\-serwer' internetowy
-.IP "\fIhttp://stunnel.mirt.net/\fR" 4
-.IX Item "http://stunnel.mirt.net/"
-strona domowa programu \fIstunnel\fR
 .IP "\fIhttp://www.stunnel.org/\fR" 4
 .IX Item "http://www.stunnel.org/"
-najczęściej zadawane pytania na temat programu \fIstunnel\fR
+strona domowa programu \fIstunnel\fR
 .IP "\fIhttp://www.openssl.org/\fR" 4
 .IX Item "http://www.openssl.org/"
 strona projektu \fIOpenSSL\fR

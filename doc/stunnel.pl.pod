@@ -155,7 +155,20 @@ wybór sprzêtowego urz±dzenia kryptograficznego
 
 domy¶lnie: bez wykorzystania urz±dzeñ kryptograficznych
 
-Przyk³ad wykorzystania w sekcji 'PRZYK£ADY'.
+Przyk³adowa konfiguracja umo¿liwiaj±ca odczytanie klucza prywatnego z
+urz±dzenia zgodnego z OpenSC:
+
+    engine=dynamic
+    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
+    engineCtrl=ID:pkcs11
+    engineCtrl=LIST_ADD:1
+    engineCtrl=LOAD
+    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
+    engineCtrl=INIT
+
+    [service]
+    engineNum=1
+    key=id_45
 
 =item B<engineCtrl> = <command>[:<parameter>]
 
@@ -309,8 +322,10 @@ katalog Centrum Certyfikacji
 Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
-kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu
-(4 pierwsze bajty skrótu MD5 pocz±wszy od najmniej znaczacego).
+kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu.
+
+Funkcja skrótu zosta³a zmieniona w wersji 1.0.0 biblioteki OpenSSL.
+Nale¿y wykonaæ c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.
 
 Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<CApath> jest okre¶lona
 wzglêdem tego katalogu.
@@ -361,8 +376,11 @@ katalog List Odwo³anych Certyfikatów (CRL)
 
 Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ list CRL,
 je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z listami CRL musz±
-posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
+posiadaæ specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skrótem
 listy CRL.
+
+Funkcja skrótu zosta³a zmieniona w wersji 1.0.0 biblioteki OpenSSL.
+Nale¿y wykonaæ c_rehash przy zmianie OpenSSL 0.x.x na 1.x.x.
 
 Je¿eli zdefiniowano katalog I<chroot>, to ¶cie¿ka do I<CRLpath> jest okre¶lona
 wzglêdem tego katalogu.
@@ -546,24 +564,30 @@ czas oczekiwania na nawi±zanie po³±czenia
 
 maksymalny czas utrzymywania bezczynnego po³±czenia
 
-=item B<transparent> = yes | no (tylko Unix)
+=item B<transparent> = none | source | destination | both (tylko Unix)
 
-tryb przezroczystego proxy
+tryb przezroczystego proxy na wspieranych platformach
+
+Wspierane opcje:
+
+=over 4
+
+=item B<none>
+
+Zablokuj wsparcie dla przezroczystago proxy.  Jest to warto¶æ domy¶lna.
+
+=item B<source>
 
 Przepisz adres, aby nawi±zywane po³±czenie wydawa³o siê pochodziæ
 bezpo¶rednio od klienta, a nie od programu I<stunnel>.
 
 Opcja jest aktualnie obs³ugiwana w:
 
-    trybie zdalnym (opcja I<connect> na j±drze Linux >=2.6.28
-    trybie zdalnym (opcja I<connect> na j±drze Linux 2.2.x
-    trybie lokalnym (opcja I<exec>)
+=over 4
 
-B<Tryb zdalny> (zarówno 2.2.x jak i >=2.6.28) wymaga, aby stunnel by³ pracowa³
-z prawami u¿ytkownika root.  W szczególno¶ci opcja B<setuid> nie pozwoli na
-pracê przezroczystego proxy.
+=item Trybie zdalnym (opcja B<connect>) w systemie B<Linux E<gt>=2.6.28>
 
-B<Linux E<gt>=2.6.28> wymaga nastêpuj±cych ustawieñ iptables oraz routingu
+Konfiguracja wymaga nastêpuj±cych ustawieñ iptables oraz routingu
 (na przyk³ad w pliku /etc/rc.local lub analogicznym):
 
     iptables -t mangle -N DIVERT
@@ -572,25 +596,86 @@ B<Linux E<gt>=2.6.28> wymaga nastêpuj±cych ustawieñ iptables oraz routingu
     iptables -t mangle -A DIVERT -j ACCEPT
     ip rule add fwmark 1 lookup 100
     ip route add local 0.0.0.0/0 dev lo table 100
+    echo 0 >/proc/sys/net/ipv4/conf/lo/rp_filter
 
-B<Linux 2.2.x> wymaga skompilowania j±dra z opcj± I<transparent proxy>.
+Konfiguracja ta wymaga, aby B<stunnel> by³ wykonywany jako root i bez opcji B<setuid>.
+
+=item Trybie zdalnym (opcja B<connect>) w systemie B<Linux 2.2.x>
+
+Konfiguracja ta wymaga skompilowania j±dra z opcj± I<transparent proxy>.
 Docelowa us³uga musi byæ umieszczona na osobnej maszynie, do której routing
 kierowany jest poprzez serwer stunnela.
 
-B<Tryb lokalny> jest realizowany poprzez za³adowanie przy pomocy LD_PRELOAD
-biblioteki env.so.
+Dodatkowo B<stunnel> powinien byæ wykonywany jako root i bez opcji B<setuid>.
+
+=item Trybie zdalnym (opcja B<connect>) w systemie B<FreeBSD E<gt>=8.0>
+
+Konfiguracja ta wymaga skonfigurowania firewalla i routingu.
+B<stunnel> musi byæ wykonywany jako root i bez opcji B<setuid>.
+
+=item Trybie lokalnym (opcja B<exec>)
+
+Konfiguracja ta jest realizowana przy pomocy biblioteki B<libstunnel.so>.
+Do za³adowania biblioteki wykorzystywana jest zmienna ¶rodowiskowa _RLD_LIST na
+platformie Tru64 lub LD_PRELOAD na innych platformach.
+
+=back
+
+=item B<destination>
+
+Oryginalny adres docelowy jest u¿ywany zamiast opcji B<connect>.
+
+Przyk³adowana konfiguracja przezroczystego adresu docelowego:
+
+    [transparent]
+    client=yes
+    accept=<port_stunnela>
+    transparent=destination
+
+Konfiguracja wymaga nastêpuj±cych ustawieñ iptables
+(na przyk³ad w pliku /etc/rc.local lub analogicznym):
+
+    /sbin/iptables -I INPUT -i eth0 -p tcp --dport <port_stunnela> -j ACCEPT
+    /sbin/iptables -t nat -I PREROUTING -i eth0 -p tcp --dport <port_przekierowany> -j DNAT --to-destination <lokalne_ip>:<port_stunnela>
+
+Przezroczysty adres docelowy jest aktualnie wspierany wy³±cznie w systemie Linux.
+
+=item B<both>
+
+U¿yj przezroczystego proxy zarówno dla adresu ¼ród³owego jak i docelowego.
+
+=back
+
+Dla zapewnienia kompatybilno¶ci z wcze¶niejszymim wersjami wspierane s± dwie
+dodatkowe opcje:
+
+=over 4
+
+=item B<yes>
+
+Opcja zosta³a przemianowana na B<source>.
+
+=item B<no>
+
+Opcja zosta³a przemianowana na B<none>.
+
+=back
 
 =item B<verify> = poziom
 
 weryfikuj certyfikat drugiej strony po³±czenia
 
-    poziom 1 - weryfikuj, je¿eli zosta³
-        przedstawiony
-    poziom 2 - weryfikuj z zainstalowanym
-        certyfikatem Centrum Certyfikacji
-    poziom 3 - weryfikuj z lokalnie
-        zainstalowanym certyfikatem drugiej strony
-    domy¶lnie - nie weryfikuj
+=over 4
+
+=item B<poziom 1> - weryfikuj, je¿eli zosta³ przedstawiony
+
+=item B<poziom 2> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji
+
+=item B<poziom 3> - weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony
+
+=item B<domy¶lnie> - nie weryfikuj
+
+=back
 
 =back
 
@@ -681,21 +766,6 @@ konfiguracyjnym nie ma sekcji I<[nazwa_us³ugi]>.
 
     exec = /usr/sbin/imapd
     execargs = imapd
-
-Przyk³adowa konfiguracja umo¿liwiaj±ca odczytanie klucza prywatnego z
-urz±dzenia zgodnego z OpenSC
-
-    engine=dynamic
-    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-    engineCtrl=ID:pkcs11
-    engineCtrl=LIST_ADD:1
-    engineCtrl=LOAD
-    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
-    engineCtrl=INIT
-
-    [service]
-    engineNum=1
-    key=id_45
 
 
 =head1 NOTKI
@@ -842,13 +912,9 @@ biblioteka kontroli dostêpu do us³ug internetowych
 
 'super-serwer' internetowy
 
-=item F<http://stunnel.mirt.net/>
-
-strona domowa programu I<stunnel>
-
 =item F<http://www.stunnel.org/>
 
-najczê¶ciej zadawane pytania na temat programu I<stunnel>
+strona domowa programu I<stunnel>
 
 =item F<http://www.openssl.org/>
 

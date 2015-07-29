@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -70,10 +70,8 @@ void libwrap_init(int num) {
         die(1);
     }
     for(i=0; i<num_processes; ++i) { /* spawn a child */
-        if(socketpair(AF_UNIX, SOCK_STREAM, 0, ipc_socket+2*i)) {
-            sockerror("socketpair");
+        if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, ipc_socket+2*i, 0, "libwrap_init"))
             die(1);
-        }
         switch(fork()) {
         case -1:    /* error */
             ioerror("fork");
@@ -84,10 +82,9 @@ void libwrap_init(int num) {
             close(1); /* stdout */
             if(!global_options.option.foreground) /* for logging in read_fd */
                 close(2); /* stderr */
-            close(ipc_socket[2*i]); /* close server-side socket */
-            for(j=0; j<i; ++j) /* previously created client-side sockets */
-                close(ipc_socket[2*j+1]);
-            while(1) { /* main libwrap client loop */
+            for(j=0; j<=i; ++j) /* close parent-side sockets created so far */
+                close(ipc_socket[2*j]);
+            while(1) { /* main libwrap child loop */
                 if(read_fd(ipc_socket[2*i+1], servname, STRLEN, &rfd)<=0)
                     _exit(0);
                 result=check(servname, rfd);
@@ -96,10 +93,7 @@ void libwrap_init(int num) {
                     close(rfd);
             }
         default:    /* parent */
-#ifdef FD_CLOEXEC
-            fcntl(ipc_socket[2*i], F_SETFD, FD_CLOEXEC); /* server-side socket */
-#endif
-            close(ipc_socket[2*i+1]); /* client-side socket */
+            close(ipc_socket[2*i+1]); /* child-side socket */
         }
     }
 #endif /* USE_PTHREAD */

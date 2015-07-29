@@ -1,6 +1,5 @@
-stunnel         Universal SSL tunnel
+stunnel known bugs
 
-KNOWN BUGS
 
-- Shared library to be LD_PRELOADed does not support IPv6.
+- Shared library for transparent proxy does not support IPv6.
 

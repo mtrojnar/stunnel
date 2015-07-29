@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -62,7 +62,7 @@ static unsigned long parse_ocsp_flag(char *);
 
 static void syntax(CONF_TYPE);
 static void config_error(int, const char *, const char *);
-static void section_error(int, const char *);
+static void section_error(int, const char *, const char *);
 static char *stralloc(char *);
 #ifndef USE_WIN32
 static char **argalloc(char *);
@@ -1415,22 +1415,33 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #ifndef USE_WIN32
     switch(cmd) {
     case CMD_INIT:
-        section->option.transparent=0;
+        section->option.transparent_src=0;
+        section->option.transparent_dst=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "transparent"))
             break;
-        if(!strcasecmp(arg, "yes"))
-            section->option.transparent=1;
-        else if(!strcasecmp(arg, "no"))
-            section->option.transparent=0;
-        else
-            return "Argument should be either 'yes' or 'no'";
+        if(!strcasecmp(arg, "none") || !strcasecmp(arg, "no")) {
+            section->option.transparent_src=0;
+            section->option.transparent_dst=0;
+        } else if(!strcasecmp(arg, "source") || !strcasecmp(arg, "yes")) {
+            section->option.transparent_src=1;
+            section->option.transparent_dst=0;
+#ifdef SO_ORIGINAL_DST
+        } else if(!strcasecmp(arg, "destination")) {
+            section->option.transparent_src=0;
+            section->option.transparent_dst=1;
+        } else if(!strcasecmp(arg, "both")) {
+            section->option.transparent_src=1;
+            section->option.transparent_dst=1;
+#endif
+        } else
+            return "Selected transparent proxy mode is not available";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-15s = yes|no transparent proxy mode",
+        s_log(LOG_NOTICE, "%-15s = none|source|destination|both transparent proxy mode",
             "transparent");
         break;
     }
@@ -1642,7 +1653,7 @@ void parse_conf(char *name, CONF_TYPE type) {
     file_close(df);
 
     /* initialize the last section */
-    if(!section_init(line_number-1, section, 1)) {
+    if(!section_init(line_number, section, 1)) {
         if(type==CONF_RELOAD)
             return;
         die(1);
@@ -1670,7 +1681,7 @@ void parse_conf(char *name, CONF_TYPE type) {
 
 /**************************************** validate and initialize section */
 
-static int section_init(int prev_line, SERVICE_OPTIONS *section, int final) {
+static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
     if(section==&new_service_options) { /* global options just configured */
         memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
 #ifdef HAVE_OSSL_ENGINE_H
@@ -1683,7 +1694,8 @@ static int section_init(int prev_line, SERVICE_OPTIONS *section, int final) {
     }
 
     if(!section->option.client && !section->cert) {
-        section_error(prev_line, "SSL server needs a certificate");
+        section_error(last_line, section->servname,
+            "SSL server needs a certificate");
         return 0;
     }
     if(!context_init(section)) /* initialize SSL context */
@@ -1691,21 +1703,27 @@ static int section_init(int prev_line, SERVICE_OPTIONS *section, int final) {
 
     if(section==&new_service_options) { /* inetd mode checks */
         if(section->option.accept) {
-            section_error(prev_line, "'accept' is not allowed in inetd mode");
+            section_error(last_line, section->servname,
+                "'accept' is not allowed in inetd mode");
             return 0;
         }
 #if 0
         /* TODO: some additional checks could be useful */
         if((unsigned int)section->option.program +
                 (unsigned int)section->option.remote != 1)
-            section_error(prev_line,
+            section_error(last_line, section->servname,
                 "Single endpoint is required in inetd mode");
 #endif
     } else { /* standalone mode checks */
-        if((unsigned int)section->option.accept +
-                (unsigned int)section->option.program +
-                (unsigned int)section->option.remote != 2) {
-            section_error(prev_line, "Each service must define two endpoints");
+        if((unsigned int)section->option.accept
+                + (unsigned int)section->option.program
+                + (unsigned int)section->option.remote
+#ifndef USE_WIN32
+                + (unsigned int)section->option.transparent_dst
+#endif /* USE_WIN32 */
+                !=2) {
+            section_error(last_line, section->servname,
+                "Each service must define two endpoints");
             return 0;
         }
     }
@@ -2014,13 +2032,15 @@ static int parse_socket_option(char *arg) {
         opt_val2_str=strchr(opt_val_str, ':');
         if(opt_val2_str) {
             *opt_val2_str++='\0';
-            ptr->opt_val[socket_type]->linger_val.l_linger=strtol(opt_val2_str, &tmpstr, 10);
+            ptr->opt_val[socket_type]->linger_val.l_linger=
+                (u_short)strtol(opt_val2_str, &tmpstr, 10);
             if(tmpstr==arg || *tmpstr) /* not a number */
                 return 0; /* FAILED */
         } else {
             ptr->opt_val[socket_type]->linger_val.l_linger=0;
         }
-        ptr->opt_val[socket_type]->linger_val.l_onoff=strtol(opt_val_str, &tmpstr, 10);
+        ptr->opt_val[socket_type]->linger_val.l_onoff=
+            (u_short)strtol(opt_val_str, &tmpstr, 10);
         if(tmpstr==arg || *tmpstr) /* not a number */
             return 0; /* FAILED */
         return 1; /* OK */
@@ -2139,14 +2159,18 @@ static void config_error(int num, const char *line, const char *str) {
     s_log(LOG_ERR, "Line %d: \"%s\": %s", num, line, str);
 }
 
-static void section_error(int num, const char *str) {
-    s_log(LOG_ERR, "Line %d (end of section): %s", num, str);
+static void section_error(int num, const char *name, const char *str) {
+    s_log(LOG_ERR, "Line %d: End of section %s: %s", num, name, str);
 }
 
 static char *stralloc(char *str) { /* strdup() with error checking */
     char *retval;
 
+#ifdef USE_WIN32
+    retval=_strdup(str);
+#else
     retval=strdup(str);
+#endif	
     if(!retval) {
         s_log(LOG_ERR, "Fatal memory allocation error");
         die(2);
