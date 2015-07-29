@@ -1,5 +1,13 @@
 stunnel         Universal SSL tunnel
 
+Version 3.20, 2001.08.15, urgency: LOW:
+* setsockopt() optlen set according to the optval for Solaris.
+* Minor NetBSD compatibility fixes by Martti Kuparinen.
+* Minor MSVC6 compatibility fixes by Patrick Mayweg.
+* SSL close_notify timeout reduced to 10 seconds of inactivity.
+* Socket close instead of reset on close_notify timeout.
+* Some source arrangement and minor bugfixes.
+
 Version 3.19, 2001.08.10, urgency: MEDIUM:
 * Critical section added around non MT-safe TCP Wrappers code.
 * Problem with "select: Interrupted system call" error fixed.
@@ -120,7 +128,6 @@ Version 3.8p1, 2000.06.11  bri@stunnel.org:
 * Man page fixes
 * Client SSL Session-IDs now used
 * -N flag to specify tcpwrapper service name
-
 
 Version 3.8, 2000.02.24:
 * Checking for threads in c_r library for FreeBSD.

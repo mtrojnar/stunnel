@@ -26,18 +26,22 @@
 #include <util.h>
 #endif /* HAVE_UTIL_H */
 
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif /* HAVE_SYS_IOCTL_H */
+
 /* Pty allocated with _getpty gets broken if we do I_PUSH:es to it. */
 #if defined(HAVE__GETPTY) || defined(HAVE_OPENPTY)
 #undef HAVE_DEV_PTMX
-#endif
+#endif /* HAVE__GETPTY || HAVE_OPENPTY */
 
 #ifdef HAVE_PTY_H
 #include <pty.h>
-#endif
+#endif /* HAVE_PTY_H */
 
 #ifndef O_NOCTTY
 #define O_NOCTTY 0
-#endif
+#endif /* O_NOCTTY */
 
 /*
  * Allocates and opens a pty.  Returns -1 if no pty could be allocated, or

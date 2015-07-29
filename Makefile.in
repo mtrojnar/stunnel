@@ -19,12 +19,12 @@ CC=@CC@
 INSTALL=@INSTALL@
 CFLAGS=@CFLAGS@ @DEFS@ -Dlibdir=\"$(libdir)\" -DPIDDIR=\"$(piddir)\"
 LIBS=@LIBS@
-OBJS=stunnel.o ssl.o protocol.o sthreads.o pty.o log.o options.o
+OBJS=stunnel.o ssl.o client.o protocol.o sthreads.o pty.o log.o options.o
 DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(man8dir)/stunnel.8  $(PEM_DIR)/stunnel.pem
 
 WINGCC=i386-mingw32msvc-gcc 
-WINCFLAGS=-O2 -Wall -DUSE_WIN32 -DHAVE_OPENSSL -I../openssl-0.9.6/outinc
-WINSRC=stunnel.c ssl.c protocol.c sthreads.c log.c options.c
+WINCFLAGS=-O2 -Wall -DUSE_WIN32 -DHAVE_OPENSSL -DVERSION=\"@VERSION@\" -I../openssl-0.9.6/outinc
+WINSRC=stunnel.c ssl.c client.c protocol.c sthreads.c log.c options.c
 WINLIBS=-L../openssl-0.9.6/out -leay32 -lssl32 -lwsock32 -lgdi32
 
 # standard external rules
@@ -61,7 +61,7 @@ installdirs: mkinstalldirs
 
 # non-standard external rules
 
-stunnel.exe: $(WINSRC)
+stunnel.exe: $(WINSRC) Makefile common.h
 	$(WINGCC) $(WINCFLAGS) -s -o stunnel.exe $(WINSRC) $(WINLIBS)
 
 stunnel.8: stunnel.sdf

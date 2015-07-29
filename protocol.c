@@ -212,7 +212,8 @@ static int telnet_server(int local_rd, int local_wr, int remote) {
 
 static int fdprintf(int fd, char *format, ...) {
     va_list arglist;
-    char line[STRLEN], *crlf="\r\n";
+    char line[STRLEN], logline[STRLEN];
+    char *crlf="\r\n";
     int len;
 
     va_start(arglist, format);
@@ -230,12 +231,14 @@ static int fdprintf(int fd, char *format, ...) {
         sockerror("writesocket (fdprintf)");
         return -1;
     }
+    safecopy(logline, line);
+    safestring(logline);
     log(LOG_DEBUG, " -> %s", line);
     return len;
 }
 
 static int fdscanf(int fd, char *format, char *buffer) {
-    char line[STRLEN];
+    char line[STRLEN], logline[STRLEN];
     int ptr;
 
     ptr=0;
@@ -256,7 +259,9 @@ static int fdscanf(int fd, char *format, char *buffer) {
             break;
     }
     line[ptr]='\0';
-    log(LOG_DEBUG, " <- %s", line);
+    safecopy(logline, line);
+    safestring(logline);
+    log(LOG_DEBUG, " <- %s", logline);
     return sscanf(line, format, buffer);
 }
 

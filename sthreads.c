@@ -26,8 +26,6 @@
 #include <crypto.h> /* for CRYPTO_* */
 #endif
 
-#define CRIT_SECTIONS 5
-
 #ifdef USE_PTHREAD
 
 #include <pthread.h>
@@ -37,11 +35,11 @@ pthread_mutex_t stunnel_cs[CRIT_SECTIONS];
 pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
 pthread_attr_t pth_attr;
 
-void enter_critical_section(int i) {
+void enter_critical_section(section_code i) {
     pthread_mutex_lock(stunnel_cs+i);
 }
 
-void leave_critical_section(int i) {
+void leave_critical_section(section_code i) {
     pthread_mutex_unlock(stunnel_cs+i);
 }
 
@@ -107,11 +105,11 @@ int create_client(int ls, int s, void (*cli)(int)) {
 
 CRITICAL_SECTION stunnel_cs[CRIT_SECTIONS];
 
-void enter_critical_section(int i) {
+void enter_critical_section(section_code i) {
     EnterCriticalSection(stunnel_cs+i);
 }
 
-void leave_critical_section(int i) {
+void leave_critical_section(section_code i) {
     LeaveCriticalSection(stunnel_cs+i);
 }
 
@@ -143,11 +141,11 @@ int create_client(int ls, int s, void (*cli)(int)) {
 
 #ifdef USE_FORK
 
-void enter_critical_section(int i) {
+void enter_critical_section(section_code i) {
     /* empty */
 }
 
-void leave_critical_section(int i) {
+void leave_critical_section(section_code i) {
     /* empty */
 }
 

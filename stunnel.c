@@ -3,9 +3,9 @@
  *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.19                  (stunnel.c)
- *   Date:         2001.08.10
- *   
+ *   Version:      3.20                  (stunnel.c)
+ *   Date:         2001.08.15
+ *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #define INET_SOCKET_PAIR
 
 /* Max number of children is limited by FD_SETSIZE */
+/* Do not increase it over 500 */
 #ifdef FD_SETSIZE
 #define MAX_CLIENTS    ((FD_SETSIZE-24)/2)
 #else
@@ -86,10 +87,11 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
 
     /* process options */
     options.foreground=1;
-    options.cert_defaults = CERT_DEFAULTS;
-    
+    options.cert_defaults=CERT_DEFAULTS;
+
     safecopy(options.pem, PEM_DIR);
-    if ( options.pem[0] ) { safeconcat(options.pem, "/"); }
+    if(options.pem[0]) /* not an empty string */
+        safeconcat(options.pem, "/");
     safeconcat(options.pem, "stunnel.pem");
 
     parse_options(argc, argv);
@@ -113,7 +115,7 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
     /* check if started from inetd */
     context_init(); /* initialize global SSL context */
     sthreads_init(); /* initialize threads */
-    log(LOG_NOTICE, STUNNEL_INFO);
+    log(LOG_NOTICE, "%s", STUNNEL_INFO);
     if (options.option & OPT_DAEMON) {
         /* client or server, daemon mode */
 #ifndef USE_WIN32
@@ -169,24 +171,24 @@ static void daemon_loop() {
         }
         if(options.clients<MAX_CLIENTS) {
             if(create_client(ls, s, client)) {
-                enter_critical_section(4); /* inet_ntoa is not mt-safe */
+                enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
                 log(LOG_WARNING,
                     "%s create_client failed - connection from %s:%d REJECTED",
                     options.servname,
                     inet_ntoa(addr.sin_addr),
                     ntohs(addr.sin_port));
-                leave_critical_section(4);
+                leave_critical_section(CRIT_NTOA);
             } else {
-                enter_critical_section(2); /* for multi-cpu machines */
+                enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
                 options.clients++;
-                leave_critical_section(2);
+                leave_critical_section(CRIT_CLIENTS);
             }
         } else {
-            enter_critical_section(4); /* inet_ntoa is not mt-safe */
+            enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
             log(LOG_WARNING,
                 "%s has too many clients - connection from %s:%d REJECTED",
                 options.servname, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-            leave_critical_section(4);
+            leave_critical_section(CRIT_NTOA);
             closesocket(s);
         }
     }
@@ -253,10 +255,10 @@ static void create_pid() {
         force_dir=0; /* this can be either a file or a directory */
     }
     if(!stat(tmpdir, &sb) && S_ISDIR(sb.st_mode)) { /* directory */
-#ifdef HAVE_SNPRINTF 
+#ifdef HAVE_SNPRINTF
         snprintf(options.pidfile, STRLEN,
             "%s/stunnel.%s.pid", tmpdir, options.servname);
-#else
+#else /* No data from network here.  Am I paranoid? */
         safecopy(options.pidfile, tmpdir);
         safeconcat(options.pidfile, "/stunnel.");
         safeconcat(options.pidfile, options.servname);
@@ -312,10 +314,10 @@ static int listen_local() { /* bind and listen on local interface */
         sockerror("bind");
         exit(1);
     }
-    enter_critical_section(4); /* inet_ntoa is not mt-safe */
+    enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
     log(LOG_DEBUG, "%s bound to %s:%d", options.servname,
         inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-    leave_critical_section(4);
+    leave_critical_section(CRIT_NTOA);
     if(listen(ls, 5)) {
         sockerror("listen");
         exit(1);
@@ -377,7 +379,7 @@ int connect_local(u32 ip) { /* spawn local process */
     char text[STRLEN];
     int fd[2];
     unsigned long pid;
-   
+
     if (options.option & OPT_PTY) {
         char tty[STRLEN];
 
@@ -415,9 +417,9 @@ int connect_local(u32 ip) { /* spawn local process */
             putenv("_RLD_LIST=" libdir "/stunnel.so:DEFAULT");
             addr.s_addr = ip;
             safecopy(text, "REMOTE_HOST=");
-            enter_critical_section(4); /* inet_ntoa is not mt-safe */
+            enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
             safeconcat(text, inet_ntoa(addr));
-            leave_critical_section(4);
+            leave_critical_section(CRIT_NTOA);
             putenv(text);
         }
         execvp(options.execname, options.execargs);
@@ -457,10 +459,10 @@ int connect_remote(u32 ip) { /* connect to remote host */
     /* connect each host from the list*/
     for(list=options.remotenames; *list!=-1; list++) {
         addr.sin_addr.s_addr=*list;
-        enter_critical_section(4); /* inet_ntoa is not mt-safe */
+        enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
         log(LOG_DEBUG, "%s connecting %s:%d", options.servname,
             inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-        leave_critical_section(4);
+        leave_critical_section(CRIT_NTOA);
         if(!connect(s, (struct sockaddr *) &addr, sizeof(addr)))
             return s; /* success */
     }
@@ -473,7 +475,7 @@ int auth_user(struct sockaddr_in *addr) {
     struct sockaddr_in ident; /* IDENT socket name */
     int s;                    /* IDENT socket descriptor */
     char buff[STRLEN], name[STRLEN];
-    int ptr, len;
+    int ptr, len, retval;
 
     if(!options.username)
         return 0; /* -u option not specified */
@@ -496,10 +498,11 @@ int auth_user(struct sockaddr_in *addr) {
     }
 #ifdef HAVE_SNPRINTF
     len=snprintf(buff, STRLEN,
+        "%u , %u\r\n", ntohs(addr->sin_port), ntohs(options.localport));
 #else
     len=sprintf(buff,
-#endif
         "%u , %u\r\n", ntohs(addr->sin_port), ntohs(options.localport));
+#endif
     len=writesocket(s, buff, len);
     if(len<0) {
         sockerror("writesocket (ident)");
@@ -519,13 +522,13 @@ int auth_user(struct sockaddr_in *addr) {
     closesocket(s);
     buff[ptr]='\0';
     if(sscanf(buff, "%*[^:]: USERID :%*[^:]:%s", name)!=1) {
-        log(LOG_ERR, "Incorrect data from inetd server");
+        log(LOG_ERR, "Incorrect data from ident server");
         return -1;
     }
+    retval=strcmp(name, options.username) ? -1 : 0;
+    safestring(name);
     log(LOG_INFO, "IDENT resolved remote user to %s", name);
-    if(strcmp(name, options.username))
-        return -1;
-    return 0;
+    return retval;
 }
 
 #ifndef USE_WIN32
@@ -585,13 +588,24 @@ int set_socket_options(int s, int type) {
     sock_opt *ptr;
     extern sock_opt sock_opts[];
     static char *type_str[3]={"accept", "local", "remote"};
+    int opt_size;
 
     for(ptr=sock_opts;ptr->opt_str;ptr++) {
         if(!ptr->opt_val[type])
             continue; /* default */
+        switch(ptr->opt_type) {
+        case TYPE_LINGER:
+            opt_size=sizeof(struct linger); break;
+        case TYPE_TIMEVAL:
+            opt_size=sizeof(struct timeval); break;
+        case TYPE_STRING:
+            opt_size=strlen(ptr->opt_val[type]->c_val)+1; break;
+        default:
+            opt_size=sizeof(int); break;
+        }
         if(setsockopt(s, ptr->opt_level, ptr->opt_name,
-                (void *)ptr->opt_val[type], sizeof(opt_union))) {
-            sockerror("setsockopt");
+                (void *)ptr->opt_val[type], opt_size)) {
+            sockerror(ptr->opt_str);
             return -1; /* FAILED */
         } else {
             log(LOG_DEBUG, "%s option set on %s socket",
@@ -646,7 +660,7 @@ static void local_handler(int sig) { /* sigchld handler for -l processes */
     int pid, status;
 
     pid=wait(&status);
-    log(LOG_DEBUG, "Local process %s[%d] finished with code %d)",
+    log(LOG_DEBUG, "Local process %s[%d] finished with code %d",
         options.servname, pid, status);
     signal(SIGCHLD, local_handler);
 }

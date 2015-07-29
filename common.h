@@ -18,42 +18,38 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#define OPT_CLIENT      0x01
-#define OPT_CERT        0x02
-#define OPT_DAEMON      0x04
-#define OPT_FOREGROUND  0x08
-#define OPT_PROGRAM     0x10
-#define OPT_REMOTE      0x20
-#define OPT_TRANSPARENT 0x40
-#define OPT_PTY         0x80
-
-#define STDIO_FILENO    (-2)
-
 /* Certificate defaults */
 
 /* let's not use openssl defaults unless told to at compile time. */
 #ifndef SSLLIB_CS
-#define SSLLIB_CS	0
+#define SSLLIB_CS 0
 #endif
 
-#define SSL_CERT_DEFAULTS	1
-#define STUNNEL_CERT_DEFAULTS	2
+#define SSL_CERT_DEFAULTS     1
+#define STUNNEL_CERT_DEFAULTS 2
 
 #define CERT_DEFAULTS ( SSLLIB_CS | STUNNEL_CERT_DEFAULTS )
 
-
 /* Set some defaults if not set in makefiles */
 #ifndef CERT_DIR
-#define CERT_DIR	""
+#define CERT_DIR  ""
 #endif
 #ifndef CERT_FILE
-#define CERT_FILE	""
+#define CERT_FILE ""
 #endif
 #ifndef PEM_DIR
-#define PEM_DIR	""
+#define PEM_DIR   ""
 #endif
 
-    /* Must be included before sys/stat.h for Ultrix */
+/* define for windows, although ignored */
+#ifndef PIDDIR
+#define PIDDIR ""
+#endif
+
+/* For FormatGuard */
+#define __NO_FORMATGUARD_
+
+/* Must be included before sys/stat.h for Ultrix */
 #include <sys/types.h>   /* u_short, u_long */
 
 /* General headers */
@@ -68,7 +64,10 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.19"
+#ifndef VERSION
+#define VERSION "3.20"
+#endif
+
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else
@@ -78,13 +77,14 @@
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned long u32;
-typedef unsigned long long u64;
+typedef unsigned __int64 u64;
 
 #define HAVE_VSNPRINTF
 #define vsnprintf _vsnprintf
 /*  Already defined for mingw, perhaps others
 int _vsnprintf(char *, int, char *, ...);
 */
+#define strcasecmp _stricmp
 
 #define get_last_socket_error() WSAGetLastError()
 #define get_last_error()        GetLastError()
@@ -213,17 +213,23 @@ extern char *sys_errlist[];
 #endif
 
 /* Length of strings (including the terminating '\0' character) */
-#define STRLEN         1024
+#define STRLEN       1024
 
 /* How many bytes of random input to read from files for PRNG */
 /* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
-#define RANDOM_BYTES		64
+#define RANDOM_BYTES 64
+
+/* STDIN/STDOUT used instead of a single file desriptor */
+#define STDIO_FILENO (-2)
 
 /* Safe copy for strings declarated as char[STRLEN] */
 #define safecopy(dst, src) \
     (dst[STRLEN-1]='\0', strncpy((dst), (src), STRLEN-1))
 #define safeconcat(dst, src) \
     (dst[STRLEN-1]='\0', strncat((dst), (src), STRLEN-strlen(dst)-1))
+/* change all unsafe characters to '.' */
+#define safestring(s) \
+    do {char *p; for(p=(s); *p; p++) if(!isalnum(*p)) *p='.';} while(0)
 
 /* Prototypes for stunnel.c */
 
@@ -231,11 +237,15 @@ void sockerror(char *);
 int connect_local(u32);
 int connect_remote(u32);
 int set_socket_options(int, int);
+int auth_user(struct sockaddr_in *);
 
 /* Prototypes for ssl.c */
 
 void context_init();
 void context_free();
+void sslerror(char *);
+
+/* Prototypes for ssl.c */
 void client(int);
 
 /* Prototypes for protocol.c */
@@ -250,8 +260,12 @@ void log(int, char *, ...);
 
 /* Prototypes for sthreads.c */
 
-void enter_critical_section(int);
-void leave_critical_section(int);
+typedef enum {
+    CRIT_KEYGEN, CRIT_LIBWRAP, CRIT_NTOA, CRIT_CLIENTS, CRIT_SECTIONS
+} section_code;
+
+void enter_critical_section(section_code);
+void leave_critical_section(section_code);
 void sthreads_init(void);
 unsigned long process_id(void);
 unsigned long thread_id(void);
@@ -265,33 +279,42 @@ void pty_release(char *ttyname);
 void pty_make_controlling_tty(int *ttyfd, char *ttyname);
 
 /* Prototypes for options.c */
+#define OPT_CLIENT      0x01
+#define OPT_CERT        0x02
+#define OPT_DAEMON      0x04
+#define OPT_FOREGROUND  0x08
+#define OPT_PROGRAM     0x10
+#define OPT_REMOTE      0x20
+#define OPT_TRANSPARENT 0x40
+#define OPT_PTY         0x80
+
 typedef struct {
-    char pem[STRLEN];  		/* pem (priv key/cert) filename */
-    char cert_dir[STRLEN];	/* directory for hashed certs */
-    char cert_file[STRLEN];	/* file containing bunches of certs */
+    char pem[STRLEN];                        /* pem (priv key/cert) filename */
+    char cert_dir[STRLEN];                     /* directory for hashed certs */
+    char cert_file[STRLEN];              /* file containing bunches of certs */
     char pidfile[STRLEN];
     unsigned long dpid;
     int clients;
     int option;
-    int foreground;         /* force messages to stderr */
+    int foreground;                              /* force messages to stderr */
     unsigned short localport, remoteport;
     u32 *localnames, *remotenames;
     char *execname, **execargs; /* program name and arguments for local mode */
     char servname[STRLEN];  /* service name for loggin & permission checking */
     int verify_level;
     int verify_use_only_my;
-    int debug_level;		/* debug level for syslog */
-    int facility;		/* debug facility for syslog */
+    int debug_level;                               /* debug level for syslog */
+    int facility;                               /* debug facility for syslog */
     long session_timeout;
     char *cipher_list;
     char *username;
     char *protocol;
     char *setuid_user;
     char *setgid_group;
-    char *egd_sock;	/* entropy gathering daemon socket */
-    char *rand_file;	/* file with random data */
-    int rand_write;	/* overwrite rand_file with new rand data when PRNG seeded */
-    int random_bytes;	/* how many random bytes to read */
+    char *egd_sock;                       /* entropy gathering daemon socket */
+    char *rand_file;                                /* file with random data */
+    int rand_write; /* overwrite rand_file with new rand data when PRNG seeded */
+    int random_bytes;                       /* how many random bytes to read */
     char *pid_dir;
     int cert_defaults;
     char *output_file;
@@ -319,16 +342,5 @@ typedef struct {
 } sock_opt;
 
 void parse_options(int argc, char *argv[]);
-
-
-/* define for windows, although ignored */
-#ifndef PIDDIR
-#define PIDDIR ""
-#endif
-
-#if 0
-#define STRINGIFY_H(x) #x
-#define STRINGIFY(x) STRINGIFY_H(x)
-#endif
 
 /* End of common.h */

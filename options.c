@@ -38,7 +38,6 @@ static void host2num(u32 **hostlist, char *hostname);
 #ifndef HAVE_GETOPT
 static int getopt(int argc, char **argv, char *options);
 #endif
-static void safestring(char *string);
 static void alloc(u32 **ptr, int len);
 static int parse_debug_level(char *optarg);
 static int print_socket_options();
@@ -240,10 +239,6 @@ void parse_options(int argc, char *argv[]) {
     }
 #endif
     if (options.option & OPT_CLIENT) {
-        if (!(options.option & OPT_REMOTE)) {
-            log(LOG_ERR, "Remote service must be specified");
-            print_info();
-        }
         if (options.option & OPT_TRANSPARENT) {
             log(LOG_ERR,
                 "Client mode not available in transparent proxy mode");
@@ -437,7 +432,7 @@ static u_short port2num(char *portname) { /* get port number */
     if((p=getservbyname(portname, "tcp")))
         port=p->s_port;
     else
-        port=htons(atoi(portname));
+        port=htons((u_short)atoi(portname));
     if(!port) {
         log(LOG_ERR, "Invalid port: %s", portname);
         exit(2);
@@ -496,13 +491,6 @@ static int getopt(int argc, char **argv, char *options) {
     return optopt;
 }
 #endif /* !defined HAVE_GETOPT */
-
-static void safestring(char *string) {
-        /* change all unsafe characters to '.' */
-    for(; *string; string++)
-        if(!isalnum((unsigned char)*string))
-            *string='.';
-}
 
 static void alloc(u32 **ptr, int len) {
         /* Allocate len+1 words terminated with -1 */
@@ -696,6 +684,7 @@ static void print_option(int type, opt_union *val) {
         fprintf(stderr, "%10s", val->c_val);
         break;
     default:
+        ; /* ANSI C compiler needs it */
     }
 }
 
@@ -761,6 +750,7 @@ static int parse_socket_option(char *optarg) {
         strcpy(ptr->opt_val[socket_type]->c_val, opt_val_str);
         return 1; /* OK */
     default:
+        ; /* ANSI C compiler needs it */
     }
     return 0; /* FAILED */
 }
