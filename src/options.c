@@ -53,6 +53,17 @@ typedef enum {
     CMD_HELP        /* print help */
 } CMD;
 
+NOEXPORT int options_file(char *, CONF_TYPE, SERVICE_OPTIONS **);
+NOEXPORT int options_include(char *, SERVICE_OPTIONS **);
+#ifdef USE_WIN32
+struct dirent {
+    char d_name[MAX_PATH];
+};
+int scandir(const char *, struct dirent ***,
+    int (*)(const struct dirent *),
+    int (*)(const struct dirent **, const struct dirent **));
+int alphasort(const struct dirent **, const struct dirent **);
+#endif
 NOEXPORT char *parse_global_option(CMD, char *, char *);
 NOEXPORT char *parse_service_option(CMD, SERVICE_OPTIONS *, char *, char *);
 
@@ -255,105 +266,13 @@ int options_cmdline(char *name, char *parameter) {
 /**************************************** parse configuration file */
 
 int options_parse(CONF_TYPE type) {
-    DISK_FILE *df;
-    char line_text[CONFLINELEN], *errstr;
-    char config_line[CONFLINELEN], *config_opt, *config_arg;
-    int i, line_number;
-    SERVICE_OPTIONS *section, *new_section;
-#ifndef USE_WIN32
-    int fd;
-    char *tmp_str;
-#endif
-
-    s_log(LOG_NOTICE, "Reading configuration from %s %s",
-        type==CONF_FD ? "descriptor" : "file", configuration_file);
-#ifndef USE_WIN32
-    if(type==CONF_FD) { /* file descriptor */
-        fd=(int)strtol(configuration_file, &tmp_str, 10);
-        if(tmp_str==configuration_file || *tmp_str) { /* not a number */
-            s_log(LOG_ERR, "Invalid file descriptor number");
-            print_syntax();
-            return 1;
-        }
-        df=file_fdopen(fd);
-    } else
-#endif
-        df=file_open(configuration_file, FILE_MODE_READ);
-    if(!df) {
-        s_log(LOG_ERR, "Cannot open configuration file");
-        if(type!=CONF_RELOAD)
-            print_syntax();
-        return 1;
-    }
+    SERVICE_OPTIONS *section;
+    char *errstr;
 
     options_defaults();
     section=&new_service_options;
-    line_number=0;
-    while(file_getline(df, line_text, CONFLINELEN)>=0) {
-        memcpy(config_line, line_text, CONFLINELEN);
-        ++line_number;
-        config_opt=config_line;
-        if(line_number==1) {
-            if(config_opt[0]==(char)0xef &&
-                    config_opt[1]==(char)0xbb &&
-                    config_opt[2]==(char)0xbf) {
-                s_log(LOG_NOTICE, "UTF-8 byte order mark detected");
-                config_opt+=3;
-            } else {
-                s_log(LOG_NOTICE, "UTF-8 byte order mark not detected");
-            }
-        }
-        while(isspace((unsigned char)*config_opt))
-            ++config_opt; /* remove initial whitespaces */
-        for(i=(int)strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
-            config_opt[i]='\0'; /* remove trailing whitespaces */
-        if(config_opt[0]=='\0' || config_opt[0]=='#' || config_opt[0]==';') /* empty or comment */
-            continue;
-        if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
-            if(!new_service_options.next) {
-                errstr=parse_global_option(CMD_END, NULL, NULL);
-                if(errstr) {
-                    s_log(LOG_ERR, "Line %d: \"%s\": %s",
-                        line_number, line_text, errstr);
-                    file_close(df);
-                    return 1;
-                }
-            }
-            ++config_opt;
-            config_opt[strlen(config_opt)-1]='\0';
-            new_section=str_alloc(sizeof(SERVICE_OPTIONS));
-            memcpy(new_section, &new_service_options, sizeof(SERVICE_OPTIONS));
-            new_section->servname=str_dup(config_opt);
-            new_section->session=NULL;
-            new_section->next=NULL;
-            section->next=new_section;
-            section=new_section;
-            continue;
-        }
-        config_arg=strchr(config_line, '=');
-        if(!config_arg) {
-            s_log(LOG_ERR, "Line %d: \"%s\": No '=' found", line_number, line_text);
-            file_close(df);
-            return 1;
-        }
-        *config_arg++='\0'; /* split into option name and argument value */
-        for(i=(int)strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
-            config_opt[i]='\0'; /* remove trailing whitespaces */
-        while(isspace((unsigned char)*config_arg))
-            ++config_arg; /* remove initial whitespaces */
-        errstr=option_not_found;
-        /* try global options first (e.g. for 'debug') */
-        if(!new_service_options.next)
-            errstr=parse_global_option(CMD_EXEC, config_opt, config_arg);
-        if(errstr==option_not_found)
-            errstr=parse_service_option(CMD_EXEC, section, config_opt, config_arg);
-        if(errstr) {
-            s_log(LOG_ERR, "Line %d: \"%s\": %s", line_number, line_text, errstr);
-            file_close(df);
-            return 1;
-        }
-    }
-    file_close(df);
+    if(options_file(configuration_file, type, &section))
+        return 1;
 
     if(new_service_options.next) { /* daemon mode: initialize sections */
         for(section=new_service_options.next; section; section=section->next) {
@@ -380,6 +299,206 @@ int options_parse(CONF_TYPE type) {
     s_log(LOG_NOTICE, "Configuration successful");
     return 0;
 }
+
+NOEXPORT int options_file(char *path, CONF_TYPE type, SERVICE_OPTIONS **section) {
+    DISK_FILE *df;
+    char line_text[CONFLINELEN], *errstr;
+    char config_line[CONFLINELEN], *config_opt, *config_arg;
+    int i, line_number=0;
+#ifndef USE_WIN32
+    int fd;
+    char *tmp_str;
+#endif
+
+    s_log(LOG_NOTICE, "Reading configuration from %s %s",
+        type==CONF_FD ? "descriptor" : "file", path);
+#ifndef USE_WIN32
+    if(type==CONF_FD) { /* file descriptor */
+        fd=(int)strtol(path, &tmp_str, 10);
+        if(tmp_str==path || *tmp_str) { /* not a number */
+            s_log(LOG_ERR, "Invalid file descriptor number");
+            print_syntax();
+            return 1;
+        }
+        df=file_fdopen(fd);
+    } else
+#endif
+        df=file_open(path, FILE_MODE_READ);
+    if(!df) {
+        s_log(LOG_ERR, "Cannot open configuration file");
+        if(type!=CONF_RELOAD)
+            print_syntax();
+        return 1;
+    }
+
+    while(file_getline(df, line_text, CONFLINELEN)>=0) {
+        memcpy(config_line, line_text, CONFLINELEN);
+        ++line_number;
+        config_opt=config_line;
+        if(line_number==1) {
+            if(config_opt[0]==(char)0xef &&
+                    config_opt[1]==(char)0xbb &&
+                    config_opt[2]==(char)0xbf) {
+                s_log(LOG_NOTICE, "UTF-8 byte order mark detected");
+                config_opt+=3;
+            } else {
+                s_log(LOG_NOTICE, "UTF-8 byte order mark not detected");
+            }
+        }
+
+        while(isspace((unsigned char)*config_opt))
+            ++config_opt; /* remove initial whitespaces */
+        for(i=(int)strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
+            config_opt[i]='\0'; /* remove trailing whitespaces */
+        if(config_opt[0]=='\0' || config_opt[0]=='#' || config_opt[0]==';') /* empty or comment */
+            continue;
+
+        if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
+            SERVICE_OPTIONS *new_section;
+
+            if(!new_service_options.next) { /* initialize global options */
+                errstr=parse_global_option(CMD_END, NULL, NULL);
+                if(errstr) {
+                    s_log(LOG_ERR, "%s:%d: \"%s\": %s",
+                        path, line_number, line_text, errstr);
+                    file_close(df);
+                    return 1;
+                }
+            }
+            ++config_opt;
+            config_opt[strlen(config_opt)-1]='\0';
+            new_section=str_alloc(sizeof(SERVICE_OPTIONS));
+            memcpy(new_section, &new_service_options, sizeof(SERVICE_OPTIONS));
+            new_section->servname=str_dup(config_opt);
+            new_section->session=NULL;
+            new_section->next=NULL;
+            (*section)->next=new_section;
+            *section=new_section;
+            continue;
+        }
+
+        config_arg=strchr(config_line, '=');
+        if(!config_arg) {
+            s_log(LOG_ERR, "%s:%d: \"%s\": No '=' found",
+                path, line_number, line_text);
+            file_close(df);
+            return 1;
+        }
+        *config_arg++='\0'; /* split into option name and argument value */
+        for(i=(int)strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
+            config_opt[i]='\0'; /* remove trailing whitespaces */
+        while(isspace((unsigned char)*config_arg))
+            ++config_arg; /* remove initial whitespaces */
+
+        if(!strcasecmp(config_opt, "include")) {
+            if(options_include(config_arg, section)) {
+                s_log(LOG_ERR, "%s:%d: Failed to include directory \"%s\"",
+                    path, line_number, config_arg);
+                file_close(df);
+                return 1;
+            }
+            continue;
+        }
+
+        errstr=option_not_found;
+        /* try global options first (e.g. for 'debug') */
+        if(!new_service_options.next)
+            errstr=parse_global_option(CMD_EXEC, config_opt, config_arg);
+        if(errstr==option_not_found)
+            errstr=parse_service_option(CMD_EXEC, *section, config_opt, config_arg);
+        if(errstr) {
+            s_log(LOG_ERR, "%s:%d: \"%s\": %s",
+                path, line_number, line_text, errstr);
+            file_close(df);
+            return 1;
+        }
+    }
+    file_close(df);
+    return 0;
+}
+
+NOEXPORT int options_include(char *directory, SERVICE_OPTIONS **section) {
+    struct dirent **namelist;
+    int i, num, err=0;
+
+    num=scandir(directory, &namelist, NULL, alphasort);
+    if(num<0) {
+        ioerror("scandir");
+        return 1;
+    }
+    for(i=0; i<num; ++i) {
+        if(!err) {
+            struct stat sb;
+            char *name=str_printf(
+#ifdef USE_WIN32
+                "%s\\%s",
+#else
+                "%s/%s",
+#endif
+                directory, namelist[i]->d_name);
+            stat(name, &sb);
+            if(S_ISREG(sb.st_mode))
+                err=options_file(name, CONF_FILE, section);
+            else
+                s_log(LOG_DEBUG, "\"%s\" is not a file", name);
+            str_free(name);
+        }
+        free(namelist[i]);
+    }
+    free(namelist);
+    return err;
+}
+
+#ifdef USE_WIN32
+
+int scandir(const char *dirp, struct dirent ***namelist,
+        int (*filter)(const struct dirent *),
+        int (*compar)(const struct dirent **, const struct dirent **)) {
+    WIN32_FIND_DATA data;
+    HANDLE h;
+    unsigned num=0, allocated=0;
+    LPTSTR path, pattern;
+    char *name;
+    DWORD saved_errno;
+
+    (void)filter; /* skip warning about unused parameter */
+    (void)compar; /* skip warning about unused parameter */
+    path=str2tstr(dirp);
+    pattern=str_tprintf(TEXT("%s\\*"), path);
+    str_free(path);
+    h=FindFirstFile(pattern, &data);
+    saved_errno=GetLastError();
+    str_free(pattern);
+    SetLastError(saved_errno);
+    if(h==INVALID_HANDLE_VALUE)
+        return -1;
+    *namelist=NULL;
+    do {
+        if(num>=allocated) {
+            allocated+=16;
+            *namelist=realloc(*namelist, allocated*sizeof(**namelist));
+        }
+        (*namelist)[num]=malloc(sizeof(struct dirent));
+        if(!(*namelist)[num])
+            return -1;
+        name=tstr2str(data.cFileName);
+        strncpy((*namelist)[num]->d_name, name, MAX_PATH-1);
+        (*namelist)[num]->d_name[MAX_PATH-1]='\0';
+        str_free(name);
+        ++num;
+    } while(FindNextFile(h, &data));
+    FindClose(h);
+    return (int)num;
+}
+
+int alphasort(const struct dirent **a, const struct dirent **b) {
+    (void)a; /* skip warning about unused parameter */
+    (void)b; /* skip warning about unused parameter */
+    /* most Windows filesystem return sorted data */
+    return 0;
+}
+
+#endif
 
 void options_defaults() {
     /* initialize globals *before* opening the config file */
@@ -447,8 +566,6 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
             new_global_options.compression=COMP_DEFLATE;
         else if(!strcasecmp(arg, "zlib"))
             new_global_options.compression=COMP_ZLIB;
-        else if(!strcasecmp(arg, "rle"))
-            new_global_options.compression=COMP_RLE;
         else
             return "Specified compression type is not available";
         return NULL; /* OK */
@@ -2333,15 +2450,25 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* sslVersion */
     switch(cmd) {
     case CMD_BEGIN:
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+        section->client_method=(SSL_METHOD *)TLS_client_method();
+        section->server_method=(SSL_METHOD *)TLS_server_method();
+#else
         section->client_method=(SSL_METHOD *)SSLv23_client_method();
-        section->server_method=(SSL_METHOD *)SSLv23_server_method();;
+        section->server_method=(SSL_METHOD *)SSLv23_server_method();
+#endif
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "sslVersion"))
             break;
         if(!strcasecmp(arg, "all")) {
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+            section->client_method=(SSL_METHOD *)TLS_client_method();
+            section->server_method=(SSL_METHOD *)TLS_server_method();
+#else
             section->client_method=(SSL_METHOD *)SSLv23_client_method();
             section->server_method=(SSL_METHOD *)SSLv23_server_method();
+#endif
         } else if(!strcasecmp(arg, "SSLv2")) {
 #ifndef OPENSSL_NO_SSL2
             section->client_method=(SSL_METHOD *)SSLv2_client_method();
@@ -2616,10 +2743,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
-    if(cmd==CMD_EXEC)
+    /* final checks */
+    switch(cmd) {
+    case CMD_BEGIN:
+        break;
+    case CMD_EXEC:
         return option_not_found;
-
-    if(cmd==CMD_END) {
+    case CMD_END:
         if(new_service_options.next) { /* daemon mode checks */
             if(endpoints!=2)
                 return "Each service must define two endpoints";
@@ -2633,6 +2763,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         }
         if(context_init(section)) /* initialize SSL context */
             return "Failed to initialize SSL context";
+    case CMD_FREE:
+    case CMD_DEFAULT:
+    case CMD_HELP:
+        break;
     }
 
     return NULL; /* OK */

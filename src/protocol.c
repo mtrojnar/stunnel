@@ -980,6 +980,9 @@ NOEXPORT void ntlm(CLI *c, SERVICE_OPTIONS *opt) {
             ntlm2_txt=str_dup(line+25);
         else if(is_prefix(line, "Content-Length: ")) {
             content_length=strtol(line+16, &tmpstr, 10);
+            if(tmpstr>line+16) /* found some digits */
+                while(*tmpstr && isspace(*tmpstr))
+                    ++tmpstr;
             if(tmpstr==line+16 || *tmpstr || content_length<0) {
                 s_log(LOG_ERR, "Proxy-Authenticate: Invalid Content-Length");
                 str_free(line);

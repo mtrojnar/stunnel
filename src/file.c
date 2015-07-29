@@ -201,14 +201,14 @@ ssize_t file_putline(DISK_FILE *df, char *line) {
 
 int file_permissions(const char *file_name) {
 #if !defined(USE_WIN32) && !defined(USE_OS2)
-    struct stat st; /* buffer for stat */
+    struct stat sb; /* buffer for stat */
 
     /* check permissions of the private key file */
-    if(stat(file_name, &st)) {
+    if(stat(file_name, &sb)) {
         ioerror(file_name);
         return 1; /* FAILED */
     }
-    if(st.st_mode & 7)
+    if(sb.st_mode & 7)
         s_log(LOG_WARNING,
             "Insecure file permissions on %s", file_name);
 #else

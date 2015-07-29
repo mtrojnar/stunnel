@@ -129,7 +129,12 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
         /* only allow DEFLATE with OpenSSL 0.9.8 or later
          * with OpenSSL #1468 zlib memory leak fixed */
         while(sk_SSL_COMP_num(methods))
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+            /* FIXME: remove when sk_SSL_COMP_pop() works again */
+            OPENSSL_free(sk_pop((void *)methods));
+#else
             OPENSSL_free(sk_SSL_COMP_pop(methods));
+#endif
     }
 
     if(global->compression==COMP_NONE) {
@@ -137,13 +142,10 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
         return 0; /* success */
     }
 
-    /* also insert one of obsolete (ZLIB/RLE) algorithms */
+    /* also insert the obsolete ZLIB algorithm */
     if(global->compression==COMP_ZLIB) {
         /* 224 - within the private range (193 to 255) */
         SSL_COMP_add_compression_method(0xe0, COMP_zlib());
-    } else if(global->compression==COMP_RLE) {
-        /* 225 - within the private range (193 to 255) */
-        SSL_COMP_add_compression_method(0xe1, COMP_rle());
     }
     s_log(LOG_INFO, "Compression enabled: %d method(s)",
         sk_SSL_COMP_num(methods));
@@ -228,7 +230,7 @@ NOEXPORT int add_rand_file(GLOBAL_OPTIONS *global, const char *filename) {
         s_log(LOG_INFO, "Cannot retrieve any random data from %s",
             filename);
     /* write new random data for future seeding if it's a regular file */
-    if(global->option.rand_write && (sb.st_mode & S_IFREG)) {
+    if(global->option.rand_write && S_ISREG(sb.st_mode)) {
         writebytes=RAND_write_file(filename);
         if(writebytes==-1)
             s_log(LOG_WARNING, "Failed to write strong random data to %s - "

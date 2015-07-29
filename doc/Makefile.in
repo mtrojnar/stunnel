@@ -272,13 +272,16 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-EXTRA_DIST = stunnel.pod stunnel.pl.pod \
-    stunnel.8 stunnel.pl.8 \
-	stunnel.html stunnel.pl.html en pl
-
+EXTRA_DIST = stunnel.pod.in stunnel.pod stunnel.8 stunnel.html en \
+	stunnel.pl.pod.in stunnel.pl.pod stunnel.pl.8 stunnel.pl.html \
+	pl
 man_MANS = stunnel.8 stunnel.pl.8
 doc_DATA = stunnel.html stunnel.pl.html
 SUFFIXES = .pod .8 .html
+edit = sed \
+	-e 's|@bindir[@]|$(bindir)|g' \
+	-e 's|@sysconfdir[@]|$(sysconfdir)|g'
+
 all: all-am
 
 .SUFFIXES:
@@ -548,6 +551,12 @@ uninstall-man: uninstall-man8
 .pod.html:
 	pod2html --noindex --title stunnel.8 --infile=$< --outfile=$@
 	rm -f pod2htmd.tmp pod2htmi.tmp
+
+stunnel.pod stunnel.pl.pod: Makefile
+	$(edit) '$(srcdir)/$@.in' >$@
+
+stunnel.pod: $(srcdir)/stunnel.pod.in
+stunnel.pl.pod: $(srcdir)/stunnel.pl.pod.in
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -23,7 +23,7 @@ TARGET=win64
 #INCDIR=$(SSLDIR)\include
 #LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-SSLDIR=..\..\openssl-1.0.2a-$(TARGET)
+SSLDIR=..\..\openssl-1.0.2b-$(TARGET)
 INCDIR=$(SSLDIR)\inc32
 LIBDIR=$(SSLDIR)\out32dll
 # or simply install with "nmake -f ms\ntdll.mak install"
@@ -41,7 +41,8 @@ SHAREDOBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj \
 	$(OBJ)\verify.obj $(OBJ)\file.obj $(OBJ)\client.obj \
 	$(OBJ)\protocol.obj $(OBJ)\sthreads.obj $(OBJ)\log.obj \
 	$(OBJ)\options.obj $(OBJ)\network.obj $(OBJ)\resolver.obj \
- 	$(OBJ)\str.obj $(OBJ)\tls.obj $(OBJ)\fd.obj
+	$(OBJ)\str.obj $(OBJ)\tls.obj $(OBJ)\fd.obj $(OBJ)\dhparam.obj \
+	$(OBJ)\cron.obj
 GUIOBJS=$(OBJ)\ui_win_gui.obj $(OBJ)\resources.res
 CLIOBJS=$(OBJ)\ui_win_cli.obj
 

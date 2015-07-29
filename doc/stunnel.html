@@ -193,7 +193,7 @@
 </ul>
 
 </dd>
-<dt id="compression-deflate-zlib-rle"><b>compression</b> = deflate | zlib | rle</dt>
+<dt id="compression-deflate-zlib"><b>compression</b> = deflate | zlib</dt>
 <dd>
 
 <p>select data compression algorithm</p>
@@ -203,8 +203,6 @@
 <p>deflate is the standard compression method as described in RFC 1951.</p>
 
 <p>zlib compression of <b>OpenSSL 0.9.8</b> or above is not backward compatible with <b>OpenSSL 0.9.7</b>.</p>
-
-<p>rle compression is currently not implemented by the <b>OpenSSL</b> library.</p>
 
 </dd>
 <dt id="debug-FACILITY.-LEVEL"><b>debug</b> = [FACILITY.]LEVEL</dt>
@@ -660,6 +658,14 @@
 <dd>
 
 <p>use IDENT (RFC 1413) username checking</p>
+
+</dd>
+<dt id="include-DIRECTORY"><b>include</b> = DIRECTORY</dt>
+<dd>
+
+<p>include all configuration file parts located in DIRECTORY</p>
+
+<p>The files are included in the ascending alphabetical order of their names.</p>
 
 </dd>
 <dt id="key-KEY_FILE"><b>key</b> = KEY_FILE</dt>
@@ -1295,7 +1301,7 @@
 
 <p>For example, if you have the following line in <i>inetd.conf</i>:</p>
 
-<pre><code>    imaps stream tcp nowait root /usr/bin/stunnel stunnel /etc/stunnel/imaps.conf</code></pre>
+<pre><code>    imaps stream tcp nowait root /usr/local/bin/stunnel stunnel /usr/local/etc/stunnel/imaps.conf</code></pre>
 
 <p>In these cases, the <i>inetd</i>-style program is responsible for binding a network socket (<i>imaps</i> above) and handing it to <b>stunnel</b> when a connection is received. Thus you do not want <b>stunnel</b> to have any <i>accept</i> option. All the <i>Service Level Options</i> should be placed in the global options section, and no <i>[service_name]</i> section will be present. See the <i>EXAMPLES</i> section for example configurations.</p>
 
@@ -1368,7 +1374,7 @@
 
 <dl>
 
-<dt id="stunnel.conf"><i>stunnel.conf</i></dt>
+<dt id="usr-local-etc-stunnel-stunnel.conf"><i>/usr/local/etc/stunnel/stunnel.conf</i></dt>
 <dd>
 
 <p><b>stunnel</b> configuration file</p>

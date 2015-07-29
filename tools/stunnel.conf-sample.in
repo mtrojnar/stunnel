@@ -12,12 +12,12 @@
 ;setgid = @DEFAULT_GROUP@
 
 ; PID file is created inside the chroot jail (if enabled)
-;pid = @prefix@/var/run/stunnel.pid
+;pid = @localstatedir@/run/stunnel.pid
 
 ; Debugging stuff (may be useful for troubleshooting)
 ;foreground = yes
 ;debug = info
-;output = stunnel.log
+;output = @localstatedir@/log/stunnel.log
 
 ; Enable FIPS 140-2 mode if needed for compliance
 ;fips = yes
@@ -32,6 +32,12 @@
 ; These options provide additional security at some performance degradation
 ;options = SINGLE_ECDH_USE
 ;options = SINGLE_DH_USE
+
+; **************************************************************************
+; * Include all configuration file fragments from the specified folder     *
+; **************************************************************************
+
+;include = @sysconfdir@/stunnel/conf.d
 
 ; **************************************************************************
 ; * Service definitions (remove all services for inetd mode)               *
@@ -68,34 +74,35 @@ checkHost = smtp.gmail.com
 ;[pop3s]
 ;accept  = 995
 ;connect = 110
-;cert = @prefix@/etc/stunnel/stunnel.pem
+;cert = @sysconfdir@/stunnel/stunnel.pem
 
 ;[imaps]
 ;accept  = 993
 ;connect = 143
-;cert = @prefix@/etc/stunnel/stunnel.pem
+;cert = @sysconfdir@/stunnel/stunnel.pem
 
 ;[ssmtp]
 ;accept  = 465
 ;connect = 25
-;cert = @prefix@/etc/stunnel/stunnel.pem
+;cert = @sysconfdir@/stunnel/stunnel.pem
 
 ; TLS front-end to a web server
 ;[https]
 ;accept  = 443
 ;connect = 80
-;cert = @prefix@/etc/stunnel/stunnel.pem
+;cert = @sysconfdir@/stunnel/stunnel.pem
 ; "TIMEOUTclose = 0" is a workaround for a design flaw in Microsoft SChannel
 ; Microsoft implementations do not use TLS close-notify alert and thus they
 ; are vulnerable to truncation attacks
 ;TIMEOUTclose = 0
 
 ; Remote shell protected with PSK-authenticated TLS
-; Create "@prefix@/etc/stunnel/secrets.txt" containing IDENTITY:KEY pairs
+; Create "@sysconfdir@/stunnel/secrets.txt" containing IDENTITY:KEY pairs
 ;[shell]
 ;accept = 1337
 ;exec = /bin/sh
 ;execArgs = sh -i
-;PSKsecrets = @prefix@/etc/stunnel/secrets.txt
+;ciphers = PSK
+;PSKsecrets = @sysconfdir@/stunnel/secrets.txt
 
 ; vim:ft=dosini

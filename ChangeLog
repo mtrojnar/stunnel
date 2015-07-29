@@ -1,6 +1,28 @@
 stunnel change log
 
 
+Version 5.18, 2015.06.12, urgency: MEDIUM:
+* New features
+  - OpenSSL DLLs updated to version 1.0.2b.
+    https://www.openssl.org/news/secadv_20150611.txt
+  - Added "include" configuration file option to include all
+    configuration file parts located in a specified directory.
+  - Log file is reopened every 24 hours.  With "log = overwrite"
+    this feature can be used to prevent filling up disk space.
+  - Temporary DH parameters are refreshed every 24 hours, unless
+    static DH parameters were provided in the certificate file.
+  - Unique initial DH parameters are distributed with each release.
+  - Warnings are logged on potentially insecure authentication.
+  - Improved compatibility with the current OpenSSL 1.1.0-dev tree:
+    removed RLE compression support, etc.
+  - Updated stunnel.spec (thx to Bill Quayle).
+* Bugfixes
+  - Fixed handling of dynamic connect targets.
+  - Fixed handling of trailing whitespaces in the Content-Length
+    header of the NTLM authentication.
+  - Fixed --sysconfdir and --localstatedir handling (thx to
+    Dagobert Michelsen).
+
 Version 5.17, 2015.04.29, urgency: HIGH:
 * Bugfixes
   - Fixed a NULL pointer dereference causing the service to crash.
@@ -45,7 +67,7 @@ Version 5.15, 2015.04.16, urgency: LOW:
 Version 5.14, 2015.03.25, urgency: HIGH:
 * Security bugfixes
   - The "redirect" option now also redirects clients on SSL session
-    reuse.  In stunnel versions 5.00 to 5.12 reused sessions were
+    reuse.  In stunnel versions 5.00 to 5.13 reused sessions were
     instead always connected hosts specified with the "connect"
     option regardless of their certificate verification result.
     This vulnerability was reported by Johan Olofsson.

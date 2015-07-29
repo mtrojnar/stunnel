@@ -15,7 +15,7 @@
 ### END INIT INFO
 
 DEFAULTPIDFILE="/var/run/stunnel.pid"
-DAEMON=@prefix@/bin/stunnel
+DAEMON=@bindir@/stunnel
 NAME=stunnel
 DESC="SSL tunnels"
 OPTIONS=""
@@ -100,9 +100,9 @@ if [ "x$OPTIONS" != "x" ]; then
   OPTIONS="-- $OPTIONS"
 fi
 
-[ -f /etc/default/stunnel ] && . /etc/default/stunnel
+[ -f @sysconfdir@/default/stunnel ] && . /etc/default/stunnel
 if [ "$ENABLED" = "0" ] ; then
-  echo "$DESC disabled, see /etc/default/stunnel"
+  echo "$DESC disabled, see @sysconfdir@/default/stunnel"
   exit 0
 fi
 
@@ -110,15 +110,15 @@ fi
 # is in $2. Otherwise, respect /etc/default/stunnel4 setting. If no
 # setting there, use /etc/stunnel/*.conf
 if [ -n "${2:-}" ]; then
-  if [ -e "/etc/stunnel/$2.conf" ]; then
-    FILES="/etc/stunnel/$2.conf"
+  if [ -e "@sysconfdir@/stunnel/$2.conf" ]; then
+    FILES="@sysconfdir@/stunnel/$2.conf"
   else
-    echo >&2 "/etc/stunnel/$2.conf does not exist."
+    echo >&2 "@sysconfdir@/stunnel/$2.conf does not exist."
     exit 1
   fi
 else
   if [ -z "$FILES" ]; then
-    FILES="/etc/stunnel/*.conf"
+    FILES="@sysconfdir@/stunnel/*.conf"
   fi
 fi
 
@@ -158,7 +158,7 @@ case "$1" in
 	querydaemons
 	;;
   *)
-        N=/etc/init.d/$NAME
+        N=@sysconfdir@/init.d/$NAME
         echo "Usage: $N {start|stop|status|reload|reopen-logs|restart} [<stunnel instance>]" >&2
         exit 1
         ;;

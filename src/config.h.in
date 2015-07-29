@@ -57,6 +57,9 @@
 /* Define to 1 if you have the <linux/netfilter_ipv4.h> header file. */
 #undef HAVE_LINUX_NETFILTER_IPV4_H
 
+/* Define to 1 if you have the <linux/sched.h> header file. */
+#undef HAVE_LINUX_SCHED_H
+
 /* Define to 1 if you have the `localtime_r' function. */
 #undef HAVE_LOCALTIME_R
 

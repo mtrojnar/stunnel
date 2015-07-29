@@ -7,8 +7,6 @@ A sponsor could allocate my time to get them faster.
 * Optional line-buffering of the log file.
 * Log rotation on Windows.
 * Configuration file option to limit the number of concurrent connections.
-* "include" configuration file option to include all configuration file
-  parts located in the specified directory (e.g. /etc/stunnel/conf.d/).
 * Implement reference counting of the SERVICE_OPTIONS structure
   - Add 'leastconn' failover strategy to order defined 'connect' targets
     by the number of active connections.
@@ -27,6 +25,8 @@ A sponsor could allocate my time to get them faster.
 * Database and/or directory interface for retrieving PSK secrets.
 * Extend session tickets and/or sessiond to also serialize
   application data ("redirect" state and session persistence).
+* Add user-defined headers to proxy requests in order to impersonate
+  other software (e.g. web browsers).
 
 Low priority features.  They will unlikely ever be supported.
 * Support static FIPS-enabled build.

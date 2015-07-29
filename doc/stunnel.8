@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2015.04.16" "5.16" "stunnel"
+.TH STUNNEL 8 "2015.06.11" "5.18" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -187,8 +187,8 @@ Some other functions may need devices, e.g. /dev/zero or /dev/null.
 .RE
 .RS 4
 .RE
-.IP "\fBcompression\fR = deflate | zlib | rle" 4
-.IX Item "compression = deflate | zlib | rle"
+.IP "\fBcompression\fR = deflate | zlib" 4
+.IX Item "compression = deflate | zlib"
 select data compression algorithm
 .Sp
 default: no compression
@@ -197,8 +197,6 @@ deflate is the standard compression method as described in \s-1RFC 1951.\s0
 .Sp
 zlib compression of \fBOpenSSL 0.9.8\fR or above is not backward compatible with
 \&\fBOpenSSL 0.9.7\fR.
-.Sp
-rle compression is currently not implemented by the \fBOpenSSL\fR library.
 .IP "\fBdebug\fR = [\s-1FACILITY.\s0]LEVEL" 4
 .IX Item "debug = [FACILITY.]LEVEL"
 debugging level
@@ -581,6 +579,11 @@ default: rr
 .IP "\fBident\fR = \s-1USERNAME\s0" 4
 .IX Item "ident = USERNAME"
 use \s-1IDENT \s0(\s-1RFC 1413\s0) username checking
+.IP "\fBinclude\fR = \s-1DIRECTORY\s0" 4
+.IX Item "include = DIRECTORY"
+include all configuration file parts located in \s-1DIRECTORY\s0
+.Sp
+The files are included in the ascending alphabetical order of their names.
 .IP "\fBkey\fR = \s-1KEY_FILE\s0" 4
 .IX Item "key = KEY_FILE"
 private key for certificate specified with \fIcert\fR option
@@ -1122,7 +1125,7 @@ or \fItcpserver\fR.
 For example, if you have the following line in \fIinetd.conf\fR:
 .PP
 .Vb 1
-\&    imaps stream tcp nowait root /usr/bin/stunnel stunnel /etc/stunnel/imaps.conf
+\&    imaps stream tcp nowait root /usr/local/bin/stunnel stunnel /usr/local/etc/stunnel/imaps.conf
 .Ve
 .PP
 In these cases, the \fIinetd\fR\-style program is responsible
@@ -1213,8 +1216,8 @@ It is also possible to specify \s-1DH\s0 parameters in the certificate file:
 \&\s-1DH\s0 parameter generation may take several minutes.
 .SH "FILES"
 .IX Header "FILES"
-.IP "\fIstunnel.conf\fR" 4
-.IX Item "stunnel.conf"
+.IP "\fI/usr/local/etc/stunnel/stunnel.conf\fR" 4
+.IX Item "/usr/local/etc/stunnel/stunnel.conf"
 \&\fBstunnel\fR configuration file
 .SH "BUGS"
 .IX Header "BUGS"

@@ -1225,8 +1225,8 @@ programów są inetd, xinetd i tcpserver.
 
 Przykładowa linia pliku /etc/inetd.conf może wyglądać tak:
 
-    imaps stream tcp nowait root /usr/local/bin/stunnel
-        stunnel /usr/local/etc/stunnel/imaps.conf
+    imaps stream tcp nowait root @bindir@/stunnel
+        stunnel @sysconfdir@/stunnel/imaps.conf
 
 Ponieważ w takich przypadkach połączenie na zdefiniowanym porcie
 (tutaj I<imaps>) nawiązuje osobny program (tutaj I<inetd>), B<stunnel>
@@ -1351,7 +1351,7 @@ Wygenerowanie parametrów DH może zająć nawet wiele minut.
 
 =over 4
 
-=item F</usr/local/etc/stunnel/stunnel.conf>
+=item F<@sysconfdir@/stunnel/stunnel.conf>
 
 plik konfiguracyjny programu
 

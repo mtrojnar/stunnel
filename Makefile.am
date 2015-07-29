@@ -46,3 +46,11 @@ install-data-hook:
 	@echo "* Type 'make cert' to also install a sample certificate *"
 	@echo "*********************************************************"
 
+edit = sed \
+	-e 's|@bindir[@]|$(bindir)|g' \
+	-e 's|@sysconfdir[@]|$(sysconfdir)|g'
+
+stunnel.pod: Makefile
+	$(edit) '$(srcdir)/$@.in' >$@
+
+stunnel.pod: $(srcdir)/stunnel.pod

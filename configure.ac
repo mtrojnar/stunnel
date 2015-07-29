@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.17])
+AC_INIT([stunnel],[5.18])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -159,6 +159,7 @@ AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([stdint.h inttypes.h malloc.h ucontext.h pthread.h poll.h tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h])
 AC_CHECK_HEADERS([sys/types.h sys/select.h sys/poll.h sys/socket.h sys/un.h sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h sys/syscall.h])
+AC_CHECK_HEADERS([linux/sched.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
     [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1],
     [Define to 1 if you have 'msghdr.msg_control' structure.])], [], [
@@ -440,7 +441,7 @@ CPPFLAGS="$valid_CPPFLAGS"
 LIBS="$valid_LIBS"
 
 AC_MSG_NOTICE([**************************************** write the results])
-AC_CONFIG_FILES([Makefile src/Makefile src/stunnel3 doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init tools/stunnel.service])
+AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile])
 AC_OUTPUT
 
 AC_MSG_NOTICE([**************************************** success])

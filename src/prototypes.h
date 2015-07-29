@@ -107,7 +107,7 @@ typedef struct sockaddr_list {                          /* list of addresses */
 
 #ifndef OPENSSL_NO_COMP
 typedef enum {
-    COMP_NONE, COMP_DEFLATE, COMP_ZLIB, COMP_RLE
+    COMP_NONE, COMP_DEFLATE, COMP_ZLIB
 } COMP_TYPE;
 #endif /* !defined(OPENSSL_NO_COMP) */
 
@@ -290,6 +290,9 @@ typedef struct service_options_struct {
 #ifndef OPENSSL_NO_OCSP
         unsigned aia:1;                 /* Authority Information Access */
 #endif /* !defined(OPENSSL_NO_OCSP) */
+#ifndef OPENSSL_NO_DH
+        unsigned dh_needed:1;
+#endif /* OPENSSL_NO_DH */
     } option;
 } SERVICE_OPTIONS;
 
@@ -413,6 +416,15 @@ void child_status(void);  /* dead libwrap or 'exec' process detected */
 #endif
 void stunnel_info(int);
 
+/**************************************** prototypes for options.c */
+
+extern char *configuration_file;
+
+int options_cmdline(char *, char *);
+int options_parse(CONF_TYPE);
+void options_defaults(void);
+void options_apply(void);
+
 /**************************************** prototypes for fd.c */
 
 #ifndef USE_FORK
@@ -451,6 +463,14 @@ char *s_strerror(int);
 
 int pty_allocate(int *, int *, char *);
 
+/**************************************** prototypes for dhparam.c */
+
+DH *get_dh2048(void);
+
+/**************************************** prototypes for cron.c */
+
+int cron_init(void);
+
 /**************************************** prototypes for ssl.c */
 
 extern int index_cli, index_opt, index_redirect, index_addr;
@@ -458,21 +478,16 @@ extern int index_cli, index_opt, index_redirect, index_addr;
 int ssl_init(void);
 int ssl_configure(GLOBAL_OPTIONS *);
 
-/**************************************** prototypes for options.c */
-
-extern char *configuration_file;
-
-int options_cmdline(char *, char *);
-int options_parse(CONF_TYPE);
-void options_defaults(void);
-void options_apply(void);
-
 /**************************************** prototypes for ctx.c */
 
 typedef struct {
     SERVICE_OPTIONS *section;
     char pass[PEM_BUFSIZE];
 } UI_DATA;
+
+#ifndef OPENSSL_NO_DH
+extern int dh_needed;
+#endif /* OPENSSL_NO_DH */
 
 int context_init(SERVICE_OPTIONS *);
 #ifndef OPENSSL_NO_PSK

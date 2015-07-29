@@ -1211,7 +1211,7 @@ or I<tcpserver>.
 
 For example, if you have the following line in I<inetd.conf>:
 
-    imaps stream tcp nowait root /usr/local/bin/stunnel stunnel /usr/local/etc/stunnel/imaps.conf
+    imaps stream tcp nowait root @bindir@/stunnel stunnel @sysconfdir@/stunnel/imaps.conf
 
 In these cases, the I<inetd>-style program is responsible
 for binding a network socket (I<imaps> above) and handing
@@ -1324,7 +1324,7 @@ DH parameter generation may take several minutes.
 
 =over 4
 
-=item F</usr/local/etc/stunnel/stunnel.conf>
+=item F<@sysconfdir@/stunnel/stunnel.conf>
 
 B<stunnel> configuration file
 

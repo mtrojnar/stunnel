@@ -15,7 +15,6 @@
 @SET_MAKE@
 
 
-
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -80,12 +79,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = stunnel$(EXEEXT)
-EXTRA_PROGRAMS = stunnel.exe$(EXEEXT) tstunnel.exe$(EXEEXT)
+bin_PROGRAMS = stunnel$(EXEEXT) stunnel3$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(srcdir)/config.h.in $(srcdir)/stunnel3.in \
-	$(top_srcdir)/auto/depcomp
+	$(srcdir)/config.h.in $(top_srcdir)/auto/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_append_compile_flags.m4 \
 	$(top_srcdir)/m4/ax_append_flag.m4 \
@@ -101,7 +98,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES = stunnel3
+CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
@@ -130,8 +127,7 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(bindir)"
+am__installdirs = "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(bindir)"
 LTLIBRARIES = $(pkglib_LTLIBRARIES)
 libstunnel_la_LIBADD =
 am__objects_1 = env.lo
@@ -153,6 +149,7 @@ am__objects_3 = stunnel-tls.$(OBJEXT) stunnel-str.$(OBJEXT) \
 	stunnel-resolver.$(OBJEXT) stunnel-ssl.$(OBJEXT) \
 	stunnel-ctx.$(OBJEXT) stunnel-verify.$(OBJEXT) \
 	stunnel-sthreads.$(OBJEXT) stunnel-fd.$(OBJEXT) \
+	stunnel-dhparam.$(OBJEXT) stunnel-cron.$(OBJEXT) \
 	stunnel-stunnel.$(OBJEXT)
 am__objects_4 = stunnel-pty.$(OBJEXT) stunnel-libwrap.$(OBJEXT) \
 	stunnel-ui_unix.$(OBJEXT)
@@ -163,22 +160,9 @@ stunnel_LDADD = $(LDADD)
 stunnel_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(stunnel_LDFLAGS) $(LDFLAGS) -o $@
-am__objects_5 = tls.$(OBJEXT) str.$(OBJEXT) file.$(OBJEXT) \
-	client.$(OBJEXT) log.$(OBJEXT) options.$(OBJEXT) \
-	protocol.$(OBJEXT) network.$(OBJEXT) resolver.$(OBJEXT) \
-	ssl.$(OBJEXT) ctx.$(OBJEXT) verify.$(OBJEXT) \
-	sthreads.$(OBJEXT) fd.$(OBJEXT) stunnel.$(OBJEXT)
-am__objects_6 = ui_win_gui.$(OBJEXT)
-am_stunnel_exe_OBJECTS = $(am__objects_2) $(am__objects_5) \
-	$(am__objects_6)
-stunnel_exe_OBJECTS = $(am_stunnel_exe_OBJECTS)
-stunnel_exe_LDADD = $(LDADD)
-am__objects_7 = ui_win_cli.$(OBJEXT)
-am_tstunnel_exe_OBJECTS = $(am__objects_2) $(am__objects_5) \
-	$(am__objects_7)
-tstunnel_exe_OBJECTS = $(am_tstunnel_exe_OBJECTS)
-tstunnel_exe_LDADD = $(LDADD)
-SCRIPTS = $(bin_SCRIPTS)
+am_stunnel3_OBJECTS =
+stunnel3_OBJECTS = $(am_stunnel3_OBJECTS)
+stunnel3_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -214,9 +198,9 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES) \
-	$(stunnel_exe_SOURCES) $(tstunnel_exe_SOURCES)
+	$(stunnel3_SOURCES)
 DIST_SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES) \
-	$(stunnel_exe_SOURCES) $(tstunnel_exe_SOURCES)
+	$(stunnel3_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -370,14 +354,14 @@ top_srcdir = @top_srcdir@
 common_headers = common.h prototypes.h version.h
 common_sources = tls.c str.c file.c client.c log.c options.c \
 	protocol.c network.c resolver.c ssl.c ctx.c verify.c \
-	sthreads.c fd.c stunnel.c
+	sthreads.c fd.c dhparam.c cron.c stunnel.c
 unix_sources = pty.c libwrap.c ui_unix.c
 shared_sources = env.c
 win32_gui_sources = ui_win_gui.c resources.h resources.rc stunnel.ico \
 	active.ico error.ico idle.ico
 win32_cli_sources = ui_win_cli.c
 stunnel_SOURCES = $(common_headers) $(common_sources) $(unix_sources)
-bin_SCRIPTS = stunnel3
+stunnel3_SOURCES = stunnel3.in
 
 # Unix shared library
 pkglib_LTLIBRARIES = libstunnel.la
@@ -396,12 +380,13 @@ stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 # Win32 executable
 EXTRA_DIST = make.bat makece.bat makew32.bat mingw.mak evc.mak vc.mak \
 	os2.mak
-stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_gui_sources)
-tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
+# EXTRA_PROGRAMS = stunnel.exe tstunnel.exe
+# stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_gui_sources)
+# tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
 
 # OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 # WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-OPENSSLDIR = /usr/src/openssl-1.0.2a-i686
+OPENSSLDIR = /usr/src/openssl-1.0.2b-i686
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wpedantic \
 	-Wformat=2 -Wconversion -Wno-long-long -D_FORTIFY_SOURCE=2 \
@@ -413,12 +398,16 @@ WINGUILIBS = $(WINCOMMONLIBS) -lgdi32 -lpsapi $(WINSSLLIBS)
 WINCLILIBS = $(WINCOMMONLIBS) $(WINSSLLIBS)
 WINOBJ = tls.obj str.obj file.obj client.obj log.obj options.obj \
 	protocol.obj network.obj resolver.obj ssl.obj ctx.obj \
-	verify.obj sthreads.obj fd.obj stunnel.obj
+	verify.obj sthreads.obj fd.obj dhparam.obj cron.obj \
+	stunnel.obj
 WINGUIOBJ = $(WINOBJ) ui_win_gui.obj resources.obj
 WINCLIOBJ = $(WINOBJ) ui_win_cli.obj
 WINPREFIX = i686-w64-mingw32-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
+edit = sed \
+	-e 's|@bindir[@]|$(bindir)|g'
+
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -469,8 +458,6 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
-stunnel3: $(top_builddir)/config.status $(srcdir)/stunnel3.in
-	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 
 install-pkglibLTLIBRARIES: $(pkglib_LTLIBRARIES)
 	@$(NORMAL_INSTALL)
@@ -562,41 +549,6 @@ clean-binPROGRAMS:
 stunnel$(EXEEXT): $(stunnel_OBJECTS) $(stunnel_DEPENDENCIES) $(EXTRA_stunnel_DEPENDENCIES) 
 	@rm -f stunnel$(EXEEXT)
 	$(AM_V_CCLD)$(stunnel_LINK) $(stunnel_OBJECTS) $(stunnel_LDADD) $(LIBS)
-install-binSCRIPTS: $(bin_SCRIPTS)
-	@$(NORMAL_INSTALL)
-	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || list=; \
-	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(bindir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(bindir)" || exit 1; \
-	fi; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  if test -f "$$d$$p"; then echo "$$d$$p"; echo "$$p"; else :; fi; \
-	done | \
-	sed -e 'p;s,.*/,,;n' \
-	    -e 'h;s|.*|.|' \
-	    -e 'p;x;s,.*/,,;$(transform)' | sed 'N;N;N;s,\n, ,g' | \
-	$(AWK) 'BEGIN { files["."] = ""; dirs["."] = 1; } \
-	  { d=$$3; if (dirs[d] != 1) { print "d", d; dirs[d] = 1 } \
-	    if ($$2 == $$4) { files[d] = files[d] " " $$1; \
-	      if (++n[d] == $(am__install_max)) { \
-		print "f", d, files[d]; n[d] = 0; files[d] = "" } } \
-	    else { print "f", d "/" $$4, $$1 } } \
-	  END { for (d in files) print "f", d, files[d] }' | \
-	while read type dir files; do \
-	     if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
-	     test -z "$$files" || { \
-	       echo " $(INSTALL_SCRIPT) $$files '$(DESTDIR)$(bindir)$$dir'"; \
-	       $(INSTALL_SCRIPT) $$files "$(DESTDIR)$(bindir)$$dir" || exit $$?; \
-	     } \
-	; done
-
-uninstall-binSCRIPTS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || exit 0; \
-	files=`for p in $$list; do echo "$$p"; done | \
-	       sed -e 's,.*/,,;$(transform)'`; \
-	dir='$(DESTDIR)$(bindir)'; $(am__uninstall_files_from_dir)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -604,21 +556,11 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ctx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/env.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fd.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/file.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/network.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protocol.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resolver.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sthreads.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/str.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-client.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-cron.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-ctx.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-dhparam.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-fd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-file.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-libwrap.Po@am__quote@
@@ -635,11 +577,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-tls.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-ui_unix.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-verify.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ui_win_cli.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ui_win_gui.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/verify.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -858,6 +795,34 @@ stunnel-fd.obj: fd.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-fd.obj `if test -f 'fd.c'; then $(CYGPATH_W) 'fd.c'; else $(CYGPATH_W) '$(srcdir)/fd.c'; fi`
 
+stunnel-dhparam.o: dhparam.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-dhparam.o -MD -MP -MF $(DEPDIR)/stunnel-dhparam.Tpo -c -o stunnel-dhparam.o `test -f 'dhparam.c' || echo '$(srcdir)/'`dhparam.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-dhparam.Tpo $(DEPDIR)/stunnel-dhparam.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dhparam.c' object='stunnel-dhparam.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-dhparam.o `test -f 'dhparam.c' || echo '$(srcdir)/'`dhparam.c
+
+stunnel-dhparam.obj: dhparam.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-dhparam.obj -MD -MP -MF $(DEPDIR)/stunnel-dhparam.Tpo -c -o stunnel-dhparam.obj `if test -f 'dhparam.c'; then $(CYGPATH_W) 'dhparam.c'; else $(CYGPATH_W) '$(srcdir)/dhparam.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-dhparam.Tpo $(DEPDIR)/stunnel-dhparam.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dhparam.c' object='stunnel-dhparam.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-dhparam.obj `if test -f 'dhparam.c'; then $(CYGPATH_W) 'dhparam.c'; else $(CYGPATH_W) '$(srcdir)/dhparam.c'; fi`
+
+stunnel-cron.o: cron.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-cron.o -MD -MP -MF $(DEPDIR)/stunnel-cron.Tpo -c -o stunnel-cron.o `test -f 'cron.c' || echo '$(srcdir)/'`cron.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-cron.Tpo $(DEPDIR)/stunnel-cron.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cron.c' object='stunnel-cron.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-cron.o `test -f 'cron.c' || echo '$(srcdir)/'`cron.c
+
+stunnel-cron.obj: cron.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-cron.obj -MD -MP -MF $(DEPDIR)/stunnel-cron.Tpo -c -o stunnel-cron.obj `if test -f 'cron.c'; then $(CYGPATH_W) 'cron.c'; else $(CYGPATH_W) '$(srcdir)/cron.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-cron.Tpo $(DEPDIR)/stunnel-cron.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='cron.c' object='stunnel-cron.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stunnel-cron.obj `if test -f 'cron.c'; then $(CYGPATH_W) 'cron.c'; else $(CYGPATH_W) '$(srcdir)/cron.c'; fi`
+
 stunnel-stunnel.o: stunnel.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT stunnel-stunnel.o -MD -MP -MF $(DEPDIR)/stunnel-stunnel.Tpo -c -o stunnel-stunnel.o `test -f 'stunnel.c' || echo '$(srcdir)/'`stunnel.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/stunnel-stunnel.Tpo $(DEPDIR)/stunnel-stunnel.Po
@@ -1002,14 +967,11 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
-	$(MAKE) $(AM_MAKEFLAGS) \
-	  top_distdir="$(top_distdir)" distdir="$(distdir)" \
-	  dist-hook
 check-am: all-am
 check: check-am
-all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) config.h
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) config.h
 installdirs:
-	for dir in "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -1071,8 +1033,7 @@ install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-binPROGRAMS install-binSCRIPTS \
-	install-pkglibLTLIBRARIES
+install-exec-am: install-binPROGRAMS install-pkglibLTLIBRARIES
 
 install-html: install-html-am
 
@@ -1112,31 +1073,37 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-pkglibLTLIBRARIES
+uninstall-am: uninstall-binPROGRAMS uninstall-pkglibLTLIBRARIES
 
 .MAKE: all install-am install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am check check-am clean \
 	clean-binPROGRAMS clean-generic clean-libtool \
-	clean-pkglibLTLIBRARIES cscopelist-am ctags ctags-am dist-hook \
-	distclean distclean-compile distclean-generic distclean-hdr \
+	clean-pkglibLTLIBRARIES cscopelist-am ctags ctags-am distclean \
+	distclean-compile distclean-generic distclean-hdr \
 	distclean-libtool distclean-local distclean-tags distdir dvi \
 	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-binSCRIPTS install-data \
-	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
-	install-pkglibLTLIBRARIES install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	mostlyclean-local pdf pdf-am ps ps-am tags tags-am uninstall \
-	uninstall-am uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-pkglibLTLIBRARIES
+	install-binPROGRAMS install-data install-data-am install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-pdf install-pdf-am install-pkglibLTLIBRARIES \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool mostlyclean-local pdf \
+	pdf-am ps ps-am tags tags-am uninstall uninstall-am \
+	uninstall-binPROGRAMS uninstall-pkglibLTLIBRARIES
 
 
-dist-hook: stunnel.exe tstunnel.exe
+# Generate a new set of DH parameters for each version
+dhparam.c: version.h
+	echo '#include "common.h"' >dhparam.c
+	echo '#ifndef OPENSSL_NO_DH' >>dhparam.c
+	echo '#define DN_new DH_new' >>dhparam.c
+	openssl dhparam -noout -C 2048 >>dhparam.c
+	echo '#endif /* OPENSSL_NO_DH */' >>dhparam.c
+
+# dist-hook: stunnel.exe tstunnel.exe
 
 distclean-local:
 	rm -f stunnel.exe tstunnel.exe
@@ -1157,6 +1124,11 @@ resources.obj: resources.rc resources.h version.h
 
 mostlyclean-local:
 	-rm -f *.obj
+
+stunnel3: Makefile
+	$(edit) '$(srcdir)/$@.in' >$@
+
+stunnel3: $(srcdir)/stunnel3.in
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

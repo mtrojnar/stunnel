@@ -110,6 +110,8 @@ void main_init() { /* one-time initialization */
         fatal("SSL initialization failed");
     if(sthreads_init()) /* initialize critical sections & SSL callbacks */
         fatal("Threads initialization failed");
+    if(cron_init()) /* initialize periodic events */
+        fatal("Cron initialization failed");
     options_defaults();
     options_apply();
 #ifndef USE_FORK
@@ -347,7 +349,7 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt) {
 void unbind_ports(void) {
     SERVICE_OPTIONS *opt;
 #ifdef HAVE_STRUCT_SOCKADDR_UN
-    struct stat st; /* buffer for stat */
+    struct stat sb; /* buffer for stat */
 #endif
 
     s_poll_init(fds);
@@ -364,9 +366,9 @@ void unbind_ports(void) {
             opt->fd=INVALID_SOCKET;
 #ifdef HAVE_STRUCT_SOCKADDR_UN
             if(opt->local_addr.sa.sa_family==AF_UNIX) {
-                if(lstat(opt->local_addr.un.sun_path, &st))
+                if(lstat(opt->local_addr.un.sun_path, &sb))
                     sockerror(opt->local_addr.un.sun_path);
-                else if(!S_ISSOCK(st.st_mode))
+                else if(!S_ISSOCK(sb.st_mode))
                     s_log(LOG_ERR, "Not a socket: %s",
                         opt->local_addr.un.sun_path);
                 else if(unlink(opt->local_addr.un.sun_path))

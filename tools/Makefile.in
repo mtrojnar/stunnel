@@ -79,9 +79,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 subdir = tools
-DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(srcdir)/stunnel.conf-sample.in $(srcdir)/stunnel.init.in \
-	$(srcdir)/stunnel.service.in
+DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_append_compile_flags.m4 \
 	$(top_srcdir)/m4/ax_append_flag.m4 \
@@ -97,7 +95,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/src/config.h
-CONFIG_CLEAN_FILES = stunnel.conf-sample stunnel.init stunnel.service
+CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -272,7 +270,8 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
-	stunnel.spec stunnel.cnf stunnel.nsi stunnel.license stunnel.conf
+	stunnel.spec stunnel.cnf stunnel.nsi stunnel.license stunnel.conf \
+	stunnel.conf-sample.in stunnel.init.in stunnel.service.in
 
 confdir = $(sysconfdir)/stunnel
 conf_DATA = stunnel.conf-sample
@@ -281,6 +280,13 @@ examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
 	stunnel.spec stunnel.init stunnel.service
 
 OPENSSL = $(SSLDIR)/bin/openssl
+edit = sed \
+	-e 's|@prefix[@]|$(prefix)|g' \
+	-e 's|@bindir[@]|$(bindir)|g' \
+	-e 's|@localstatedir[@]|$(localstatedir)|g' \
+	-e 's|@sysconfdir[@]|$(sysconfdir)|g' \
+	-e 's|@DEFAULT_GROUP[@]|$(DEFAULT_GROUP)|g'
+
 all: all-am
 
 .SUFFIXES:
@@ -314,12 +320,6 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
-stunnel.conf-sample: $(top_builddir)/config.status $(srcdir)/stunnel.conf-sample.in
-	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
-stunnel.init: $(top_builddir)/config.status $(srcdir)/stunnel.init.in
-	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
-stunnel.service: $(top_builddir)/config.status $(srcdir)/stunnel.service.in
-	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -448,7 +448,7 @@ clean-am: clean-generic clean-libtool mostlyclean-am
 
 distclean: distclean-am
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic
+distclean-am: clean-am distclean-generic distclean-local
 
 dvi: dvi-am
 
@@ -513,17 +513,17 @@ uninstall-am: uninstall-confDATA uninstall-examplesDATA
 
 .PHONY: all all-am check check-am clean clean-generic clean-libtool \
 	cscopelist-am ctags-am distclean distclean-generic \
-	distclean-libtool distdir dvi dvi-am html html-am info info-am \
-	install install-am install-confDATA install-data \
-	install-data-am install-data-local install-dvi install-dvi-am \
-	install-examplesDATA install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags-am uninstall uninstall-am uninstall-confDATA \
-	uninstall-examplesDATA
+	distclean-libtool distclean-local distdir dvi dvi-am html \
+	html-am info info-am install install-am install-confDATA \
+	install-data install-data-am install-data-local install-dvi \
+	install-dvi-am install-examplesDATA install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags-am uninstall \
+	uninstall-am uninstall-confDATA uninstall-examplesDATA
 
 
 install-data-local:
@@ -549,6 +549,16 @@ cert:
 		rm stunnel.pem; \
 		rm -f stunnel.rnd; \
 	fi
+
+stunnel.conf-sample stunnel.init stunnel.service: Makefile
+	$(edit) '$(srcdir)/$@.in' >$@
+
+stunnel.conf-sample: $(srcdir)/stunnel.conf-sample.in
+stunnel.init: $(srcdir)/stunnel.init.in
+stunnel.service: $(srcdir)/stunnel.service.in
+
+distclean-local:
+	rm -f stunnel.conf-sample stunnel.init stunnel.service
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

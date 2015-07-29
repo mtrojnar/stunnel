@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2015.04.16" "5.16" "stunnel"
+.TH STUNNEL.PL 8 "2015.06.11" "5.18" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -188,8 +188,8 @@ niektóre inne pliki mogą potrzebować plików urządzeń, np. /dev/zero lub /d
 .RE
 .RS 4
 .RE
-.IP "\fBcompression\fR = deflate | zlib | rle" 4
-.IX Item "compression = deflate | zlib | rle"
+.IP "\fBcompression\fR = deflate | zlib" 4
+.IX Item "compression = deflate | zlib"
 wybór algorytmu kompresji przesyłanych danych
 .Sp
 domyślnie: bez kompresji
@@ -198,8 +198,6 @@ Algorytm deflate jest standardową metodą kompresji zgodnie z \s-1RFC 1951.\s0
 .Sp
 Kompresja zlib zaimplementowana w \fBOpenSSL 0.9.8\fR i nowszych nie jest
 kompatybilna implementacją \fBOpenSSL 0.9.7\fR.
-.Sp
-Kompresja rle nie jest zaimplementowana w aktualnych wersjach \fBOpenSSL\fR.
 .IP "\fBdebug\fR = [\s-1PODSYSTEM\s0].POZIOM" 4
 .IX Item "debug = [PODSYSTEM].POZIOM"
 szczegółowość logowania
@@ -600,6 +598,11 @@ domyślnie: rr
 .IP "\fBident\fR = NAZWA_UŻYTKOWNIKA" 4
 .IX Item "ident = NAZWA_UŻYTKOWNIKA"
 weryfikuj nazwę zdalnego użytkownika korzystając z protokołu \s-1IDENT \s0(\s-1RFC 1413\s0)
+.IP "\fBinclude\fR = \s-1KATALOG\s0" 4
+.IX Item "include = KATALOG"
+wczytaj fragmenty plików konfiguracyjnych z podanego katalogu
+.Sp
+Pliki są wczytywane w rosnącej kolejności alfabetycznej ich nazw.
 .IP "\fBkey\fR = \s-1PLIK_KLUCZA\s0" 4
 .IX Item "key = PLIK_KLUCZA"
 klucz prywatny do certyfikatu podanego w opcji \fIcert\fR
@@ -1140,8 +1143,8 @@ programów są inetd, xinetd i tcpserver.
 Przykładowa linia pliku /etc/inetd.conf może wyglądać tak:
 .PP
 .Vb 2
-\&    imaps stream tcp nowait root /usr/bin/stunnel
-\&        stunnel /etc/stunnel/imaps.conf
+\&    imaps stream tcp nowait root /usr/local/bin/stunnel
+\&        stunnel /usr/local/etc/stunnel/imaps.conf
 .Ve
 .PP
 Ponieważ w takich przypadkach połączenie na zdefiniowanym porcie
@@ -1244,8 +1247,8 @@ Alternatywnie parametry \s-1DH\s0 można umieścić w pliku razem z certyfikatem
 Wygenerowanie parametrów \s-1DH\s0 może zająć nawet wiele minut.
 .SH "PLIKI"
 .IX Header "PLIKI"
-.IP "\fIstunnel.conf\fR" 4
-.IX Item "stunnel.conf"
+.IP "\fI/usr/local/etc/stunnel/stunnel.conf\fR" 4
+.IX Item "/usr/local/etc/stunnel/stunnel.conf"
 plik konfiguracyjny programu
 .SH "BŁĘDY"
 .IX Header "BŁĘDY"

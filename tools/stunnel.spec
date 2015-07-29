@@ -3,14 +3,14 @@
 
 Summary: Program that wraps normal socket connections with SSL/TLS
 Name: stunnel
-Version: 5.17
+Version: 5.18
 Release: 1
-Copyright: GPL
+License: GPL with an OpenSSL exception
 Group: Applications/Networking
 Source: stunnel-%{version}.tar.gz
-Packager: neeo <neeo@irc.pl>
-Requires: openssl >= 0.9.6g
-BuildRequires: openssl-devel >= 0.9.6g
+Packager: Bill Quayle <Bill.Quayle@citadel.com>
+Requires: openssl >= 0.9.7
+BuildRequires: openssl-devel >= 0.9.7
 Buildroot: /var/tmp/stunnel-%{version}-root
 
 %description
@@ -49,7 +49,7 @@ CFLAGS="%{optflags}" ./configure --prefix=%{_prefix} --sysconfdir=%{_sysconfdir}
 %{__install} -m755 -s src/stunnel %{buildroot}%{_sbindir}
 %{__install} -m755 src/.libs/libstunnel.so %{buildroot}%{_libdir}
 %{__install} -m755 src/.libs/libstunnel.la %{buildroot}%{_libdir}
-%{__install} -m644 doc/stunnel.8 %{buildroot}%{_mandir}/man8/stunnel.8.gz
+%{__install} -m644 doc/stunnel.8 %{buildroot}%{_mandir}/man8/stunnel.8
 %{__install} -m644 tools/stunnel.conf-sample %{buildroot}%{_sysconfdir}/stunnel
 %{__install} -m500 tools/stunnel.init %{buildroot}%{_initrddir}/stunnel
 
@@ -64,7 +64,7 @@ ldconfig
 
 %files
 %defattr(-,root,root)
-%doc COPYING COPYRIGHT.GPL README ChangeLog doc/stunnel.html doc/en/transproxy.txt doc/en/VNC_StunnelHOWTO.html
+%doc COPYING COPYRIGHT.GPL README ChangeLog doc/stunnel.html
 %doc tools/ca.html tools/ca.pl tools/importCA.html tools/importCA.sh tools/stunnel.cnf
 %dir %{_sysconfdir}/stunnel
 %config %{_sysconfdir}/stunnel/*
@@ -75,6 +75,12 @@ ldconfig
 %{_initrddir}/stunnel
 
 %changelog
+* Tue May 26 2015 Bill Quayle <Bill.Quayle@citadel.com>
+- updated license specification
+- the manual page is no longer marked as compressed
+- removed outdated documentation files
+- updated minimum required version of OpenSSL
+
 * Fri Sep 09 2005 neeo <neeo@irc.pl>
 - lots of changes and cleanups
 

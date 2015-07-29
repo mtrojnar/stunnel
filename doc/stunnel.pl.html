@@ -191,7 +191,7 @@
 </ul>
 
 </dd>
-<dt id="compression-deflate-zlib-rle"><b>compression</b> = deflate | zlib | rle</dt>
+<dt id="compression-deflate-zlib"><b>compression</b> = deflate | zlib</dt>
 <dd>
 
 <p>wyb&oacute;r algorytmu kompresji przesy&#x142;anych danych</p>
@@ -201,8 +201,6 @@
 <p>Algorytm deflate jest standardow&#x105; metod&#x105; kompresji zgodnie z RFC 1951.</p>
 
 <p>Kompresja zlib zaimplementowana w <b>OpenSSL 0.9.8</b> i nowszych nie jest kompatybilna implementacj&#x105; <b>OpenSSL 0.9.7</b>.</p>
-
-<p>Kompresja rle nie jest zaimplementowana w aktualnych wersjach <b>OpenSSL</b>.</p>
 
 </dd>
 <dt id="debug-PODSYSTEM-.POZIOM"><b>debug</b> = [PODSYSTEM].POZIOM</dt>
@@ -658,6 +656,14 @@
 <dd>
 
 <p>weryfikuj nazw&#x119; zdalnego u&#x17C;ytkownika korzystaj&#x105;c z protoko&#x142;u IDENT (RFC 1413)</p>
+
+</dd>
+<dt id="include-KATALOG"><b>include</b> = KATALOG</dt>
+<dd>
+
+<p>wczytaj fragmenty plik&oacute;w konfiguracyjnych z podanego katalogu</p>
+
+<p>Pliki s&#x105; wczytywane w rosn&#x105;cej kolejno&#x15B;ci alfabetycznej ich nazw.</p>
 
 </dd>
 <dt id="key-PLIK_KLUCZA"><b>key</b> = PLIK_KLUCZA</dt>
@@ -1291,8 +1297,8 @@
 
 <p>Przyk&#x142;adowa linia pliku /etc/inetd.conf mo&#x17C;e wygl&#x105;da&#x107; tak:</p>
 
-<pre><code>    imaps stream tcp nowait root /usr/bin/stunnel
-        stunnel /etc/stunnel/imaps.conf</code></pre>
+<pre><code>    imaps stream tcp nowait root /usr/local/bin/stunnel
+        stunnel /usr/local/etc/stunnel/imaps.conf</code></pre>
 
 <p>Poniewa&#x17C; w takich przypadkach po&#x142;&#x105;czenie na zdefiniowanym porcie (tutaj <i>imaps</i>) nawi&#x105;zuje osobny program (tutaj <i>inetd</i>), <b>stunnel</b> nie mo&#x17C;e u&#x17C;ywa&#x107; opcji <i>accept</i>. W pliku konfiguracyjnym nie mo&#x17C;e by&#x107; r&oacute;wnie&#x17C; zdefiniowana &#x17C;adna us&#x142;uga (<i>[nazwa_us&#x142;ugi]</i>), poniewa&#x17C; konfiguracja taka pozwala na nawi&#x105;zanie tylko jednego po&#x142;&#x105;czenia. Wszystkie <i>OPCJE US&#x141;UG</i> powinny by&#x107; umieszczone razem z opcjami globalnymi. Przyk&#x142;ad takiej konfiguracji znajduje si&#x119; w sekcji <i>PRZYK&#x141;ADY</i>.</p>
 
@@ -1365,7 +1371,7 @@
 
 <dl>
 
-<dt id="stunnel.conf"><i>stunnel.conf</i></dt>
+<dt id="usr-local-etc-stunnel-stunnel.conf"><i>/usr/local/etc/stunnel/stunnel.conf</i></dt>
 <dd>
 
 <p>plik konfiguracyjny programu</p>
