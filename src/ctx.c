@@ -83,14 +83,15 @@ static void sslerror_log(unsigned long, char *);
 /**************************************** initialize section->ctx */
 
 int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
-    s_log(LOG_INFO, "Initializing SSL context for service %s",
-        section->servname);
-
     /* create SSL context */
     if(section->option.client)
         section->ctx=SSL_CTX_new(section->client_method);
     else /* server mode */
         section->ctx=SSL_CTX_new(section->server_method);
+    if(!section->ctx) {
+        sslerror("SSL_CTX_new");
+        return 1; /* FAILED */
+    }
     SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
 
     /* initialize certificate verification */
@@ -114,6 +115,16 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     }
 
     /* setup session cache */
+    if(!section->option.client) {
+        unsigned int servname_len=strlen(section->servname);
+        if(servname_len>SSL_MAX_SSL_SESSION_ID_LENGTH)
+            servname_len=SSL_MAX_SSL_SESSION_ID_LENGTH;
+        if(!SSL_CTX_set_session_id_context(section->ctx,
+                (unsigned char *)section->servname, servname_len)) {
+            sslerror("SSL_CTX_set_session_id_context");
+            return 1; /* FAILED */
+        }
+    }
     SSL_CTX_set_session_cache_mode(section->ctx, SSL_SESS_CACHE_BOTH);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
     if(section->option.sessiond) {
@@ -144,7 +155,6 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
         SSL_MODE_ENABLE_PARTIAL_WRITE |
         SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 #endif
-    s_log(LOG_INFO, "SSL context initialized");
     return 0; /* OK */
 }
 

@@ -48,9 +48,6 @@
 #define SHUT_RDWR 2
 #endif
 
-static char *sid_ctx="stunnel SID";
-    /* const allowed here */
-
 static void client_try(CLI *);
 static void client_run(CLI *);
 static void init_local(CLI *);
@@ -106,11 +103,18 @@ void *client_thread(void *arg) {
 }
 
 void client_main(CLI *c) {
-    s_log(LOG_DEBUG, "Service %s started", c->opt->servname);
+    s_log(LOG_DEBUG, "Service [%s] started", c->opt->servname);
     if(c->opt->option.program && c->opt->option.remote) {
             /* exec and connect options specified together
              * -> spawn a local program instead of stdio */
-        while((c->local_rfd.fd=c->local_wfd.fd=connect_local(c))>=0) {
+        for(;;) {
+            SERVICE_OPTIONS *opt=c->opt;
+            memset(c, 0, sizeof(CLI)); /* connect_local needs clean c */
+            c->opt=opt;
+            if(!setjmp(c->err))
+                c->local_rfd.fd=c->local_wfd.fd=connect_local(c);
+            else
+                break;
             client_run(c);
             if(!c->opt->option.retry)
                 break;
@@ -146,30 +150,29 @@ static void client_run(CLI *c) {
         client_try(c);
 
     s_log(LOG_NOTICE,
-        "Connection %s: %d bytes sent to SSL, %d bytes sent to socket",
+        "Connection %s: %d byte(s) sent to SSL, %d byte(s) sent to socket",
          error==1 ? "reset" : "closed", c->ssl_bytes, c->sock_bytes);
 
         /* cleanup temporary (e.g. IDENT) socket */
     if(c->fd>=0)
         closesocket(c->fd);
-
-        /* cleanup memory */
-    if(c->connect_addr.addr)
-        str_free(c->connect_addr.addr);
-    s_poll_free(c->fds);
+    c->fd=-1;
 
         /* cleanup SSL */
     if(c->ssl) { /* SSL initialized */
         SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         SSL_free(c->ssl);
+        c->ssl=NULL;
         ERR_remove_state(0);
     }
 
         /* cleanup remote socket */
     if(c->remote_fd.fd>=0) { /* remote socket initialized */
-        if(error==1 && c->remote_fd.is_socket)
+        if(error==1 && c->remote_fd.is_socket) /* reset */
             reset(c->remote_fd.fd, "linger (remote)");
         closesocket(c->remote_fd.fd);
+        s_log(LOG_DEBUG, "Remote socket (FD=%d) closed", c->remote_fd.fd);
+        c->remote_fd.fd=-1;
     }
 
         /* cleanup local socket */
@@ -178,25 +181,34 @@ static void client_run(CLI *c) {
             if(error==1 && c->local_rfd.is_socket)
                 reset(c->local_rfd.fd, "linger (local)");
             closesocket(c->local_rfd.fd);
-        } else { /* STDIO */
+            s_log(LOG_DEBUG, "Local socket (FD=%d) closed", c->local_rfd.fd);
+        } else { /* stdin/stdout */
             if(error==1 && c->local_rfd.is_socket)
                 reset(c->local_rfd.fd, "linger (local_rfd)");
             if(error==1 && c->local_wfd.is_socket)
                 reset(c->local_wfd.fd, "linger (local_wfd)");
-       }
+        }
+        c->local_rfd.fd=c->local_wfd.fd=-1;
     }
+
 #ifdef USE_FORK
     /* display child return code if it managed to arrive on time */
     /* otherwise it will be retrieved by the init process and ignored */
     if(c->opt->option.program) /* 'exec' specified */
         child_status(); /* null SIGCHLD handler was used */
-    s_log(LOG_DEBUG, "Service %s finished", c->opt->servname);
+    s_log(LOG_DEBUG, "Service [%s] finished", c->opt->servname);
 #else
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
-    s_log(LOG_DEBUG, "Service %s finished (%d left)", c->opt->servname,
-        --num_clients);
+    s_log(LOG_DEBUG, "Service [%s] finished (%d left)",
+        c->opt->servname, --num_clients);
     leave_critical_section(CRIT_CLIENTS);
 #endif
+
+        /* free remaining memory structures */
+    if(c->connect_addr.addr)
+        str_free(c->connect_addr.addr);
+    s_poll_free(c->fds);
+    c->fds=NULL;
 }
 
 static void client_try(CLI *c) {
@@ -216,35 +228,65 @@ static void client_try(CLI *c) {
 }
 
 static void init_local(CLI *c) {
+    SOCKADDR_UNION addr;
+    socklen_t addr_len;
     char *accepted_address;
 
-    c->peer_addr_len=sizeof(SOCKADDR_UNION);
-    if(getpeername(c->local_rfd.fd, &c->peer_addr.sa, &c->peer_addr_len)<0) {
-        c->local_rfd.is_socket=0;
-        c->local_wfd.is_socket=0; /* TODO: It's not always true */
-#ifdef USE_WIN32
+    /* check if local_rfd is a socket and get peer address */
+    addr_len=sizeof(SOCKADDR_UNION);
+    c->local_rfd.is_socket=!getpeername(c->local_rfd.fd, &addr.sa, &addr_len);
+    if(c->local_rfd.is_socket) {
+        memcpy(&c->peer_addr.sa, &addr.sa, addr_len);
+        c->peer_addr_len=addr_len;
+        if(set_socket_options(c->local_rfd.fd, 1))
+            s_log(LOG_WARNING, "Failed to set local socket options");
+    } else {
         if(get_last_socket_error()!=S_ENOTSOCK) {
-#else
-        if(c->opt->option.transparent_src || get_last_socket_error()!=S_ENOTSOCK) {
-#endif
-            sockerror("getpeerbyname");
+            sockerror("getpeerbyname (local_rfd)");
             longjmp(c->err, 1);
         }
-        /* ignore S_ENOTSOCK error so 'local' doesn't have to be a socket */
-        s_log(LOG_NOTICE, "Service %s accepted connection", c->opt->servname);
+    }
+
+    /* check if local_wfd is a socket and get peer address */
+    if(c->local_rfd.fd==c->local_wfd.fd) {
+        c->local_wfd.is_socket=c->local_rfd.is_socket;
+    } else {
+        addr_len=sizeof(SOCKADDR_UNION);
+        c->local_wfd.is_socket=!getpeername(c->local_wfd.fd, &addr.sa, &addr_len);
+        if(c->local_wfd.is_socket) {
+            if(!c->local_rfd.is_socket) { /* already retrieved */
+                memcpy(&c->peer_addr.sa, &addr.sa, addr_len);
+                c->peer_addr_len=addr_len;
+            }
+            if(set_socket_options(c->local_wfd.fd, 1))
+                s_log(LOG_WARNING, "Failed to set local socket options");
+        } else {
+            if(get_last_socket_error()!=S_ENOTSOCK) {
+                sockerror("getpeerbyname (local_wfd)");
+                longjmp(c->err, 1);
+            }
+        }
+    }
+
+    /* neither of local descriptors is a socket */
+    if(!c->local_rfd.is_socket && !c->local_rfd.is_socket) {
+#ifndef USE_WIN32
+        if(c->opt->option.transparent_src) {
+            s_log(LOG_ERR, "Transparent source needs a socket");
+            longjmp(c->err, 1);
+        }
+#endif
+        s_log(LOG_NOTICE, "Service [%s] accepted connection", c->opt->servname);
         return;
     }
+
+    /* authenticate based on retrieved IP address of the client */
     accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
-    c->local_rfd.is_socket=1;
-    c->local_wfd.is_socket=1; /* TODO: It's not always true */
-    /* it's a socket: lets setup options */
-    if(set_socket_options(c->local_rfd.fd, 1))
-        s_log(LOG_WARNING, "Failed to set local socket options");
 #ifdef USE_LIBWRAP
     libwrap_auth(c, accepted_address);
 #endif /* USE_LIBWRAP */
     auth_user(c, accepted_address);
-    s_log(LOG_NOTICE, "Service %s accepted connection from %s",
+    s_log(LOG_NOTICE, "Service [%s] accepted connection from %s",
         c->opt->servname, accepted_address);
     str_free(accepted_address);
 }
@@ -271,7 +313,7 @@ static void init_remote(CLI *c) {
     }
 
     c->remote_fd.is_socket=1; /* always! */
-    s_log(LOG_DEBUG, "Remote FD=%d initialized", c->remote_fd.fd);
+    s_log(LOG_DEBUG, "Remote socket (FD=%d) initialized", c->remote_fd.fd);
     if(set_socket_options(c->remote_fd.fd, 2))
         s_log(LOG_WARNING, "Failed to set remote socket options");
 }
@@ -281,18 +323,17 @@ static void init_ssl(CLI *c) {
     SSL_SESSION *old_session;
     int unsafe_openssl;
 
-    if(!(c->ssl=SSL_new(c->opt->ctx))) {
+    c->ssl=SSL_new(c->opt->ctx);
+    if(!c->ssl) {
         sslerror("SSL_new");
         longjmp(c->err, 1);
     }
     SSL_set_ex_data(c->ssl, cli_index, c); /* for callbacks */
-    SSL_set_session_id_context(c->ssl, (unsigned char *)sid_ctx,
-        strlen(sid_ctx) );
     if(c->opt->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
-        if(c->opt->host_name) {
-            s_log(LOG_DEBUG, "SNI: host name: %s", c->opt->host_name);
-            if(!SSL_set_tlsext_host_name(c->ssl, c->opt->host_name)) {
+        if(c->opt->sni) {
+            s_log(LOG_DEBUG, "SNI: host name: %s", c->opt->sni);
+            if(!SSL_set_tlsext_host_name(c->ssl, c->opt->sni)) {
                 sslerror("SSL_set_tlsext_host_name");
                 longjmp(c->err, 1);
             }
@@ -843,7 +884,6 @@ static int parse_socket_error(CLI *c, const char *text) {
 
 static void print_cipher(CLI *c) { /* print negotiated cipher */
     SSL_CIPHER *cipher;
-    char *buf, *i, *j;
 #if !defined(OPENSSL_NO_COMP) && OPENSSL_VERSION_NUMBER>=0x0090800fL
     const COMP_METHOD *compression, *expansion;
 #endif
@@ -851,23 +891,9 @@ static void print_cipher(CLI *c) { /* print negotiated cipher */
     if(global_options.debug_level<LOG_INFO) /* performance optimization */
         return;
     cipher=(SSL_CIPHER *)SSL_get_current_cipher(c->ssl);
-    buf=SSL_CIPHER_description(cipher, NULL, 0);
-    i=j=buf;
-    do {
-        switch(*i) {
-        case ' ':
-            *j++=' ';
-            while(i[1]==' ')
-                ++i;
-            break;
-        case '\n':
-            break;
-        default:
-            *j++=*i;
-        }
-    } while(*i++);
-    s_log(LOG_INFO, "Negotiated ciphers: %s", buf);
-    OPENSSL_free(buf);
+    s_log(LOG_INFO, "Negotiated %s ciphersuite: %s (%d-bit encryption)",
+        SSL_CIPHER_get_version(cipher), SSL_CIPHER_get_name(cipher),
+        SSL_CIPHER_get_bits(cipher, NULL));
 
 #if !defined(OPENSSL_NO_COMP) && OPENSSL_VERSION_NUMBER>=0x0090800fL
     compression=SSL_get_current_compression(c->ssl);
@@ -1152,11 +1178,17 @@ static void local_bind(CLI *c) {
         return;
 #if defined(USE_WIN32)
     /* do nothing */
-#elif defined(IP_TRANSPARENT)
+#elif defined(__linux__)
     /* non-local bind on Linux */
     if(c->opt->option.transparent_src) {
-        if(setsockopt(c->fd, SOL_IP, IP_TRANSPARENT, &on, sizeof on))
+        if(setsockopt(c->fd, SOL_IP, IP_TRANSPARENT, &on, sizeof on)) {
             sockerror("setsockopt IP_TRANSPARENT");
+            if(setsockopt(c->fd, SOL_IP, IP_FREEBIND, &on, sizeof on))
+                sockerror("setsockopt IP_FREEBIND");
+            else
+                s_log(LOG_INFO, "IP_FREEBIND socket option set");
+        } else
+            s_log(LOG_INFO, "IP_TRANSPARENT socket option set");
         /* ignore the error to retain Linux 2.2 compatibility */
         /* the error will be handled by bind(), anyway */
     }
@@ -1185,15 +1217,12 @@ static void local_bind(CLI *c) {
 #endif
 
     if(ntohs(c->bind_addr->in.sin_port)>=1024) { /* security check */
+        /* this is currently only possible with transparent_src */
         if(!bind(c->fd, &c->bind_addr->sa, addr_len(c->bind_addr))) {
             s_log(LOG_INFO, "local_bind succeeded on the original port");
             return; /* success */
         }
-        if(get_last_socket_error()!=S_EADDRINUSE
-#ifndef USE_WIN32
-                || !c->opt->option.transparent_src
-#endif /* USE_WIN32 */
-                ) {
+        if(get_last_socket_error()!=S_EADDRINUSE) {
             sockerror("local_bind (original port)");
             longjmp(c->err, 1);
         }
@@ -1221,13 +1250,12 @@ static void print_bound_address(CLI *c) {
         return;
     }
     txt=s_ntop(&addr, addrlen);
-    s_log(LOG_NOTICE,"Service %s connected remote server from %s",
+    s_log(LOG_NOTICE,"Service [%s] connected remote server from %s",
         c->opt->servname, txt);
     str_free(txt);
 }
 
-static void reset(int fd, char *txt) {
-    /* set lingering on a socket if needed*/
+static void reset(int fd, char *txt) { /* set lingering on a socket */
     struct linger l;
 
     l.l_onoff=1;

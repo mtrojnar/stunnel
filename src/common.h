@@ -59,6 +59,9 @@
 /* for FormatGuard */
 /* #define __NO_FORMATGUARD_ */
 
+/* additional diagnostic messages */
+/* #define DEBUG_FD_ALLOC */
+
 /**************************************** platform */
 
 #ifdef _WIN32
@@ -161,6 +164,7 @@ typedef int socklen_t;
 #endif
 
 /* must be included before sys/stat.h for Ultrix */
+/* must be included before sys/socket.h for OpenBSD */
 #include <sys/types.h>   /* u_short, u_long */
 /* general headers */
 #include <stdio.h>
@@ -277,19 +281,22 @@ typedef unsigned long u32;
 #endif  /* __vms */
 
     /* Unix-specific headers */
-#include <signal.h>      /* signal */
-#include <sys/wait.h>    /* wait */
+#include <signal.h>         /* signal */
+#include <sys/wait.h>       /* wait */
 #ifdef HAVE_SYS_RESOURCE_H
-#include <sys/resource.h> /* getrlimit */
+#include <sys/resource.h>   /* getrlimit */
 #endif
 #ifdef HAVE_UNISTD_H
-#include <unistd.h>      /* getpid, fork, execvp, exit */
+#include <unistd.h>         /* getpid, fork, execvp, exit */
 #endif
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>         /* mallopt */
+#endif
 #ifdef HAVE_SYS_SELECT_H
-#include <sys/select.h>  /* for aix */
+#include <sys/select.h>     /* for aix */
 #endif
 
 #if defined(HAVE_POLL) && !defined(BROKEN_POLL)
@@ -314,6 +321,10 @@ typedef unsigned long u32;
 #ifdef __BEOS__
 #include <posix/grp.h>
 #endif
+
+#ifdef HAVE_SYS_UIO_H
+#include <sys/uio.h>    /* struct iovec */
+#endif /* HAVE_SYS_UIO_H */
 
 #include <netinet/in.h>  /* struct sockaddr_in */
 #include <sys/socket.h>  /* getpeername */
@@ -358,8 +369,12 @@ extern char *sys_errlist[];
 
 /* Linux */
 #ifdef __linux__
+#ifndef IP_FREEBIND
+/* kernel headers without IP_FREEBIND definition */
+#define IP_FREEBIND 15
+#endif /* IP_FREEBIND */
 #ifndef IP_TRANSPARENT
-/* old kernel headers without IP_TRANSPARENT definition */
+/* kernel headers without IP_TRANSPARENT definition */
 #define IP_TRANSPARENT 19
 #endif /* IP_TRANSPARENT */
 #ifdef HAVE_LINUX_NETFILTER_IPV4_H
@@ -404,6 +419,13 @@ extern char *sys_errlist[];
 #undef HAVE_OSSL_ENGINE_H
 #endif
 #endif /* HAVE_OSSL_ENGINE_H */
+
+/* non-blocking OCSP API is not available before OpenSSL 0.9.8h */
+#if OPENSSL_VERSION_NUMBER<0x00908080L
+#ifdef HAVE_OSSL_OCSP_H
+#undef HAVE_OSSL_OCSP_H
+#endif /* HAVE_OSSL_OCSP_H */
+#endif /* OpenSSL older than 0.9.8h */
 
 #ifdef HAVE_OSSL_OCSP_H
 #include <openssl/ocsp.h>

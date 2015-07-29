@@ -45,14 +45,17 @@ static int add_rand_file(GLOBAL_OPTIONS *, const char *);
 
 int cli_index, opt_index; /* to keep structure for callbacks */
 
-void ssl_init(void) { /* init SSL before parsing configuration file */
+int ssl_init(void) { /* init SSL before parsing configuration file */
     SSL_load_error_strings();
     SSL_library_init();
     cli_index=SSL_get_ex_new_index(0, "cli index", NULL, NULL, NULL);
     opt_index=SSL_CTX_get_ex_new_index(0, "opt index", NULL, NULL, NULL);
+    if(cli_index<0 || opt_index<0)
+        return 1;
 #ifdef HAVE_OSSL_ENGINE_H
     ENGINE_load_builtin_engines();
 #endif
+    return 0;
 }
 
 int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global SSL settings */
@@ -83,8 +86,13 @@ static int init_compression(GLOBAL_OPTIONS *global) {
 
     ssl_comp_methods=SSL_COMP_get_compression_methods();
     if(!ssl_comp_methods) {
-        s_log(LOG_ERR, "Failed to get compression methods");
-        return 1;
+        if(global->compression==COMP_NONE) {
+            s_log(LOG_NOTICE, "Failed to get compression methods");
+            return 0; /* ignore */
+        } else {
+            s_log(LOG_ERR, "Failed to get compression methods");
+            return 1;
+        }
     }
 
     /* delete OpenSSL defaults (empty the SSL_COMP stack) */
@@ -199,12 +207,11 @@ static int init_prng(GLOBAL_OPTIONS *global) {
                          so no need to check if seeded sufficiently */
         }
     }
-#endif /* USE_WIN32 */
-
     /* try the good-old default /dev/urandom, if available  */
     totbytes+=add_rand_file(global, "/dev/urandom");
     if(RAND_status())
         return 0; /* success */
+#endif /* USE_WIN32 */
 
     /* random file specified during configure */
     s_log(LOG_ERR, "PRNG seeded with %d bytes total", totbytes);

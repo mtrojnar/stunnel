@@ -91,7 +91,7 @@ am__objects_3 = stunnel-str.$(OBJEXT) stunnel-file.$(OBJEXT) \
 	stunnel-network.$(OBJEXT) stunnel-resolver.$(OBJEXT) \
 	stunnel-ssl.$(OBJEXT) stunnel-ctx.$(OBJEXT) \
 	stunnel-verify.$(OBJEXT) stunnel-sthreads.$(OBJEXT) \
-	stunnel-stunnel.$(OBJEXT)
+	stunnel-fd.$(OBJEXT) stunnel-stunnel.$(OBJEXT)
 am__objects_4 = stunnel-pty.$(OBJEXT) stunnel-libwrap.$(OBJEXT)
 am_stunnel_OBJECTS = $(am__objects_2) $(am__objects_3) \
 	$(am__objects_4)
@@ -103,7 +103,7 @@ stunnel_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 am__objects_5 = str.$(OBJEXT) file.$(OBJEXT) client.$(OBJEXT) \
 	log.$(OBJEXT) options.$(OBJEXT) protocol.$(OBJEXT) \
 	network.$(OBJEXT) resolver.$(OBJEXT) ssl.$(OBJEXT) \
-	ctx.$(OBJEXT) verify.$(OBJEXT) sthreads.$(OBJEXT) \
+	ctx.$(OBJEXT) verify.$(OBJEXT) sthreads.$(OBJEXT) fd.$(OBJEXT) \
 	stunnel.$(OBJEXT)
 am__objects_6 = gui.$(OBJEXT)
 am_stunnel_exe_OBJECTS = $(am__objects_2) $(am__objects_5) \
@@ -242,10 +242,10 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 stunnel_CFLAGS = @stunnel_CFLAGS@
+stunnel_LDFLAGF = @stunnel_LDFLAGF@
 
 # SSL library
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
-stunnel_LDLAGS = @stunnel_LDLAGS@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
@@ -255,7 +255,8 @@ top_srcdir = @top_srcdir@
 # File lists
 common_headers = common.h prototypes.h version.h
 common_sources = str.c file.c client.c log.c options.c protocol.c \
-	network.c resolver.c ssl.c ctx.c verify.c sthreads.c stunnel.c
+	network.c resolver.c ssl.c ctx.c verify.c sthreads.c fd.c \
+	stunnel.c
 unix_sources = pty.c libwrap.c
 shared_sources = env.c
 win32_sources = gui.c resources.h resources.rc stunnel.ico
@@ -289,7 +290,7 @@ WINLIBS = -L$(OPENSSLDIR) -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 # WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj \
 	network.obj resolver.obj ssl.obj ctx.obj verify.obj \
-	sthreads.obj stunnel.obj gui.obj resources.obj
+	sthreads.obj fd.obj stunnel.obj gui.obj resources.obj
 WINPREFIX = i586-mingw32msvc-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
@@ -470,6 +471,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ctx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/env.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/file.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@
@@ -482,6 +484,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/str.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-client.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-ctx.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-fd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-file.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-libwrap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-log.Po@am__quote@
@@ -686,6 +689,20 @@ stunnel-sthreads.obj: sthreads.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sthreads.c' object='stunnel-sthreads.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-sthreads.obj `if test -f 'sthreads.c'; then $(CYGPATH_W) 'sthreads.c'; else $(CYGPATH_W) '$(srcdir)/sthreads.c'; fi`
+
+stunnel-fd.o: fd.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-fd.o -MD -MP -MF $(DEPDIR)/stunnel-fd.Tpo -c -o stunnel-fd.o `test -f 'fd.c' || echo '$(srcdir)/'`fd.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/stunnel-fd.Tpo $(DEPDIR)/stunnel-fd.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fd.c' object='stunnel-fd.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-fd.o `test -f 'fd.c' || echo '$(srcdir)/'`fd.c
+
+stunnel-fd.obj: fd.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-fd.obj -MD -MP -MF $(DEPDIR)/stunnel-fd.Tpo -c -o stunnel-fd.obj `if test -f 'fd.c'; then $(CYGPATH_W) 'fd.c'; else $(CYGPATH_W) '$(srcdir)/fd.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/stunnel-fd.Tpo $(DEPDIR)/stunnel-fd.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fd.c' object='stunnel-fd.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -c -o stunnel-fd.obj `if test -f 'fd.c'; then $(CYGPATH_W) 'fd.c'; else $(CYGPATH_W) '$(srcdir)/fd.c'; fi`
 
 stunnel-stunnel.o: stunnel.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(stunnel_CPPFLAGS) $(CPPFLAGS) $(stunnel_CFLAGS) $(CFLAGS) -MT stunnel-stunnel.o -MD -MP -MF $(DEPDIR)/stunnel-stunnel.Tpo -c -o stunnel-stunnel.o `test -f 'stunnel.c' || echo '$(srcdir)/'`stunnel.c

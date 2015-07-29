@@ -61,7 +61,11 @@
 
 #define CONFLINELEN (16*1024)
 
-static int section_init(int, SERVICE_OPTIONS *, int);
+static void init_globals(void);
+static int init_section(SERVICE_OPTIONS *);
+#ifndef OPENSSL_NO_TLSEXT
+static int init_sni(SERVICE_OPTIONS *);
+#endif
 
 static int parse_debug_level(char *);
 
@@ -86,7 +90,7 @@ static ENGINE *get_engine(int);
 
 static void print_syntax(void);
 static void config_error(int, const char *, const char *);
-static void section_error(int, const char *, const char *);
+static void section_error(const char *, const char *);
 #ifndef USE_WIN32
 static char **argalloc(char *);
 #endif
@@ -561,9 +565,6 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         char *opt, char *arg) {
     char *tmpstr;
     int tmpnum;
-#ifndef OPENSSL_NO_TLSEXT
-    SERVICE_OPTIONS *tmpsrv;
-#endif /* OPENSSL_NO_TLSEXT */
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
@@ -669,7 +670,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* ciphers */
     switch(cmd) {
     case CMD_INIT:
-        section->cipher_list=stunnel_cipher_list;
+        section->cipher_list=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "ciphers"))
@@ -1269,33 +1270,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "sni"))
             break;
-        tmpstr=strchr(arg, ':');
-        if(!tmpstr)
-            return "Invalid parameter format";
-        *tmpstr++='\0';
-        for(tmpsrv=new_service_options.next; tmpsrv; tmpsrv=tmpsrv->next)
-            if(!strcmp(tmpsrv->servname, arg))
-                break;
-        if(!tmpsrv)
-            return "Section name not found";
-        if(tmpsrv->option.client)
-            return "SNI master service is a TLS client";
-        if(tmpsrv->servername_list_tail) {
-            tmpsrv->servername_list_tail->next=str_alloc(sizeof(SERVERNAME_LIST));
-            tmpsrv->servername_list_tail=tmpsrv->servername_list_tail->next;
-        } else { /* first virtual service */
-            tmpsrv->servername_list_head=
-                tmpsrv->servername_list_tail=
-                str_alloc(sizeof(SERVERNAME_LIST));
-            tmpsrv->ssl_options|=SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
-        }
-        tmpsrv->servername_list_tail->servername=str_dup(tmpstr);
-        tmpsrv->servername_list_tail->opt=section;
-        tmpsrv->servername_list_tail->next=NULL;
-        section->option.sni=1;
-        /* always negotiate a new session on renegotiation, as the SSL
-         * context settings (including access control) may be different */
-        section->ssl_options|=SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
+        section->sni=str_dup(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -1647,9 +1622,13 @@ int parse_conf(char *name, CONF_TYPE type) {
         if(config_opt[0]=='\0' || config_opt[0]=='#' || config_opt[0]==';') /* empty or comment */
             continue;
         if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
-            if(section_init(line_number-1, section, 0)) {
-                file_close(df);
-                return 1;
+            if(!new_service_options.next) {
+                /* FIPS needs to be initialized as early as possible */
+                if(ssl_configure(&new_global_options)) { /* configure global SSL settings */
+                    file_close(df);
+                    return 1;
+                }
+                init_globals(); /* defaults need to be set before other options are parsed */
             }
             ++config_opt;
             config_opt[strlen(config_opt)-1]='\0';
@@ -1674,7 +1653,7 @@ int parse_conf(char *name, CONF_TYPE type) {
         while(isspace((unsigned char)*config_arg))
             ++config_arg; /* remove initial whitespaces */
         errstr=parse_service_option(CMD_EXEC, section, config_opt, config_arg);
-        if(section==&new_service_options && errstr==option_not_found)
+        if(!new_service_options.next && errstr==option_not_found)
             errstr=parse_global_option(CMD_EXEC, config_opt, config_arg);
         if(errstr) {
             config_error(line_number, line_text, errstr);
@@ -1684,22 +1663,21 @@ int parse_conf(char *name, CONF_TYPE type) {
     }
     file_close(df);
 
-    /* initialize the last section */
-    if(section_init(line_number, section, 1))
-        return 1;
-
-    /* final checks */
-    if(!new_service_options.next) { /* inetd mode */
-        if(section->option.accept) {
-            s_log(LOG_ERR, "Accept option is not allowed in inetd mode");
-            s_log(LOG_ERR, "Remove accept option or define a [section]");
-            return 1;
+    if(new_service_options.next) { /* daemon mode: initialize sections */
+        for(section=new_service_options.next; section; section=section->next) {
+            s_log(LOG_INFO, "Initializing service section [%s]", section->servname);
+            if(init_section(section))
+                return 1;
         }
-        if(!section->option.remote && !section->execname) {
-            s_log(LOG_ERR, "Inetd mode must have 'connect' or 'exec' options");
+    } else { /* inetd mode: need to initialize global options */
+        if(ssl_configure(&new_global_options)) /* configure global SSL settings */
             return 1;
-        }
+        init_globals();
+        s_log(LOG_INFO, "Initializing inetd mode configuration");
+        if(init_section(&new_service_options))
+            return 1;
     }
+
     s_log(LOG_NOTICE, "Configuration successful");
     return 0;
 }
@@ -1714,85 +1692,65 @@ void apply_conf() { /* can be used once the configuration was validated */
 #endif
 }
 
-/**************************************** validate and initialize section */
+/**************************************** validate and initialize configuration */
 
-static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
-    char *tmpstr;
+static void init_globals() {
+#ifdef HAVE_OSSL_ENGINE_H
+    close_engine();
+#endif
 
-    /* setup host_name for SNI, prefer protocolHost if specified */
-    if(section->protocol_host) /* 'protocolHost' option */
-        section->host_name=str_dup(section->protocol_host);
-    else if(section->connect_name) /* 'connect' option */
-        section->host_name=str_dup(section->connect_name);
-    else
-        section->host_name=NULL;
-    if(section->host_name) { /* either 'protocolHost' or 'connect' specified */
-        tmpstr=strrchr(section->host_name, ':');
-        if(tmpstr) { /* 'host:port' -> drop ':port' */
-            *tmpstr='\0';
-        } else { /* 'port' -> default to 'localhost' */
-            str_free(section->host_name);
-            section->host_name=str_dup("localhost");
-        }
-    }
-
-    if(section==&new_service_options) { /* global options just configured */
+    /* prepare default SSL methods */
 #ifdef USE_FIPS
-        if(new_global_options.option.fips) {
-            if(section->cipher_list==stunnel_cipher_list)
-                section->cipher_list="FIPS";
-        if(!section->client_method)
-            section->client_method=(SSL_METHOD *)TLSv1_client_method();
-        if(!section->server_method)
-            section->server_method=(SSL_METHOD *)TLSv1_server_method();
-    } else
+    if(new_global_options.option.fips) {
+        if(!new_service_options.cipher_list)
+            new_service_options.cipher_list="FIPS";
+        if(!new_service_options.client_method)
+            new_service_options.client_method=(SSL_METHOD *)TLSv1_client_method();
+        if(!new_service_options.server_method)
+            new_service_options.server_method=(SSL_METHOD *)TLSv1_server_method();
+        return;
+    }
 #endif /* USE_FIPS */
-    {
-        if(!section->client_method)
+    if(!new_service_options.cipher_list)
+        new_service_options.cipher_list=stunnel_cipher_list;
+    if(!new_service_options.client_method)
 #if !defined(OPENSSL_NO_TLS1)
-            section->client_method=(SSL_METHOD *)TLSv1_client_method();
+        new_service_options.client_method=(SSL_METHOD *)TLSv1_client_method();
 #elif !defined(OPENSSL_NO_SSL3)
-            section->client_method=(SSL_METHOD *)SSLv3_client_method();
+        new_service_options.client_method=(SSL_METHOD *)SSLv3_client_method();
 #elif !defined(OPENSSL_NO_SSL2)
-            section->client_method=(SSL_METHOD *)SSLv2_client_method();
+        new_service_options.client_method=(SSL_METHOD *)SSLv2_client_method();
 #else /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
 #error No supported SSL methods found
 #endif /* OPENSSL_NO_TLS1, OPENSSL_NO_SSL3, OPENSSL_NO_SSL2 */
-        /* SSLv23_server_method() is an always available catch-all */
-        if(!section->server_method)
-            section->server_method=(SSL_METHOD *)SSLv23_server_method();
-    }
-#ifdef HAVE_OSSL_ENGINE_H
-        close_engine();
-#endif
-        if(ssl_configure(&new_global_options)) /* configure global SSL settings */
-            return 1;
-        if(!final) /* no need to validate defaults */
-            return 0; /* OK */
-    }
+    /* SSLv23_server_method() is an always available catch-all */
+    if(!new_service_options.server_method)
+        new_service_options.server_method=(SSL_METHOD *)SSLv23_server_method();
+}
 
-    if(!section->option.client && !section->cert) {
-        section_error(last_line, section->servname,
-            "SSL server needs a certificate");
+static int init_section(SERVICE_OPTIONS *section) {
+#ifdef USE_FIPS
+    if(new_global_options.option.fips &&
+            ((section->option.client &&
+                section->client_method!=(SSL_METHOD *)TLSv1_client_method()) ||
+            (!section->option.client &&
+                section->server_method!=(SSL_METHOD *)TLSv1_server_method()))) {
+        section_error(section->servname, "sslVersion = TLSv1 is required in FIPS mode");
         return 1;
     }
+#endif /* USE_FIPS */
+    if(!section->option.client && !section->cert) {
+        section_error(section->servname, "SSL server needs a certificate");
+        return 1;
+    }
+#ifndef OPENSSL_NO_TLSEXT
+    if(init_sni(section))
+        return 1;
+#endif
     if(context_init(section)) /* initialize SSL context */
         return 1;
 
-    if(section==&new_service_options) { /* inetd mode checks */
-        if(section->option.accept) {
-            section_error(last_line, section->servname,
-                "'accept' is not allowed in inetd mode");
-            return 1;
-        }
-#if 0
-        /* TODO: some additional checks could be useful */
-        if((unsigned int)section->option.program +
-                (unsigned int)section->option.remote != 1)
-            section_error(last_line, section->servname,
-                "Single endpoint is required in inetd mode");
-#endif
-    } else { /* standalone mode checks */
+    if(new_service_options.next) { /* daemon mode checks */
         if((unsigned int)section->option.accept
                 + (unsigned int)section->option.program
                 + (unsigned int)section->option.remote
@@ -1803,20 +1761,91 @@ static int section_init(int last_line, SERVICE_OPTIONS *section, int final) {
                 + (unsigned int)section->option.transparent_dst
 #endif /* USE_WIN32 */
                 !=2) {
-            section_error(last_line, section->servname,
-                "Each service must define two endpoints");
+            section_error(section->servname, "Each service must define two endpoints");
             return 1;
         }
-#ifndef OPENSSL_NO_TLSEXT
-        if(section->option.sni && section->option.client) {
-            section_error(last_line, section->servname,
-                "SNI slave service is a TLS client");
+    } else { /* inetd mode checks */
+        if(section->option.accept) {
+            s_log(LOG_ERR, "Accept option is not allowed in inetd mode");
+            s_log(LOG_ERR, "Remove accept option or define a [section]");
             return 1;
         }
-#endif /* OPENSSL_NO_TLSEXT */
+        if(!section->option.remote && !section->execname) {
+            s_log(LOG_ERR, "Inetd mode must have 'connect' or 'exec' options");
+            return 1;
+        }
+#if 0
+        /* TODO: some additional checks could be useful */
+        if((unsigned int)section->option.program +
+                (unsigned int)section->option.remote != 1)
+            section_error(section->servname, "Single endpoint is required in inetd mode");
+#endif
     }
     return 0; /* all tests passed -- continue program execution */
 }
+
+#ifndef OPENSSL_NO_TLSEXT
+static int init_sni(SERVICE_OPTIONS *section) {
+    char *tmpstr;
+    SERVICE_OPTIONS *tmpsrv;
+
+    /* server mode: update servername_list based on SNI option */
+    if(!section->option.client && section->sni) {
+        tmpstr=strchr(section->sni, ':');
+        if(!tmpstr) {
+            section_error(section->servname, "Invalid SNI parameter format");
+            return 1;
+        }
+        *tmpstr++='\0';
+        for(tmpsrv=new_service_options.next; tmpsrv; tmpsrv=tmpsrv->next)
+            if(!strcmp(tmpsrv->servname, section->sni))
+                break;
+        if(!tmpsrv) {
+            section_error(section->servname, "SNI section name not found");
+            return 1;
+        }
+        if(tmpsrv->option.client) {
+            section_error(section->servname, "SNI master service is a TLS client");
+            return 1;
+        }
+        if(tmpsrv->servername_list_tail) {
+            tmpsrv->servername_list_tail->next=str_alloc(sizeof(SERVERNAME_LIST));
+            tmpsrv->servername_list_tail=tmpsrv->servername_list_tail->next;
+        } else { /* first virtual service */
+            tmpsrv->servername_list_head=
+                tmpsrv->servername_list_tail=
+                str_alloc(sizeof(SERVERNAME_LIST));
+            tmpsrv->ssl_options|=SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
+        }
+        tmpsrv->servername_list_tail->servername=str_dup(tmpstr);
+        tmpsrv->servername_list_tail->opt=section;
+        tmpsrv->servername_list_tail->next=NULL;
+        section->option.sni=1;
+        /* always negotiate a new session on renegotiation, as the SSL
+         * context settings (including access control) may be different */
+        section->ssl_options|=SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
+    }
+
+    /* client mode: setup SNI default based on 'protocolHost' and 'connect' options */
+    if(section->option.client && !section->sni) {
+        /* setup host_name for SNI, prefer SNI and protocolHost if specified */
+        if(section->protocol_host) /* 'protocolHost' option */
+            section->sni=str_dup(section->protocol_host);
+        else if(section->connect_name) /* 'connect' option */
+            section->sni=str_dup(section->connect_name);
+        if(section->sni) { /* either 'protocolHost' or 'connect' specified */
+            tmpstr=strrchr(section->sni, ':');
+            if(tmpstr) { /* 'host:port' -> drop ':port' */
+                *tmpstr='\0';
+            } else { /* 'port' -> default to 'localhost' */
+                str_free(section->sni);
+                section->sni=str_dup("localhost");
+            }
+        }
+    }
+    return 0;
+}
+#endif /* OPENSSL_NO_TLSEXT */
 
 /**************************************** facility/debug level */
 
@@ -2349,8 +2378,8 @@ static void config_error(int num, const char *line, const char *str) {
     s_log(LOG_ERR, "Line %d: \"%s\": %s", num, line, str);
 }
 
-static void section_error(int num, const char *name, const char *str) {
-    s_log(LOG_ERR, "Line %d: End of section %s: %s", num, name, str);
+static void section_error(const char *name, const char *str) {
+    s_log(LOG_ERR, "Section %s: %s", name, str);
 }
 
 #ifndef USE_WIN32

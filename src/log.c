@@ -103,6 +103,7 @@ void log_flush(LOG_MODE new_mode) {
     while(head) {
         log_raw(head->level, head->stamp, head->id, head->text);
         str_free(head->stamp);
+        str_free(head->id);
         str_free(head->text);
         tmp=head;
         head=head->next;
@@ -148,11 +149,15 @@ void s_log(int level, const char *format, ...) {
     if(mode==LOG_MODE_NONE) { /* save the text to log it later */
         enter_critical_section(CRIT_LOG);
         tmp=str_alloc(sizeof(struct LIST));
+        str_detach(tmp);
         tmp->next=NULL;
         tmp->level=level;
         tmp->stamp=stamp;
+        str_detach(tmp->stamp);
         tmp->id=id;
+        str_detach(tmp->id);
         tmp->text=text;
+        str_detach(tmp->text);
         if(tail)
             tail->next=tmp;
         else
@@ -214,7 +219,7 @@ static void log_raw(const int level, const char *stamp,
 }
 
 /* critical problem - str.c functions are not safe to use */
-void fatal(char *error, char *file, int line) {
+void fatal_debug(char *error, char *file, int line) {
     char text[80];
 #ifdef USE_WIN32
     DWORD num;

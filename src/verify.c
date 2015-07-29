@@ -50,6 +50,7 @@ static int cert_check(CLI *c, X509_STORE_CTX *, int);
 static int crl_check(CLI *c, X509_STORE_CTX *);
 #ifdef HAVE_OSSL_OCSP_H
 static int ocsp_check(CLI *c, X509_STORE_CTX *);
+static OCSP_RESPONSE *ocsp_get_response(CLI *, OCSP_REQUEST *);
 #endif
 
 /* utility functions */
@@ -360,22 +361,12 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     X509 *cert;
     X509 *issuer=NULL;
     OCSP_CERTID *certID;
-    BIO *bio=NULL;
     OCSP_REQUEST *request=NULL;
     OCSP_RESPONSE *response=NULL;
     OCSP_BASICRESP *basicResponse=NULL;
     ASN1_GENERALIZEDTIME *revoked_at=NULL,
         *this_update=NULL, *next_update=NULL;
     int status, reason;
-
-    /* connect specified OCSP server (responder) */
-    c->fd=s_socket(c->opt->ocsp_addr.sa.sa_family, SOCK_STREAM, 0,
-        0, "OCSP: socket (auth_user)");
-    if(c->fd<0)
-        return 0; /* reject connection */
-    if(connect_blocking(c, &c->opt->ocsp_addr, addr_len(&c->opt->ocsp_addr)))
-        goto cleanup;
-    s_log(LOG_DEBUG, "OCSP: server connected");
 
     /* get current certificate ID */
     cert=X509_STORE_CTX_get_current_cert(callback_ctx); /* get current cert */
@@ -402,14 +393,9 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     OCSP_request_add1_nonce(request, 0, -1);
 
     /* send the request and get a response */
-    /* FIXME: this code won't work with ucontext threading */
-    /* (blocking sockets are used) */
-    bio=BIO_new_fd(c->fd, BIO_NOCLOSE);
-    response=OCSP_sendreq_bio(bio, c->opt->ocsp_path, request);
-    if(!response) {
-        sslerror("OCSP: OCSP_sendreq_bio");
+    response=ocsp_get_response(c, request);
+    if(!response)
         goto cleanup;
-    }
     error=OCSP_response_status(response);
     if(error!=OCSP_RESPONSE_STATUS_SUCCESSFUL) {
         s_log(LOG_WARNING, "OCSP: Responder error: %d: %s",
@@ -458,8 +444,6 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     }
     retval=1; /* accept connection */
 cleanup:
-    if(bio)
-        BIO_free_all(bio);
     if(issuer)
         X509_free(issuer);
     if(request)
@@ -468,9 +452,63 @@ cleanup:
         OCSP_RESPONSE_free(response);
     if(basicResponse)
         OCSP_BASICRESP_free(basicResponse);
-    closesocket(c->fd);
-    c->fd=-1; /* avoid double close on cleanup */
     return retval;
+}
+
+static OCSP_RESPONSE *ocsp_get_response(CLI *c, OCSP_REQUEST *req) {
+    BIO *bio=NULL;
+    OCSP_REQ_CTX *req_ctx=NULL;
+    OCSP_RESPONSE *resp=NULL;
+    int err;
+
+    /* connect specified OCSP server (responder) */
+    c->fd=s_socket(c->opt->ocsp_addr.sa.sa_family, SOCK_STREAM, 0,
+        1, "OCSP: socket (auth_user)");
+    if(c->fd<0)
+        goto cleanup;
+    if(connect_blocking(c, &c->opt->ocsp_addr, addr_len(&c->opt->ocsp_addr)))
+        goto cleanup;
+    bio=BIO_new_fd(c->fd, BIO_NOCLOSE);
+    if(!bio)
+        goto cleanup;
+    s_log(LOG_DEBUG, "OCSP: server connected");
+
+    /* OCSP protocol communication loop */
+    req_ctx=OCSP_sendreq_new(bio, c->opt->ocsp_path, req, -1);
+    if(!req_ctx) {
+        sslerror("OCSP: OCSP_sendreq_new");
+        goto cleanup;
+    }
+    while(OCSP_sendreq_nbio(&resp, req_ctx)==-1) {
+        s_poll_init(c->fds);
+        s_poll_add(c->fds, c->fd, BIO_should_read(bio), BIO_should_write(bio));
+        err=s_poll_wait(c->fds, c->opt->timeout_busy, 0);
+        if(err==-1)
+            sockerror("OCSP: s_poll_wait");
+        if(err==0)
+            s_log(LOG_INFO, "OCSP: s_poll_wait: TIMEOUTbusy exceeded");
+        if(err<=0)
+            goto cleanup;
+    }
+    /* s_log(LOG_DEBUG, "OCSP: context state: 0x%x", *(int *)req_ctx); */
+    /* http://www.mail-archive.com/openssl-users@openssl.org/msg61691.html */
+    if(!resp) {
+        if(ERR_peek_error())
+            sslerror("OCSP: OCSP_sendreq_nbio");
+        else /* OpenSSL error: OCSP_sendreq_nbio does not use OCSPerr */
+            s_log(LOG_ERR, "OCSP: OCSP_sendreq_nbio: OpenSSL internal error");
+    }
+
+cleanup:
+    if(req_ctx)
+        OCSP_REQ_CTX_free(req_ctx);
+    if(bio)
+        BIO_free_all(bio);
+    if(c->fd>=0) {
+        closesocket(c->fd);
+        c->fd=-1; /* avoid double close on cleanup */
+    }
+    return resp;
 }
 
 #endif /* HAVE_OSSL_OCSP_H */

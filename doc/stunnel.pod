@@ -465,7 +465,7 @@ default: yes
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
 
-=item B<sni> = service_name:server_name
+=item B<sni> = service_name:server_name (server mode)
 
 Use the service as a slave service (a name-based virtual server) for Server
 Name Indication TLS extension (RFC 3546).
@@ -480,6 +480,13 @@ I<connect> option of the slave service is ignored when I<protocol> option is
 specified, as I<protocol> connects remote host before TLS handshake.
 Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.
+
+Option I<sni> is only available when compiled with OpenSSL 1.0.0 and later.
+
+=item B<sni> = server_name (client mode)
+
+Use the parameter as the value of TLS Server Name Indication (RFC 3546)
+extension.
 
 Option I<sni> is only available when compiled with OpenSSL 1.0.0 and later.
 
@@ -773,8 +780,6 @@ Some global options will not be reloaded:
 =over 4
 
 =item * chroot
-
-=item * fips
 
 =item * foreground
 

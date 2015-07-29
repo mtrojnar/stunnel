@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2012.01.10" "4.52" "stunnel"
+.TH STUNNEL.PL 8 "2012.01.14" "4.53" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -480,8 +480,8 @@ domyślnie: yes
 .Sp
 Domyślnie używane jest \s-1IP\s0 najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.
-.IP "\fBsni\fR = nazwa_usługi:nazwa_serwera" 4
-.IX Item "sni = nazwa_usługi:nazwa_serwera"
+.IP "\fBsni\fR = nazwa_usługi:nazwa_serwera (tryb serwera)" 4
+.IX Item "sni = nazwa_usługi:nazwa_serwera (tryb serwera)"
 Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia \s-1TLS\s0 Server
 Name Indication (\s-1RFC\s0 3546).
 .Sp
@@ -498,6 +498,12 @@ nawiązywane przed negocjacją \s-1TLS\s0.  Uwierzytelnienie przy pomocy bibliot
 libwrap jest realizowane dwukrotnie: najpierw dla usługi nadrzędnej po
 odebraniu połączenia \s-1TCP\s0, a następnie dla usługi podrzędnej podczas negocjacji
 \&\s-1TLS\s0.
+.Sp
+Opcja \fIsni\fR jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
+.IP "\fBsni\fR = nazwa_serwera (tryb klienta)" 4
+.IX Item "sni = nazwa_serwera (tryb klienta)"
+Użyj parametru jako wartości rozszerzenia \s-1TLS\s0 Server Name Indication
+(\s-1RFC\s0 3546).
 .Sp
 Opcja \fIsni\fR jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
 .IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
@@ -743,8 +749,6 @@ Niektóre globalne opcje nie będą przeładowane:
 .RS 4
 .IP "\(bu" 4
 chroot
-.IP "\(bu" 4
-fips
 .IP "\(bu" 4
 foreground
 .IP "\(bu" 4

@@ -30,7 +30,7 @@ OBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj \
 	$(OBJ)\verify.obj $(OBJ)\file.obj $(OBJ)\client.obj \
 	$(OBJ)\protocol.obj $(OBJ)\sthreads.obj $(OBJ)\log.obj \
 	$(OBJ)\options.obj $(OBJ)\network.obj $(OBJ)\resolver.obj \
-	$(OBJ)\gui.obj $(OBJ)\resources.res $(OBJ)\str.obj
+	$(OBJ)\gui.obj $(OBJ)\resources.res $(OBJ)\str.obj $(OBJ)/fd.obj
 	
 CC=cl
 LINK=link

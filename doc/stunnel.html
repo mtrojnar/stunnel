@@ -509,7 +509,7 @@ to its owner.  On Unix systems you can use the following command:</p>
 <p>IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.</p>
 </dd>
-<dt><strong><a name="sni_service_name_server_name" class="item"><strong>sni</strong> = service_name:server_name</a></strong></dt>
+<dt><strong><a name="server_name" class="item"><strong>sni</strong> = service_name:server_name (server mode)</a></strong></dt>
 
 <dd>
 <p>Use the service as a slave service (a name-based virtual server) for Server
@@ -523,6 +523,13 @@ Multiple slave services are normally specified for a single master service.
 specified, as <em>protocol</em> connects remote host before TLS handshake.
 Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.</p>
+<p>Option <em>sni</em> is only available when compiled with OpenSSL 1.0.0 and later.</p>
+</dd>
+<dt><strong><strong>sni</strong> = server_name (client mode)</strong></dt>
+
+<dd>
+<p>Use the parameter as the value of TLS Server Name Indication (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>)
+extension.</p>
 <p>Option <em>sni</em> is only available when compiled with OpenSSL 1.0.0 and later.</p>
 </dd>
 <dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = url</a></strong></dt>
@@ -815,9 +822,6 @@ for webservers.  Level 3 is preferred for point-to-point connections.</p>
 <p>Some global options will not be reloaded:</p>
 <ul>
 <li><strong><a name="chroot" class="item">chroot</a></strong>
-
-</li>
-<li><strong><a name="fips" class="item">fips</a></strong>
 
 </li>
 <li><strong><a name="foreground" class="item">foreground</a></strong>

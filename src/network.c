@@ -298,6 +298,7 @@ void s_poll_free(s_poll_set *fds) {
 void s_poll_init(s_poll_set *fds) {
     FD_ZERO(&fds->irfds);
     FD_ZERO(&fds->iwfds);
+    FD_ZERO(&fds->ixfds);
     fds->max=0; /* no file descriptors */
 }
 
@@ -306,6 +307,8 @@ void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
         FD_SET((unsigned int)fd, &fds->irfds);
     if(wr)
         FD_SET((unsigned int)fd, &fds->iwfds);
+    /* always expect errors (and the Spanish Inquisition) */
+    FD_SET((unsigned int)fd, &fds->ixfds);
     if(fd>fds->max)
         fds->max=fd;
 }
@@ -320,8 +323,10 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
 
 int s_poll_error(s_poll_set *fds, FD *s) {
     if(!s->is_socket)
-        return 0;
-    if(!FD_ISSET(s->fd, &fds->orfds)) /* error conditions are signaled as read */
+        return 0; /* getsockopt is only available on sockets */
+    /* error conditions are signaled as read, but apparently *not* in Winsock:
+     * http://msdn.microsoft.com/en-us/library/windows/desktop/ms737625%28v=vs.85%29.aspx */
+    if(!(FD_ISSET(s->fd, &fds->orfds) || FD_ISSET(s->fd, &fds->oxfds)))
         return 0;
     return get_socket_error(s->fd); /* check if it's really an error */
 }
@@ -333,6 +338,7 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     do { /* skip "Interrupted system call" errors */
         memcpy(&fds->orfds, &fds->irfds, sizeof(fd_set));
         memcpy(&fds->owfds, &fds->iwfds, sizeof(fd_set));
+        memcpy(&fds->oxfds, &fds->ixfds, sizeof(fd_set));
         if(sec<0) { /* infinite timeout */
             tv_ptr=NULL;
         } else {
@@ -340,7 +346,7 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
             tv.tv_usec=1000*msec;
             tv_ptr=&tv;
         }
-        retval=select(fds->max+1, &fds->orfds, &fds->owfds, NULL, tv_ptr);
+        retval=select(fds->max+1, &fds->orfds, &fds->owfds, &fds->oxfds, tv_ptr);
     } while(retval<0 && get_last_socket_error()==S_EINTR);
     return retval;
 }

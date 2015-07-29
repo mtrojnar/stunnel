@@ -49,20 +49,26 @@
 static u8 canary[10]; /* 80-bit canary value */
 static volatile int canary_initialized=0;
 
-typedef struct alloc_list ALLOC_LIST;
+typedef struct alloc_list_struct ALLOC_LIST;
 
-typedef struct alloc_tls {
+typedef struct {
     ALLOC_LIST *head;
     size_t bytes, blocks;
 } ALLOC_TLS;
 
-struct alloc_list {
+struct alloc_list_struct {
     ALLOC_LIST *prev, *next;
     ALLOC_TLS *tls;
     size_t size;
     int valid_canary;
     unsigned int magic;
+        /* at least on IA64 allocations need to be aligned */
+#ifdef __GNUC__
+} __attribute__((aligned(16)));
+#else
+    int padding[2]; /* the number of integers is architecture-specific */
 };
+#endif
 
 static void set_alloc_tls(ALLOC_TLS *);
 static ALLOC_TLS *get_alloc_tls();
@@ -131,19 +137,17 @@ static ALLOC_TLS *get_alloc_tls() {
 
 #ifdef USE_FORK
 
-static ALLOC_TLS *global_tls;
-static pid_t previous_pid=0;
+static ALLOC_TLS *global_tls=NULL;
 
 void str_init() {
 }
 
 static void set_alloc_tls(ALLOC_TLS *tls) {
     global_tls=tls;
-    previous_pid=getpid();
 }
 
 static ALLOC_TLS *get_alloc_tls() {
-    return previous_pid==getpid() ? global_tls : NULL;
+    return global_tls;
 }
 
 #endif /* USE_FORK */
@@ -185,6 +189,8 @@ static ALLOC_TLS *get_alloc_tls() {
 #endif /* USE_WIN32 */
 
 void str_canary_init() {
+    if(canary_initialized) /* prevent double initialization on config reload */
+        return;
     RAND_bytes(canary, sizeof canary);
     canary_initialized=1; /* after RAND_bytes */
 }
@@ -227,14 +233,14 @@ void *str_alloc_debug(size_t size, char *file, int line) {
     if(!alloc_tls) { /* first allocation in this thread */
         alloc_tls=calloc(1, sizeof(ALLOC_TLS));
         if(!alloc_tls)
-            fatal("Out of memory", file, line);
+            fatal_debug("Out of memory", file, line);
         alloc_tls->head=NULL;
         alloc_tls->bytes=alloc_tls->blocks=0;
         set_alloc_tls(alloc_tls);
     }
     alloc_list=calloc(1, sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
-        fatal("Out of memory", file, line);
+        fatal_debug("Out of memory", file, line);
 
     alloc_list->prev=NULL;
     alloc_list->next=alloc_tls->head;
@@ -262,7 +268,7 @@ void *str_realloc_debug(void *ptr, size_t size, char *file, int line) {
     alloc_list=realloc(previous_alloc_list,
         sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
-        fatal("Out of memory", file, line);
+        fatal_debug("Out of memory", file, line);
     if(alloc_list->tls) { /* not detached */
         /* refresh possibly invalidated linked list pointers */
         if(alloc_list->tls->head==previous_alloc_list)
@@ -323,15 +329,15 @@ static ALLOC_LIST *get_alloc_list_ptr(void *ptr, char *file, int line) {
     alloc_list=(ALLOC_LIST *)ptr-1;
     if(alloc_list->magic!=0xdeadbeef) { /* not allocated by str_alloc() */
         if(alloc_list->magic==0xdefec8ed)
-            fatal("Double free attempt", file, line);
+            fatal_debug("Double free attempt", file, line);
         else
-            fatal("Bad magic", file, line); /* LOL */
+            fatal_debug("Bad magic", file, line); /* LOL */
     }
     if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls())
-        fatal("Memory allocated in a different thread", file, line);
+        fatal_debug("Memory allocated in a different thread", file, line);
     if(alloc_list->valid_canary &&
             memcmp((u8 *)ptr+alloc_list->size, canary, sizeof canary))
-        fatal("Dead canary", file, line); /* LOL */
+        fatal_debug("Dead canary", file, line); /* LOL */
     return alloc_list;
 }
 

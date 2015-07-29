@@ -528,7 +528,7 @@ komendą:</p>
 <p>Domyślnie używane jest IP najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.</p>
 </dd>
-<dt><strong><a name="sni_nazwa_us_ugi_nazwa_serwera" class="item"><strong>sni</strong> = nazwa_usługi:nazwa_serwera</a></strong></dt>
+<dt><strong><a name="nazwa_serwera" class="item"><strong>sni</strong> = nazwa_usługi:nazwa_serwera (tryb serwera)</a></strong></dt>
 
 <dd>
 <p>Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia TLS Server
@@ -545,6 +545,13 @@ nawiązywane przed negocjacją TLS.  Uwierzytelnienie przy pomocy biblioteki
 libwrap jest realizowane dwukrotnie: najpierw dla usługi nadrzędnej po
 odebraniu połączenia TCP, a następnie dla usługi podrzędnej podczas negocjacji
 TLS.</p>
+<p>Opcja <em>sni</em> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.</p>
+</dd>
+<dt><strong><strong>sni</strong> = nazwa_serwera (tryb klienta)</strong></dt>
+
+<dd>
+<p>Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
+(<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>).</p>
 <p>Opcja <em>sni</em> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.</p>
 </dd>
 <dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = URL</a></strong></dt>
@@ -832,9 +839,6 @@ w przypadku błędu.</p>
 <p>Niektóre globalne opcje nie będą przeładowane:</p>
 <ul>
 <li><strong><a name="chroot" class="item">chroot</a></strong>
-
-</li>
-<li><strong><a name="fips" class="item">fips</a></strong>
 
 </li>
 <li><strong><a name="foreground" class="item">foreground</a></strong>

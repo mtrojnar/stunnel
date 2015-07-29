@@ -3,7 +3,7 @@
 # File lists
 common_headers = common.h prototypes.h version.h
 common_sources = str.c file.c client.c log.c options.c protocol.c network.c
-common_sources += resolver.c ssl.c ctx.c verify.c sthreads.c stunnel.c
+common_sources += resolver.c ssl.c ctx.c verify.c sthreads.c fd.c stunnel.c
 unix_sources = pty.c libwrap.c
 shared_sources = env.c
 win32_sources = gui.c resources.h resources.rc stunnel.ico
@@ -47,7 +47,7 @@ WINLIBS = -L$(OPENSSLDIR) -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 # WINLIBS = -L$(OPENSSLDIR) -lzdll -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj
 WINOBJ += network.obj resolver.obj ssl.obj ctx.obj verify.obj sthreads.obj
-WINOBJ += stunnel.obj gui.obj resources.obj
+WINOBJ += fd.obj stunnel.obj gui.obj resources.obj
 WINPREFIX = i586-mingw32msvc-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres

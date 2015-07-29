@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.52])
+AC_INIT([stunnel],[4.53])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.52)
+AM_INIT_AUTOMAKE(stunnel, 4.53)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -38,7 +38,7 @@ AC_LINK_IFELSE([int main() {return 0;}],
     [
         AC_MSG_RESULT([yes])
         AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -pthread"])
-        AC_SUBST([stunnel_LDLAGS], ["$stunnel_LDLAGS -pthread"])
+        AC_SUBST([stunnel_LDFLAGF], ["$stunnel_LDFLAGF -pthread"])
     ], [
         AC_MSG_RESULT([no])
     ])
@@ -51,7 +51,20 @@ AC_LINK_IFELSE([int main() {return 0;}],
     [
         AC_MSG_RESULT([yes])
         AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -fstack-protector"])
-        AC_SUBST([stunnel_LDLAGS], ["$stunnel_LDLAGS -fstack-protector"])
+        AC_SUBST([stunnel_LDFLAGF], ["$stunnel_LDFLAGF -fstack-protector"])
+    ], [
+        AC_MSG_RESULT([no])
+    ])
+CFLAGS="$valid_CFLAGS"; LDFLAGS="$valid_LDFLAGS"
+
+AC_MSG_CHECKING([whether $CC accepts -pie])
+valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -fPIE"
+valid_LDFLAGS="$LDFLAGS"; LDFLAGS="$LDFLAGS -pie -fPIE"
+AC_LINK_IFELSE([int main() {return 0;}],
+    [
+        AC_MSG_RESULT([yes])
+        AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -fPIE"])
+        AC_SUBST([stunnel_LDFLAGF], ["$stunnel_LDFLAGF -pie -fPIE"])
     ], [
         AC_MSG_RESULT([no])
     ])
@@ -153,18 +166,21 @@ AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_DIRENT
 # AC_HEADER_STDC
 # AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS([ucontext.h pthread.h poll.h tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h])
-AC_CHECK_HEADERS([sys/select.h sys/poll.h sys/socket.h sys/un.h sys/ioctl.h sys/filio.h sys/resource.h])
+AC_CHECK_HEADERS([malloc.h ucontext.h pthread.h poll.h tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h])
+AC_CHECK_HEADERS([sys/types.h sys/select.h sys/poll.h sys/socket.h sys/un.h sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
-  [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1], [Define to 1 if you have 'msghdr.msg_control' structure.])],
-  [], [@%:@include <sys/socket.h>])
+    [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1],
+    [Define to 1 if you have 'msghdr.msg_control' structure.])], [], [
+AC_INCLUDES_DEFAULT
+#include <sys/socket.h>
+    ])
 AC_CHECK_HEADERS([linux/netfilter_ipv4.h], , , 
-  [[
+    [
 #include <limits.h>
 #include <linux/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-  ]] )
+    ])
 
 AC_MSG_NOTICE([**************************************** libraries])
 # Checks for standard libraries
@@ -208,8 +224,12 @@ checkpthreadlib() { :
     LIBS="$valid_LIBS -lpthread"
     AC_LINK_IFELSE(
         [AC_LANG_PROGRAM(
-            [[#include <pthread.h>]],
-            [[pthread_create((void *)0, (void *)0, (void *)0, (void *)0)]]
+            [
+#include <pthread.h>
+            ],
+            [
+pthread_create((void *)0, (void *)0, (void *)0, (void *)0)
+            ]
         )],
         [
             AC_MSG_RESULT([yes])
@@ -284,11 +304,14 @@ case "$host_os" in
     # redefinition.
     AC_LINK_IFELSE(
         [AC_LANG_PROGRAM(
-            [[#include <stdio.h>
-#include <sys/types.h>
+            [
+AC_INCLUDES_DEFAULT
 #include <sys/socket.h>
-#include <netdb.h>]],
-            [[getaddrinfo(NULL, NULL, NULL, NULL);]],)],
+#include <netdb.h>
+            ],
+            [
+getaddrinfo(NULL, NULL, NULL, NULL);
+            ],)],
         [AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_GETADDRINFO], [1], [Define to 1 if you have 'getaddrinfo' function.])],
         [AC_MSG_RESULT([no])])
     ;;
@@ -353,8 +376,12 @@ AC_ARG_ENABLE(libwrap,
         LIBS="$valid_LIBS -lwrap"
         AC_LINK_IFELSE(
             [AC_LANG_PROGRAM(
-                [[int hosts_access(); int allow_severity, deny_severity;]],
-                [[hosts_access()]]
+                [
+int hosts_access(); int allow_severity, deny_severity;
+                ],
+                [
+hosts_access()
+                ]
             )],
             [AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_LIBWRAP], [1], [Define to 1 if you have 'libwrap' library.])],
             [AC_MSG_RESULT([no]); LIBS="$valid_LIBS"]
@@ -439,8 +466,12 @@ AC_MSG_CHECKING([for FIPS_mode_set])
 if test "$fips" = "auto"; then
     AC_LINK_IFELSE(
         [AC_LANG_PROGRAM(
-            [[#include <openssl/fips.h>]],
-            [[FIPS_mode_set(1);]],
+            [
+#include <openssl/fips.h>
+            ],
+            [
+FIPS_mode_set(1);
+            ],
         )],
         [AC_MSG_RESULT([yes])
             AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS mode.])

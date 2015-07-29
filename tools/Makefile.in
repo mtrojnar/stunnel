@@ -186,8 +186,8 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 stunnel_CFLAGS = @stunnel_CFLAGS@
+stunnel_LDFLAGF = @stunnel_LDFLAGF@
 stunnel_LDFLAGS = @stunnel_LDFLAGS@
-stunnel_LDLAGS = @stunnel_LDLAGS@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
@@ -458,11 +458,6 @@ install-data-local:
 	fi
 	${INSTALL} -d -m 1770 $(DESTDIR)$(localstatedir)/lib/stunnel
 	-chgrp $(DEFAULT_GROUP) $(DESTDIR)$(localstatedir)/lib/stunnel
-	if uname | grep SunOS; then \
-		${INSTALL} -d -m 755 $(DESTDIR)$(localstatedir)/lib/stunnel/dev; \
-		mknod $(DESTDIR)$(localstatedir)/lib/stunnel/dev/zero c 13 12; \
-		chmod 666 $(DESTDIR)$(localstatedir)/lib/stunnel/dev/zero; \
-	fi
 
 clean-local:
 	-rm -f stunnel.rnd

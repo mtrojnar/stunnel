@@ -74,11 +74,6 @@ DISK_FILE *file_fdopen(int fd) {
     return df;
 }
 
-/* try to use non-POSIX O_NDELAY on obsolete BSD systems */
-#if !defined O_NONBLOCK && defined O_NDELAY
-#define O_NONBLOCK O_NDELAY
-#endif
-
 DISK_FILE *file_open(char *name, int wr) {
     DISK_FILE *df;
     int fd, flags;
@@ -88,7 +83,11 @@ DISK_FILE *file_open(char *name, int wr) {
         flags=O_CREAT|O_WRONLY|O_APPEND;
     else
         flags=O_RDONLY;
+#ifdef O_NONBLOCK
     flags|=O_NONBLOCK;
+#elif defined O_NDELAY
+    flags|=O_NDELAY;
+#endif
 #ifdef O_CLOEXEC
     flags|=O_CLOEXEC;
 #endif /* O_CLOEXEC */

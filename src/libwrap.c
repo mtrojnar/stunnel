@@ -192,12 +192,12 @@ void libwrap_auth(CLI *c, char *accepted_address) {
         leave_critical_section(CRIT_LIBWRAP);
     }
     if(!result) {
-        s_log(LOG_WARNING, "Service %s REFUSED by libwrap from %s",
+        s_log(LOG_WARNING, "Service [%s] REFUSED by libwrap from %s",
             c->opt->servname, accepted_address);
         s_log(LOG_DEBUG, "See hosts_access(5) manual for details");
         longjmp(c->err, 1);
     }
-    s_log(LOG_DEBUG, "Service %s permitted by libwrap from %s",
+    s_log(LOG_DEBUG, "Service [%s] permitted by libwrap from %s",
         c->opt->servname, accepted_address);
 }
 

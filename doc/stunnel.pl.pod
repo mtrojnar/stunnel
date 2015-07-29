@@ -482,7 +482,7 @@ IP źródła do nawiązywania zdalnych połączeń
 Domyślnie używane jest IP najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.
 
-=item B<sni> = nazwa_usługi:nazwa_serwera
+=item B<sni> = nazwa_usługi:nazwa_serwera (tryb serwera)
 
 Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia TLS Server
 Name Indication (RFC 3546).
@@ -500,6 +500,13 @@ nawiązywane przed negocjacją TLS.  Uwierzytelnienie przy pomocy biblioteki
 libwrap jest realizowane dwukrotnie: najpierw dla usługi nadrzędnej po
 odebraniu połączenia TCP, a następnie dla usługi podrzędnej podczas negocjacji
 TLS.
+
+Opcja I<sni> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
+
+=item B<sni> = nazwa_serwera (tryb klienta)
+
+Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
+(RFC 3546).
 
 Opcja I<sni> jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
 
@@ -785,8 +792,6 @@ Niektóre globalne opcje nie będą przeładowane:
 =over 4
 
 =item * chroot
-
-=item * fips
 
 =item * foreground
 

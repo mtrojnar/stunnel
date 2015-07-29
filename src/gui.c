@@ -216,33 +216,34 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
 #ifndef _WIN32_WCE
 
 static BOOL CALLBACK enum_windows(HWND other_window_handle, LPARAM lParam) {
-    DWORD dwProcessId;
+    DWORD pid;
     HINSTANCE hInstance;
     char window_exe_path[MAX_PATH];
-    HANDLE hProcess;
+    HANDLE process_handle;
     char *stunnel_exe_path=(char *)lParam;
 
     if(!other_window_handle)
         return TRUE;
     hInstance=(HINSTANCE)GetWindowLong(other_window_handle, GWL_HINSTANCE);
-    GetWindowThreadProcessId(other_window_handle, &dwProcessId);
-    hProcess=OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwProcessId);
-    if(!GetModuleFileNameEx(hProcess, hInstance, window_exe_path, MAX_PATH)) {
-        CloseHandle(hProcess);
+    GetWindowThreadProcessId(other_window_handle, &pid);
+    process_handle=OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ,
+        FALSE, pid);
+    if(!GetModuleFileNameEx(process_handle, hInstance, window_exe_path, MAX_PATH)) {
+        CloseHandle(process_handle);
         return TRUE;
     }
     if(strcmp(stunnel_exe_path, window_exe_path)) {
-        CloseHandle(hProcess);
+        CloseHandle(process_handle);
         return TRUE;
     }
     if(cmdline.exit) {
         SendMessage(other_window_handle, WM_COMMAND, IDM_EXIT, 0);
-        WaitForSingleObject(hProcess, 3000);
+        WaitForSingleObject(process_handle, 3000);
     } else {
         ShowWindow(other_window_handle, SW_SHOWNORMAL); /* show window */
         SetForegroundWindow(other_window_handle); /* bring on top */
     }
-    CloseHandle(hProcess);
+    CloseHandle(process_handle);
     exit(0);
     return FALSE; /* should never be executed */
 }
@@ -841,8 +842,7 @@ static LPTSTR log_txt(void) {
 static void daemon_thread(void *arg) {
     (void)arg; /* skip warning about unused parameter */
 
-    if(main_initialize())
-        fatal("Basic initialization failed", __FILE__, __LINE__);
+    main_initialize();
     /* get a valid configuration */
     while(main_configure(cmdline.config_file, NULL)) {
         unbind_ports(); /* in case initialization failed after bind_ports() */

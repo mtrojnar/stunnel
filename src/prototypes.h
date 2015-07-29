@@ -115,7 +115,9 @@ typedef struct {
 
 extern GLOBAL_OPTIONS global_options;
 
+#ifndef OPENSSL_NO_TLSEXT
 typedef struct servername_list_struct SERVERNAME_LIST;/* forward declaration */
+#endif
 
 typedef struct service_options_struct {
     struct service_options_struct *next;   /* next node in the services list */
@@ -148,7 +150,10 @@ typedef struct service_options_struct {
     long ssl_options;
     SSL_METHOD *client_method, *server_method;
     SOCKADDR_UNION sessiond_addr;
+#ifndef OPENSSL_NO_TLSEXT
+    char *sni;
     SERVERNAME_LIST *servername_list_head, *servername_list_tail;
+#endif
 #ifndef OPENSSL_NO_ECDH
     int curve;
 #endif
@@ -169,7 +174,6 @@ typedef struct service_options_struct {
     SOCKADDR_LIST connect_addr;
     char *username;
     char *connect_name;
-    char *host_name;
     int timeout_busy;                       /* maximum waiting for data time */
     int timeout_close;                          /* maximum close_notify time */
     int timeout_connect;                           /* maximum connect() time */
@@ -219,11 +223,13 @@ typedef struct service_options_struct {
 
 extern SERVICE_OPTIONS service_options;
 
+#ifndef OPENSSL_NO_TLSEXT
 struct servername_list_struct {
     char *servername;
     SERVICE_OPTIONS *opt;
     struct servername_list_struct *next;
 };
+#endif
 
 typedef enum {
     TYPE_NONE, TYPE_FLAG, TYPE_INT, TYPE_LINGER, TYPE_TIMEVAL, TYPE_STRING
@@ -256,8 +262,8 @@ typedef struct {
     struct pollfd *ufds;
     unsigned int nfds;
     unsigned int allocated;
-#else
-    fd_set irfds, iwfds, orfds, owfds;
+#else /* select */
+    fd_set irfds, iwfds, ixfds, orfds, owfds, oxfds;
     int max;
 #endif
 } s_poll_set;
@@ -280,9 +286,12 @@ typedef struct {
 
 /**************************************** prototypes for stunnel.c */
 
+#ifndef USE_FORK
+extern int max_clients;
 extern volatile int num_clients;
+#endif
 
-int main_initialize(void);
+void main_initialize(void);
 int main_configure(char *, char *);
 void daemon_loop(void);
 void unbind_ports(void);
@@ -290,16 +299,22 @@ int bind_ports(void);
 #if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
 int drop_privileges(int);
 #endif
+void signal_post(int);
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+void child_status(void);  /* dead libwrap or 'exec' process detected */
+#endif
+void stunnel_info(int);
+
+/**************************************** prototypes for fd.c */
+
+#ifndef USE_FORK
+void get_limits(void); /* setup global max_clients and max_fds */
+#endif
 int s_socket(int, int, int, int, char *);
 int s_pipe(int [2], int, char *);
 int s_socketpair(int, int, int, int [2], int, char *);
 int s_accept(int, struct sockaddr *, socklen_t *, int, char *);
 void set_nonblock(int, unsigned long);
-void stunnel_info(int);
-void signal_post(int);
-#if !defined(USE_WIN32) && !defined(USE_OS2)
-void child_status(void);  /* dead libwrap or 'exec' process detected */
-#endif
 
 /**************************************** prototypes for log.c */
 
@@ -312,11 +327,12 @@ void log_close(void);
 void log_flush(LOG_MODE);
 void s_log(int, const char *, ...)
 #ifdef __GNUC__
-    __attribute__ ((format (printf, 2, 3)));
+    __attribute__((format(printf, 2, 3)));
 #else
     ;
 #endif
-void fatal(char *, char *, int);
+void fatal_debug(char *, char *, int);
+#define fatal(a) fatal_debug((a), __FILE__, __LINE__)
 void ioerror(const char *);
 void sockerror(const char *);
 void log_error(int, int, const char *);
@@ -330,7 +346,7 @@ int pty_allocate(int *, int *, char *);
 
 extern int cli_index, opt_index;
 
-void ssl_init(void);
+int ssl_init(void);
 int ssl_configure(GLOBAL_OPTIONS *);
 
 /**************************************** prototypes for options.c */
@@ -381,9 +397,9 @@ int make_sockets(int [2]);
 /**************************************** prototypes for client.c */
 
 typedef struct {
+    jmp_buf err; /* exception handler needs to be 16-byte aligned on Itanium */
     SSL *ssl; /* SSL connnection */
     SERVICE_OPTIONS *opt;
-    jmp_buf err; /* exception handler */
 
     SOCKADDR_UNION peer_addr; /* peer address */
     socklen_t peer_addr_len;
@@ -419,9 +435,9 @@ char *fd_getline(CLI *, int);
 /* descriptor versions of fprintf/fscanf */
 void fd_printf(CLI *, int, const char *, ...)
 #ifdef __GNUC__
-       __attribute__ ((format (printf, 3, 4)));
+    __attribute__((format(printf, 3, 4)));
 #else
-       ;
+    ;
 #endif
 
 /**************************************** prototype for protocol.c */
@@ -564,7 +580,7 @@ char *str_dup(const char *);
 char *str_vprintf(const char *, va_list);
 char *str_printf(const char *, ...)
 #ifdef __GNUC__
-    __attribute__ ((format (printf, 1, 2)));
+    __attribute__((format(printf, 1, 2)));
 #else
     ;
 #endif

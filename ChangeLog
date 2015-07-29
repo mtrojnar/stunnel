@@ -1,12 +1,37 @@
 stunnel change log
 
 
+Version 4.53, 2012.03.19, urgency: MEDIUM:
+* New features
+  - Added client-mode "sni" option to directly control the value of
+    TLS Server Name Indication (RFC 3546) extension.
+  - Added support for IP_FREEBIND socket option with a pached Linux kernel.
+  - Glibc-specific dynamic allocation tuning was applied to help unused memory
+    deallocation.
+  - Non-blocking OCSP implementation.
+* Bugfixes
+  - Compilation fixes for old versions of OpenSSL (tested against 0.9.6).
+  - Usage of uninitialized variables fixed in exec+connect services.
+  - Occasional logging subsystem crash with exec+connect services.
+  - OpenBSD compilation fix (thx to Michele Orru').
+  - Session id context initialized with session name rather than a constant.
+  - Fixed handling of a rare inetd mode use case, where either stdin or stdout
+    is a socket, but not both of them at the same time.
+  - Fixed missing OPENSSL_Applink http://www.openssl.org/support/faq.html#PROG2
+  - Fixed crash on termination with FORK threading model.
+  - Fixed dead canary after configuration reload with open connections.
+  - Fixed missing file descriptors passed to local mode processes.
+  - Fixed required jmp_buf alignment on Itanium platform.
+  - Removed creating /dev/zero in the chroot jail on Solaris platform.
+  - Fixed detection of WSAECONNREFUSED Winsock error.
+  - Missing Microsoft.VC90.CRT.manifest added to Windows installer.
+
 Version 4.52, 2012.01.12, urgency: MEDIUM:
 * Bugfixes
   - Fixed write closure notification for non-socket file descriptors.
   - Removed a line logged to stderr in inetd mode.
-  - Fixed "Socket operation on non-socket" error in inetd mode on
-    Mac OS X platform.
+  - Fixed "Socket operation on non-socket" error in inetd mode on Mac OS X
+    platform.
   - Removed direct access to the fields of the X509_STORE_CTX data structure.
 
 Version 4.51, 2012.01.09, urgency: MEDIUM:
