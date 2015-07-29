@@ -233,7 +233,7 @@ int s_poll_wait(s_poll_set *, int);
 
 #ifndef USE_WIN32
 int signal_pipe_init(void);
-void exec_status(void);
+void child_status(void);  /* dead libwrap or 'exec' process detected */
 #endif
 int set_socket_options(int, int);
 int alloc_fd(int);

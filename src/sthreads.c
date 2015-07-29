@@ -78,9 +78,9 @@ static CONTEXT *new_context(void) {
         return NULL;
     }
     ctx->ctx.uc_link=NULL; /* it should never happen */
-#if defined(__sparc) && !defined(HAVE___MAKECONTEXT_V2)
+#if defined(__sgi) || (defined(__sparc) && !defined(HAVE___MAKECONTEXT_V2))
     ctx->ctx.uc_stack.ss_sp=ctx->stack+STACK_SIZE-8;
-#else /* not an old and buggy Solaris on Sparc */
+#else /* not an IRIX or old and buggy Solaris on Sparc */
     ctx->ctx.uc_stack.ss_sp=ctx->stack;
 #endif
     ctx->ctx.uc_stack.ss_size=STACK_SIZE;
@@ -337,10 +337,10 @@ void stack_info(int init) { /* 1-initialize, 0-display */
         s_log(LOG_NOTICE,
             "stack_info: size=%d, current=%d (%d%%), maximum=%d (%d%%)",
             STACK_SIZE,
-            (int)(VERIFY_AREA-num)*sizeof(u32),
-            (int)(VERIFY_AREA-num)*sizeof(u32)*100/STACK_SIZE,
-            (int)(VERIFY_AREA-min_num)*sizeof(u32),
-            (int)(VERIFY_AREA-min_num)*sizeof(u32)*100/STACK_SIZE);
+            (int)((VERIFY_AREA-num)*sizeof(u32)),
+            (int)((VERIFY_AREA-num)*sizeof(u32)*100/STACK_SIZE),
+            (int)((VERIFY_AREA-min_num)*sizeof(u32)),
+            (int)((VERIFY_AREA-min_num)*sizeof(u32)*100/STACK_SIZE));
     }
 }
 

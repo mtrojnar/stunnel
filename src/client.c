@@ -120,7 +120,7 @@ void *client(void *arg) {
     cleanup(c, do_client(c));
 #ifdef USE_FORK
     if(!c->opt->option.remote) /* 'exec' specified */
-        exec_status(); /* null SIGCHLD handler was used */
+        child_status(); /* null SIGCHLD handler was used */
 #else
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
     s_log(LOG_DEBUG, "%s finished (%d left)", c->opt->servname,
@@ -172,7 +172,7 @@ static int do_client(CLI *c) {
 
 static int init_local(CLI *c) {
     SOCKADDR_UNION addr;
-    int addrlen;
+    socklen_t addrlen;
 
     addrlen=sizeof(SOCKADDR_UNION);
     if(getpeername(c->local_rfd.fd, &addr.sa, &addrlen)<0) {
@@ -704,21 +704,49 @@ static void print_cipher(CLI *c) { /* print negotiated cipher */
 static int auth_libwrap(CLI *c) {
 #ifdef USE_LIBWRAP
     struct request_info request;
-    int result;
+    int fd[2];
+    int result=0; /* deny by default */
 
-    enter_critical_section(CRIT_INET); /* libwrap is not mt-safe */
-    request_init(&request,
-        RQ_DAEMON, c->opt->servname, RQ_FILE, c->local_rfd.fd, 0);
-    fromhost(&request);
-    result=hosts_access(&request);
-    leave_critical_section(CRIT_INET);
+    if(pipe(fd)<0) {
+        ioerror("pipe");
+        return -1;
+    }
+    if(alloc_fd(fd[0]) || alloc_fd(fd[1]))
+        return -1;
+    switch(fork()) {
+    case -1:    /* error */
+        close(fd[0]);
+        close(fd[1]);
+        ioerror("fork");
+        return -1;
+    case  0:    /* child */
+        close(fd[0]); /* read side */
+        request_init(&request,
+            RQ_DAEMON, c->opt->servname, RQ_FILE, c->local_rfd.fd, 0);
+        fromhost(&request);
+        result=hosts_access(&request);
+        write_blocking(c, fd[1], (u8 *)&result, sizeof(result));
+            /* ignore the returned error */
+        close(fd[1]); /* write side */
+        _exit(0);
+    default:    /* parent */
+        close(fd[1]); /* write side */
+        read_blocking(c, fd[0], (u8 *)&result, sizeof(result));
+            /* ignore the returned error */
+        close(fd[0]); /* read side */
+        /* no need to wait() for zombies here:
+         *  - in UCONTEXT/PTHREAD mode they're removed using the signal pipe
+         *  - in FORK mode they're removed with the client process */
+    }
 
-    if (!result) {
+    if(!result) {
         s_log(LOG_WARNING, "Connection from %s REFUSED by libwrap",
             c->accepting_address);
-        s_log(LOG_DEBUG, "See hosts_access(5) for details");
+        s_log(LOG_DEBUG, "See hosts_access(5) manual for details");
         return -1; /* FAILED */
     }
+    s_log(LOG_DEBUG, "Connection from %s permitted by libwrap",
+        c->accepting_address);
 #endif
     return 0; /* OK */
 }
@@ -869,7 +897,7 @@ static int connect_local(CLI *c) { /* spawn local process */
 static int make_sockets(int fd[2]) { /* make a pair of connected sockets */
 #ifdef INET_SOCKET_PAIR
     SOCKADDR_UNION addr;
-    int addrlen;
+    socklen_t addrlen;
     int s; /* temporary socket awaiting for connection */
 
     if((s=socket(AF_INET, SOCK_STREAM, 0))<0) {
@@ -978,7 +1006,8 @@ static int connect_remote(CLI *c) { /* connect to remote host */
 
     /* wait for the result of a non-blocking connect */
 static int connect_wait(CLI *c, int fd, int timeout) {
-    int error, len;
+    int error;
+    socklen_t optlen;
 
     s_log(LOG_DEBUG, "connect_wait: waiting %d seconds", timeout);
     s_poll_zero(&c->fds);
@@ -994,8 +1023,8 @@ static int connect_wait(CLI *c, int fd, int timeout) {
         if(s_poll_canread(&c->fds, fd)) {
             /* just connected socket should not be ready for read */
             /* get the resulting error code, now */
-            len=sizeof(error);
-            if(!getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&error, &len))
+            optlen=sizeof(error);
+            if(!getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&error, &optlen))
                 errno=error;
             if(errno) { /* really an error? */
                 sockerror("connect_wait: getsockopt");

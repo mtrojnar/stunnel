@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.12             (stunnel.c)
- *   Date:         2005.09.29
+ *   Version:      4.13             (stunnel.c)
+ *   Date:         2005.10.21
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -201,8 +201,10 @@ static void daemon_loop(void) {
 static void accept_connection(LOCAL_OPTIONS *opt) {
     SOCKADDR_UNION addr;
     char from_address[IPLEN];
-    int s, addrlen=sizeof(SOCKADDR_UNION);
+    int s;
+    socklen_t addrlen;
 
+    addrlen=sizeof(SOCKADDR_UNION);
     while((s=accept(opt->fd, &addr.sa, &addrlen))<0) {
         switch(get_last_socket_error()) {
             case EINTR:

@@ -315,9 +315,22 @@ int s_poll_wait(s_poll_set *fds, int timeout) {
 #ifndef USE_WIN32
 
 static void sigchld_handler(int sig) { /* SIGCHLD detected */
-    int save_errno=errno;
+    int save_errno;
+#ifdef __sgi
+    int status;
+#endif
 
+    save_errno=errno;
+#ifdef __sgi
+    while(wait_for_pid(-1, &status, WNOHANG)>0) {
+        /* no logging is possible in a signal handler */
+#ifdef USE_FORK
+        num_clients--; /* one client less */
+#endif /* USE_FORK */
+    }
+#else /* __sgi */
     write(signal_pipe[1], signal_buffer, 1);
+#endif /* __sgi */
     signal(SIGCHLD, sigchld_handler);
     errno=save_errno;
 }
@@ -339,36 +352,13 @@ int signal_pipe_init(void) {
 }
 
 static void signal_pipe_empty(void) {
+    s_log(LOG_DEBUG, "Cleaning up the signal pipe");
     read(signal_pipe[0], signal_buffer, sizeof(signal_buffer));
-#ifdef USE_PTHREAD
-    exec_status(); /* report status of 'exec' process */
-#endif /* USE_PTHREAD */
 #ifdef USE_FORK
     client_status(); /* report status of client process */
+#else /* USE_UCONTEXT || USE_PTHREAD */
+    child_status();  /* report status of libwrap or 'exec' process */
 #endif /* defined USE_FORK */
-}
-
-void exec_status(void) { /* dead local ('exec') process detected */
-    int pid, status;
-
-#ifdef HAVE_WAIT_FOR_PID
-    while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
-#else
-    if((pid=wait(&status))>0) {
-#endif
-#ifdef WIFSIGNALED
-        if(WIFSIGNALED(status)) {
-            s_log(LOG_INFO, "Local process %d terminated on signal %d",
-                pid, WTERMSIG(status));
-        } else {
-            s_log(LOG_INFO, "Local process %d finished with code %d",
-                pid, WEXITSTATUS(status));
-        }
-#else
-        s_log(LOG_INFO, "Local process %d finished with status %d",
-            pid, status);
-#endif
-    }
 }
 
 #ifdef USE_FORK
@@ -398,6 +388,29 @@ static void client_status(void) { /* dead children detected */
 #endif
 }
 #endif /* defined USE_FORK */
+
+void child_status(void) { /* dead libwrap or 'exec' process detected */
+    int pid, status;
+
+#ifdef HAVE_WAIT_FOR_PID
+    while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
+#else
+    if((pid=wait(&status))>0) {
+#endif
+#ifdef WIFSIGNALED
+        if(WIFSIGNALED(status)) {
+            s_log(LOG_INFO, "Child process %d terminated on signal %d",
+                pid, WTERMSIG(status));
+        } else {
+            s_log(LOG_INFO, "Child process %d finished with code %d",
+                pid, WEXITSTATUS(status));
+        }
+#else
+        s_log(LOG_INFO, "Child process %d finished with status %d",
+            pid, status);
+#endif
+    }
+}
 
 #endif /* !defined USE_WIN32 */
 

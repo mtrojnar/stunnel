@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel], [4.12])
+AC_INIT([stunnel], [4.13])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.12)
+AM_INIT_AUTOMAKE(stunnel, 4.13)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -176,6 +176,15 @@ fi
 AC_MSG_NOTICE([**************************************** thread model])
 
 checkpthreadlib() { :
+    # BSD hack -> use alternative libc implementation
+    AC_CHECK_LIB(c_r, pthread_create,
+        [
+            LIBS="$LIBS -pthread"
+            HAVE_LIBPTHREAD="yes"
+            AC_DEFINE(HAVE_LIBPTHREAD)
+        ]
+    )
+
     # OSF hack instead of simple AC_CHECK_LIB here
     AC_MSG_CHECKING([for pthread_create in -lpthread])
     saved_LIBS="$LIBS"
@@ -192,15 +201,6 @@ checkpthreadlib() { :
         ], [
             AC_MSG_RESULT([no])
             LIBS="$saved_LIBS"
-        ]
-    )
-
-    # BSD hack
-    AC_CHECK_LIB(c_r, pthread_create,
-        [
-            LIBS="$LIBS -pthread"
-            HAVE_LIBPTHREAD="yes"
-            AC_DEFINE(HAVE_LIBPTHREAD)
         ]
     )
 }

@@ -1379,7 +1379,8 @@ SOCK_OPT sock_opts[] = {
 };
 
 static int print_socket_options(void) {
-    int fd, len;
+    int fd;
+    socklen_t optlen;
     SOCK_OPT *ptr;
     OPT_UNION val;
     char line[STRLEN];
@@ -1397,8 +1398,9 @@ static int print_socket_options(void) {
         print_option(line, ptr->opt_type, ptr->opt_val[1]);
         print_option(line, ptr->opt_type, ptr->opt_val[2]);
         /* display OS default value */
-        len = sizeof(val);
-        if(getsockopt(fd, ptr->opt_level, ptr->opt_name, (void *)&val, &len)) {
+        optlen=sizeof(val);
+        if(getsockopt(fd, ptr->opt_level,
+                ptr->opt_name, (void *)&val, &optlen)) {
             if(get_last_socket_error()!=ENOPROTOOPT) {
                 log_raw("%s", line); /* dump the name and assigned values */
                 sockerror("getsockopt");

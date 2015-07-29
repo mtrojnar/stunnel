@@ -1,5 +1,20 @@
 stunnel         Universal SSL tunnel
 
+Version 4.13, 2005.10.21, urgency: MEDIUM:
+* DLLs for OpenSSL 0.9.7i included because protection faults were reported
+  in 0.9.8 and 0.9.8a.
+* New features
+  - Libwrap code is executed as a separate process (no more delays due
+    to a global and potentially long critical section).
+* Bugfixes
+  - Problem with zombies in UCONTEXT threading fixed.
+  - Workaround for non-standard makecontext() uc_stack.ss_sp parameter
+    semantics on SGI IRIX.
+  - Protection fault in signals handling on IRIX fixed.
+  - Problem finding pthread library on AIX fixed.
+  - size_t printf() fixed in stack_info() (the previous fix didn't work).
+  - socklen_t is used instead of int where required.
+
 Version 4.12, 2005.09.29, urgency: MEDIUM:
 * New features
   - Win32 installer added.
@@ -508,7 +523,7 @@ Version 3.7, 2000.02.10:
 
 3.0 1999.04.19	Some bugfixes.
 		FAQ added.
-  
+
 3.0b7 1999.04.14
 		Win32 native port fixed (looks quite stable).
 		New transfer() function algorithm.
