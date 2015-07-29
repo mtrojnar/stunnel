@@ -2,10 +2,9 @@ stunnel         Universal SSL tunnel
 
 * High priority features I'm going to support (sponsorship welcomed):
   - Add service-level logging.
-  - Optional use of syslog in foreground mode.
   - Log file rotation with a signal on Unix and with GUI on Windows.
   - Graceful configuration reload with a signal on Unix and with GUI on Windows.
-  - Provide transparent proxy for Linux 2.6.x with TPROXY patch.
+  - Transparent proxy for Linux 2.6.x with TPROXY patch.
     http://www.balabit.com/products/oss/tproxy/
   - In transparent proxy mode bind source port (not only IP).
   - In transparent proxy mode add an option to connect destination address

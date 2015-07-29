@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.24])
+AC_INIT([stunnel],[4.25])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.24)
+AM_INIT_AUTOMAKE(stunnel, 4.25)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -87,6 +87,10 @@ AC_CHECK_HEADERS(ucontext.h pthread.h)
 AC_CHECK_HEADERS(sys/select.h poll.h sys/poll.h tcpd.h)
 AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h stropts.h)
 AC_CHECK_HEADERS(grp.h unistd.h util.h libutil.h sys/resource.h pty.h)
+AC_CHECK_HEADERS([sys/socket.h])
+AC_CHECK_MEMBERS([struct msghdr.msg_control],
+  [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL])], [],
+  [@%:@include <sys/socket.h>])
 
 AC_MSG_NOTICE([**************************************** libraries])
 # Checks for standard libraries

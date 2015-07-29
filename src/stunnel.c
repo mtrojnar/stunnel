@@ -99,11 +99,6 @@ void main_initialize(char *arg1, char *arg2) {
 
     log_open();
     log_flush();
-#ifdef USE_LIBWRAP
-    /* LIBWRAP_CLIENTS extra processes in daemon mode,
-     * no extra processes in inetd mode */
-    libwrap_init(local_options.next ? LIBWRAP_CLIENTS : 0);
-#endif /* USE_LIBWRAP */
     stunnel_info(0);
 }
 
@@ -116,6 +111,9 @@ void main_execute(void) {
         max_fds=FD_SETSIZE; /* just in case */
         drop_privileges();
 #endif
+#ifdef USE_LIBWRAP
+        libwrap_init(0); /* no additional processes */
+#endif /* USE_LIBWRAP */
         num_clients=1;
         client(alloc_client_session(&local_options, 0, 1));
     }
@@ -172,6 +170,9 @@ static void daemon_loop(void) {
     if(!(options.option.foreground))
         daemonize();
     drop_privileges();
+#ifdef USE_LIBWRAP
+    libwrap_init(LIBWRAP_CLIENTS); /* spawn LIBWRAP_CLIENTS processes */
+#endif /* USE_LIBWRAP */
     create_pid();
 #endif /* !defined USE_WIN32 && !defined (__vms) */
     /* create exec+connect services */

@@ -54,7 +54,6 @@ int num_processes=0;
 static int *ipc_socket, *busy;
 #endif /* USE_PTHREAD */
 
-#define HAVE_MSGHDR_MSG_CONTROL 1
 
 void libwrap_init(int num) {
 #ifdef USE_PTHREAD

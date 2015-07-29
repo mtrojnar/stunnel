@@ -1,5 +1,12 @@
 stunnel         Universal SSL tunnel
 
+Version 4.25, 2008.06.01, urgency: MEDIUM:
+* New features
+  - Win32 DLLs for OpenSSL 0.9.8h.
+* Bugfixes
+  - Spawning libwrap processes delayed until privileges are dropped.
+  - Compilation fix for systems without struct msghdr.msg_control.
+
 Version 4.24, 2008.05.19, urgency: HIGH:
 * Bugfixes
   - OCSP code was fixed to properly reject revocated certificates.

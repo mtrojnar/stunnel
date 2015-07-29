@@ -1,5 +1,5 @@
-!define VERSION "4.24"
-!define DLLS "/home/ftp/openssl/binary-0.9.8g-zdll/"
+!define VERSION "4.25"
+!define DLLS "/home/ftp/openssl/binary-0.9.8h-zdll/"
 # !define DLLS "../FIPS/"
 # !define DLLS "/usr/src/openssl-0.9.7m-fips/"
 !define WIN32 "/home/ftp/stunnel/obsolete/"

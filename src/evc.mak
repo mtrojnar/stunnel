@@ -5,7 +5,7 @@ WCEVER=300
 
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=..\..\build\openssl-0.9.8e
+SSLDIR=..\..\build\openssl-0.9.8h
 COMPATDIR=..\..\build\wcecompat
 CEUTILSDIR=..\..\ceutils
 DSTDIR=ce:\stunnel
