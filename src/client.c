@@ -133,6 +133,11 @@ void client_main(CLI *c) {
     str_free(c);
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wformat-extra-args"
+#endif /* __GNUC__ */
 NOEXPORT void client_run(CLI *c) {
     int err, rst;
 #ifndef USE_FORK
@@ -167,18 +172,10 @@ NOEXPORT void client_run(CLI *c) {
     if(!err)
         client_try(c);
     rst=err==1 && c->opt->option.reset;
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat"
-#pragma GCC diagnostic ignored "-Wformat-extra-args"
-#endif /* __GNUC__ */
     s_log(LOG_NOTICE,
         "Connection %s: %llu byte(s) sent to SSL, %llu byte(s) sent to socket",
         rst ? "reset" : "closed",
         (unsigned long long)c->ssl_bytes, (unsigned long long)c->sock_bytes);
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif /* __GNUC__ */
 
         /* cleanup temporary (e.g. IDENT) socket */
     if(c->fd!=INVALID_SOCKET)
@@ -242,6 +239,9 @@ NOEXPORT void client_run(CLI *c) {
     s_poll_free(c->fds);
     c->fds=NULL;
 }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 
 NOEXPORT void client_try(CLI *c) {
     local_start(c);

@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2015.04.13" "5.15" "stunnel"
+.TH STUNNEL 8 "2015.04.16" "5.16" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -561,9 +561,9 @@ execute local inetd-type program
 .Sp
 The following environmental variables are set on Unix platform:
 \&\s-1REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.\s0
-.ie n .IP "\fBexecargs\fR = $0 $1 $2 ..." 4
-.el .IP "\fBexecargs\fR = \f(CW$0\fR \f(CW$1\fR \f(CW$2\fR ..." 4
-.IX Item "execargs = $0 $1 $2 ..."
+.ie n .IP "\fBexecArgs\fR = $0 $1 $2 ..." 4
+.el .IP "\fBexecArgs\fR = \f(CW$0\fR \f(CW$1\fR \f(CW$2\fR ..." 4
+.IX Item "execArgs = $0 $1 $2 ..."
 arguments for \fIexec\fR including program name ($0)
 .Sp
 Quoting is currently not supported.
@@ -1034,7 +1034,7 @@ In order to provide \s-1SSL\s0 encapsulation to your local \fIimapd\fR service, 
 \&    [imapd]
 \&    accept = 993
 \&    exec = /usr/sbin/imapd
-\&    execargs = imapd
+\&    execArgs = imapd
 .Ve
 .PP
 or in remote mode:
@@ -1063,7 +1063,7 @@ use something like:
 \&    [vpn]
 \&    accept = 2020
 \&    exec = /usr/sbin/pppd
-\&    execargs = pppd local
+\&    execArgs = pppd local
 \&    pty = yes
 .Ve
 .PP
@@ -1073,7 +1073,7 @@ Note there must be no \fI[service_name]\fR section.
 .PP
 .Vb 2
 \&    exec = /usr/sbin/imapd
-\&    execargs = imapd
+\&    execArgs = imapd
 .Ve
 .PP
 To setup \s-1SOCKS VPN\s0 configure the following client service:
@@ -1218,7 +1218,7 @@ It is also possible to specify \s-1DH\s0 parameters in the certificate file:
 \&\fBstunnel\fR configuration file
 .SH "BUGS"
 .IX Header "BUGS"
-Option \fIexecargs\fR and Win32 command line does not support quoting.
+Option \fIexecArgs\fR and Win32 command line does not support quoting.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 .IP "\fItcpd\fR\|(8)" 4

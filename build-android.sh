@@ -1,6 +1,6 @@
 #!/bin/sh
 set -ev
-VERSION=5.15
+VERSION=5.16
 DST=stunnel-$VERSION-android
 
 # to build Zlib:
@@ -15,6 +15,7 @@ DST=stunnel-$VERSION-android
 # make
 # make install
 
+test -f Makefile && make distclean
 mkdir -p bin/android
 cd bin/android
 ../../configure --with-sysroot --build=i686-pc-linux-gnu --host=arm-linux-androideabi --prefix=/data/local

@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2015.04.13" "5.15" "stunnel"
+.TH STUNNEL.PL 8 "2015.04.16" "5.16" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -580,9 +580,9 @@ względem tego katalogu.
 .Sp
 Na platformach Unix ustawiane są następujące zmienne środowiskowe:
 \&\s-1REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.\s0
-.ie n .IP "\fBexecargs\fR = $0 $1 $2 ..." 4
-.el .IP "\fBexecargs\fR = \f(CW$0\fR \f(CW$1\fR \f(CW$2\fR ..." 4
-.IX Item "execargs = $0 $1 $2 ..."
+.ie n .IP "\fBexecArgs\fR = $0 $1 $2 ..." 4
+.el .IP "\fBexecArgs\fR = \f(CW$0\fR \f(CW$1\fR \f(CW$2\fR ..." 4
+.IX Item "execArgs = $0 $1 $2 ..."
 argumenty do opcji \fIexec\fR włącznie z nazwą programu ($0)
 .Sp
 Cytowanie nie jest wspierane w obecnej wersji programu.
@@ -1050,7 +1050,7 @@ Szyfrowanie połączeń do lokalnego serwera \fIimapd\fR można użyć:
 \&    [imapd]
 \&    accept = 993
 \&    exec = /usr/sbin/imapd
-\&    execargs = imapd
+\&    execArgs = imapd
 .Ve
 .PP
 albo w trybie zdalnym:
@@ -1080,7 +1080,7 @@ może wyglądać następująco:
 \&    [vpn]
 \&    accept = 2020
 \&    exec = /usr/sbin/pppd
-\&    execargs = pppd local
+\&    execArgs = pppd local
 \&    pty = yes
 .Ve
 .PP
@@ -1090,7 +1090,7 @@ konfiguracyjnym nie ma sekcji \fI[nazwa_usługi]\fR.
 .PP
 .Vb 2
 \&    exec = /usr/sbin/imapd
-\&    execargs = imapd
+\&    execArgs = imapd
 .Ve
 .PP
 Aby skonfigurować \s-1VPN\s0 można użyć następującej konfiguracji klienta:
@@ -1249,7 +1249,7 @@ Wygenerowanie parametrów \s-1DH\s0 może zająć nawet wiele minut.
 plik konfiguracyjny programu
 .SH "BŁĘDY"
 .IX Header "BŁĘDY"
-Opcja \fIexecargs\fR oraz linia komend Win32 nie obsługuje cytowania.
+Opcja \fIexecArgs\fR oraz linia komend Win32 nie obsługuje cytowania.
 .SH "ZOBACZ RÓWNIEŻ"
 .IX Header "ZOBACZ RÓWNIEŻ"
 .IP "\fItcpd\fR\|(8)" 4

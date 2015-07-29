@@ -251,6 +251,11 @@ NOEXPORT void log_raw(const SERVICE_OPTIONS *opt,
     str_free(line);
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wformat-extra-args"
+#endif /* __GNUC__ */
 char *log_id(CLI *c) {
     static volatile unsigned long long seq=0;
     unsigned long long my_seq;
@@ -266,15 +271,7 @@ char *log_id(CLI *c) {
         enter_critical_section(CRIT_ID);
         my_seq=seq++;
         leave_critical_section(CRIT_ID);
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat"
-#pragma GCC diagnostic ignored "-Wformat-extra-args"
-#endif /* __GNUC__ */
         return str_printf("%llu", my_seq);
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif /* __GNUC__ */
     case LOG_ID_UNIQUE:
         if(RAND_bytes(rnd, sizeof rnd)<=0) /* log2(62^22)=130.99 */
             return str_dup("error");
@@ -299,6 +296,9 @@ char *log_id(CLI *c) {
     }
     return str_dup("error");
 }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 
 /* critical problem handling */
 /* str.c functions are not safe to use here */

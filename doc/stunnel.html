@@ -637,7 +637,7 @@
 <p>The following environmental variables are set on Unix platform: REMOTE_HOST, REMOTE_PORT, SSL_CLIENT_DN, SSL_CLIENT_I_DN.</p>
 
 </dd>
-<dt id="execargs-0-1-2"><b>execargs</b> = $0 $1 $2 ...</dt>
+<dt id="execArgs-0-1-2"><b>execArgs</b> = $0 $1 $2 ...</dt>
 <dd>
 
 <p>arguments for <i>exec</i> including program name ($0)</p>
@@ -1234,7 +1234,7 @@
 <pre><code>    [imapd]
     accept = 993
     exec = /usr/sbin/imapd
-    execargs = imapd</code></pre>
+    execArgs = imapd</code></pre>
 
 <p>or in remote mode:</p>
 
@@ -1254,13 +1254,13 @@
 <pre><code>    [vpn]
     accept = 2020
     exec = /usr/sbin/pppd
-    execargs = pppd local
+    execArgs = pppd local
     pty = yes</code></pre>
 
 <p>If you want to use <b>stunnel</b> in <i>inetd</i> mode to launch your imapd process, you&#39;d use this <i>stunnel.conf</i>. Note there must be no <i>[service_name]</i> section.</p>
 
 <pre><code>    exec = /usr/sbin/imapd
-    execargs = imapd</code></pre>
+    execArgs = imapd</code></pre>
 
 <p>To setup SOCKS VPN configure the following client service:</p>
 
@@ -1378,7 +1378,7 @@
 
 <h1 id="BUGS">BUGS</h1>
 
-<p>Option <i>execargs</i> and Win32 command line does not support quoting.</p>
+<p>Option <i>execArgs</i> and Win32 command line does not support quoting.</p>
 
 <h1 id="SEE-ALSO">SEE ALSO</h1>
 

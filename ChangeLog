@@ -1,6 +1,10 @@
 stunnel change log
 
 
+Version 5.16, 2015.04.19, urgency: MEDIUM:
+* Bugfixes
+  - Fixed compilation with old versions of gcc.
+
 Version 5.15, 2015.04.16, urgency: LOW:
 * New features
   - Added new service-level options "checkHost", "checkEmail" and
