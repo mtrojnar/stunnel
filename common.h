@@ -29,7 +29,7 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.0"
+#define VERSION "3.1"
 #define HOST "i586-pc-mingw32-gnu"
 
 #define get_last_socket_error() WSAGetLastError()

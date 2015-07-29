@@ -3,7 +3,7 @@
  *   Copyright (c) 1998-1999 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
- *   Version:      3.0              (stunnel.c)
+ *   Version:      3.1              (stunnel.c)
  *   Date:         1999.04.16
  *   Author:       Michal Trojnara  <Michal.Trojnara@centertel.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
@@ -29,6 +29,18 @@
 
 /* DH is an experimental code, so it's undefined by default */
 /* #define USE_DH */
+
+/* Lentgh of temporary RSA key */
+#define KEYLENGTH      1024
+
+/* Max number of children */
+#define MAX_CLIENTS    100
+
+/* I/O buffer size */
+#define BUFFSIZE       8192
+
+/* Length of strings (including the terminating '\0' character) */
+#define STRLEN         1024
 
 #ifdef USE_WIN32
 
@@ -56,10 +68,6 @@
 #define CLIENT_CA SSLDIR "/bin/demoCA/cacert.pem"
 
 #endif /* USE_WIN32 */
-
-#define MAX_CLIENTS 100  /* Max number of children */
-#define BUFFSIZE 8192    /* I/O buffer size */
-#define HOSTNAME_SIZE 256
 
 #if defined __CYGWIN__ || defined __CYGWIN32__
 #define WIN32
@@ -201,23 +209,29 @@ static void print_help();
     /* Global variables */
 SSL_CTX *ctx;           /* global SSL context */
 RSA *rsa_tmp;           /* temporary RSA key */
-char certfile[256];     /* name of the certificate */
-char clientdir[256];
-char signCAfile[256];
 #if SSLEAY_VERSION_NUMBER >= 0x0922
 static unsigned char *sid_ctx="stunnel SID"; /* const allowed here */
 #endif
+char certfile[STRLEN];  /* name of the certificate */
+char clientdir[STRLEN];
 int clients;
 int option=0;
 int foreground;         /* force messages to stderr */
 u_short localport, remoteport;
 u_long *localnames=NULL, *remotenames=NULL;
-char *execname=NULL, **execargs;
+char *execname, **execargs; /* program name and arguments for local mode */
+char servname[STRLEN];  /* service name for loggin & permission checking */
 int verify_level=SSL_VERIFY_NONE;
 int verify_use_only_my=0;
 int debug_level=5;
 long session_timeout=0;
 
+    /* Macros */
+/* Safe copy for strings declarated as char[STRLEN] */
+#define safecopy(dst, src) \
+    (dst[STRLEN-1]='\0', strncpy((dst), (src), STRLEN-1))
+
+    /* Functions */
 int main(int argc, char* argv[]) /* execution begins here 8-) */
 {
     struct stat st; /* buffer for stat */
@@ -236,8 +250,8 @@ int main(int argc, char* argv[]) /* execution begins here 8-) */
 
     /* process options */
     foreground=1;
-    strcpy(certfile, DEFAULT_CERT);
-    strcpy(clientdir, CA_DIR);
+    safecopy(certfile, DEFAULT_CERT);
+    safecopy(clientdir, CA_DIR);
     get_options(argc, argv);
     if(!(option&OPT_FOREGROUND)) {
         foreground=0;
@@ -282,19 +296,21 @@ static void get_options(int argc, char *argv[])
     int c;
     extern char *optarg;
     extern int optind, opterr, optopt;
+    char *tmpstr;
+    static char *default_args[2];
 
     opterr=0;
     while ((c = getopt(argc, argv, "a:cp:v:d:fl:r:t:hD:V")) != EOF)
         switch (c) {
             case 'a':
-                strcpy(clientdir,optarg);
+                safecopy(clientdir, optarg);
                 break;
             case 'c':
                 option|=OPT_CLIENT;
                 break;
             case 'p':
                 option|=OPT_CERT;
-                strcpy(certfile, optarg);
+                safecopy(certfile, optarg);
                 break;
             case 'v':
                 switch(atoi(optarg)) {
@@ -332,6 +348,11 @@ static void get_options(int argc, char *argv[])
                 }
                 option|=OPT_LOCAL;
                 execname=optarg;
+                /* Default servname is execname w/o path */
+                safecopy(servname, optarg);
+                tmpstr=rindex(servname, '/');
+                if(tmpstr)
+                    safecopy(servname, tmpstr+1);
                 break;
             case 'r':
                 if(option&(OPT_LOCAL|OPT_REMOTE)) {
@@ -339,7 +360,11 @@ static void get_options(int argc, char *argv[])
                     print_help();
                 }
                 option|=OPT_REMOTE;
-                execname=optarg;
+                /* Default servname is optarg with '.' instead of ':' */
+                safecopy(servname, optarg);
+                tmpstr=rindex(servname, ':');
+                if(tmpstr)
+                    *tmpstr='.';
                 name2nums(optarg, &remotenames, &remoteport);
                 if(!remotenames) {
                     alloc(&remotenames, 1);
@@ -347,10 +372,17 @@ static void get_options(int argc, char *argv[])
                 }
                 break;
             case 't':
-                session_timeout=atoi(optarg);
+                if(!(session_timeout=atoi(optarg))) {
+                    log(LOG_ERR, "Illegal session timeout: %s", optarg);
+                    print_help();
+                }
                 break;
             case 'D':
-                debug_level=atoi(optarg);
+                if(optarg[0]<'0' || optarg[0]>'7' || optarg[1]!='\0') {
+                    log(LOG_ERR, "Illegal debug level: %s", optarg);
+                    print_help();
+                }
+                debug_level=optarg[0]-'0';
                 break;
             case 'V':
                 fprintf(stderr, "\n" STUNNEL_INFO "\n\n");
@@ -369,7 +401,15 @@ static void get_options(int argc, char *argv[])
     }
     if(!(option&OPT_CLIENT))
         option|=OPT_CERT; /* Server always needs a certificate */
-    execargs=argv+optind-1;
+    if(optind==argc) { /* No arguments - use servname as execargs */
+        default_args[0]=servname;
+        default_args[1]=NULL;
+        execargs=default_args;
+    } else { /* There are some arguments - use execargs[0] as servname */
+        execargs=argv+optind;
+        safecopy(servname, execargs[0]);
+    }
+    log(LOG_DEBUG, "Service name to be used: %s", servname);
 }
 
 static void context_init() /* init SSL */
@@ -405,16 +445,17 @@ static void context_init() /* init SSL */
         if (verify_use_only_my)
             log(LOG_NOTICE, "Peer certificate location %s", clientdir);
     }
-    log(LOG_DEBUG, "Generating 512 bit RSA key...");
+    log(LOG_DEBUG, "Generating %d bit temporary RSA key...", KEYLENGTH);
 #if SSLEAY_VERSION_NUMBER <= 0x0800
-    rsa_tmp=RSA_generate_key(512, RSA_F4, NULL);
+    rsa_tmp=RSA_generate_key(KEYLENGTH, RSA_F4, NULL);
 #else
-    rsa_tmp=RSA_generate_key(512, RSA_F4, NULL, NULL);
+    rsa_tmp=RSA_generate_key(KEYLENGTH, RSA_F4, NULL, NULL);
 #endif
     if(!rsa_tmp) {
         sslerror("tmp_rsa_cb");
         exit(1);
     }
+    log(LOG_DEBUG, "Temporary RSA key generated");
     if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb)) {
         sslerror("SSL_CTX_set_tmp_rsa_callback");
         exit(1);
@@ -454,13 +495,13 @@ static void daemon_loop()
             if(create_client(ls, s, client))
                 log(LOG_WARNING,
                     "%s fork failed - connection from %s:%d REJECTED",
-                    execname, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+                    servname, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
             else
                 clients++;
         } else {
             log(LOG_WARNING,
                 "%s has too many clients - connection from %s:%d REJECTED",
-                execname, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+                servname, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
             closesocket(s);
         }
     }
@@ -504,19 +545,19 @@ static void client(int s)
     struct request_info request;
 #endif
 
-    log(LOG_DEBUG, "%s started", execname);
+    log(LOG_DEBUG, "%s started", servname);
     addrlen=sizeof(addr);
     if(!getpeername(s, (struct sockaddr *)&addr, &addrlen)) {
 #ifdef USE_LIBWRAP
-        request_init(&request, RQ_DAEMON, execname, RQ_FILE, s, 0);
+        request_init(&request, RQ_DAEMON, servname, RQ_FILE, s, 0);
         fromhost(&request);
         if (!hosts_access(&request)) {
-            log(LOG_WARNING, "%s connection from %s:%d REFUSED", execname,
-                inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+            log(LOG_WARNING, "Connection from %s:%d to service %s REFUSED",
+                inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), servname);
             goto cleanup_local;
         }
 #endif
-        log(LOG_NOTICE, "%s connected from %s:%d", execname,
+        log(LOG_NOTICE, "%s connected from %s:%d", servname,
             inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
     }
 
@@ -559,7 +600,7 @@ static void client(int s)
 
 #if SSLEAY_VERSION_NUMBER <= 0x0800
     log(LOG_INFO, "%s opened with SSLv%d, cipher %s",
-        execname, ssl->session->ssl_version, SSL_get_cipher(ssl));
+        servname, ssl->session->ssl_version, SSL_get_cipher(ssl));
 #else
     switch(ssl->session->ssl_version) {
     case SSL2_VERSION:
@@ -574,7 +615,7 @@ static void client(int s)
     c=SSL_get_current_cipher(ssl);
     SSL_CIPHER_get_bits(c, &bits);
     log(LOG_INFO, "%s opened with %s, cipher %s (%u bits)",
-        execname, ver, SSL_CIPHER_get_name(c), bits);
+        servname, ver, SSL_CIPHER_get_name(c), bits);
 #endif
     if(option&OPT_CLIENT)
         transfer(ssl, s);
@@ -588,7 +629,7 @@ cleanup_remote:
 cleanup_local:
     closesocket(s);
 #ifndef USE_FORK
-    log(LOG_DEBUG, "%s finished (%d left)", execname, --clients);
+    log(LOG_DEBUG, "%s finished (%d left)", servname, --clients);
 #endif
 }
 
@@ -729,7 +770,7 @@ static int listen_local() /* bind and listen on local interface */
         sockerror("bind");
         exit(1);
     }
-    log(LOG_DEBUG, "%s bound to %s:%d", execname,
+    log(LOG_DEBUG, "%s bound to %s:%d", servname,
         inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
     if(listen(ls, 5)) {
         sockerror("listen");
@@ -755,7 +796,7 @@ static int connect_remote() /* connect to remote host */
     /* connect each host from the list*/
     for(list=remotenames; *list!=-1; list++) {
         addr.sin_addr.s_addr=*list;
-        log(LOG_DEBUG, "%s connecting %s:%d", execname,
+        log(LOG_DEBUG, "%s connecting %s:%d", servname,
             inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
         if(!connect(s, (struct sockaddr *) &addr, sizeof(addr)))
             return s; /* success */
@@ -800,10 +841,9 @@ static int connect_local() /* connect to local host */
 
 static void name2nums(char *name, u_long **names, u_short *port)
 {
-    char hostname[HOSTNAME_SIZE], *portname;
+    char hostname[STRLEN], *portname;
 
-    strncpy(hostname, name, HOSTNAME_SIZE-1);
-    hostname[HOSTNAME_SIZE-1]='\0';
+    safecopy(hostname, name);
     if((portname=rindex(hostname, ':'))) {
         *portname++='\0';
         host2num(names, hostname);
@@ -843,8 +883,10 @@ static void host2num(u_long **hostlist, char *hostname)
         return;
     }
     /* not dotted decimal - we have to call resolver */
-    if(!(h=gethostbyname(hostname))) /* get list of addresses */
+    if(!(h=gethostbyname(hostname))) { /* get list of addresses */
         sockerror("gethostbyname");
+        exit(1);
+    }
     i=0;
     tab=h->h_addr_list;
     while(*tab++) /* count the addresses */
@@ -1028,7 +1070,7 @@ static void sigchld_handler(int sig) /* Our child is dead */
     clients--; /* One client less */
     pid=wait(&status);
     log(LOG_DEBUG, "%s[%d] finished with code %d (%d left)",
-        execname, pid, status, clients);
+        servname, pid, status, clients);
     signal(SIGCHLD, sigchld_handler);
 }
 #endif
@@ -1054,21 +1096,26 @@ static char *rindex(char *txt, int c)
 }
 
 char *optarg;
-int optind=1, opterr=0, optopt=0;
+int optind=1, opterr=0, optopt;
 
 static int getopt(int argc, char **argv, char *options)
 { /* simplified version for Win32 */
-    char *current, *option;
+    char *option;
 
-    current=argv[optind++];
-    if(optind>argc || current[0]!='-')
+    if(optind==argc || argv[optind][0]!='-')
         return EOF;
-    option=rindex(options, current[1]);
+    optopt=argv[optind][1];
+    option=rindex(options, optopt);
     if(!option)
         return '?';
-    if(option[1]==':')
-        optarg=argv[optind++];
-    return current[1];
+    if(option[1]==':') {
+        if(optind+1==argc)
+            return '?'; /* Argument not found */
+        else
+            optarg=argv[++optind];
+    }
+    ++optind;
+    return optopt;
 }
 
 #endif /* !defined USE_WIN32 */

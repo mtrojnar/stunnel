@@ -1,5 +1,19 @@
 stunnel         Universal SSL tunnel
 
+3.1 1999.04.22	Changed -l syntax (first argument specified is now argv[0]).
+		Fixed problem with options passed to locally executed daemon.
+		Fixed problem with ':' passed to libwrap as a service name:
+		 - ':' has been changed to '.';
+		 - user can specify his own service name as an argument.
+		RSA temporary key length changed from 512 to 1024 bits.
+		Added safecopy to avoid buffer overflows in stunnel.c.
+		Fixed problems with GPF after unsuccessful resolver call
+		and incorrect parameters passed to getopt() in Win32.
+		FAQ updated.
+
+3.0 1999.04.19	Some bugfixes.
+		FAQ added.
+  
 3.0b7 1999.04.14
 		WIN32 native port fixed (looks quite stable).
 		New transfer() function algorithm.

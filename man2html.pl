@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # by M. Trojnara 1998 for stunnel only
 
-use strict;
+# use strict;
 
 my $txt="";
 while(<>) {
