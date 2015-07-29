@@ -555,8 +555,10 @@ cleanup_local: /* reset local socket */
     closesocket(local);
 done:
 #ifndef USE_FORK
+    enter_critical_section(2); /* for multi-cpu machines */
     log(LOG_DEBUG, "%s finished (%d left)", options.servname,
         --options.clients);
+    leave_critical_section(2);
 #endif
     ; /* ANSI C compiler needs it */
 }
@@ -814,6 +816,7 @@ static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
     /* TODO: make it fully mt-safe */
     time(&now);
     if(keylen<KEY_CACHE_LENGTH) {
+        enter_critical_section(0);
         if(keytable[keylen].timeout<now) {
             oldkey=keytable[keylen].key;
             keytable[keylen].key=make_temp_key(keylen);
@@ -821,8 +824,10 @@ static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
             if(oldkey)
                 RSA_free(oldkey);
         }
+        leave_critical_section(0);
         return keytable[keylen].key;
     } else { /* Temp key > 2048 bits.  Is it possible? */
+        enter_critical_section(1);
         if(longtime<now || longlen!=keylen) {
             oldkey=longkey;
             longkey=make_temp_key(keylen);
@@ -831,6 +836,7 @@ static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
             if(oldkey)
                 RSA_free(oldkey);
         }
+        leave_critical_section(1);
         return longkey;
     }
 }

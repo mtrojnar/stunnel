@@ -27,7 +27,7 @@ DEFINES=-DUSE_WIN32 -DHAVE_OPENSSL
 # Use the default certificate sources from your ssl library?  (0==no, 1==yes)
 #    -DSSLLIB_CS=0
 
-CC=gcc
+# CC=gcc
 CFLAGS=-O2 -Wall $(DEFINES) -I$(SSLDIR)/outinc
 LDFLAGS=-s
 

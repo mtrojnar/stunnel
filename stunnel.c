@@ -3,14 +3,13 @@
  *   Copyright (c) 1998-2000 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.9                   (stunnel.c)
- *   Date:         2000.12.13
+ *   Version:      3.10                  (stunnel.c)
+ *   Date:         2000.12.19
  *   
  *   Author:   		Michal Trojnara  <Michal.Trojnara@mirt.net>
  *   SSL support:  	Adam Hernik      <adas@infocentrum.com>
  *                 	Pawel Krawczyk   <kravietz@ceti.com.pl>
  *   PTY support:  	Dirk O. Siebnich <dok@vossnet.de>
- *   This Revision by:	Brian Hatch	 <bri@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -227,6 +226,9 @@ static void get_options(int argc, char *argv[]) {
     options.verify_level=0x00; /* SSL_VERIFY_NONE */
     options.verify_use_only_my=0;
     options.debug_level=5;
+#ifndef USE_WIN32
+    options.facility=LOG_DAEMON;
+#endif
     options.session_timeout=300;
     options.cipher_list=NULL;
     options.username=NULL;
@@ -365,11 +367,11 @@ static void get_options(int argc, char *argv[]) {
                 options.cipher_list=optarg;
                 break;
             case 'D':
-                if(optarg[0]<'0' || optarg[0]>'7' || optarg[1]!='\0') {
-                    log(LOG_ERR, "Illegal debug level: %s", optarg);
+	    	if ( ! parse_debug_level(optarg) ) {
+                    log(LOG_ERR, "Illegal debug argument: %s", optarg);
+                    fprintf(stderr, "Illegal debug argument: %s\n", optarg);
                     print_help();
                 }
-                options.debug_level=optarg[0]-'0';
                 break;
             case 'V':
                 print_version();
@@ -455,14 +457,17 @@ static void daemon_loop()
             continue;
         }
         if(options.clients<MAX_CLIENTS) {
-            if(create_client(ls, s, client))
+            if(create_client(ls, s, client)) {
                 log(LOG_WARNING,
-                    "%s fork failed - connection from %s:%d REJECTED",
+                    "%s create_client failed - connection from %s:%d REJECTED",
                     options.servname,
                     inet_ntoa(addr.sin_addr),
                     ntohs(addr.sin_port));
-            else
+            } else {
+                enter_critical_section(2); /* for multi-cpu machines */
                 options.clients++;
+                leave_critical_section(2);
+            }
         } else {
             log(LOG_WARNING,
                 "%s has too many clients - connection from %s:%d REJECTED",
@@ -537,6 +542,8 @@ static void create_pid()
     	safecopy(options.pidfile, options.pid_dir);
     }
 
+    /* silently remove old pid file */
+    unlink(options.pidfile);
     if (-1==(pf=open(options.pidfile, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL,0644))) {
         log(LOG_ERR, "Cannot create pid file %s", options.pidfile);
 	ioerror("Create");
@@ -553,7 +560,7 @@ static void delete_pid()
 {
     log(LOG_DEBUG, "removing pid file %s", options.pidfile);
     if((unsigned long)getpid()!=options.dpid)
-        return; /* Current process is not main deamon process */
+        return; /* Current process is not main daemon process */
     if(unlink(options.pidfile)<0)
         ioerror(options.pidfile); /* not critical */
 }
@@ -908,15 +915,28 @@ void sockerror(char *txt) /* Socket error handler */
 }
 
 #ifdef USE_FORK
-static void sigchld_handler(int sig) /* Our child is dead */
+static void sigchld_handler(int sig) /* Dead children detected */
 {
     int pid, status;
 
-    options.clients--; /* One client less */
+#if defined(HAVE_WAITPID)
+    while((pid=waitpid(-1, &status, WNOHANG))>0) {
+        options.clients--; /* One client less */
+        if(WIFSIGNALED(status)) {
+            log(LOG_DEBUG, "%s[%d] terminated on signal %d (%d left)",
+                options.servname, pid, WTERMSIG(status), options.clients);
+        } else {
+            log(LOG_DEBUG, "%s[%d] finished with code %d (%d left)",
+                options.servname, pid, WEXITSTATUS(status), options.clients);
+        }
+    }
+#else
     pid=wait(&status);
+    options.clients--; /* One client less */
     log(LOG_DEBUG, "%s[%d] finished with code %d (%d left)",
         options.servname, pid, status, options.clients);
     signal(SIGCHLD, sigchld_handler);
+#endif
 }
 #endif
 
@@ -1101,7 +1121,7 @@ static void print_help()
 	"\n\t\t" RANDOM_FILE " is used when this option is not specified."
 #endif
 	"\n  -W\t\tDo not overwrite random seed datafiles with new random data"
-        "\n  -D level\tdebug level (0-7)"
+        "\n  -D [fac.]lev\tdebug level (e.g. daemon.info)"
 	"\n"
 	"\nSee stunnel -V output for default values\n"
 	"\n");

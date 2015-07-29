@@ -68,7 +68,7 @@ A: There are some simple rules to check this:
    4. Remote site can't use an application-specific protocol
       (like ssltelnet, where SSL is a negotiated option).
 
-Q: Can you give ma a list of officially assigned SSL ports numbers?
+Q: Can you give me a list of officially assigned SSL ports numbers?
 A: Here it is (from Internet Assigned Numbers Authority):
      nsiiops      261/tcp   # IIOP Name Service over TLS/SSL
      https        443/tcp   # http protocol over TLS/SSL
@@ -116,12 +116,15 @@ A: Look into your syslog or use "-f" option.
 Q: I don't understand the error.  Please help!
 A: Prepare following data:
    1. Description of your problem.
-   2. Output of "stunnel -f -D 7 <your-parameters>".
-   3. Output of "uname -a".
-   4. Your libc version if you use Linux.
-   5. Output of "gcc -v".
-   6. Output of "openssl version" or "ssleay version" depending of you library.
-   Subscribe stunnel-users.
+   2. The list of parameters you are using for stunnel, and if you are
+           running it standalone or from inetd/xinetd.
+   3. Output of "stunnel -f -D 7 <your-parameters>".
+   4. Output of "stunnel -V".
+   5. Output of "uname -a".
+   6. Your libc version if you use Linux.
+   7. Output of "gcc -v".
+   8. Output of "openssl version" or "ssleay version" depending on your library.
+   Subscribe to stunnel-users.
    Send e-mail with the above informations to the list.
 
 Q: How do I use stunnel to create a secure PPP session over the internet?

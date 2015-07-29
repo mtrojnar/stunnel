@@ -1,6 +1,18 @@
 stunnel         Universal SSL tunnel
 
-Version 3.9, 2000.12.13:
+Version 3.10, 2000.12.19, urgency: MEDIUM:
+* Internal thread synchronization code added.
+* libdl added to stunnel dependencies if it exists.
+* Manpage converted to sdf format.
+* stunnel deletes pid file before attempting to create it.
+* Documentation updates.
+* -D option now takes [facility].level as argument.  0-7 still supported.
+* Problems with occasional zombies in FORK mode fixed.
+* 'stunnel.exe' rule added to Makefile.
+  You can cross-compile stunnel.exe on Unix, now.
+  I'd like to be able to compile OpenSSL this way, too...
+
+Version 3.9, 2000.12.13, urgency: HIGH:
 * Updated temporary key generation:
    - stunnel is now honoring requested key-lengths correctly,
    - temporary key is changed every hour.

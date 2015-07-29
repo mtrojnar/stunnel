@@ -27,7 +27,6 @@
 #define OPT_TRANSPARENT 0x40
 #define OPT_PTY         0x80
 
-
 /* Certificate defaults */
 
 /* let's not use openssl defaults unless told to at compile time. */
@@ -55,7 +54,7 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.9"
+#define VERSION "3.10"
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else
@@ -160,7 +159,8 @@ typedef struct {
     char servname[STRLEN];  /* service name for loggin & permission checking */
     int verify_level;
     int verify_use_only_my;
-    int debug_level;
+    int debug_level;		/* debug level for syslog */
+    int facility;		/* debug facility for syslog */
     long session_timeout;
     char *cipher_list;
     char *username;
@@ -196,9 +196,12 @@ int negotiate(char *, int, int, int);
 void log_open();
 void log_close();
 void log(int, char *, ...);
+int  parse_debug_level(char *);
 
 /* Prototypes for sthreads.c */
 
+void enter_critical_section(int);
+void leave_critical_section(int);
 void sthreads_init(void);
 unsigned long process_id(void);
 unsigned long thread_id(void);

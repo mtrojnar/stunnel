@@ -27,13 +27,25 @@
 #include <crypto.h> /* for CRYPTO_* */
 #endif
 
+#define MAX_CRIT_SECTIONS 3
+
 #ifdef USE_PTHREAD
 
 #include <pthread.h>
 #include <unistd.h> /* for getpid() */
 
+pthread_mutex_t stunnel_cs[MAX_CRIT_SECTIONS];
+
 pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
 pthread_attr_t pth_attr;
+
+void enter_critical_section(int i) {
+    pthread_mutex_lock(stunnel_cs+i);
+}
+
+void leave_critical_section(int i) {
+    pthread_mutex_unlock(stunnel_cs+i);
+}
 
 static void locking_callback(int mode, int type,
 #ifdef HAVE_OPENSSL
@@ -47,10 +59,14 @@ static void locking_callback(int mode, int type,
         pthread_mutex_unlock(lock_cs+type);
 }
 
-void sthreads_init()
-{
+void sthreads_init() {
     int i;
 
+    /* Initialize stunnel critical sections */
+    for(i=0; i<MAX_CRIT_SECTIONS; i++)
+        pthread_mutex_init(stunnel_cs+i, NULL);
+
+    /* Initialize OpenSSL locking callback */
     for(i=0; i<CRYPTO_NUM_LOCKS; i++)
         pthread_mutex_init(lock_cs+i, NULL);
     CRYPTO_set_id_callback(thread_id);
@@ -60,18 +76,15 @@ void sthreads_init()
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
 }
 
-unsigned long process_id()
-{
+unsigned long process_id() {
     return (unsigned long)getpid();
 }
 
-unsigned long thread_id()
-{
+unsigned long thread_id() {
     return (unsigned long)pthread_self();
 }
 
-int create_client(int ls, int s, void (*cli)(int))
-{
+int create_client(int ls, int s, void (*cli)(int)) {
      pthread_t thread;
 
      if(pthread_create(&thread, &pth_attr, (void *)cli, (void *)s)) {
@@ -87,24 +100,34 @@ int create_client(int ls, int s, void (*cli)(int))
 
 #include <windows.h>
 
-void sthreads_init()
-{
-    /* empty */
+CRITICAL_SECTION stunnel_cs[MAX_CRIT_SECTIONS];
+
+void enter_critical_section(int i) {
+    EnterCriticalSection(stunnel_cs+i);
 }
 
-unsigned long process_id()
-{
+void leave_critical_section(int i) {
+    LeaveCriticalSection(stunnel_cs+i);
+}
+
+void sthreads_init() {
+    int i;
+
+    /* Initialize stunnel critical sections */
+    for(i=0; i<MAX_CRIT_SECTIONS; i++)
+        InitializeCriticalSection(stunnel_cs+i);
+}
+
+unsigned long process_id() {
     return GetCurrentProcessId();
 }
 
-unsigned long thread_id()
-{
+unsigned long thread_id() {
     return GetCurrentThreadId();
 }
 
-int create_client(int ls, int s, void (*cli)(int))
-{
-    int iID;
+int create_client(int ls, int s, void (*cli)(int)) {
+    DWORD iID;
 
     CloseHandle(CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)cli,
         (void *)s, 0, &iID));
@@ -118,23 +141,27 @@ int create_client(int ls, int s, void (*cli)(int))
 #include <unistd.h> /* for getpid() */
 #include <signal.h> /* for signal() */
 
-void sthreads_init()
-{
+void enter_critical_section(int i) {
     /* empty */
 }
 
-unsigned long process_id()
-{
+void leave_critical_section(int i) {
+    /* empty */
+}
+
+void sthreads_init() {
+    /* empty */
+}
+
+unsigned long process_id() {
     return (unsigned long)getpid();
 }
 
-unsigned long thread_id()
-{
+unsigned long thread_id() {
     return 0L;
 }
 
-int create_client(int ls, int s, void (*cli)(int))
-{
+int create_client(int ls, int s, void (*cli)(int)) {
     switch(fork()) {
     case -1:    /* error */
         closesocket(s);

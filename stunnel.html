@@ -1,340 +1,240 @@
+<!doctype html public "-//W30//DTD W3 HTML 2.0//EN">
+
 <HTML>
-<HEAD><TITLE>Manual page</TITLE></HEAD>
-<BODY><DL>
-<DT><H1>STUNNEL(8)</H1><DD>
-<P><DT><H2>NAME</H2><DD>
-stunnel - universal SSL tunnel
-<P><DT><H2>SYNOPSIS</H2><DD>
-<B>stunnel</B>
-[-c | -T]
-[-D level]
-[-C cipherlist]
-[-p pemfile]
-[-v level]
-[-A certfile]
-[-S #]
-[-a directory]
-[-t timeout]
-[-u ident_username]
-[-s setuid_user]
-[-g setgid_group]
-[-n protocol] 
-[-P { dir/ | filename | none } ]
-[-B bytes]
-[-R randfile]
-[-W]
-[-E socket]
-[-d [host:]port [-f] ]
-[ -r [host:]port | { -l | -L }  program [-- progname args] ]
-<P>
-<P><DT><H2>DESCRIPTION</H2><DD>
-The <B>stunnel</B> program is designed to work as <I>SSL</I> encryption wrapper 
-between remote clients and local (<I>inetd</I>-startable) or remote
-servers. The concept is that having non-SSL aware daemons running on
-your system you can easily set them up to communicate with clients over
-secure SSL channels.
-<P>
-<B>stunnel</B>
-can be used to add SSL functionality to commonly used <I>inetd</I>
-daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
-NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
-changes to the source code.
-<P>
-This product includes cryptographic software written by
-Eric Young (<A HREF="MAILTO:eay@cryptsoft.com">eay@cryptsoft.com</A>)
-<P><DT><H2>OPTIONS</H2><DD>
-<B>-h</B>
-Print stunnel help menu
-<P>
-<B>-V</B>
-Print stunnel version and compile options
-<P>
-<B>-D level</B>
+
+<!-- This file was generated using SDF 2.001 by
+     Ian Clatworthy (ianc@mincom.com). SDF is freely
+     available from http://www.mincom.com/mtr/sdf. -->
+
+<HEAD>
+</HEAD>
+<BODY>
+
+<DIV CLASS="header">
+<DIV CLASS="navigate">
+</DIV>
+</DIV>
+<DIV CLASS="main">
+<H1><A NAME="NAME">1. NAME</A></H1>
+<P>stunnel - universal SSL tunnel</P>
+<H1><A NAME="SYNOPSIS">2. SYNOPSIS</A></H1>
+<P><B>stunnel</B> [-c&nbsp;|&nbsp;-T] [-D&nbsp;[facility.]level] [-C&nbsp;cipherlist] [-p&nbsp;pemfile] [-v&nbsp;level] [-A&nbsp;certfile] [-S&nbsp;sources] [-a&nbsp;directory] [-t&nbsp;timeout] [-u&nbsp;ident_username] [-s&nbsp;setuid_user] [-g&nbsp;setgid_group] [-n&nbsp;protocol] [-P&nbsp;{&nbsp;dir/&nbsp;|&nbsp;filename&nbsp;|&nbsp;none&nbsp;}&nbsp;] [-B&nbsp;bytes] [-R&nbsp;randfile] [-W] [-E&nbsp;socket] [-d&nbsp;[host:]port&nbsp;[-f]&nbsp;] [&nbsp;-r&nbsp;[host:]port&nbsp;|&nbsp;{&nbsp;-l&nbsp;|&nbsp;-L&nbsp;}&nbsp;program&nbsp;[--&nbsp;progname&nbsp;args]&nbsp;]</P>
+<H1><A NAME="DESCRIPTION">3. DESCRIPTION</A></H1>
+<P>The <B>stunnel</B> program is designed to work as <I>SSL</I> encryption wrapper between remote clients and local (<I>inetd</I>-startable) or remote servers. The concept is that having non-SSL aware daemons running on your system you can easily set them up to communicate with clients over secure SSL channels.</P>
+<P><B>stunnel</B> can be used to add SSL functionality to commonly used <I>inetd</I> daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without changes to the source code.</P>
+<P>This product includes cryptographic software written by Eric Young (eay@cryptsoft.com)</P>
+<H1><A NAME="OPTIONS">4. OPTIONS</A></H1>
+<P STYLE="font-weight: bold"><B><B>-h</B></B></P>
+<UL>
+Print stunnel help menu</UL>
+<P STYLE="font-weight: bold"><B><B>-V</B></B></P>
+<UL>
+Print stunnel version and compile time defaults</UL>
+<P STYLE="font-weight: bold"><B><B>-D</B> level</B></P>
+<UL>
 Debugging level
-<BLOCKQUOTE>
-Level is a number between 0 (no logging at all) and 7 (show
-lots of debugging info)
-</BLOCKQUOTE>
-<P>
-<B>-C cipherlist</B>
+<BR>
+Level is a one of the syslog level names or numbers emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6), or debug (7).  All logs for the specified level and all levels numerically less than it will be shown.  Use -D debug or -D 7 for greatest debugging output.  The default is notice (5).
+<BR>
+The syslog facility 'daemon' will be used unless a facility name is supplied.  (Facilities are not supported on windows.)
+<BR>
+Case is ignored for both facilities and levels.</UL>
+<P STYLE="font-weight: bold"><B><B>-C</B> cipherlist</B></P>
+<UL>
 Select permitted SSL ciphers
-<BLOCKQUOTE>
-A colon delimited list of the ciphers to allow in the SSL connection.
-For example DES-CBC3-SHA:IDEA-CBC-MD5
-</BLOCKQUOTE>
-<P>
-<B>-c</B>
+<BR>
+A colon delimited list of the ciphers to allow in the SSL connection. For example DES-CBC3-SHA:IDEA-CBC-MD5</UL>
+<P STYLE="font-weight: bold"><B><B>-c</B></B></P>
+<UL>
 client mode (remote service uses SSL)
-<BLOCKQUOTE>
-default: server mode
-</BLOCKQUOTE>
-<P>
-<B>-T</B>
+<BR>
+default: server mode</UL>
+<P STYLE="font-weight: bold"><B><B>-T</B></B></P>
+<UL>
 transparent proxy mode
-<BLOCKQUOTE>
-Available only in server mode, re-write address to appear
-as if connection is originating from actual SSL client machine.
-Only available on some OS versions.
-</BLOCKQUOTE>
-<P>
-<B>-p pemfile</B>
+<BR>
+Re-write address to appear as if wrapped daemon is connecting from the SSL client machine instead of the machine running stunnel. Available only on some operating systems (Linux only, we believe) and then only in server mode. Note that this option will not combine with proxy mode (-r) unless the client's default route to the target machine lies through the host running stunnel, which cannot be localhost.</UL>
+<P STYLE="font-weight: bold"><B><B>-p</B> pemfile</B></P>
+<UL>
 key/certificate PEM file name
-<BLOCKQUOTE>
-A PEM is always needed in server mode (see <I>stunnel -V</I> output for default).
-Specifing this flag in client mode will use this  key/certificate as a
-client side certificate.  Using client side certs is optional.
-</BLOCKQUOTE>
-<P>
-<B>-v level</B>
-verify peer certificate
-<BLOCKQUOTE>
-<PRE>level 1 - verify peer certificate
-          if present
-level 2 - verify peer certificate
-level 3 - verify peer with locally
-          installed certificate
-default: no verify</PRE>
-</BLOCKQUOTE>
-<P>
-<B>-a directory</B>
+<BR>
+A PEM is always needed in server mode (see <I>stunnel -V</I> output for default). Specifing this flag in client mode will use this  key/certificate as a client side certificate.  Using client side certs is optional.</UL>
+<P STYLE="font-weight: bold"><B><B>-v</B> level</B></P>
+<UL>
+verify peer certificate<UL>
+<LI>level 1 - verify peer certificate if present
+<LI>level 2 - verify peer certificate
+<LI>level 3 - verify peer with locally installed certificate
+<LI>default - no verify</UL></UL>
+<P STYLE="font-weight: bold"><B><B>-a</B> directory</B></P>
+<UL>
 client certificate directory
-<BLOCKQUOTE>
-This is the directory in which stunnel will look for certificates when
-using the <I>-v</I> options. Note that the certificates in this directory
-should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert.
-<P>
-See <I>stunnel -V</I> output for default.
-</BLOCKQUOTE>
-<P>
-<B>-A certfile</B>
+<BR>
+This is the directory in which stunnel will look for certificates when using the <I>-v</I> options. Note that the certificates in this directory should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the cert. This directory will override the stunnel compile-time default, if any.
+<BR>
+See <I>stunnel -V</I> output for default.</UL>
+<P STYLE="font-weight: bold"><B><B>-A</B> certfile</B></P>
+<UL>
 Certificate Authority file
-<BLOCKQUOTE>
-This file contains multiple CA certificates, used with the <I>-v</I> options.
-<P>
-See <I>stunnel -V</I> output for default.
-</BLOCKQUOTE>
-<P>
-<B>-S #</B>
+<BR>
+This file contains multiple CA certificates, used with the <I>-v</I> options. This file will override the stunnel compile-time default, if any.
+<BR>
+See <I>stunnel -V</I> output for default.</UL>
+<P STYLE="font-weight: bold"><B><B>-S</B> sources</B></P>
+<UL>
 Certificate source defaults
-<BLOCKQUOTE>
-Both stunnel and the SSL library used to compile stunnel have default
-locations to look for your certificate file (<I>-A</I> option) and certificate
-directories (<I>-a</I> option).  The <I>-S</I> flag allows you to control which of
-these default sources, if any, should be used.
-<PRE>  0 = ignore all default sources
-  1 = use only ssl library defaults
-  2 = use only stunnel defaults
-  3 = use all defaults</PRE>
+<BR>
+Both stunnel and the SSL library used to compile stunnel have default locations to look for your certificate file (<I>-A</I> option) and certificate directories (<I>-a</I> option).  The <B>-S</B> flag allows you to control which of these default sources, if any, should be used.</UL>
+<PRE>
+        0 = ignore all default sources
+        1 = use ssl library defaults
+        2 = use stunnel defaults
+        3 = use both ssl library and stunnel defaults
+</PRE>
+<UL>
 (See <I>stunnel -V</I> output for the default.)
-<P>
-Note that the <I>-A</I> and <I>-a</I> flags overwrite, not supliment,
-the stunnel defaults, whereas the ssl library defaults, if enabled,
-are used in addition to the other sources.
-<P>
-In general, to avoid hurting one's brain, use <I>-S 0</I> and
-explicitly set <I>-A</I> and/or <I>-a</I> as desired.
-<P>
-<P>
-</BLOCKQUOTE>
-<P>
-<B>-t timeout</B>
+<BR>
+Note that the <I>-A</I> and <B>-a</B> flags overwrite, not supliment, the stunnel defaults, whereas the ssl library defaults, if enabled, are used in addition to the other sources.
+<BR>
+In general, to avoid hurting one's brain, use <I>-S 0</I> and explicitly set <I>-A</I> and/or <B>-a</B> as desired.</UL>
+<P STYLE="font-weight: bold"><B><B>-t</B> timeout</B></P>
+<UL>
 session cache timeout
-<BLOCKQUOTE>
-default: 300 s.
-</BLOCKQUOTE>
-<P>
-<B>-u ident_username</B>
-Use IDENT (RFC 1413) username checking
-<P>
-<B>-n proto</B>
+<BR>
+default: 300 seconds.</UL>
+<P STYLE="font-weight: bold"><B><B>-N</B> servicename</B></P>
+<UL>
+Service name to use for tcpwrappers. If not specified then a tcpwrapper service name will be generated automatically for you. This will also be used when auto-generating pid filenames.</UL>
+<P STYLE="font-weight: bold"><B><B>-u</B> ident_username</B></P>
+<UL>
+Use IDENT (RFC 1413) username checking</UL>
+<P STYLE="font-weight: bold"><B><B>-n</B> proto</B></P>
+<UL>
 Negotiate SSL with specified protocol
-<BLOCKQUOTE>
-currenty supported: smtp
-</BLOCKQUOTE>
-<P>
-<P>
-<B>-E socket</B>
-<BLOCKQUOTE>
-Entropy Gathering Daemon socket to use to feed OpenSSL random number
-generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)
-</BLOCKQUOTE>
-<P>
-<B>-R filename</B>
-<BLOCKQUOTE>
-File containing random input.  The SSL library
-will use data from this file first to seed the
-random number generator.
-</BLOCKQUOTE>
-<P>
-<B>-W</B>
-Do not overwrite the random seed files with new random data.
-</BLOCKQUOTE>
-<P>
-<B>-B bytes</B>
-<BLOCKQUOTE>
-Number of bytes of data read from random seed files.  With SSL versions
-less than 0.9.5a, also determines how many bytes of data are considered
-sufficient to seed the PRNG.  More recent OpenSSL versions have a builtin
-function to determine when sufficient randomness is available.
-</BLOCKQUOTE>
-<P>
-<B>-d [host:]port</B>
-daemon mode 
-<BLOCKQUOTE>
-Listen for connections on [host:]port.
-If no host specified, defaults to all IP addresses for the local host.
-<P>
-default: inetd mode
-</BLOCKQUOTE>
-<P>
-<B>-f</B>
+<BR>
+currenty supported: smtp</UL>
+<P STYLE="font-weight: bold"><B><B>-E</B> socket</B></P>
+<UL>
+Entropy Gathering Daemon socket to use to feed OpenSSL random number generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)</UL>
+<P STYLE="font-weight: bold"><B><B>-R</B> filename</B></P>
+<UL>
+File containing random input.  The SSL library will use data from this file first to seed the random number generator.</UL>
+<P STYLE="font-weight: bold"><B><B>-W</B></B></P>
+<UL>
+Do not overwrite the random seed files with new random data.</UL>
+<P STYLE="font-weight: bold"><B><B>-B</B> bytes</B></P>
+<UL>
+Number of bytes of data read from random seed files.  With SSL versions less than 0.9.5a, also determines how many bytes of data are considered sufficient to seed the PRNG.  More recent OpenSSL versions have a builtin function to determine when sufficient randomness is available.</UL>
+<P STYLE="font-weight: bold"><B><B>-d</B> [host:]port</B></P>
+<UL>
+daemon mode
+<BR>
+Listen for connections on [host:]port. If no host specified, defaults to all IP addresses for the local host.
+<BR>
+default: inetd mode</UL>
+<P STYLE="font-weight: bold"><B><B>-f</B></B></P>
+<UL>
 foreground mode
-<BLOCKQUOTE>
-Stay in foreground (don't fork) and log to stderr
-instead of via syslog.
-<P>
-default: background in daemon mode
-</BLOCKQUOTE>
-<P>
-<B>-l program [-- programname [arg1 arg2 arg3...]  ]</B>
-<BLOCKQUOTE>
-execute local inetd-type program. 
-</BLOCKQUOTE>
-<P>
-<B>-L program [-- programname [arg1 arg2 arg3...]  ]</B>
-<BLOCKQUOTE>
-open local pty and execute program.
-</BLOCKQUOTE>
-<P>
-<B>-s username</B>
-<BLOCKQUOTE>
-setuid() to username in daemon mode
-</BLOCKQUOTE>
-<P>
-<B>-g groupname</B>
-<BLOCKQUOTE>
-setgid() to groupname in daemon mode. Clears all other groups.
-</BLOCKQUOTE>
-<P>
-<B>-P { dir/ | file | none }</B>
+<BR>
+Stay in foreground (don't fork) and log to stderr instead of via syslog.
+<BR>
+default: background in daemon mode</UL>
+<P STYLE="font-weight: bold"><B><B>-l</B> program [-- programname [arg1 arg2 arg3...]  ]</B></P>
+<UL>
+execute local inetd-type program.</UL>
+<P STYLE="font-weight: bold"><B><B>-L</B> program [-- programname [arg1 arg2 arg3...]  ]</B></P>
+<UL>
+open local pty and execute program.</UL>
+<P STYLE="font-weight: bold"><B><B>-s</B> username</B></P>
+<UL>
+setuid() to username in daemon mode</UL>
+<P STYLE="font-weight: bold"><B><B>-g</B> groupname</B></P>
+<UL>
+setgid() to groupname in daemon mode. Clears all other groups.</UL>
+<P STYLE="font-weight: bold"><B><B>-P</B> { dir/ | file | none }</B></P>
+<UL>
 Pid file location
-<BLOCKQUOTE>
-If the argument is a pathname ending in a slash, then a pid file
-named "<I>stunnel.</I>servicename<I>.pid</I>" will be created in
-the specified directory.  If the argument is a filename (no
-trailing slash), then that filename will be used for the pid.
-If
-the argument is 'none', then no pid file will be created.
-</BLOCKQUOTE>
-<P>
-<B>-r [host:]port</B>
+<BR>
+If the argument is a pathname ending in a slash, then a pid file named &quot;<I>stunnel.</I>servicename<B>.pid</B>&quot; will be created in the specified directory.  If the argument is a filename (no trailing slash), then that filename will be used for the pid. If the argument is 'none', then no pid file will be created.</UL>
+<P STYLE="font-weight: bold"><B><B>-r</B> [host:]port</B></P>
+<UL>
 connect to remote service
-<BLOCKQUOTE>
-If no host specified, defaults to localhost.
-</BLOCKQUOTE>
+<BR>
+If no host specified, defaults to localhost.</UL>
+<H1><A NAME="EXAMPLES">5. EXAMPLES</A></H1>
+<P>In order to provide SSL encapsulation to your local <I>imapd</I> service, use</P>
+<PRE>
+  stunnel -d 993 -l /usr/sbin/imapd -- imapd
+</PRE>
+<P>If you want to provide tunneling to your <I>pppd</I> daemon on port 2020, use something like</P>
+<PRE>
+  stunnel -d 2020 -L /usr/sbin/pppd -- pppd local
+</PRE>
+<H1><A NAME="CERTIFICATES">6. CERTIFICATES</A></H1>
+<P>Each SSL enabled daemon needs to present a valid X.509 certificate to the peer. It also needs a private key to decrypt the incoming data. The easiest way to obtain a certificate and a key is to generate them with the free <I>openssl</I> package. You can find more information on certificates generation on pages listed below.</P>
+<P>Two things are important when generating certificate-key pairs for <B>stunnel</B>. The private key cannot be encrypted, because the server has no way to obtain the password from the user. To produce an unencrypted key add the <I>-nodes</I> option when running the <B>req</B> command from the <I>openssl</I> kit.</P>
+<P>The order of contents of the <I>.pem</I> file is also important. It should contain the unencrypted private key first, then a signed certificate (not certificate request). There should be also empty lines after certificate and private key. Plaintext certificate information appended on the top of generated certificate should be discarded. So the file should look like this:</P>
+<PRE>
+  -----BEGIN RSA PRIVATE KEY-----
+  [encoded key]
+  -----END RSA PRIVATE KEY-----
+  [empty line]
+  -----BEGIN CERTIFICATE-----
+  [encoded certificate]
+  -----END CERTIFICATE-----
+  [empty line]
+</PRE>
+<H1><A NAME="RANDOMNESS">7. RANDOMNESS</A></H1>
+<P><I>stunnel</I> needs to seed the PRNG (pseudo random number generator) in order for SSL to use good randomness.  The following sources are loaded in order until sufficient random data has been gathered:</P>
+<UL>
+<LI>The file specified with the <I>-R</I> flag.
+<LI>The file specified by the RANDFILE environment variable, if set.
+<LI>The file .rnd in your home directory, if RANDFILE not set.
+<LI>The file specified with '--with-random' at compile time.
+<LI>The contents of the screen if running on Windows.
+<LI>The egd socket specified with the <I>-E</I> flag.
+<LI>The egd socket specified with '--with-egd-sock' at compile time.
+<LI>The /dev/urandom device.</UL>
+<P>With recent (&gt;=OpenSSL 0.9.5a) version of SSL it will stop loading random data automatically when sufficient entropy has been gathered. With previous versions it will continue to gather from all the above sources since no SSL function exists to tell when enough data is available.</P>
+<P>Note that on Windows machines that do not have console user interaction (mouse movements, creating windows, etc) the screen contents are not variable enough to be sufficient, and you should provide a random file for use with the <I>-R</I> flag.</P>
+<P>Note that the file specified with the <I>-R</I> flag should contain random data -- that means it should contain different information each time <I>stunnel</I> is run.  This is handled automatically unless the <I>-W</I> flag is used.  If you wish to update this file manually, the <I>openssl rand</I> command in recent versions of OpenSSL, would be useful.</P>
+<P>One important note -- if /dev/urandom is available, OpenSSL has a habit of seeding the PRNG with it even when checking the random state, so on systems with /dev/urandom you're likely to use it even though it's listed at the very bottom of the list above.  This isn't stunnel's behaviour, it's OpenSSLs.</P>
+<H1><A NAME="LIMITATIONS">8. LIMITATIONS</A></H1>
+<P><I>stunnel</I> cannot be used for the FTP daemon because of the nature of the FTP protocol which utilizes multiple ports for data transfers. There are available SSL enabled versions of FTP and telnet daemons, however.</P>
+<H1><A NAME="SEE ALSO">9. SEE ALSO</A></H1>
+<P STYLE="font-weight: bold"><B><A HREF="tcpd.html">the tcpd(8) manpage</A></B></P>
+<UL>
+access control facility for internet services</UL>
+<P STYLE="font-weight: bold"><B><A HREF="inetd.html">the inetd(8) manpage</A></B></P>
+<UL>
+internet ``super-server''</UL>
+<P STYLE="font-weight: bold"><B><A HREF="http://stunnel.mirt.net/">http://stunnel.mirt.net/</A></B></P>
+<UL>
+Stunnel homepage</UL>
+<P STYLE="font-weight: bold"><B><A HREF="http://www.stunnel.org/">http://www.stunnel.org/</A></B></P>
+<UL>
+Stunnel Frequently Asked Questions</UL>
+<P STYLE="font-weight: bold"><B><A HREF="http://www.openssl.org/">http://www.openssl.org/</A></B></P>
+<UL>
+OpenSSL project website</UL>
+<H1><A NAME="AUTHORS">10. AUTHORS</A></H1>
+<P STYLE="font-weight: bold"><B>Michal Trojnara</B></P>
+<UL>
+&lt;<TT>Michal.Trojnara@mirt.net</TT>&gt;</UL>
+<P STYLE="font-weight: bold"><B>Adam Hernik</B></P>
+<UL>
+&lt;<TT>adas@infocentrum.com</TT>&gt;</UL>
+<P STYLE="font-weight: bold"><B>Pawel Krawczyk</B></P>
+<UL>
+&lt;<TT>kravietz@ceti.com.pl</TT>&gt;</UL>
+<P STYLE="font-weight: bold"><B>PTY support by Dirk O. Siebnich</B></P>
+<UL>
+&lt;<TT>dok@vossnet.de</TT>&gt;</UL>
+</DIV>
+<DIV CLASS="footer">
+<DIV CLASS="navigate">
+</DIV>
+</DIV>
 
-<P><DT><H2>EXAMPLES</H2><DD>
-In order to provide SSL encapsulation to your local <I>imapd</I> service, use
-
-<BLOCKQUOTE>
-<PRE>stunnel -d 993 -l /usr/sbin/imapd -- imapd</PRE>
-</BLOCKQUOTE>
-<P>
-If you want to provide tunneling to your <I>pppd</I> daemon on port 2020,
-use something like
-
-<BLOCKQUOTE>
-<PRE>stunnel -d 2020 -L /usr/sbin/pppd -- pppd local</PRE>
-</BLOCKQUOTE>
-
-<P><DT><H2>CERTIFICATES</H2><DD>
-Each SSL enabled daemon needs to present a valid X.509 certificate
-to the peer. It also needs a private key to decrypt the incoming
-data. The easiest way to obtain a certificate and a key is to 
-generate them with the free <I>openssl</I> package. You can find more
-information on certificates generation on pages listed below.
-<P>
-Two things are important when generating certificate-key pairs for
-<B>stunnel</B>. The private key cannot be encrypted, because the server
-has no way to obtain the password from the user. To produce an
-unencrypted key add the <I>-nodes</I> option when running the <I>req</I>
-command from the <I>openssl</I> kit.
-<P>
-The order of contents of the <I>.pem</I> file is also important.
-It should contain the unencrypted private key first, then a signed certificate
-(not certificate request).
-There should be also empty lines after certificate and private key.
-Plaintext certificate information appended on the top of generated certificate
-should be discarded. So the file should look like this:
-
-<PRE>-----BEGIN RSA PRIVATE KEY-----
-[encoded key]
------END RSA PRIVATE KEY-----
-[empty line]
------BEGIN CERTIFICATE-----
-[encoded certificate]
------END CERTIFICATE-----
-[empty line]</PRE>
-
-<P><DT><H2>RANDOMNESS</H2><DD>
-<I>stunnel</I> needs to seed the PRNG (pseudo random number generator) in
-order for SSL to use good randomness.  The following sources are loaded
-in order until sufficient random data has been gathered:
-
-<BLOCKQUOTE>
-<PRE>The file specified with the <I>-R</I> flag.
-The file specified by the RANDFILE environment variable, if set.
-The file .rnd in your home directory, iff RANDFILE not set.
-The file specified with '--with-random' at compile time.
-The contents of the screen if running on Windows.
-The egd socket specified with the <I>-E</I> flag.
-The egd socket specified with '--with-egd-sock' at compile time.
-The /dev/urandom device.</PRE>
-
-</BLOCKQUOTE>
-With recent (&gt;=OpenSSL 0.9.5a) version of SSL it will stop loading
-random data automatically when sufficient entropy has been gathered.
-With previous versions it will continue to gather from all the above
-sources since no SSL function exists to tell when enough data is available.
-<P>
-Note that on Windows machines that do not have console user interaction
-(mouse movements, creating windows, etc) the screen contents are not
-variable enough to be sufficient, and you should provide a random file
-for use with the <I>-R</I> flag.
-<P>
-Note that the file specified with the <I>-R</I> flag should contain
-random data -- that means it should contain different information
-each time <I>stunnel</I> is run.  This is handled automatically
-unless the <I>-W</I> flag is used.  If you wish to update this file
-manually, the <I>openssl rand</I> command in recent versions of OpenSSL,
-would be useful.
-<P>
-One important note -- if /dev/urandom is available, OpenSSL has a habit of
-seeding the PRNG with it even when checking the random state, so on
-systems with /dev/urandom you're likely to use it even though it's listed
-at the very bottom of the list above.  This isn't stunnel's behaviour, it's
-OpenSSLs.
-<P>
-<P><DT><H2>LIMITATIONS</H2><DD>
-<I>stunnel</I> cannot be used for the FTP daemon because of the nature
-of the FTP protocol which utilizes multiple ports for data transfers.
-There are available SSL enabled versions of FTP and telnet daemons, however.
-<P><DT><H2>SEE ALSO</H2><DD>
-<FONT FACE="Roman"><B>tcpd (8),</FONT></B>
-<FONT FACE="Roman"><B>inetd (8)</FONT></B>
-<P>
-<I><B><A HREF="http://stunnel.mirt.net/">http://stunnel.mirt.net/</A></I></B>
-Stunnel homepage
-<P>
-<I><B><A HREF="http://www.openssl.org">http://www.openssl.org</A></I></B>
-OpenSSL project website
-<P><DT><H2>AUTHORS</H2><DD>
-Michal Trojnara &lt;<A HREF="MAILTO:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net>/A>&gt;
-<P>
-Adam Hernik &lt;<A HREF="MAILTO:adas@infocentrum.com">adas@infocentrum.com</A>&gt;
-<P>
-Pawel Krawczyk &lt;<A HREF="MAILTO:kravietz@ceti.com.pl">kravietz@ceti.com.pl</A>&gt;
-<P>
-PTY support by Dirk O. Siebnich &lt;<A HREF="MAILTO:dok@vossnet.de">dok@vossnet.de</A>&gt;
-</DL></BODY>
+</BODY>
 </HTML>
