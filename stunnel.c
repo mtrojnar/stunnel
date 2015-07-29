@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2001 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      3.13                  (stunnel.c)
- *   Date:         2001.01.25
+ *   Version:      3.14                  (stunnel.c)
+ *   Date:         2001.02.21
  *   
  *   Author:   		Michal Trojnara  <Michal.Trojnara@mirt.net>
  *   SSL support:  	Adam Hernik      <adas@infocentrum.com>
@@ -487,7 +487,7 @@ static void daemonize() /* go to background */
 #ifdef HAVE_DAEMON
     if ( daemon(0,0) == -1 ) {
 	ioerror("daemon");
-	exit(1);
+        exit(1);
     }
 #else
     chdir("/");
@@ -514,44 +514,60 @@ static void create_pid()
 {
     int pf;
     char pid[STRLEN];
+    struct stat sb;
+    int force_dir;
+    char tmpdir[STRLEN];
 
-    if ( strcmp(options.pid_dir, "none") == 0 ) {
-    	log(LOG_DEBUG, "No pid file being created.");
-	options.pidfile[0]='\0';
-    	return;
+    safecopy(tmpdir, options.pid_dir);
+
+    if(strcmp(tmpdir, "none") == 0) {
+        log(LOG_DEBUG, "No pid file being created.");
+        options.pidfile[0]='\0';
+        return;
     }
-    if ( ! strchr(options.pid_dir, '/') ) {
-    	log(LOG_ERR, "Argument to -P (%s) must be full path name.",
-		options.pid_dir);
-    	/* Why?  Because we don't want to confuse by
-	   allowing '.', which would be '/' after
-	   daemonizing) */
-	exit(1);
+    if(!strchr(tmpdir, '/')) {
+        log(LOG_ERR, "Argument to -P (%s) must be full path name.",
+            tmpdir);
+        /* Why?  Because we don't want to confuse by
+           allowing '.', which would be '/' after
+           daemonizing) */
+        exit(1);
     }
     options.dpid=(unsigned long)getpid();
 
     /* determine if they specified a pid dir or pid file,
        and set our options.pidfile appropriately */
-    if ( options.pid_dir[ strlen(options.pid_dir)-1 ] == '/' ) {
-#ifdef HAVE_SNPRINTF 
-    	snprintf(options.pidfile, STRLEN,
-        	"%sstunnel.%s.pid", options.pid_dir, options.servname);
-#else
-    	safecopy(options.pidfile, options.pid_dir);
-    	safeconcat(options.pidfile, "stunnel.");
-    	safeconcat(options.pidfile, options.servname);
-	safeconcat(options.pidfile, ".pid");
-#endif
+    if(tmpdir[strlen(tmpdir)-1] == '/' ) {
+        force_dir=1; /* user requested -P argument to be a directory */
+        tmpdir[strlen(tmpdir)-1] = '\0';
     } else {
-    	safecopy(options.pidfile, options.pid_dir);
+        force_dir=0; /* this can be either a file or a directory */
+    }
+    if(!stat(tmpdir, &sb) && S_ISDIR(sb.st_mode)) { /* directory */
+#ifdef HAVE_SNPRINTF 
+        snprintf(options.pidfile, STRLEN,
+            "%s/stunnel.%s.pid", tmpdir, options.servname);
+#else
+        safecopy(options.pidfile, tmpdir);
+        safeconcat(options.pidfile, "/stunnel.");
+        safeconcat(options.pidfile, options.servname);
+        safeconcat(options.pidfile, ".pid");
+#endif
+    } else { /* file */
+        if(force_dir) {
+            log(LOG_ERR, "Argument to -P (%s/) is not valid a directory name.",
+                tmpdir);
+            exit(1);
+        }
+        safecopy(options.pidfile, tmpdir);
     }
 
     /* silently remove old pid file */
     unlink(options.pidfile);
     if (-1==(pf=open(options.pidfile, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL,0644))) {
         log(LOG_ERR, "Cannot create pid file %s", options.pidfile);
-	ioerror("Create");
-	exit(1);
+        ioerror("create");
+        exit(1);
     }
     sprintf(pid, "%lu", options.dpid);
     write( pf, pid, strlen(pid) );
@@ -630,10 +646,10 @@ static int listen_local() /* bind and listen on local interface */
             exit(1);
         }
 #ifndef USE_WIN32
-	/* gotta chown that pid file, or we can't remove it. */
-	if ( options.pidfile[0] && chown( options.pidfile, pw->pw_uid, -1) ) {
-		log(LOG_ERR, "Failed to chown pidfile %s", options.pidfile);
-	}
+        /* gotta chown that pid file, or we can't remove it. */
+        if ( options.pidfile[0] && chown( options.pidfile, pw->pw_uid, -1) ) {
+            log(LOG_ERR, "Failed to chown pidfile %s", options.pidfile);
+        }
 #endif
         if(setuid(pw->pw_uid)) {
             sockerror("setuid");
@@ -694,7 +710,7 @@ int connect_local(u32 ip) /* spawn local process */
         }
         execvp(options.execname, options.execargs);
         ioerror("execvp"); /* execv failed */
-        exit(1);
+        _exit(1);
     }
     /* parent */
     closesocket(fd[1]);
@@ -997,7 +1013,7 @@ static void safestring(char *string)
 { /* change all unsafe characters to '.' */
     for(; *string; string++)
         if(!isalnum((unsigned char)*string))
-		*string='.';
+            *string='.';
 }
 
 static void alloc(u32 **ptr, int len)
@@ -1014,39 +1030,36 @@ static void alloc(u32 **ptr, int len)
 
 static void print_version()
 {
-	fprintf(stderr, "\n" STUNNEL_INFO "\n\n");
-        fprintf(stderr, "Default behaviour:\n"
+    fprintf(stderr, "\n" STUNNEL_INFO "\n\n");
+    fprintf(stderr, "Default behaviour:\n"
 #ifdef USE_WIN32
-			"\trun in daemon mode\n"
-			"\trun in foreground\n"
+        "\trun in daemon mode\n"
+        "\trun in foreground\n"
 #else
-			"\trun in inetd mode (unless -d used)\n"
-			"\trun in background (unless -f used)\n"
+        "\trun in inetd mode (unless -d used)\n"
+        "\trun in background (unless -f used)\n"
 #endif
-			"\trun in ssl server mode (unless -c used)\n"
-			"\n");
+        "\trun in ssl server mode (unless -c used)\n"
+        "\n");
 
-	fprintf(stderr, "Compile time defaults:\n");
-	fprintf(stderr, "\t-v level\tno verify\n");
-	fprintf(stderr, "\t-a directory\t%s\n",
-		strcmp("",CERT_DIR)? CERT_DIR : "(none)");
-	fprintf(stderr, "\t-A file\t\t%s\n",
-		strcmp("",CERT_FILE)? CERT_FILE : "(none)"
-	);
-	fprintf(stderr, "\t-S sources\t%d\n", CERT_DEFAULTS);
-	fprintf(stderr, "\t-t timeout\t%ld seconds\n", options.session_timeout);
-	fprintf(stderr, "\t-B bytes\t%d\n", RANDOM_BYTES);
-	fprintf(stderr, "\t-D level\t%d\n", options.debug_level);
+    fprintf(stderr, "Compile time defaults:\n");
+    fprintf(stderr, "\t-v level\tno verify\n");
+    fprintf(stderr, "\t-a directory\t%s\n",
+        strcmp("",CERT_DIR)? CERT_DIR : "(none)");
+    fprintf(stderr, "\t-A file\t\t%s\n",
+        strcmp("",CERT_FILE)? CERT_FILE : "(none)");
+    fprintf(stderr, "\t-S sources\t%d\n", CERT_DEFAULTS);
+    fprintf(stderr, "\t-t timeout\t%ld seconds\n", options.session_timeout);
+    fprintf(stderr, "\t-B bytes\t%d\n", RANDOM_BYTES);
+    fprintf(stderr, "\t-D level\t%d\n", options.debug_level);
 #ifndef USE_WIN32
-	fprintf(stderr, "\t-P pid dir\t%s\n", options.pid_dir);
+    fprintf(stderr, "\t-P pid dir\t%s\n", options.pid_dir);
 #endif
-	fprintf(stderr, "\t-p pemfile\t"
-			"in server mode: %s\n"
-			"\t\t\tin client mode: none\n", options.pem);
-	fprintf(stderr, "\n\n");
-
+    fprintf(stderr, "\t-p pemfile\t"
+        "in server mode: %s\n"
+        "\t\t\tin client mode: none\n", options.pem);
+        fprintf(stderr, "\n\n");
 }
-
 
 static void print_help()
 {

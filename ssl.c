@@ -43,9 +43,6 @@
 /* Undefine if you have problems with make_sockets() */
 #define INET_SOCKET_PAIR
 
-/* Max number of children */
-#define MAX_CLIENTS    100
-
 /* I/O buffer size */
 #define BUFFSIZE       8192
 

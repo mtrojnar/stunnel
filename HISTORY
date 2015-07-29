@@ -1,5 +1,8 @@
 stunnel         Universal SSL tunnel
 
+Version 3.14, 2001.02.21, urgency: LOW:
+* Pidfile creation algorithm has been changed.
+
 Version 3.13, 2001.01.25, urgency: MEDIUM:
 * pthread_sigmask() argument in sthreads.c corrected.
 * OOB data is now handled correctly.

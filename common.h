@@ -54,7 +54,7 @@
 
 #ifdef USE_WIN32
 
-#define VERSION "3.13"
+#define VERSION "3.14"
 #ifdef __MINGW32__
 #define HOST "x86-pc-mingw32-gnu"
 #else
@@ -121,6 +121,8 @@ typedef unsigned long long u64;
 #if HAVE_PTHREAD_H && HAVE_LIBPTHREAD
 #define USE_PTHREAD
 #define THREADS
+#define _REENTRANT
+#define _THREAD_SAFE
 #else
 #define USE_FORK
 #endif

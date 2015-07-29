@@ -8,7 +8,7 @@ if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.13"
+VERSION="3.14"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
@@ -124,11 +124,10 @@ AC_CHECK_LIB(dl, dlopen)
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(pthread, pthread_create)
+# BSD hack
 AC_CHECK_LIB(c_r, pthread_create,
         [ LIBS="$LIBS -pthread"
-	AC_DEFINE(HAVE_LIBPTHREAD)
-	AC_DEFINE(_REENTRANT)
-	AC_DEFINE(_THREAD_SAFE)]
+	AC_DEFINE(HAVE_LIBPTHREAD) ]
 )
 AC_CHECK_LIB(util, openpty)
 
