@@ -1,5 +1,38 @@
 stunnel         Universal SSL tunnel
 
+Version 4.05, 2004.02.14, urgency: MEDIUM:
+* New feature sponsored by SURFnet http://www.surfnet.nl/
+  - Support for CIFS aka SMB protocol SSL negotiation.
+* New features
+  - CRL support with new CApath and CAfile global options.
+  - New 'taskbar' option on WIN32 (thx to Ken Mattsen
+    <ken.Mattsen@roxio.com>).
+  - New -fd command line parameter to read configuration
+    from a specified file descriptor instead of a file.
+  - accept is reported as error with [section] defined (in
+    stunnel 4.04 it was silently ignored causing problems
+    for lusers that did not read the fine manual).
+  - Use fcntl() instead of ioctlsocket() to set socket
+    nonblocking when it is supported.
+  - Basic support for hardware engines with OpenSSL >= 0.9.7.
+  - French manual by Bernard Choppy <choppy@imaginet.fr>.
+  - Thread stack size reduced to 64KB for maximum scalability.
+  - Added optional code to debug thread stack usage.
+  - Support for nsr-tandem-nsk (thx to Tom Bates <tom.bates@hp.com>).
+* Bugfixes
+  - TCP wrappers code moved to CRIT_NTOA critical section
+    since it uses static inet_ntoa() result buffer.
+  - SSL_ERROR_SYSCALL handling problems fixed.
+  - added code to retry nonblocking SSL_shutdown() calls.
+  - Use FD_SETSIZE instead of 16 file descriptors in inetd
+    mode.
+  - fdscanf groks lowercase protocol negotiation commands.
+  - WIN32 taskbar GDI objects leak fixed.
+  - Libwrap detection bug in ./configure script fixed.
+  - grp.h header detection fixed for NetBSD and possibly
+    other systems.
+  - Some other minor updates.
+
 Version 4.04, 2003.01.12, urgency: MEDIUM:
 * New feature sponsored by SURFnet http://www.surfnet.nl/
   - Encrypted private key can be used with Win32 GUI.

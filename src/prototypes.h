@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 
 extern int num_clients;
 
-void main_initialize(char *);
+void main_initialize(char *, char *);
 void main_execute(void);
 void ioerror(char *);
 void sockerror(char *);
@@ -68,8 +68,7 @@ void log_raw(const char *, ...)
 /**************************************** Prototypes for sthreads.c */
 
 typedef enum {
-    CRIT_KEYGEN, CRIT_LIBWRAP, CRIT_NTOA, CRIT_CLIENTS, CRIT_WIN_LOG,
-    CRIT_SECTIONS
+    CRIT_KEYGEN, CRIT_NTOA, CRIT_CLIENTS, CRIT_WIN_LOG, CRIT_SECTIONS
 } section_code;
 
 void enter_critical_section(section_code);
@@ -78,6 +77,9 @@ void sthreads_init(void);
 unsigned long stunnel_process_id(void);
 unsigned long stunnel_thread_id(void);
 int create_client(int, int, void *, void *(*)(void *));
+#ifdef DEBUG_STACK_SIZE
+void stack_info(int);
+#endif
 
 /**************************************** Prototypes for pty.c */
 /* Based on Public Domain code by Tatu Ylonen <ylo@cs.hut.fi>  */
@@ -94,6 +96,8 @@ typedef struct {
         /* some data for SSL initialization in ssl.c */
     char *ca_dir;                              /* directory for hashed certs */
     char *ca_file;                       /* file containing bunches of certs */
+    char *crl_dir;                              /* directory for hashed CRLs */
+    char *crl_file;                       /* file containing bunches of CRLs */
     char *cipher_list;
     char *cert;                                             /* cert filename */
     char *egd_sock;                       /* entropy gathering daemon socket */
@@ -135,7 +139,10 @@ typedef struct {
         unsigned int client:1;
         unsigned int foreground:1;
         unsigned int syslog:1;                              /* log to syslog */
-        unsigned int rand_write;                      /* overwrite rand_file */
+        unsigned int rand_write:1;                    /* overwrite rand_file */
+#ifdef USE_WIN32
+        unsigned int taskbar:1;                   /* enable the taskbar icon */
+#endif
     } option;
 } GLOBAL_OPTIONS;
 
@@ -199,7 +206,7 @@ typedef struct {
     OPT_UNION *opt_val[3];
 } SOCK_OPT;
 
-void parse_config(char *);
+void parse_config(char *, char *);
 int name2nums(char *, char *, u32 **, u_short *);
 
 /**************************************** Prototypes for client.c */
@@ -255,7 +262,8 @@ int waitforsocket(int, int, int);
 void sselect_init(fd_set *, int *);
 void exec_status(void);
 #endif
-
+int write_blocking(CLI *, int fd, u8 *, int);
+int read_blocking(CLI *, int fd, u8 *, int);
 /* descriptor versions of fprintf/fscanf */
 int fdprintf(CLI *, int, const char *, ...)
 #ifdef __GNUC__

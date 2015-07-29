@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -181,11 +181,54 @@ void exec_status(void) { /* dead local ('exec') process detected */
 }
 #endif /* !defined USE_WIN32 */
 
+int write_blocking(CLI *c, int fd, u8 *ptr, int len) {
+        /* simulate a blocking write */
+        /* returns 0 on success, -1 on failure */
+    int num;
+
+    while(len>0) {
+        if(waitforsocket(fd, 1 /* write */, c->opt->timeout_busy)<1)
+            return -1;
+        num=writesocket(fd, ptr, len);
+        switch(num) {
+        case -1: /* error */
+            sockerror("writesocket (write_blocking)");
+            return -1;
+        }
+        ptr+=num;
+        len-=num;
+    }
+    return 0; /* OK */
+}
+
+int read_blocking(CLI *c, int fd, u8 *ptr, int len) {
+        /* simulate a blocking read */
+        /* returns 0 on success, -1 on failure */
+    int num;
+
+    while(len>0) {
+        if(waitforsocket(fd, 0 /* read */, c->opt->timeout_busy)<1)
+            return -1;
+        num=readsocket(fd, ptr, len);
+        switch(num) {
+        case -1: /* error */
+            sockerror("readsocket (read_blocking)");
+            return -1;
+        case 0: /* EOF */
+            log(LOG_ERR, "Unexpected socket close (read_blocking)");
+            return -1;
+        }
+        ptr+=num;
+        len-=num;
+    }
+    return 0; /* OK */
+}
+
 int fdprintf(CLI *c, int fd, const char *format, ...) {
     va_list arglist;
     char line[STRLEN], logline[STRLEN];
     char crlf[]="\r\n";
-    int len, ptr, written, towrite;
+    int len;
 
     va_start(arglist, format);
 #ifdef HAVE_VSNPRINTF
@@ -194,26 +237,23 @@ int fdprintf(CLI *c, int fd, const char *format, ...) {
     len=vsprintf(line, format, arglist);
 #endif
     va_end(arglist);
-    safeconcat(line, crlf);
     len+=2;
-    for(ptr=0, towrite=len; towrite>0; ptr+=written, towrite-=written) {
-        if(waitforsocket(fd, 1 /* write */, c->opt->timeout_busy)<1)
-            return -1;
-        written=writesocket(fd, line+ptr, towrite);
-        if(written<0) {
-            sockerror("writesocket (fdprintf)");
-            return -1;
-        }
+    if(len>=STRLEN) {
+        log(LOG_ERR, "Line too long in fdprintf");
+        return -1;
     }
-    safecopy(logline, line);
+    safecopy(logline, line); /* The line without crlf */
+    safeconcat(line, crlf);
+    if(write_blocking(c, fd, line, len)<0)
+        return -1;
     safestring(logline);
     log(LOG_DEBUG, " -> %s", logline);
     return len;
 }
 
 int fdscanf(CLI *c, int fd, const char *format, char *buffer) {
-    char line[STRLEN], logline[STRLEN];
-    int ptr;
+    char line[STRLEN], logline[STRLEN], lformat[STRLEN];
+    int ptr, retval;
 
     for(ptr=0; ptr<STRLEN-1; ptr++) {
         if(waitforsocket(fd, 0 /* read */, c->opt->timeout_busy)<1)
@@ -235,7 +275,16 @@ int fdscanf(CLI *c, int fd, const char *format, char *buffer) {
     safecopy(logline, line);
     safestring(logline);
     log(LOG_DEBUG, " <- %s", logline);
-    return sscanf(line, format, buffer);
+    retval=sscanf(line, format, buffer);
+    if(retval>=0)
+        return retval;
+    log(LOG_DEBUG, "fdscanf falling back to lowercase");
+    safecopy(lformat, format);
+    for(ptr=0; lformat[ptr]; ptr++)
+        lformat[ptr]=tolower(lformat[ptr]);
+    for(ptr=0; line[ptr]; ptr++)
+        line[ptr]=tolower(line[ptr]);
+    return sscanf(line, lformat, buffer);
 }
 
 /* End of select.c */

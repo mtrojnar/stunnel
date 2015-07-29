@@ -47,7 +47,7 @@
 <P>
 <HR>
 <H1><A NAME="synopsis">SYNOPSIS</A></H1>
-<P><STRONG>stunnel</STRONG> [filename] | -help | -version | -sockets</P>
+<P><STRONG>stunnel</STRONG> [filename] | -fd&nbsp;[n] | -help | -version | -sockets</P>
 <P>
 <HR>
 <H1><A NAME="description">DESCRIPTION</A></H1>
@@ -69,6 +69,10 @@ Eric Young (<A HREF="mailto:eay@cryptsoft.com">eay@cryptsoft.com</A>)</P>
 <DT><STRONG><A NAME="item_%5Bfilename%5D"><STRONG>[filename]</STRONG></A></STRONG><BR>
 <DD>
 Use specified configuration file
+<P></P>
+<DT><STRONG><A NAME="item_%2Dfd_%5Bn%5D_%28Unix_only%29"><STRONG>-fd [n]</STRONG> (Unix only)</A></STRONG><BR>
+<DD>
+Read the config file from specified file descriptor
 <P></P>
 <DT><STRONG><A NAME="item_%2Dhelp"><STRONG>-help</STRONG></A></STRONG><BR>
 <DD>
@@ -152,6 +156,18 @@ For example DES-CBC3-SHA:IDEA-CBC-MD5</P>
 client mode (remote service uses SSL)
 <P>default: no (server mode)</P>
 <P></P>
+<DT><STRONG><A NAME="item_CRLpath_%3D_directory"><STRONG>CRLpath</STRONG> = directory</A></STRONG><BR>
+<DD>
+Certificate Revocation Lists directory
+<P>This is the directory in which <STRONG>stunnel</STRONG> will look for CRLs when
+using the <EM>verify</EM>. Note that the CRLs in this directory should
+be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.</P>
+<P></P>
+<DT><STRONG><A NAME="item_CRLfile_%3D_certfile"><STRONG>CRLfile</STRONG> = certfile</A></STRONG><BR>
+<DD>
+Certificate Revocation Lists file
+<P>This file contains multiple CRLs, used with the <EM>verify</EM>.</P>
+<P></P>
 <DT><STRONG><A NAME="item_debug_%3D_%5Bfacility%2E%5Dlevel"><STRONG>debug</STRONG> = [facility.]level</A></STRONG><BR>
 <DD>
 debugging level
@@ -201,6 +217,8 @@ the following option can be used:</P>
 <DT><STRONG><A NAME="item_output_%3D_file"><STRONG>output</STRONG> = file</A></STRONG><BR>
 <DD>
 append log messages to a file instead of using syslog
+<P>/dev/stdout device can be used to redirect log messages to the standard
+output (for example to log them with daemontools splogger).</P>
 <P></P>
 <DT><STRONG><A NAME="item_file"><STRONG>pid</STRONG> = file (Unix only)</A></STRONG><BR>
 <DD>
@@ -264,6 +282,11 @@ The values for time are tv_sec:tv_usec.</P>
     socket = a:SO_BINDTODEVICE=lo
         only accept connections on loopback interface</PRE>
 <P></P>
+<DT><STRONG><STRONG>taskbar</STRONG> = yes | no (WIN32 only)</STRONG><BR>
+<DD>
+enable the taskbar icon
+<P>default: yes</P>
+<P></P>
 <DT><STRONG><A NAME="item_verify_%3D_level"><STRONG>verify</STRONG> = level</A></STRONG><BR>
 <DD>
 verify peer certificate
@@ -319,7 +342,7 @@ Use this option to bind a static local IP address, instead.
 <DT><STRONG><A NAME="item_protocol_%3D_proto"><STRONG>protocol</STRONG> = proto</A></STRONG><BR>
 <DD>
 Negotiate SSL with specified protocol
-<P>currently supported: smtp, pop3, nntp</P>
+<P>currently supported: cifs, nntp, pop3, smtp</P>
 <P></P>
 <DT><STRONG><STRONG>pty</STRONG> = yes | no (Unix only)</STRONG><BR>
 <DD>

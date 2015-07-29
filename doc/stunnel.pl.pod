@@ -5,7 +5,7 @@ stunnel - uniwersalny tunel protoko³u SSL
 
 =head1 SK£ADNIA
 
-B<stunnel> S<[filename]> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> S<[filename]> | S<-fd [n]> | S<-help> | S<-version> | S<-sockets>
 
 
 =head1 OPIS
@@ -29,6 +29,10 @@ bez zmian w kodzie ¼ród³owym.
 =item B<[plik]>
 
 u¿yj podanego pliku konfiguracyjnego
+
+=item B<-fd [n]> (tylko Unix)
+
+wczytaj konfiguracjê z podanego deskryptora pliku
 
 =item B<-help>
 
@@ -83,7 +87,7 @@ tekstem "[nazwa_us³ugi]" wskazuj±cym pocz±tek definicji us³ugi
 
 =item B<CApath> = katalog_CA
 
-katalog Urzêdu d/s Certyfikatów
+katalog Centrum Certyfikacji
 
 Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z certyfikatami musz±
@@ -92,7 +96,7 @@ certyfikatu.
 
 =item B<CAfile> = plik_CA
 
-plik  Urzêdu d/s Certyfikatów
+plik Centrum Certyfikacji
 
 Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
 przez opcjê I<verify>.
@@ -133,6 +137,22 @@ otwieraniu nowych po³±czeñ SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5
 tryb kliencki (dalna us³uga u¿ywa SSL)
 
 domy¶lnie: no (tryb serwerowy)
+
+=item B<CRLpath> = katalog_CRL
+
+katalog List Odwo³anych Certyfikatów (CRL)
+
+Opcja okre¶la katalog, w którym B<stunnel> bêdzie szuka³ list CRL,
+je¿eli u¿yta zosta³a opcja I<verify>.  Pliki z listami CRL musz±
+posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
+listy CRL.
+
+=item B<CRLfile> = plik_CRL
+
+plik List Odwo³anych Certyfikatów (CRL)
+
+Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy CRL u¿ywane
+przez opcjê I<verify>.
 
 =item B<debug> = poziom[.podsystem]
 
@@ -198,6 +218,10 @@ plik, do którego dopisane zostan± logi
 
 U¿ycie tej opcji zmienia domy¶lne zachowanie programu polegaj±ce
 na logowaniu swoich komunikatów poprzez syslog.
+
+Do przekierowania komunikatów na standardowe wyj¶cie (na przyk³ad po to,
+¿eby zalogowaæ je programem splogger z pakietu daemontools) mo¿na podaæ
+jako parametr urz±dzenie /dev/stdout.
 
 =item B<pid> = plik (tylko Unix)
 
@@ -275,6 +299,12 @@ Przyk³ady:
         przyjmuj po³±czenia wy³±cznie na
         interfejsie zwrotnym (ang. loopback)
 
+=item B<taskbar> = yes | no (tylko WIN32)
+
+w³±cz ikonkê w prawym dolnym rogu ekranu
+
+domy¶lnie: yes (w³±cz)
+
 =item B<verify> = poziom
 
 weryfikuj certyfikat drugiej strony po³±czenia
@@ -282,7 +312,7 @@ weryfikuj certyfikat drugiej strony po³±czenia
     poziom 1 - weryfikuj, je¿eli zosta³
         przedstawiony
     poziom 2 - weryfikuj z zainstalowanym
-        certyfikatem Urzêdu d/s Certyfikatów
+        certyfikatem Centrum Certyfikacji
     poziom 3 - weryfikuj z lokalnie
         zainstalowanym certyfikatem drugiej strony
     domy¶lnie - nie weryfikuj
@@ -347,7 +377,7 @@ serwera, do którego nawi±zywane jest po³±czenie.
 
 negocjuj SSL podanym protoko³em aplikacyjnym
 
-aktualnie wspierane protoko³y: smtp, pop3, nntp
+aktualnie wspierane protoko³y: cifs, nntp, pop3, smtp
 
 =item B<pty> = yes | no (tylko Unix)
 
@@ -459,7 +489,8 @@ programów s± inetd, xinetd i tcpserver.
 
 Przyk³adowa linia pliku /etc/inetd.conf mo¿e wygl±daæ tak:
 
-    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf
+    imaps stream tcp nowait root /usr/sbin/stunnel
+        stunnel /etc/stunnel/imaps.conf
 
 Poniewa¿ w takich przypadkach po³±czenie na zdefiniowanym porcie
 (tutaj I<imaps>) nawi±zuje osobny program (tutaj I<inetd>), B<stunnel>
@@ -508,7 +539,7 @@ nastêpuj±c± postaæ:
 
 B<stunnel> potrzebuje zainicjowaæ PRNG (generator liczb pseudolosowych),
 gdy¿ protokó³ SSL wymaga do bezpieczeñstwa kryptograficznego ¼ród³a
-dobrej dosowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
+dobrej losowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
 uzyskania  wystarczaj±cej ilo¶ci entropii:
 
 =over 4

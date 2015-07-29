@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -98,6 +98,9 @@ void *alloc_client_session(LOCAL_OPTIONS *opt, int rfd, int wfd) {
 void *client(void *arg) {
     CLI *c=arg;
 
+#ifdef DEBUG_STACK_SIZE
+    stack_info(1); /* initialize */
+#endif
     log(LOG_DEBUG, "%s started", c->opt->servname);
 #ifndef USE_WIN32
     if(c->opt->option.remote && c->opt->option.program)
@@ -118,6 +121,9 @@ void *client(void *arg) {
     leave_critical_section(CRIT_CLIENTS);
 #endif
     free(c);
+#ifdef DEBUG_STACK_SIZE
+    stack_info(0); /* display computed value */
+#endif
     return NULL;
 }
 
@@ -305,9 +311,14 @@ static int transfer(CLI *c) { /* transfer data */
     fd_set rd_set, wr_set;
     int num, err, fdno;
     int check_SSL_pending;
+    int ssl_closing;
+        /* 0=not closing SSL, 1=initiate SSL_shutdown,
+         * 2=retry SSL_shutdown, 3=SSL_shutdown done */
     int ready;
     struct timeval tv;
 
+    /* fdno=max(c->sock_rfd->fd, c->sock_wfd->fd,
+     *     fdno=c->ssl_rfd->fd, fdno=c->ssl_wfd->fd)+1 */
     fdno=c->sock_rfd->fd;
     if(c->sock_wfd->fd>fdno) fdno=c->sock_wfd->fd;
     if(c->ssl_rfd->fd>fdno) fdno=c->ssl_rfd->fd;
@@ -317,16 +328,18 @@ static int transfer(CLI *c) { /* transfer data */
     c->sock_ptr=c->ssl_ptr=0;
     sock_rd=sock_wr=ssl_rd=ssl_wr=1;
     c->sock_bytes=c->ssl_bytes=0;
+    ssl_closing=0;
 
     while(((sock_rd||c->sock_ptr)&&ssl_wr)||((ssl_rd||c->ssl_ptr)&&sock_wr)) {
 
         FD_ZERO(&rd_set); /* Setup rd_set */
         if(sock_rd && c->sock_ptr<BUFFSIZE) /* socket input buffer not full*/
             FD_SET(c->sock_rfd->fd, &rd_set);
-        if(ssl_rd && (c->ssl_ptr<BUFFSIZE || /* SSL input buffer not full */
-                (c->sock_ptr && SSL_want_read(c->ssl))
-                /* I want to SSL_write but read from the underlying */
-                /* socket needed for the SSL protocol */
+        if(ssl_rd && (
+                c->ssl_ptr<BUFFSIZE || /* SSL input buffer not full */
+                ((c->sock_ptr||ssl_closing) && SSL_want_read(c->ssl))
+                /* I want to SSL_write or SSL_shutdown but read from the
+                 * underlying socket needed for the SSL protocol */
                 )) {
             FD_SET(c->ssl_rfd->fd, &rd_set);
         }
@@ -334,10 +347,13 @@ static int transfer(CLI *c) { /* transfer data */
         FD_ZERO(&wr_set); /* Setup wr_set */
         if(sock_wr && c->ssl_ptr) /* SSL input buffer not empty */
             FD_SET(c->sock_wfd->fd, &wr_set);
-        if (ssl_wr && (c->sock_ptr || /* socket input buffer not empty */
-                (c->ssl_ptr<BUFFSIZE && SSL_want_write(c->ssl))
-                /* I want to SSL_read but write to the underlying */
-                /* socket needed for the SSL protocol */
+        if (ssl_wr && (
+                c->sock_ptr || /* socket input buffer not empty */
+                ssl_closing==1 || /* initiate SSL_shutdown */
+                ((c->ssl_ptr<BUFFSIZE || ssl_closing==2) &&
+                    SSL_want_write(c->ssl))
+                /* I want to SSL_read or SSL_shutdown but write to the
+                 * underlying socket needed for the SSL protocol */
                 )) {
             FD_SET(c->ssl_wfd->fd, &wr_set);
         }
@@ -358,6 +374,28 @@ static int transfer(CLI *c) { /* transfer data */
             } else { /* Timeout waiting for SSL close_notify */
                 log(LOG_DEBUG, "select timeout waiting for SSL close_notify");
                 break; /* Leave the while() loop */
+            }
+        }
+
+        if(ssl_closing==1 /* initiate SSL_shutdown */ || (ssl_closing==2 && (
+                (SSL_want_read(c->ssl) && FD_ISSET(c->ssl_rfd->fd, &rd_set)) ||
+                (SSL_want_write(c->ssl) && FD_ISSET(c->ssl_wfd->fd, &wr_set))
+                ))) {
+            switch(SSL_shutdown(c->ssl)) { /* Send close_notify */
+            case 1: /* the shutdown was successfully completed */
+                log(LOG_INFO, "SSL_shutdown successfully sent close_notify");
+                ssl_wr=0; /* SSL write closed */
+                /* TODO: It's not really closed.  We need to distinguish
+                 * closed SSL and closed underlying file descriptor */
+                ssl_closing=3; /* done! */
+                break;
+            case 0: /* the shutdown is not yet finished */
+                log(LOG_DEBUG, "SSL_shutdown retrying");
+                ssl_closing=2; /* next time just retry SSL_shutdown */
+                break;
+            case -1: /* a fatal error occurred */
+                sslerror("SSL_shutdown");
+                return -1;
             }
         }
 
@@ -414,11 +452,10 @@ static int transfer(CLI *c) { /* transfer data */
                 memmove(c->sock_buff, c->sock_buff+num, c->sock_ptr-num);
                 c->sock_ptr-=num;
                 c->ssl_bytes+=num;
-                if(!sock_rd && !c->sock_ptr && ssl_wr) {
-                    SSL_shutdown(c->ssl); /* Send close_notify */
+                if(!ssl_closing && !sock_rd && !c->sock_ptr && ssl_wr) {
                     log(LOG_DEBUG,
                         "SSL write shutdown (no more data to send)");
-                    ssl_wr=0;
+                    ssl_closing=1;
                 }
                 break;
             case SSL_ERROR_WANT_WRITE:
@@ -428,12 +465,19 @@ static int transfer(CLI *c) { /* transfer data */
                 break;
             case SSL_ERROR_SYSCALL:
                 if(num<0) { /* really an error */
-                    if(get_last_socket_error()==EINTR) {
-                        log(LOG_DEBUG, "SSL write interrupted by a signal: retrying");
+                    switch(get_last_socket_error()) {
+                    case EINTR:
+                        log(LOG_DEBUG,
+                            "SSL_write interrupted by a signal: retrying");
                         break;
+                    case EAGAIN:
+                        log(LOG_DEBUG,
+                            "SSL_write returned EAGAIN: retrying");
+                        break; 
+                    default:
+                        sockerror("SSL_write (ERROR_SYSCALL)");
+                        return -1;
                     }
-                    sockerror("SSL_write (ERROR_SYSCALL)");
-                    return -1;
                 }
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
@@ -450,7 +494,8 @@ static int transfer(CLI *c) { /* transfer data */
         }
 
         if(sock_rd && FD_ISSET(c->sock_rfd->fd, &rd_set)) {
-            switch(num=readsocket(c->sock_rfd->fd, c->sock_buff+c->sock_ptr, BUFFSIZE-c->sock_ptr)) {
+            switch(num=readsocket(c->sock_rfd->fd,
+                c->sock_buff+c->sock_ptr, BUFFSIZE-c->sock_ptr)) {
             case -1:
                 switch(get_last_socket_error()) {
                 case EINTR:
@@ -468,15 +513,14 @@ static int transfer(CLI *c) { /* transfer data */
             case 0: /* close */
                 log(LOG_DEBUG, "Socket closed on read");
                 sock_rd=0;
-                if(!c->sock_ptr && ssl_wr) {
-                    SSL_shutdown(c->ssl); /* Send close_notify */
+                if(!ssl_closing && !c->sock_ptr && ssl_wr) {
                     log(LOG_DEBUG,
                         "SSL write shutdown (output buffer empty)");
-                    ssl_wr=0;
+                    ssl_closing=1;
                 }
                 break;
             default:
-                c->sock_ptr += num;
+                c->sock_ptr+=num;
             }
         }
 
@@ -503,24 +547,31 @@ static int transfer(CLI *c) { /* transfer data */
                 break;
             case SSL_ERROR_SYSCALL:
                 if(num<0) { /* not EOF */
-                    if(get_last_socket_error()==EINTR) {
-                        log(LOG_DEBUG, "SSL read interrupted by a signal: retrying");
+                    switch(get_last_socket_error()) {
+                    case EINTR:
+                        log(LOG_DEBUG,
+                            "SSL_read interrupted by a signal: retrying");
                         break;
+                    case EAGAIN:
+                        log(LOG_DEBUG,
+                            "SSL_read returned EAGAIN: retrying");
+                        break; 
+                    default:
+                        sockerror("SSL_read (ERROR_SYSCALL)");
+                        return -1;
                     }
-                    sockerror("SSL_read (SSL_ERROR_SYSCALL)");
-                    return -1;
+                } else { /* EOF */
+                    log(LOG_DEBUG, "SSL socket closed on SSL_read");
+                    ssl_rd=ssl_wr=0;
                 }
-                log(LOG_DEBUG, "SSL socket closed on SSL_read");
-                ssl_rd=ssl_wr=0;
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
                 log(LOG_DEBUG, "SSL closed on SSL_read");
                 ssl_rd=0;
-                if(!c->sock_ptr && ssl_wr) {
-                    SSL_shutdown(c->ssl); /* Send close_notify back */
+                if(!ssl_closing && !c->sock_ptr && ssl_wr) {
                     log(LOG_DEBUG,
                         "SSL write shutdown (output buffer empty)");
-                    ssl_wr=0;
+                    ssl_closing=1;
                 }
                 if(!c->ssl_ptr && sock_wr) {
                     shutdown(c->sock_wfd->fd, SHUT_WR);
@@ -592,12 +643,12 @@ static int auth_libwrap(CLI *c) {
     struct request_info request;
     int result;
 
-    enter_critical_section(CRIT_LIBWRAP); /* libwrap is not mt-safe */
+    enter_critical_section(CRIT_NTOA); /* libwrap is not mt-safe */
     request_init(&request,
         RQ_DAEMON, c->opt->servname, RQ_FILE, c->local_rfd.fd, 0);
     fromhost(&request);
     result=hosts_access(&request);
-    leave_critical_section(CRIT_LIBWRAP);
+    leave_critical_section(CRIT_NTOA);
 
     if (!result) {
         log(LOG_WARNING, "Connection from %s:%d REFUSED by libwrap",
@@ -763,7 +814,7 @@ static int connect_local(CLI *c) { /* spawn local process */
 
 #ifndef USE_WIN32
 
-static int make_sockets(int fd[2]) { /* make pair of connected sockets */
+static int make_sockets(int fd[2]) { /* make a pair of connected sockets */
 #ifdef INET_SOCKET_PAIR
     struct sockaddr_in addr;
     int addrlen;

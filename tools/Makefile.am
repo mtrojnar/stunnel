@@ -1,5 +1,5 @@
 DISTCLEANFILES = stunnel.pem
-EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh \
+EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
 	stunnel.spec stunnel.mak stunnel.cnf
 
 confdir = $(sysconfdir)/stunnel
@@ -7,7 +7,7 @@ conf_DATA = stunnel.conf-sample stunnel.pem
 
 docdir = $(datadir)/doc/stunnel
 examplesdir = $(docdir)/examples
-examples_DATA = ca.html ca.pl importCA.html importCA.sh \
+examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
 	stunnel.spec stunnel.init
 
 openssl=$(ssldir)/bin/openssl
@@ -23,7 +23,7 @@ stunnel.pem: stunnel.cnf
 		-in stunnel.pem
 
 install-data-hook:
-	chmod 0600 $(confdir)/stunnel.pem
+	chmod 0600 $(DESTDIR)$(confdir)/stunnel.pem
 
 clean-local:
 	-rm -f stunnel.rnd

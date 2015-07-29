@@ -18,13 +18,16 @@ lib_LTLIBRARIES = libstunnel.la
 libstunnel_la_SOURCES = $(shared_sources)
 libstunnel_la_LDFLAGS = -avoid-version
 
+# Red Hat "by design" bug #82369
+INCLUDES = -I/usr/kerberos/include
+
 # Win32 executable
 
 EXTRA_DIST = stunnel.exe make.bat Makefile.w32
 EXTRA_PROGRAMS = stunnel.exe
 stunnel_exe_SOURCES =  $(common_headers) $(common_sources) $(win32_sources)
 
-OPENSSLDIR=/usr/src/openssl-0.9.7
+OPENSSLDIR=/usr/src/openssl-0.9.7c
 WINCFLAGS=-O2 -Wall -I$(OPENSSLDIR)/outinc \
 	-DUSE_WIN32=1 -DHAVE_OPENSSL=1 -DVERSION=\"@VERSION@\"
 WINLIBS=-L$(OPENSSLDIR)/out -leay32 -lssl32 -lwsock32 -lgdi32 -mwindows

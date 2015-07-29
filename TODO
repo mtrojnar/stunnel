@@ -1,16 +1,25 @@
 stunnel         Universal SSL tunnel
 
-* Add service-level SSL contexts.
+* High priority features I'm going to support (sponsorship welcomed):
+  - IPv6 support.
+  - poll() support.
+  - Add service-level SSL contexts.
+  - Add service-level logging.
+  - Optional use of syslog in foreground mode.
 
-* Add service-level logging.
+* Low priority features I'm going to support (sponsorship welcomed):
+  - Log file rotation on a signal.
+  - Key renegotiation (re-handshake) for long connections.
+  - Support for multiple languages.
+  - Logging to NT eventlog.
+  - IMAP protocol support (RFC 2595).
+    http://www.ietf.org/rfc/rfc2595.txt
+  - SOCKS 4 protocol support.
+    http://archive.socks.permeo.com/protocol/socks4.protocol
+  - CONNECT protocol support (RFC 2817 section 5.2).
+    http://www.ietf.org/rfc/rfc2817.txt
+  - Graceful configuration reload with a signal on Unix and with GUI on Windows.
 
-* IPv6 support.
-
-* CRL support.
-
-* Graceful configuration reload on a signal in Unix and with GUI in Windows.
-
-* Optional use of syslog in foreground mode.
-
-* Support for multiple languages.
+* Features I'm *not* going to support:
+  - HTTP protocol.
 

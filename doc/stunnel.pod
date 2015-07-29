@@ -5,7 +5,7 @@ stunnel - universal SSL tunnel
 
 =head1 SYNOPSIS
 
-B<stunnel> S<[filename]> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> S<[filename]> | S<-fd [n]> | S<-help> | S<-version> | S<-sockets>
 
 
 =head1 DESCRIPTION
@@ -32,6 +32,10 @@ Eric Young (eay@cryptsoft.com)
 =item B<[filename]>
 
 Use specified configuration file
+
+=item B<-fd [n]> (Unix only)
+
+Read the config file from specified file descriptor
 
 =item B<-help>
 
@@ -133,6 +137,20 @@ client mode (remote service uses SSL)
 
 default: no (server mode)
 
+=item B<CRLpath> = directory
+
+Certificate Revocation Lists directory
+
+This is the directory in which B<stunnel> will look for CRLs when
+using the I<verify>. Note that the CRLs in this directory should
+be named XXXXXXXX.0 where XXXXXXXX is the hash value of the CRL.
+
+=item B<CRLfile> = certfile
+
+Certificate Revocation Lists file
+
+This file contains multiple CRLs, used with the I<verify>.
+
 =item B<debug> = [facility.]level
 
 debugging level
@@ -192,6 +210,9 @@ the following option can be used:
 =item B<output> = file
 
 append log messages to a file instead of using syslog
+
+/dev/stdout device can be used to redirect log messages to the standard
+output (for example to log them with daemontools splogger).
 
 =item B<pid> = file (Unix only)
 
@@ -264,6 +285,12 @@ Examples:
     socket = a:SO_BINDTODEVICE=lo
         only accept connections on loopback interface
 
+=item B<taskbar> = yes | no (WIN32 only)
+
+enable the taskbar icon
+
+default: yes
+
 =item B<verify> = level
 
 verify peer certificate
@@ -330,7 +357,7 @@ Use this option to bind a static local IP address, instead.
 
 Negotiate SSL with specified protocol
 
-currently supported: smtp, pop3, nntp
+currently supported: cifs, nntp, pop3, smtp
 
 =item B<pty> = yes | no (Unix only)
 

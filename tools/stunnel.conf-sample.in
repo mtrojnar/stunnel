@@ -19,6 +19,10 @@ setgid = nogroup
 #CApath = /certs
 # or simply use CAfile instead:
 #CAfile = @prefix@/etc/stunnel/certs.pem
+# CRL path or file (inside chroot jail):
+#CRLpath = /crls
+# or simply use CAfile instead:
+#CRLfile = @prefix@/etc/stunnel/crls.pem
 
 # Some debugging stuff
 #debug = 7

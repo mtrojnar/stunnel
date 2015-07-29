@@ -47,7 +47,7 @@
 <P>
 <HR>
 <H1><A NAME="sk³adnia">SK£ADNIA</A></H1>
-<P><STRONG>stunnel</STRONG> [filename] | -help | -version | -sockets</P>
+<P><STRONG>stunnel</STRONG> [filename] | -fd&nbsp;[n] | -help | -version | -sockets</P>
 <P>
 <HR>
 <H1><A NAME="opis">OPIS</A></H1>
@@ -67,6 +67,10 @@ bez zmian w kodzie ¼ród³owym.</P>
 <DT><STRONG><A NAME="item_%5Bplik%5D"><STRONG>[plik]</STRONG></A></STRONG><BR>
 <DD>
 u¿yj podanego pliku konfiguracyjnego
+<P></P>
+<DT><STRONG><A NAME="item_%2Dfd_%5Bn%5D_%28tylko_Unix%29"><STRONG>-fd [n]</STRONG> (tylko Unix)</A></STRONG><BR>
+<DD>
+wczytaj konfiguracjê z podanego deskryptora pliku
 <P></P>
 <DT><STRONG><A NAME="item_%2Dhelp"><STRONG>-help</STRONG></A></STRONG><BR>
 <DD>
@@ -110,7 +114,7 @@ tekstem ``[nazwa_us³ugi]'' wskazuj±cym pocz±tek definicji us³ugi
 <DL>
 <DT><STRONG><A NAME="item_CApath_%3D_katalog_CA"><STRONG>CApath</STRONG> = katalog_CA</A></STRONG><BR>
 <DD>
-katalog Urzêdu d/s Certyfikatów
+katalog Centrum Certyfikacji
 <P>Opcja okre¶la katalog, w którym <STRONG>stunnel</STRONG> bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja <EM>verify</EM>.  Pliki z certyfikatami musz±
 posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
@@ -118,7 +122,7 @@ certyfikatu.</P>
 <P></P>
 <DT><STRONG><A NAME="item_CAfile_%3D_plik_CA"><STRONG>CAfile</STRONG> = plik_CA</A></STRONG><BR>
 <DD>
-plik  Urzêdu d/s Certyfikatów
+plik Centrum Certyfikacji
 <P>Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
 przez opcjê <EM>verify</EM>.</P>
 <P></P>
@@ -153,6 +157,20 @@ otwieraniu nowych po³±czeñ SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5</P>
 <DD>
 tryb kliencki (dalna us³uga u¿ywa SSL)
 <P>domy¶lnie: no (tryb serwerowy)</P>
+<P></P>
+<DT><STRONG><A NAME="item_CRLpath_%3D_katalog_CRL"><STRONG>CRLpath</STRONG> = katalog_CRL</A></STRONG><BR>
+<DD>
+katalog List Odwo³anych Certyfikatów (CRL)
+<P>Opcja okre¶la katalog, w którym <STRONG>stunnel</STRONG> bêdzie szuka³ list CRL,
+je¿eli u¿yta zosta³a opcja <EM>verify</EM>.  Pliki z listami CRL musz±
+posiadaæ specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
+listy CRL.</P>
+<P></P>
+<DT><STRONG><A NAME="item_CRLfile_%3D_plik_CRL"><STRONG>CRLfile</STRONG> = plik_CRL</A></STRONG><BR>
+<DD>
+plik List Odwo³anych Certyfikatów (CRL)
+<P>Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy CRL u¿ywane
+przez opcjê <EM>verify</EM>.</P>
 <P></P>
 <DT><STRONG><A NAME="item_debug_%3D_poziom%5B%2Epodsystem%5D"><STRONG>debug</STRONG> = poziom[.podsystem]</A></STRONG><BR>
 <DD>
@@ -208,6 +226,9 @@ w programie Eudora mo¿na u¿yæ opcji:</P>
 plik, do którego dopisane zostan± logi
 <P>U¿ycie tej opcji zmienia domy¶lne zachowanie programu polegaj±ce
 na logowaniu swoich komunikatów poprzez syslog.</P>
+<P>Do przekierowania komunikatów na standardowe wyj¶cie (na przyk³ad po to,
+¿eby zalogowaæ je programem splogger z pakietu daemontools) mo¿na podaæ
+jako parametr urz±dzenie /dev/stdout.</P>
 <P></P>
 <DT><STRONG><A NAME="item_plik"><STRONG>pid</STRONG> = plik (tylko Unix)</A></STRONG><BR>
 <DD>
@@ -276,6 +297,11 @@ Dla opcji time warto¶ci maj± postaæ tv_sec:tv_usec.</P>
         przyjmuj po³±czenia wy³±cznie na
         interfejsie zwrotnym (ang. loopback)</PRE>
 <P></P>
+<DT><STRONG><STRONG>taskbar</STRONG> = yes | no (tylko WIN32)</STRONG><BR>
+<DD>
+w³±cz ikonkê w prawym dolnym rogu ekranu
+<P>domy¶lnie: yes (w³±cz)</P>
+<P></P>
 <DT><STRONG><A NAME="item_verify_%3D_poziom"><STRONG>verify</STRONG> = poziom</A></STRONG><BR>
 <DD>
 weryfikuj certyfikat drugiej strony po³±czenia
@@ -283,7 +309,7 @@ weryfikuj certyfikat drugiej strony po³±czenia
     poziom 1 - weryfikuj, je¿eli zosta³
         przedstawiony
     poziom 2 - weryfikuj z zainstalowanym
-        certyfikatem Urzêdu d/s Certyfikatów
+        certyfikatem Centrum Certyfikacji
     poziom 3 - weryfikuj z lokalnie
         zainstalowanym certyfikatem drugiej strony
     domy¶lnie - nie weryfikuj</PRE>
@@ -337,7 +363,7 @@ serwera, do którego nawi±zywane jest po³±czenie.</P>
 <DT><STRONG><A NAME="item_protocol_%3D_protokó³"><STRONG>protocol</STRONG> = protokó³</A></STRONG><BR>
 <DD>
 negocjuj SSL podanym protoko³em aplikacyjnym
-<P>aktualnie wspierane protoko³y: smtp, pop3, nntp</P>
+<P>aktualnie wspierane protoko³y: cifs, nntp, pop3, smtp</P>
 <P></P>
 <DT><STRONG><STRONG>pty</STRONG> = yes | no (tylko Unix)</STRONG><BR>
 <DD>
@@ -435,7 +461,8 @@ po³±czenia, po czym uruchamia program <STRONG>stunnel</STRONG>.  Przyk³adami tak
 programów s± inetd, xinetd i tcpserver.</P>
 <P>Przyk³adowa linia pliku /etc/inetd.conf mo¿e wygl±daæ tak:</P>
 <PRE>
-    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf</PRE>
+    imaps stream tcp nowait root /usr/sbin/stunnel
+        stunnel /etc/stunnel/imaps.conf</PRE>
 <P>Poniewa¿ w takich przypadkach po³±czenie na zdefiniowanym porcie
 (tutaj <EM>imaps</EM>) nawi±zuje osobny program (tutaj <EM>inetd</EM>), <STRONG>stunnel</STRONG>
 nie mo¿e mieæ u¿ywaæ opcji <EM>accept</EM>.  W pliku konfiguracyjnym nie mo¿e
@@ -478,7 +505,7 @@ nastêpuj±c± postaæ:</P>
 <H2><A NAME="losowo¶æ">LOSOWO¦Æ</A></H2>
 <P><STRONG>stunnel</STRONG> potrzebuje zainicjowaæ PRNG (generator liczb pseudolosowych),
 gdy¿ protokó³ SSL wymaga do bezpieczeñstwa kryptograficznego ¼ród³a
-dobrej dosowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
+dobrej losowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
 uzyskania  wystarczaj±cej ilo¶ci entropii:</P>
 <UL>
 <LI>

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,8 @@
 
 #include "common.h"
 #include "prototypes.h"
+
+#define STACK_SIZE 65536
 
 #ifdef USE_PTHREAD
 
@@ -74,6 +76,7 @@ void sthreads_init(void) {
 
     pthread_attr_init(&pth_attr);
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
+    pthread_attr_setstacksize(&pth_attr, STACK_SIZE);
 }
 
 unsigned long stunnel_process_id(void) {
@@ -145,9 +148,17 @@ unsigned long stunnel_thread_id(void) {
 
 int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
     DWORD iID;
+    HANDLE hThread;
 
-    CloseHandle(CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)cli,
-        arg, 0, &iID));
+    log(LOG_DEBUG, "Creating a new thread");
+    hThread=CreateThread(NULL, STACK_SIZE,
+        (LPTHREAD_START_ROUTINE)cli, arg, 0, &iID);
+    if(!hThread) {
+        ioerror("CreateThread");
+        return -1;
+    }
+    CloseHandle(hThread);
+    log(LOG_DEBUG, "New thread created");
     return 0;
 }
 
@@ -203,5 +214,34 @@ int create_client(int ls, int s, void *arg, void *(*cli)(void *)) {
 }
 
 #endif
+
+#ifdef DEBUG_STACK_SIZE
+
+#define STACK_RESERVE (STACK_SIZE/2)
+#define TEST_VALUE 44
+
+/* Some heuristic to determine the usage of client stack size.  It can
+ * fail on some platforms and/or OSes, so it'is not enabled by default. */
+
+void stack_info(int init) { /* 1-initialize, 0-display */
+    char table[STACK_SIZE-STACK_RESERVE];
+    int i;
+
+    if(init) {
+        memset(table, TEST_VALUE, STACK_SIZE-STACK_RESERVE);
+    } else {
+        i=0;
+        while(i<STACK_SIZE-STACK_RESERVE && table[i]==TEST_VALUE)
+            i++;
+        if(i<64)
+            log(LOG_ERR, "STACK_RESERVE is to high");
+        else
+            log(LOG_NOTICE, "stack_info: %d of %d bytes used (%d%%)",
+                STACK_SIZE-STACK_RESERVE-i, STACK_SIZE,
+                (STACK_SIZE-STACK_RESERVE-i)*100/STACK_SIZE);
+    }
+}
+
+#endif DEBUG_STACK_SIZE
 
 /* End of sthreads.c */

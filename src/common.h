@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -24,11 +24,18 @@
 /* For FormatGuard */
 /* #define __NO_FORMATGUARD_ */
 
+/* #define DEBUG_STACK_SIZE */
+
 #ifndef VERSION
-#define VERSION "4.04"
+#define VERSION "4.05"
 #endif
 
 #ifndef USE_WIN32
+
+/* For nsr-tandem-nsk architecture */
+#ifdef __TANDEM
+#include <floss.h>
+#endif
 
 /* POSIX threads */
 #if HAVE_PTHREAD_H && HAVE_LIBPTHREAD
@@ -88,7 +95,9 @@ typedef unsigned long u32;
 /*  Already defined for mingw, perhaps others
 int _vsnprintf(char *, int, char *, ...);
 */
-#define strcasecmp stricmp
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#define sleep(c) _sleep(c)
 
 #define exit(c) exit_stunnel(c)
 
@@ -174,7 +183,7 @@ typedef unsigned long u32;
 #include <sys/filio.h>   /* for FIONBIO */
 #endif
 #include <pwd.h>
-#ifdef HAVE_SETGROUPS
+#ifdef HAVE_GRP_H
 #include <grp.h>
 #endif
 #ifdef __BEOS__
@@ -225,6 +234,9 @@ extern char *sys_errlist[];
 #include <openssl/err.h>
 #include <openssl/crypto.h> /* for CRYPTO_* and SSLeay_version */
 #include <openssl/rand.h>
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+#include <openssl/engine.h>
+#endif
 #else
 #include <lhash.h>
 #include <ssl.h>

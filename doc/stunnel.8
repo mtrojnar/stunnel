@@ -130,13 +130,13 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2002.12.26" "4.0" "stunnel"
+.TH STUNNEL 8 "2004.01.25" "4.05" "stunnel"
 .UC
 .SH "NAME"
 stunnel \- universal \s-1SSL\s0 tunnel
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
-\&\fBstunnel\fR [filename] | \-help | \-version | \-sockets
+\&\fBstunnel\fR [filename] | \-fd\ [n] | \-help | \-version | \-sockets
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
 The \fBstunnel\fR program is designed to work as \fI\s-1SSL\s0\fR encryption wrapper 
@@ -157,6 +157,9 @@ Eric Young (eay@cryptsoft.com)
 .IP "\fB[filename]\fR" 4
 .IX Item "[filename]"
 Use specified configuration file
+.IP "\fB\-fd [n]\fR (Unix only)" 4
+.IX Item "-fd [n] (Unix only)"
+Read the config file from specified file descriptor
 .IP "\fB\-help\fR" 4
 .IX Item "-help"
 Print \fBstunnel\fR help menu
@@ -228,6 +231,18 @@ For example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
 client mode (remote service uses \s-1SSL\s0)
 .Sp
 default: no (server mode)
+.IP "\fBCRLpath\fR = directory" 4
+.IX Item "CRLpath = directory"
+Certificate Revocation Lists directory
+.Sp
+This is the directory in which \fBstunnel\fR will look for CRLs when
+using the \fIverify\fR. Note that the CRLs in this directory should
+be named \s-1XXXXXXXX\s0.0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1CRL\s0.
+.IP "\fBCRLfile\fR = certfile" 4
+.IX Item "CRLfile = certfile"
+Certificate Revocation Lists file
+.Sp
+This file contains multiple CRLs, used with the \fIverify\fR.
 .IP "\fBdebug\fR = [facility.]level" 4
 .IX Item "debug = [facility.]level"
 debugging level
@@ -285,6 +300,9 @@ the following option can be used:
 .IP "\fBoutput\fR = file" 4
 .IX Item "output = file"
 append log messages to a file instead of using syslog
+.Sp
+/dev/stdout device can be used to redirect log messages to the standard
+output (for example to log them with daemontools splogger).
 .IP "\fBpid\fR = file (Unix only)" 4
 .IX Item "pid = file (Unix only)"
 pid file location
@@ -349,6 +367,11 @@ Examples:
 \&    socket = a:SO_BINDTODEVICE=lo
 \&        only accept connections on loopback interface
 .Ve
+.IP "\fBtaskbar\fR = yes | no (\s-1WIN32\s0 only)" 4
+.IX Item "taskbar = yes | no (WIN32 only)"
+enable the taskbar icon
+.Sp
+default: yes
 .IP "\fBverify\fR = level" 4
 .IX Item "verify = level"
 verify peer certificate
@@ -403,7 +426,7 @@ Use this option to bind a static local \s-1IP\s0 address, instead.
 .IX Item "protocol = proto"
 Negotiate \s-1SSL\s0 with specified protocol
 .Sp
-currently supported: smtp, pop3, nntp
+currently supported: cifs, nntp, pop3, smtp
 .IP "\fBpty\fR = yes | no (Unix only)" 4
 .IX Item "pty = yes | no (Unix only)"
 allocate pseudo terminal for 'exec' option

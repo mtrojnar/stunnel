@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -55,6 +55,7 @@ static RSA *make_temp_key(int);
 #endif /* NO_RSA */
 static void verify_init(void);
 static int verify_callback(int, X509_STORE_CTX *);
+static int crl_callback(X509_STORE_CTX *);
 #if SSLEAY_VERSION_NUMBER >= 0x00907000L
 static void info_callback(const SSL *, int, int);
 #else
@@ -64,10 +65,17 @@ static void print_stats(void);
 static void sslerror_stack(void);
 
 SSL_CTX *ctx; /* global SSL context */
+static X509_STORE *revocation_store=NULL;
 
 void context_init(void) { /* init SSL */
     int i;
 
+#if SSLEAY_VERSION_NUMBER >= 0x00907000L
+    /* Load all bundled ENGINEs into memory and make them visible */
+    ENGINE_load_builtin_engines();
+    /* Register all of them for every algorithm they collectively implement */
+    ENGINE_register_all_complete();
+#endif
     if(!init_prng())
         log(LOG_INFO, "PRNG seeded successfully");
     SSLeay_add_ssl_algorithms();
@@ -373,6 +381,8 @@ static RSA *make_temp_key(int keylen) {
 #endif /* NO_RSA */
 
 static void verify_init(void) {
+    X509_LOOKUP *lookup;
+
     if(options.verify_level<0)
         return; /* No certificate verification */
 
@@ -404,13 +414,53 @@ static void verify_init(void) {
             sslerror("SSL_CTX_load_verify_locations");
             exit(1);
         }
-        log(LOG_DEBUG, "Set verify directory to %s", options.ca_dir);
+        log(LOG_DEBUG, "Verify directory set to %s", options.ca_dir);
+    }
+
+    if(options.crl_file || options.crl_dir) { /* setup CRL store */
+        revocation_store=X509_STORE_new();
+        if(!revocation_store) {
+            sslerror("X509_STORE_new");
+            exit(1);
+        }
+        if(options.crl_file) {
+            lookup=X509_STORE_add_lookup(revocation_store,
+                X509_LOOKUP_file());
+            if(!lookup) {
+                sslerror("X509_STORE_add_lookup");
+                exit(1);
+            }
+            if(!X509_LOOKUP_load_file(lookup, options.crl_file,
+                    X509_FILETYPE_PEM)) {
+                log(LOG_ERR, "Error loading CRLs from %s",
+                    options.crl_file);
+                sslerror("X509_LOOKUP_load_file");
+                exit(1);
+            }
+            log(LOG_DEBUG, "Loaded CRLs from %s", options.crl_file);
+        }
+        if(options.crl_dir) {
+            lookup=X509_STORE_add_lookup(revocation_store,
+                X509_LOOKUP_hash_dir());
+            if(!lookup) {
+                sslerror("X509_STORE_add_lookup");
+                exit(1);
+            }
+            if(!X509_LOOKUP_add_dir(lookup, options.crl_dir,
+                    X509_FILETYPE_PEM)) {
+                log(LOG_ERR, "Error setting CRL directory to %s",
+                    options.crl_dir);
+                sslerror("X509_LOOKUP_add_dir");
+                exit(1);
+            }
+            log(LOG_DEBUG, "CRL directory set to %s", options.crl_dir);
+        }
     }
 
     SSL_CTX_set_verify(ctx, options.verify_level==SSL_VERIFY_NONE ?
         SSL_VERIFY_PEER : options.verify_level, verify_callback);
 
-    if (options.verify_use_only_my)
+    if(options.ca_dir && options.verify_use_only_my)
         log(LOG_NOTICE, "Peer certificate location %s", options.ca_dir);
 }
 
@@ -440,7 +490,128 @@ static int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         log(LOG_WARNING, "VERIFY ERROR ONLY MY: no cert for %s", txt);
         return 0; /* Reject connection */
     }
+    if(revocation_store && !crl_callback(callback_ctx))
+        return 0; /* Reject connection */
+    /* errnum = X509_STORE_CTX_get_error(ctx); */
+
     log(LOG_NOTICE, "VERIFY OK: depth=%d, %s", callback_ctx->error_depth, txt);
+    return 1; /* Accept connection */
+}
+
+/* Based on BSD-style licensed code of mod_ssl */
+static int crl_callback(X509_STORE_CTX *callback_ctx) {
+    X509_STORE_CTX store_ctx;
+    X509_OBJECT obj;
+    X509_NAME *subject;
+    X509_NAME *issuer;
+    X509 *xs;
+    X509_CRL *crl;
+    X509_REVOKED *revoked;
+    EVP_PKEY *pubkey;
+    long serial;
+    BIO *bio;
+    int i, n, rc;
+    char *cp;
+    char *cp2;
+    ASN1_TIME *t;
+
+    /* Determine certificate ingredients in advance */
+    xs      = X509_STORE_CTX_get_current_cert(callback_ctx);
+    subject = X509_get_subject_name(xs);
+    issuer  = X509_get_issuer_name(xs);
+
+    /* Try to retrieve a CRL corresponding to the _subject_ of
+     * the current certificate in order to verify it's integrity. */
+    memset((char *)&obj, 0, sizeof(obj));
+    X509_STORE_CTX_init(&store_ctx, revocation_store, NULL, NULL);
+    rc=X509_STORE_get_by_subject(&store_ctx, X509_LU_CRL, subject, &obj);
+    X509_STORE_CTX_cleanup(&store_ctx);
+    crl=obj.data.crl;
+    if(rc>0 && crl) {
+        /* Log information about CRL
+         * (A little bit complicated because of ASN.1 and BIOs...) */
+        bio=BIO_new(BIO_s_mem());
+        BIO_printf(bio, "lastUpdate: ");
+        ASN1_UTCTIME_print(bio, X509_CRL_get_lastUpdate(crl));
+        BIO_printf(bio, ", nextUpdate: ");
+        ASN1_UTCTIME_print(bio, X509_CRL_get_nextUpdate(crl));
+        n=BIO_pending(bio);
+        cp=malloc(n+1);
+        n=BIO_read(bio, cp, n);
+        cp[n]='\0';
+        BIO_free(bio);
+        cp2=X509_NAME_oneline(subject, NULL, 0);
+        log(LOG_NOTICE, "CA CRL: Issuer: %s, %s", cp2, cp);
+        OPENSSL_free(cp2);
+        free(cp);
+
+        /* Verify the signature on this CRL */
+        pubkey=X509_get_pubkey(xs);
+        if(X509_CRL_verify(crl, pubkey)<=0) {
+            log(LOG_WARNING, "Invalid signature on CRL");
+            X509_STORE_CTX_set_error(callback_ctx,
+                X509_V_ERR_CRL_SIGNATURE_FAILURE);
+            X509_OBJECT_free_contents(&obj);
+            if(pubkey)
+                EVP_PKEY_free(pubkey);
+            return 0; /* Reject connection */
+        }
+        if(pubkey)
+            EVP_PKEY_free(pubkey);
+
+        /* Check date of CRL to make sure it's not expired */
+        t=X509_CRL_get_nextUpdate(crl);
+        if(!t) {
+            log(LOG_WARNING, "Found CRL has invalid nextUpdate field");
+            X509_STORE_CTX_set_error(callback_ctx,
+                X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD);
+            X509_OBJECT_free_contents(&obj);
+            return 0; /* Reject connection */
+        }
+        if(X509_cmp_current_time(t)<0) {
+            log(LOG_WARNING, "Found CRL is expired - "
+                "revoking all certificates until you get updated CRL");
+            X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CRL_HAS_EXPIRED);
+            X509_OBJECT_free_contents(&obj);
+            return 0; /* Reject connection */
+        }
+        X509_OBJECT_free_contents(&obj);
+    }
+
+    /* Try to retrieve a CRL corresponding to the _issuer_ of
+     * the current certificate in order to check for revocation. */
+    memset((char *)&obj, 0, sizeof(obj));
+    X509_STORE_CTX_init(&store_ctx, revocation_store, NULL, NULL);
+    rc=X509_STORE_get_by_subject(&store_ctx, X509_LU_CRL, issuer, &obj);
+    X509_STORE_CTX_cleanup(&store_ctx);
+    crl=obj.data.crl;
+    if(rc>0 && crl) {
+        /* Check if the current certificate is revoked by this CRL */
+#if SSL_LIBRARY_VERSION < 0x00904000
+        n=sk_num(X509_CRL_get_REVOKED(crl));
+#else
+        n=sk_X509_REVOKED_num(X509_CRL_get_REVOKED(crl));
+#endif
+        for(i=0; i<n; i++) {
+#if SSL_LIBRARY_VERSION < 0x00904000
+            revoked=(X509_REVOKED *)sk_value(X509_CRL_get_REVOKED(crl), i);
+#else
+            revoked=sk_X509_REVOKED_value(X509_CRL_get_REVOKED(crl), i);
+#endif
+            if(ASN1_INTEGER_cmp(revoked->serialNumber,
+                    X509_get_serialNumber(xs)) == 0) {
+                serial=ASN1_INTEGER_get(revoked->serialNumber);
+                cp=X509_NAME_oneline(issuer, NULL, 0);
+                log(LOG_NOTICE, "Certificate with serial %ld (0x%lX) "
+                    "revoked per CRL from issuer %s", serial, serial, cp);
+                OPENSSL_free(cp);
+                X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REVOKED);
+                X509_OBJECT_free_contents(&obj);
+                return 0; /* Reject connection */
+            }
+        }
+        X509_OBJECT_free_contents(&obj);
+    }
     return 1; /* Accept connection */
 }
 

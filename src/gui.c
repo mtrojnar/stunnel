@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -36,7 +36,7 @@
 #include <shellapi.h>
 #include "resources.h"
 
-#define UWM_SYSTRAY (WM_USER + 1) /* sent to us by the systray */
+#define UWM_SYSTRAY (WM_USER + 1) /* sent to us by the taskbar */
 #define LOG_LINES 250
 
 /* Externals */
@@ -71,6 +71,7 @@ static HWND EditControl=NULL;
 static HMENU htraymenu, hmainmenu;
 static HMENU hpopup;
 static HWND hwnd=NULL;
+static HANDLE small_icon; /* 16x16 icon */
 
 static char service_path[MAX_PATH];
 static SERVICE_STATUS serviceStatus;
@@ -116,19 +117,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     if(!strcmpi(lpszCmdLine, "-service")) {
         if(!setjmp(jump_buf))
-            main_initialize(NULL);
+            main_initialize(NULL, NULL);
         return start_service(); /* Always start service with -service option */
     }
 
     if(!error_mode && !setjmp(jump_buf)) { /* TRY */
         if(!strcmpi(lpszCmdLine, "-install")) {
-            main_initialize(NULL);
+            main_initialize(NULL, NULL);
             return install_service();
         } else if(!strcmpi(lpszCmdLine, "-uninstall")) {
-            main_initialize(NULL);
+            main_initialize(NULL, NULL);
             return uninstall_service();
         } else { /* not -service, -install or -uninstall */
-            main_initialize(lpszCmdLine[0] ? lpszCmdLine : NULL);
+            main_initialize(lpszCmdLine[0] ? lpszCmdLine : NULL, NULL);
         }
     }
 
@@ -155,13 +156,16 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     wc.hbrBackground=(HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszMenuName=NULL;
     wc.lpszClassName=classname;
-    wc.hIconSm=LoadImage(hInstance, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON,
+    small_icon=LoadImage(hInstance, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON,
         GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
+    wc.hIconSm=small_icon; /* 16x16 icon */
     RegisterClassEx(&wc);
 
     /* create main window */
-    htraymenu=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
-    hpopup=GetSubMenu(htraymenu, 0);
+    if(options.option.taskbar) {/* save menu resources */
+        htraymenu=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
+        hpopup=GetSubMenu(htraymenu, 0);
+    }
     hmainmenu=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_MAINMENU));
     hwnd=CreateWindow(classname, options.win32_name, WS_TILEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
@@ -190,9 +194,10 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     return msg.wParam;
 }
 
-static void update_systray(void) { /* create the systray icon */
+static void update_taskbar(void) { /* create the taskbar icon */
     NOTIFYICONDATA nid;
 
+    ZeroMemory(&nid, sizeof(nid));
     nid.cbSize=sizeof(NOTIFYICONDATA); /* size */
     nid.hWnd=hwnd; /* window to receive notifications */
     nid.uID=1;     /* application-defined ID for icon */
@@ -203,14 +208,12 @@ static void update_systray(void) { /* create the systray icon */
     nid.uFlags=NIF_TIP;
     /* only nid.szTip and nid.uID are valid, change tip */
     if(Shell_NotifyIcon(NIM_MODIFY, &nid)) /* modify tooltip */
-        return; /* OK: systray icon exists */
+        return; /* OK: taskbar icon exists */
 
     /* trying to update tooltip failed - lets try to create the icon */
     nid.uFlags=NIF_MESSAGE | NIF_ICON | NIF_TIP;
     nid.uCallbackMessage=UWM_SYSTRAY;
-    nid.hIcon=LoadImage(ghInst, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON,
-        GetSystemMetrics(SM_CXSMICON),
-        GetSystemMetrics(SM_CYSMICON), 0); /* 16x16 icon */
+    nid.hIcon=small_icon; /* 16x16 icon */
     Shell_NotifyIcon(NIM_ADD, &nid); /* this adds the icon */
 }
 
@@ -234,7 +237,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 #endif
     switch (message) {
     case WM_CREATE:
-        SetTimer(hwnd, 0x29a, 1000, NULL); /* 1-second timer */
+        if (options.option.taskbar) /* taskbar update enabled? */
+            SetTimer(hwnd, 0x29a, 1000, NULL); /* 1-second timer */
         return TRUE;
 
     case WM_SIZE:
@@ -251,7 +255,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
         return TRUE;
 
     case WM_TIMER:
-        update_systray();
+        update_taskbar();
         return TRUE;
 
     case WM_CLOSE:
@@ -261,6 +265,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
     case WM_DESTROY:
         DestroyMenu(hmainmenu);
         DestroyMenu(htraymenu);
+        ZeroMemory(&nid, sizeof(nid));
         nid.cbSize=sizeof(NOTIFYICONDATA);
         nid.hWnd=hwnd;
         nid.uID=1;

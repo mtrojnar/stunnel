@@ -130,14 +130,14 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2002.12.26" "4.0" "stunnel"
+.TH STUNNEL.PL 8 "2004.02.06" "4.05" "stunnel"
 .UC
 .SH "NAZWA"
 .IX Header "NAZWA"
 stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
 .SH "SK£ADNIA"
 .IX Header "SK£ADNIA"
-\&\fBstunnel\fR [filename] | \-help | \-version | \-sockets
+\&\fBstunnel\fR [filename] | \-fd\ [n] | \-help | \-version | \-sockets
 .SH "OPIS"
 .IX Header "OPIS"
 Program \fBstunnel\fR zosta³ zaprojektowany do opakowywania po³±czeñ
@@ -155,6 +155,9 @@ bez zmian w kodzie ¼ród³owym.
 .IP "\fB[plik]\fR" 4
 .IX Item "[plik]"
 u¿yj podanego pliku konfiguracyjnego
+.IP "\fB\-fd [n]\fR (tylko Unix)" 4
+.IX Item "-fd [n] (tylko Unix)"
+wczytaj konfiguracjê z podanego deskryptora pliku
 .IP "\fB\-help\fR" 4
 .IX Item "-help"
 drukuj listê wspieranych opcji
@@ -185,7 +188,7 @@ tekstem \*(L"[nazwa_us³ugi]\*(R" wskazuj±cym pocz±tek definicji us³ugi
 .IX Subsection "OPCJE GLOBALNE"
 .IP "\fBCApath\fR = katalog_CA" 4
 .IX Item "CApath = katalog_CA"
-katalog Urzêdu d/s Certyfikatów
+katalog Centrum Certyfikacji
 .Sp
 Opcja okre¶la katalog, w którym \fBstunnel\fR bêdzie szuka³ certyfikatów,
 je¿eli u¿yta zosta³a opcja \fIverify\fR.  Pliki z certyfikatami musz±
@@ -193,7 +196,7 @@ posiadaæ specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
 certyfikatu.
 .IP "\fBCAfile\fR = plik_CA" 4
 .IX Item "CAfile = plik_CA"
-plik  Urzêdu d/s Certyfikatów
+plik Centrum Certyfikacji
 .Sp
 Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego certyfikaty u¿ywane
 przez opcjê \fIverify\fR.
@@ -230,6 +233,20 @@ otwieraniu nowych po³±czeñ \s-1SSL\s0, np.:  \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s
 tryb kliencki (dalna us³uga u¿ywa \s-1SSL\s0)
 .Sp
 domy¶lnie: no (tryb serwerowy)
+.IP "\fBCRLpath\fR = katalog_CRL" 4
+.IX Item "CRLpath = katalog_CRL"
+katalog List Odwo³anych Certyfikatów (\s-1CRL\s0)
+.Sp
+Opcja okre¶la katalog, w którym \fBstunnel\fR bêdzie szuka³ list \s-1CRL\s0,
+je¿eli u¿yta zosta³a opcja \fIverify\fR.  Pliki z listami \s-1CRL\s0 musz±
+posiadaæ specjalne nazwy \s-1XXXXXXXX\s0.0, gdzie \s-1XXXXXXXX\s0 jest skrótem
+listy \s-1CRL\s0.
+.IP "\fBCRLfile\fR = plik_CRL" 4
+.IX Item "CRLfile = plik_CRL"
+plik List Odwo³anych Certyfikatów (\s-1CRL\s0)
+.Sp
+Opcja pozwala okre¶liæ po³o¿enie pliku zawieraj±cego listy \s-1CRL\s0 u¿ywane
+przez opcjê \fIverify\fR.
 .IP "\fBdebug\fR = poziom[.podsystem]" 4
 .IX Item "debug = poziom[.podsystem]"
 szczegó³owo¶æ logowania
@@ -292,6 +309,10 @@ plik, do którego dopisane zostan± logi
 .Sp
 U¿ycie tej opcji zmienia domy¶lne zachowanie programu polegaj±ce
 na logowaniu swoich komunikatów poprzez syslog.
+.Sp
+Do przekierowania komunikatów na standardowe wyj¶cie (na przyk³ad po to,
+¿eby zalogowaæ je programem splogger z pakietu daemontools) mo¿na podaæ
+jako parametr urz±dzenie /dev/stdout.
 .IP "\fBpid\fR = plik (tylko Unix)" 4
 .IX Item "pid = plik (tylko Unix)"
 po³o¿enie pliku z numerem procesu
@@ -361,6 +382,11 @@ Przyk³ady:
 \&        przyjmuj po³±czenia wy³±cznie na
 \&        interfejsie zwrotnym (ang. loopback)
 .Ve
+.IP "\fBtaskbar\fR = yes | no (tylko \s-1WIN32\s0)" 4
+.IX Item "taskbar = yes | no (tylko WIN32)"
+w³±cz ikonkê w prawym dolnym rogu ekranu
+.Sp
+domy¶lnie: yes (w³±cz)
 .IP "\fBverify\fR = poziom" 4
 .IX Item "verify = poziom"
 weryfikuj certyfikat drugiej strony po³±czenia
@@ -369,7 +395,7 @@ weryfikuj certyfikat drugiej strony po³±czenia
 \&    poziom 1 - weryfikuj, je¿eli zosta³
 \&        przedstawiony
 \&    poziom 2 - weryfikuj z zainstalowanym
-\&        certyfikatem Urzêdu d/s Certyfikatów
+\&        certyfikatem Centrum Certyfikacji
 \&    poziom 3 - weryfikuj z lokalnie
 \&        zainstalowanym certyfikatem drugiej strony
 \&    domy¶lnie - nie weryfikuj
@@ -422,7 +448,7 @@ serwera, do którego nawi±zywane jest po³±czenie.
 .IX Item "protocol = protokó³"
 negocjuj \s-1SSL\s0 podanym protoko³em aplikacyjnym
 .Sp
-aktualnie wspierane protoko³y: smtp, pop3, nntp
+aktualnie wspierane protoko³y: cifs, nntp, pop3, smtp
 .IP "\fBpty\fR = yes | no (tylko Unix)" 4
 .IX Item "pty = yes | no (tylko Unix)"
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
@@ -515,8 +541,9 @@ programów s± inetd, xinetd i tcpserver.
 .PP
 Przyk³adowa linia pliku /etc/inetd.conf mo¿e wygl±daæ tak:
 .PP
-.Vb 1
-\&    imaps stream tcp nowait root /usr/sbin/stunnel stunnel /etc/stunnel/imaps.conf
+.Vb 2
+\&    imaps stream tcp nowait root /usr/sbin/stunnel
+\&        stunnel /etc/stunnel/imaps.conf
 .Ve
 Poniewa¿ w takich przypadkach po³±czenie na zdefiniowanym porcie
 (tutaj \fIimaps\fR) nawi±zuje osobny program (tutaj \fIinetd\fR), \fBstunnel\fR
@@ -564,7 +591,7 @@ nastêpuj±c± postaæ:
 .IX Subsection "LOSOWO¦Æ"
 \&\fBstunnel\fR potrzebuje zainicjowaæ \s-1PRNG\s0 (generator liczb pseudolosowych),
 gdy¿ protokó³ \s-1SSL\s0 wymaga do bezpieczeñstwa kryptograficznego ¼ród³a
-dobrej dosowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
+dobrej losowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
 uzyskania  wystarczaj±cej ilo¶ci entropii:
 .IP "\(bu" 4
 Zawarto¶æ pliku podanego w opcji \fIRNDfile\fR.

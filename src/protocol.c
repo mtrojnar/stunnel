@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -32,66 +32,94 @@
 #include "prototypes.h"
 
 /* protocol-specific function prototypes */
-static int smb_client(CLI *);
-static int smb_server(CLI *);
+static int cifs_client(CLI *);
+static int cifs_server(CLI *);
 static int smtp_client(CLI *);
 static int smtp_server(CLI *);
 static int pop3_client(CLI *);
 static int pop3_server(CLI *);
 static int nntp_client(CLI *);
 static int nntp_server(CLI *);
-static int telnet_client(CLI *);
-static int telnet_server(CLI *);
 static int RFC2487(int);
 
 int negotiate(CLI *c) {
+    int retval=-1; /* 0 = OK, -1 = ERROR */
+
     if(!c->opt->protocol)
         return 0; /* No protocol negotiations */
-    log(LOG_DEBUG, "Negotiations for %s(%s side) started", c->opt->protocol,
+    log(LOG_NOTICE, "Negotiations for %s (%s side) started", c->opt->protocol,
         options.option.client ? "client" : "server");
-    if(!strcmp(c->opt->protocol, "smb")) {
-        if(options.option.client)
-            return smb_client(c);
-        else
-            return smb_server(c);
+
+    if(!strcmp(c->opt->protocol, "cifs"))
+        retval = options.option.client ? cifs_client(c) : cifs_server(c);
+    else if(!strcmp(c->opt->protocol, "smtp"))
+        retval = options.option.client ? smtp_client(c) : smtp_server(c);
+    else if(!strcmp(c->opt->protocol, "pop3"))
+        retval = options.option.client ? pop3_client(c) : pop3_server(c);
+    else if(!strcmp(c->opt->protocol, "nntp"))
+        retval = options.option.client ? nntp_client(c) : nntp_server(c);
+    else {
+        log(LOG_ERR, "Protocol %s not supported in %s mode",
+            c->opt->protocol, options.option.client ? "client" : "server");
+        return -1;
     }
-    if(!strcmp(c->opt->protocol, "smtp")) {
-        if(options.option.client)
-            return smtp_client(c);
-        else
-            return smtp_server(c);
-    }
-    if(!strcmp(c->opt->protocol, "pop3")) {
-        if(options.option.client)
-            return pop3_client(c);
-        else
-            return pop3_server(c);
-    }
-    if(!strcmp(c->opt->protocol, "nntp")) {
-        if(options.option.client)
-            return nntp_client(c);
-        else
-            return nntp_server(c);
-    }
-    if(!strcmp(c->opt->protocol, "telnet")) {
-        if(options.option.client)
-            return telnet_client(c);
-        else
-            return telnet_server(c);
-    }
-    log(LOG_ERR, "Protocol %s not supported in %s mode",
-        c->opt->protocol, options.option.client ? "client" : "server");
-    return -1;
+
+    if(retval)
+        log(LOG_NOTICE, "Protocol negotiation failed");
+    else
+        log(LOG_NOTICE, "Protocol negotiation succeded");
+    return retval;
 }
 
-static int smb_client(CLI *c) {
-    log(LOG_ERR, "Protocol not supported");
-    return -1;
+static int cifs_client(CLI *c) {
+    u8 buffer[5];
+    u8 request_dummy[4] = {0x81, 0, 0, 0}; /* a zero-length request */
+
+    if(write_blocking(c, c->remote_fd.fd, request_dummy, 4)<0)
+        return -1;
+    if(read_blocking(c, c->remote_fd.fd, buffer, 5)<0) {
+        log(LOG_ERR, "Failed to read NetBIOS response");
+        return -1;
+    }
+    if(buffer[0]!=0x83) { /* NB_SSN_NEGRESP */
+        log(LOG_ERR, "Negative response expected");
+        return -1;
+    }
+    if(buffer[2]!=0 || buffer[3]!=1) { /* length != 1 */
+        log(LOG_ERR, "Unexpected NetBIOS response size");
+        return -1;
+    }
+    if(buffer[4]!=0x8e) { /* use SSL */
+        log(LOG_ERR, "Remote server does not require SSL");
+        return -1;
+    }
+    return 0; /* OK */
 }
 
-static int smb_server(CLI *c) {
-    log(LOG_ERR, "Protocol not supported");
-    return -1;
+static int cifs_server(CLI *c) {
+    u8 buffer[128];
+    u8 response_access_denied[5] = {0x83, 0, 0, 1, 0x81};
+    u8 response_use_ssl[5] = {0x83, 0, 0, 1, 0x8e};
+    u16 len;
+
+    if(read_blocking(c, c->local_rfd.fd, buffer, 4)<0) /* NetBIOS header */
+        return -1;
+    len=buffer[3];
+    len|=(u16)(buffer[2]) << 8;
+    if(len>sizeof(buffer)-4) {
+        log(LOG_ERR, "Received block too long");
+        return -1;
+    }
+    if(read_blocking(c, c->local_rfd.fd, buffer+4, len)<0)
+        return -1;
+    if(buffer[0]!=0x81){ /* NB_SSN_REQUEST */
+        log(LOG_ERR, "Client did not send session setup");
+        write_blocking(c, c->local_wfd.fd, response_access_denied, 5);
+        return -1;
+    }
+    if(write_blocking(c, c->local_wfd.fd, response_use_ssl, 5)<0)
+        return -1;
+    return 0; /* OK */
 }
 
 static int smtp_client(CLI *c) {
@@ -102,15 +130,15 @@ static int smtp_client(CLI *c) {
             return -1;
         if(fdprintf(c, c->local_wfd.fd, "%s", line)<0)
             return -1;
-    } while(strncmp(line,"220-",4)==0);
+    } while(strncasecmp(line,"220-",4)==0);
 
     if(fdprintf(c, c->remote_fd.fd, "EHLO localhost")<0) /* Send an EHLO command */
         return -1;
     do { /* Skip multiline reply */
         if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
             return -1;
-    } while(strncmp(line,"250-",4)==0);
-    if(strncmp(line,"250 ",4)!=0) { /* Error */
+    } while(strncasecmp(line,"250-",4)==0);
+    if(strncasecmp(line,"250 ",4)!=0) { /* Error */
         log(LOG_ERR, "Remote server is not RFC 1425 compliant");
         return -1;
     }
@@ -120,8 +148,8 @@ static int smtp_client(CLI *c) {
     do { /* Skip multiline reply */
         if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
             return -1;
-    } while(strncmp(line,"220-",4)==0);
-    if(strncmp(line,"220 ",4)!=0) { /* Error */
+    } while(strncasecmp(line,"220-",4)==0);
+    if(strncasecmp(line,"220 ",4)!=0) { /* Error */
         log(LOG_ERR, "Remote server is not RFC 2487 compliant");
         return -1;
     }
@@ -162,7 +190,7 @@ static int pop3_client(CLI *c) {
 
     if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
         return -1;
-    if(strncmp(line,"+OK ",4)) {
+    if(strncasecmp(line,"+OK ",4)) {
         log(LOG_ERR, "Unknown server welcome");
         return -1;
     }
@@ -172,7 +200,7 @@ static int pop3_client(CLI *c) {
         return -1;
     if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
         return -1;
-    if(strncmp(line,"+OK ",4)) {
+    if(strncasecmp(line,"+OK ",4)) {
         log(LOG_ERR, "Server does not support TLS");
         return -1;
     }
@@ -188,13 +216,13 @@ static int pop3_server(CLI *c) {
         return -1;
     if(fdscanf(c, c->local_rfd.fd, "%[^\n]", line)<0)
         return -1;
-    if(!strncmp(line, "CAPA", 4)) { /* Client wants RFC 2449 extensions */
+    if(!strncasecmp(line, "CAPA", 4)) { /* Client wants RFC 2449 extensions */
         if(fdprintf(c, c->local_wfd.fd, "-ERR Stunnel does not support capabilities")<0)
             return -1;
         if(fdscanf(c, c->local_rfd.fd, "%[^\n]", line)<0)
             return -1;
     }
-    if(strncmp(line, "STLS", 4)) {
+    if(strncasecmp(line, "STLS", 4)) {
         log(LOG_ERR, "Client does not want TLS");
         return -1;
     }
@@ -209,7 +237,7 @@ static int nntp_client(CLI *c) {
 
     if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
         return -1;
-    if(strncmp(line,"200 ",4) && strncmp(line,"201 ",4)) {
+    if(strncasecmp(line,"200 ",4) && strncasecmp(line,"201 ",4)) {
         log(LOG_ERR, "Unknown server welcome");
         return -1;
     }
@@ -219,7 +247,7 @@ static int nntp_client(CLI *c) {
         return -1;
     if(fdscanf(c, c->remote_fd.fd, "%[^\n]", line)<0)
         return -1;
-    if(strncmp(line,"382 ",4)) {
+    if(strncasecmp(line,"382 ",4)) {
         log(LOG_ERR, "Server does not support TLS");
         return -1;
     }
@@ -228,16 +256,6 @@ static int nntp_client(CLI *c) {
 
 static int nntp_server(CLI *c) {
     log(LOG_ERR, "Protocol not supported in server mode");
-    return -1;
-}
-
-static int telnet_client(CLI *c) {
-    log(LOG_ERR, "Protocol not supported");
-    return -1;
-}
-
-static int telnet_server(CLI *c) {
-    log(LOG_ERR, "Protocol not supported");
     return -1;
 }
 

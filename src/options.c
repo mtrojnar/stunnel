@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2002 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -197,6 +197,46 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     case CMD_HELP:
         log_raw("%-15s = yes|no client mode (remote service uses SSL)",
             "client");
+        break;
+    }
+
+    /* CRLpath */
+    switch(cmd) {
+    case CMD_INIT:
+        options.crl_dir=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "CRLpath"))
+            break;
+        if(arg[0]) /* not empty */
+            options.crl_dir=stralloc(arg);
+        else
+            options.crl_dir=NULL;
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = CRL directory", "CRLpath");
+        break;
+    }
+
+    /* CRLfile */
+    switch(cmd) {
+    case CMD_INIT:
+        options.crl_file=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "CRLfile"))
+            break;
+        if(arg[0]) /* not empty */
+            options.crl_file=stralloc(arg);
+        else
+            options.crl_file=NULL;
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = CRL file", "CRLfile");
         break;
     }
 
@@ -521,6 +561,31 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         break;
     }
 
+    /* taskbar */
+#ifdef USE_WIN32
+    switch(cmd) {
+    case CMD_INIT:
+        options.option.taskbar=1;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "taskbar"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            options.option.taskbar=1;
+        else if(!strcasecmp(arg, "no"))
+            options.option.taskbar=0;
+        else
+            return "argument should be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_DEFAULT:
+        log_raw("%-15s = yes", "taskbar");
+        break;
+    case CMD_HELP:
+        log_raw("%-15s = yes|no enable the taskbar icon", "taskbar");
+        break;
+    }
+#endif
+
     /* verify */
     switch(cmd) {
     case CMD_INIT:
@@ -732,7 +797,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_HELP:
         log_raw("%-15s = protocol to negotiate before SSL initialization",
             "protocol");
-        log_raw("%18scurrently supported: smtp, pop3, nntp", "");
+        log_raw("%18scurrently supported: cifs, nntp, pop3, smtp", "");
         break;
     }
 
@@ -855,14 +920,36 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     return NULL; /* OK */
 }
 
-void parse_config(char *name) {
+static void syntax(char *confname) {
+    log_raw(" ");
+    log_raw("Syntax:");
+#ifdef USE_WIN32
+    log_raw("stunnel [filename] | -help | -version | -sockets"
+            " | -install | -uninstall");
+#else
+    log_raw("stunnel [filename] | -fd [n] | -help | -version | -sockets");
+#endif
+    log_raw("    filename    - use specified config file instead of %s",
+        confname);
+    log_raw("    -fd n       - read the config file from specified file descriptor");
+    log_raw("    -help       - get config file help");
+    log_raw("    -version    - display version and defaults");
+    log_raw("    -sockets    - display default socket options");
+#ifdef USE_WIN32
+    log_raw("    -install    - install NT service");
+    log_raw("    -uninstall  - uninstall NT service");
+#endif
+    exit(1);
+}
+
+void parse_config(char *name, char *parameter) {
 #ifdef CONFDIR
     char *default_config_file=CONFDIR "/stunnel.conf";
 #else
     char *default_config_file="stunnel.conf";
 #endif
     FILE *fp;
-    char line[STRLEN], *arg, *opt, *errstr;
+    char line[STRLEN], *arg, *opt, *errstr, *filename;
     int line_number, i;
     LOCAL_OPTIONS *section, *new_section;
     
@@ -892,32 +979,39 @@ void parse_config(char *name) {
         print_socket_options();
         exit(1);
     }
-    fp=fopen(name, "r");
-    if(!fp) {
+#ifndef USE_WIN32
+    if(!strcasecmp(name, "-fd")) {
+        if(!parameter) {
+            log_raw("No file descriptor specified");
+            syntax(default_config_file);
+        }
+        for(arg=parameter, i=0; *arg; arg++) {
+            if(*arg<'0' || *arg>'9') {
+                log_raw("Invalid file descriptor %s", parameter);
+                syntax(default_config_file);
+            }
+            i=10*i+*arg-'0';
+        }
+        fp=fdopen(i, "r");
+        if(!fp) {
+            log_raw("Invalid file descriptor %s", parameter);
+            syntax(default_config_file);
+        }
+        filename="descriptor";
+    } else
+#endif
+    {
+        fp=fopen(name, "r");
+        if(!fp) {
 #ifdef USE_WIN32
-        /* Win32 doesn't seem to set errno in fopen() */
-        log_raw("Failed to open configuration file %s", name);
+            /* Win32 doesn't seem to set errno in fopen() */
+            log_raw("Failed to open configuration file %s", name);
 #else
-        ioerror(name);
+            ioerror(name);
 #endif
-        log_raw(" ");
-        log_raw("Syntax:");
-#ifdef USE_WIN32
-        log_raw("stunnel [filename] | -help | -version | -sockets"
-            " | -install | -uninstall");
-#else
-        log_raw("stunnel [filename] | -help | -version | -sockets");
-#endif
-        log_raw("    filename    - use specified config file instead of %s",
-            default_config_file);
-        log_raw("    -help       - get config file help");
-        log_raw("    -version    - display version and defaults");
-        log_raw("    -sockets    - display default socket options");
-#ifdef USE_WIN32
-        log_raw("    -install    - install NT service");
-        log_raw("    -uninstall  - uninstall NT service");
-#endif
-        exit(1);
+            syntax(default_config_file);
+        }
+        filename=name;
     }
     line_number=0;
     while(fgets(line, STRLEN, fp)) {
@@ -932,7 +1026,7 @@ void parse_config(char *name) {
         if(opt[0]=='[' && opt[strlen(opt)-1]==']') { /* new section */
             errstr=section_validate(section);
             if(errstr) {
-                log_raw("file %s line %d: %s", name, line_number, errstr);
+                log_raw("file %s line %d: %s", filename, line_number, errstr);
                 exit(1);
             }
             opt++;
@@ -951,7 +1045,7 @@ void parse_config(char *name) {
         }
         arg=strchr(line, '=');
         if(!arg) {
-            log_raw("file %s line %d: No '=' found", name, line_number);
+            log_raw("file %s line %d: No '=' found", filename, line_number);
             exit(1);
         }
         *arg++='\0'; /* split into option name and argument value */
@@ -963,16 +1057,21 @@ void parse_config(char *name) {
         if(section==&local_options && errstr==option_not_found)
             errstr=global_options(CMD_EXEC, opt, arg);
         if(errstr) {
-            log_raw("file %s line %d: %s", name, line_number, errstr);
+            log_raw("file %s line %d: %s", filename, line_number, errstr);
             exit(1);
         }
     }
     errstr=section_validate(section);
     if(errstr) {
-        log_raw("file %s line %d: %s", name, line_number, errstr);
+        log_raw("file %s line %d: %s", filename, line_number, errstr);
         exit(1);
     }
     fclose(fp);
+    if(!local_options.next && section->option.accept) {
+        log_raw("accept option is not allowed in inetd mode");
+        log_raw("remove accept option or define a [section]");
+        exit(1);
+    }
     if(!options.option.client)
         options.option.cert=1; /* Server always needs a certificate */
     if(!options.option.foreground)

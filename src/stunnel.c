@@ -1,10 +1,10 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (c) 1998-2003 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (c) 1998-2004 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.04             (stunnel.c)
- *   Date:         2003.01.12
+ *   Version:      4.05             (stunnel.c)
+ *   Date:         2004.02.14
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -60,7 +60,7 @@ int num_clients=0; /* Current number of clients */
 #ifndef USE_WIN32
 int main(int argc, char* argv[]) { /* execution begins here 8-) */
 
-    main_initialize(argc>1 ? argv[1] : NULL);
+    main_initialize(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL);
 
     signal(SIGPIPE, SIG_IGN); /* avoid 'broken pipe' signal */
     signal(SIGTERM, signal_handler);
@@ -75,11 +75,11 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
 }
 #endif
 
-void main_initialize(char *arguments) {
+void main_initialize(char *arg1, char *arg2) {
     struct stat st; /* buffer for stat */
 
     sthreads_init(); /* initialize critical sections & SSL callbacks */
-    parse_config(arguments);
+    parse_config(arg1, arg2);
     log_open();
     log(LOG_NOTICE, "%s", stunnel_info());
 
@@ -105,7 +105,7 @@ void main_execute(void) {
         daemon_loop();
     } else { /* inetd mode */
 #if !defined (USE_WIN32) && !defined (__vms)
-        max_fds=16; /* just in case */
+        max_fds=FD_SETSIZE; /* just in case */
         drop_privileges();
 #endif
         num_clients=1;
@@ -205,13 +205,26 @@ static void daemon_loop(void) {
 
 static void accept_connection(LOCAL_OPTIONS *opt) {
     struct sockaddr_in addr;
-    int s, addrlen=sizeof(addr);
+    int err, s, addrlen=sizeof(addr);
 
     do {
         s=accept(opt->fd, (struct sockaddr *)&addr, &addrlen);
-    } while(s<0 && get_last_socket_error()==EINTR);
+        if(s<0)
+            err=get_last_socket_error();
+    } while(s<0 && err==EINTR);
     if(s<0) {
         sockerror("accept");
+        switch(err) {
+            case EMFILE:
+            case ENFILE:
+#ifdef ENOBUFS
+            case ENOBUFS:
+#endif
+            case ENOMEM:
+                sleep(1);
+            default:
+                ;
+        }
         return;
     }
     enter_critical_section(CRIT_NTOA); /* inet_ntoa is not mt-safe */
@@ -259,10 +272,9 @@ static void get_limits(void) {
     if(fds_ulimit==RLIM_INFINITY)
         fds_ulimit=-1;
 #endif
-    if(fds_ulimit>=16 && fds_ulimit<FD_SETSIZE)
-        max_fds=fds_ulimit;
-    else
-        max_fds=FD_SETSIZE;
+    max_fds=fds_ulimit<FD_SETSIZE ? fds_ulimit : FD_SETSIZE;
+    if(max_fds<16) /* stunnel needs at least 16 file desriptors to work */
+        max_fds=16;
     max_clients=max_fds>=256 ? max_fds*125/256 : (max_fds-6)/2;
     log(LOG_NOTICE, "FD_SETSIZE=%d, file ulimit=%d%s -> %d clients allowed",
         FD_SETSIZE, fds_ulimit, fds_ulimit<0?" (unlimited)":"", max_clients);
@@ -358,13 +370,12 @@ static void daemonize(void) { /* go to background */
     default:    /* parent */
         exit(0);
     }
-    if (setsid() == -1) {
-        ioerror("setsid");
-        exit(1);
-    }
     close(0);
     close(1);
     close(2);
+#endif
+#ifdef HAVE_SETSID
+    setsid(); /* Ignore the error */
 #endif
 }
 
@@ -608,8 +619,25 @@ int alloc_fd(int sock) {
     return 0;
 }
 
+/* Try to use non-POSIX O_NDELAY on obsolete BSD systems */
+#if !defined O_NONBLOCK && defined O_NDELAY
+#define O_NONBLOCK O_NDELAY
+#endif
+
 static void setnonblock(int sock, unsigned long l) {
+#if defined F_GETFL && defined F_SETFL && defined O_NONBLOCK
+    int retval, flags;
+    do {
+        flags=fcntl(sock, F_GETFL, 0);
+    }while(flags<0 && errno==EINTR);
+    flags=l ? flags|O_NONBLOCK : flags&(~O_NONBLOCK);
+    do {
+        retval=fcntl(sock, F_SETFL, flags);
+    }while(retval<0 && errno==EINTR);
+    if(retval<0)
+#else
     if(ioctlsocket(sock, FIONBIO, &l)<0)
+#endif
         sockerror("nonblocking"); /* non-critical */
     else
         log(LOG_DEBUG, "FD %d in %sblocking mode", sock,

@@ -78,13 +78,13 @@ VERSION = @VERSION@
 host = @host@
 ssldir = @ssldir@
 
-EXTRA_DIST = stunnel.pod stunnel.pl.pod stunnel.8 stunnel.pl.8 	stunnel.html stunnel.pl.html en pl
+EXTRA_DIST = stunnel.pod stunnel.pl.pod stunnel.fr.pod     stunnel.8 stunnel.pl.8 stunnel.fr.8 	stunnel.html stunnel.pl.html stunnel.fr.html en pl
 
 
-man_MANS = stunnel.8 stunnel.pl.8
+man_MANS = stunnel.8 stunnel.pl.8 stunnel.fr.8
 
 docdir = $(datadir)/doc/stunnel
-doc_DATA = stunnel.html stunnel.pl.html
+doc_DATA = stunnel.html stunnel.pl.html stunnel.fr.html
 
 SUFFIXES = .pod .8 .html
 mkinstalldirs = $(SHELL) $(top_srcdir)/auto/mkinstalldirs
@@ -259,7 +259,7 @@ maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 
 .pod.8:
-	pod2man --section=8 --release=4.0 --center=stunnel --date=`date +%Y.%m.%d` \
+	pod2man --section=8 --release=4.05 --center=stunnel --date=`date +%Y.%m.%d` \
 	$< $@
 
 .pod.html:
