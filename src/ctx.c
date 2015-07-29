@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -42,44 +42,46 @@
 
 /* SNI */
 #ifndef OPENSSL_NO_TLSEXT
-static int servername_cb(SSL *, int *, void *);
-static int matches_wildcard(char *, char *);
+NOEXPORT int servername_cb(SSL *, int *, void *);
+NOEXPORT int matches_wildcard(char *, char *);
 #endif
 
 /* DH/ECDH initialization */
 #ifndef OPENSSL_NO_DH
-static int init_dh(SERVICE_OPTIONS *);
-static DH *read_dh(char *);
-static DH *get_dh2048(void);
+NOEXPORT int init_dh(SERVICE_OPTIONS *);
+NOEXPORT DH *read_dh(char *);
+NOEXPORT DH *get_dh2048(void);
 #endif /* OPENSSL_NO_DH */
 #ifndef OPENSSL_NO_ECDH
-static int init_ecdh(SERVICE_OPTIONS *);
+NOEXPORT int init_ecdh(SERVICE_OPTIONS *);
 #endif /* USE_ECDH */
 
 /* loading certificate */
-static int load_certificate(SERVICE_OPTIONS *);
+NOEXPORT int load_cert(SERVICE_OPTIONS *);
+NOEXPORT int load_key_file(SERVICE_OPTIONS *);
+NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
 #if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
-static int password_cb(char *, int, int, void *);
+NOEXPORT int password_cb(char *, int, int, void *);
 #endif
 
 /* session cache callbacks */
-static int sess_new_cb(SSL *, SSL_SESSION *);
-static SSL_SESSION *sess_get_cb(SSL *, unsigned char *, int, int *);
-static void sess_remove_cb(SSL_CTX *, SSL_SESSION *);
-static void cache_transfer(SSL_CTX *, const unsigned int, const unsigned,
+NOEXPORT int sess_new_cb(SSL *, SSL_SESSION *);
+NOEXPORT SSL_SESSION *sess_get_cb(SSL *, unsigned char *, int, int *);
+NOEXPORT void sess_remove_cb(SSL_CTX *, SSL_SESSION *);
+NOEXPORT void cache_transfer(SSL_CTX *, const unsigned int, const unsigned,
     const unsigned char *, const unsigned int,
     const unsigned char *, const unsigned int,
     unsigned char **, unsigned int *);
 
 /* info callbacks */
-static void info_callback(
+NOEXPORT void info_callback(
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
     const
 #endif
     SSL *, int, int);
 
-static void sslerror_queue(void);
-static void sslerror_log(unsigned long, char *);
+NOEXPORT void sslerror_queue(void);
+NOEXPORT void sslerror_log(unsigned long, char *);
 
 /**************************************** initialize section->ctx */
 
@@ -95,9 +97,20 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     }
     SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
 
-    /* initialize certificate verification */
-    if(load_certificate(section))
+    /* load certificate and private key to be verified by the peer server */
+#ifdef HAVE_OSSL_ENGINE_H
+    if(section->option.client && section->engine) {
+        if(SSL_CTX_set_client_cert_engine(section->ctx, section->engine))
+            s_log(LOG_INFO, "Client certificate engine (%s) enabled",
+                ENGINE_get_id(section->engine));
+        else /* no client certificate functionality in this engine */
+            sslerror("SSL_CTX_set_client_cert_engine"); /* ignore error */
+    }
+#endif
+    if(load_cert(section))
         return 1; /* FAILED */
+
+    /* initialize verification of the peer server certificate */
     if(verify_init(section))
         return 1; /* FAILED */
 
@@ -163,7 +176,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
 
 #ifndef OPENSSL_NO_TLSEXT
 
-static int servername_cb(SSL *ssl, int *ad, void *arg) {
+NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
     SERVICE_OPTIONS *section=(SERVICE_OPTIONS *)arg;
     const char *servername=SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     SERVERNAME_LIST *list;
@@ -209,7 +222,7 @@ static int servername_cb(SSL *ssl, int *ad, void *arg) {
  *  - SSL_TLSEXT_ERR_ALERT_FATAL
  *  - SSL_TLSEXT_ERR_NOACK */
 
-static int matches_wildcard(char *servername, char *pattern) {
+NOEXPORT int matches_wildcard(char *servername, char *pattern) {
     int diff;
 
     if(!servername || !pattern)
@@ -229,10 +242,14 @@ static int matches_wildcard(char *servername, char *pattern) {
 
 #ifndef OPENSSL_NO_DH
 
-static int init_dh(SERVICE_OPTIONS *section) {
-    DH *dh;
+NOEXPORT int init_dh(SERVICE_OPTIONS *section) {
+    DH *dh=NULL;
 
-    dh=read_dh(section->cert);
+    s_log(LOG_DEBUG, "DH initialization");
+#ifdef HAVE_OSSL_ENGINE_H
+    if(!section->engine) /* cert is a file and not an identifier */
+#endif
+        dh=read_dh(section->cert);
     if(!dh)
         dh=get_dh2048();
     if(!dh) {
@@ -245,7 +262,7 @@ static int init_dh(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 
-static DH *read_dh(char *cert) {
+NOEXPORT DH *read_dh(char *cert) {
     DH *dh;
     BIO *bio;
 
@@ -270,7 +287,7 @@ static DH *read_dh(char *cert) {
     return dh;
 }
 
-static DH *get_dh2048() {
+NOEXPORT DH *get_dh2048() {
     static unsigned char dh2048_p[]={ /* OpenSSL DH parameters */
         0xED,0x92,0x89,0x35,0x82,0x45,0x55,0xCB,0x3B,0xFB,0xA2,0x76,
         0x5A,0x69,0x04,0x61,0xBF,0x21,0xF3,0xAB,0x53,0xD2,0xCD,0x21,
@@ -315,9 +332,10 @@ static DH *get_dh2048() {
 /**************************************** ECDH initialization */
 
 #ifndef OPENSSL_NO_ECDH
-static int init_ecdh(SERVICE_OPTIONS *section) {
+NOEXPORT int init_ecdh(SERVICE_OPTIONS *section) {
     EC_KEY *ecdh;
 
+    s_log(LOG_DEBUG, "ECDH initialization");
     ecdh=EC_KEY_new_by_curve_name(section->curve);
     if(!ecdh) {
         sslerror("EC_KEY_new_by_curve_name");
@@ -337,105 +355,134 @@ static int init_ecdh(SERVICE_OPTIONS *section) {
 
 static int cache_initialized=0;
 
-static int load_certificate(SERVICE_OPTIONS *section) {
-    int i, reason;
-    UI_DATA ui_data;
-#ifdef HAVE_OSSL_ENGINE_H
-    EVP_PKEY *pkey;
-    UI_METHOD *ui_method;
-#endif
-    struct stat st; /* buffer for stat */
-
-    /* check if certificate exists */
-    if(!section->key) /* key file not specified */
-        section->key=section->cert;
-#ifdef HAVE_OSSL_ENGINE_H
-    if(!section->engine)
-#endif
-    if(section->key) {
-        if(stat(section->key, &st)) {
-            ioerror(section->key);
+NOEXPORT int load_cert(SERVICE_OPTIONS *section) {
+    /* load the certificate */
+    if(section->cert) {
+        s_log(LOG_INFO, "Loading cert from file: %s", section->cert);
+        if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
+            sslerror("SSL_CTX_use_certificate_chain_file");
             return 1; /* FAILED */
         }
-#if !defined(USE_WIN32) && !defined(USE_OS2)
-        if(st.st_mode & 7)
-            s_log(LOG_WARNING, "Insecure file permissions on %s",
-                section->key);
-#endif /* defined USE_WIN32 */
     }
 
-    if(!section->cert) /* no certificate specified */
+    /* load the private key */
+    if(!section->key)
+        section->key=section->cert;
+    if(!section->key) {
+        s_log(LOG_DEBUG, "No private key specified");
         return 0; /* OK */
+    }
+#ifdef HAVE_OSSL_ENGINE_H
+    if(section->engine) {
+        if(load_key_engine(section))
+            return 1; /* FAILED */
+    } else
+#endif
+    {
+        if(load_key_file(section))
+            return 1; /* FAILED */
+    }
 
-    ui_data.section=section; /* setup current section for callbacks */
-
-    s_log(LOG_DEBUG, "Certificate: %s", section->cert);
-    if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
-        s_log(LOG_ERR, "Error reading certificate file: %s", section->cert);
-        sslerror("SSL_CTX_use_certificate_chain_file");
+    /* validate the private key */
+    if(!SSL_CTX_check_private_key(section->ctx)) {
+        sslerror("Private key does not match the certificate");
         return 1; /* FAILED */
     }
-    s_log(LOG_DEBUG, "Certificate loaded");
+    s_log(LOG_DEBUG, "Private key check succeeded");
+    return 0; /* OK */
+}
 
-    s_log(LOG_DEBUG, "Key file: %s", section->key);
+NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
+    int i, reason;
+    UI_DATA ui_data;
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+    struct stat st; /* buffer for stat */
+#endif
+
+    s_log(LOG_INFO, "Loading key from file: %s", section->key);
+
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+    /* check permissions of the private key file */
+    if(stat(section->key, &st)) {
+        ioerror("Private key file not found");
+        return 1; /* FAILED */
+    }
+    if(st.st_mode & 7)
+        s_log(LOG_WARNING, "Insecure file permissions on %s",
+            section->key);
+#endif
+
+    ui_data.section=section; /* setup current section for callbacks */
 #if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
     SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
 #endif
+
+    for(i=0; i<=3; i++) {
+        if(!i && !cache_initialized)
+            continue; /* there is no cached value */
+        SSL_CTX_set_default_passwd_cb_userdata(section->ctx,
+            i ? &ui_data : NULL); /* try the cached password first */
+        if(SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
+                SSL_FILETYPE_PEM))
+            break;
+        reason=ERR_GET_REASON(ERR_peek_error());
+        if(i<=2 && reason==EVP_R_BAD_DECRYPT) {
+            sslerror_queue(); /* dump the error queue */
+            s_log(LOG_ERR, "Wrong pass phrase: retrying");
+            continue;
+        }
+        sslerror("SSL_CTX_use_PrivateKey_file");
+        return 1; /* FAILED */
+    }
+    return 0; /* OK */
+}
+
 #ifdef HAVE_OSSL_ENGINE_H
+NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
+    int i, reason;
+    UI_DATA ui_data;
+    EVP_PKEY *pkey;
+    UI_METHOD *ui_method;
+
+    s_log(LOG_INFO, "Loading key from engine: %s", section->key);
+
+    ui_data.section=section; /* setup current section for callbacks */
+#if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
+    SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
+#endif
+
 #ifdef USE_WIN32
     ui_method=UI_create_method("stunnel WIN32 UI");
     UI_method_set_reader(ui_method, pin_cb);
 #else /* USE_WIN32 */
     ui_method=UI_OpenSSL();
+    /* workaround for broken engines */
+    /* ui_data.section=NULL; */
 #endif /* USE_WIN32 */
-    if(section->engine)
-        for(i=1; i<=3; i++) {
-            pkey=ENGINE_load_private_key(section->engine, section->key,
-                ui_method, &ui_data);
-            if(!pkey) {
-                reason=ERR_GET_REASON(ERR_peek_error());
-                if(i<=2 && (reason==7 || reason==160)) { /* wrong PIN */
-                    sslerror_queue(); /* dump the error queue */
-                    s_log(LOG_ERR, "Wrong PIN: retrying");
-                    continue;
-                }
-                sslerror("ENGINE_load_private_key");
-                return 1; /* FAILED */
-            }
-            if(SSL_CTX_use_PrivateKey(section->ctx, pkey))
-                break; /* success */
-            sslerror("SSL_CTX_use_PrivateKey");
-            return 1; /* FAILED */
-        }
-    else
-#endif /* HAVE_OSSL_ENGINE_H */
-        for(i=0; i<=3; i++) {
-            if(!i && !cache_initialized)
-                continue; /* there is no cached value */
-            SSL_CTX_set_default_passwd_cb_userdata(section->ctx,
-                i ? &ui_data : NULL); /* try the cached password first */
-            if(SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
-                    SSL_FILETYPE_PEM))
-                break;
+    for(i=1; i<=3; i++) {
+        pkey=ENGINE_load_private_key(section->engine, section->key,
+            ui_method, &ui_data);
+        if(!pkey) {
             reason=ERR_GET_REASON(ERR_peek_error());
-            if(i<=2 && reason==EVP_R_BAD_DECRYPT) {
+            if(i<=2 && (reason==7 || reason==160)) { /* wrong PIN */
                 sslerror_queue(); /* dump the error queue */
-                s_log(LOG_ERR, "Wrong pass phrase: retrying");
+                s_log(LOG_ERR, "Wrong PIN: retrying");
                 continue;
             }
-            sslerror("SSL_CTX_use_PrivateKey_file");
+            sslerror("ENGINE_load_private_key");
             return 1; /* FAILED */
         }
-    if(!SSL_CTX_check_private_key(section->ctx)) {
-        sslerror("Private key does not match the certificate");
+        if(SSL_CTX_use_PrivateKey(section->ctx, pkey))
+            break; /* success */
+        sslerror("SSL_CTX_use_PrivateKey");
         return 1; /* FAILED */
     }
-    s_log(LOG_DEBUG, "Private key loaded");
     return 0; /* OK */
 }
+#endif /* HAVE_OSSL_ENGINE_H */
 
 #if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
-static int password_cb(char *buf, int size, int rwflag, void *userdata) {
+NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
     static char cache[PEM_BUFSIZE];
     int len;
 
@@ -468,7 +515,7 @@ static int password_cb(char *buf, int size, int rwflag, void *userdata) {
 #define CACHE_RESP_ERR    0x80
 #define CACHE_RESP_OK     0x81
 
-static int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
+NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
     unsigned char *val, *val_tmp;
     int val_len;
 
@@ -482,7 +529,7 @@ static int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
     return 1; /* leave the session in local cache for reuse */
 }
 
-static SSL_SESSION *sess_get_cb(SSL *ssl,
+NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
         unsigned char *key, int key_len, int *do_copy) {
     unsigned char *val, *val_tmp=NULL;
     unsigned int val_len=0;
@@ -503,7 +550,7 @@ static SSL_SESSION *sess_get_cb(SSL *ssl,
     return sess;
 }
 
-static void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
+NOEXPORT void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
     cache_transfer(ctx, CACHE_CMD_REMOVE, 0,
         sess->session_id, sess->session_id_length, NULL, 0, NULL, NULL);
 }
@@ -516,7 +563,7 @@ typedef struct {
     u_char val[MAX_VAL_LEN];
 } CACHE_PACKET;
 
-static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
+NOEXPORT void cache_transfer(SSL_CTX *ctx, const unsigned int type,
         const unsigned int timeout,
         const unsigned char *key, const unsigned int key_len,
         const unsigned char *val, const unsigned int val_len,
@@ -631,7 +678,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
 
 /**************************************** informational callback */
 
-static void info_callback(
+NOEXPORT void info_callback(
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
         const
 #endif
@@ -711,7 +758,7 @@ void sslerror(char *txt) { /* OpenSSL error handler */
     }
 }
 
-static void sslerror_queue(void) { /* recursive dump of the error queue */
+NOEXPORT void sslerror_queue(void) { /* recursive dump of the error queue */
     unsigned long err;
 
     err=ERR_get_error();
@@ -721,7 +768,7 @@ static void sslerror_queue(void) { /* recursive dump of the error queue */
     }
 }
 
-static void sslerror_log(unsigned long err, char *txt) {
+NOEXPORT void sslerror_log(unsigned long err, char *txt) {
     char *error_string;
 
     error_string=str_alloc(120);

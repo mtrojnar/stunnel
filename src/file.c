@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -40,21 +40,35 @@
 
 #ifdef USE_WIN32
 
-DISK_FILE *file_open(char *name, int wr) {
+DISK_FILE *file_open(char *name, FILE_MODE mode) {
     DISK_FILE *df;
     LPTSTR tstr;
     HANDLE fh;
+    DWORD desired_access, creation_disposition;
 
     /* open file */
+    switch(mode) {
+    case FILE_MODE_READ:
+        desired_access=FILE_READ_DATA;
+        creation_disposition=OPEN_EXISTING;
+        break;
+    case FILE_MODE_APPEND:
+        desired_access=FILE_APPEND_DATA;
+        creation_disposition=OPEN_ALWAYS;
+        break;
+    case FILE_MODE_OVERWRITE:
+        desired_access=FILE_WRITE_DATA;
+        creation_disposition=CREATE_ALWAYS;
+        break;
+    default: /* invalid mode */
+        return NULL;
+    }
     tstr=str2tstr(name);
-    fh=CreateFile(tstr, wr ? GENERIC_WRITE : GENERIC_READ,
-        FILE_SHARE_READ, NULL, wr ? OPEN_ALWAYS : OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
+    fh=CreateFile(tstr, desired_access, FILE_SHARE_READ, NULL,
+        creation_disposition, FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
     str_free(tstr); /* str_free() overwrites GetLastError() value */
     if(fh==INVALID_HANDLE_VALUE)
         return NULL;
-    if(wr) /* append */
-        SetFilePointer(fh, 0, NULL, FILE_END);
 
     /* setup df structure */
     df=str_alloc(sizeof df);
@@ -72,15 +86,24 @@ DISK_FILE *file_fdopen(int fd) {
     return df;
 }
 
-DISK_FILE *file_open(char *name, int wr) {
+DISK_FILE *file_open(char *name, FILE_MODE mode) {
     DISK_FILE *df;
     int fd, flags;
 
     /* open file */
-    if(wr)
-        flags=O_CREAT|O_WRONLY|O_APPEND;
-    else
+    switch(mode) {
+    case FILE_MODE_READ:
         flags=O_RDONLY;
+        break;
+    case FILE_MODE_APPEND:
+        flags=O_CREAT|O_WRONLY|O_APPEND;
+        break;
+    case FILE_MODE_OVERWRITE:
+        flags=O_CREAT|O_WRONLY|O_TRUNC;
+        break;
+    default: /* invalid mode */
+        return NULL;
+    }
 #ifdef O_NONBLOCK
     flags|=O_NONBLOCK;
 #elif defined O_NDELAY

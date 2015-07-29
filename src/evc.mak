@@ -92,8 +92,8 @@ OBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj $(OBJ)\verify.obj \
 	$(OBJ)\log.obj $(OBJ)\options.obj $(OBJ)\network.obj \
 	$(OBJ)\resolver.obj $(OBJ)\str.obj $(OBJ)\fd.obj
 
-GUIOBJS=$(OBJ)\gui.obj $(OBJ)\resources.res
-NOGUIOBJS=$(OBJ)\nogui.obj
+GUIOBJS=$(OBJ)\ui_win_gui.obj $(OBJ)\resources.res
+NOGUIOBJS=$(OBJ)\ui_win_cli.obj
 
 {$(SRC)\}.c{$(OBJ)\}.obj:
 	$(CC) $(CFLAGS) -Fo$@ -c $<
@@ -119,7 +119,7 @@ $(BIN)\tstunnel.exe:$(OBJS) $(NOGUIOBJS)
 	link $(LDFLAGS)  /out:$(BIN)\tstunnel.exe $(LIBS) $**
 
 $(OBJ)\resources.res: $(SRC)\resources.rc $(SRC)\resources.h $(SRC)\version.h
-$(OBJ)\gui.obj: $(SRC)\gui.c $(SRC)\version.h
+$(OBJ)\ui_win_gui.obj: $(SRC)\ui_win_gui.c $(SRC)\version.h
 $(OBJ)\stunnel.obj: $(SRC)\stunnel.c $(SRC)\version.h
 
 # now list of openssl dll has more files,

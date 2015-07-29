@@ -65,13 +65,13 @@
 <dt><strong><a name="unix" class="item"><strong>Unix:</strong></a></strong></dt>
 
 <dd>
-<p><strong>stunnel</strong> [&lt;plik&gt;] | -fd&nbsp;n | -help | -version | -sockets</p>
+<p><strong>stunnel</strong> [PLIK] | -fd&nbsp;N | -help | -version | -sockets</p>
 </dd>
 <dt><strong><a name="win32" class="item"><strong>WIN32:</strong></a></strong></dt>
 
 <dd>
 <p><strong>stunnel</strong> [ [-install | -uninstall | -start | -stop ] | -exit]
-    [-quiet] [&lt;plik&gt;] ] | -help | -version | -sockets</p>
+    [-quiet] [PLIK] ] | -help | -version | -sockets</p>
 </dd>
 </dl>
 <p>
@@ -93,12 +93,12 @@ bez zmian w kodzie źródłowym.</p>
 <hr />
 <h1><a name="opcje">OPCJE</a></h1>
 <dl>
-<dt><strong><a name="plik" class="item">&lt;<strong>plik</strong>&gt;</a></strong></dt>
+<dt><strong><a name="plik" class="item"><strong>PLIK</strong></a></strong></dt>
 
 <dd>
 <p>użyj podanego pliku konfiguracyjnego</p>
 </dd>
-<dt><strong><a name="n" class="item"><strong>-fd n</strong> (tylko Unix)</a></strong></dt>
+<dt><strong><a name="n" class="item"><strong>-fd N</strong> (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>wczytaj konfigurację z podanego deskryptora pliku</p>
@@ -185,7 +185,7 @@ odinstalowaniu</p>
 </p>
 <h2><a name="opcje_globalne">OPCJE GLOBALNE</a></h2>
 <dl>
-<dt><strong><a name="katalog" class="item"><strong>chroot</strong> = katalog (tylko Unix)</a></strong></dt>
+<dt><strong><a name="katalog" class="item"><strong>chroot</strong> = KATALOG (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>katalog roboczego korzenia systemu plików</p>
@@ -217,7 +217,7 @@ oraz <em>exec</em> muszą być umieszczone wewnątrz katalogu podanego w opcji
 kompatybilna implementacją <strong>OpenSSL 0.9.7</strong>.</p>
 <p>Kompresja rle nie jest zaimplementowana w aktualnych wersjach <strong>OpenSSL</strong>.</p>
 </dd>
-<dt><strong><a name="debug_poziom_podsystem" class="item"><strong>debug</strong> = poziom[.podsystem]</a></strong></dt>
+<dt><strong><a name="debug_poziom_podsystem" class="item"><strong>debug</strong> = POZIOM[.PODSYSTEM]</a></strong></dt>
 
 <dd>
 <p>szczegółowość logowania</p>
@@ -231,7 +231,7 @@ Do uzyskania najwyższego poziomu szczegółowości można użyć opcji
 Podsystemy nie są wspierane przez platformę Win32.</p>
 <p>Wielkość liter jest ignorowana zarówno dla poziomu jak podsystemu.</p>
 </dd>
-<dt><strong><a name="ka_do_egd" class="item"><strong>EGD</strong> = ścieżka_do_EGD (tylko Unix)</a></strong></dt>
+<dt><strong><a name="ka_do_egd" class="item"><strong>EGD</strong> = ŚCIEŻKA_DO_EGD (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>ścieżka do gniazda programu Entropy Gathering Daemon</p>
@@ -239,7 +239,7 @@ Podsystemy nie są wspierane przez platformę Win32.</p>
 używanego do zainicjalizowania generatora ciągów pseudolosowych biblioteki
 <strong>OpenSSL</strong>.  Opcja jest dostępna z biblioteką <strong>OpenSSL 0.9.5a</strong> lub nowszą.</p>
 </dd>
-<dt><strong><a name="engine_auto_identyfikator_urz_dzenia" class="item"><strong>engine</strong> = auto | &lt;identyfikator urządzenia&gt;</a></strong></dt>
+<dt><strong><a name="engine_auto_identyfikator_urz_dzenia" class="item"><strong>engine</strong> = auto | IDENTYFIKATOR_URZĄDZENIA</a></strong></dt>
 
 <dd>
 <p>wybór sprzętowego urządzenia kryptograficznego</p>
@@ -259,20 +259,30 @@ urządzenia zgodnego z OpenSC:</p>
     engineNum=1
     key=id_45</pre>
 </dd>
-<dt><strong><a name="enginectrl_command_parameter" class="item"><strong>engineCtrl</strong> = &lt;command&gt;[:&lt;parameter&gt;]</a></strong></dt>
+<dt><strong><a name="enginectrl_komenda_parametr" class="item"><strong>engineCtrl</strong> = KOMENDA[:PARAMETR]</a></strong></dt>
 
 <dd>
 <p>konfiguracja urządzenia kryptograficznego</p>
 <p>Specjalne komendy &quot;LOAD&quot; i &quot;INIT&quot; pozwalają na załadowanie i inicjalizację
 modułu kryptograficznego urządzenia.</p>
 </dd>
+<dt><strong><a name="enginedefault_lista_zada" class="item"><strong>engineDefault</strong> = LISTA_ZADAŃ</a></strong></dt>
+
+<dd>
+<p>lista zadań OpenSSL oddelegowanych do bieżącego urządzenia</p>
+<p>Parametrem jest lista oddzielonych przecinkami zadań OpenSSL, które mają
+zostać oddelegowane do bieżącego urządzenia kryptograficznego.</p>
+<p>W zależności od konkretnego urządzenia dostępne mogą być następujące zadania:
+ALL, RSA, DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO,
+PKEY_ASN1.</p>
+</dd>
 <dt><strong><a name="fips_yes_no" class="item"><strong>fips</strong> = yes | no</a></strong></dt>
 
 <dd>
-<p>Włącz lub wyłącz tryb FIPS 140-2.</p>
+<p>tryb FIPS 140-2</p>
 <p>Opcja pozwala wyłączyć wejście w tryb FIPS, jeśli <strong>stunnel</strong> został
 skompilowany ze wsparciem dla FIPS 140-2.</p>
-<p>domyślnie: yes (pracuj w trybie FIPS 140-2)</p>
+<p>domyślnie: no (od wersji 5.00)</p>
 </dd>
 <dt><strong><a name="no" class="item"><strong>foreground</strong> = yes | no (tylko Unix)</a></strong></dt>
 
@@ -282,7 +292,33 @@ skompilowany ze wsparciem dla FIPS 140-2.</p>
 swoje komunikaty na konsolę zamiast przez <em>syslog</em> (o ile nie użyto
 opcji <em>output</em>).</p>
 </dd>
-<dt><strong><a name="output_plik" class="item"><strong>output</strong> = plik</a></strong></dt>
+<dt><strong><a name="iconactive_plik_z_ikonk_tylko_gui" class="item"><strong>iconActive</strong> = PLIK_Z_IKONKĄ (tylko GUI)</a></strong></dt>
+
+<dd>
+<p>ikonka wyświetlana przy obecności aktywnych połączeń do usługi</p>
+<p>W systemie Windows ikonka to plik .ico zawierający obrazek 16x16 pikseli.</p>
+</dd>
+<dt><strong><a name="iconerror_plik_z_ikonk_tylko_gui" class="item"><strong>iconError</strong> = PLIK_Z_IKONKĄ (tylko GUI)</a></strong></dt>
+
+<dd>
+<p>ikonka wyświetlana, jeżeli nie został załadowany poprawny plik konfiguracyjny</p>
+<p>W systemie Windows ikonka to plik .ico zawierający obrazek 16x16 pikseli.</p>
+</dd>
+<dt><strong><a name="iconidle_plik_z_ikonk_tylko_gui" class="item"><strong>iconIdle</strong> = PLIK_Z_IKONKĄ (tylko GUI)</a></strong></dt>
+
+<dd>
+<p>ikonka wyświetlana przy braku aktywnych połączeń do usługi</p>
+<p>W systemie Windows ikonka to plik .ico zawierający obrazek 16x16 pikseli.</p>
+</dd>
+<dt><strong><a name="log_append_overwrite" class="item"><strong>log</strong> = append | overwrite</a></strong></dt>
+
+<dd>
+<p>log file handling</p>
+<p>This option allows to choose whether the log file (specified with the <em>output</em>
+option) is appended or overwritten when opened or re-opened.</p>
+<p>domyślnie: append</p>
+</dd>
+<dt><strong><a name="output_plik" class="item"><strong>output</strong> = PLIK</a></strong></dt>
 
 <dd>
 <p>plik, do którego dopisane zostaną logi</p>
@@ -291,7 +327,7 @@ opcji <em>output</em>).</p>
 zalogować je programem splogger z pakietu daemontools) można podać jako
 parametr urządzenie /dev/stdout.</p>
 </dd>
-<dt><strong><strong>pid</strong> = plik (tylko Unix)</strong></dt>
+<dt><strong><strong>pid</strong> = PLIK (tylko Unix)</strong></dt>
 
 <dd>
 <p>położenie pliku z numerem procesu</p>
@@ -299,7 +335,7 @@ parametr urządzenie /dev/stdout.</p>
 <p>Jeżeli zdefiniowano katalog <em>chroot</em>, to ścieżka do <em>pid</em> jest określona
 względem tego katalogu.</p>
 </dd>
-<dt><strong><a name="rndbytes_liczba_bajt_w" class="item"><strong>RNDbytes</strong> = liczba_bajtów</a></strong></dt>
+<dt><strong><a name="rndbytes_liczba_bajt_w" class="item"><strong>RNDbytes</strong> = LICZBA_BAJTÓW</a></strong></dt>
 
 <dd>
 <p>liczba bajtów do zainicjowania generatora pseudolosowego</p>
@@ -308,7 +344,7 @@ również liczbę bajtów wystarczających do zainicjowania PRNG.
 Nowsze wersje biblioteki mają wbudowaną funkcję określającą, czy
 dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.</p>
 </dd>
-<dt><strong><a name="rndfile_plik" class="item"><strong>RNDfile</strong> = plik</a></strong></dt>
+<dt><strong><a name="rndfile_plik" class="item"><strong>RNDfile</strong> = PLIK</a></strong></dt>
 
 <dd>
 <p>ścieżka do pliku zawierającego losowe dane</p>
@@ -321,23 +357,23 @@ generatora pseudolosowego.</p>
 <p>nadpisz plik nowymi wartościami pseudolosowymi</p>
 <p>domyślnie: yes (nadpisz)</p>
 </dd>
-<dt><strong><a name="nazwa_serwisu" class="item"><strong>service</strong> = nazwa_serwisu (tylko Unix)</a></strong></dt>
+<dt><strong><a name="serwis" class="item"><strong>service</strong> = SERWIS (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>użyj parametru jako nazwy serwisu dla biblioteki TCP Wrapper w trybie <em>inetd</em></p>
 <p>domyślnie: stunnel</p>
 </dd>
-<dt><strong><a name="identyfikator_grupy" class="item"><strong>setgid</strong> = identyfikator_grupy (tylko Unix)</a></strong></dt>
+<dt><strong><a name="identyfikator_grupy" class="item"><strong>setgid</strong> = IDENTYFIKATOR_GRUPY (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>grupa z której prawami pracował będzie <strong>stunnel</strong></p>
 </dd>
-<dt><strong><a name="ytkownika" class="item"><strong>setuid</strong> = identyfikator_użytkownika (tylko Unix)</a></strong></dt>
+<dt><strong><a name="ytkownika" class="item"><strong>setuid</strong> = IDENTYFIKATOR_UŻYTKOWNIKA (tylko Unix)</a></strong></dt>
 
 <dd>
 <p>użytkownik, z którego prawami pracował będzie <strong>stunnel</strong></p>
 </dd>
-<dt><strong><a name="socket_a_l_r_option_value_value" class="item"><strong>socket</strong> = a|l|r:option=value[:value]</a></strong></dt>
+<dt><strong><a name="socket_a_l_r_opcja_warto_warto" class="item"><strong>socket</strong> = a|l|r:OPCJA=WARTOŚĆ[:WARTOŚĆ]</a></strong></dt>
 
 <dd>
 <p>ustaw opcję na akceptującym/lokalnym/zdalnym gnieździe</p>
@@ -383,7 +419,7 @@ usługi w logach.</p>
 połączenia odpowiada osobny program (zwykle <em>inetd</em>, <em>xinetd</em>
 lub <em>tcpserver</em>), należy przeczytać sekcję <em>TRYB INETD</em> poniżej.</p>
 <dl>
-<dt><strong><a name="accept_adres_port" class="item"><strong>accept</strong> = [adres:]port</a></strong></dt>
+<dt><strong><a name="accept_host_port" class="item"><strong>accept</strong> = [HOST:]PORT</a></strong></dt>
 
 <dd>
 <p>nasłuchuje na połączenia na podanym adresie i porcie</p>
@@ -393,7 +429,7 @@ na wszystkich adresach IPv4 lokalnych interfejsów.</p>
 <pre>
     accept = :::port</pre>
 </dd>
-<dt><strong><a name="capath_katalog_ca" class="item"><strong>CApath</strong> = katalog_CA</a></strong></dt>
+<dt><strong><a name="capath_katalog_ca" class="item"><strong>CApath</strong> = KATALOG_CA</a></strong></dt>
 
 <dd>
 <p>katalog Centrum Certyfikacji</p>
@@ -406,14 +442,14 @@ Należy wykonać c_rehash przy zmianie <strong>OpenSSL 0.x.x</strong> na <strong
 <p>Jeżeli zdefiniowano katalog <em>chroot</em>, to ścieżka do <em>CApath</em> jest określona
 względem tego katalogu.</p>
 </dd>
-<dt><strong><a name="cafile_plik_ca" class="item"><strong>CAfile</strong> = plik_CA</a></strong></dt>
+<dt><strong><a name="cafile_plik_ca" class="item"><strong>CAfile</strong> = PLIK_CA</a></strong></dt>
 
 <dd>
 <p>plik Centrum Certyfikacji</p>
 <p>Opcja pozwala określić położenie pliku zawierającego certyfikaty używane
 przez opcję <em>verify</em>.</p>
 </dd>
-<dt><strong><a name="cert_plik_pem" class="item"><strong>cert</strong> = plik_pem</a></strong></dt>
+<dt><strong><a name="cert_plik_pem" class="item"><strong>cert</strong> = PLIK_PEM</a></strong></dt>
 
 <dd>
 <p>plik z łańcuchem certyfikatów</p>
@@ -422,7 +458,7 @@ program <strong>stunnel</strong> do uwierzytelnienia się przed drugą stroną p
 Certyfikat jest konieczny, aby używać programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.</p>
 </dd>
-<dt><strong><a name="ciphers_lista_szyfr_w" class="item"><strong>ciphers</strong> = lista_szyfrów</a></strong></dt>
+<dt><strong><a name="ciphers_lista_szyfr_w" class="item"><strong>ciphers</strong> = LISTA_SZYFRÓW</a></strong></dt>
 
 <dd>
 <p>lista dozwolonych szyfrów SSL</p>
@@ -435,7 +471,7 @@ otwieraniu nowych połączeń SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5</p>
 <p>tryb kliencki (zdalna usługa używa SSL)</p>
 <p>domyślnie: no (tryb serwerowy)</p>
 </dd>
-<dt><strong><a name="connect_adres_port" class="item"><strong>connect</strong> = [adres:]port</a></strong></dt>
+<dt><strong><a name="connect_host_port" class="item"><strong>connect</strong> = [HOST:]PORT</a></strong></dt>
 
 <dd>
 <p>połącz się ze zdalnym serwerem na podany port</p>
@@ -445,7 +481,7 @@ z lokalnym serwerem.</p>
 celem zapewnienia wysokiej niezawodności lub rozłożenia
 ruchu pomiędzy wiele serwerów.</p>
 </dd>
-<dt><strong><a name="crlpath_katalog_crl" class="item"><strong>CRLpath</strong> = katalog_CRL</a></strong></dt>
+<dt><strong><a name="crlpath_katalog_crl" class="item"><strong>CRLpath</strong> = KATALOG_CRL</a></strong></dt>
 
 <dd>
 <p>katalog List Odwołanych Certyfikatów (CRL)</p>
@@ -458,14 +494,14 @@ Należy wykonać c_rehash przy zmianie <strong>OpenSSL 0.x.x</strong> na <strong
 <p>Jeżeli zdefiniowano katalog <em>chroot</em>, to ścieżka do <em>CRLpath</em> jest określona
 względem tego katalogu.</p>
 </dd>
-<dt><strong><a name="crlfile_plik_crl" class="item"><strong>CRLfile</strong> = plik_CRL</a></strong></dt>
+<dt><strong><a name="crlfile_plik_crl" class="item"><strong>CRLfile</strong> = PLIK_CRL</a></strong></dt>
 
 <dd>
 <p>plik List Odwołanych Certyfikatów (CRL)</p>
 <p>Opcja pozwala określić położenie pliku zawierającego listy CRL używane
 przez opcję <em>verify</em>.</p>
 </dd>
-<dt><strong><a name="curve_nid" class="item"><strong>curve</strong> = nid</a></strong></dt>
+<dt><strong><a name="curve_nid" class="item"><strong>curve</strong> = NID</a></strong></dt>
 
 <dd>
 <p>krzywa dla ECDH</p>
@@ -480,14 +516,24 @@ przez opcję <em>verify</em>.</p>
 <p>opóźnij rozwinięcie adresu DNS podanego w opcji <em>connect</em></p>
 <p>Opcja jest przydatna przy dynamicznym DNS, albo gdy usługa DNS nie jest
 dostępna przy starcie programu <strong>stunnel</strong> (klient VPN, połączenie wdzwaniane).</p>
+<p>Opóźnione rozwijanie adresu DNS jest włączane automatycznie, jeżeli nie
+powiedzie się rozwinięcie któregokolwiek z adresów <em>connect</em> dla danej
+usługi.</p>
+<p>Opóźnione rozwijanie adresu automatycznie aktywuje <em>failover = prio</em>.</p>
+<p>default: no</p>
 </dd>
-<dt><strong><a name="enginenum_numer_urz_dzenia" class="item"><strong>engineNum</strong> = &lt;numer urządzenia&gt;</a></strong></dt>
+<dt><strong><a name="engineid_numer_urz_dzenia" class="item"><strong>engineId</strong> = NUMER_URZĄDZENIA</a></strong></dt>
 
 <dd>
-<p>wybierz urządzenie do odczyta klucza prywatnego</p>
+<p>wybierz urządzenie dla usługi</p>
+</dd>
+<dt><strong><a name="enginenum_numer_urz_dzenia" class="item"><strong>engineNum</strong> = NUMER_URZĄDZENIA</a></strong></dt>
+
+<dd>
+<p>wybierz urządzenie dla usługi</p>
 <p>Urządzenia są numerowane od 1 w górę.</p>
 </dd>
-<dt><strong><a name="exec_cie_ka_do_programu" class="item"><strong>exec</strong> = ścieżka_do_programu</a></strong></dt>
+<dt><strong><a name="exec_cie_ka_do_programu" class="item"><strong>exec</strong> = ŚCIEŻKA_DO_PROGRAMU</a></strong></dt>
 
 <dd>
 <p>wykonaj lokalny program przystosowany do pracy z superdemonem inetd</p>
@@ -510,12 +556,12 @@ Argumenty są rozdzielone dowolną liczbą białych znaków.</p>
     prio (priority) - użyj kolejności opcji w pliku konfiguracyjnym</pre>
 <p>domyślnie: rr</p>
 </dd>
-<dt><strong><a name="ident_nazwa_u_ytkownika" class="item"><strong>ident</strong> = nazwa_użytkownika</a></strong></dt>
+<dt><strong><a name="ident_nazwa_u_ytkownika" class="item"><strong>ident</strong> = NAZWA_UŻYTKOWNIKA</a></strong></dt>
 
 <dd>
 <p>weryfikuj nazwę zdalnego użytkownika korzystając z protokołu IDENT (<a href="http://www.ietf.org/rfc/rfc1413.txt" class="rfc">RFC 1413</a>)</p>
 </dd>
-<dt><strong><a name="key_plik_klucza" class="item"><strong>key</strong> = plik_klucza</a></strong></dt>
+<dt><strong><a name="key_plik_klucza" class="item"><strong>key</strong> = PLIK_KLUCZA</a></strong></dt>
 
 <dd>
 <p>klucz prywatny do certyfikatu podanego w opcji <em>cert</em></p>
@@ -531,16 +577,16 @@ komendą:</p>
 
 <dd>
 <p>włącz lub wyłącz korzystanie z /etc/hosts.allow i /etc/hosts.deny.</p>
-<p>domyślnie: yes</p>
+<p>domyślnie: no (od wersji 5.00)</p>
 </dd>
-<dt><strong><a name="local_serwer" class="item"><strong>local</strong> = serwer</a></strong></dt>
+<dt><strong><a name="local_host" class="item"><strong>local</strong> = HOST</a></strong></dt>
 
 <dd>
 <p>IP źródła do nawiązywania zdalnych połączeń</p>
 <p>Domyślnie używane jest IP najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.</p>
 </dd>
-<dt><strong><a name="wzorzec_nazwy_serwera" class="item"><strong>sni</strong> = nazwa_usługi:wzorzec_nazwy_serwera (tryb serwera)</a></strong></dt>
+<dt><strong><a name="wzorzec_nazwy_serwera" class="item"><strong>sni</strong> = USŁUGA:WZORZEC_NAZWY_SERWERA (tryb serwera)</a></strong></dt>
 
 <dd>
 <p>Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia TLS Server
@@ -561,7 +607,7 @@ najpierw dla usługi nadrzędnej po odebraniu połączenia TCP, a następnie dla
 usługi podrzędnej podczas negocjacji TLS.</p>
 <p>Opcja <em>sni</em> jest dostępna począwszy od <strong>OpenSSL 1.0.0</strong>.</p>
 </dd>
-<dt><strong><a name="nazwa_serwera" class="item"><strong>sni</strong> = nazwa_serwera (tryb klienta)</a></strong></dt>
+<dt><strong><a name="host" class="item"><strong>sni</strong> = HOST (tryb klienta)</a></strong></dt>
 
 <dd>
 <p>Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
@@ -573,7 +619,7 @@ usługi podrzędnej podczas negocjacji TLS.</p>
 <dd>
 <p>serwer OCSP do weryfikacji certyfikatów</p>
 </dd>
-<dt><strong><a name="ocspflag_flaga" class="item"><strong>OCSPflag</strong> = flaga</a></strong></dt>
+<dt><strong><a name="ocspflag_flaga_ocsp" class="item"><strong>OCSPflag</strong> = FLAGA_OCSP</a></strong></dt>
 
 <dd>
 <p>flaga serwera OCSP</p>
@@ -581,7 +627,7 @@ usługi podrzędnej podczas negocjacji TLS.</p>
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
 <p>Aby wyspecyfikować kilka flag należy użyć <em>OCSPflag</em> wielokrotnie.</p>
 </dd>
-<dt><strong><a name="options_opcje_ssl" class="item"><strong>options</strong> = opcje_SSL</a></strong></dt>
+<dt><strong><a name="options_opcje_ssl" class="item"><strong>options</strong> = OPCJE_SSL</a></strong></dt>
 
 <dd>
 <p>opcje biblioteki <strong>OpenSSL</strong></p>
@@ -593,7 +639,7 @@ w programie Eudora można użyć opcji:</p>
 <pre>
     options = DONT_INSERT_EMPTY_FRAGMENTS</pre>
 </dd>
-<dt><strong><a name="protocol_protok" class="item"><strong>protocol</strong> = protokół</a></strong></dt>
+<dt><strong><a name="protocol_protok" class="item"><strong>protocol</strong> = PROTOKÓŁ</a></strong></dt>
 
 <dd>
 <p>negocjuj SSL podanym protokołem aplikacyjnym</p>
@@ -647,15 +693,14 @@ Wsparcie dla tego rozrzeczenia zostało zarzucone w wersji 3.0.0 serwera Samba.<
 </dd>
 </dl>
 </dd>
-<dt><strong><a name="protocolauthentication_uwierzytelnienie" class="item"><strong>protocolAuthentication</strong> = uwierzytelnienie</a></strong></dt>
+<dt><strong><a name="protocolauthentication_basic_ntlm" class="item"><strong>protocolAuthentication</strong> = basic | ntlm</a></strong></dt>
 
 <dd>
 <p>rodzaj uwierzytelnienia do negocjacji protokołu</p>
-<p>aktualnie wspierane: basic, NTLM</p>
 <p>Obecnie typ uwierzytelnienia ma zastosowanie wyłącznie w protokole 'connect'.</p>
 <p>domyślnie: basic</p>
 </dd>
-<dt><strong><a name="protocolhost_adres_port" class="item"><strong>protocolHost</strong> = adres:port</a></strong></dt>
+<dt><strong><a name="protocolhost_host_port" class="item"><strong>protocolHost</strong> = HOST:PORT</a></strong></dt>
 
 <dd>
 <p>adres docelowy do negocjacji protokołu</p>
@@ -665,12 +710,12 @@ Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.</p>
 <p>W obecnej wersji adres docelowy protokołu ma zastosowanie wyłącznie w protokole
 'connect'.</p>
 </dd>
-<dt><strong><a name="protocolpassword_has_o" class="item"><strong>protocolPassword</strong> = hasło</a></strong></dt>
+<dt><strong><a name="protocolpassword_has_o" class="item"><strong>protocolPassword</strong> = HASŁO</a></strong></dt>
 
 <dd>
 <p>hasło do negocjacji protokołu</p>
 </dd>
-<dt><strong><a name="protocolusername_u_ytkownik" class="item"><strong>protocolUsername</strong> = użytkownik</a></strong></dt>
+<dt><strong><a name="protocolusername_u_ytkownik" class="item"><strong>protocolUsername</strong> = UŻYTKOWNIK</a></strong></dt>
 
 <dd>
 <p>nazwa użytkownika do negocjacji protokołu</p>
@@ -679,6 +724,13 @@ Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.</p>
 
 <dd>
 <p>alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'</p>
+</dd>
+<dt><strong><a name="redirect_host_port" class="item"><strong>redirect</strong> = [HOST:]PORT</a></strong></dt>
+
+<dd>
+<p>przekieruj klienta, któremu nie udało się poprawnie uwierzytelnić</p>
+<p>Ta opcja działa wyłącznie w trybie serwera, oraz przy wyłączonej negocjacji
+protokołu aplikacyjnego.</p>
 </dd>
 <dt><strong><a name="renegotiation_yes_no" class="item"><strong>renegotiation</strong> = yes | no</a></strong></dt>
 
@@ -706,7 +758,7 @@ przed opisanym problemem.</p>
 <p>połącz ponownie sekcję connect+exec po rozłączeniu</p>
 <p>domyślnie: no</p>
 </dd>
-<dt><strong><a name="sessioncachesize_rozmiar" class="item"><strong>sessionCacheSize</strong> = rozmiar</a></strong></dt>
+<dt><strong><a name="sessioncachesize_liczba_pozycji_cache" class="item"><strong>sessionCacheSize</strong> = LICZBA_POZYCJI_CACHE</a></strong></dt>
 
 <dd>
 <p>rozmiar pamięci podręcznej sesji SSL</p>
@@ -716,45 +768,45 @@ sesji.</p>
 systemów produkcyjnych z uwagi na ryzyko ataku DoS przez wyczerpanie pamięci
 RAM.</p>
 </dd>
-<dt><strong><a name="sessioncachetimeout_czas" class="item"><strong>sessionCacheTimeout</strong> = czas</a></strong></dt>
+<dt><strong><a name="sessioncachetimeout_liczba_sekund" class="item"><strong>sessionCacheTimeout</strong> = LICZBA_SEKUND</a></strong></dt>
 
 <dd>
 <p>przeterminowanie pamięci podręcznej sesji SSL</p>
 <p>Parametr określa czas w sekundach, po którym sesja SSL zostanie usunięta z
 pamięci podręcznej.</p>
 </dd>
-<dt><strong><a name="sessiond_adres_port" class="item"><strong>sessiond</strong> = adres:port</a></strong></dt>
+<dt><strong><a name="sessiond_host_port" class="item"><strong>sessiond</strong> = HOST:PORT</a></strong></dt>
 
 <dd>
 <p>adres sessiond - servera cache sesji SSL</p>
 </dd>
-<dt><strong><a name="sslversion_wersja" class="item"><strong>sslVersion</strong> = wersja</a></strong></dt>
+<dt><strong><a name="sslversion_wersja_ssl" class="item"><strong>sslVersion</strong> = WERSJA_SSL</a></strong></dt>
 
 <dd>
 <p>wersja protokołu SSL</p>
 <p>Dozwolone opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
 </dd>
-<dt><strong><a name="w" class="item"><strong>stack</strong> = liczba_bajtów (z wyjątkiem modelu FORK)</a></strong></dt>
+<dt><strong><a name="w" class="item"><strong>stack</strong> = LICZBA_BAJTÓW (z wyjątkiem modelu FORK)</a></strong></dt>
 
 <dd>
 <p>rozmiar stosu procesora wątku</p>
 </dd>
-<dt><strong><a name="timeoutbusy_liczba_sekund" class="item"><strong>TIMEOUTbusy</strong> = liczba_sekund</a></strong></dt>
+<dt><strong><a name="timeoutbusy_liczba_sekund" class="item"><strong>TIMEOUTbusy</strong> = LICZBA_SEKUND</a></strong></dt>
 
 <dd>
 <p>czas oczekiwania na spodziewane dane</p>
 </dd>
-<dt><strong><a name="timeoutclose_liczba_sekund" class="item"><strong>TIMEOUTclose</strong> = liczba_sekund</a></strong></dt>
+<dt><strong><a name="timeoutclose_liczba_sekund" class="item"><strong>TIMEOUTclose</strong> = LICZBA_SEKUND</a></strong></dt>
 
 <dd>
 <p>czas oczekiwania na close_notify (ustaw na 0, jeżeli klientem jest MSIE)</p>
 </dd>
-<dt><strong><a name="timeoutconnect_liczba_sekund" class="item"><strong>TIMEOUTconnect</strong> = liczba_sekund</a></strong></dt>
+<dt><strong><a name="timeoutconnect_liczba_sekund" class="item"><strong>TIMEOUTconnect</strong> = LICZBA_SEKUND</a></strong></dt>
 
 <dd>
 <p>czas oczekiwania na nawiązanie połączenia</p>
 </dd>
-<dt><strong><a name="timeoutidle_liczba_sekund" class="item"><strong>TIMEOUTidle</strong> = liczba_sekund</a></strong></dt>
+<dt><strong><a name="timeoutidle_liczba_sekund" class="item"><strong>TIMEOUTidle</strong> = LICZBA_SEKUND</a></strong></dt>
 
 <dd>
 <p>maksymalny czas utrzymywania bezczynnego połączenia</p>
@@ -853,7 +905,7 @@ dodatkowe opcje:</p>
 </dd>
 </dl>
 </dd>
-<dt><strong><a name="verify_poziom" class="item"><strong>verify</strong> = poziom</a></strong></dt>
+<dt><strong><a name="verify_poziom" class="item"><strong>verify</strong> = POZIOM</a></strong></dt>
 
 <dd>
 <p>weryfikuj certyfikat drugiej strony połączenia</p>

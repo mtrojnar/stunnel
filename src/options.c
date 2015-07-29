@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -53,43 +53,43 @@
 #define CONFDIR "\\stunnel"
 #endif
 
-#ifdef USE_WIN32
-#define CONFSEPARATOR "\\"
-#else
-#define CONFSEPARATOR "/"
-#endif
-
 #define CONFLINELEN (16*1024)
 
 #ifndef OPENSSL_NO_TLSEXT
-static char *init_sni(SERVICE_OPTIONS *);
+NOEXPORT char *init_sni(SERVICE_OPTIONS *);
 #endif
 
-static int parse_debug_level(char *);
+NOEXPORT int parse_debug_level(char *);
 
-static int parse_ssl_option(char *);
+NOEXPORT int parse_ssl_option(char *);
 
-static int print_socket_options(void);
-static char *print_option(int, OPT_UNION *);
-static int parse_socket_option(char *);
+NOEXPORT int print_socket_options(void);
+NOEXPORT char *print_option(int, OPT_UNION *);
+NOEXPORT int parse_socket_option(char *);
 
 #ifdef HAVE_OSSL_OCSP_H
-static char *parse_ocsp_url(SERVICE_OPTIONS *, char *);
-static unsigned long parse_ocsp_flag(char *);
+NOEXPORT char *parse_ocsp_url(SERVICE_OPTIONS *, char *);
+NOEXPORT unsigned long parse_ocsp_flag(char *);
 #endif /* HAVE_OSSL_OCSP_H */
 
 #ifdef HAVE_OSSL_ENGINE_H
-static char *open_engine(const char *);
-static char *ctrl_engine(const char *, const char *);
-static char *init_engine(void);
-static void close_engine(void);
-static ENGINE *get_engine(int);
+NOEXPORT void engine_reset_list(void);
+NOEXPORT char *engine_auto(void);
+NOEXPORT char *engine_open(const char *);
+NOEXPORT char *engine_ctrl(const char *, const char *);
+NOEXPORT char *engine_default(const char *);
+NOEXPORT char *engine_init(void);
+NOEXPORT void engine_next(void);
+NOEXPORT ENGINE *engine_get_by_id(const char *);
+NOEXPORT ENGINE *engine_get_by_num(const int);
 #endif
 
-static void print_syntax(void);
+NOEXPORT void print_syntax(void);
 #ifndef USE_WIN32
-static char **argalloc(char *);
+NOEXPORT char **argalloc(char *);
 #endif
+
+char *configuration_file;
 
 GLOBAL_OPTIONS global_options;
 SERVICE_OPTIONS service_options;
@@ -110,11 +110,11 @@ static char *option_not_found=
     "Specified option name is not valid here";
 
 static char *stunnel_cipher_list=
-    "ALL:!SSLv2:!aNULL:!EXP:!LOW:-MEDIUM:RC4:+HIGH";
+    "HIGH:MEDIUM:+3DES:+DH:!aNULL:!SSLv2";
 
 /**************************************** global options */
 
-static char *parse_global_option(CMD cmd, char *opt, char *arg) {
+NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     char *tmpstr;
 #ifndef USE_WIN32
     struct group *gr;
@@ -239,16 +239,21 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     }
 
 #ifdef HAVE_OSSL_ENGINE_H
+
     /* engine */
     switch(cmd) {
     case CMD_BEGIN:
+        engine_reset_list();
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "engine"))
             break;
-        return open_engine(arg);
+        if(!strcasecmp(arg, "auto"))
+            return engine_auto();
+        else
+            return engine_open(arg);
     case CMD_END:
-        close_engine();
+        engine_next();
         break;
     case CMD_FREE:
         break;
@@ -270,7 +275,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
         tmpstr=strchr(arg, ':');
         if(tmpstr)
             *tmpstr++='\0';
-        return ctrl_engine(arg, tmpstr);
+        return engine_ctrl(arg, tmpstr);
     case CMD_END:
         break;
     case CMD_FREE:
@@ -282,13 +287,34 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
             "engineCtrl");
         break;
     }
+
+    /* engineDefault */
+    switch(cmd) {
+    case CMD_BEGIN:
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "engineDefault"))
+            break;
+        return engine_default(arg);
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = TASK_LIST",
+            "engineDefault");
+        break;
+    }
+
 #endif
 
     /* fips */
 #ifdef USE_FIPS
     switch(cmd) {
     case CMD_BEGIN:
-        new_global_options.option.fips=1;
+        new_global_options.option.fips=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "fips"))
@@ -342,6 +368,103 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     }
 #endif
 
+#ifdef ICON_IMAGE
+
+    /* iconActive */
+    switch(cmd) {
+    case CMD_BEGIN:
+        new_global_options.icon[ICON_ACTIVE]=load_icon_default(ICON_ACTIVE);
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "iconActive"))
+            break;
+        if(!(new_global_options.icon[ICON_ACTIVE]=load_icon_file(arg)))
+            return "Failed to load the specified icon";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = icon when connections are established", "iconActive");
+        break;
+    }
+
+    /* iconError */
+    switch(cmd) {
+    case CMD_BEGIN:
+        new_global_options.icon[ICON_ERROR]=load_icon_default(ICON_ERROR);
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "iconError"))
+            break;
+        if(!(new_global_options.icon[ICON_ERROR]=load_icon_file(arg)))
+            return "Failed to load the specified icon";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = icon for invalid configuration file", "iconError");
+        break;
+    }
+
+    /* iconIdle */
+    switch(cmd) {
+    case CMD_BEGIN:
+        new_global_options.icon[ICON_IDLE]=load_icon_default(ICON_IDLE);
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "iconIdle"))
+            break;
+        if(!(new_global_options.icon[ICON_IDLE]=load_icon_file(arg)))
+            return "Failed to load the specified icon";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = icon when no connections were established", "iconIdle");
+        break;
+    }
+
+#endif /* ICON_IMAGE */
+
+    /* log */
+    switch(cmd) {
+    case CMD_BEGIN:
+        new_global_options.log_file_mode=FILE_MODE_APPEND;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "log"))
+            break;
+        if(!strcasecmp(arg, "append"))
+            new_global_options.log_file_mode=FILE_MODE_APPEND;
+        else if(!strcasecmp(arg, "overwrite"))
+            new_global_options.log_file_mode=FILE_MODE_OVERWRITE;
+        else
+            return "Argument should be either 'append' or 'overwrite'";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = append|overwrite log file",
+            "log");
+        break;
+    }
+
     /* output */
     switch(cmd) {
     case CMD_BEGIN:
@@ -367,7 +490,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
 #ifndef USE_WIN32
     switch(cmd) {
     case CMD_BEGIN:
-        new_global_options.pidfile=PIDFILE;
+        new_global_options.pidfile=NULL; /* do not create a pid file */
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "pid"))
@@ -382,10 +505,9 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
-        s_log(LOG_NOTICE, "%-22s = %s", "pid", PIDFILE);
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = pid file (empty to disable creating)", "pid");
+        s_log(LOG_NOTICE, "%-22s = pid file", "pid");
         break;
     }
 #endif
@@ -679,7 +801,7 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
 /**************************************** service-level options */
 
-static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
+NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         char *opt, char *arg) {
     char *tmpstr;
     int tmpnum, endpoints=0;
@@ -795,7 +917,10 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         if(!section->option.client && !section->cert)
-            return "SSL server needs a certificate";
+#ifdef HAVE_OSSL_ENGINE_H
+            if(!section->engine)
+#endif
+                return "SSL server needs a certificate";
         break;
     case CMD_FREE:
         break;
@@ -895,7 +1020,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = [host:]port connect remote host:port",
+        s_log(LOG_NOTICE, "%-22s = [host:]port to connect",
             "connect");
         break;
     }
@@ -1005,6 +1130,30 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     }
 
 #ifdef HAVE_OSSL_ENGINE_H
+
+    /* engineId */
+    switch(cmd) {
+    case CMD_BEGIN:
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "engineId"))
+            break;
+        section->engine=engine_get_by_id(arg);
+        if(!section->engine)
+            return "Engine ID not found";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = ID of engine to read the key from",
+            "engineId");
+        break;
+    }
+
     /* engineNum */
     switch(cmd) {
     case CMD_BEGIN:
@@ -1015,7 +1164,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         tmpnum=strtol(arg, &tmpstr, 10);
         if(tmpstr==arg || *tmpstr) /* not a number */
             return "Illegal engine number";
-        section->engine=get_engine(tmpnum);
+        section->engine=engine_get_by_num(tmpnum-1);
         if(!section->engine)
             return "Illegal engine number";
         return NULL; /* OK */
@@ -1030,6 +1179,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             "engineNum");
         break;
     }
+
 #endif
 
     /* exec */
@@ -1165,7 +1315,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #ifdef USE_LIBWRAP
     switch(cmd) {
     case CMD_BEGIN:
-        section->option.libwrap=1; /* enable libwrap by default */
+        section->option.libwrap=0; /* disable libwrap by default */
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "libwrap"))
@@ -1435,6 +1585,38 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     }
 #endif
 
+    /* redirect */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->redirect_list=NULL;
+        section->redirect_addr.num=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "redirect"))
+            break;
+        tmplist=str_alloc(sizeof(NAME_LIST));
+        tmplist->name=str_dup(arg);
+        tmplist->next=section->redirect_list;
+        section->redirect_list=tmplist;
+        return NULL; /* OK */
+    case CMD_END:
+        if(section->redirect_list &&
+                !namelist2addrlist(&section->redirect_addr,
+                    section->redirect_list, DEFAULT_LOOPBACK)) {
+            s_log(LOG_INFO,
+                "Cannot resolve redirect target - delaying DNS lookup");
+        }
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = [host:]port to redirect on authentication failures",
+            "redirect");
+        break;
+    }
+
     /* renegotiation */
     switch(cmd) {
     case CMD_BEGIN:
@@ -1679,12 +1861,19 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
 #ifdef USE_FIPS
-        if(new_global_options.option.fips &&
-                ((section->option.client &&
-                    section->client_method!=(SSL_METHOD *)TLSv1_client_method()) ||
-                (!section->option.client &&
-                    section->server_method!=(SSL_METHOD *)TLSv1_server_method())))
-            return "'sslVersion = TLSv1' is required in FIPS mode";
+        if(new_global_options.option.fips) {
+            if(section->option.client) {
+                if(section->client_method!=(SSL_METHOD *)TLSv1_client_method() &&
+                        section->client_method!=(SSL_METHOD *)TLSv1_1_client_method() &&
+                        section->client_method!=(SSL_METHOD *)TLSv1_2_client_method())
+                    return "FIPS mode requires sslVersion to be TLSv1 or later";
+            } else {
+                if(section->server_method!=(SSL_METHOD *)TLSv1_server_method() &&
+                        section->server_method!=(SSL_METHOD *)TLSv1_1_server_method() &&
+                        section->server_method!=(SSL_METHOD *)TLSv1_2_server_method())
+                    return "FIPS mode requires sslVersion to be TLSv1 or later";
+            }
+        }
 #endif /* USE_FIPS */
         break;
     case CMD_FREE:
@@ -1938,33 +2127,37 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 /**************************************** parse commandline parameters */
 
 int parse_commandline(char *name, char *parameter) {
-    if(!name)
-#ifdef CONFDIR
-        name=CONFDIR CONFSEPARATOR "stunnel.conf";
-#else
-        name="stunnel.conf";
-#endif
+    CONF_TYPE type=CONF_FILE;
 
-    if(!strcasecmp(name, "-help")) {
+#ifdef USE_WIN32
+    (void)parameter; /* skip warning about unused parameter */
+#endif
+    if(!name) {
+        configuration_file=
+#ifdef CONFDIR
+            CONFDIR
+#ifdef USE_WIN32
+            "\\"
+#else
+            "/"
+#endif
+#endif
+            "stunnel.conf";
+    } else if(!strcasecmp(name, "-help")) {
         parse_global_option(CMD_HELP, NULL, NULL);
         parse_service_option(CMD_HELP, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
         return 1;
-    }
-
-    if(!strcasecmp(name, "-version")) {
+    } else if(!strcasecmp(name, "-version")) {
         parse_global_option(CMD_DEFAULT, NULL, NULL);
         parse_service_option(CMD_DEFAULT, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
         return 1;
-    }
-
-    if(!strcasecmp(name, "-sockets")) {
+    } else if(!strcasecmp(name, "-sockets")) {
         print_socket_options();
         log_flush(LOG_MODE_INFO);
         return 1;
-    }
-
+    } else
 #ifndef USE_WIN32
     if(!strcasecmp(name, "-fd")) {
         if(!parameter) {
@@ -1972,41 +2165,51 @@ int parse_commandline(char *name, char *parameter) {
             print_syntax();
             return 1;
         }
-        if(parse_conf(parameter, CONF_FD))
-            return 1;
+        configuration_file=parameter;
+        type=CONF_FD;
     } else
-#else
-    (void)parameter; /* skip warning about unused parameter */
 #endif
-        if(parse_conf(name, CONF_FILE))
-            return 1;
+        configuration_file=name;
+    configuration_file=str_dup(configuration_file);
+    str_detach(configuration_file); /* do not track this allocation */
+
+    if(parse_conf(type))
+        return 1;
     apply_conf();
     return 0;
 }
 
 /**************************************** parse configuration file */
 
-int parse_conf(char *name, CONF_TYPE type) {
+int parse_conf(CONF_TYPE type) {
     DISK_FILE *df;
     char line_text[CONFLINELEN], *errstr;
     char config_line[CONFLINELEN], *config_opt, *config_arg;
     int line_number, i;
     SERVICE_OPTIONS *section, *new_section;
-    static char *filename=NULL; /* a copy of config file name for reloading */
 #ifndef USE_WIN32
     int fd;
     char *tmpstr;
 #endif
 
-    if(name) /* not reload */
-        filename=str_dup(name);
+    /* initialize globals *before* opening the config file */
+    memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
+    memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS)); /* reset local options */
+    new_service_options.next=NULL;
+    section=&new_service_options;
+    parse_global_option(CMD_BEGIN, NULL, NULL);
+    parse_service_option(CMD_BEGIN, section, NULL, NULL);
+    if(type!=CONF_RELOAD) { /* provide defaults for ui module */
+        memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
+        memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
+    }
 
     s_log(LOG_NOTICE, "Reading configuration from %s %s",
-        type==CONF_FD ? "descriptor" : "file", filename);
+        type==CONF_FD ? "descriptor" : "file", configuration_file);
 #ifndef USE_WIN32
     if(type==CONF_FD) { /* file descriptor */
-        fd=strtol(filename, &tmpstr, 10);
-        if(tmpstr==filename || *tmpstr) { /* not a number */
+        fd=strtol(configuration_file, &tmpstr, 10);
+        if(tmpstr==configuration_file || *tmpstr) { /* not a number */
             s_log(LOG_ERR, "Invalid file descriptor number");
             print_syntax();
             return 1;
@@ -2014,23 +2217,12 @@ int parse_conf(char *name, CONF_TYPE type) {
         df=file_fdopen(fd);
     } else
 #endif
-        df=file_open(filename, 0);
+        df=file_open(configuration_file, FILE_MODE_READ);
     if(!df) {
-        s_log(LOG_ERR, "Cannot read configuration");
+        s_log(LOG_ERR, "Cannot open configuration file");
         if(type!=CONF_RELOAD)
             print_syntax();
         return 1;
-    }
-
-    memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
-    memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS)); /* reset local options */
-    new_service_options.next=NULL;
-    section=&new_service_options;
-    parse_global_option(CMD_BEGIN, NULL, NULL);
-    parse_service_option(CMD_BEGIN, section, NULL, NULL);
-    if(type!=CONF_RELOAD) { /* provide defaults for gui.c */
-        memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
-        memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
     }
 
     line_number=0;
@@ -2117,15 +2309,13 @@ void apply_conf() { /* can be used once the configuration was validated */
     memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
     /* service_options are used for inetd mode and to enumerate services */
     memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
-#ifdef USE_WIN32
-    win_new_config();
-#endif
+    ui_new_config();
 }
 
 /**************************************** validate and initialize configuration */
 
 #ifndef OPENSSL_NO_TLSEXT
-static char *init_sni(SERVICE_OPTIONS *section) {
+NOEXPORT char *init_sni(SERVICE_OPTIONS *section) {
     char *tmpstr;
     SERVICE_OPTIONS *tmpsrv;
 
@@ -2188,7 +2378,7 @@ typedef struct {
     int value;
 } facilitylevel;
 
-static int parse_debug_level(char *arg) {
+NOEXPORT int parse_debug_level(char *arg) {
     char *arg_copy;
     char *string;
     facilitylevel *fl;
@@ -2265,7 +2455,7 @@ static int parse_debug_level(char *arg) {
 
 /**************************************** SSL options */
 
-static int parse_ssl_option(char *arg) {
+NOEXPORT int parse_ssl_option(char *arg) {
     struct {
         char *name;
         long value;
@@ -2405,7 +2595,7 @@ SOCK_OPT sock_opts[] = {
     {NULL,              0,           0,               TYPE_NONE,    {NULL, NULL, NULL}}
 };
 
-static int print_socket_options(void) {
+NOEXPORT int print_socket_options(void) {
     int fd;
     socklen_t optlen;
     SOCK_OPT *ptr;
@@ -2447,7 +2637,7 @@ static int print_socket_options(void) {
     return 0; /* OK */
 }
 
-static char *print_option(int type, OPT_UNION *val) {
+NOEXPORT char *print_option(int type, OPT_UNION *val) {
     if(!val)
         return str_dup("    --    ");
     switch(type) {
@@ -2467,7 +2657,7 @@ static char *print_option(int type, OPT_UNION *val) {
     return str_dup("  Ooops?  "); /* internal error? */
 }
 
-static int parse_socket_option(char *arg) {
+NOEXPORT int parse_socket_option(char *arg) {
     int socket_type; /* 0-accept, 1-local, 2-remote */
     char *opt_val_str, *opt_val2_str, *tmpstr;
     SOCK_OPT *ptr;
@@ -2559,7 +2749,7 @@ static int parse_socket_option(char *arg) {
 
 #ifdef HAVE_OSSL_OCSP_H
 
-static char *parse_ocsp_url(SERVICE_OPTIONS *section, char *arg) {
+NOEXPORT char *parse_ocsp_url(SERVICE_OPTIONS *section, char *arg) {
     char *host, *port, *path;
     int ssl;
 
@@ -2580,7 +2770,7 @@ static char *parse_ocsp_url(SERVICE_OPTIONS *section, char *arg) {
     return NULL; /* OK! */
 }
 
-static unsigned long parse_ocsp_flag(char *arg) {
+NOEXPORT unsigned long parse_ocsp_flag(char *arg) {
     struct {
         char *name;
         unsigned long value;
@@ -2613,19 +2803,38 @@ static unsigned long parse_ocsp_flag(char *arg) {
 #ifdef HAVE_OSSL_ENGINE_H
 
 #define MAX_ENGINES 256
-static ENGINE *engines[MAX_ENGINES]; /* table of engines */
-static int current_engine=0;
+static ENGINE *engines[MAX_ENGINES]; /* table of engines for config parser */
+static int current_engine;
 static int engine_initialized;
 
-static char *open_engine(const char *name) {
-    s_log(LOG_DEBUG, "Enabling support for engine '%s'", name);
-    if(!strcasecmp(name, "auto")) {
-        ENGINE_register_all_complete();
-        s_log(LOG_DEBUG, "Auto engine support enabled");
-        return NULL; /* OK */
-    }
+NOEXPORT void engine_reset_list(void) {
+    current_engine=-1;
+}
 
-    close_engine(); /* close the previous one (if specified) */
+NOEXPORT char *engine_auto(void) {
+    ENGINE *e;
+
+    s_log(LOG_DEBUG, "Enabling automatic engine support");
+    ENGINE_register_all_complete();
+    current_engine=-1;
+    /* rebuild the internal list of engines */
+    for(e=ENGINE_get_first(); e; e=ENGINE_get_next(e)) {
+        if(++current_engine>=MAX_ENGINES)
+            return "Too many open engines";
+        engines[current_engine]=e;
+        s_log(LOG_INFO, "Engine #%d (%s) registered",
+            current_engine+1, ENGINE_get_id(e));
+    }
+    engine_initialized=1;
+    s_log(LOG_DEBUG, "Automatic engine support enabled");
+    return NULL; /* OK */
+}
+
+NOEXPORT char *engine_open(const char *name) {
+    engine_next();
+    if(current_engine>=MAX_ENGINES)
+        return "Too many open engines";
+    s_log(LOG_DEBUG, "Enabling support for engine '%s'", name);
     engines[current_engine]=ENGINE_by_id(name);
     engine_initialized=0;
     if(!engines[current_engine]) {
@@ -2635,10 +2844,11 @@ static char *open_engine(const char *name) {
     return NULL; /* OK */
 }
 
-static char *ctrl_engine(const char *cmd, const char *arg) {
-    if(!strcasecmp(cmd, "INIT")) { /* special control command */
-        return init_engine();
-    }
+NOEXPORT char *engine_ctrl(const char *cmd, const char *arg) {
+    if(current_engine<0)
+        return "No engine was defined";
+    if(!strcasecmp(cmd, "INIT")) /* special control command */
+        return engine_init();
     if(arg)
         s_log(LOG_DEBUG, "Executing engine control command %s:%s", cmd, arg);
     else
@@ -2650,50 +2860,73 @@ static char *ctrl_engine(const char *cmd, const char *arg) {
     return NULL; /* OK */
 }
 
-static char *init_engine(void) {
+NOEXPORT char *engine_default(const char *list) {
+    if(current_engine<0)
+        return "No engine was defined";
+    if(!ENGINE_set_default_string(engines[current_engine], list)) {
+        sslerror("ENGINE_set_default_string");
+        return "Failed to set engine as default";
+    }
+    s_log(LOG_INFO, "Engine #%d (%s) set as default for %s",
+        current_engine+1, ENGINE_get_id(engines[current_engine]), list);
+    return NULL;
+}
+
+NOEXPORT char *engine_init(void) {
+    if(current_engine<0)
+        return "No engine was defined";
     if(engine_initialized)
         return NULL; /* OK */
-    engine_initialized=1;
-    s_log(LOG_DEBUG, "Initializing engine %d", current_engine+1);
+    s_log(LOG_DEBUG, "Initializing engine #%d (%s)",
+        current_engine+1, ENGINE_get_id(engines[current_engine]));
     if(!ENGINE_init(engines[current_engine])) {
         if(ERR_peek_last_error()) /* really an error */
             sslerror("ENGINE_init");
         else
-            s_log(LOG_ERR, "Engine %d not initialized", current_engine+1);
+            s_log(LOG_ERR, "Engine #%d (%s) not initialized",
+                current_engine+1, ENGINE_get_id(engines[current_engine]));
         return "Engine initialization failed";
     }
+#if 0
+    /* it is a bad idea to set the engine as default for all sections */
+    /* the "engine=auto" or "engineDefault" options should be used instead */
     if(!ENGINE_set_default(engines[current_engine], ENGINE_METHOD_ALL)) {
         sslerror("ENGINE_set_default");
         return "Selecting default engine failed";
     }
-    s_log(LOG_DEBUG, "Engine %d initialized", current_engine+1);
+#endif
+    s_log(LOG_INFO, "Engine #%d (%s) initialized",
+        current_engine+1, ENGINE_get_id(engines[current_engine]));
+    engine_initialized=1;
     return NULL; /* OK */
 }
 
-static void close_engine(void) {
-    if(!engines[current_engine])
-        return; /* no engine was opened -> nothing to do */
-    init_engine();
+NOEXPORT void engine_next(void) {
+    if(current_engine>=0)
+        engine_init();
     ++current_engine;
-#if 0
-    ENGINE_finish(e);
-    ENGINE_free(e);
-    e=NULL;
-    s_log(LOG_DEBUG, "Engine closed");
-#endif
 }
 
-static ENGINE *get_engine(int i) {
-    if(i<1 || i>current_engine)
+NOEXPORT ENGINE *engine_get_by_id(const char *id) {
+    int i;
+
+    for(i=0; i<current_engine; ++i)
+        if(!strcmp(id, ENGINE_get_id(engines[i])))
+            return engines[i];
+    return NULL;
+}
+
+NOEXPORT ENGINE *engine_get_by_num(const int i) {
+    if(i<0 || i>=current_engine)
         return NULL;
-    return engines[i-1];
+    return engines[i];
 }
 
 #endif /* HAVE_OSSL_ENGINE_H */
 
 /**************************************** fatal error */
 
-static void print_syntax(void) {
+NOEXPORT void print_syntax(void) {
     s_log(LOG_NOTICE, " ");
     s_log(LOG_NOTICE, "Syntax:");
     s_log(LOG_NOTICE, "stunnel "
@@ -2727,7 +2960,7 @@ static void print_syntax(void) {
 
 #ifndef USE_WIN32
 
-static char **argalloc(char *str) { /* allocate 'exec' argumets */
+NOEXPORT char **argalloc(char *str) { /* allocate 'exec' argumets */
     int max_arg, i;
     char *ptr, **retval;
 

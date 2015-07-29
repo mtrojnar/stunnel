@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -42,15 +42,15 @@
 
 #include <tcpd.h>
 
-static int check(char *, int);
+NOEXPORT int check(char *, int);
 
 int allow_severity=LOG_NOTICE, deny_severity=LOG_WARNING;
 
 #ifdef USE_PTHREAD
 #define SERVNAME_LEN 256
 
-static ssize_t read_fd(int, void *, size_t, int *);
-static ssize_t write_fd(int, void *, size_t, int);
+NOEXPORT ssize_t read_fd(int, void *, size_t, int *);
+NOEXPORT ssize_t write_fd(int, void *, size_t, int);
 
 int num_processes=0;
 static int *ipc_socket, *busy;
@@ -156,7 +156,7 @@ void libwrap_auth(CLI *c, char *accepted_address) {
         s_log(LOG_DEBUG, "Acquired libwrap process #%d", my_process);
         write_fd(ipc_socket[2*my_process], c->opt->servname,
             strlen(c->opt->servname)+1, c->local_rfd.fd);
-        read_blocking(c, ipc_socket[2*my_process],
+        s_read(c, ipc_socket[2*my_process],
             (u8 *)&result, sizeof result);
         s_log(LOG_DEBUG, "Releasing libwrap process #%d", my_process);
 
@@ -199,7 +199,7 @@ void libwrap_auth(CLI *c, char *accepted_address) {
         c->opt->servname, accepted_address);
 }
 
-static int check(char *name, int fd) {
+NOEXPORT int check(char *name, int fd) {
     struct request_info request;
 
     request_init(&request, RQ_DAEMON, name, RQ_FILE, fd, 0);
@@ -209,7 +209,7 @@ static int check(char *name, int fd) {
 
 #ifdef USE_PTHREAD
 
-static ssize_t read_fd(int fd, void *ptr, size_t nbytes, int *recvfd) {
+NOEXPORT ssize_t read_fd(int fd, void *ptr, size_t nbytes, int *recvfd) {
     struct msghdr msg;
     struct iovec iov[1];
     ssize_t n;
@@ -264,7 +264,7 @@ static ssize_t read_fd(int fd, void *ptr, size_t nbytes, int *recvfd) {
     return n;
 }
 
-static ssize_t write_fd(int fd, void *ptr, size_t nbytes, int sendfd) {
+NOEXPORT ssize_t write_fd(int fd, void *ptr, size_t nbytes, int sendfd) {
     struct msghdr msg;
     struct iovec iov[1];
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -48,25 +48,23 @@
 #define SHUT_RDWR 2
 #endif
 
-static void client_try(CLI *);
-static void client_run(CLI *);
-static void init_local(CLI *);
-static void init_remote(CLI *);
-static void init_ssl(CLI *);
-#ifdef USE_WIN32
-static void new_chain(CLI *);
-#endif
-static void transfer(CLI *);
-static int parse_socket_error(CLI *, const char *);
+NOEXPORT void client_try(CLI *);
+NOEXPORT void client_run(CLI *);
+NOEXPORT void init_local(CLI *);
+NOEXPORT void init_remote(CLI *);
+NOEXPORT void init_ssl(CLI *);
+NOEXPORT void new_chain(CLI *);
+NOEXPORT void transfer(CLI *);
+NOEXPORT int parse_socket_error(CLI *, const char *);
 
-static void print_cipher(CLI *);
-static void auth_user(CLI *, char *);
-static int connect_local(CLI *);
-static int connect_remote(CLI *);
-static SOCKADDR_LIST *dynamic_remote_addr(CLI *);
-static void local_bind(CLI *c);
-static void print_bound_address(CLI *);
-static void reset(int, char *);
+NOEXPORT void print_cipher(CLI *);
+NOEXPORT void auth_user(CLI *, char *);
+NOEXPORT int connect_local(CLI *);
+NOEXPORT int connect_remote(CLI *);
+NOEXPORT void setup_connect_addr(CLI *);
+NOEXPORT void local_bind(CLI *c);
+NOEXPORT void print_bound_address(CLI *);
+NOEXPORT void reset(int, char *);
 
 /* allocate local data structure for the new thread */
 CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
@@ -90,7 +88,7 @@ void *client_thread(void *arg) {
 #ifdef DEBUG_STACK_SIZE
     stack_info(0); /* display computed value */
 #endif
-    str_stats();
+    str_stats(); /* client thread allocation tracking */
     str_cleanup();
     /* s_log() is not allowed after str_cleanup() */
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
@@ -119,7 +117,7 @@ void client_main(CLI *c) {
             if(!c->opt->option.retry)
                 break;
             sleep(1); /* FIXME: not a good idea in ucontext threading */
-            str_stats();
+            str_stats(); /* client thread allocation tracking */
             if(service_options.next) /* don't str_cleanup in inetd mode */
                 str_cleanup();
         }
@@ -128,12 +126,15 @@ void client_main(CLI *c) {
     str_free(c);
 }
 
-static void client_run(CLI *c) {
+NOEXPORT void client_run(CLI *c) {
     int err, rst;
+#ifndef USE_FORK
+    int num_clients_copy;
+#endif
 
 #ifndef USE_FORK
-    enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
-    ++num_clients;
+    enter_critical_section(CRIT_CLIENTS);
+    ui_clients(++num_clients);
     leave_critical_section(CRIT_CLIENTS);
 #endif
 
@@ -198,10 +199,12 @@ static void client_run(CLI *c) {
         child_status(); /* null SIGCHLD handler was used */
     s_log(LOG_DEBUG, "Service [%s] finished", c->opt->servname);
 #else
-    enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
-    s_log(LOG_DEBUG, "Service [%s] finished (%d left)",
-        c->opt->servname, --num_clients);
+    enter_critical_section(CRIT_CLIENTS);
+    ui_clients(--num_clients);
+    num_clients_copy=num_clients; /* to move s_log() away from CRIT_CLIENTS */
     leave_critical_section(CRIT_CLIENTS);
+    s_log(LOG_DEBUG, "Service [%s] finished (%d left)",
+        c->opt->servname, num_clients_copy);
 #endif
 
         /* free remaining memory structures */
@@ -211,7 +214,7 @@ static void client_run(CLI *c) {
     c->fds=NULL;
 }
 
-static void client_try(CLI *c) {
+NOEXPORT void client_try(CLI *c) {
     init_local(c);
     if(!c->opt->option.client && c->opt->protocol<0) {
         /* server mode and no protocol negotiation needed */
@@ -227,7 +230,7 @@ static void client_try(CLI *c) {
     transfer(c);
 }
 
-static void init_local(CLI *c) {
+NOEXPORT void init_local(CLI *c) {
     SOCKADDR_UNION addr;
     socklen_t addr_len;
     char *accepted_address;
@@ -291,7 +294,7 @@ static void init_local(CLI *c) {
     str_free(accepted_address);
 }
 
-static void init_remote(CLI *c) {
+NOEXPORT void init_remote(CLI *c) {
     /* where to bind connecting socket */
     if(c->opt->option.local) /* outgoing interface */
         c->bind_addr=&c->opt->source_addr;
@@ -323,7 +326,7 @@ static void init_remote(CLI *c) {
         s_log(LOG_WARNING, "Failed to set remote socket options");
 }
 
-static void init_ssl(CLI *c) {
+NOEXPORT void init_ssl(CLI *c) {
     int i, err;
     SSL_SESSION *old_session;
     int unsafe_openssl;
@@ -436,9 +439,7 @@ static void init_ssl(CLI *c) {
         s_log(LOG_INFO, "SSL %s: previous session reused",
             c->opt->option.client ? "connected" : "accepted");
     } else { /* a new session was negotiated */
-#ifdef USE_WIN32
         new_chain(c);
-#endif
         if(c->opt->option.client) {
             s_log(LOG_INFO, "SSL connected: new session negotiated");
             enter_critical_section(CRIT_SESSION);
@@ -453,8 +454,7 @@ static void init_ssl(CLI *c) {
     }
 }
 
-#ifdef USE_WIN32
-static void new_chain(CLI *c) {
+NOEXPORT void new_chain(CLI *c) {
     BIO *bio;
     int i, len;
     X509 *peer=NULL;
@@ -496,13 +496,12 @@ static void new_chain(CLI *c) {
     BIO_free(bio);
     str_detach(chain); /* to prevent automatic deallocation of cached value */
     c->opt->chain=chain; /* this race condition is safe to ignore */
-    win_new_chain(c->opt->section_number);
+    ui_new_chain(c->opt->section_number);
     s_log(LOG_DEBUG, "Peer certificate was cached (%d bytes)", len);
 }
-#endif
 
 /****************************** transfer data */
-static void transfer(CLI *c) {
+NOEXPORT void transfer(CLI *c) {
     int watchdog=0; /* a counter to detect an infinite loop */
     int num, err;
     /* logical channels (not file descriptors!) open for read or write */
@@ -891,7 +890,7 @@ static void transfer(CLI *c) {
 }
 
     /* returns 0 on close and 1 on non-critical errors */
-static int parse_socket_error(CLI *c, const char *text) {
+NOEXPORT int parse_socket_error(CLI *c, const char *text) {
     switch(get_last_socket_error()) {
         /* http://tangentsoft.net/wskfaq/articles/bsd-compatibility.html */
     case 0: /* close on read, or close on write on WIN32 */
@@ -920,7 +919,7 @@ static int parse_socket_error(CLI *c, const char *text) {
     }
 }
 
-static void print_cipher(CLI *c) { /* print negotiated cipher */
+NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
     SSL_CIPHER *cipher;
 #if !defined(OPENSSL_NO_COMP) && OPENSSL_VERSION_NUMBER>=0x0090800fL
     const COMP_METHOD *compression, *expansion;
@@ -942,7 +941,7 @@ static void print_cipher(CLI *c) { /* print negotiated cipher */
 #endif
 }
 
-static void auth_user(CLI *c, char *accepted_address) {
+NOEXPORT void auth_user(CLI *c, char *accepted_address) {
 #ifndef _WIN32_WCE
     struct servent *s_ent;    /* structure for getservbyname */
 #endif
@@ -972,7 +971,7 @@ static void auth_user(CLI *c, char *accepted_address) {
         s_log(LOG_WARNING, "Unknown service 'auth': using default 113");
         ident.in.sin_port=htons(113);
     }
-    if(connect_blocking(c, &ident, addr_len(&ident)))
+    if(s_connect(c, &ident, addr_len(&ident)))
         longjmp(c->err, 1);
     s_log(LOG_DEBUG, "IDENT server connected");
     fd_printf(c, c->fd, "%u , %u",
@@ -1022,7 +1021,7 @@ static void auth_user(CLI *c, char *accepted_address) {
 
 #if defined(_WIN32_WCE) || defined(__vms)
 
-static int connect_local(CLI *c) { /* spawn local process */
+NOEXPORT int connect_local(CLI *c) { /* spawn local process */
     s_log(LOG_ERR, "Local mode is not supported on this platform");
     longjmp(c->err, 1);
     return -1; /* some C compilers require a return value */
@@ -1030,7 +1029,7 @@ static int connect_local(CLI *c) { /* spawn local process */
 
 #elif defined(USE_WIN32)
 
-static int connect_local(CLI *c) { /* spawn local process */
+NOEXPORT int connect_local(CLI *c) { /* spawn local process */
     int fd[2];
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
@@ -1059,7 +1058,7 @@ static int connect_local(CLI *c) { /* spawn local process */
 
 #else /* standard Unix version */
 
-static int connect_local(CLI *c) { /* spawn local process */
+NOEXPORT int connect_local(CLI *c) { /* spawn local process */
     char *name, host[40];
     int fd[2], pid;
     X509 *peer;
@@ -1100,9 +1099,17 @@ static int connect_local(CLI *c) { /* spawn local process */
             /* just don't set these variables if getnameinfo() fails */
             putenv(str_printf("REMOTE_HOST=%s", host));
             if(c->opt->option.transparent_src) {
-                putenv("LD_PRELOAD=" LIBDIR "/libstunnel.so");
-                /* for Tru64 _RLD_LIST is used instead */
+#ifndef LIBDIR
+#define LIBDIR "."
+#endif
+#ifdef MACH64
+                putenv("LD_PRELOAD_32=" LIBDIR "/libstunnel.so");
+                putenv("LD_PRELOAD_64=" LIBDIR "/" MACH64 "/libstunnel.so");
+#elif __osf /* for Tru64 _RLD_LIST is used instead */
                 putenv("_RLD_LIST=" LIBDIR "/libstunnel.so:DEFAULT");
+#else
+                putenv("LD_PRELOAD=" LIBDIR "/libstunnel.so");
+#endif
             }
         }
 
@@ -1142,30 +1149,27 @@ static int connect_local(CLI *c) { /* spawn local process */
 #endif /* not USE_WIN32 or __vms */
 
 /* connect remote host */
-static int connect_remote(CLI *c) {
-    int fd, ind_try, ind_cur;
-    SOCKADDR_LIST *remote_addr; /* list of connect_blocking() targets */
+NOEXPORT int connect_remote(CLI *c) {
+    int fd, ind_start, ind_try, ind_cur;
 
-    remote_addr=dynamic_remote_addr(c);
+    setup_connect_addr(c);
+    ind_start=c->connect_addr.cur;
+    /* the race condition here can be safely ignored */
+    if(c->opt->failover==FAILOVER_RR)
+        c->connect_addr.cur=(ind_start+1)%c->connect_addr.num;
+
     /* try to connect each host from the list */
-    for(ind_try=0; ind_try<remote_addr->num; ind_try++) {
-        if(c->opt->failover==FAILOVER_RR) {
-            ind_cur=remote_addr->cur;
-            /* the race condition here can be safely ignored */
-            remote_addr->cur=(ind_cur+1)%remote_addr->num;
-        } else { /* FAILOVER_PRIO */
-            ind_cur=ind_try; /* ignore remote_addr->cur */
-        }
-
-        c->fd=s_socket(remote_addr->addr[ind_cur].sa.sa_family,
+    for(ind_try=0; ind_try<c->connect_addr.num; ind_try++) {
+        ind_cur=(ind_start+ind_try)%c->connect_addr.num;
+        c->fd=s_socket(c->connect_addr.addr[ind_cur].sa.sa_family,
             SOCK_STREAM, 0, 1, "remote socket");
         if(c->fd<0)
             longjmp(c->err, 1);
 
         local_bind(c); /* explicit local bind or transparent proxy */
 
-        if(connect_blocking(c, &remote_addr->addr[ind_cur],
-                addr_len(&remote_addr->addr[ind_cur]))) {
+        if(s_connect(c, &c->connect_addr.addr[ind_cur],
+                addr_len(&c->connect_addr.addr[ind_cur]))) {
             closesocket(c->fd);
             c->fd=-1;
             continue; /* next IP */
@@ -1179,16 +1183,17 @@ static int connect_remote(CLI *c) {
     return -1; /* some C compilers require a return value */
 }
 
-static SOCKADDR_LIST *dynamic_remote_addr(CLI *c) {
+NOEXPORT void setup_connect_addr(CLI *c) {
 #ifdef SO_ORIGINAL_DST
     socklen_t addrlen=sizeof(SOCKADDR_UNION);
 #endif /* SO_ORIGINAL_DST */
 
-    /* check if the address was already set by a dynamic protocol
+    /* check if the address was already set by the verify callback,
+     * or a dynamic protocol
      * implemented protocols: CONNECT
      * protocols to be implemented: SOCKS4 */
     if(c->connect_addr.num)
-        return &c->connect_addr;
+        return;
 
 #ifdef SO_ORIGINAL_DST
     if(c->opt->option.transparent_dst) {
@@ -1199,26 +1204,30 @@ static SOCKADDR_LIST *dynamic_remote_addr(CLI *c) {
             sockerror("setsockopt SO_ORIGINAL_DST");
             longjmp(c->err, 1);
         }
-        return &c->connect_addr;
+        return;
     }
 #endif /* SO_ORIGINAL_DST */
 
-    if(c->opt->option.delayed_lookup) {
-        if(!namelist2addrlist(&c->connect_addr,
-                c->opt->connect_list, DEFAULT_LOOPBACK)) {
-            s_log(LOG_ERR, "No host resolved");
-            longjmp(c->err, 1);
-        }
-        return &c->connect_addr;
+    if(c->opt->connect_addr.num) { /* pre-resolved addresses */
+        addrlist_dup(&c->connect_addr, &c->opt->connect_addr);
+        return;
     }
 
-    return &c->opt->connect_addr; /* use pre-resolved (static) addresses */
+    /* delayed lookup */
+    if(namelist2addrlist(&c->connect_addr,
+            c->opt->connect_list, DEFAULT_LOOPBACK))
+        return;
+
+    s_log(LOG_ERR, "No host resolved");
+    longjmp(c->err, 1);
 }
 
-static void local_bind(CLI *c) {
+NOEXPORT void local_bind(CLI *c) {
+#ifndef USE_WIN32
     int on;
 
     on=1;
+#endif
     if(!c->bind_addr)
         return;
 #if defined(USE_WIN32)
@@ -1282,7 +1291,7 @@ static void local_bind(CLI *c) {
     longjmp(c->err, 1);
 }
 
-static void print_bound_address(CLI *c) {
+NOEXPORT void print_bound_address(CLI *c) {
     char *txt;
     SOCKADDR_UNION addr;
     socklen_t addrlen=sizeof addr;
@@ -1300,7 +1309,7 @@ static void print_bound_address(CLI *c) {
     str_free(txt);
 }
 
-static void reset(int fd, char *txt) { /* set lingering on a socket */
+NOEXPORT void reset(int fd, char *txt) { /* set lingering on a socket */
     struct linger l;
 
     l.l_onoff=1;

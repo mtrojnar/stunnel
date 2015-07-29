@@ -5,28 +5,28 @@ Building stunnel from source (optional):
 
  1) Install mingw32 cross-compiler o a Unix/Linux machine.
     In Debian all you need is:
-      apt-get install gcc-mingw32
+      apt-get install gcc-mingw-w64-i686
     Native compilation on a Windows machine is possible, but not supported.
 
  2) Download the recent zlib from http://www.zlib.net/
     Update the following definitions in win32/Makefile.gcc file:
       SHARED_MODE=1
-      PREFIX = i586-mingw32msvc-
+      PREFIX = i686-w64-mingw32-
     then build zlib with:
       make -f win32/Makefile.gcc
     and install it in mingw32 tree:
       sudo BINARY_PATH=~/ \
-        INCLUDE_PATH=/usr/i586-mingw32msvc/include/ \
-        LIBRARY_PATH=/usr/i586-mingw32msvc/lib/ \
+        INCLUDE_PATH=/usr/i686-w64-mingw32/include/ \
+        LIBRARY_PATH=/usr/i686-w64-mingw32/lib/ \
         make -f win32/Makefile.gcc install
 
  3) Download the recent OpenSSL in unpack it to /usr/src/ directory.
       cd /usr/src
       tar zvxf ~/openssl-(version).tar.gz
-      mv openssl-(version) openssl-(version)-i586
+      mv openssl-(version) openssl-(version)-i686
 
  4) Build OpenSSL.
-      ./Configure --cross-compile-prefix=i586-mingw32msvc- mingw shared zlib-dynamic
+      ./Configure --cross-compile-prefix=i686-w64-mingw32- mingw shared zlib-dynamic
       make
 
  5) Download and unpack stunnel-(version).tar.gz.

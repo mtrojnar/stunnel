@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -40,8 +40,8 @@
 
 /**************************************** prototypes */
 
-static int name2addrlist(SOCKADDR_LIST *, char *, char *);
-static int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
+NOEXPORT int name2addrlist(SOCKADDR_LIST *, char *, char *);
+NOEXPORT int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
 
 #ifndef HAVE_GETADDRINFO
 
@@ -72,11 +72,11 @@ struct addrinfo {
 };
 #endif
 
-static int getaddrinfo(const char *, const char *,
+NOEXPORT int getaddrinfo(const char *, const char *,
     const struct addrinfo *, struct addrinfo **);
-static int alloc_addresses(struct hostent *, const struct addrinfo *,
+NOEXPORT int alloc_addresses(struct hostent *, const struct addrinfo *,
     u_short port, struct addrinfo **, struct addrinfo **);
-static void freeaddrinfo(struct addrinfo *);
+NOEXPORT void freeaddrinfo(struct addrinfo *);
 
 #endif /* !defined HAVE_GETADDRINFO */
 
@@ -154,7 +154,7 @@ int namelist2addrlist(SOCKADDR_LIST *addr_list, NAME_LIST *name_list, char *defa
         name2addrlist(addr_list, name_list->name, default_host);
 }
 
-static int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
+NOEXPORT int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
     char *tmp, *hostname, *portname;
     int retval;
 
@@ -193,7 +193,7 @@ static int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_hos
     return retval;
 }
 
-static int hostport2addrlist(SOCKADDR_LIST *addr_list,
+NOEXPORT int hostport2addrlist(SOCKADDR_LIST *addr_list,
         char *hostname, char *portname) {
     struct addrinfo hints, *res=NULL, *cur;
     int err, retries=0;
@@ -243,6 +243,14 @@ static int hostport2addrlist(SOCKADDR_LIST *addr_list,
     return addr_list->num; /* ok - return the number of addresses */
 }
 
+void addrlist_dup(SOCKADDR_LIST *dst, const SOCKADDR_LIST *src) {
+    memcpy(dst, src, sizeof(SOCKADDR_LIST));
+    if(src->addr) {
+        dst->addr=str_alloc(src->num*sizeof(SOCKADDR_UNION));
+        memcpy(dst->addr, src->addr, src->num*sizeof(SOCKADDR_UNION));
+    }
+}
+
 char *s_ntop(SOCKADDR_UNION *addr, socklen_t addrlen) {
     int err;
     char *host, *port, *retval;
@@ -283,7 +291,7 @@ socklen_t addr_len(const SOCKADDR_UNION *addr) {
 /* implementation is limited to functionality needed by stunnel */
 
 #ifndef HAVE_GETADDRINFO
-static int getaddrinfo(const char *node, const char *service,
+NOEXPORT int getaddrinfo(const char *node, const char *service,
         const struct addrinfo *hints, struct addrinfo **res) {
     struct hostent *h;
 #ifndef _WIN32_WCE
@@ -369,7 +377,7 @@ static int getaddrinfo(const char *node, const char *service,
     return retval;
 }
 
-static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
+NOEXPORT int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
         u_short port, struct addrinfo **head, struct addrinfo **tail) {
     int i;
     struct addrinfo *ai;
@@ -409,7 +417,7 @@ static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
     return 0; /* success */
 }
 
-static void freeaddrinfo(struct addrinfo *current) {
+NOEXPORT void freeaddrinfo(struct addrinfo *current) {
     struct addrinfo *next;
 
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)

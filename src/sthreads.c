@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -87,7 +87,7 @@ unsigned long stunnel_thread_id(void) {
     return ready_head ? ready_head->id : 0;
 }
 
-static CONTEXT *new_context(void) {
+NOEXPORT CONTEXT *new_context(void) {
     static int next_id=1;
     CONTEXT *context;
 
@@ -179,7 +179,7 @@ unsigned long stunnel_thread_id(void) {
     return 0L;
 }
 
-static void null_handler(int sig) {
+NOEXPORT void null_handler(int sig) {
     (void)sig; /* skip warning about unused parameter */
     signal(SIGCHLD, null_handler);
 }
@@ -212,7 +212,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 #ifdef USE_PTHREAD
 
 static pthread_mutex_t stunnel_cs[CRIT_SECTIONS];
-static pthread_mutex_t lock_cs[CRYPTO_NUM_LOCKS];
+static pthread_mutex_t *lock_cs;
 
 void enter_critical_section(SECTION_CODE i) {
     pthread_mutex_lock(stunnel_cs+i);
@@ -222,7 +222,7 @@ void leave_critical_section(SECTION_CODE i) {
     pthread_mutex_unlock(stunnel_cs+i);
 }
 
-static void locking_callback(int mode, int type, const char *file, int line) {
+NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     if(mode&CRYPTO_LOCK)
@@ -235,7 +235,7 @@ struct CRYPTO_dynlock_value {
     pthread_mutex_t mutex;
 };
 
-static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
+NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
         int line) {
     struct CRYPTO_dynlock_value *value;
 
@@ -247,7 +247,7 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
     return value;
 }
 
-static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
+NOEXPORT void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
@@ -257,7 +257,7 @@ static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
         pthread_mutex_unlock(&value->mutex);
 }
 
-static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
+NOEXPORT void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
@@ -270,7 +270,11 @@ unsigned long stunnel_process_id(void) {
 }
 
 unsigned long stunnel_thread_id(void) {
+#if defined(SYS_gettid) && defined(__linux__)
+    return syscall(SYS_gettid);
+#else
     return (unsigned long)pthread_self();
+#endif
 }
 
 int sthreads_init(void) {
@@ -281,7 +285,9 @@ int sthreads_init(void) {
         pthread_mutex_init(stunnel_cs+i, NULL);
 
     /* initialize OpenSSL locking callback */
-    for(i=0; i<CRYPTO_NUM_LOCKS; i++)
+    lock_cs=str_alloc(CRYPTO_num_locks()*sizeof(pthread_mutex_t));
+    str_detach(lock_cs); /* do not track this allocation */
+    for(i=0; i<CRYPTO_num_locks(); i++)
         pthread_mutex_init(lock_cs+i, NULL);
     CRYPTO_set_id_callback(stunnel_thread_id);
     CRYPTO_set_locking_callback(locking_callback);
@@ -299,7 +305,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     pthread_attr_t pth_attr;
     int error;
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
-    /* Disabled on OS X due to strange problems on Mac OS X 10.5
+    /* disabled on OS X due to strange problems on Mac OS X 10.5
        it seems to restore signal mask somewhere (I couldn't find where)
        effectively blocking signals after first accepted connection */
     sigset_t new_set, old_set;
@@ -339,7 +345,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 #ifdef USE_WIN32
 
 static CRITICAL_SECTION stunnel_cs[CRIT_SECTIONS];
-static CRITICAL_SECTION lock_cs[CRYPTO_NUM_LOCKS];
+static CRITICAL_SECTION *lock_cs;
 
 void enter_critical_section(SECTION_CODE i) {
     EnterCriticalSection(stunnel_cs+i);
@@ -349,7 +355,7 @@ void leave_critical_section(SECTION_CODE i) {
     LeaveCriticalSection(stunnel_cs+i);
 }
 
-static void locking_callback(int mode, int type, const char *file, int line) {
+NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     if(mode&CRYPTO_LOCK)
@@ -362,7 +368,7 @@ struct CRYPTO_dynlock_value {
     CRITICAL_SECTION mutex;
 };
 
-static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
+NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
         int line) {
     struct CRYPTO_dynlock_value *value;
 
@@ -374,7 +380,7 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
     return value;
 }
 
-static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
+NOEXPORT void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
@@ -384,7 +390,7 @@ static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
         LeaveCriticalSection(&value->mutex);
 }
 
-static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
+NOEXPORT void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
@@ -408,7 +414,9 @@ int sthreads_init(void) {
         InitializeCriticalSection(stunnel_cs+i);
 
     /* initialize OpenSSL locking callback */
-    for(i=0; i<CRYPTO_NUM_LOCKS; i++)
+    lock_cs=str_alloc(CRYPTO_num_locks()*sizeof(CRITICAL_SECTION));
+    str_detach(lock_cs); /* do not track this allocation */
+    for(i=0; i<CRYPTO_num_locks(); i++)
         InitializeCriticalSection(lock_cs+i);
     CRYPTO_set_locking_callback(locking_callback);
 

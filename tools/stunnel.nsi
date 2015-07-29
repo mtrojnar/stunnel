@@ -1,17 +1,17 @@
-# NSIS stunnel installer by Michal Trojnara 1998-2013
+# NSIS stunnel installer by Michal Trojnara 1998-2014
 
 !include "Sections.nsh"
 
 !ifndef VERSION
-!define VERSION 4.57
+!define VERSION 5.00
 !endif
 
 !ifndef ZLIBDIR
-!define ZLIBDIR zlib-1.2.7
+!define ZLIBDIR zlib-1.2.8-win32
 !endif
 
 !ifndef OPENSSLDIR
-!define OPENSSLDIR openssl-1.0.1e
+!define OPENSSLDIR openssl-1.0.1f-win32
 !endif
 
 !addplugindir "plugins/SimpleFC"
@@ -56,7 +56,7 @@ skip_service_stop:
   File "stunnel.html"
   !cd ".."
   !cd "bin"
-  !cd "W32"
+  !cd "win32"
   File "stunnel.exe"
   File "stunnel.exe.manifest"
   !cd ".."
@@ -117,6 +117,10 @@ Section "Self-signed Certificate Tools" sectionCA
   File "stunnel.cnf"
   IfSilent lbl_skip_new_pem
   IfFileExists "$INSTDIR\stunnel.pem" lbl_skip_new_pem
+  ReadEnvStr $0 "HOME"
+  StrCmp $0 "" lbl_home_defined 0
+  System::Call 'Kernel32::SetEnvironmentVariable(t, t) i("HOME", "$INSTDIR").r0'
+lbl_home_defined:
   ExecWait '"$INSTDIR\openssl.exe" req -new -x509 -days 365 -config stunnel.cnf -out stunnel.pem -keyout stunnel.pem'
 lbl_skip_new_pem:
 SectionEnd
@@ -125,7 +129,7 @@ Section "Terminal Version of stunnel" sectionTERM
   SetOutPath "$INSTDIR"
   !cd ".."
   !cd "bin"
-  !cd "W32"
+  !cd "win32"
   File "tstunnel.exe"
   File "tstunnel.exe.manifest"
   !cd ".."

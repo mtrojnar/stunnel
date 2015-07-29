@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -35,12 +35,18 @@
  *   forward this exception.
  */
 
+#if defined(_WIN32) || defined(_WIN32_WCE)
+/* bypass automatic index bound checks in the FD_SET() macro */
+#define FD_SETSIZE 1000000
+#endif
+
 #include "common.h"
 #include "prototypes.h"
 
 /* #define DEBUG_UCONTEXT */
 
-static int get_socket_error(const int);
+NOEXPORT void s_poll_realloc(s_poll_set *);
+NOEXPORT int get_socket_error(const int);
 
 /**************************************** s_poll functions */
 
@@ -62,7 +68,7 @@ void s_poll_free(s_poll_set *fds) {
 void s_poll_init(s_poll_set *fds) {
     fds->nfds=0;
     fds->allocated=4; /* prealloc 4 file desciptors */
-    fds->ufds=str_realloc(fds->ufds, fds->allocated*sizeof(struct pollfd));
+    s_poll_realloc(fds);
 }
 
 void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
@@ -73,7 +79,7 @@ void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
     if(i==fds->nfds) {
         if(i==fds->allocated) {
             fds->allocated=i+1;
-            fds->ufds=str_realloc(fds->ufds, fds->allocated*sizeof(struct pollfd));
+            s_poll_realloc(fds);
         }
         fds->ufds[i].fd=fd;
         fds->ufds[i].events=0;
@@ -122,10 +128,14 @@ int s_poll_error(s_poll_set *fds, int fd) {
     return 0; /* not listed in fds */
 }
 
+NOEXPORT void s_poll_realloc(s_poll_set *fds) {
+    fds->ufds=str_realloc(fds->ufds, fds->allocated*sizeof(struct pollfd));
+}
+
 #ifdef USE_UCONTEXT
 
 /* move ready contexts from waiting queue to ready queue */
-static void scan_waiting_queue(void) {
+NOEXPORT void scan_waiting_queue(void) {
     int retval;
     CONTEXT *context, *prev;
     int min_timeout;
@@ -300,34 +310,58 @@ s_poll_set *s_poll_alloc() {
 }
 
 void s_poll_free(s_poll_set *fds) {
-    if(fds)
+    if(fds) {
+        if(fds->irfds)
+            str_free(fds->irfds);
+        if(fds->iwfds)
+            str_free(fds->iwfds);
+        if(fds->ixfds)
+            str_free(fds->ixfds);
+        if(fds->orfds)
+            str_free(fds->irfds);
+        if(fds->owfds)
+            str_free(fds->iwfds);
+        if(fds->oxfds)
+            str_free(fds->ixfds);
         str_free(fds);
+    }
 }
 
 void s_poll_init(s_poll_set *fds) {
-    FD_ZERO(&fds->irfds);
-    FD_ZERO(&fds->iwfds);
-    FD_ZERO(&fds->ixfds);
+#ifdef USE_WIN32
+    fds->allocated=4; /* prealloc 4 file desciptors */
+#endif
+    s_poll_realloc(fds);
+    FD_ZERO(fds->irfds);
+    FD_ZERO(fds->iwfds);
+    FD_ZERO(fds->ixfds);
     fds->max=0; /* no file descriptors */
 }
 
 void s_poll_add(s_poll_set *fds, int fd, int rd, int wr) {
+#ifdef USE_WIN32
+    /* fds->ixfds contains union of fds->irfds and fds->iwfds */
+    if(fds->ixfds->fd_count>=fds->allocated) {
+        fds->allocated=fds->ixfds->fd_count+1;
+        s_poll_realloc(fds);
+    }
+#endif
     if(rd)
-        FD_SET((unsigned int)fd, &fds->irfds);
+        FD_SET((unsigned int)fd, fds->irfds);
     if(wr)
-        FD_SET((unsigned int)fd, &fds->iwfds);
+        FD_SET((unsigned int)fd, fds->iwfds);
     /* always expect errors (and the Spanish Inquisition) */
-    FD_SET((unsigned int)fd, &fds->ixfds);
+    FD_SET((unsigned int)fd, fds->ixfds);
     if(fd>fds->max)
         fds->max=fd;
 }
 
 int s_poll_canread(s_poll_set *fds, int fd) {
-    return FD_ISSET(fd, &fds->orfds);
+    return FD_ISSET(fd, fds->orfds);
 }
 
 int s_poll_canwrite(s_poll_set *fds, int fd) {
-    return FD_ISSET(fd, &fds->owfds);
+    return FD_ISSET(fd, fds->owfds);
 }
 
 int s_poll_hup(s_poll_set *fds, int fd) {
@@ -339,19 +373,25 @@ int s_poll_hup(s_poll_set *fds, int fd) {
 int s_poll_error(s_poll_set *fds, int fd) {
     /* error conditions are signaled as read, but apparently *not* in Winsock:
      * http://msdn.microsoft.com/en-us/library/windows/desktop/ms737625%28v=vs.85%29.aspx */
-    if(!FD_ISSET(fd, &fds->orfds) && !FD_ISSET(fd, &fds->oxfds))
+    if(!FD_ISSET(fd, fds->orfds) && !FD_ISSET(fd, fds->oxfds))
         return 0;
     return get_socket_error(fd); /* check if it's really an error */
 }
+
+#ifdef USE_WIN32
+#define FD_SIZE(fds) (sizeof(u_int)+(fds)->allocated*sizeof(SOCKET))
+#else
+#define FD_SIZE(fds) (sizeof(fd_set))
+#endif
 
 int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     int retval;
     struct timeval tv, *tv_ptr;
 
     do { /* skip "Interrupted system call" errors */
-        memcpy(&fds->orfds, &fds->irfds, sizeof(fd_set));
-        memcpy(&fds->owfds, &fds->iwfds, sizeof(fd_set));
-        memcpy(&fds->oxfds, &fds->ixfds, sizeof(fd_set));
+        memcpy(fds->orfds, fds->irfds, FD_SIZE(fds));
+        memcpy(fds->owfds, fds->iwfds, FD_SIZE(fds));
+        memcpy(fds->oxfds, fds->ixfds, FD_SIZE(fds));
         if(sec<0) { /* infinite timeout */
             tv_ptr=NULL;
         } else {
@@ -359,9 +399,18 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
             tv.tv_usec=1000*msec;
             tv_ptr=&tv;
         }
-        retval=select(fds->max+1, &fds->orfds, &fds->owfds, &fds->oxfds, tv_ptr);
+        retval=select(fds->max+1, fds->orfds, fds->owfds, fds->oxfds, tv_ptr);
     } while(retval<0 && get_last_socket_error()==S_EINTR);
     return retval;
+}
+
+NOEXPORT void s_poll_realloc(s_poll_set *fds) {
+    fds->irfds=str_realloc(fds->irfds, FD_SIZE(fds));
+    fds->iwfds=str_realloc(fds->iwfds, FD_SIZE(fds));
+    fds->ixfds=str_realloc(fds->ixfds, FD_SIZE(fds));
+    fds->orfds=str_realloc(fds->orfds, FD_SIZE(fds));
+    fds->owfds=str_realloc(fds->owfds, FD_SIZE(fds));
+    fds->oxfds=str_realloc(fds->oxfds, FD_SIZE(fds));
 }
 
 #endif /* USE_POLL */
@@ -413,7 +462,7 @@ int set_socket_options(int s, int type) {
     return retval; /* returns 0 when all options succeeded */
 }
 
-static int get_socket_error(const int fd) {
+NOEXPORT int get_socket_error(const int fd) {
     int err;
     socklen_t optlen=sizeof err;
 
@@ -424,56 +473,56 @@ static int get_socket_error(const int fd) {
 
 /**************************************** simulate blocking I/O */
 
-int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
+int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     int error;
     char *dst;
 
     dst=s_ntop(addr, addrlen);
-    s_log(LOG_INFO, "connect_blocking: connecting %s", dst);
+    s_log(LOG_INFO, "s_connect: connecting %s", dst);
 
     if(!connect(c->fd, &addr->sa, addrlen)) {
-        s_log(LOG_NOTICE, "connect_blocking: connected %s", dst);
+        s_log(LOG_NOTICE, "s_connect: connected %s", dst);
         str_free(dst);
         return 0; /* no error -> success (on some OSes over the loopback) */
     }
     error=get_last_socket_error();
     if(error!=S_EINPROGRESS && error!=S_EWOULDBLOCK) {
-        s_log(LOG_ERR, "connect_blocking: connect %s: %s (%d)",
+        s_log(LOG_ERR, "s_connect: connect %s: %s (%d)",
             dst, s_strerror(error), error);
         str_free(dst);
         return -1;
     }
 
-    s_log(LOG_DEBUG, "connect_blocking: s_poll_wait %s: waiting %d seconds",
+    s_log(LOG_DEBUG, "s_connect: s_poll_wait %s: waiting %d seconds",
         dst, c->opt->timeout_connect);
     s_poll_init(c->fds);
     s_poll_add(c->fds, c->fd, 1, 1);
     switch(s_poll_wait(c->fds, c->opt->timeout_connect, 0)) {
     case -1:
         error=get_last_socket_error();
-        s_log(LOG_ERR, "connect_blocking: s_poll_wait %s: %s (%d)",
+        s_log(LOG_ERR, "s_connect: s_poll_wait %s: %s (%d)",
             dst, s_strerror(error), error);
         str_free(dst);
         return -1;
     case 0:
-        s_log(LOG_ERR, "connect_blocking: s_poll_wait %s:"
+        s_log(LOG_ERR, "s_connect: s_poll_wait %s:"
             " TIMEOUTconnect exceeded", dst);
         str_free(dst);
         return -1;
     default:
         error=get_socket_error(c->fd);
         if(error) {
-            s_log(LOG_ERR, "connect_blocking: connect %s: %s (%d)",
+            s_log(LOG_ERR, "s_connect: connect %s: %s (%d)",
                dst, s_strerror(error), error);
             str_free(dst);
             return -1;
         }
         if(s_poll_canwrite(c->fds, c->fd)) {
-            s_log(LOG_NOTICE, "connect_blocking: connected %s", dst);
+            s_log(LOG_NOTICE, "s_connect: connected %s", dst);
             str_free(dst);
             return 0; /* success */
         }
-        s_log(LOG_ERR, "connect_blocking: s_poll_wait %s: internal error",
+        s_log(LOG_ERR, "s_connect: s_poll_wait %s: internal error",
             dst);
         str_free(dst);
         return -1;
@@ -481,7 +530,7 @@ int connect_blocking(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     return -1; /* should not be possible */
 }
 
-void write_blocking(CLI *c, int fd, void *ptr, int len) {
+void s_write(CLI *c, int fd, void *ptr, int len) {
         /* simulate a blocking write */
     int num;
 
@@ -490,22 +539,22 @@ void write_blocking(CLI *c, int fd, void *ptr, int len) {
         s_poll_add(c->fds, fd, 0, 1); /* write */
         switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
-            sockerror("write_blocking: s_poll_wait");
+            sockerror("s_write: s_poll_wait");
             longjmp(c->err, 1); /* error */
         case 0:
-            s_log(LOG_INFO, "write_blocking: s_poll_wait:"
+            s_log(LOG_INFO, "s_write: s_poll_wait:"
                 " TIMEOUTbusy exceeded: sending reset");
             longjmp(c->err, 1); /* timeout */
         case 1:
             break; /* OK */
         default:
-            s_log(LOG_ERR, "write_blocking: s_poll_wait: unknown result");
+            s_log(LOG_ERR, "s_write: s_poll_wait: unknown result");
             longjmp(c->err, 1); /* error */
         }
         num=writesocket(fd, ptr, len);
         switch(num) {
         case -1: /* error */
-            sockerror("writesocket (write_blocking)");
+            sockerror("writesocket (s_write)");
             longjmp(c->err, 1);
         }
         ptr=(u8 *)ptr+num;
@@ -513,7 +562,7 @@ void write_blocking(CLI *c, int fd, void *ptr, int len) {
     }
 }
 
-void read_blocking(CLI *c, int fd, void *ptr, int len) {
+void s_read(CLI *c, int fd, void *ptr, int len) {
         /* simulate a blocking read */
     int num;
 
@@ -522,25 +571,25 @@ void read_blocking(CLI *c, int fd, void *ptr, int len) {
         s_poll_add(c->fds, fd, 1, 0); /* read */
         switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
-            sockerror("read_blocking: s_poll_wait");
+            sockerror("s_read: s_poll_wait");
             longjmp(c->err, 1); /* error */
         case 0:
-            s_log(LOG_INFO, "read_blocking: s_poll_wait:"
+            s_log(LOG_INFO, "s_read: s_poll_wait:"
                 " TIMEOUTbusy exceeded: sending reset");
             longjmp(c->err, 1); /* timeout */
         case 1:
             break; /* OK */
         default:
-            s_log(LOG_ERR, "read_blocking: s_poll_wait: unknown result");
+            s_log(LOG_ERR, "s_read: s_poll_wait: unknown result");
             longjmp(c->err, 1); /* error */
         }
         num=readsocket(fd, ptr, len);
         switch(num) {
         case -1: /* error */
-            sockerror("readsocket (read_blocking)");
+            sockerror("readsocket (s_read)");
             longjmp(c->err, 1);
         case 0: /* EOF */
-            s_log(LOG_ERR, "Unexpected socket close (read_blocking)");
+            s_log(LOG_ERR, "Unexpected socket close (s_read)");
             longjmp(c->err, 1);
         }
         ptr=(u8 *)ptr+num;
@@ -555,7 +604,7 @@ void fd_putline(CLI *c, int fd, const char *line) {
 
     tmpline=str_printf("%s%s", line, crlf);
     len=strlen(tmpline);
-    write_blocking(c, fd, tmpline, len);
+    s_write(c, fd, tmpline, len);
     tmpline[len-2]='\0'; /* remove CRLF */
     safestring(tmpline);
     s_log(LOG_DEBUG, " -> %s", tmpline);

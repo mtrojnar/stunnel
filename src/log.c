@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -38,7 +38,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-static void log_raw(const int, const char *, const char *, const char *);
+NOEXPORT void log_raw(const int, const char *, const char *, const char *);
 
 static DISK_FILE *outfile=NULL;
 static struct LIST { /* single-linked list of log lines */
@@ -75,7 +75,8 @@ void syslog_close(void) {
 
 int log_open(void) {
     if(global_options.output_file) { /* 'output' option specified */
-        outfile=file_open(global_options.output_file, 1);
+        outfile=file_open(global_options.output_file,
+            global_options.log_file_mode);
         if(!outfile) {
             s_log(LOG_ERR, "Cannot open log file: %s",
                 global_options.output_file);
@@ -119,6 +120,7 @@ void log_flush(LOG_MODE new_mode) {
 void s_log(int level, const char *format, ...) {
     va_list ap;
     char *text, *stamp, *id;
+    unsigned long tid;
     struct LIST *tmp;
     int libc_error, socket_error;
     time_t gmt;
@@ -143,8 +145,10 @@ void s_log(int level, const char *format, ...) {
     stamp=str_printf("%04d.%02d.%02d %02d:%02d:%02d",
         timeptr->tm_year+1900, timeptr->tm_mon+1, timeptr->tm_mday,
         timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec);
-    id=str_printf("LOG%d[%lu:%lu]",
-        level, stunnel_process_id(), stunnel_thread_id());
+    tid=stunnel_thread_id();
+    if(!tid) /* currently USE_FORK */
+        tid=stunnel_process_id();
+    id=str_printf("LOG%d[%lu]", level, tid);
     va_start(ap, format);
     text=str_vprintf(format, ap);
     va_end(ap);
@@ -178,7 +182,7 @@ void s_log(int level, const char *format, ...) {
     set_last_socket_error(socket_error);
 }
 
-static void log_raw(const int level, const char *stamp,
+NOEXPORT void log_raw(const int level, const char *stamp,
         const char *id, const char *text) {
     char *line;
 
@@ -193,22 +197,25 @@ static void log_raw(const int level, const char *stamp,
             if(outfile)
                 file_putline(outfile, line); /* send log to file */
         }
-    } else /* LOG_MODE_ERROR or LOG_MODE_INFO */
+    } else if(mode==LOG_MODE_ERROR) {
+        if(level>=0 || level<=7) /* just in case */
+            line=str_printf("[%c] %s", "***!:.  "[level], text);
+        else
+            line=str_printf("[?] %s", text);
+    } else /* LOG_MODE_INFO */
         line=str_dup(text); /* don't log the time stamp in error mode */
 
-    /* log the line to GUI/stderr */
-#ifdef USE_WIN32
-    if(mode==LOG_MODE_ERROR || /* always log to the GUI window */
+    /* log the line to the UI (GUI, stderr, etc.) */
+    if(mode==LOG_MODE_ERROR ||
             (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
-            level<=global_options.debug_level)
-        win_new_log(line);
-#else /* Unix */
-    if(mode==LOG_MODE_ERROR || /* always log LOG_MODE_ERROR to stderr */
-            (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
+#if defined(USE_WIN32) || defined(USE_JNI)
+            level<=global_options.debug_level
+#else
             (level<=global_options.debug_level &&
-            global_options.option.foreground))
-        fprintf(stderr, "%s\n", line); /* send log to stderr */
+            global_options.option.foreground)
 #endif
+            )
+        ui_new_log(line);
 
     str_free(line);
 }

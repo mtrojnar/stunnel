@@ -1,4 +1,4 @@
-# vc.mak by Michal Trojnara 1998-2013
+# vc.mak by Michal Trojnara 1998-2014
 # with help of David Gillingham <dgillingham@gmail.com>
 # with help of Pierre Delaage <delaage.pierre@free.fr>
 
@@ -8,6 +8,14 @@
 # - Visual C++ 2005 Professional Edition
 # - Visual C++ 2008 Express Edition
 
+!IF [ml64.exe /help >NUL 2>&1]
+TARGET=win32
+!ELSE
+TARGET=win64
+!ENDIF
+!MESSAGE Detected target: $(TARGET)
+!MESSAGE
+
 # modify this to point to your OpenSSL directory
 # either install a precompiled version (*not* the "Light" one) from
 # http://www.slproweb.com/products/Win32OpenSSL.html
@@ -16,30 +24,29 @@
 #FIPSDIR=$(SSLDIR)\include
 #LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-#SSLDIR=..\..\openssl-1.0.1e
-#INCDIR=$(SSLDIR)\inc32
-#FIPSDIR=$(SSLDIR)\inc32
-#LIBDIR=$(SSLDIR)\out32dll
+SSLDIR=..\..\openssl-1.0.1f-$(TARGET)
+INCDIR=$(SSLDIR)\inc32
+FIPSDIR=$(SSLDIR)\inc32
+LIBDIR=$(SSLDIR)\out32dll
 # or simply install with "nmake -f ms\ntdll.mak install"
-SSLDIR=\usr\local\ssl
-INCDIR=$(SSLDIR)\include
-FIPSDIR=$(SSLDIR)\fips-2.0\include
-LIBDIR=$(SSLDIR)\lib
+#SSLDIR=\usr\local\ssl
+#INCDIR=$(SSLDIR)\include
+#FIPSDIR=$(SSLDIR)\fips-2.0\include
+#LIBDIR=$(SSLDIR)\lib
 
-TARGETCPU=W32
 SRC=..\src
 OBJROOT=..\obj
-OBJ=$(OBJROOT)\$(TARGETCPU)
+OBJ=$(OBJROOT)\$(TARGET)
 BINROOT=..\bin
-BIN=$(BINROOT)\$(TARGETCPU)
+BIN=$(BINROOT)\$(TARGET)
 
 SHAREDOBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj \
 	$(OBJ)\verify.obj $(OBJ)\file.obj $(OBJ)\client.obj \
 	$(OBJ)\protocol.obj $(OBJ)\sthreads.obj $(OBJ)\log.obj \
 	$(OBJ)\options.obj $(OBJ)\network.obj $(OBJ)\resolver.obj \
  	$(OBJ)\str.obj $(OBJ)/fd.obj
-GUIOBJS=$(OBJ)\gui.obj $(OBJ)\resources.res
-NOGUIOBJS=$(OBJ)\nogui.obj
+GUIOBJS=$(OBJ)\ui_win_gui.obj $(OBJ)\resources.res
+NOGUIOBJS=$(OBJ)\ui_win_cli.obj
 	
 CC=cl
 LINK=link

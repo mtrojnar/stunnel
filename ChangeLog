@@ -1,9 +1,55 @@
 stunnel change log
 
 
-Version 4.57, 2015.04.01, urgency: HIGH:
+stunnel 5.00 disables some features previously enabled by default.
+Users should review whether the new defaults are appropriate for their
+particular deployments.  Packages maintainers may consider prepending
+the old defaults for "fips" (if supported by their OpenSSL library),
+"pid" and "libwrap" to stunnel.conf during automated updates.
+
+Version 5.00, 2014.03.06, urgency: HIGH:
 * Security bugfixes
   - Added PRNG state update in fork threading (CVE-2014-0016).
+* New global configuration file defaults
+  - Default "fips" option value is now "no", as FIPS mode is only
+    helpful for compliance, and never for actual security.
+  - Default "pid" is now "", i.e. not to create a pid file at startup.
+* New service-level configuration file defaults
+  - Default "ciphers" updated to "HIGH:MEDIUM:+3DES:+DH:!aNULL:!SSLv2"
+    due to AlFBPPS attack and bad performance of DH ciphersuites.
+  - Default "libwrap" setting is now "no" to improve performance.
+* New features
+  - OpenSSL DLLs updated to version 1.0.1f.
+  - zlib DLL updated to version 1.2.8.
+  - autoconf scripts upgraded to version 2.69.
+  - TLS 1.1 and TLS 1.2 are now allowed in the FIPS mode.
+  - New service-level option "redirect" to redirect SSL client
+    connections on authentication failures instead of rejecting them.
+  - New global "engineDefault" configuration file option to control
+    which OpenSSL tasks are delegated to the current engine.
+    Available tasks: ALL, RSA, DSA, ECDH, ECDSA, DH, RAND, CIPHERS,
+    DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.
+  - New service-level configuration file option "engineId" to select
+    the engine by identifier, e.g. "engineId = capi".
+  - New global configuration file option "log" to control whether to
+    append (the default), or to overwrite log file while (re)opening.
+  - Different taskbar icon colors to indicate the service state.
+  - New global configuration file options "iconIdle", "iconActive",
+    and "iconError" to select status icon on GUI taskbar.
+  - Removed the limit of 63 stunnel.conf sections on Win32 platform.
+  - Installation of a sample certificate was moved to a separate "cert"
+    target in order to allow unattended (e.g. scripted) installations.
+  - Reduced length of the logged thread identifier.  It is still based
+    on the OS thread ID, and thus not unique over long periods of time.
+  - Improved readability of error messages printed when stunnel refuses
+    to start due to a critical error.
+* Bugfixes
+  - LD_PRELOAD Solaris compatibility bug fixed (thx to Norm Jacobs).
+  - CRYPTO_NUM_LOCKS replaced with CRYPTO_num_locks() to improve binary
+    compatibility with diverse builds of OpenSSL (thx to Norm Jacobs).
+  - Corrected round-robin failover behavior under heavy load.
+  - Numerous fixes in the engine support code.
+  - On Win32 platform .rnd file moved from c:\ to the stunnel folder.
 
 Version 4.56, 2013.03.22, urgency: HIGH:
 * New features
@@ -116,6 +162,7 @@ Version 4.51, 2012.01.09, urgency: MEDIUM:
   - New "compression = deflate" global option to enable RFC 2246 compresion.
     For compatibility with previous versions "compression = zlib" and
     "compression = rle" also enable the deflate (RFC 2246) compression.
+  - Compression is disabled by default.
   - Separate default ciphers and sslVersion for "fips = yes" and "fips = no".
   - UAC support for editing configuration file with Windows GUI.
 * Bugfixes
@@ -574,7 +621,7 @@ Version 4.16, 2006.08.31, urgency: MEDIUM:
   - Default group is now detected by configure script.
   - Check for maximum number of defined services added.
   - OpenSSL_add_all_algorithms() added to SSL initialization.
-  - configure script sections reordered to detect pthread library funcions.
+  - configure script sections reordered to detect pthread library functions.
   - RFC 2487 autodetection improved.  High resolution s_poll_wait()
     not currently supported by UCONTEXT threading.
   - More precise description of cert directory file names (thx to Muhammad

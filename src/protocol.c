@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -41,28 +41,28 @@
 #define is_prefix(a, b) (strncasecmp((a), (b), strlen(b))==0)
 
 /* protocol-specific function prototypes */
-static void proxy_server(CLI *c);
-static void cifs_client(CLI *);
-static void cifs_server(CLI *);
-static void pgsql_client(CLI *);
-static void pgsql_server(CLI *);
-static void smtp_client(CLI *);
-static void smtp_server(CLI *);
-static void pop3_client(CLI *);
-static void pop3_server(CLI *);
-static void imap_client(CLI *);
-static void imap_server(CLI *);
-static void nntp_client(CLI *);
-static void connect_server(CLI *);
-static void connect_client(CLI *);
+NOEXPORT void proxy_server(CLI *c);
+NOEXPORT void cifs_client(CLI *);
+NOEXPORT void cifs_server(CLI *);
+NOEXPORT void pgsql_client(CLI *);
+NOEXPORT void pgsql_server(CLI *);
+NOEXPORT void smtp_client(CLI *);
+NOEXPORT void smtp_server(CLI *);
+NOEXPORT void pop3_client(CLI *);
+NOEXPORT void pop3_server(CLI *);
+NOEXPORT void imap_client(CLI *);
+NOEXPORT void imap_server(CLI *);
+NOEXPORT void nntp_client(CLI *);
+NOEXPORT void connect_server(CLI *);
+NOEXPORT void connect_client(CLI *);
 
 #if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
-static void ntlm(CLI *);
-static char *ntlm1();
-static char *ntlm3(char *, char *, char *);
-static void crypt_DES(DES_cblock, DES_cblock, DES_cblock);
+NOEXPORT void ntlm(CLI *);
+NOEXPORT char *ntlm1();
+NOEXPORT char *ntlm3(char *, char *, char *);
+NOEXPORT void crypt_DES(DES_cblock, DES_cblock, DES_cblock);
 #endif
-static char *base64(int, char *, int);
+NOEXPORT char *base64(int, char *, int);
 
 /**************************************** framework */
 
@@ -122,7 +122,7 @@ void protocol(CLI *c, const PROTOCOL_PHASE type) {
 #define IP_LEN 40
 #define PORT_LEN 6
 
-static void proxy_server(CLI *c) {
+NOEXPORT void proxy_server(CLI *c) {
     SOCKADDR_UNION addr;
     socklen_t addrlen;
     char src_host[IP_LEN], dst_host[IP_LEN];
@@ -171,12 +171,12 @@ static void proxy_server(CLI *c) {
 
 /**************************************** cifs */
 
-static void cifs_client(CLI *c) {
+NOEXPORT void cifs_client(CLI *c) {
     u8 buffer[5];
     u8 request_dummy[4] = {0x81, 0, 0, 0}; /* a zero-length request */
 
-    write_blocking(c, c->remote_fd.fd, request_dummy, 4);
-    read_blocking(c, c->remote_fd.fd, buffer, 5);
+    s_write(c, c->remote_fd.fd, request_dummy, 4);
+    s_read(c, c->remote_fd.fd, buffer, 5);
     if(buffer[0]!=0x83) { /* NB_SSN_NEGRESP */
         s_log(LOG_ERR, "Negative response expected");
         longjmp(c->err, 1);
@@ -191,26 +191,26 @@ static void cifs_client(CLI *c) {
     }
 }
 
-static void cifs_server(CLI *c) {
+NOEXPORT void cifs_server(CLI *c) {
     u8 buffer[128];
     u8 response_access_denied[5] = {0x83, 0, 0, 1, 0x81};
     u8 response_use_ssl[5] = {0x83, 0, 0, 1, 0x8e};
     u16 len;
 
-    read_blocking(c, c->local_rfd.fd, buffer, 4) ;/* NetBIOS header */
+    s_read(c, c->local_rfd.fd, buffer, 4) ;/* NetBIOS header */
     len=buffer[3];
     len|=(u16)(buffer[2]) << 8;
     if(len>sizeof buffer-4) {
         s_log(LOG_ERR, "Received block too long");
         longjmp(c->err, 1);
     }
-    read_blocking(c, c->local_rfd.fd, buffer+4, len);
+    s_read(c, c->local_rfd.fd, buffer+4, len);
     if(buffer[0]!=0x81) { /* NB_SSN_REQUEST */
         s_log(LOG_ERR, "Client did not send session setup");
-        write_blocking(c, c->local_wfd.fd, response_access_denied, 5);
+        s_write(c, c->local_wfd.fd, response_access_denied, 5);
         longjmp(c->err, 1);
     }
-    write_blocking(c, c->local_wfd.fd, response_use_ssl, 5);
+    s_write(c, c->local_wfd.fd, response_use_ssl, 5);
 }
 
 /**************************************** pgsql */
@@ -218,11 +218,11 @@ static void cifs_server(CLI *c) {
 /* http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982 */
 u8 ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
 
-static void pgsql_client(CLI *c) {
+NOEXPORT void pgsql_client(CLI *c) {
     u8 buffer[1];
 
-    write_blocking(c, c->remote_fd.fd, ssl_request, sizeof ssl_request);
-    read_blocking(c, c->remote_fd.fd, buffer, 1);
+    s_write(c, c->remote_fd.fd, ssl_request, sizeof ssl_request);
+    s_read(c, c->remote_fd.fd, buffer, 1);
     /* S - accepted, N - rejected, non-SSL preferred */
     if(buffer[0]!='S') {
         s_log(LOG_ERR, "PostgreSQL server rejected SSL");
@@ -230,22 +230,22 @@ static void pgsql_client(CLI *c) {
     }
 }
 
-static void pgsql_server(CLI *c) {
+NOEXPORT void pgsql_server(CLI *c) {
     u8 buffer[8], ssl_ok[1]={'S'};
 
     memset(buffer, 0, sizeof buffer);
-    read_blocking(c, c->local_rfd.fd, buffer, sizeof buffer);
+    s_read(c, c->local_rfd.fd, buffer, sizeof buffer);
     if(memcmp(buffer, ssl_request, sizeof ssl_request)) {
         s_log(LOG_ERR, "PostgreSQL client did not request SSL, rejecting");
         /* no way to send error on startup, so just drop the client */
         longjmp(c->err, 1);
     }
-    write_blocking(c, c->local_wfd.fd, ssl_ok, sizeof ssl_ok);
+    s_write(c, c->local_wfd.fd, ssl_ok, sizeof ssl_ok);
 }
 
 /**************************************** smtp */
 
-static void smtp_client(CLI *c) {
+NOEXPORT void smtp_client(CLI *c) {
     char *line;
 
     line=str_dup("");
@@ -279,7 +279,7 @@ static void smtp_client(CLI *c) {
     str_free(line);
 }
 
-static void smtp_server(CLI *c) {
+NOEXPORT void smtp_server(CLI *c) {
     char *line;
 
     s_poll_init(c->fds);
@@ -325,7 +325,7 @@ static void smtp_server(CLI *c) {
 
 /**************************************** pop3 */
 
-static void pop3_client(CLI *c) {
+NOEXPORT void pop3_client(CLI *c) {
     char *line;
 
     line=fd_getline(c, c->remote_fd.fd);
@@ -346,7 +346,7 @@ static void pop3_client(CLI *c) {
     str_free(line);
 }
 
-static void pop3_server(CLI *c) {
+NOEXPORT void pop3_server(CLI *c) {
     char *line;
 
     line=fd_getline(c, c->remote_fd.fd);
@@ -371,7 +371,7 @@ static void pop3_server(CLI *c) {
 
 /**************************************** imap */
 
-static void imap_client(CLI *c) {
+NOEXPORT void imap_client(CLI *c) {
     char *line;
 
     line=fd_getline(c, c->remote_fd.fd);
@@ -394,7 +394,7 @@ static void imap_client(CLI *c) {
     str_free(line);
 }
 
-static void imap_server(CLI *c) {
+NOEXPORT void imap_server(CLI *c) {
     char *line, *id, *tail, *capa;
 
     s_poll_init(c->fds);
@@ -492,7 +492,7 @@ static void imap_server(CLI *c) {
 
 /**************************************** nntp */
 
-static void nntp_client(CLI *c) {
+NOEXPORT void nntp_client(CLI *c) {
     char *line;
 
     line=fd_getline(c, c->remote_fd.fd);
@@ -515,7 +515,7 @@ static void nntp_client(CLI *c) {
 
 /**************************************** connect */
 
-static void connect_server(CLI *c) {
+NOEXPORT void connect_server(CLI *c) {
     char *request, *proto, *header;
     NAME_LIST host_list;
 
@@ -559,7 +559,7 @@ static void connect_server(CLI *c) {
     fd_putline(c, c->local_wfd.fd, "");
 }
 
-static void connect_client(CLI *c) {
+NOEXPORT void connect_client(CLI *c) {
     char *line, *encoded;
 
     if(!c->opt->protocol_host) {
@@ -570,7 +570,7 @@ static void connect_client(CLI *c) {
         c->opt->protocol_host);
     fd_printf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
     if(c->opt->protocol_username && c->opt->protocol_password) {
-        if(!strcasecmp(c->opt->protocol_authentication, "NTLM")) {
+        if(!strcasecmp(c->opt->protocol_authentication, "ntlm")) {
 #if !defined(OPENSSL_NO_MD4) && OPENSSL_VERSION_NUMBER>=0x0090700fL
             ntlm(c);
 #else
@@ -621,7 +621,7 @@ static void connect_client(CLI *c) {
 
 #define s_min(a, b) ((a)>(b)?(b):(a))
 
-static void ntlm(CLI *c) {
+NOEXPORT void ntlm(CLI *c) {
     char *line, buf[BUFSIZ], *ntlm1_txt, *ntlm2_txt, *ntlm3_txt, *tmpstr;
     long content_length=0; /* no HTTP content */
 
@@ -670,7 +670,7 @@ static void ntlm(CLI *c) {
 
     /* read and ignore HTTP content (if any) */
     while(content_length>0) {
-        read_blocking(c, c->remote_fd.fd, buf, s_min(content_length, BUFSIZ));
+        s_read(c, c->remote_fd.fd, buf, s_min(content_length, BUFSIZ));
         content_length-=s_min(content_length, BUFSIZ);
     }
 
@@ -687,7 +687,7 @@ static void ntlm(CLI *c) {
     str_free(ntlm3_txt);
 }
 
-static char *ntlm1() {
+NOEXPORT char *ntlm1() {
     char phase1[16];
 
     memset(phase1, 0, sizeof phase1);
@@ -698,7 +698,7 @@ static char *ntlm1() {
     return base64(1, phase1, sizeof phase1); /* encode */
 }
 
-static char *ntlm3(char *username, char *password, char *phase2) {
+NOEXPORT char *ntlm3(char *username, char *password, char *phase2) {
     MD4_CTX md4;
     char *decoded; /* decoded reply from proxy */
     char phase3[146];
@@ -749,7 +749,7 @@ static char *ntlm3(char *username, char *password, char *phase2) {
     return base64(1, phase3, phase3len); /* encode */
 }
 
-static void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
+NOEXPORT void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
     DES_cblock key;
     DES_key_schedule sched;
 
@@ -772,7 +772,7 @@ static void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
 
 #endif
 
-static char *base64(int encode, char *in, int len) {
+NOEXPORT char *base64(int encode, char *in, int len) {
     BIO *bio, *b64;
     char *out;
     int n;

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -43,22 +43,29 @@
 
 /* HOST may be undefined on Win32 platform */
 #ifndef HOST
+#if defined(_WIN64)
+#define PLATFORM "x64"
+#elif defined(_WIN32)
+#define PLATFORM "x86"
+#else /* although MSDN claims that _WIN32 is always defined */
+#define PLATFORM "unknown"
+#endif
 #ifdef __MINGW32__
-#define HOST "x86-pc-mingw32-gnu"
+#define HOST PLATFORM "-pc-mingw32-gnu"
 #else /* __MINGW32__ */
 #ifdef _MSC_VER
-#define _QUOTEME(x) #x
-#define QUOTEME(x) _QUOTEME(x)
-#define HOST "x86-pc-msvc-" ## QUOTEME(_MSC_VER)
+#define xstr(a) str(a)
+#define str(a) #a
+#define HOST PLATFORM "-pc-msvc-" xstr(_MSC_VER)
 #else /* _MSC_VER */
-#define HOST "x86-pc-unknown"
+#define HOST PLATFORM "-pc-unknown"
 #endif /* _MSC_VER */
 #endif /* __MINGW32__ */
 #endif /* HOST */
 
 /* START CUSTOMIZE */
-#define VERSION_MAJOR 4
-#define VERSION_MINOR 57
+#define VERSION_MAJOR 5
+#define VERSION_MINOR 00
 /* END CUSTOMIZE */
 
 /* all the following macros are ABSOLUTELY NECESSARY to have proper string

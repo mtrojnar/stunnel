@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -40,6 +40,20 @@
 
 int main(int argc, char *argv[]) {
     static struct WSAData wsa_state;
+    char *c, stunnel_exe_path[MAX_PATH];
+
+    /* set current working directory and engine path */
+    GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
+    c=strrchr(stunnel_exe_path, '\\'); /* last backslash */
+    if(c) /* found */
+        c[1]='\0'; /* truncate program name */
+#ifndef _WIN32_WCE
+    if(!SetCurrentDirectory(stunnel_exe_path)) {
+        fprintf(stderr, "Cannot set directory to %s", stunnel_exe_path);
+        return 1;
+    }
+#endif
+    _putenv_s("OPENSSL_ENGINES", stunnel_exe_path);
 
     str_init(); /* initialize per-thread string management */
     if(WSAStartup(MAKEWORD(1, 1), &wsa_state))
@@ -48,10 +62,37 @@ int main(int argc, char *argv[]) {
     main_initialize();
     if(!main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL))
         daemon_loop();
-    unbind_ports();
-    log_flush(LOG_MODE_ERROR);
+    main_cleanup();
     return 0;
 }
+
+/**************************************** options callbacks */
+
+void ui_new_config(void) {
+    /* no action */
+}
+
+ICON_IMAGE load_icon_default(ICON_TYPE type) {
+    (void)type; /* skip warning about unused parameter */
+    return NULL;
+}
+
+ICON_IMAGE load_icon_file(const char *name) {
+    (void)name; /* skip warning about unused parameter */
+    return NULL;
+}
+
+/**************************************** client callbacks */
+
+void ui_new_chain(const int section_number) {
+    (void)section_number; /* skip warning about unused parameter */
+}
+
+void ui_clients(const int num) {
+    (void)num; /* skip warning about unused parameter */
+}
+
+/**************************************** s_log callbacks */
 
 void message_box(const LPSTR text, const UINT type) {
     LPTSTR tstr;
@@ -61,11 +102,7 @@ void message_box(const LPSTR text, const UINT type) {
     str_free(tstr);
 }
 
-void win_new_chain(int section_number) {
-    (void)section_number; /* skip warning about unused parameter */
-}
-
-void win_new_log(char *line) {
+void ui_new_log(const char *line) {
 #ifdef _WIN32_WCE
     /* log to Windows CE debug output stream */
     LPTSTR tstr;
@@ -78,9 +115,7 @@ void win_new_log(char *line) {
 #endif
 }
 
-void win_new_config(void) {
-    /* no action */
-}
+/**************************************** ctx callbacks */
 
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
     (void)buf; /* skip warning about unused parameter */
@@ -98,4 +133,4 @@ int pin_cb(UI *ui, UI_STRING *uis) {
 }
 #endif
 
-/* end of nogui.c */
+/* end of ui_win_cli.c */

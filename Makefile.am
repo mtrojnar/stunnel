@@ -26,7 +26,7 @@ distclean-local:
 #dist-hook:
 #	makensis -NOCD -DVERSION=${VERSION} -DSRCDIR=$(srcdir) \
 #		-DOPENSSL=/usr/src/openssl-0.9.8u-fips/out32dll \
-#		-DZLIB=/usr/src/zlib-1.2.6-i586 \
+#		-DZLIB=/usr/src/zlib-1.2.8-i586 \
 #		$(srcdir)/tools/stunnel.nsi
 
 #	cp -f $(distdir)-installer.exe ../dist
@@ -36,4 +36,12 @@ sign: dist
 	cp -f $(distdir).tar.gz ../dist
 	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(distdir).tar.gz
 	sha256sum $(distdir).tar.gz | tee ../dist/$(distdir).tar.gz.sha256
+
+cert:
+	$(MAKE) -C tools cert
+
+install-data-hook:
+	@echo "*********************************************************"
+	@echo "* Type 'make cert' to also install a sample certificate *"
+	@echo "*********************************************************"
 

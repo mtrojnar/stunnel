@@ -1,5 +1,5 @@
 # OpenSSL configuration file to create a server certificate
-# by Michal Trojnara 1998-2013
+# by Michal Trojnara 1998-2014
 
 [ req ]
 # the default key length is secure and quite fast - do not change it

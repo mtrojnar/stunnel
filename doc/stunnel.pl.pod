@@ -11,12 +11,12 @@ stunnel - uniwersalny tunel protokołu SSL
 
 =item B<Unix:>
 
-B<stunnel> [<S<plik>>] | S<-fd n> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [S<PLIK>] | S<-fd N> | S<-help> | S<-version> | S<-sockets>
 
 =item B<WIN32:>
 
 B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop> ] | S<-exit>]
-    [S<-quiet>] [<S<plik>>] ] | S<-help> | S<-version> | S<-sockets>
+    [S<-quiet>] [S<PLIK>] ] | S<-help> | S<-version> | S<-sockets>
 
 =back
 
@@ -40,11 +40,11 @@ bez zmian w kodzie źródłowym.
 
 =over 4
 
-=item <B<plik>>
+=item B<PLIK>
 
 użyj podanego pliku konfiguracyjnego
 
-=item B<-fd n> (tylko Unix)
+=item B<-fd N> (tylko Unix)
 
 wczytaj konfigurację z podanego deskryptora pliku
 
@@ -134,7 +134,7 @@ oddzieloną średnikiem parą adresu (IPv4, IPv6, lub nazwą domenową) i numeru
 
 =over 4
 
-=item B<chroot> = katalog (tylko Unix)
+=item B<chroot> = KATALOG (tylko Unix)
 
 katalog roboczego korzenia systemu plików
 
@@ -175,7 +175,7 @@ kompatybilna implementacją B<OpenSSL 0.9.7>.
 
 Kompresja rle nie jest zaimplementowana w aktualnych wersjach B<OpenSSL>.
 
-=item B<debug> = poziom[.podsystem]
+=item B<debug> = POZIOM[.PODSYSTEM]
 
 szczegółowość logowania
 
@@ -191,7 +191,7 @@ Podsystemy nie są wspierane przez platformę Win32.
 
 Wielkość liter jest ignorowana zarówno dla poziomu jak podsystemu.
 
-=item B<EGD> = ścieżka_do_EGD (tylko Unix)
+=item B<EGD> = ŚCIEŻKA_DO_EGD (tylko Unix)
 
 ścieżka do gniazda programu Entropy Gathering Daemon
 
@@ -199,7 +199,7 @@ Opcja pozwala określić ścieżkę do gniazda programu Entropy Gathering Daemon
 używanego do zainicjalizowania generatora ciągów pseudolosowych biblioteki
 B<OpenSSL>.  Opcja jest dostępna z biblioteką B<OpenSSL 0.9.5a> lub nowszą.
 
-=item B<engine> = auto | <identyfikator urządzenia>
+=item B<engine> = auto | IDENTYFIKATOR_URZĄDZENIA
 
 wybór sprzętowego urządzenia kryptograficznego
 
@@ -220,21 +220,32 @@ urządzenia zgodnego z OpenSC:
     engineNum=1
     key=id_45
 
-=item B<engineCtrl> = <command>[:<parameter>]
+=item B<engineCtrl> = KOMENDA[:PARAMETR]
 
 konfiguracja urządzenia kryptograficznego
 
 Specjalne komendy "LOAD" i "INIT" pozwalają na załadowanie i inicjalizację
 modułu kryptograficznego urządzenia.
 
+=item B<engineDefault> = LISTA_ZADAŃ
+
+lista zadań OpenSSL oddelegowanych do bieżącego urządzenia
+
+Parametrem jest lista oddzielonych przecinkami zadań OpenSSL, które mają
+zostać oddelegowane do bieżącego urządzenia kryptograficznego.
+
+W zależności od konkretnego urządzenia dostępne mogą być następujące zadania:
+ALL, RSA, DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO,
+PKEY_ASN1.
+
 =item B<fips> = yes | no
 
-Włącz lub wyłącz tryb FIPS 140-2.
+tryb FIPS 140-2
 
 Opcja pozwala wyłączyć wejście w tryb FIPS, jeśli B<stunnel> został
 skompilowany ze wsparciem dla FIPS 140-2.
 
-domyślnie: yes (pracuj w trybie FIPS 140-2)
+domyślnie: no (od wersji 5.00)
 
 =item B<foreground> = yes | no (tylko Unix)
 
@@ -244,7 +255,34 @@ Użycie tej opcji powoduje, że B<stunnel> nie przechodzi w tło logując
 swoje komunikaty na konsolę zamiast przez I<syslog> (o ile nie użyto
 opcji I<output>).
 
-=item B<output> = plik
+=item B<iconActive> = PLIK_Z_IKONKĄ (tylko GUI)
+
+ikonka wyświetlana przy obecności aktywnych połączeń do usługi
+
+W systemie Windows ikonka to plik .ico zawierający obrazek 16x16 pikseli.
+
+=item B<iconError> = PLIK_Z_IKONKĄ (tylko GUI)
+
+ikonka wyświetlana, jeżeli nie został załadowany poprawny plik konfiguracyjny
+
+W systemie Windows ikonka to plik .ico zawierający obrazek 16x16 pikseli.
+
+=item B<iconIdle> = PLIK_Z_IKONKĄ (tylko GUI)
+
+ikonka wyświetlana przy braku aktywnych połączeń do usługi
+
+W systemie Windows ikonka to plik .ico zawierający obrazek 16x16 pikseli.
+
+=item B<log> = append | overwrite
+
+log file handling
+
+This option allows to choose whether the log file (specified with the I<output>
+option) is appended or overwritten when opened or re-opened.
+
+domyślnie: append
+
+=item B<output> = PLIK
 
 plik, do którego dopisane zostaną logi
 
@@ -254,7 +292,7 @@ Do kierowaniakomunikatów na standardowe wyjście (na przykład po to, żeby
 zalogować je programem splogger z pakietu daemontools) można podać jako
 parametr urządzenie /dev/stdout.
 
-=item B<pid> = plik (tylko Unix)
+=item B<pid> = PLIK (tylko Unix)
 
 położenie pliku z numerem procesu
 
@@ -263,7 +301,7 @@ Jeżeli argument jest pusty plik nie zostanie stworzony.
 Jeżeli zdefiniowano katalog I<chroot>, to ścieżka do I<pid> jest określona
 względem tego katalogu.
 
-=item B<RNDbytes> = liczba_bajtów
+=item B<RNDbytes> = LICZBA_BAJTÓW
 
 liczba bajtów do zainicjowania generatora pseudolosowego
 
@@ -272,7 +310,7 @@ również liczbę bajtów wystarczających do zainicjowania PRNG.
 Nowsze wersje biblioteki mają wbudowaną funkcję określającą, czy
 dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.
 
-=item B<RNDfile> = plik
+=item B<RNDfile> = PLIK
 
 ścieżka do pliku zawierającego losowe dane
 
@@ -285,21 +323,21 @@ nadpisz plik nowymi wartościami pseudolosowymi
 
 domyślnie: yes (nadpisz)
 
-=item B<service> = nazwa_serwisu (tylko Unix)
+=item B<service> = SERWIS (tylko Unix)
 
 użyj parametru jako nazwy serwisu dla biblioteki TCP Wrapper w trybie I<inetd>
 
 domyślnie: stunnel
 
-=item B<setgid> = identyfikator_grupy (tylko Unix)
+=item B<setgid> = IDENTYFIKATOR_GRUPY (tylko Unix)
 
 grupa z której prawami pracował będzie B<stunnel>
 
-=item B<setuid> = identyfikator_użytkownika (tylko Unix)
+=item B<setuid> = IDENTYFIKATOR_UŻYTKOWNIKA (tylko Unix)
 
 użytkownik, z którego prawami pracował będzie B<stunnel>
 
-=item B<socket> = a|l|r:option=value[:value]
+=item B<socket> = a|l|r:OPCJA=WARTOŚĆ[:WARTOŚĆ]
 
 ustaw opcję na akceptującym/lokalnym/zdalnym gnieździe
 
@@ -350,7 +388,7 @@ lub I<tcpserver>), należy przeczytać sekcję I<TRYB INETD> poniżej.
 
 =over 4
 
-=item B<accept> = [adres:]port
+=item B<accept> = [HOST:]PORT
 
 nasłuchuje na połączenia na podanym adresie i porcie
 
@@ -361,7 +399,7 @@ Aby nasłuchiwać na wszystkich adresach IPv6 należy użyć:
 
     accept = :::port
 
-=item B<CApath> = katalog_CA
+=item B<CApath> = KATALOG_CA
 
 katalog Centrum Certyfikacji
 
@@ -376,14 +414,14 @@ Należy wykonać c_rehash przy zmianie B<OpenSSL 0.x.x> na B<1.x.x>.
 Jeżeli zdefiniowano katalog I<chroot>, to ścieżka do I<CApath> jest określona
 względem tego katalogu.
 
-=item B<CAfile> = plik_CA
+=item B<CAfile> = PLIK_CA
 
 plik Centrum Certyfikacji
 
 Opcja pozwala określić położenie pliku zawierającego certyfikaty używane
 przez opcję I<verify>.
 
-=item B<cert> = plik_pem
+=item B<cert> = PLIK_PEM
 
 plik z łańcuchem certyfikatów
 
@@ -392,7 +430,7 @@ program B<stunnel> do uwierzytelnienia się przed drugą stroną połączenia.
 Certyfikat jest konieczny, aby używać programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
 
-=item B<ciphers> = lista_szyfrów
+=item B<ciphers> = LISTA_SZYFRÓW
 
 lista dozwolonych szyfrów SSL
 
@@ -405,7 +443,7 @@ tryb kliencki (zdalna usługa używa SSL)
 
 domyślnie: no (tryb serwerowy)
 
-=item B<connect> = [adres:]port
+=item B<connect> = [HOST:]PORT
 
 połącz się ze zdalnym serwerem na podany port
 
@@ -416,7 +454,7 @@ Komenda może byc użyta wielokrotnie w pojedynczej sekcji
 celem zapewnienia wysokiej niezawodności lub rozłożenia
 ruchu pomiędzy wiele serwerów.
 
-=item B<CRLpath> = katalog_CRL
+=item B<CRLpath> = KATALOG_CRL
 
 katalog List Odwołanych Certyfikatów (CRL)
 
@@ -431,14 +469,14 @@ Należy wykonać c_rehash przy zmianie B<OpenSSL 0.x.x> na B<1.x.x>.
 Jeżeli zdefiniowano katalog I<chroot>, to ścieżka do I<CRLpath> jest określona
 względem tego katalogu.
 
-=item B<CRLfile> = plik_CRL
+=item B<CRLfile> = PLIK_CRL
 
 plik List Odwołanych Certyfikatów (CRL)
 
 Opcja pozwala określić położenie pliku zawierającego listy CRL używane
 przez opcję I<verify>.
 
-=item B<curve> = nid
+=item B<curve> = NID
 
 krzywa dla ECDH
 
@@ -455,13 +493,25 @@ opóźnij rozwinięcie adresu DNS podanego w opcji I<connect>
 Opcja jest przydatna przy dynamicznym DNS, albo gdy usługa DNS nie jest
 dostępna przy starcie programu B<stunnel> (klient VPN, połączenie wdzwaniane).
 
-=item B<engineNum> = <numer urządzenia>
+Opóźnione rozwijanie adresu DNS jest włączane automatycznie, jeżeli nie
+powiedzie się rozwinięcie któregokolwiek z adresów I<connect> dla danej
+usługi.
 
-wybierz urządzenie do odczyta klucza prywatnego
+Opóźnione rozwijanie adresu automatycznie aktywuje I<failover = prio>.
+
+default: no
+
+=item B<engineId> = NUMER_URZĄDZENIA
+
+wybierz urządzenie dla usługi
+
+=item B<engineNum> = NUMER_URZĄDZENIA
+
+wybierz urządzenie dla usługi
 
 Urządzenia są numerowane od 1 w górę.
 
-=item B<exec> = ścieżka_do_programu
+=item B<exec> = ŚCIEŻKA_DO_PROGRAMU
 
 wykonaj lokalny program przystosowany do pracy z superdemonem inetd
 
@@ -484,11 +534,11 @@ Strategia wybierania serwerów wyspecyfikowanych parametrami "connect".
 
 domyślnie: rr
 
-=item B<ident> = nazwa_użytkownika
+=item B<ident> = NAZWA_UŻYTKOWNIKA
 
 weryfikuj nazwę zdalnego użytkownika korzystając z protokołu IDENT (RFC 1413)
 
-=item B<key> = plik_klucza
+=item B<key> = PLIK_KLUCZA
 
 klucz prywatny do certyfikatu podanego w opcji I<cert>
 
@@ -505,16 +555,16 @@ domyślnie: wartość opcji I<cert>
 
 włącz lub wyłącz korzystanie z /etc/hosts.allow i /etc/hosts.deny.
 
-domyślnie: yes
+domyślnie: no (od wersji 5.00)
 
-=item B<local> = serwer
+=item B<local> = HOST
 
 IP źródła do nawiązywania zdalnych połączeń
 
 Domyślnie używane jest IP najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.
 
-=item B<sni> = nazwa_usługi:wzorzec_nazwy_serwera (tryb serwera)
+=item B<sni> = USŁUGA:WZORZEC_NAZWY_SERWERA (tryb serwera)
 
 Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia TLS Server
 Name Indication (RFC 3546).
@@ -539,7 +589,7 @@ usługi podrzędnej podczas negocjacji TLS.
 
 Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
-=item B<sni> = nazwa_serwera (tryb klienta)
+=item B<sni> = HOST (tryb klienta)
 
 Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
 (RFC 3546).
@@ -550,7 +600,7 @@ Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
 serwer OCSP do weryfikacji certyfikatów
 
-=item B<OCSPflag> = flaga
+=item B<OCSPflag> = FLAGA_OCSP
 
 flaga serwera OCSP
 
@@ -559,7 +609,7 @@ NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
 
 Aby wyspecyfikować kilka flag należy użyć I<OCSPflag> wielokrotnie.
 
-=item B<options> = opcje_SSL
+=item B<options> = OPCJE_SSL
 
 opcje biblioteki B<OpenSSL>
 
@@ -572,7 +622,7 @@ w programie Eudora można użyć opcji:
 
     options = DONT_INSERT_EMPTY_FRAGMENTS
 
-=item B<protocol> = protokół
+=item B<protocol> = PROTOKÓŁ
 
 negocjuj SSL podanym protokołem aplikacyjnym
 
@@ -623,17 +673,15 @@ Negocjacja RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
 
 =back
 
-=item B<protocolAuthentication> = uwierzytelnienie
+=item B<protocolAuthentication> = basic | ntlm
 
 rodzaj uwierzytelnienia do negocjacji protokołu
-
-aktualnie wspierane: basic, NTLM
 
 Obecnie typ uwierzytelnienia ma zastosowanie wyłącznie w protokole 'connect'.
 
 domyślnie: basic
 
-=item B<protocolHost> = adres:port
+=item B<protocolHost> = HOST:PORT
 
 adres docelowy do negocjacji protokołu
 
@@ -644,17 +692,24 @@ Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.
 W obecnej wersji adres docelowy protokołu ma zastosowanie wyłącznie w protokole
 'connect'.
 
-=item B<protocolPassword> = hasło
+=item B<protocolPassword> = HASŁO
 
 hasło do negocjacji protokołu
 
-=item B<protocolUsername> = użytkownik
+=item B<protocolUsername> = UŻYTKOWNIK
 
 nazwa użytkownika do negocjacji protokołu
 
 =item B<pty> = yes | no (tylko Unix)
 
 alokuj pseudoterminal dla programu uruchamianego w opcji 'exec'
+
+=item B<redirect> = [HOST:]PORT
+
+przekieruj klienta, któremu nie udało się poprawnie uwierzytelnić
+
+Ta opcja działa wyłącznie w trybie serwera, oraz przy wyłączonej negocjacji
+protokołu aplikacyjnego.
 
 =item B<renegotiation> = yes | no
 
@@ -687,7 +742,7 @@ połącz ponownie sekcję connect+exec po rozłączeniu
 
 domyślnie: no
 
-=item B<sessionCacheSize> = rozmiar
+=item B<sessionCacheSize> = LICZBA_POZYCJI_CACHE
 
 rozmiar pamięci podręcznej sesji SSL
 
@@ -698,40 +753,40 @@ Wartość 0 oznacza brak ograniczenia rozmiaru.  Nie jest to zalecane dla
 systemów produkcyjnych z uwagi na ryzyko ataku DoS przez wyczerpanie pamięci
 RAM.
 
-=item B<sessionCacheTimeout> = czas
+=item B<sessionCacheTimeout> = LICZBA_SEKUND
 
 przeterminowanie pamięci podręcznej sesji SSL
 
 Parametr określa czas w sekundach, po którym sesja SSL zostanie usunięta z
 pamięci podręcznej.
 
-=item B<sessiond> = adres:port
+=item B<sessiond> = HOST:PORT
 
 adres sessiond - servera cache sesji SSL
 
-=item B<sslVersion> = wersja
+=item B<sslVersion> = WERSJA_SSL
 
 wersja protokołu SSL
 
 Dozwolone opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 
-=item B<stack> = liczba_bajtów (z wyjątkiem modelu FORK)
+=item B<stack> = LICZBA_BAJTÓW (z wyjątkiem modelu FORK)
 
 rozmiar stosu procesora wątku 
 
-=item B<TIMEOUTbusy> = liczba_sekund
+=item B<TIMEOUTbusy> = LICZBA_SEKUND
 
 czas oczekiwania na spodziewane dane
 
-=item B<TIMEOUTclose> = liczba_sekund
+=item B<TIMEOUTclose> = LICZBA_SEKUND
 
 czas oczekiwania na close_notify (ustaw na 0, jeżeli klientem jest MSIE)
 
-=item B<TIMEOUTconnect> = liczba_sekund
+=item B<TIMEOUTconnect> = LICZBA_SEKUND
 
 czas oczekiwania na nawiązanie połączenia
 
-=item B<TIMEOUTidle> = liczba_sekund
+=item B<TIMEOUTidle> = LICZBA_SEKUND
 
 maksymalny czas utrzymywania bezczynnego połączenia
 
@@ -832,7 +887,7 @@ Opcja została przemianowana na I<none>.
 
 =back
 
-=item B<verify> = poziom
+=item B<verify> = POZIOM
 
 weryfikuj certyfikat drugiej strony połączenia
 

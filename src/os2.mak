@@ -1,11 +1,11 @@
 prefix=.
 DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DPACKAGE_TARNAME=\"stunnel\" \
-	-DPACKAGE_VERSION=\"4.57\" \
-	-DPACKAGE_STRING=\"stunnel\ 4.57\" \
+	-DPACKAGE_VERSION=\"5.00\" \
+	-DPACKAGE_STRING=\"stunnel\ 5.00\" \
 	-DPACKAGE_BUGREPORT=\"\" \
 	-DPACKAGE=\"stunnel\" \
-	-DVERSION=\"4.57\" \
+	-DVERSION=\"5.00\" \
 	-DSTDC_HEADERS=1 \
 	-DHAVE_SYS_TYPES_H=1 \
 	-DHAVE_SYS_STAT_H=1 \
@@ -34,8 +34,7 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DSIZEOF_UNSIGNED_INT=4 \
 	-DSIZEOF_UNSIGNED_LONG=4 \
       	-DLIBDIR=\"$(prefix)/lib\" \
-        -DCONFDIR=\"$(prefix)/etc\" \
-        -DPIDFILE=\"$(prefix)/stunnel.pid\"
+        -DCONFDIR=\"$(prefix)/etc\"
 
 CC = gcc
 .SUFFIXES = .c .o

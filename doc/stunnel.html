@@ -65,13 +65,13 @@
 <dt><strong><a name="unix" class="item"><strong>Unix:</strong></a></strong></dt>
 
 <dd>
-<p><strong>stunnel</strong> [&lt;filename&gt;] | -fd&nbsp;n | -help | -version | -sockets</p>
+<p><strong>stunnel</strong> [FILE] | -fd&nbsp;N | -help | -version | -sockets</p>
 </dd>
 <dt><strong><a name="win32" class="item"><strong>WIN32:</strong></a></strong></dt>
 
 <dd>
 <p><strong>stunnel</strong> [ [-install | -uninstall | -start | -stop] | -exit]
-    [-quiet] [&lt;filename&gt;] ] | -help | -version | -sockets</p>
+    [-quiet] [FILE] ] | -help | -version | -sockets</p>
 </dd>
 </dl>
 <p>
@@ -94,12 +94,12 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <hr />
 <h1><a name="options">OPTIONS</a></h1>
 <dl>
-<dt><strong><a name="filename" class="item">&lt;<strong>filename</strong>&gt;</a></strong></dt>
+<dt><strong><a name="file" class="item"><strong>FILE</strong></a></strong></dt>
 
 <dd>
 <p>Use specified configuration file</p>
 </dd>
-<dt><strong><a name="n" class="item"><strong>-fd n</strong> (Unix only)</a></strong></dt>
+<dt><strong><a name="n" class="item"><strong>-fd N</strong> (Unix only)</a></strong></dt>
 
 <dd>
 <p>Read the config file from specified file descriptor</p>
@@ -185,7 +185,7 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 </p>
 <h2><a name="global_options">GLOBAL OPTIONS</a></h2>
 <dl>
-<dt><strong><a name="directory" class="item"><strong>chroot</strong> = directory (Unix only)</a></strong></dt>
+<dt><strong><a name="directory" class="item"><strong>chroot</strong> = DIRECTORY (Unix only)</a></strong></dt>
 
 <dd>
 <p>directory to chroot <strong>stunnel</strong> process</p>
@@ -215,7 +215,7 @@ to the directory specified with <strong>chroot</strong>.</p>
 <strong>OpenSSL 0.9.7</strong>.</p>
 <p>rle compression is currently not implemented by the <strong>OpenSSL</strong> library.</p>
 </dd>
-<dt><strong><a name="debug_facility_level" class="item"><strong>debug</strong> = [facility.]level</a></strong></dt>
+<dt><strong><a name="debug_facility_level" class="item"><strong>debug</strong> = [FACILITY.]LEVEL</a></strong></dt>
 
 <dd>
 <p>debugging level</p>
@@ -228,14 +228,14 @@ all levels numerically less than it will be shown.  Use <em>debug = debug</em> o
 (Facilities are not supported on Win32.)</p>
 <p>Case is ignored for both facilities and levels.</p>
 </dd>
-<dt><strong><a name="path" class="item"><strong>EGD</strong> = egd path (Unix only)</a></strong></dt>
+<dt><strong><a name="egd_path" class="item"><strong>EGD</strong> = EGD_PATH (Unix only)</a></strong></dt>
 
 <dd>
 <p>path to Entropy Gathering Daemon socket</p>
 <p>Entropy Gathering Daemon socket to use to feed <strong>OpenSSL</strong> random number
 generator.  (Available only if compiled with <strong>OpenSSL 0.9.5a</strong> or higher)</p>
 </dd>
-<dt><strong><a name="engine_auto_engine_id" class="item"><strong>engine</strong> = auto | &lt;engine id&gt;</a></strong></dt>
+<dt><strong><a name="engine_auto_engine_id" class="item"><strong>engine</strong> = auto | ENGINE_ID</a></strong></dt>
 
 <dd>
 <p>select hardware engine</p>
@@ -255,12 +255,21 @@ OpenSC engine</p>
     engineNum=1
     key=id_45</pre>
 </dd>
-<dt><strong><a name="enginectrl_command_parameter" class="item"><strong>engineCtrl</strong> = command[:parameter]</a></strong></dt>
+<dt><strong><a name="enginectrl_command_parameter" class="item"><strong>engineCtrl</strong> = COMMAND[:PARAMETER]</a></strong></dt>
 
 <dd>
 <p>control hardware engine</p>
 <p>Special commands &quot;LOAD&quot; and &quot;INIT&quot; can be used to load and initialize the
 engine cryptogaphic module.</p>
+</dd>
+<dt><strong><a name="enginedefault_task_list" class="item"><strong>engineDefault</strong> = TASK_LIST</a></strong></dt>
+
+<dd>
+<p>set OpenSSL tasks delegated to the current engine</p>
+<p>The parameter specifies a comma-separated list of task to be delegated to the
+current engine.</p>
+<p>The following tasks may be available, if supported by the engine: ALL, RSA,
+DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.</p>
 </dd>
 <dt><strong><a name="fips_yes_no" class="item"><strong>fips</strong> = yes | no</a></strong></dt>
 
@@ -268,7 +277,7 @@ engine cryptogaphic module.</p>
 <p>Enable or disable FIPS 140-2 mode.</p>
 <p>This option allows to disable entering FIPS mode if <strong>stunnel</strong> was compiled
 with FIPS 140-2 support.</p>
-<p>default: yes</p>
+<p>default: no (since version 5.00)</p>
 </dd>
 <dt><strong><a name="no" class="item"><strong>foreground</strong> = yes | no (Unix only)</a></strong></dt>
 
@@ -278,21 +287,50 @@ with FIPS 140-2 support.</p>
 instead of via syslog (unless <em>output</em> is specified).</p>
 <p>default: background in daemon mode</p>
 </dd>
-<dt><strong><a name="output_file" class="item"><strong>output</strong> = file</a></strong></dt>
+<dt><strong><a name="icon_file" class="item"><strong>iconActive</strong> = ICON_FILE (GUI only)</a></strong></dt>
+
+<dd>
+<p>GUI icon to be displayed when there are established connections</p>
+<p>On Windows platform the parameter should be an .ico file containing a 16x16
+pixel image.</p>
+</dd>
+<dt><strong><strong>iconError</strong> = ICON_FILE (GUI only)</strong></dt>
+
+<dd>
+<p>GUI icon to be displayed when no valid configuration is loaded</p>
+<p>On Windows platform the parameter should be an .ico file containing a 16x16
+pixel image.</p>
+</dd>
+<dt><strong><strong>iconIdle</strong> = ICON_FILE (GUI only)</strong></dt>
+
+<dd>
+<p>GUI icon to be displayed when there are no established connections</p>
+<p>On Windows platform the parameter should be an .ico file containing a 16x16
+pixel image.</p>
+</dd>
+<dt><strong><a name="log_append_overwrite" class="item"><strong>log</strong> = append | overwrite</a></strong></dt>
+
+<dd>
+<p>log file handling</p>
+<p>This option allows to choose whether the log file (specified with the <em>output</em>
+option) is appended or overwritten when opened or re-opened.</p>
+<p>default: append</p>
+</dd>
+<dt><strong><a name="output_file" class="item"><strong>output</strong> = FILE</a></strong></dt>
 
 <dd>
 <p>append log messages to a file</p>
 <p>/dev/stdout device can be used to send log messages to the standard
 output (for example to log them with daemontools splogger).</p>
 </dd>
-<dt><strong><a name="file" class="item"><strong>pid</strong> = file (Unix only)</a></strong></dt>
+<dt><strong><strong>pid</strong> = FILE (Unix only)</strong></dt>
 
 <dd>
 <p>pid file location</p>
 <p>If the argument is empty, then no pid file will be created.</p>
 <p><em>pid</em> path is relative to <em>chroot</em> directory if specified.</p>
 </dd>
-<dt><strong><a name="rndbytes_bytes" class="item"><strong>RNDbytes</strong> = bytes</a></strong></dt>
+<dt><strong><a name="rndbytes_bytes" class="item"><strong>RNDbytes</strong> = BYTES</a></strong></dt>
 
 <dd>
 <p>bytes to read from random seed files</p>
@@ -301,7 +339,7 @@ than <strong>0.9.5a</strong>, also determines how many bytes of data are conside
 sufficient to seed the PRNG.  More recent <strong>OpenSSL</strong> versions have a builtin
 function to determine when sufficient randomness is available.</p>
 </dd>
-<dt><strong><a name="rndfile_file" class="item"><strong>RNDfile</strong> = file</a></strong></dt>
+<dt><strong><a name="rndfile_file" class="item"><strong>RNDfile</strong> = FILE</a></strong></dt>
 
 <dd>
 <p>path to file with random seed data</p>
@@ -314,23 +352,23 @@ number generator.</p>
 <p>overwrite the random seed files with new random data</p>
 <p>default: yes</p>
 </dd>
-<dt><strong><a name="servicename" class="item"><strong>service</strong> = servicename (Unix only)</a></strong></dt>
+<dt><strong><a name="service" class="item"><strong>service</strong> = SERVICE (Unix only)</a></strong></dt>
 
 <dd>
 <p>use specified string as <em>inetd</em> mode service name for TCP Wrapper library</p>
 <p>default: stunnel</p>
 </dd>
-<dt><strong><a name="groupname" class="item"><strong>setgid</strong> = groupname (Unix only)</a></strong></dt>
+<dt><strong><a name="group" class="item"><strong>setgid</strong> = GROUP (Unix only)</a></strong></dt>
 
 <dd>
-<p><code>setgid()</code> to groupname in daemon mode and clears all other groups</p>
+<p><code>setgid()</code> to the specified group in daemon mode and clear all other groups</p>
 </dd>
-<dt><strong><a name="username" class="item"><strong>setuid</strong> = username (Unix only)</a></strong></dt>
+<dt><strong><a name="user" class="item"><strong>setuid</strong> = USER (Unix only)</a></strong></dt>
 
 <dd>
-<p><code>setuid()</code> to username in daemon mode</p>
+<p><code>setuid()</code> to the specified user in daemon mode</p>
 </dd>
-<dt><strong><a name="socket_a_l_r_option_value_value" class="item"><strong>socket</strong> = a|l|r:option=value[:value]</a></strong></dt>
+<dt><strong><a name="socket_a_l_r_option_value_value" class="item"><strong>socket</strong> = a|l|r:OPTION=VALUE[:VALUE]</a></strong></dt>
 
 <dd>
 <p>Set an option on accept/local/remote socket</p>
@@ -372,16 +410,16 @@ is provided a network socket by a server such as <em>inetd</em>, <em>xinetd</em>
 or <em>tcpserver</em>) then you should read the section entitled <em>INETD MODE</em>
 below.</p>
 <dl>
-<dt><strong><a name="accept_address" class="item"><strong>accept</strong> = address</a></strong></dt>
+<dt><strong><a name="accept_host_port" class="item"><strong>accept</strong> = [HOST:]PORT</a></strong></dt>
 
 <dd>
 <p>accept connections on specified address</p>
 <p>If no host specified, defaults to all IPv4 addresses for the local host.</p>
 <p>To listen on all IPv6 addresses use:</p>
 <pre>
-    connect = :::port</pre>
+    connect = :::PORT</pre>
 </dd>
-<dt><strong><a name="capath_directory" class="item"><strong>CApath</strong> = directory</a></strong></dt>
+<dt><strong><a name="capath_directory" class="item"><strong>CApath</strong> = DIRECTORY</a></strong></dt>
 
 <dd>
 <p>Certificate Authority directory</p>
@@ -393,13 +431,13 @@ cert.</p>
 c_rehash the directory on upgrade from <strong>OpenSSL 0.x.x</strong> to <strong>OpenSSL 1.x.x</strong>.</p>
 <p><em>CApath</em> path is relative to <em>chroot</em> directory if specified.</p>
 </dd>
-<dt><strong><a name="cafile_certfile" class="item"><strong>CAfile</strong> = certfile</a></strong></dt>
+<dt><strong><a name="cafile_cert_file" class="item"><strong>CAfile</strong> = CERT_FILE</a></strong></dt>
 
 <dd>
 <p>Certificate Authority file</p>
 <p>This file contains multiple CA certificates, used with the <em>verify</em>.</p>
 </dd>
-<dt><strong><a name="cert_pemfile" class="item"><strong>cert</strong> = pemfile</a></strong></dt>
+<dt><strong><a name="cert_pem_file" class="item"><strong>cert</strong> = PEM_FILE</a></strong></dt>
 
 <dd>
 <p>certificate chain PEM file name</p>
@@ -409,12 +447,12 @@ as a client side certificate chain.  Using client side certs is optional.
 The certificates must be in PEM format and must be sorted starting with the
 certificate to the highest level (root CA).</p>
 </dd>
-<dt><strong><a name="ciphers_cipherlist" class="item"><strong>ciphers</strong> = cipherlist</a></strong></dt>
+<dt><strong><a name="ciphers_cipher_list" class="item"><strong>ciphers</strong> = CIPHER_LIST</a></strong></dt>
 
 <dd>
 <p>Select permitted SSL ciphers</p>
-<p>A colon delimited list of the ciphers to allow in the SSL connection.
-For example DES-CBC3-SHA:IDEA-CBC-MD5</p>
+<p>A colon delimited list of the ciphers to allow in the SSL connection,
+for example DES-CBC3-SHA:IDEA-CBC-MD5.</p>
 </dd>
 <dt><strong><a name="client_yes_no" class="item"><strong>client</strong> = yes | no</a></strong></dt>
 
@@ -422,7 +460,7 @@ For example DES-CBC3-SHA:IDEA-CBC-MD5</p>
 <p>client mode (remote service uses SSL)</p>
 <p>default: no (server mode)</p>
 </dd>
-<dt><strong><a name="connect_address" class="item"><strong>connect</strong> = address</a></strong></dt>
+<dt><strong><a name="connect_host_port" class="item"><strong>connect</strong> = [HOST:]PORT</a></strong></dt>
 
 <dd>
 <p>connect to a remote address</p>
@@ -432,7 +470,7 @@ For example DES-CBC3-SHA:IDEA-CBC-MD5</p>
 options are specified, then the remote address is chosen using a
 round-robin algorithm.</p>
 </dd>
-<dt><strong><a name="crlpath_directory" class="item"><strong>CRLpath</strong> = directory</a></strong></dt>
+<dt><strong><a name="crlpath_directory" class="item"><strong>CRLpath</strong> = DIRECTORY</a></strong></dt>
 
 <dd>
 <p>Certificate Revocation Lists directory</p>
@@ -443,13 +481,13 @@ be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.</p>
 c_rehash the directory on upgrade from <strong>OpenSSL 0.x.x</strong> to <strong>OpenSSL 1.x.x</strong>.</p>
 <p><em>CRLpath</em> path is relative to <em>chroot</em> directory if specified.</p>
 </dd>
-<dt><strong><a name="crlfile_certfile" class="item"><strong>CRLfile</strong> = certfile</a></strong></dt>
+<dt><strong><a name="crlfile_cert_file" class="item"><strong>CRLfile</strong> = CERT_FILE</a></strong></dt>
 
 <dd>
 <p>Certificate Revocation Lists file</p>
 <p>This file contains multiple CRLs, used with the <em>verify</em>.</p>
 </dd>
-<dt><strong><a name="curve_nid" class="item"><strong>curve</strong> = nid</a></strong></dt>
+<dt><strong><a name="curve_nid" class="item"><strong>curve</strong> = NID</a></strong></dt>
 
 <dd>
 <p>specify ECDH curve name</p>
@@ -461,17 +499,26 @@ c_rehash the directory on upgrade from <strong>OpenSSL 0.x.x</strong> to <strong
 <dt><strong><a name="delay_yes_no" class="item"><strong>delay</strong> = yes | no</a></strong></dt>
 
 <dd>
-<p>delay DNS lookup for 'connect' option</p>
+<p>delay DNS lookup for <em>connect</em> option</p>
 <p>This option is useful for dynamic DNS, or when DNS is not available during
 <strong>stunnel</strong> startup (road warrior VPN, dial-up configurations).</p>
+<p>Delayed resolver mode is automatically engaged when stunnel fails to resolve on
+startup any of the <em>connect</em> targets for a service.</p>
+<p>Delayed resolver inflicts <em>failover = prio</em>.</p>
+<p>default: no</p>
 </dd>
-<dt><strong><a name="enginenum_engine_number" class="item"><strong>engineNum</strong> = engine number</a></strong></dt>
+<dt><strong><a name="engineid_engine_id" class="item"><strong>engineId</strong> = ENGINE_ID</a></strong></dt>
 
 <dd>
-<p>select engine number to read private key</p>
+<p>select engine ID for the service</p>
+</dd>
+<dt><strong><a name="enginenum_engine_number" class="item"><strong>engineNum</strong> = ENGINE_NUMBER</a></strong></dt>
+
+<dd>
+<p>select engine number for the service</p>
 <p>The engines are numbered starting from 1.</p>
 </dd>
-<dt><strong><a name="exec_executable_path" class="item"><strong>exec</strong> = executable_path</a></strong></dt>
+<dt><strong><a name="exec_executable_path" class="item"><strong>exec</strong> = EXECUTABLE_PATH</a></strong></dt>
 
 <dd>
 <p>execute local inetd-type program</p>
@@ -493,12 +540,12 @@ Arguments are separated with arbitrary number of whitespaces.</p>
     prio (priority) - use the order specified in config file</pre>
 <p>default: rr</p>
 </dd>
-<dt><strong><a name="ident_username" class="item"><strong>ident</strong> = username</a></strong></dt>
+<dt><strong><a name="ident_username" class="item"><strong>ident</strong> = USERNAME</a></strong></dt>
 
 <dd>
 <p>use IDENT (<a href="http://www.ietf.org/rfc/rfc1413.txt" class="rfc">RFC 1413</a>) username checking</p>
 </dd>
-<dt><strong><a name="key_keyfile" class="item"><strong>key</strong> = keyfile</a></strong></dt>
+<dt><strong><a name="key_key_file" class="item"><strong>key</strong> = KEY_FILE</a></strong></dt>
 
 <dd>
 <p>private key for certificate specified with <em>cert</em> option</p>
@@ -513,15 +560,15 @@ to its owner.  On Unix systems you can use the following command:</p>
 
 <dd>
 <p>Enable or disable the use of /etc/hosts.allow and /etc/hosts.deny.</p>
-<p>default: yes</p>
+<p>default: no (since version 5.00)</p>
 </dd>
-<dt><strong><a name="local_host" class="item"><strong>local</strong> = host</a></strong></dt>
+<dt><strong><a name="local_host" class="item"><strong>local</strong> = HOST</a></strong></dt>
 
 <dd>
 <p>IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.</p>
 </dd>
-<dt><strong><a name="server_name_pattern" class="item"><strong>sni</strong> = service_name:server_name_pattern (server mode)</a></strong></dt>
+<dt><strong><a name="server_pattern" class="item"><strong>sni</strong> = SERVICE:SERVER_PATTERN (server mode)</a></strong></dt>
 
 <dd>
 <p>Use the service as a slave service (a name-based virtual server) for Server
@@ -540,19 +587,19 @@ specified, as <em>protocol</em> connects remote host before TLS handshake.</p>
 TCP connection is accepted, and with slave service name during TLS handshake.</p>
 <p>Option <em>sni</em> is only available when compiled with <strong>OpenSSL 1.0.0</strong> and later.</p>
 </dd>
-<dt><strong><a name="server_name" class="item"><strong>sni</strong> = server_name (client mode)</a></strong></dt>
+<dt><strong><a name="server" class="item"><strong>sni</strong> = SERVER (client mode)</a></strong></dt>
 
 <dd>
 <p>Use the parameter as the value of TLS Server Name Indication (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>)
 extension.</p>
 <p>Option <em>sni</em> is only available when compiled with <strong>OpenSSL 1.0.0</strong> and later.</p>
 </dd>
-<dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = url</a></strong></dt>
+<dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = URL</a></strong></dt>
 
 <dd>
 <p>select OCSP server for certificate verification</p>
 </dd>
-<dt><strong><a name="ocspflag_flag" class="item"><strong>OCSPflag</strong> = flag</a></strong></dt>
+<dt><strong><a name="ocspflag_ocsp_flag" class="item"><strong>OCSPflag</strong> = OCSP_FLAG</a></strong></dt>
 
 <dd>
 <p>specify OCSP server flag</p>
@@ -560,7 +607,7 @@ extension.</p>
 <p>currently supported flags: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
 </dd>
-<dt><strong><a name="options_ssl_options" class="item"><strong>options</strong> = SSL_options</a></strong></dt>
+<dt><strong><a name="options_ssl_options" class="item"><strong>options</strong> = SSL_OPTIONS</a></strong></dt>
 
 <dd>
 <p><strong>OpenSSL</strong> library options</p>
@@ -572,7 +619,7 @@ the following option can be used:</p>
 <pre>
     options = DONT_INSERT_EMPTY_FRAGMENTS</pre>
 </dd>
-<dt><strong><a name="protocol_proto" class="item"><strong>protocol</strong> = proto</a></strong></dt>
+<dt><strong><a name="protocol_proto" class="item"><strong>protocol</strong> = PROTO</a></strong></dt>
 
 <dd>
 <p>application protocol to negotiate SSL</p>
@@ -626,15 +673,14 @@ Support for this extension was dropped in Samba 3.0.0.</p>
 </dd>
 </dl>
 </dd>
-<dt><strong><a name="protocolauthentication_auth_type" class="item"><strong>protocolAuthentication</strong> = auth_type</a></strong></dt>
+<dt><strong><a name="protocolauthentication_basic_ntlm" class="item"><strong>protocolAuthentication</strong> = basic | ntlm</a></strong></dt>
 
 <dd>
 <p>authentication type for protocol negotiations</p>
-<p>currently supported: basic, NTLM</p>
 <p>Currently authentication type only applies to the 'connect' protocol.</p>
 <p>default: basic</p>
 </dd>
-<dt><strong><a name="protocolhost_host_port" class="item"><strong>protocolHost</strong> = host:port</a></strong></dt>
+<dt><strong><a name="protocolhost_host_port" class="item"><strong>protocolHost</strong> = HOST:PORT</a></strong></dt>
 
 <dd>
 <p>destination address for protocol negotiations</p>
@@ -643,12 +689,12 @@ and not the proxy server directly connected by <strong>stunnel</strong>.
 The proxy server should be specified with the 'connect' option.</p>
 <p>Currently protocol destination address only applies to 'connect' protocol.</p>
 </dd>
-<dt><strong><a name="protocolpassword_password" class="item"><strong>protocolPassword</strong> = password</a></strong></dt>
+<dt><strong><a name="protocolpassword_password" class="item"><strong>protocolPassword</strong> = PASSWORD</a></strong></dt>
 
 <dd>
 <p>password for protocol negotiations</p>
 </dd>
-<dt><strong><a name="protocolusername_username" class="item"><strong>protocolUsername</strong> = username</a></strong></dt>
+<dt><strong><a name="protocolusername_username" class="item"><strong>protocolUsername</strong> = USERNAME</a></strong></dt>
 
 <dd>
 <p>username for protocol negotiations</p>
@@ -656,7 +702,13 @@ The proxy server should be specified with the 'connect' option.</p>
 <dt><strong><strong>pty</strong> = yes | no (Unix only)</strong></dt>
 
 <dd>
-<p>allocate pseudo terminal for 'exec' option</p>
+<p>allocate pseudoterminal for 'exec' option</p>
+</dd>
+<dt><strong><a name="redirect_host_port" class="item"><strong>redirect</strong> = [HOST:]PORT</a></strong></dt>
+
+<dd>
+<p>redirect SSL client connections on authentication failures</p>
+<p>This option only works in server mode, and without protocol negotiation.</p>
 </dd>
 <dt><strong><a name="renegotiation_yes_no" class="item"><strong>renegotiation</strong> = yes | no</a></strong></dt>
 
@@ -684,7 +736,7 @@ this issue.</p>
 <p>reconnect a connect+exec section after it's disconnected</p>
 <p>default: no</p>
 </dd>
-<dt><strong><a name="sessioncachesize_size" class="item"><strong>sessionCacheSize</strong> = size</a></strong></dt>
+<dt><strong><a name="sessioncachesize_num_entries" class="item"><strong>sessionCacheSize</strong> = NUM_ENTRIES</a></strong></dt>
 
 <dd>
 <p>session cache size</p>
@@ -693,44 +745,44 @@ entries.</p>
 <p>The value of 0 can be used for unlimited size.  It is not recommended
 for production use due to the risk of memory exhaustion DoS attack.</p>
 </dd>
-<dt><strong><a name="sessioncachetimeout_timeout" class="item"><strong>sessionCacheTimeout</strong> = timeout</a></strong></dt>
+<dt><strong><a name="sessioncachetimeout_timeout" class="item"><strong>sessionCacheTimeout</strong> = TIMEOUT</a></strong></dt>
 
 <dd>
 <p>session cache timeout</p>
 <p>This is the number of seconds to keep cached SSL sessions.</p>
 </dd>
-<dt><strong><a name="sessiond_host_port" class="item"><strong>sessiond</strong> = host:port</a></strong></dt>
+<dt><strong><a name="sessiond_host_port" class="item"><strong>sessiond</strong> = HOST:PORT</a></strong></dt>
 
 <dd>
 <p>address of sessiond SSL cache server</p>
 </dd>
-<dt><strong><a name="sslversion_version" class="item"><strong>sslVersion</strong> = version</a></strong></dt>
+<dt><strong><a name="sslversion_ssl_version" class="item"><strong>sslVersion</strong> = SSL_VERSION</a></strong></dt>
 
 <dd>
 <p>select version of SSL protocol</p>
 <p>Allowed options: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
 </dd>
-<dt><strong><a name="bytes" class="item"><strong>stack</strong> = bytes (except for FORK model)</a></strong></dt>
+<dt><strong><a name="bytes" class="item"><strong>stack</strong> = BYTES (except for FORK model)</a></strong></dt>
 
 <dd>
 <p>thread stack size</p>
 </dd>
-<dt><strong><a name="timeoutbusy_seconds" class="item"><strong>TIMEOUTbusy</strong> = seconds</a></strong></dt>
+<dt><strong><a name="timeoutbusy_seconds" class="item"><strong>TIMEOUTbusy</strong> = SECONDS</a></strong></dt>
 
 <dd>
 <p>time to wait for expected data</p>
 </dd>
-<dt><strong><a name="timeoutclose_seconds" class="item"><strong>TIMEOUTclose</strong> = seconds</a></strong></dt>
+<dt><strong><a name="timeoutclose_seconds" class="item"><strong>TIMEOUTclose</strong> = SECONDS</a></strong></dt>
 
 <dd>
 <p>time to wait for close_notify (set to 0 for buggy MSIE)</p>
 </dd>
-<dt><strong><a name="timeoutconnect_seconds" class="item"><strong>TIMEOUTconnect</strong> = seconds</a></strong></dt>
+<dt><strong><a name="timeoutconnect_seconds" class="item"><strong>TIMEOUTconnect</strong> = SECONDS</a></strong></dt>
 
 <dd>
 <p>time to wait to connect a remote host</p>
 </dd>
-<dt><strong><a name="timeoutidle_seconds" class="item"><strong>TIMEOUTidle</strong> = seconds</a></strong></dt>
+<dt><strong><a name="timeoutidle_seconds" class="item"><strong>TIMEOUTidle</strong> = SECONDS</a></strong></dt>
 
 <dd>
 <p>time to keep an idle connection</p>
@@ -831,7 +883,7 @@ other platforms.</p>
 </dd>
 </dl>
 </dd>
-<dt><strong><a name="verify_level" class="item"><strong>verify</strong> = level</a></strong></dt>
+<dt><strong><a name="verify_level" class="item"><strong>verify</strong> = LEVEL</a></strong></dt>
 
 <dd>
 <p>verify peer certificate</p>

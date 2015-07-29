@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[4.57])
+AC_INIT([stunnel],[5.00])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 4.57)
+AM_INIT_AUTOMAKE(stunnel, 5.00)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -34,7 +34,7 @@ AC_SUBST([stunnel_LDFLAGS])
 AC_MSG_CHECKING([whether $CC accepts -pthread])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -pthread"
 valid_LDFLAGS="$LDFLAGS"; LDFLAGS="$LDFLAGS -pthread"
-AC_LINK_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [
         AC_MSG_RESULT([yes])
         AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -pthread"])
@@ -47,7 +47,7 @@ CFLAGS="$valid_CFLAGS"; LDFLAGS="$valid_LDFLAGS"
 AC_MSG_CHECKING([whether $CC accepts -fstack-protector])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -fstack-protector"
 valid_LDFLAGS="$LDFLAGS"; LDFLAGS="$LDFLAGS -fstack-protector"
-AC_LINK_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [
         AC_MSG_RESULT([yes])
         AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -fstack-protector"])
@@ -60,7 +60,7 @@ CFLAGS="$valid_CFLAGS"; LDFLAGS="$valid_LDFLAGS"
 AC_MSG_CHECKING([whether $CC accepts -pie])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -fPIE"
 valid_LDFLAGS="$LDFLAGS"; LDFLAGS="$LDFLAGS -pie -fPIE"
-AC_LINK_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [
         AC_MSG_RESULT([yes])
         AC_SUBST([stunnel_CFLAGS], ["$stunnel_CFLAGS -fPIE"])
@@ -72,25 +72,25 @@ CFLAGS="$valid_CFLAGS"; LDFLAGS="$valid_LDFLAGS"
 
 AC_MSG_CHECKING([whether $CC accepts -Wall])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wall"
-AC_LINK_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
 AC_MSG_CHECKING([whether $CC accepts -Wextra])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wextra"
-AC_LINK_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
 AC_MSG_CHECKING([whether $CC accepts -Wno-long-long])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -Wno-long-long"
-AC_LINK_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
 AC_MSG_CHECKING([whether $CC accepts -pedantic])
 valid_CFLAGS="$CFLAGS"; CFLAGS="$CFLAGS -pedantic"
-AC_LINK_IFELSE([int main() {return 0;}],
+AC_LINK_IFELSE([AC_LANG_SOURCE([int main() {return 0;}])],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no]); CFLAGS="$valid_CFLAGS"])
 
@@ -167,7 +167,7 @@ AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_STDC
 # AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([malloc.h ucontext.h pthread.h poll.h tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h])
-AC_CHECK_HEADERS([sys/types.h sys/select.h sys/poll.h sys/socket.h sys/un.h sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h])
+AC_CHECK_HEADERS([sys/types.h sys/select.h sys/poll.h sys/socket.h sys/un.h sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h sys/syscall.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
     [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1],
     [Define to 1 if you have 'msghdr.msg_control' structure.])], [], [

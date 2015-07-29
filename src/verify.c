@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -41,24 +41,29 @@
 /**************************************** prototypes */
 
 /* verify initialization */
-static int load_file_lookup(X509_STORE *, char *);
-static int add_dir_lookup(X509_STORE *, char *);
+NOEXPORT int load_file_lookup(X509_STORE *, char *);
+NOEXPORT int add_dir_lookup(X509_STORE *, char *);
 
 /* verify callback */
-static int verify_callback(int, X509_STORE_CTX *);
-static int cert_check(CLI *c, X509_STORE_CTX *, int);
-static int crl_check(CLI *c, X509_STORE_CTX *);
+NOEXPORT int verify_callback(int, X509_STORE_CTX *);
+NOEXPORT int verify_checks(int, X509_STORE_CTX *);
+NOEXPORT int cert_check(X509_STORE_CTX *, int);
+NOEXPORT int crl_check(X509_STORE_CTX *);
 #ifdef HAVE_OSSL_OCSP_H
-static int ocsp_check(CLI *c, X509_STORE_CTX *);
-static OCSP_RESPONSE *ocsp_get_response(CLI *, OCSP_REQUEST *);
+NOEXPORT int ocsp_check(X509_STORE_CTX *);
+NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *, OCSP_REQUEST *);
 #endif
 
 /* utility functions */
-static void log_time(const int, const char *, ASN1_TIME *);
+NOEXPORT void log_time(const int, const char *, ASN1_TIME *);
 
 /**************************************** verify initialization */
 
 int verify_init(SERVICE_OPTIONS *section) {
+    STACK_OF(X509_NAME) *ca_dn;
+    char *ca_name;
+    int i;
+
     if(section->verify_level<0)
         return 0; /* OK - no certificate verification */
 
@@ -82,13 +87,22 @@ int verify_init(SERVICE_OPTIONS *section) {
             sslerror("SSL_CTX_load_verify_locations");
             return 1; /* FAILED */
         }
-        /* list of trusted CAs for the client to choose the right cert */
-        SSL_CTX_set_client_CA_list(section->ctx,
-            SSL_load_client_CA_file(section->ca_file));
-        s_log(LOG_DEBUG, "Loaded verify certificates from %s",
-            section->ca_file);
+        /* revocation store needs CA certificates for CRL validation */
         if(load_file_lookup(section->revocation_store, section->ca_file))
             return 1; /* FAILED */
+        /* trusted CA names sent to clients for client cert selection */
+        if(!section->option.client) { /* only performed on server */
+            s_log(LOG_DEBUG, "Client CA list: %s",
+                section->ca_file);
+            ca_dn=SSL_load_client_CA_file(section->ca_file);
+            for (i=0; i<sk_X509_NAME_num(ca_dn); ++i) {
+                ca_name=X509_NAME_oneline(sk_X509_NAME_value(ca_dn, i),
+                    NULL, 0);
+                s_log(LOG_INFO, "Client CA: %s", ca_name);
+                OPENSSL_free(ca_name);
+            }
+            SSL_CTX_set_client_CA_list(section->ctx, ca_dn);
+        }
     }
 
     if(section->ca_dir) {
@@ -121,7 +135,7 @@ int verify_init(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 
-static int load_file_lookup(X509_STORE *store, char *name) {
+NOEXPORT int load_file_lookup(X509_STORE *store, char *name) {
     X509_LOOKUP *lookup;
 
     lookup=X509_STORE_add_lookup(store, X509_LOOKUP_file());
@@ -138,7 +152,7 @@ static int load_file_lookup(X509_STORE *store, char *name) {
     return 0; /* OK */
 }
 
-static int add_dir_lookup(X509_STORE *store, char *name) {
+NOEXPORT int add_dir_lookup(X509_STORE *store, char *name) {
     X509_LOOKUP *lookup;
 
     lookup=X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir());
@@ -157,56 +171,81 @@ static int add_dir_lookup(X509_STORE *store, char *name) {
 
 /**************************************** verify callback */
 
-static int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
+NOEXPORT int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         /* our verify callback function */
     SSL *ssl;
     CLI *c;
-    X509 *cert;
-    int depth;
-    char *subject_name;
 
     /* retrieve application specific data */
     ssl=X509_STORE_CTX_get_ex_data(callback_ctx,
         SSL_get_ex_data_X509_STORE_CTX_idx());
     c=SSL_get_ex_data(ssl, cli_index);
+    if(c->opt->verify_level<1) {
+        s_log(LOG_INFO, "Certificate verification disabled");
+        return 1; /* accept */
+    }
+    if(verify_checks(preverify_ok, callback_ctx))
+        return 1; /* accept */
+    if(c->opt->option.client || c->opt->protocol>=0)
+        return 0; /* reject */
+    if(c->opt->redirect_addr.num) { /* pre-resolved addresses */
+        addrlist_dup(&c->connect_addr, &c->opt->redirect_addr);
+        s_log(LOG_INFO, "Redirecting connection");
+        return 1; /* accept */
+    }
+    /* delayed lookup */
+    if(namelist2addrlist(&c->connect_addr,
+            c->opt->redirect_list, DEFAULT_LOOPBACK)) {
+        s_log(LOG_INFO, "Redirecting connection");
+        return 1; /* accept */
+    }
+    return 0; /* reject */
+}
+
+NOEXPORT int verify_checks(int preverify_ok, X509_STORE_CTX *callback_ctx) {
+    X509 *cert;
+    int depth;
+    char *subject;
+
     cert=X509_STORE_CTX_get_current_cert(callback_ctx);
     depth=X509_STORE_CTX_get_error_depth(callback_ctx);
+    subject=X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0);
 
-    /* certificate name for logging */
-    subject_name=X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0);
+    s_log(LOG_DEBUG, "Starting certificate verification: depth=%d, subject=%s",
+        depth, subject);
 
-    s_log(LOG_DEBUG, "Starting certificate verification: depth=%d, %s",
-        depth, subject_name);
-    if(!cert_check(c, callback_ctx, preverify_ok)) {
-        s_log(LOG_WARNING, "Certificate check failed: depth=%d, %s",
-            depth, subject_name);
-        OPENSSL_free(subject_name);
-        return 0; /* reject connection */
+    if(!cert_check(callback_ctx, preverify_ok)) {
+        s_log(LOG_WARNING, "Certificate check failed: depth=%d, subject=%s",
+            depth, subject);
+        OPENSSL_free(subject);
+        return 0; /* fail */
     }
-    if(!crl_check(c, callback_ctx)) {
-        s_log(LOG_WARNING, "CRL check failed: depth=%d, %s",
-            depth, subject_name);
-        OPENSSL_free(subject_name);
-        return 0; /* reject connection */
+    if(!crl_check(callback_ctx)) {
+        s_log(LOG_WARNING, "CRL check failed: depth=%d, subject=%s",
+            depth, subject);
+        OPENSSL_free(subject);
+        return 0; /* fail */
     }
 #ifdef HAVE_OSSL_OCSP_H
-    if(c->opt->option.ocsp && !ocsp_check(c, callback_ctx)) {
-        s_log(LOG_WARNING, "OCSP check failed: depth=%d, %s",
-            depth, subject_name);
-        OPENSSL_free(subject_name);
-        return 0; /* reject connection */
+    if(!ocsp_check(callback_ctx)) {
+        s_log(LOG_WARNING, "OCSP check failed: depth=%d, subject=%s",
+            depth, subject);
+        OPENSSL_free(subject);
+        return 0; /* fail */
     }
 #endif /* HAVE_OSSL_OCSP_H */
-    /* errnum=X509_STORE_CTX_get_error(ctx); */
-    s_log(LOG_NOTICE, "Certificate accepted: depth=%d, %s",
-        depth, subject_name);
-    OPENSSL_free(subject_name);
-    return 1; /* accept connection */
+
+    s_log(depth ? LOG_INFO : LOG_NOTICE,
+        "Certificate accepted: depth=%d, subject=%s", depth, subject);
+    OPENSSL_free(subject);
+    return 1; /* success */
 }
 
 /**************************************** certificate checking */
 
-static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
+NOEXPORT int cert_check(X509_STORE_CTX *callback_ctx, int preverify_ok) {
+    SSL *ssl;
+    CLI *c;
     X509_OBJECT obj;
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
     ASN1_BIT_STRING *local_key, *peer_key;
@@ -214,22 +253,22 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
     X509 *cert;
     int depth;
 
-    if(c->opt->verify_level<1) {
-        s_log(LOG_INFO, "CERT: Verification not enabled");
-        return 1; /* accept connection */
-    }
+    ssl=X509_STORE_CTX_get_ex_data(callback_ctx,
+        SSL_get_ex_data_X509_STORE_CTX_idx());
+    c=SSL_get_ex_data(ssl, cli_index);
     cert=X509_STORE_CTX_get_current_cert(callback_ctx);
     depth=X509_STORE_CTX_get_error_depth(callback_ctx);
+
     if(!preverify_ok) {
         /* remote site specified a certificate, but it's not correct */
         if(c->opt->verify_level>=4 && depth>0) {
             s_log(LOG_INFO, "CERT: Invalid CA certificate ignored");
-            return 1; /* accept connection */
+            return 1; /* success */
         } else {
             s_log(LOG_WARNING, "CERT: Verification error: %s",
                 X509_verify_cert_error_string(
                     X509_STORE_CTX_get_error(callback_ctx)));
-            return 0; /* reject connection */
+            return 0; /* fail */
         }
     }
     if(c->opt->verify_level>=3 && depth==0) {
@@ -237,7 +276,7 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
                 X509_get_subject_name(cert), &obj)!=1) {
             s_log(LOG_WARNING,
                 "CERT: Certificate not found in local repository");
-            return 0; /* reject connection */
+            return 0; /* fail */
         }
 #if OPENSSL_VERSION_NUMBER>=0x0090700fL
         peer_key=X509_get0_pubkey_bitstr(cert);
@@ -245,18 +284,20 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
         if(!peer_key || !local_key || peer_key->length!=local_key->length ||
                 memcmp(peer_key->data, local_key->data, local_key->length)) {
             s_log(LOG_WARNING, "CERT: Public keys do not match");
-            return 0; /* reject connection */
+            return 0; /* fail */
         }
 #endif
         s_log(LOG_INFO, "CERT: Locally installed certificate matched");
     }
-    return 1; /* accept connection */
+    return 1; /* success */
 }
 
 /**************************************** CRL checking */
 
 /* based on BSD-style licensed code of mod_ssl */
-static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx) {
+NOEXPORT int crl_check(X509_STORE_CTX *callback_ctx) {
+    SSL *ssl;
+    CLI *c;
     X509_STORE_CTX store_ctx;
     X509_OBJECT obj;
     X509_NAME *subject;
@@ -270,7 +311,9 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     char *cp;
     ASN1_TIME *last_update=NULL, *next_update=NULL;
 
-    /* determine certificate ingredients in advance */
+    ssl=X509_STORE_CTX_get_ex_data(callback_ctx,
+        SSL_get_ex_data_X509_STORE_CTX_idx());
+    c=SSL_get_ex_data(ssl, cli_index);
     cert=X509_STORE_CTX_get_current_cert(callback_ctx);
     subject=X509_get_subject_name(cert);
     issuer=X509_get_issuer_name(cert);
@@ -300,7 +343,7 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx) {
             X509_OBJECT_free_contents(&obj);
             if(pubkey)
                 EVP_PKEY_free(pubkey);
-            return 0; /* reject connection */
+            return 0; /* fail */
         }
         if(pubkey)
             EVP_PKEY_free(pubkey);
@@ -311,13 +354,13 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx) {
             X509_STORE_CTX_set_error(callback_ctx,
                 X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD);
             X509_OBJECT_free_contents(&obj);
-            return 0; /* reject connection */
+            return 0; /* fail */
         }
         if(X509_cmp_current_time(next_update)<0) {
             s_log(LOG_WARNING, "CRL: CRL Expired - revoking all certificates");
             X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CRL_HAS_EXPIRED);
             X509_OBJECT_free_contents(&obj);
-            return 0; /* reject connection */
+            return 0; /* fail */
         }
         X509_OBJECT_free_contents(&obj);
     }
@@ -343,12 +386,12 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx) {
                 OPENSSL_free(cp);
                 X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REVOKED);
                 X509_OBJECT_free_contents(&obj);
-                return 0; /* reject connection */
+                return 0; /* fail */
             }
         }
         X509_OBJECT_free_contents(&obj);
     }
-    return 1; /* accept connection */
+    return 1; /* success */
 }
 
 #ifdef HAVE_OSSL_OCSP_H
@@ -356,7 +399,9 @@ static int crl_check(CLI *c, X509_STORE_CTX *callback_ctx) {
 /**************************************** OCSP checking */
 /* TODO: check OCSP server specified in the certificate */
 
-static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
+NOEXPORT int ocsp_check(X509_STORE_CTX *callback_ctx) {
+    SSL *ssl;
+    CLI *c;
     int error, retval=0;
     X509 *cert;
     X509 *issuer=NULL;
@@ -368,8 +413,15 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
         *this_update=NULL, *next_update=NULL;
     int status, reason;
 
+    ssl=X509_STORE_CTX_get_ex_data(callback_ctx,
+        SSL_get_ex_data_X509_STORE_CTX_idx());
+    c=SSL_get_ex_data(ssl, cli_index);
+
+    if(!c->opt->option.ocsp)
+        return 1; /* success */
+
     /* get current certificate ID */
-    cert=X509_STORE_CTX_get_current_cert(callback_ctx); /* get current cert */
+    cert=X509_STORE_CTX_get_current_cert(callback_ctx);
     if(X509_STORE_CTX_get1_issuer(&issuer, callback_ctx, cert)!=1) {
         sslerror("OCSP: X509_STORE_CTX_get1_issuer");
         goto cleanup;
@@ -442,7 +494,7 @@ static int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
         log_time(LOG_NOTICE, "OCSP: Revoked at", revoked_at);
         goto cleanup;
     }
-    retval=1; /* accept connection */
+    retval=1; /* success */
 cleanup:
     if(issuer)
         X509_free(issuer);
@@ -455,7 +507,7 @@ cleanup:
     return retval;
 }
 
-static OCSP_RESPONSE *ocsp_get_response(CLI *c, OCSP_REQUEST *req) {
+NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *c, OCSP_REQUEST *req) {
     BIO *bio=NULL;
     OCSP_REQ_CTX *req_ctx=NULL;
     OCSP_RESPONSE *resp=NULL;
@@ -466,7 +518,7 @@ static OCSP_RESPONSE *ocsp_get_response(CLI *c, OCSP_REQUEST *req) {
         1, "OCSP: socket (auth_user)");
     if(c->fd<0)
         goto cleanup;
-    if(connect_blocking(c, &c->opt->ocsp_addr, addr_len(&c->opt->ocsp_addr)))
+    if(s_connect(c, &c->opt->ocsp_addr, addr_len(&c->opt->ocsp_addr)))
         goto cleanup;
     bio=BIO_new_fd(c->fd, BIO_NOCLOSE);
     if(!bio)
@@ -513,7 +565,7 @@ cleanup:
 
 #endif /* HAVE_OSSL_OCSP_H */
 
-static void log_time(const int level, const char *txt, ASN1_TIME *t) {
+NOEXPORT void log_time(const int level, const char *txt, ASN1_TIME *t) {
     char *cp;
     BIO *bio;
     int n;

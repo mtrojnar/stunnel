@@ -3,6 +3,8 @@ stunnel TODO
 
 High priority features.  They will likely be supported some day.
 A sponsor could allocate my time to get them faster.
+* Add 'leastconn' failover strategy to order defined 'connect' targets
+  by the number of active connections.
 * Perform protocol negotiations after SSL negotiations if possible.
 * Command-line server control interface on both Unix and Windows.
 * Separate GUI process running as current user on Windows.
@@ -10,22 +12,19 @@ A sponsor could allocate my time to get them faster.
 * etc/stunnel/conf.d/* files automatically processed while reading
   etc/stunnel/stunnel.conf
 * Android GUI.
-* Support for CryptoAPI certificates and private keys with OpenSSL CAPI
-  engine (this feature is incompatible with FIPS support).
 * Indirect CRL support (RFC 3280, section 5).
 * Configuration file option to limit the number of concurrent connections.
 * SOCKS 4 protocol support.
   http://archive.socks.permeo.com/protocol/socks4.protocol
-* Option to redirect instead of rejecting connections on failed authentication.
 
 Low priority features.  They will unlikely ever be supported.
+* Support static FIPS-enabled build.
 * Provide 64-bit Windows builds (besides 32-bit builds).
   This requires either Microsoft Visual Studio Standard Edition or Microsoft
   Visual Studio Professional Edition in order to retain FIPS compliance.
 * Service-level logging configuration (separate verbosity and destination).
-* Key renegotiation (re-handshake) for long connections.
+* Enforce key renegotiation (re-handshake) for long connections.
 * Logging to NT EventLog on Windows.
-* Log rotation on Windows.
 * Internationalization of logged messages (i18n).
 * Generic scripting engine instead or static protocol.c.
 

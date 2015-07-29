@@ -11,9 +11,17 @@ examplesdir = $(docdir)/examples
 examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
 	stunnel.spec stunnel.init stunnel.service
 
-OPENSSL=$(SSLDIR)/bin/openssl
 install-data-local:
-	if test ! -r $(DESTDIR)$(confdir)/stunnel.pem; then \
+	${INSTALL} -d -m 1770 $(DESTDIR)$(localstatedir)/lib/stunnel
+	-chgrp $(DEFAULT_GROUP) $(DESTDIR)$(localstatedir)/lib/stunnel
+
+OPENSSL=$(SSLDIR)/bin/openssl
+
+cert:
+	@if test -r $(DESTDIR)$(confdir)/stunnel.pem; \
+	then \
+		echo "$(DESTDIR)$(confdir)/stunnel.pem already exists"; \
+	else \
 		if test -r "$(RANDOM_FILE)"; then \
 			dd if="$(RANDOM_FILE)" of=stunnel.rnd bs=256 count=1; \
 			RND="-rand stunnel.rnd"; \
@@ -27,10 +35,6 @@ install-data-local:
 		$(OPENSSL) x509 -subject -dates -fingerprint -noout -in stunnel.pem; \
 		${INSTALL} -m 600 stunnel.pem $(DESTDIR)$(confdir)/stunnel.pem; \
 		rm stunnel.pem; \
+		rm -f stunnel.rnd; \
 	fi
-	${INSTALL} -d -m 1770 $(DESTDIR)$(localstatedir)/lib/stunnel
-	-chgrp $(DEFAULT_GROUP) $(DESTDIR)$(localstatedir)/lib/stunnel
-
-clean-local:
-	-rm -f stunnel.rnd
 

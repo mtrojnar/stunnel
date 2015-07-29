@@ -19,7 +19,7 @@ BEGIN
             VALUE "FileDescription",    "stunnel - multiplatform SSL tunneling proxy"
             VALUE "FileVersion",        STUNNEL_VERSION
             VALUE "InternalName",       "stunnel"
-            VALUE "LegalCopyright",     "© by Michal Trojnara, 1998-2013"
+            VALUE "LegalCopyright",     "© by Michal Trojnara, 1998-2014"
             VALUE "OriginalFilename",   "stunnel.exe"
             VALUE "ProductName",        STUNNEL_PRODUCTNAME
             VALUE "ProductVersion",     STUNNEL_VERSION
@@ -31,7 +31,10 @@ BEGIN
     END
 END
 
-IDI_MYICON ICON "stunnel.ico"
+IDI_STUNNEL_MAIN    ICON "stunnel.ico"
+IDI_STUNNEL_ACTIVE  ICON "active.ico"
+IDI_STUNNEL_ERROR   ICON "error.ico"
+IDI_STUNNEL_IDLE    ICON "idle.ico"
 
 IDM_MAINMENU MENU
 BEGIN
@@ -44,10 +47,10 @@ BEGIN
     END
     POPUP "&Configuration"
     BEGIN
-        MENUITEM "&Edit stunnel.conf",      IDM_EDIT_CONFIG
-        MENUITEM "&Reload stunnel.conf",    IDM_RELOAD_CONFIG
+        MENUITEM "&Edit Configuration",      IDM_EDIT_CONFIG
+        MENUITEM "&Reload Configuration",    IDM_RELOAD_CONFIG
     END
-    POPUP "&Save peer certificate"
+    POPUP "&Save Peer Certificate"
     BEGIN
         MENUITEM "dummy",                   0, GRAYED
     END
@@ -66,13 +69,13 @@ BEGIN
     BEGIN
         MENUITEM "Show Log &Window",        IDM_SHOW_LOG
         MENUITEM SEPARATOR
-        POPUP "&Save peer certificate"
+        POPUP "&Save Peer Certificate"
         BEGIN
             MENUITEM "dummy",               0, GRAYED
         END
         MENUITEM SEPARATOR
-        MENUITEM "&Edit stunnel.conf",      IDM_EDIT_CONFIG
-        MENUITEM "&Reload stunnel.conf",    IDM_RELOAD_CONFIG
+        MENUITEM "&Edit Configuration",      IDM_EDIT_CONFIG
+        MENUITEM "&Reload Configuration",    IDM_RELOAD_CONFIG
         MENUITEM "Reopen &Log File",        IDM_REOPEN_LOG, GRAYED
         MENUITEM SEPARATOR
         MENUITEM "&Homepage",               IDM_HOMEPAGE
@@ -87,10 +90,10 @@ ABOUTBOX DIALOG DISCARDABLE  0, 0, 140, 68
 STYLE DS_MODALFRAME|DS_CENTER|WS_POPUP|WS_CAPTION|WS_SYSMENU
 CAPTION "About stunnel"
 BEGIN
-    ICON            IDI_MYICON, -1,                              9,  8,  18, 20
+    ICON            IDI_STUNNEL_MAIN, -1,                        9,  8,  18, 20
     LTEXT           "stunnel version", -1,                      30,  4,  52,  8
     LTEXT           STUNNEL_VERSION, -1,                        82,  4,  54,  8
-    LTEXT           "© by Michal Trojnara, 1998-2013", -1,      30, 12, 106,  8
+    LTEXT           "© by Michal Trojnara, 1998-2014", -1,      30, 12, 106,  8
     LTEXT           "All Rights Reserved", -1,                  30, 20, 106,  8
     LTEXT           "Licensed under the GNU GPL version 2", -1,  4, 28, 132,  8
     LTEXT           "with a special exception for OpenSSL", -1,  4, 36, 132,  8
@@ -101,7 +104,7 @@ PASSBOX DIALOG DISCARDABLE 0, 0, 158, 51
 STYLE DS_MODALFRAME|DS_CENTER|WS_POPUP|WS_CAPTION|WS_SYSMENU
 CAPTION ""
 BEGIN
-    ICON            IDI_MYICON, -1,           8,  6, 18, 20
+    ICON            IDI_STUNNEL_MAIN, -1,     8,  6, 18, 20
     LTEXT           "Pass phrase:", -1,      33,  9, 50,  8
     EDITTEXT        IDE_PASSEDIT,            86,  7, 65, 12, ES_PASSWORD|ES_AUTOHSCROLL
     DEFPUSHBUTTON   "OK",IDOK,                7, 30, 50, 14
@@ -112,7 +115,7 @@ PINBOX DIALOG DISCARDABLE 0, 0, 158, 51
 STYLE DS_MODALFRAME|DS_CENTER|WS_POPUP|WS_CAPTION|WS_SYSMENU
 CAPTION ""
 BEGIN
-    ICON            IDI_MYICON, -1,           8,  6, 18, 20
+    ICON            IDI_STUNNEL_MAIN, -1,     8,  6, 18, 20
     LTEXT           "SmartCard PIN:", -1,    33,  9, 50,  8
     EDITTEXT        IDE_PINEDIT,             86,  7, 65, 12, ES_PASSWORD|ES_AUTOHSCROLL
     DEFPUSHBUTTON   "OK",IDOK,                7, 30, 50, 14

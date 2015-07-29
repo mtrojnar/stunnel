@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -42,12 +42,31 @@
 
 /**************************************** data structures */
 
+#if defined (USE_WIN32)
+#define ICON_IMAGE HICON
+#elif defined(__APPLE__)
+#define ICON_IMAGE void *
+#endif
+
+typedef enum {
+    ICON_ERROR,
+    ICON_IDLE,
+    ICON_ACTIVE,
+    ICON_NONE /* it has to be the last one */
+} ICON_TYPE;
+
 typedef enum {
     LOG_MODE_NONE,
     LOG_MODE_ERROR,
     LOG_MODE_INFO,
     LOG_MODE_CONFIGURED
 } LOG_MODE;
+
+typedef enum {
+    FILE_MODE_READ,
+    FILE_MODE_APPEND,
+    FILE_MODE_OVERWRITE
+} FILE_MODE;
 
 typedef union sockaddr_union {
     struct sockaddr sa;
@@ -102,6 +121,12 @@ typedef struct {
     int facility;                               /* debug facility for syslog */
 #endif
     char *output_file;
+    FILE_MODE log_file_mode;
+
+        /* user interface configuraion */
+#ifdef ICON_IMAGE
+    ICON_IMAGE icon[ICON_NONE];                   /* user-specified GUI icons */
+#endif
 
         /* on/off switches */
     struct {
@@ -176,14 +201,14 @@ typedef struct service_options_struct {
     char **execargs;                     /* program arguments for local mode */
 #endif
     SOCKADDR_UNION local_addr, source_addr;
-    SOCKADDR_LIST connect_addr;
-    char *username;
-    NAME_LIST *connect_list;
+    SOCKADDR_LIST connect_addr, redirect_addr;
+    NAME_LIST *connect_list, *redirect_list;
     int timeout_busy;                       /* maximum waiting for data time */
     int timeout_close;                          /* maximum close_notify time */
     int timeout_connect;                           /* maximum connect() time */
     int timeout_idle;                        /* maximum idle connection time */
     enum {FAILOVER_RR, FAILOVER_PRIO} failover;         /* failover strategy */
+    char *username;
 
         /* service-specific data for protocol.c */
     int protocol;
@@ -192,12 +217,13 @@ typedef struct service_options_struct {
     char *protocol_password;
     char *protocol_authentication;
 
-        /* service-specific data for gui.c */
+        /* service-specific data for ui_*.c */
 #ifdef USE_WIN32
-    int section_number;
     LPTSTR file;
-    char *help, *chain;
+    char *help;
 #endif
+    int section_number;
+    char *chain;
 
         /* on/off switches */
     struct {
@@ -270,8 +296,11 @@ typedef struct {
     unsigned int nfds;
     unsigned int allocated;
 #else /* select */
-    fd_set irfds, iwfds, ixfds, orfds, owfds, oxfds;
+    fd_set *irfds, *iwfds, *ixfds, *orfds, *owfds, *oxfds;
     int max;
+#ifdef USE_WIN32
+    unsigned int allocated;
+#endif
 #endif
 } s_poll_set;
 
@@ -300,12 +329,11 @@ extern volatile int num_clients;
 
 void main_initialize(void);
 int main_configure(char *, char *);
+void main_cleanup(void);
+int drop_privileges(int);
 void daemon_loop(void);
 void unbind_ports(void);
 int bind_ports(void);
-#if !defined (USE_WIN32) && !defined (__vms) && !defined(USE_OS2)
-int drop_privileges(int);
-#endif
 void signal_post(int);
 #if !defined(USE_WIN32) && !defined(USE_OS2)
 void child_status(void);  /* dead libwrap or 'exec' process detected */
@@ -358,8 +386,10 @@ int ssl_configure(GLOBAL_OPTIONS *);
 
 /**************************************** prototypes for options.c */
 
+extern char *configuration_file;
+
 int parse_commandline(char *, char *);
-int parse_conf(char *, CONF_TYPE);
+int parse_conf(CONF_TYPE);
 void apply_conf(void);
 
 /**************************************** prototypes for ctx.c */
@@ -441,9 +471,9 @@ void client_main(CLI *);
 
 /**************************************** prototypes for network.c */
 
-int connect_blocking(CLI *, SOCKADDR_UNION *, socklen_t);
-void write_blocking(CLI *, int fd, void *, int);
-void read_blocking(CLI *, int fd, void *, int);
+int s_connect(CLI *, SOCKADDR_UNION *, socklen_t);
+void s_write(CLI *, int fd, void *, int);
+void s_read(CLI *, int fd, void *, int);
 void fd_putline(CLI *, int, const char *);
 char *fd_getline(CLI *, int);
 /* descriptor versions of fprintf/fscanf */
@@ -472,6 +502,7 @@ void resolver_init();
 int name2addr(SOCKADDR_UNION *, char *, char *);
 int hostport2addr(SOCKADDR_UNION *, char *, char *);
 int namelist2addrlist(SOCKADDR_LIST *, NAME_LIST *, char *);
+void addrlist_dup(SOCKADDR_LIST *, const SOCKADDR_LIST *);
 char *s_ntop(SOCKADDR_UNION *, socklen_t);
 socklen_t addr_len(const SOCKADDR_UNION *);
 const char *s_gai_strerror(int);
@@ -547,25 +578,12 @@ void _endthread(void);
 void stack_info(int);
 #endif
 
-/**************************************** prototypes for gui.c */
-
-#ifdef USE_WIN32
-void message_box(const LPSTR, const UINT);
-void win_new_chain(int);
-void win_new_log(char *);
-void win_new_config(void);
-int passwd_cb(char *, int, int, void *);
-#ifdef HAVE_OSSL_ENGINE_H
-int pin_cb(UI *, UI_STRING *);
-#endif
-#endif /* USE_WIN32 */
-
 /**************************************** prototypes for file.c */
 
 #ifndef USE_WIN32
 DISK_FILE *file_fdopen(int);
 #endif
-DISK_FILE *file_open(char *, int);
+DISK_FILE *file_open(char *, FILE_MODE mode);
 void file_close(DISK_FILE *);
 int file_getline(DISK_FILE *, char *, int);
 int file_putline(DISK_FILE *, char *);
@@ -594,13 +612,35 @@ void str_detach_debug(void *, char *, int);
 #define str_detach(a) str_detach_debug((a), __FILE__, __LINE__)
 void str_free_debug(void *, char *, int);
 #define str_free(a) str_free_debug((a), __FILE__, __LINE__), (a)=NULL
-char *str_dup(const char *);
+char *str_dup_debug(const char *, char *, int);
+#define str_dup(a) str_dup_debug((a), __FILE__, __LINE__)
 char *str_vprintf(const char *, va_list);
 char *str_printf(const char *, ...)
 #ifdef __GNUC__
     __attribute__((format(printf, 1, 2)));
 #else
     ;
+#endif
+
+/**************************************** prototypes for ui_*.c */
+
+void ui_new_config(void);
+void ui_new_chain(const int);
+void ui_clients(const int);
+
+void ui_new_log(const char *);
+#ifdef USE_WIN32
+void message_box(const LPSTR, const UINT);
+#endif /* USE_WIN32 */
+
+int passwd_cb(char *, int, int, void *);
+#ifdef HAVE_OSSL_ENGINE_H
+int pin_cb(UI *, UI_STRING *);
+#endif
+
+#ifdef ICON_IMAGE
+ICON_IMAGE load_icon_default(ICON_TYPE);
+ICON_IMAGE load_icon_file(const char *);
 #endif
 
 #endif /* defined PROTOTYPES_H */

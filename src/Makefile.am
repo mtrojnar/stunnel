@@ -4,9 +4,11 @@
 common_headers = common.h prototypes.h version.h
 common_sources = str.c file.c client.c log.c options.c protocol.c network.c
 common_sources += resolver.c ssl.c ctx.c verify.c sthreads.c fd.c stunnel.c
-unix_sources = pty.c libwrap.c
+unix_sources = pty.c libwrap.c ui_unix.c
 shared_sources = env.c
-win32_sources = gui.c resources.h resources.rc stunnel.ico
+win32_gui_sources = ui_win_gui.c resources.h resources.rc
+win32_gui_sources += stunnel.ico active.ico error.ico idle.ico
+win32_cli_sources = ui_win_cli.c
 
 # Unix executables
 bin_PROGRAMS = stunnel
@@ -25,7 +27,6 @@ stunnel_CPPFLAGS = -I/usr/kerberos/include
 stunnel_CPPFLAGS += -I$(SSLDIR)/include
 stunnel_CPPFLAGS += -DLIBDIR='"$(pkglibdir)"'
 stunnel_CPPFLAGS += -DCONFDIR='"$(sysconfdir)/stunnel"'
-stunnel_CPPFLAGS += -DPIDFILE='"$(localstatedir)/run/stunnel/stunnel.pid"'
 
 # SSL library
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
@@ -34,12 +35,12 @@ stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 EXTRA_DIST = make.bat makece.bat makew32.bat
 EXTRA_DIST += mingw.mak evc.mak vc.mak os2.mak
 EXTRA_PROGRAMS = stunnel.exe tstunnel.exe
-stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_sources)
-tstunnel_exe_SOURCES = $(common_headers) $(common_sources) nogui.c
+stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_gui_sources)
+tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
 
 # OPENSSLDIR = /usr/src/openssl-0.9.8u-fips
 # WINCPPFLAGS = -I$(OPENSSLDIR)/inc32
-OPENSSLDIR = /usr/src/openssl-1.0.2a-i686
+OPENSSLDIR = /usr/src/openssl-1.0.1f-i686
 WINCPPFLAGS = -I$(OPENSSLDIR)/include
 WINCFLAGS = -mthreads -fstack-protector -O2 -Wall -Wextra -Wno-long-long -pedantic
 WINLDFLAGS = -mthreads -fstack-protector -s
@@ -49,8 +50,8 @@ WINLIBS = -L$(OPENSSLDIR) -lcrypto -lssl -lpsapi -lws2_32 -lgdi32
 WINOBJ = str.obj file.obj client.obj log.obj options.obj protocol.obj
 WINOBJ += network.obj resolver.obj ssl.obj ctx.obj verify.obj sthreads.obj
 WINOBJ += fd.obj stunnel.obj
-WINGUIOBJ = $(WINOBJ) gui.obj resources.obj
-WINNOGUIOBJ = $(WINOBJ) nogui.obj
+WINGUIOBJ = $(WINOBJ) ui_win_gui.obj resources.obj
+WINCLIOBJ = $(WINOBJ) ui_win_cli.obj
 WINPREFIX = i686-w64-mingw32-
 WINGCC = $(WINPREFIX)gcc
 WINDRES = $(WINPREFIX)windres
@@ -65,8 +66,8 @@ distclean-local:
 stunnel.exe: $(WINGUIOBJ)
 	$(WINGCC) -mwindows $(WINLDFLAGS) -o stunnel.exe $(WINGUIOBJ) $(WINLIBS)
 
-tstunnel.exe: $(WINNOGUIOBJ)
-	$(WINGCC) $(WINLDFLAGS) -o tstunnel.exe $(WINNOGUIOBJ) $(WINLIBS)
+tstunnel.exe: $(WINCLIOBJ)
+	$(WINGCC) $(WINLDFLAGS) -o tstunnel.exe $(WINCLIOBJ) $(WINLIBS)
 
 %.obj: %.c $(common_headers)
 	$(WINGCC) -c $(WINCPPFLAGS) $(WINCFLAGS) -o $@ $<

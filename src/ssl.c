@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -39,9 +39,9 @@
 #include "prototypes.h"
 
     /* global OpenSSL initalization: compression, engine, entropy */
-static int init_compression(GLOBAL_OPTIONS *);
-static int init_prng(GLOBAL_OPTIONS *);
-static int add_rand_file(GLOBAL_OPTIONS *, const char *);
+NOEXPORT int init_compression(GLOBAL_OPTIONS *);
+NOEXPORT int init_prng(GLOBAL_OPTIONS *);
+NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
 
 int cli_index, opt_index; /* to keep structure for callbacks */
 
@@ -68,7 +68,7 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global SSL settings */
             return 1;
         }
     }
-    s_log(LOG_NOTICE, "FIPS mode is %s",
+    s_log(LOG_NOTICE, "FIPS mode %s",
         global->option.fips ? "enabled" : "disabled");
 #endif /* USE_FIPS */
     if(init_compression(global))
@@ -79,7 +79,7 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global SSL settings */
     return 0; /* SUCCESS */
 }
 
-static int init_compression(GLOBAL_OPTIONS *global) {
+NOEXPORT int init_compression(GLOBAL_OPTIONS *global) {
 #ifndef OPENSSL_NO_COMP
     SSL_COMP *comp;
     STACK_OF(SSL_COMP) *ssl_comp_methods;
@@ -101,11 +101,11 @@ static int init_compression(GLOBAL_OPTIONS *global) {
         OPENSSL_free(sk_SSL_COMP_pop(ssl_comp_methods));
 
     if(global->compression==COMP_NONE) {
-        s_log(LOG_DEBUG, "Compression not enabled");
+        s_log(LOG_DEBUG, "Compression disabled");
         return 0; /* success */
     }
 
-    /* insert RFC 1951 (DEFLATE) algoritm */
+    /* insert RFC 1951 (DEFLATE) algorithm */
     if(SSLeay()>=0x00908051L) { /* 0.9.8e-beta1 */
         /* only allow DEFLATE with OpenSSL 0.9.8 or later
            with openssl #1468 zlib memory leak fixed */
@@ -125,7 +125,7 @@ static int init_compression(GLOBAL_OPTIONS *global) {
         sk_SSL_COMP_push(ssl_comp_methods, comp);
     }
 
-    /* also insert one of obsolete (ZLIB/RLE) algoritms */
+    /* also insert one of obsolete (ZLIB/RLE) algorithms */
     comp=(SSL_COMP *)OPENSSL_malloc(sizeof(SSL_COMP));
     if(!comp) {
         s_log(LOG_ERR, "OPENSSL_malloc filed");
@@ -156,12 +156,12 @@ static int init_compression(GLOBAL_OPTIONS *global) {
     return 0; /* success */
 }
 
-static int init_prng(GLOBAL_OPTIONS *global) {
+NOEXPORT int init_prng(GLOBAL_OPTIONS *global) {
     int totbytes=0;
     char filename[256];
+#ifndef USE_WIN32
     int bytes;
-
-    bytes=0; /* avoid warning if #ifdef'd out for windows */
+#endif
 
     filename[0]='\0';
 
@@ -219,7 +219,7 @@ static int init_prng(GLOBAL_OPTIONS *global) {
     return 1; /* FAILED */
 }
 
-static int add_rand_file(GLOBAL_OPTIONS *global, const char *filename) {
+NOEXPORT int add_rand_file(GLOBAL_OPTIONS *global, const char *filename) {
     int readbytes;
     int writebytes;
     struct stat sb;

@@ -1,4 +1,4 @@
-; Sample stunnel configuration file for Unix by Michal Trojnara 2002-2013
+; Sample stunnel configuration file for Unix by Michal Trojnara 2002-2014
 ; Some options used here may be inadequate for your particular configuration
 ; This sample file does *not* represent stunnel.conf defaults
 ; Please consult the manual for detailed description of available options

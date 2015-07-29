@@ -11,12 +11,12 @@ stunnel - universal SSL tunnel
 
 =item B<Unix:>
 
-B<stunnel> [<S<filename>>] | S<-fd n> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [S<FILE>] | S<-fd N> | S<-help> | S<-version> | S<-sockets>
 
 =item B<WIN32:>
 
 B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop>] | S<-exit>]
-    [S<-quiet>] [<S<filename>>] ] | S<-help> | S<-version> | S<-sockets>
+    [S<-quiet>] [S<FILE>] ] | S<-help> | S<-version> | S<-sockets>
 
 =back
 
@@ -42,11 +42,11 @@ Eric Young (eay@cryptsoft.com)
 
 =over 4
 
-=item <B<filename>>
+=item B<FILE>
 
 Use specified configuration file
 
-=item B<-fd n> (Unix only)
+=item B<-fd N> (Unix only)
 
 Read the config file from specified file descriptor
 
@@ -135,7 +135,7 @@ A Unix socket path (Unix only).
 
 =over 4
 
-=item B<chroot> = directory (Unix only)
+=item B<chroot> = DIRECTORY (Unix only)
 
 directory to chroot B<stunnel> process
 
@@ -174,7 +174,7 @@ B<OpenSSL 0.9.7>.
 
 rle compression is currently not implemented by the B<OpenSSL> library.
 
-=item B<debug> = [facility.]level
+=item B<debug> = [FACILITY.]LEVEL
 
 debugging level
 
@@ -189,14 +189,14 @@ The syslog facility 'daemon' will be used unless a facility name is supplied.
 
 Case is ignored for both facilities and levels.
 
-=item B<EGD> = egd path (Unix only)
+=item B<EGD> = EGD_PATH (Unix only)
 
 path to Entropy Gathering Daemon socket
 
 Entropy Gathering Daemon socket to use to feed B<OpenSSL> random number
 generator.  (Available only if compiled with B<OpenSSL 0.9.5a> or higher)
 
-=item B<engine> = auto | <engine id>
+=item B<engine> = auto | ENGINE_ID
 
 select hardware engine
 
@@ -217,12 +217,22 @@ OpenSC engine
     engineNum=1
     key=id_45
 
-=item B<engineCtrl> = command[:parameter]
+=item B<engineCtrl> = COMMAND[:PARAMETER]
 
 control hardware engine
 
 Special commands "LOAD" and "INIT" can be used to load and initialize the
 engine cryptogaphic module.
+
+=item B<engineDefault> = TASK_LIST
+
+set OpenSSL tasks delegated to the current engine
+
+The parameter specifies a comma-separated list of task to be delegated to the
+current engine.
+
+The following tasks may be available, if supported by the engine: ALL, RSA,
+DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.
 
 =item B<fips> = yes | no
 
@@ -231,7 +241,7 @@ Enable or disable FIPS 140-2 mode.
 This option allows to disable entering FIPS mode if B<stunnel> was compiled
 with FIPS 140-2 support.
 
-default: yes
+default: no (since version 5.00)
 
 =item B<foreground> = yes | no (Unix only)
 
@@ -242,14 +252,44 @@ instead of via syslog (unless I<output> is specified).
 
 default: background in daemon mode
 
-=item B<output> = file
+=item B<iconActive> = ICON_FILE (GUI only)
+
+GUI icon to be displayed when there are established connections
+
+On Windows platform the parameter should be an .ico file containing a 16x16
+pixel image.
+
+=item B<iconError> = ICON_FILE (GUI only)
+
+GUI icon to be displayed when no valid configuration is loaded
+
+On Windows platform the parameter should be an .ico file containing a 16x16
+pixel image.
+
+=item B<iconIdle> = ICON_FILE (GUI only)
+
+GUI icon to be displayed when there are no established connections
+
+On Windows platform the parameter should be an .ico file containing a 16x16
+pixel image.
+
+=item B<log> = append | overwrite
+
+log file handling
+
+This option allows to choose whether the log file (specified with the I<output>
+option) is appended or overwritten when opened or re-opened.
+
+default: append
+
+=item B<output> = FILE
 
 append log messages to a file
 
 /dev/stdout device can be used to send log messages to the standard
 output (for example to log them with daemontools splogger).
 
-=item B<pid> = file (Unix only)
+=item B<pid> = FILE (Unix only)
 
 pid file location
 
@@ -257,7 +297,7 @@ If the argument is empty, then no pid file will be created.
 
 I<pid> path is relative to I<chroot> directory if specified.
 
-=item B<RNDbytes> = bytes
+=item B<RNDbytes> = BYTES
 
 bytes to read from random seed files
 
@@ -266,7 +306,7 @@ than B<0.9.5a>, also determines how many bytes of data are considered
 sufficient to seed the PRNG.  More recent B<OpenSSL> versions have a builtin
 function to determine when sufficient randomness is available.
 
-=item B<RNDfile> = file
+=item B<RNDfile> = FILE
 
 path to file with random seed data
 
@@ -279,21 +319,21 @@ overwrite the random seed files with new random data
 
 default: yes
 
-=item B<service> = servicename (Unix only)
+=item B<service> = SERVICE (Unix only)
 
 use specified string as I<inetd> mode service name for TCP Wrapper library
 
 default: stunnel
 
-=item B<setgid> = groupname (Unix only)
+=item B<setgid> = GROUP (Unix only)
 
-setgid() to groupname in daemon mode and clears all other groups
+setgid() to the specified group in daemon mode and clear all other groups
 
-=item B<setuid> = username (Unix only)
+=item B<setuid> = USER (Unix only)
 
-setuid() to username in daemon mode
+setuid() to the specified user in daemon mode
 
-=item B<socket> = a|l|r:option=value[:value]
+=item B<socket> = a|l|r:OPTION=VALUE[:VALUE]
 
 Set an option on accept/local/remote socket
 
@@ -341,7 +381,7 @@ below.
 
 =over 4
 
-=item B<accept> = address
+=item B<accept> = [HOST:]PORT
 
 accept connections on specified address
 
@@ -349,9 +389,9 @@ If no host specified, defaults to all IPv4 addresses for the local host.
 
 To listen on all IPv6 addresses use:
 
-    connect = :::port
+    connect = :::PORT
 
-=item B<CApath> = directory
+=item B<CApath> = DIRECTORY
 
 Certificate Authority directory
 
@@ -365,13 +405,13 @@ c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
 
 I<CApath> path is relative to I<chroot> directory if specified.
 
-=item B<CAfile> = certfile
+=item B<CAfile> = CERT_FILE
 
 Certificate Authority file
 
 This file contains multiple CA certificates, used with the I<verify>.
 
-=item B<cert> = pemfile
+=item B<cert> = PEM_FILE
 
 certificate chain PEM file name
 
@@ -381,12 +421,12 @@ as a client side certificate chain.  Using client side certs is optional.
 The certificates must be in PEM format and must be sorted starting with the
 certificate to the highest level (root CA).
 
-=item B<ciphers> = cipherlist
+=item B<ciphers> = CIPHER_LIST
 
 Select permitted SSL ciphers
 
-A colon delimited list of the ciphers to allow in the SSL connection.
-For example DES-CBC3-SHA:IDEA-CBC-MD5
+A colon delimited list of the ciphers to allow in the SSL connection,
+for example DES-CBC3-SHA:IDEA-CBC-MD5.
 
 =item B<client> = yes | no
 
@@ -394,7 +434,7 @@ client mode (remote service uses SSL)
 
 default: no (server mode)
 
-=item B<connect> = address
+=item B<connect> = [HOST:]PORT
 
 connect to a remote address
 
@@ -406,7 +446,7 @@ If host resolves to multiple addresses and/or if multiple I<connect>
 options are specified, then the remote address is chosen using a
 round-robin algorithm.
 
-=item B<CRLpath> = directory
+=item B<CRLpath> = DIRECTORY
 
 Certificate Revocation Lists directory
 
@@ -419,13 +459,13 @@ c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
 
 I<CRLpath> path is relative to I<chroot> directory if specified.
 
-=item B<CRLfile> = certfile
+=item B<CRLfile> = CERT_FILE
 
 Certificate Revocation Lists file
 
 This file contains multiple CRLs, used with the I<verify>.
 
-=item B<curve> = nid
+=item B<curve> = NID
 
 specify ECDH curve name
 
@@ -437,18 +477,29 @@ default: prime256v1
 
 =item B<delay> = yes | no
 
-delay DNS lookup for 'connect' option
+delay DNS lookup for I<connect> option
 
 This option is useful for dynamic DNS, or when DNS is not available during
 B<stunnel> startup (road warrior VPN, dial-up configurations).
 
-=item B<engineNum> = engine number
+Delayed resolver mode is automatically engaged when stunnel fails to resolve on
+startup any of the I<connect> targets for a service.
 
-select engine number to read private key
+Delayed resolver inflicts I<failover = prio>.
+
+default: no
+
+=item B<engineId> = ENGINE_ID
+
+select engine ID for the service
+
+=item B<engineNum> = ENGINE_NUMBER
+
+select engine number for the service
 
 The engines are numbered starting from 1.
 
-=item B<exec> = executable_path
+=item B<exec> = EXECUTABLE_PATH
 
 execute local inetd-type program 
 
@@ -470,11 +521,11 @@ Failover strategy for multiple "connect" targets.
 
 default: rr
 
-=item B<ident> = username
+=item B<ident> = USERNAME
 
 use IDENT (RFC 1413) username checking
 
-=item B<key> = keyfile
+=item B<key> = KEY_FILE
 
 private key for certificate specified with I<cert> option
 
@@ -490,14 +541,14 @@ default: value of I<cert> option
 
 Enable or disable the use of /etc/hosts.allow and /etc/hosts.deny.
 
-default: yes
+default: no (since version 5.00)
 
-=item B<local> = host
+=item B<local> = HOST
 
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
 
-=item B<sni> = service_name:server_name_pattern (server mode)
+=item B<sni> = SERVICE:SERVER_PATTERN (server mode)
 
 Use the service as a slave service (a name-based virtual server) for Server
 Name Indication TLS extension (RFC 3546).
@@ -520,18 +571,18 @@ TCP connection is accepted, and with slave service name during TLS handshake.
 
 Option I<sni> is only available when compiled with B<OpenSSL 1.0.0> and later.
 
-=item B<sni> = server_name (client mode)
+=item B<sni> = SERVER (client mode)
 
 Use the parameter as the value of TLS Server Name Indication (RFC 3546)
 extension.
 
 Option I<sni> is only available when compiled with B<OpenSSL 1.0.0> and later.
 
-=item B<OCSP> = url
+=item B<OCSP> = URL
 
 select OCSP server for certificate verification
 
-=item B<OCSPflag> = flag
+=item B<OCSPflag> = OCSP_FLAG
 
 specify OCSP server flag
 
@@ -540,7 +591,7 @@ Several I<OCSPflag> can be used to specify multiple flags.
 currently supported flags: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
 
-=item B<options> = SSL_options
+=item B<options> = SSL_OPTIONS
 
 B<OpenSSL> library options
 
@@ -553,7 +604,7 @@ the following option can be used:
 
     options = DONT_INSERT_EMPTY_FRAGMENTS
 
-=item B<protocol> = proto
+=item B<protocol> = PROTO
 
 application protocol to negotiate SSL
 
@@ -604,17 +655,15 @@ Based on RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
 
 =back
 
-=item B<protocolAuthentication> = auth_type
+=item B<protocolAuthentication> = basic | ntlm
 
 authentication type for protocol negotiations
-
-currently supported: basic, NTLM
 
 Currently authentication type only applies to the 'connect' protocol.
 
 default: basic
 
-=item B<protocolHost> = host:port
+=item B<protocolHost> = HOST:PORT
 
 destination address for protocol negotiations
 
@@ -624,17 +673,23 @@ The proxy server should be specified with the 'connect' option.
 
 Currently protocol destination address only applies to 'connect' protocol.
 
-=item B<protocolPassword> = password
+=item B<protocolPassword> = PASSWORD
 
 password for protocol negotiations
 
-=item B<protocolUsername> = username
+=item B<protocolUsername> = USERNAME
 
 username for protocol negotiations
 
 =item B<pty> = yes | no (Unix only)
 
-allocate pseudo terminal for 'exec' option
+allocate pseudoterminal for 'exec' option
+
+=item B<redirect> = [HOST:]PORT
+
+redirect SSL client connections on authentication failures
+
+This option only works in server mode, and without protocol negotiation.
 
 =item B<renegotiation> = yes | no
 
@@ -667,7 +722,7 @@ reconnect a connect+exec section after it's disconnected
 
 default: no
 
-=item B<sessionCacheSize> = size
+=item B<sessionCacheSize> = NUM_ENTRIES
 
 session cache size
 
@@ -677,39 +732,39 @@ entries.
 The value of 0 can be used for unlimited size.  It is not recommended
 for production use due to the risk of memory exhaustion DoS attack.
 
-=item B<sessionCacheTimeout> = timeout
+=item B<sessionCacheTimeout> = TIMEOUT
 
 session cache timeout
 
 This is the number of seconds to keep cached SSL sessions.
 
-=item B<sessiond> = host:port
+=item B<sessiond> = HOST:PORT
 
 address of sessiond SSL cache server
 
-=item B<sslVersion> = version
+=item B<sslVersion> = SSL_VERSION
 
 select version of SSL protocol
 
 Allowed options: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 
-=item B<stack> = bytes (except for FORK model)
+=item B<stack> = BYTES (except for FORK model)
 
 thread stack size
 
-=item B<TIMEOUTbusy> = seconds
+=item B<TIMEOUTbusy> = SECONDS
 
 time to wait for expected data
 
-=item B<TIMEOUTclose> = seconds
+=item B<TIMEOUTclose> = SECONDS
 
 time to wait for close_notify (set to 0 for buggy MSIE)
 
-=item B<TIMEOUTconnect> = seconds
+=item B<TIMEOUTconnect> = SECONDS
 
 time to wait to connect a remote host
 
-=item B<TIMEOUTidle> = seconds
+=item B<TIMEOUTidle> = SECONDS
 
 time to keep an idle connection
 
@@ -814,7 +869,7 @@ This options has been renamed to I<none>.
 =back
 
 
-=item B<verify> = level
+=item B<verify> = LEVEL
 
 verify peer certificate
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2013 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -49,7 +49,7 @@
 
 /**************************************** prototypes */
 
-static int setup_fd(int, int, char *);
+NOEXPORT int setup_fd(int, int, char *);
 
 /**************************************** internal limit of file descriptors */
 
@@ -177,7 +177,7 @@ int s_pipe(int pipefd[2], int nonblock, char *msg) {
 
 #endif /* USE_WIN32 */
 
-static int setup_fd(int fd, int nonblock, char *msg) {
+NOEXPORT int setup_fd(int fd, int nonblock, char *msg) {
 #if !defined USE_NEW_LINUX_API && defined FD_CLOEXEC
     int err;
 #endif
