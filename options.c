@@ -126,7 +126,7 @@ void parse_options(int argc, char *argv[]) {
                 break;
              case 'd':
                 if(options.option&OPT_DAEMON) {
-                    log(LOG_ERR, "Multiple daemons not allowed");
+                    log(LOG_ERR, "Multiple -d not allowed");
                     print_info();
                 }
                 options.option|=OPT_DAEMON;
@@ -163,6 +163,10 @@ void parse_options(int argc, char *argv[]) {
             case 'L':
                 options.option |= OPT_PTY;
             case 'l':
+                if(options.option&OPT_PROGRAM) {
+                    log(LOG_ERR, "Multiple -l or -L not allowed");
+                    print_info();
+                }
                 options.option |= OPT_PROGRAM;
                 options.execname = optarg;
                 /* Default servname is options.execname w/o path */
@@ -173,6 +177,10 @@ void parse_options(int argc, char *argv[]) {
                     safecopy(options.servname, options.execname);
                 break;
             case 'r':
+                if(options.option&OPT_REMOTE) {
+                    log(LOG_ERR, "Multiple -r not allowed");
+                    print_info();
+                }
                 options.option |= OPT_REMOTE;
                 if (!(options.option & OPT_PROGRAM)) {
                     /* Default servname is optarg with '.' instead of ':' */
@@ -244,40 +252,28 @@ void parse_options(int argc, char *argv[]) {
                 print_info();
         }
 #ifdef USE_WIN32
-    if (! (options.option & OPT_DAEMON) ) {
-            log(LOG_ERR, "You must use daemon mode (-d) in Windows");
+    if(!(options.option&OPT_DAEMON)) {
+        log(LOG_ERR, "You must use daemon mode (-d) in Windows");
         print_info();
     }
 #endif
-    if (options.option & OPT_CLIENT) {
-        if (options.option & OPT_TRANSPARENT) {
-            log(LOG_ERR,
-                "Client mode not available in transparent proxy mode");
-            print_info();
-        }
-        if ((options.option & OPT_PROGRAM) &&
-            (options.option & OPT_DAEMON)) {
-            log(LOG_ERR,
-                "Only one of program or daemon mode can be specified");
-            print_info();
-        }
-    } else {
-        options.option |= OPT_CERT; /* Server always needs a certificate */
-        if (!(options.option & (OPT_PROGRAM | OPT_REMOTE))) {
-            log(LOG_ERR, "Either program or remote service must be specified");
-            print_info();
-        }
-        if ((options.option & OPT_PROGRAM) && (options.option & OPT_REMOTE)) {
-            log(LOG_ERR, "Only one of program or remote service can be specified");
-            print_info();
-        }
+    if(!(options.option&(OPT_REMOTE|OPT_PROGRAM))) {
+        log(LOG_ERR, "Either -r, -l (or -L) option must be used");
+        print_info();
     }
-    if (optind == argc) { /* No arguments - use servname as execargs */
-        default_args[0] = options.servname;
-        default_args[1] = 0;
-        options.execargs = default_args;
+    if((options.option&OPT_REMOTE) && (options.option&OPT_PROGRAM)
+            && (options.option&OPT_DAEMON)) {
+        log(LOG_ERR, "-d, -r and -l (or -L) options are not allowed together");
+        print_info();
+    }
+    if(!(options.option&OPT_CLIENT))
+        options.option|=OPT_CERT; /* Server always needs a certificate */
+    if(optind==argc) { /* No arguments - use servname as execargs */
+        default_args[0]=options.servname;
+        default_args[1]=0;
+        options.execargs=default_args;
     } else { /* There are some arguments - use execargs[0] as servname */
-        options.execargs = argv + optind;
+        options.execargs=argv + optind;
         safecopy(options.servname, options.execargs[0]);
     }
     if(servname_selected) {
@@ -287,7 +283,7 @@ void parse_options(int argc, char *argv[]) {
 }
 
 static void print_version() {
-    fprintf(stderr, "\n" STUNNEL_INFO "\n\n");
+    fprintf(stderr, "\n%s\n\n", stunnel_info());
     fprintf(stderr, "Default behaviour:\n"
 #ifdef USE_WIN32
         "\trun in daemon mode\n"
@@ -372,7 +368,7 @@ static void print_help() {
 #endif
         "\n  -I host\tlocal IP address to be used as source for remote connections"
         "\n  -T\t\ttransparent proxy mode on hosts that support it"
-        "\n  -p pemfile\tprivate key/certificate PEM filename"
+        "\n  -p pemfile\tprivate key and certificate chain PEM filename"
         "\n  -v level\tverify peer certificate"
         "\n\t\t   level 1 - verify peer certificate if present"
         "\n\t\t   level 2 - require valid peer certificate always"
@@ -387,7 +383,7 @@ static void print_help() {
         "\n  -t timeout\tsession cache timeout"
         "\n  -u user\tuse IDENT (RFC 1413) username checking"
         "\n  -n proto\tnegotiate SSL with specified protocol"
-        "\n\t\tcurrenty supported: smtp, pop3, nntp"
+        "\n\t\tcurrently supported: smtp, pop3, nntp"
         "\n  -N name\tservice name to use for tcp wrapper checking"
 #ifndef USE_WIN32
         "\n  -s username\tsetuid() to username in daemon mode"
@@ -411,7 +407,7 @@ static void print_help() {
 #endif
         "\n  -W\t\tdo not overwrite random seed datafiles with new random data"
         "\n  -D [fac.]lev\tdebug level (e.g. daemon.info)"
-        "\n  -O a|l|r:option=value[:value]\tset an opion on accept/local/remote socket"
+        "\n  -O a|l|r:option=value[:value]\tset an option on accept/local/remote socket"
         "\n  -o file\tappend log messages to a file"
         "\n"
         "\nSee stunnel -V output for default values\n"
@@ -508,7 +504,7 @@ static void alloc(u32 **ptr, int len) {
         /* Allocate len+1 words terminated with -1 */
     if (*ptr) /* Deallocate if not null */
         free(*ptr);
-    *ptr=malloc((len+1)*sizeof(u32));
+    *ptr=calloc((len+1), sizeof(u32));
     if (!*ptr) {
         log(LOG_ERR, "Fatal memory allocation error");
         exit(2);
@@ -730,7 +726,7 @@ static int parse_socket_option(char *optarg) {
             break; /* option name found */
         ptr++;
     }
-    ptr->opt_val[socket_type]=malloc(sizeof(opt_union));
+    ptr->opt_val[socket_type]=calloc(1, sizeof(opt_union));
     switch(ptr->opt_type) {
     case TYPE_FLAG:
     case TYPE_INT:

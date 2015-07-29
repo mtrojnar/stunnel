@@ -144,6 +144,10 @@ A: Follow these steps:
    4. On the client system, in order to bring up the secure PPP link run
       "stunnel -c -r server:2020 -L /usr/sbin/pppd -- pppd local"
 
+Q: What is stunnel.so library for?
+A: It is preloaded (LD_PRELOAD) to a program started with -l (local mode)
+   with -T (transparent proxy) turned on.
+
 Q: How to make a certificate for DNS aliases of my servers (virtual servers)?
 A: Uncomment "x.commonName" lines in stunnel.cnf and recreate stunnel.pem with
    "make stunnel.pem".  Add as many lines as you need.

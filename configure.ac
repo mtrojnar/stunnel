@@ -1,6 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT(stunnel.c)
+AC_INIT
+AC_CONFIG_SRCDIR([stunnel.c])
 
 AC_CANONICAL_HOST
 AC_PROG_CC
@@ -8,7 +9,7 @@ if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.21"
+VERSION="3.22"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
@@ -43,14 +44,14 @@ AC_ARG_WITH(ssl,
     ]
 )
 if test -z "$ssldir"; then
-    AC_MSG_RESULT(Not found)
+    AC_MSG_RESULT([Not found])
     echo
     echo "Couldn't find your SSL library installation dir"
     echo "Use --with-ssl option to fix this problem"
     echo
     exit 1
 fi
-AC_MSG_RESULT($ssldir)
+AC_MSG_RESULT([$ssldir])
 AC_SUBST(ssldir)
 AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
 
@@ -107,14 +108,30 @@ if test -n "$RANDOM_FILE" ; then
 	AC_DEFINE_UNQUOTED(RANDOM_FILE, "$RANDOM_FILE")
 fi
 
-
 dnl Use SSL certificate defaults?
+AC_MSG_CHECKING([whether to enable SSL certificate defaults])
 AC_ARG_ENABLE(ssllib-cs,
 [  --enable-ssllib-cs      Use the default SSL library cert verify sources],
-    [ SSLLIB_CS=1 ],
-    [ SSLLIB_CS=0 ]
+    [ AC_MSG_RESULT([yes]); AC_DEFINE(SSLLIB_CS) ],
+    [ AC_MSG_RESULT([no]); ]
 )
-AC_DEFINE_UNQUOTED(SSLLIB_CS, $SSLLIB_CS)
+
+dnl Use RSA?
+AC_MSG_CHECKING([whether to disable RSA support])
+AC_ARG_ENABLE(no-rsa,
+[  --enable-no-rsa         Disable RSA support],
+    [ AC_MSG_RESULT([yes]); AC_DEFINE(NO_RSA) ],
+    [ AC_MSG_RESULT([no]); ]
+)
+
+dnl Use DH?
+AC_MSG_CHECKING([whether to enable DH support])
+AC_ARG_ENABLE(dh,
+[  --enable-dh             Enable DH support],
+    [ AC_MSG_RESULT([yes]); NO_DH="0" ],
+    [ AC_MSG_RESULT([no]); NO_DH="1"; AC_DEFINE(NO_DH) ]
+)
+AC_SUBST(NO_DH)
 
 dnl Substitute host.
 AC_SUBST(host)
@@ -131,8 +148,8 @@ AC_MSG_CHECKING([for pthread_create in -lpthread])
     LIBS="-lpthread $saved_LIBS"
     AC_TRY_LINK([#include <pthread.h>],
       [pthread_create((void *)0, (void *)0, (void *)0, (void *)0)],
-      [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBPTHREAD)],
-      [AC_MSG_RESULT(no); LIBS="$saved_LIBS"])
+      [AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_LIBPTHREAD)],
+      [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"])
 
 # BSD hack
 AC_CHECK_LIB(c_r, pthread_create,
@@ -143,33 +160,33 @@ AC_CHECK_LIB(c_r, pthread_create,
 AC_CHECK_LIB(util, openpty)
 
 dnl Check for libwrap library.
-AC_MSG_CHECKING(whether to use the libwrap (TCP wrappers) library)
+AC_MSG_CHECKING([whether to use the libwrap (TCP wrappers) library])
 AC_ARG_WITH(tcp-wrappers,
 [  --with-tcp-wrappers     Use the libwrap (TCP wrappers) library],
   [
     saved_LIBS="$LIBS"
     if test "$withval" = "yes"; then
-      AC_MSG_RESULT(yes)
+      AC_MSG_RESULT([yes])
       AC_MSG_CHECKING([for hosts_access in -lwrap])
       LIBS="-lwrap $LIBS"
       AC_TRY_LINK([int hosts_access(); int allow_severity, deny_severity;],
         [hosts_access()],
-        [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBWRAP) wrap_LIB="-lwrap"],
-	[AC_MSG_RESULT(not found); exit 1])
+        [AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_LIBWRAP) wrap_LIB="-lwrap"],
+	[AC_MSG_RESULT([not found]); exit 1])
     else
-      AC_MSG_RESULT(no)
+      AC_MSG_RESULT([no])
     fi
     LIBS="$saved_LIBS"
   ],
   [
-    AC_MSG_RESULT((default))
+    AC_MSG_RESULT([(default)])
     AC_MSG_CHECKING([for hosts_access in -lwrap])
     saved_LIBS="$LIBS"
     LIBS="-lwrap $saved_LIBS"
     AC_TRY_LINK([int hosts_access(); int allow_severity, deny_severity;],
       [hosts_access()],
-      [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBWRAP)],
-      [AC_MSG_RESULT(no); LIBS="$saved_LIBS"])
+      [AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_LIBWRAP)],
+      [AC_MSG_RESULT([no]); LIBS="$saved_LIBS"])
        
   ]
 )
@@ -184,12 +201,12 @@ AC_MSG_CHECKING([for RSAref library])
 saved_LIBS="$LIBS"
 LIBS="$saved_LIBS -lRSAglue -L$prefix/lib -lrsaref"
 AC_TRY_LINK([], [],
-[AC_MSG_RESULT(yes); ],
-[AC_MSG_RESULT(no)]; LIBS="$saved_LIBS")
+[AC_MSG_RESULT([yes]); ],
+[AC_MSG_RESULT([no])]; LIBS="$saved_LIBS")
 
 dnl Check PTY device files.
-AC_CHECK_FILE("/dev/ptmx", AC_DEFINE_UNQUOTED(HAVE_DEV_PTMX))
-AC_CHECK_FILE("/dev/ptc", AC_DEFINE_UNQUOTED(HAVE_DEV_PTS_AND_PTC))
+AC_CHECK_FILE("/dev/ptmx", AC_DEFINE(HAVE_DEV_PTMX))
+AC_CHECK_FILE("/dev/ptc", AC_DEFINE(HAVE_DEV_PTS_AND_PTC))
 
 dnl Checks for header files.
 # AC_HEADER_DIRENT
@@ -205,7 +222,7 @@ AC_CHECK_HEADERS(getopt.h unistd.h sys/select.h tcpd.h pthread.h sys/ioctl.h uti
 # AC_HEADER_TIME
 
 dnl Checks for library functions.
-AC_CHECK_FUNCS(getopt snprintf vsnprintf openpty _getpty daemon waitpid wait4 sysconf getrlimit)
+AC_CHECK_FUNCS(getopt snprintf vsnprintf openpty _getpty daemon waitpid wait4 sysconf getrlimit pthread_sigmask)
 
 dnl Checks for integer sizes
 AC_CHECK_SIZEOF(unsigned char)
@@ -216,6 +233,7 @@ AC_CHECK_SIZEOF(unsigned long long)
 
 LIBS="$LIBS $wrap_LIB"
 
-AC_OUTPUT(Makefile)
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
 
 # End of configure.in

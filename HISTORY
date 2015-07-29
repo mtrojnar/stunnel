@@ -1,5 +1,29 @@
 stunnel         Universal SSL tunnel
 
+Version 3.22, 2001.12.20, urgency: HIGH:
+* Format string bug fixed in protocol.c
+  smtp, pop3 and nntp in client mode were affected.
+  (stunnel clients could be attacked by malicious servers)
+* Certificate chain can be supplied with -p option or in stunnel.pem.
+* Problem with -r and -l options used together fixed.
+* memmove() instead of memcpy() is used to move data in buffers.
+* More detailed information about negotiated ciphers is printed.
+* New ./configure options: "--enable-no-rsa" and "--enable-dh".
+
+Version 3.21c, 2001.11.11, urgency: LOW:
+* autoconf scripts upgraded to version 2.52.
+* Problem with pthread_sigmask on Darwin fixed (I hope).
+* Some documentation typos corrected.
+* Attempt to ignore EINTR in transfer().
+* Shared library version reported on startup.
+* DLLs for OpenSSL 0.9.6b.
+
+Version 3.21b, 2001.11.03, urgency: MEDIUM:
+* File descriptor leak on failed connect() fixed.
+
+Version 3.21a, 2001.10.31, urgency: MEDIUM:
+* Small bug in Makefile fixed.
+
 Version 3.21, 2001.10.31, urgency: MEDIUM:
 * Problem with errno and posix threads fixed.
 * It is assumed that system has getopt() if it has getopt.h header file.

@@ -30,6 +30,7 @@ void sockerror(char *);
 void log_error(int, int, char *);
 int set_socket_options(int, int);
 void local_handler(int);
+char *stunnel_info();
 
 /* Prototypes for ssl.c */
 

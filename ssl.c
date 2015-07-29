@@ -28,13 +28,6 @@
  *   do so, delete this exception statement from your version.
  */
 
-/* Uncomment the next line to disable RSA support */
-/* #define NO_RSA */
-
-/* DH support is disabled by default */
-/* It needs DH parameters in .pem file */
-#define NO_DH
-
 #ifndef NO_RSA
 
 /* Cache temporary keys up to 2048 bits */
@@ -102,10 +95,9 @@ void context_init() { /* init SSL */
     SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_BOTH);
     SSL_CTX_set_timeout(ctx, options.session_timeout);
     if(options.option&OPT_CERT) {
-        if(!SSL_CTX_use_certificate_file(ctx, options.pem,
-                SSL_FILETYPE_PEM)) {
+        if(!SSL_CTX_use_certificate_chain_file(ctx, options.pem)) {
             log(LOG_ERR, "Error reading certificate file: %s", options.pem);
-            sslerror("SSL_CTX_use_certificate_file");
+            sslerror("SSL_CTX_use_certificate_chain_file");
             exit(1);
         }
         log(LOG_DEBUG, "Certificate: %s", options.pem);

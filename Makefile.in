@@ -11,12 +11,15 @@ libdir=@libdir@
 man8dir=@mandir@/man8
 piddir=@localstatedir@/stunnel/
 ssldir=@ssldir@
+openssl=$(ssldir)/bin/openssl
 PEM_DIR=@PEM_DIR@
 @SET_MAKE@
 VERSION=stunnel-@VERSION@
-RANDOM_OPT="-rand @RANDOM_FILE@"
+RANDOM_FILE="@RANDOM_FILE@"
+NO_DH=@NO_DH@
 CC=@CC@
 INSTALL=@INSTALL@
+INSTALLMAN=@INSTALL@
 CFLAGS=@CFLAGS@ @DEFS@ -Dlibdir=\"$(libdir)\" -DPIDDIR=\"$(piddir)\"
 LIBS=@LIBS@
 HEADERS=common.h prototypes.h client.h
@@ -24,9 +27,9 @@ OBJS=client.o stunnel.o ssl.o protocol.o sthreads.o pty.o log.o options.o
 DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(man8dir)/stunnel.8  $(PEM_DIR)/stunnel.pem
 
 WINGCC=i386-mingw32msvc-gcc 
-WINCFLAGS=-O2 -Wall -DUSE_WIN32=1 -DHAVE_OPENSSL=1 -DFD_SETSIZE=4096 -DVERSION=\"@VERSION@\" -I../openssl-0.9.6/outinc
+WINCFLAGS=-O2 -Wall -DUSE_WIN32=1 -DHAVE_OPENSSL=1 -DFD_SETSIZE=4096 -DVERSION=\"@VERSION@\" -I../openssl-0.9.6b/outinc
 WINSRC=client.c stunnel.c ssl.c protocol.c sthreads.c log.c options.c
-WINLIBS=-L../openssl-0.9.6/out -leay32 -lssl32 -lwsock32 -lgdi32
+WINLIBS=-L../openssl-0.9.6b/out -leay32 -lssl32 -lwsock32 -lgdi32
 
 # standard external rules
 
@@ -94,28 +97,33 @@ Makefile: configure Makefile.in
 	./configure
 	$(MAKE) clean
 
-configure: configure.in
+configure: configure.ac
 	autoconf
 
 $(OBJS): Makefile $(HEADERS)
 
 stunnel.pem: stunnel.cnf
-	$(ssldir)/bin/openssl req -new -x509 -days 365 -nodes \
+	$(openssl) req -new -x509 -days 365 -nodes \
 		-config stunnel.cnf -out stunnel.pem -keyout stunnel.pem
-	$(ssldir)/bin/openssl x509 -subject -dates -fingerprint -noout \
-		-in stunnel.pem
+	test $(NO_DH) -eq 1 || test ! -f $(RANDOM_FILE) || \
+                $(openssl) gendh -rand $(RANDOM_FILE) 512 >> stunnel.pem
+	test $(NO_DH) -eq 1 || test -f $(RANDOM_FILE) || \
+                $(openssl) gendh 512 >> stunnel.pem
+	$(openssl) x509 -subject -dates -fingerprint -noout \
+        	-in stunnel.pem
 
 $(sbindir)/stunnel: stunnel
 	$(INSTALL) -m 711 stunnel $(sbindir)
 
 $(libdir)/stunnel.so: stunnel.so
-	test -s stunnel.so && $(INSTALL) -m 755 stunnel.so $(libdir)
+	test ! -s stunnel.so || $(INSTALL) -m 755 stunnel.so $(libdir)
 
 $(man8dir)/stunnel.8: stunnel.8
-	$(INSTALL) -m 644 stunnel.8 $(man8dir)
+	$(INSTALLMAN) -m 644 stunnel.8 $(man8dir)
 
 $(PEM_DIR)/stunnel.pem: stunnel.pem
-	test -n "$(PEM_DIR)" -a ! -f "$(PEM_DIR)/stunnel.pem" && $(INSTALL) -m 600 stunnel.pem $(PEM_DIR)
+	test -z "$(PEM_DIR)" -o -f "$(PEM_DIR)/stunnel.pem" || \
+		$(INSTALLMAN) -m 600 stunnel.pem $(PEM_DIR)
 
 ../dist/$(VERSION).exe: stunnel.exe
 	./mkinstalldirs ../dist

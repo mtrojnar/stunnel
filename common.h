@@ -71,21 +71,6 @@
 
 #endif /* USE_WIN32 */
 
-#ifdef USE_PTHREAD
-#define STUNNEL_TMP "stunnel " VERSION " on " HOST " PTHREAD"
-#endif
-#ifdef USE_WIN32
-#define STUNNEL_TMP "stunnel " VERSION " on " HOST " WIN32"
-#endif
-#ifdef USE_FORK
-#define STUNNEL_TMP "stunnel " VERSION " on " HOST " FORK"
-#endif
-#ifdef USE_LIBWRAP
-#define STUNNEL_INFO STUNNEL_TMP "+LIBWRAP"
-#else
-#define STUNNEL_INFO STUNNEL_TMP
-#endif
-
 /* Must be included before sys/stat.h for Ultrix */
 #include <sys/types.h>   /* u_short, u_long */
 
@@ -102,7 +87,7 @@
 #ifdef USE_WIN32
 
 #ifndef VERSION
-#define VERSION "3.20"
+#define VERSION "3.22"
 #endif
 
 #ifdef __MINGW32__

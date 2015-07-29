@@ -77,7 +77,7 @@ Case is ignored for both facilities and levels.
 
 =item B<-O> a|l|r:option=value[:value]
 
-Set an opion on accept/local/remote socket
+Set an option on accept/local/remote socket
 
 The values for linger option are l_onof:l_linger.
 The values for time are tv_sec:tv_usec.
@@ -128,11 +128,13 @@ machine lies through the host running stunnel, which cannot be localhost.
 
 =item B<-p> pemfile
 
-key/certificate PEM file name
+private key and certificate chain PEM file name
 
 A PEM is always needed in server mode (see I<stunnel -V> output for default).
-Specifing this flag in client mode will use this  key/certificate as a
-client side certificate.  Using client side certs is optional.
+Specifying this flag in client mode will use this key and certificate chain
+as a client side certificate chain.  Using client side certs is optional.
+The certificates must be in PEM format and must be sorted starting with the
+certificate to the highest level (root CA).  
 
 =item B<-v> level
 
@@ -194,7 +196,7 @@ these default sources, if any, should be used.
 
 (See I<stunnel -V> output for the default.)
 
-Note that the I<-A> and B<-a> flags overwrite, not supliment,
+Note that the I<-A> and B<-a> flags overwrite, not supplement,
 the stunnel defaults, whereas the ssl library defaults, if enabled,
 are used in addition to the other sources.
 
@@ -221,7 +223,7 @@ Use IDENT (RFC 1413) username checking
 
 Negotiate SSL with specified protocol
 
-currenty supported: smtp, pop3, nntp
+currently supported: smtp, pop3, nntp
 
 =item B<-E> socket
 

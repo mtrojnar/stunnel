@@ -92,6 +92,7 @@ unsigned long thread_id() {
 
 int create_client(int ls, int s, void *(*cli)(void *)) {
     pthread_t thread;
+#ifdef HAVE_PTHREAD_SIGMASK
     sigset_t newmask, oldmask;
 
     /* The idea is that only the main thread handles all the signals with
@@ -103,12 +104,17 @@ int create_client(int ls, int s, void *(*cli)(void *)) {
     sigaddset(&newmask, SIGINT);
     sigaddset(&newmask, SIGHUP);
     pthread_sigmask(SIG_BLOCK, &newmask, &oldmask); /* block signals */
+#endif /* HAVE_PTHREAD_SIGMASK */
     if(pthread_create(&thread, &pth_attr, cli, (void *)s)) {
+#ifdef HAVE_PTHREAD_SIGMASK
         pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
+#endif /* HAVE_PTHREAD_SIGMASK */
         closesocket(s);
         return -1;
     }
+#ifdef HAVE_PTHREAD_SIGMASK
     pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
+#endif /* HAVE_PTHREAD_SIGMASK */
     return 0;
 }
 

@@ -103,7 +103,7 @@ static int smtp_client(CLI *c) {
     do { /* Copy multiline greeting */
         if(fdscanf(c->remote_fd, "%[^\n]", line)<0)
             return -1;
-        if(fdprintf(c->local_wfd, line)<0)
+        if(fdprintf(c->local_wfd, "%s", line)<0)
             return -1;
     } while(strncmp(line,"220-",4)==0);
 
@@ -169,7 +169,7 @@ static int pop3_client(CLI *c) {
         log(LOG_ERR, "Unknown server welcome");
         return -1;
     }
-    if(fdprintf(c->local_wfd, line)<0)
+    if(fdprintf(c->local_wfd, "%s", line)<0)
         return -1;
     if(fdprintf(c->remote_fd, "STLS")<0)
         return -1;
@@ -216,7 +216,7 @@ static int nntp_client(CLI *c) {
         log(LOG_ERR, "Unknown server welcome");
         return -1;
     }
-    if(fdprintf(c->local_wfd, line)<0)
+    if(fdprintf(c->local_wfd, "%s", line)<0)
         return -1;
     if(fdprintf(c->remote_fd, "STARTTLS")<0)
         return -1;
@@ -244,24 +244,13 @@ static int telnet_server(CLI *c) {
     return -1;
 }
 
-/* 
-*
-* stunnel can recognize a TLS-RFC2487 connection 
-* Use checkConnectionTyp routine from sendmail-tls.c
-* If response is true return 1
-*
-* Pascual Perez       pps@posta.unizar.es 
-* Borja Perez         borja@posta.unizar.es 
-*
-*/
-
 static int RFC2487(int fd) {
     fd_set         fdsRead;
     struct timeval timeout;
 
     FD_ZERO(&fdsRead);
     FD_SET(fd, &fdsRead);
-    memset(&timeout, 0, sizeof(timeout)); /* don't wait */
+    timeout.tv_sec=timeout.tv_usec=0; /* don't wait */
 
     switch(select(fd+1, &fdsRead, NULL, NULL, &timeout)) {
     case 0: /* fd not ready to read */

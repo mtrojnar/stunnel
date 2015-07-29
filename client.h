@@ -74,9 +74,8 @@ typedef struct {
     CLI *cli; /* Client structure if state>STATE_ACCEPT */
 } FD;
 
-#define MAX_FD 1024
-
-extern FD d[MAX_FD];
+extern int max_fds;
+extern FD *d;
 
 #define sock_rd (d[c->sock_rfd].rd)
 #define sock_wr (d[c->sock_wfd].wr)

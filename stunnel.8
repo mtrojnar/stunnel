@@ -93,7 +93,7 @@
 .nr % 0
 .rr F
 .\}
-.TH STUNNEL.OUT 1 " " "10/Aug/2001" " "
+.TH STUNNEL.OUT 1 " " "23/Dec/2001" " "
 .UC
 .if n .hy 0
 .if n .na
@@ -231,7 +231,7 @@ supplied.  (Facilities are not supported on windows.)
 .Sp
 Case is ignored for both facilities and levels.
 .Ip "\fB\-O\fR a|l|r:option=value[:value]" 4
-Set an opion on accept/local/remote socket
+Set an option on accept/local/remote socket
 .Sp
 The values for linger option are l_onof:l_linger. The values for time
 are tv_sec:tv_usec.
@@ -275,12 +275,14 @@ in server mode. Note that this option will not combine with proxy mode
 (\-r) unless the client's default route to the target machine lies
 through the host running stunnel, which cannot be localhost.
 .Ip "\fB\-p\fR pemfile" 4
-key/certificate \s-1PEM\s0 file name
+private key and certificate chain \s-1PEM\s0 file name
 .Sp
 A \s-1PEM\s0 is always needed in server mode (see \fIstunnel \-V\fR output for
-default). Specifing this flag in client mode will use this 
-key/certificate as a client side certificate.  Using client side certs
-is optional.
+default). Specifying this flag in client mode will use this key and
+certificate chain as a client side certificate chain.  Using client
+side certs is optional. The certificates must be in \s-1PEM\s0 format and
+must be sorted starting with the certificate to the highest level
+(root \s-1CA\s0).
 .Ip "\fB\-v\fR level" 4
 verify peer certificate
 .Ip "\(bu" 12
@@ -325,7 +327,7 @@ control which of these default sources, if any, should be used.
 .Ve
 (See \fIstunnel \-V\fR output for the default.)
 .Sp
-Note that the \fI\-A\fR and \fB\-a\fR flags overwrite, not supliment, the
+Note that the \fI\-A\fR and \fB\-a\fR flags overwrite, not supplement, the
 stunnel defaults, whereas the ssl library defaults, if enabled, are
 used in addition to the other sources.
 .Sp
@@ -344,7 +346,7 @@ Use \s-1IDENT\s0 (\s-1RFC\s0 1413) username checking
 .Ip "\fB\-n\fR proto" 4
 Negotiate \s-1SSL\s0 with specified protocol
 .Sp
-currenty supported: smtp, pop3, nntp
+currently supported: smtp, pop3, nntp
 .Ip "\fB\-E\fR socket" 4
 Entropy Gathering Daemon socket to use to feed OpenSSL random number
 generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)

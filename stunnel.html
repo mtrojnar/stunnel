@@ -41,7 +41,7 @@ The syslog facility 'daemon' will be used unless a facility name is supplied.  (
 Case is ignored for both facilities and levels.</UL>
 <P STYLE="font-weight: bold"><B><B>-O</B> a|l|r:option=value[:value]</B></P>
 <UL>
-Set an opion on accept/local/remote socket
+Set an option on accept/local/remote socket
 <BR>
 The values for linger option are l_onof:l_linger. The values for time are tv_sec:tv_usec.
 <BR>
@@ -78,9 +78,9 @@ transparent proxy mode
 Re-write address to appear as if wrapped daemon is connecting from the SSL client machine instead of the machine running stunnel. Available only on some operating systems (Linux only, we believe) and then only in server mode. Note that this option will not combine with proxy mode (-r) unless the client's default route to the target machine lies through the host running stunnel, which cannot be localhost.</UL>
 <P STYLE="font-weight: bold"><B><B>-p</B> pemfile</B></P>
 <UL>
-key/certificate PEM file name
+private key and certificate chain PEM file name
 <BR>
-A PEM is always needed in server mode (see <I>stunnel -V</I> output for default). Specifing this flag in client mode will use this  key/certificate as a client side certificate.  Using client side certs is optional.</UL>
+A PEM is always needed in server mode (see <I>stunnel -V</I> output for default). Specifying this flag in client mode will use this key and certificate chain as a client side certificate chain.  Using client side certs is optional. The certificates must be in PEM format and must be sorted starting with the certificate to the highest level (root CA).</UL>
 <P STYLE="font-weight: bold"><B><B>-v</B> level</B></P>
 <UL>
 verify peer certificate<UL>
@@ -116,7 +116,7 @@ Both stunnel and the SSL library used to compile stunnel have default locations 
 <UL>
 (See <I>stunnel -V</I> output for the default.)
 <BR>
-Note that the <I>-A</I> and <B>-a</B> flags overwrite, not supliment, the stunnel defaults, whereas the ssl library defaults, if enabled, are used in addition to the other sources.
+Note that the <I>-A</I> and <B>-a</B> flags overwrite, not supplement, the stunnel defaults, whereas the ssl library defaults, if enabled, are used in addition to the other sources.
 <BR>
 In general, to avoid hurting one's brain, use <I>-S 0</I> and explicitly set <I>-A</I> and/or <B>-a</B> as desired.</UL>
 <P STYLE="font-weight: bold"><B><B>-t</B> timeout</B></P>
@@ -134,7 +134,7 @@ Use IDENT (RFC 1413) username checking</UL>
 <UL>
 Negotiate SSL with specified protocol
 <BR>
-currenty supported: smtp, pop3, nntp</UL>
+currently supported: smtp, pop3, nntp</UL>
 <P STYLE="font-weight: bold"><B><B>-E</B> socket</B></P>
 <UL>
 Entropy Gathering Daemon socket to use to feed OpenSSL random number generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)</UL>
