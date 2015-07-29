@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2011.07.23" "4.41" "stunnel"
+.TH STUNNEL 8 "2011.08.18" "4.42" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -127,7 +127,7 @@ Stop \s-1NT\s0 Service
 Exit an already started stunnel
 .IP "\fB\-quiet\fR (\s-1NT/2000/XP\s0 only)" 4
 .IX Item "-quiet (NT/2000/XP only)"
-Don't display a message box when successfully installed or uninstalled \s-1NT\s0 service
+Don't display any message boxes
 .SH "CONFIGURATION FILE"
 .IX Header "CONFIGURATION FILE"
 Each line of the configuration file can be either:
@@ -259,8 +259,6 @@ default: yes
 use specified string as the service name
 .Sp
 \&\fBOn Unix:\fR \fIinetd\fR mode service name for \s-1TCP\s0 Wrapper library.
-.Sp
-\&\fBOn \s-1NT/2000/XP:\s0\fR \s-1NT\s0 service name in the Control Panel.
 .Sp
 default: stunnel
 .IP "\fBsetgid\fR = groupname (Unix only)" 4
@@ -464,6 +462,8 @@ This service, as well as the master service, may not be configured in client mod
 specified, as \fIprotocol\fR connects remote host before \s-1TLS\s0 handshake.
 Libwrap checks (Unix only) are performed twice: with master service name after
 \&\s-1TCP\s0 connection is accepted, and with slave service name during \s-1TLS\s0 handshake.
+.Sp
+Option \fIsni\fR is only available when compiled with OpenSSL 1.0.0 and later.
 .IP "\fB\s-1OCSP\s0\fR = url" 4
 .IX Item "OCSP = url"
 select \s-1OCSP\s0 server for certificate verification
@@ -674,9 +674,11 @@ This options has been renamed to \fInone\fR.
 .IX Item "verify = level"
 verify peer certificate
 .RS 4
+.IP "\fIlevel 0\fR \- request and ignore peer certificate" 4
+.IX Item "level 0 - request and ignore peer certificate"
+.PD 0
 .IP "\fIlevel 1\fR \- verify peer certificate if present" 4
 .IX Item "level 1 - verify peer certificate if present"
-.PD 0
 .IP "\fIlevel 2\fR \- verify peer certificate" 4
 .IX Item "level 2 - verify peer certificate"
 .IP "\fIlevel 3\fR \- verify peer with locally installed certificate" 4
@@ -865,6 +867,17 @@ seeding the \s-1PRNG\s0 with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
 at the very bottom of the list above.  This isn't \fBstunnel's\fR behaviour, it's
 OpenSSLs.
+.SS "\s-1DH\s0 \s-1PARAMETERS\s0"
+.IX Subsection "DH PARAMETERS"
+Stunnel 4.40 and later contains hardcoded 2048\-bit \s-1DH\s0 parameters.
+.PP
+It is also possible to specify \s-1DH\s0 parameters in the certificate file:
+.PP
+.Vb 1
+\&    openssl dhparam 2048 >> stunnel.pem
+.Ve
+.PP
+\&\s-1DH\s0 parameter generation may take several minutes.
 .SH "FILES"
 .IX Header "FILES"
 .IP "\fIstunnel.conf\fR" 4

@@ -38,6 +38,7 @@
 		<li><a href="#tryb_inetd__tylko_unix_">TRYB INETD (tylko Unix)</a></li>
 		<li><a href="#certyfikaty">CERTYFIKATY</a></li>
 		<li><a href="#losowo__">LOSOWO¦Æ</a></li>
+		<li><a href="#parametry_dh">PARAMETRY DH</a></li>
 	</ul>
 
 	<li><a href="#pliki">PLIKI</a></li>
@@ -300,7 +301,6 @@ generatora pseudolosowego.</p>
 <dd>
 <p>u¿yj parametru jako nazwy serwisu</p>
 <p><em>Unix:</em> nazwa serwisu dla biblioteki TCP Wrapper w trybie <em>inetd</em>.</p>
-<p><em>NT/2000/XP:</em> nazwa serwisu NT w Panelu Sterowania.</p>
 <p>domy¶lnie: stunnel</p>
 </dd>
 <dt><strong><a name="identyfikator_grupy" class="item"><strong>setgid</strong> = identyfikator_grupy (tylko Unix)</a></strong></dt>
@@ -530,6 +530,7 @@ nawi±zywane przed negocjacj± TLS.  Uwierzytelnienie przy pomocy biblioteki
 libwrap jest realizowane dwukrotnie: najpierw dla us³ugi nadrzêdnej po
 odebraniu po³±czenia TCP, a nastêpnie dla us³ugi podrzêdnej podczas negocjacji
 TLS.</p>
+<p>Opcja <em>sni</em> jest dostêpna pocz±wszy od wersji 1.0.0 biblioteki OpenSSL.</p>
 </dd>
 <dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = URL</a></strong></dt>
 
@@ -777,6 +778,8 @@ dodatkowe opcje:</p>
 <dd>
 <p>weryfikuj certyfikat drugiej strony po³±czenia</p>
 <dl>
+<dt><strong><a name="poziom_0_zarz_daj_certyfikatu_i_zignoruj_go" class="item"><em>poziom 0</em> - zarz±daj certyfikatu i zignoruj go</a></strong></dt>
+
 <dt><strong><a name="poziom_1_weryfikuj_je_eli_zosta_przedstawiony" class="item"><em>poziom 1</em> - weryfikuj, je¿eli zosta³ przedstawiony</a></strong></dt>
 
 <dt><strong><a name="poziom_2_weryfikuj_z_zainstalowanym_certyfikatem_centrum_certyfikacji" class="item"><em>poziom 2</em> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji</a></strong></dt>
@@ -990,6 +993,15 @@ sprawdzania stanu generatora.  W systemach z <em>/dev/urandom</em> urz±dzenie
 to bêdzie najprawdopodobniej u¿yte, pomimo ¿e znajduje siê na samym koñcu
 powy¿szej listy.  Jest to w³a¶ciwo¶æ biblioteki <em>OpenSSL</em>, a nie programu
 <em>stunnel</em>.</p>
+<p>
+</p>
+<h2><a name="parametry_dh">PARAMETRY DH</a></h2>
+<p>Pocz±wszy od wersji 4.40 stunnel zawiera w kodzie programu 2048-bitowe
+parametry DH.</p>
+<p>Alternatywnie parametry DH mo¿na umie¶ciæ w pliku razem z certyfikatem:</p>
+<pre>
+    openssl dhparam 2048 &gt;&gt; stunnel.pem</pre>
+<p>Wygenerowanie parametrów DH mo¿e zaj±æ nawet wiele minut.</p>
 <p>
 </p>
 <hr />

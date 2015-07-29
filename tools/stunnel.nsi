@@ -1,6 +1,6 @@
 # NSIS stunnel installer by Michal Trojnara 2011
 
-!define VERSION "4.41"
+!define VERSION "4.42"
 !define DLLS "/home/ftp/openssl/openssl-1.0.0d-i586/"
 !include "Sections.nsh"
 
@@ -70,9 +70,10 @@ Section "Self-signed Certificate Tools" sectionCA
   # write files
   File "${DLLS}openssl.exe"
   File "${SRCDIR}tools/stunnel.cnf"
-  IfFileExists "$INSTDIR\stunnel.pem" lbl_pem_exists
+  IfSilent lbl_skip_new_pem
+  IfFileExists "$INSTDIR\stunnel.pem" lbl_skip_new_pem
   ExecWait '"$INSTDIR\openssl.exe" req -new -x509 -days 365 -config stunnel.cnf -out stunnel.pem -keyout stunnel.pem'
-lbl_pem_exists:
+lbl_skip_new_pem:
 SectionEnd
 
 Section "Start Menu Shortcuts"

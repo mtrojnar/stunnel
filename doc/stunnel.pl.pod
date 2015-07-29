@@ -246,8 +246,6 @@ u¿yj parametru jako nazwy serwisu
 
 I<Unix:> nazwa serwisu dla biblioteki TCP Wrapper w trybie I<inetd>.
 
-I<NT/2000/XP:> nazwa serwisu NT w Panelu Sterowania.
-
 domy¶lnie: stunnel
 
 =item B<setgid> = identyfikator_grupy (tylko Unix)
@@ -487,6 +485,8 @@ nawi±zywane przed negocjacj± TLS.  Uwierzytelnienie przy pomocy biblioteki
 libwrap jest realizowane dwukrotnie: najpierw dla us³ugi nadrzêdnej po
 odebraniu po³±czenia TCP, a nastêpnie dla us³ugi podrzêdnej podczas negocjacji
 TLS.
+
+Opcja I<sni> jest dostêpna pocz±wszy od wersji 1.0.0 biblioteki OpenSSL.
 
 =item B<OCSP> = URL
 
@@ -728,6 +728,8 @@ weryfikuj certyfikat drugiej strony po³±czenia
 
 =over 4
 
+=item I<poziom 0> - zarz±daj certyfikatu i zignoruj go
+
 =item I<poziom 1> - weryfikuj, je¿eli zosta³ przedstawiony
 
 =item I<poziom 2> - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji
@@ -943,6 +945,17 @@ sprawdzania stanu generatora.  W systemach z I</dev/urandom> urz±dzenie
 to bêdzie najprawdopodobniej u¿yte, pomimo ¿e znajduje siê na samym koñcu
 powy¿szej listy.  Jest to w³a¶ciwo¶æ biblioteki I<OpenSSL>, a nie programu
 I<stunnel>.
+
+=head2 PARAMETRY DH
+
+Pocz±wszy od wersji 4.40 stunnel zawiera w kodzie programu 2048-bitowe
+parametry DH.
+
+Alternatywnie parametry DH mo¿na umie¶ciæ w pliku razem z certyfikatem:
+
+    openssl dhparam 2048 >> stunnel.pem
+
+Wygenerowanie parametrów DH mo¿e zaj±æ nawet wiele minut.
 
 
 =head1 PLIKI

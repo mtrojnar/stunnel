@@ -380,22 +380,13 @@ static char *parse_global_option(CMD cmd, char *opt, char *arg) {
     switch(cmd) {
     case CMD_INIT:
         new_service_options.servname=str_dup_err("stunnel");
-#if defined(USE_WIN32) && !defined(_WIN32_WCE)
-        new_global_options.win32_service="stunnel";
-#endif
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "service"))
             break;
         new_service_options.servname=str_dup_err(arg);
-#if defined(USE_WIN32) && !defined(_WIN32_WCE)
-        new_global_options.win32_service=str_dup_err(arg);
-#endif
         return NULL; /* OK */
     case CMD_DEFAULT:
-#if defined(USE_WIN32) && !defined(_WIN32_WCE)
-        s_log(LOG_NOTICE, "%-15s = %s", "service", "stunnel");
-#endif
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-15s = service name", "service");
@@ -632,12 +623,7 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->cert=str_dup_err(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
-#ifdef CONFDIR
-        s_log(LOG_NOTICE, "%-15s = %s", "cert", CONFDIR CONFSEPARATOR "stunnel.pem");
-#else
-        s_log(LOG_NOTICE, "%-15s = %s", "cert", "stunnel.pem");
-#endif
-        break;
+        break; /* no default certificate */
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-15s = certificate chain", "cert");
         break;
@@ -1490,7 +1476,8 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-15s = none|source|destination|both transparent proxy mode",
+        s_log(LOG_NOTICE,
+            "%-15s = none|source|destination|both transparent proxy mode",
             "transparent");
         break;
     }
@@ -1499,37 +1486,31 @@ static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* verify */
     switch(cmd) {
     case CMD_INIT:
-        section->verify_level=-1;
-        section->verify_use_only_my=0;
+        section->verify_level=-1; /* do not even request a certificate */
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "verify"))
             break;
-        section->verify_level=SSL_VERIFY_NONE;
-        tmpnum=strtol(arg, &tmpstr, 10);
+        section->verify_level=strtol(arg, &tmpstr, 10);
         if(tmpstr==arg || *tmpstr) /* not a number */
             return "Bad verify level";
-        switch(tmpnum) {
-        case 3:
-            section->verify_use_only_my=1;
-        case 2:
-            section->verify_level|=SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-        case 1:
-            section->verify_level|=SSL_VERIFY_PEER;
-        case 0:
-            return NULL; /* OK */
-        default:
+        if(section->verify_level<0 || section->verify_level>3)
             return "Bad verify level";
-        }
+        return NULL; /* OK */
     case CMD_DEFAULT:
         s_log(LOG_NOTICE, "%-15s = none", "verify");
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-15s = level of peer certificate verification", "verify");
-        s_log(LOG_NOTICE, "%18slevel 1 - verify peer certificate if present", "");
-        s_log(LOG_NOTICE, "%18slevel 2 - require valid peer certificate always", "");
-        s_log(LOG_NOTICE, "%18slevel 3 - verify peer with locally installed certificate",
-        "");
+        s_log(LOG_NOTICE,
+            "%-15s = level of peer certificate verification", "verify");
+        s_log(LOG_NOTICE,
+            "%18slevel 0 - request and ignore peer certificate", "");
+        s_log(LOG_NOTICE,
+            "%18slevel 1 - only validate peer certificate if present", "");
+        s_log(LOG_NOTICE,
+            "%18slevel 2 - always require a valid peer certificate", "");
+        s_log(LOG_NOTICE,
+            "%18slevel 3 - verify peer with locally installed certificate", "");
         break;
     }
 

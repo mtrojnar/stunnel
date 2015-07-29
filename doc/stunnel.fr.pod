@@ -267,8 +267,6 @@ Définit le nom de service à utiliser
 
 B<Sous UnixE<nbsp>:> nom de service du mode I<inetd> pour la bibliothèque TCP Wrapper.
 
-B<Sous NT/2000/XPE<nbsp>:> nom de service NT dans le gestionnaire de tâches.
-
 Par défautE<nbsp>: stunnel
 
 =item B<session> = timeout

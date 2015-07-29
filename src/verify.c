@@ -59,7 +59,7 @@ int verify_init(SERVICE_OPTIONS *section) {
     if(section->verify_level<0)
         return 0; /* OK - no certificate verification */
 
-    if(section->verify_level>1 && !section->ca_file && !section->ca_dir) {
+    if(section->verify_level>=2 && !section->ca_file && !section->ca_dir) {
         s_log(LOG_ERR,
             "Either CApath or CAfile has to be used for authentication");
         return 1; /* FAILED */
@@ -109,11 +109,12 @@ int verify_init(SERVICE_OPTIONS *section) {
         add_dir_lookup(section->revocation_store, section->crl_dir);
     }
 
-    SSL_CTX_set_verify(section->ctx, section->verify_level==SSL_VERIFY_NONE ?
-        SSL_VERIFY_PEER : section->verify_level, verify_callback);
+    SSL_CTX_set_verify(section->ctx, SSL_VERIFY_PEER |
+        (section->verify_level>=2 ? SSL_VERIFY_FAIL_IF_NO_PEER_CERT : 0),
+        verify_callback);
 
-    if(section->ca_dir && section->verify_use_only_my)
-        s_log(LOG_NOTICE, "Peer certificate location %s", section->ca_dir);
+    if(section->ca_dir && section->verify_level>=3)
+        s_log(LOG_INFO, "Peer certificate location %s", section->ca_dir);
     return 0; /* OK */
 }
 
@@ -201,7 +202,7 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
     X509_OBJECT obj;
     ASN1_BIT_STRING *local_key, *peer_key;
 
-    if(c->opt->verify_level==SSL_VERIFY_NONE) {
+    if(c->opt->verify_level<1) {
         s_log(LOG_INFO, "CERT: Verification not enabled");
         return 1; /* accept connection */
     }
@@ -211,7 +212,7 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
             X509_verify_cert_error_string(callback_ctx->error));
         return 0; /* reject connection */
     }
-    if(c->opt->verify_use_only_my && callback_ctx->error_depth==0) {
+    if(c->opt->verify_level>=3 && callback_ctx->error_depth==0) {
         if(X509_STORE_get_by_subject(callback_ctx, X509_LU_X509,
                 X509_get_subject_name(callback_ctx->current_cert), &obj)!=1) {
             s_log(LOG_WARNING, "CERT: Certificate not found in local repository");
@@ -224,6 +225,7 @@ static int cert_check(CLI *c, X509_STORE_CTX *callback_ctx, int preverify_ok) {
             s_log(LOG_WARNING, "CERT: Public keys do not match");
             return 0; /* reject connection */
         }
+        s_log(LOG_INFO, "CERT: Locally installed certificate matched");
     }
     return 1; /* accept connection */
 }

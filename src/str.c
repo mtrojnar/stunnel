@@ -46,14 +46,23 @@
 #endif /* __va_copy */
 #endif /* va_copy */
 
-typedef struct alloc_list {
-    struct alloc_list *prev, *next;
+typedef struct alloc_list ALLOC_LIST;
+
+typedef struct alloc_tls {
+    ALLOC_LIST *head;
+    size_t bytes, blocks;
+} ALLOC_TLS;
+
+struct alloc_list {
+    ALLOC_LIST *prev, *next;
+    ALLOC_TLS *tls;
     size_t size;
     unsigned int magic;
-} ALLOC_LIST;
+};
 
-static void set_alloc_head(ALLOC_LIST *);
-static ALLOC_LIST *get_alloc_head();
+static void set_alloc_tls(ALLOC_TLS *);
+static ALLOC_TLS *get_alloc_tls();
+static ALLOC_LIST *get_alloc_list_ptr(void *);
 
 char *str_dup(const char *str) {
     char *retval;
@@ -75,7 +84,7 @@ char *str_printf(const char *format, ...) {
 }
 
 char *str_vprintf(const char *format, va_list start_ap) {
-    int n, size=64;
+    int n, size=32;
     char *p, *np;
     va_list ap;
 
@@ -102,19 +111,19 @@ char *str_vprintf(const char *format, va_list start_ap) {
 
 #ifdef USE_UCONTEXT
 
-static ALLOC_LIST *alloc_tls=NULL;
+static ALLOC_TLS *alloc_tls=NULL;
 
 void str_init() {
 }
 
-static void set_alloc_head(ALLOC_LIST *alloc_head) {
+static void set_alloc_tls(ALLOC_TLS *alloc_tls) {
     if(ready_head)
-        ready_head->tls=alloc_head;
+        ready_head->tls=alloc_tls;
     else /* ucontext threads not initialized */
-        alloc_tls=alloc_head;
+        alloc_tls=alloc_tls;
 }
 
-static ALLOC_LIST *get_alloc_head() {
+static ALLOC_TLS *get_alloc_tls() {
     if(ready_head)
         return ready_head->tls;
     else /* ucontext threads not initialized */
@@ -125,16 +134,16 @@ static ALLOC_LIST *get_alloc_head() {
 
 #ifdef USE_FORK
 
-static ALLOC_LIST *alloc_tls=NULL;
+static ALLOC_TLS *alloc_tls=NULL;
 
 void str_init() {
 }
 
-static void set_alloc_head(ALLOC_LIST *alloc_head) {
-    alloc_tls=alloc_head;
+static void set_alloc_tls(ALLOC_TLS *alloc_tls) {
+    alloc_tls=alloc_tls;
 }
 
-static ALLOC_LIST *get_alloc_head() {
+static ALLOC_TLS *get_alloc_tls() {
     return alloc_tls;
 }
 
@@ -148,11 +157,11 @@ void str_init() {
     pthread_key_create(&pthread_key, NULL);
 }
 
-static void set_alloc_head(ALLOC_LIST *alloc_head) {
-    pthread_setspecific(pthread_key, alloc_head);
+static void set_alloc_tls(ALLOC_TLS *alloc_tls) {
+    pthread_setspecific(pthread_key, alloc_tls);
 }
 
-static ALLOC_LIST *get_alloc_head() {
+static ALLOC_TLS *get_alloc_tls() {
     return pthread_getspecific(pthread_key);
 }
 
@@ -170,127 +179,151 @@ void str_init() {
     }
 }
 
-static void set_alloc_head(ALLOC_LIST *alloc_head) {
-    if(!TlsSetValue(tls_index, alloc_head)) {
+static void set_alloc_tls(ALLOC_TLS *alloc_tls) {
+    if(!TlsSetValue(tls_index, alloc_tls)) {
         s_log(LOG_ERR, "TlsSetValue failed");
         die(1);
     }
 }
 
-static ALLOC_LIST *get_alloc_head() {
-    ALLOC_LIST *alloc_head;
+static ALLOC_TLS *get_alloc_tls() {
+    ALLOC_TLS *alloc_tls;
 
-    alloc_head=TlsGetValue(tls_index);
-    if(!alloc_head && GetLastError()!=ERROR_SUCCESS) {
+    alloc_tls=TlsGetValue(tls_index);
+    if(!alloc_tls && GetLastError()!=ERROR_SUCCESS) {
         s_log(LOG_ERR, "TlsGetValue failed");
         die(1);
     }
-    return alloc_head;
+    return alloc_tls;
 }
 
 #endif /* USE_WIN32 */
 
 void str_cleanup() {
-    ALLOC_LIST *alloc_head, *tmp;
+    ALLOC_TLS *alloc_tls;
 
-    alloc_head=get_alloc_head();
-    while(alloc_head) {
-        tmp=alloc_head;
-        alloc_head=tmp->next;
-        free(tmp);
-    }
-    set_alloc_head(NULL);
+    alloc_tls=get_alloc_tls();
+    while(alloc_tls->head)
+        str_free(alloc_tls->head+1);
+    set_alloc_tls(NULL);
+    free(alloc_tls);
 }
 
 void str_stats() {
-    ALLOC_LIST *tmp;
-    int blocks=0, bytes=0;
+    ALLOC_TLS *alloc_tls;
 
-    for(tmp=get_alloc_head(); tmp; tmp=tmp->next) {
-        ++blocks;
-        bytes+=tmp->size;
-    }
-    s_log(LOG_DEBUG, "str_stats: %d block(s), %d byte(s)", blocks, bytes);
+    alloc_tls=get_alloc_tls();
+    s_log(LOG_DEBUG, "str_stats: %d block(s), %d byte(s)",
+        alloc_tls->blocks, alloc_tls->bytes);
 }
 
 void *str_alloc(size_t size) {
-    ALLOC_LIST *alloc_head, *tmp;
+    ALLOC_TLS *alloc_tls;
+    ALLOC_LIST *alloc_list;
 
     if(size>=1024*1024) /* huge allocations are not allowed */
         return NULL;
-    tmp=calloc(1, sizeof(ALLOC_LIST)+size);
-    if(!tmp)
+    alloc_tls=get_alloc_tls();
+    if(!alloc_tls) { /* first allocation in this thread */
+        alloc_tls=calloc(1, sizeof(ALLOC_TLS));
+        if(!alloc_tls)
+            return NULL;
+        alloc_tls->head=NULL;
+        alloc_tls->bytes=alloc_tls->blocks=0;
+        set_alloc_tls(alloc_tls);
+    }
+    alloc_list=calloc(1, sizeof(ALLOC_LIST)+size);
+    if(!alloc_list)
         return NULL;
-    alloc_head=get_alloc_head();
-    tmp->prev=NULL;
-    tmp->next=alloc_head;
-    tmp->size=size;
-    tmp->magic=0xdeadbeef;
-    if(alloc_head)
-        alloc_head->prev=tmp;
-    set_alloc_head(tmp);
-    return tmp+1;
+    alloc_list->prev=NULL;
+    alloc_list->next=alloc_tls->head;
+    alloc_list->tls=alloc_tls;
+    alloc_list->size=size;
+    alloc_list->magic=0xdeadbeef;
+    if(alloc_tls->head)
+        alloc_tls->head->prev=alloc_list;
+    alloc_tls->head=alloc_list;
+    alloc_tls->bytes+=size;
+    alloc_tls->blocks++;
+    return alloc_list+1;
 }
 
 void *str_realloc(void *ptr, size_t size) {
-    ALLOC_LIST *old_tmp, *tmp;
+    ALLOC_LIST *previous_alloc_list, *alloc_list;
 
     if(!ptr)
         return str_alloc(size);
-    old_tmp=(ALLOC_LIST *)ptr-1;
-    if(old_tmp->magic!=0xdeadbeef) { /* not allocated by str_alloc() */
-        s_log(LOG_CRIT, "INTERNAL ERROR: str_realloc: Bad magic");
-        die(1);
-    }
     if(size>=1024*1024) /* huge allocations are not allowed */
         return NULL;
-    tmp=realloc(old_tmp, sizeof(ALLOC_LIST)+size);
-    if(!tmp)
+    previous_alloc_list=get_alloc_list_ptr(ptr);
+    alloc_list=realloc(previous_alloc_list, sizeof(ALLOC_LIST)+size);
+    if(!alloc_list)
         return NULL;
-    /* refresh all possibly invalidated pointers */
-    if(tmp->next)
-        tmp->next->prev=tmp;
-    if(tmp->prev)
-        tmp->prev->next=tmp;
-    tmp->size=size;
-    if(get_alloc_head()==old_tmp)
-        set_alloc_head(tmp);
-    return tmp+1;
+    if(alloc_list->tls) { /* not detached */
+        /* refresh possibly invalidated linked list pointers */
+        if(alloc_list->tls->head==previous_alloc_list)
+            alloc_list->tls->head=alloc_list;
+        if(alloc_list->next)
+            alloc_list->next->prev=alloc_list;
+        if(alloc_list->prev)
+            alloc_list->prev->next=alloc_list;
+        /* update statistics */
+        alloc_list->tls->bytes+=size-alloc_list->size;
+    }
+    alloc_list->size=size;
+    return alloc_list+1;
 }
 
 /* detach from thread automatic deallocation list */
 /* it has no effect if the allocation is already detached */
 void str_detach(void *ptr) {
-    ALLOC_LIST *tmp;
+    ALLOC_LIST *alloc_list;
 
     if(!ptr) /* do not attempt to free null pointers */
         return;
-    tmp=(ALLOC_LIST *)ptr-1;
-    if(tmp->magic!=0xdeadbeef) { /* not allocated by str_alloc() */
-        s_log(LOG_CRIT, "INTERNAL ERROR: str_free: Bad magic");
-        die(1);
-    }
-    if(get_alloc_head()==tmp)
-        set_alloc_head(tmp->next);
-    if(tmp->next) {
-        tmp->next->prev=tmp->prev;
-        tmp->next=NULL;
-    }
-    if(tmp->prev) {
-        tmp->prev->next=tmp->next;
-        tmp->prev=NULL;
+    alloc_list=get_alloc_list_ptr(ptr);
+    if(alloc_list->tls) { /* not detached */
+        /* remove from linked list */
+        if(alloc_list->tls->head==alloc_list)
+            alloc_list->tls->head=alloc_list->next;
+        if(alloc_list->next)
+            alloc_list->next->prev=alloc_list->prev;
+        if(alloc_list->prev)
+            alloc_list->prev->next=alloc_list->next;
+        /* update statistics */
+        alloc_list->tls->bytes-=alloc_list->size;
+        alloc_list->tls->blocks--;
+        /* clear pointers */
+        alloc_list->next=NULL;
+        alloc_list->prev=NULL;
+        alloc_list->tls=NULL;
     }
 }
 
 void str_free(void *ptr) {
-    ALLOC_LIST *tmp;
+    ALLOC_LIST *alloc_list;
 
     if(!ptr) /* do not attempt to free null pointers */
         return;
     str_detach(ptr);
-    tmp=(ALLOC_LIST *)ptr-1;
-    tmp->magic=0xdefec8ed; /* to detect double free */
-    free(tmp);
+    alloc_list=(ALLOC_LIST *)ptr-1;
+    alloc_list->magic=0xdefec8ed; /* to detect double free */
+    free(alloc_list);
+}
+
+static ALLOC_LIST *get_alloc_list_ptr(void *ptr) {
+    ALLOC_LIST *alloc_list;
+
+    alloc_list=(ALLOC_LIST *)ptr-1;
+    if(alloc_list->magic!=0xdeadbeef) { /* not allocated by str_alloc() */
+        s_log(LOG_CRIT, "INTERNAL ERROR: get_alloc_list_ptr: Bad magic");
+        die(1);
+    }
+    if(alloc_list->tls /* not detached */ && alloc_list->tls!=get_alloc_tls()) {
+        s_log(LOG_CRIT, "INTERNAL ERROR: get_alloc_list_ptr: Wrong thread");
+        die(1);
+    }
+    return alloc_list;
 }
 
 /* end of str.c */

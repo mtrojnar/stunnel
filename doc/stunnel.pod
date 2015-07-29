@@ -82,7 +82,7 @@ Exit an already started stunnel
 
 =item B<-quiet> (NT/2000/XP only)
 
-Don't display a message box when successfully installed or uninstalled NT service
+Don't display any message boxes
 
 =back
 
@@ -236,8 +236,6 @@ default: yes
 use specified string as the service name
 
 B<On Unix:> I<inetd> mode service name for TCP Wrapper library.
-
-B<On NT/2000/XP:> NT service name in the Control Panel.
 
 default: stunnel
 
@@ -464,6 +462,8 @@ I<connect> option of the slave service is ignored when I<protocol> option is
 specified, as I<protocol> connects remote host before TLS handshake.
 Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.
+
+Option I<sni> is only available when compiled with OpenSSL 1.0.0 and later.
 
 =item B<OCSP> = url
 
@@ -708,6 +708,8 @@ verify peer certificate
 
 =over 4
 
+=item I<level 0> - request and ignore peer certificate
+
 =item I<level 1> - verify peer certificate if present
 
 =item I<level 2> - verify peer certificate
@@ -910,6 +912,16 @@ seeding the PRNG with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
 at the very bottom of the list above.  This isn't B<stunnel's> behaviour, it's
 OpenSSLs.
+
+=head2 DH PARAMETERS
+
+Stunnel 4.40 and later contains hardcoded 2048-bit DH parameters.
+
+It is also possible to specify DH parameters in the certificate file:
+
+    openssl dhparam 2048 >> stunnel.pem
+
+DH parameter generation may take several minutes.
 
 
 =head1 FILES

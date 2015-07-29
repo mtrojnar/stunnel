@@ -81,11 +81,6 @@ typedef struct {
     int uid, gid;
 #endif
 
-        /* Win32 specific data for gui.c */
-#if defined(USE_WIN32) && !defined(_WIN32_WCE)
-    char *win32_service;
-#endif
-
         /* logging-support data for log.c */
     int debug_level;                              /* debug level for logging */
 #ifndef USE_WIN32
@@ -128,7 +123,6 @@ typedef struct service_options_struct {
     char *crl_dir;                              /* directory for hashed CRLs */
     char *crl_file;                       /* file containing bunches of CRLs */
     int verify_level;
-    int verify_use_only_my;
     X509_STORE *revocation_store;             /* cert store for CRL checking */
     SOCKADDR_LIST ocsp_addr;
     char *ocsp_path;
@@ -419,12 +413,17 @@ char *s_ntop(char *, SOCKADDR_UNION *);
 /**************************************** prototypes for sthreads.c */
 
 typedef enum {
-    CRIT_KEYGEN, CRIT_INET, CRIT_CLIENTS, CRIT_WIN_LOG,
-    CRIT_SESSION, CRIT_LIBWRAP,
+    CRIT_CLIENTS, CRIT_SESSION, /* client.c */
 #if OPENSSL_VERSION_NUMBER<0x1000002f
-    CRIT_SSL,
+    CRIT_SSL,                   /* client.c */
 #endif /* OpenSSL version < 1.0.0b */
-    CRIT_SECTIONS
+    CRIT_INET,                  /* resolver.c */
+#ifdef USE_WIN32
+    CRIT_WIN_LOG,               /* gui.c */
+#else
+    CRIT_LIBWRAP,               /* libwrap.c */
+#endif
+    CRIT_SECTIONS               /* number of critical sections */
 } SECTION_CODE;
 
 void enter_critical_section(SECTION_CODE);

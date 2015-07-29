@@ -415,6 +415,7 @@ static void signal_pipe_empty(void) {
         switch(sig) {
 #ifndef USE_WIN32
         case SIGCHLD:
+            s_log(LOG_DEBUG, "Processing SIGCHLD");
 #ifdef USE_FORK
             client_status(); /* report status of client process */
 #else /* USE_UCONTEXT || USE_PTHREAD */
@@ -423,6 +424,7 @@ static void signal_pipe_empty(void) {
             break;
 #endif /* !defind USE_WIN32 */
         case SIGNAL_RELOAD_CONFIG:
+            s_log(LOG_DEBUG, "Processing SIGNAL_RELOAD_CONFIG");
             unbind_ports();
             log_close();
             err=parse_conf(NULL, CONF_RELOAD);
@@ -437,6 +439,7 @@ static void signal_pipe_empty(void) {
 #endif
             break;
         case SIGNAL_REOPEN_LOG:
+            s_log(LOG_DEBUG, "Processing SIGNAL_REOPEN_LOG");
             log_close();
             log_open();
             s_log(LOG_NOTICE, "Log file reopened");
@@ -444,7 +447,6 @@ static void signal_pipe_empty(void) {
         default:
             s_log(sig==SIGNAL_TERMINATE ? LOG_NOTICE : LOG_ERR,
                 "Received signal %d; terminating", sig);
-            str_stats();
             die(3);
         }
     }

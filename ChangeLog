@@ -1,6 +1,19 @@
 stunnel change log
 
 
+Version 4.42, 2011.08.18, urgency: HIGH:
+* New features
+  - New verify level 0 to request and ignore peer certificate.  This
+    feature is useful with the new Windows GUI menu to save cached peer
+    certificate chains, as SSL client certificates are not sent by default.
+  - Manual page has been updated.
+  - Removed support for changing Windows Service name with "service" option.
+* Bugfixes
+  - Fixed a heap corruption vulnerability in versions 4.40 and 4.41.  It may
+    possibly be leveraged to perform DoS or remote code execution attacks.
+  - The -quiet commandline option was applied to *all* message boxes.
+  - Silent install (/S option) no longer attempts to create stunnel.pem.
+
 Version 4.41, 2011.07.25, urgency: MEDIUM:
 * Bugfixes
   - Fixed Windows service crash of stunnel 4.40.
@@ -215,7 +228,7 @@ Version 4.25, 2008.06.01, urgency: MEDIUM:
 
 Version 4.24, 2008.05.19, urgency: HIGH:
 * Bugfixes
-  - OCSP code was fixed to properly reject revocated certificates.
+  - OCSP code was fixed to properly reject revoked certificates.
 
 Version 4.23, 2008.05.03, urgency: HIGH:
 * Bugfixes
@@ -230,7 +243,7 @@ Version 4.22, 2008.03.28, urgency: MEDIUM:
   - A new global option to control logging to syslog:
       syslog = yes|no
     Simultaneous logging to a file and the syslog is now possible.
-  - A new service level option to control stack size:
+  - A new service-level option to control stack size:
       stack = <number of bytes>
 * Bugfixes
   - Restored chroot() to be executed after decoding numerical
@@ -273,7 +286,7 @@ Version 4.20, 2006.11.30, urgency: MEDIUM:
   - The new transfer() function has been well tested.
     I recommend upgrading any previous version with this one.
 * Bugfixes
-  - Fixed support for encrypted passphases on Unix (broken in 4.19).
+  - Fixed support for encrypted passphrases on Unix (broken in 4.19).
   - Reduced amount of debug logs.
   - A minor man page update.
 
@@ -339,7 +352,7 @@ Version 4.16, 2006.08.31, urgency: MEDIUM:
   - Check for maximum number of defined services added.
   - OpenSSL_add_all_algorithms() added to SSL initialization.
   - configure script sections reordered to detect pthread library funcions.
-  - RFC 2487 autdoetection improved.  High resolution s_poll_wait()
+  - RFC 2487 autodetection improved.  High resolution s_poll_wait()
     not currently supported by UCONTEXT threading.
   - More precise description of cert directory file names (thx to Muhammad
     Muquit).
@@ -357,7 +370,7 @@ Version 4.15, 2006.03.11, urgency: LOW:
   - DH parameters are not included in the certificate by default.
 * New features sponsored by Software House http://www.swhouse.com/
   - Most SSL-related options (including client, cert, key) are now
-    available on service level, so it is possible to have an SSL
+    available on service-level, so it is possible to have an SSL
     client and an SSL server in a single stunnel process.
   - Windows CE (version 3.0 and higher) support.
 * New features
@@ -381,7 +394,7 @@ Version 4.14, 2005.11.02, urgency: HIGH:
   - Checking for dynamic loader libraries added again.
   - Default pidfile changed from $localstatedir/run/stunnel.pid
     to $localstatedir/stunnel/stunnel.pid.
-  - Basic SSL library initalization moved to the beginning of execution.
+  - Basic SSL library initialization moved to the beginning of execution.
 * Release notes
   - This is an important bugfix release.  Upgrade is recommended.
 
@@ -426,7 +439,7 @@ Version 4.11, 2005.07.09, urgency: MEDIUM:
   - Workaround for non-standard makecontext() uc_stack.ss_sp parameter
     semantics on Sparc/Solaris 9 and earlier.
   - scan_waiting_queue() no longer drops contexts.
-  - Inetd mode coredumps with UCONTEXT fixed.
+  - Inetd mode GPFs with UCONTEXT fixed.
   - Cleanup context is no longer used.
   - Releasing memory of the current context is delayed.
   - Win32 headers reordered for Visual Studio 7.
@@ -452,7 +465,7 @@ Version 4.10, 2005.04.23, urgency: LOW/EXPERIMENTAL:
 Version 4.09, 2005.03.26, urgency: MEDIUM:
 * DLLs for OpenSSL 0.9.7f.
 * Bugfixes
-  - Compilation problem with undeclarated socklen_t fixed.
+  - Compilation problem with undeclared socklen_t fixed.
   - TIMEOUTclose is not used when there is any data in the buffers.
   - Stunnel no longer relies on close_notify with SSL 2.0 connections,
     since SSL 2.0 protocol does not have any alerts defined.
@@ -718,14 +731,14 @@ Version 3.18, 2001.07.31, urgency: MEDIUM:
 * Debug output of info_callback redesigned.
 
 Version 3.17, 2001.07.29, urgency: MEDIUM:
-* Problem with coredump on exit with active threads fixed.
+* Problem with GPF on exit with active threads fixed.
 * Timeout for transfer() function added:
    - 1 hour if socket is open for read
    - 1 minute if socket is closed for read
 
 Version 3.16, 2001.07.22, urgency: MEDIUM:
 * Some transfer() bugfixes/improvements.
-* STDIN/STDOUT are no logner assumed to be non-socket decriptors.
+* STDIN/STDOUT are no longer assumed to be non-socket descriptors.
 * Problem with --with-tcp-wrappers patch fixed.
 * pop3 and nntp support bug fixed by Martin Germann.
 * -o option to append log messages to a file added.
@@ -757,7 +770,7 @@ Version 3.12, 2001.01.24, urgency: LOW:
 
 Version 3.11, 2000.12.21, urgency: MEDIUM:
 * New problem with zombies fixed.
-* Attempt to be integer-size independed.
+* Attempt to be integer-size independent.
 * SIGHUP handler added.
 
 Version 3.10, 2000.12.19, urgency: MEDIUM:
@@ -802,7 +815,7 @@ Version 3.8p3, 2000.06.24  bri@stunnel.org:
 
 * UPGRADE NOTE: this version seriously changes several previous stunnel
   default behaviours.  There are no longer any default cert file/dirs
-  compilied into stunnel, you must use the --with-cert-dir and
+  compiled into stunnel, you must use the --with-cert-dir and
   --with-cert-file configure arguments to set these manually, if desired.
   Stunnel does not use the underlying ssl library defaults by default
   unless configured with --enable-ssllib-cs.  Note that these can always
@@ -816,7 +829,7 @@ Version 3.8p2, 2000.06.13  bri@stunnel.org:
 * Fixed version number in files
 
 Version 3.8p1, 2000.06.11  bri@stunnel.org:
-* Added rigerous PRNG seeding
+* Added rigorous PRNG seeding
 * PID changes (and related security-fix)
 * Man page fixes
 * Client SSL Session-IDs now used
@@ -985,12 +998,11 @@ Version 3.7, 2000.02.10:
 * Connection logging support.
 
 1.1 1998.02.14
-* Callback functions added by Pawel Krawczyk
-* <kravietz@ceti.com.pl>.
+* Callback functions added by Pawel Krawczyk <kravietz@ceti.com.pl>.
 
 1.0 1998.02.11
 * First version with SSL support
-* - special thx to Adam Hernik <adas@infocentrum.com>.
+  - special thx to Adam Hernik <adas@infocentrum.com>.
 
 0.1 1998.02.10
 * Testing skeleton.

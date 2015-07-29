@@ -37,6 +37,7 @@
 		<li><a href="#inetd_mode">INETD MODE</a></li>
 		<li><a href="#certificates">CERTIFICATES</a></li>
 		<li><a href="#randomness">RANDOMNESS</a></li>
+		<li><a href="#dh_parameters">DH PARAMETERS</a></li>
 	</ul>
 
 	<li><a href="#files">FILES</a></li>
@@ -143,7 +144,7 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <dt><strong><a name="quiet" class="item"><strong>-quiet</strong> (NT/2000/XP only)</a></strong></dt>
 
 <dd>
-<p>Don't display a message box when successfully installed or uninstalled NT service</p>
+<p>Don't display any message boxes</p>
 </dd>
 </dl>
 <p>
@@ -290,7 +291,6 @@ number generator.</p>
 <dd>
 <p>use specified string as the service name</p>
 <p><strong>On Unix:</strong> <em>inetd</em> mode service name for TCP Wrapper library.</p>
-<p><strong>On NT/2000/XP:</strong> NT service name in the Control Panel.</p>
 <p>default: stunnel</p>
 </dd>
 <dt><strong><a name="groupname" class="item"><strong>setgid</strong> = groupname (Unix only)</a></strong></dt>
@@ -505,6 +505,7 @@ Multiple slave services are normally specified for a single master service.
 specified, as <em>protocol</em> connects remote host before TLS handshake.
 Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.</p>
+<p>Option <em>sni</em> is only available when compiled with OpenSSL 1.0.0 and later.</p>
 </dd>
 <dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = url</a></strong></dt>
 
@@ -753,6 +754,8 @@ other platforms.</p>
 <dd>
 <p>verify peer certificate</p>
 <dl>
+<dt><strong><a name="level_0_request_and_ignore_peer_certificate" class="item"><em>level 0</em> - request and ignore peer certificate</a></strong></dt>
+
 <dt><strong><a name="level_1_verify_peer_certificate_if_present" class="item"><em>level 1</em> - verify peer certificate if present</a></strong></dt>
 
 <dt><strong><a name="level_2_verify_peer_certificate" class="item"><em>level 2</em> - verify peer certificate</a></strong></dt>
@@ -952,6 +955,14 @@ seeding the PRNG with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
 at the very bottom of the list above.  This isn't <strong>stunnel's</strong> behaviour, it's
 OpenSSLs.</p>
+<p>
+</p>
+<h2><a name="dh_parameters">DH PARAMETERS</a></h2>
+<p>Stunnel 4.40 and later contains hardcoded 2048-bit DH parameters.</p>
+<p>It is also possible to specify DH parameters in the certificate file:</p>
+<pre>
+    openssl dhparam 2048 &gt;&gt; stunnel.pem</pre>
+<p>DH parameter generation may take several minutes.</p>
 <p>
 </p>
 <hr />

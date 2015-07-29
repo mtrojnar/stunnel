@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2011.07.23" "4.41" "stunnel"
+.TH STUNNEL.PL 8 "2011.08.18" "4.42" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -267,8 +267,6 @@ domyślnie: yes (nadpisz)
 użyj parametru jako nazwy serwisu
 .Sp
 \&\fIUnix:\fR nazwa serwisu dla biblioteki \s-1TCP\s0 Wrapper w trybie \fIinetd\fR.
-.Sp
-\&\fI\s-1NT/2000/XP:\s0\fR nazwa serwisu \s-1NT\s0 w Panelu Sterowania.
 .Sp
 domyślnie: stunnel
 .IP "\fBsetgid\fR = identyfikator_grupy (tylko Unix)" 4
@@ -487,6 +485,8 @@ nawiązywane przed negocjacją \s-1TLS\s0.  Uwierzytelnienie przy pomocy bibliot
 libwrap jest realizowane dwukrotnie: najpierw dla usługi nadrzędnej po
 odebraniu połączenia \s-1TCP\s0, a następnie dla usługi podrzędnej podczas negocjacji
 \&\s-1TLS\s0.
+.Sp
+Opcja \fIsni\fR jest dostępna począwszy od wersji 1.0.0 biblioteki OpenSSL.
 .IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
 .IX Item "OCSP = URL"
 serwer \s-1OCSP\s0 do weryfikacji certyfikatów
@@ -695,9 +695,11 @@ Opcja została przemianowana na \fInone\fR.
 .IX Item "verify = poziom"
 weryfikuj certyfikat drugiej strony połączenia
 .RS 4
+.IP "\fIpoziom 0\fR \- zarządaj certyfikatu i zignoruj go" 4
+.IX Item "poziom 0 - zarządaj certyfikatu i zignoruj go"
+.PD 0
 .IP "\fIpoziom 1\fR \- weryfikuj, jeżeli został przedstawiony" 4
 .IX Item "poziom 1 - weryfikuj, jeżeli został przedstawiony"
-.PD 0
 .IP "\fIpoziom 2\fR \- weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji" 4
 .IX Item "poziom 2 - weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji"
 .IP "\fIpoziom 3\fR \- weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony" 4
@@ -902,6 +904,18 @@ sprawdzania stanu generatora.  W systemach z \fI/dev/urandom\fR urządzenie
 to będzie najprawdopodobniej użyte, pomimo że znajduje się na samym końcu
 powyższej listy.  Jest to właściwość biblioteki \fIOpenSSL\fR, a nie programu
 \&\fIstunnel\fR.
+.SS "\s-1PARAMETRY\s0 \s-1DH\s0"
+.IX Subsection "PARAMETRY DH"
+Począwszy od wersji 4.40 stunnel zawiera w kodzie programu 2048\-bitowe
+parametry \s-1DH\s0.
+.PP
+Alternatywnie parametry \s-1DH\s0 można umieścić w pliku razem z certyfikatem:
+.PP
+.Vb 1
+\&    openssl dhparam 2048 >> stunnel.pem
+.Ve
+.PP
+Wygenerowanie parametrów \s-1DH\s0 może zająć nawet wiele minut.
 .SH "PLIKI"
 .IX Header "PLIKI"
 .IP "\fIstunnel.conf\fR" 4

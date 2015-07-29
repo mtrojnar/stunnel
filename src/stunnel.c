@@ -394,7 +394,8 @@ static void create_pid(void) {
 
     /* silently remove old pid file */
     unlink(global_options.pidfile);
-    if((pf=open(global_options.pidfile, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL,0644))==-1) {
+    pf=open(global_options.pidfile, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
+    if(pf==-1) {
         s_log(LOG_ERR, "Cannot create pid file %s", global_options.pidfile);
         ioerror("create");
         die(1);
@@ -408,9 +409,9 @@ static void create_pid(void) {
 }
 
 static void delete_pid(void) {
-    s_log(LOG_DEBUG, "removing pid file %s", global_options.pidfile);
     if((unsigned long)getpid()!=global_options.dpid)
         return; /* current process is not main daemon process */
+    s_log(LOG_DEBUG, "removing pid file %s", global_options.pidfile);
     if(unlink(global_options.pidfile)<0)
         ioerror(global_options.pidfile); /* not critical */
 }
@@ -627,6 +628,7 @@ void stunnel_info(int level) {
 /**************************************** fatal error */
 
 void die(int status) { /* some cleanup and exit */
+    str_stats();
     log_flush(LOG_MODE_ERROR);
 #ifdef USE_WIN32
     win_exit(status);
