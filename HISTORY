@@ -1,6 +1,15 @@
-1.2 1998.02.14	Separate certificate for each service added
-		Connection logging support
-1.1 1998.02.14	Callback functions added to support MSIE and
-		Netscape Communicator
+1.3 1998.02.14	Man page by Pawel Krawczyk <kravietz@ceti.com.pl> added!
+		Copyrights added.
+		Minor errors corrected.
+
+1.2 1998.02.14	Separate certificate for each service added.
+		Connection logging support.
+
+1.1 1998.02.14	Callback functions to support MSIE and Netscape Communicator
+		added by Pawel Krawczyk <kravietz@ceti.com.pl>.
+
 1.0 1998.02.11	First version with SSL support
-0.1 1998.02.10	Testing skeleton
+		- special thx to Adam Hernik <adas@infocentrum.com>.
+
+0.1 1998.02.10	Testing skeleton.
+

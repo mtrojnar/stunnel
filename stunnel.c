@@ -1,9 +1,28 @@
-/*****************************************************/
-/* stunnel.c          version 1.2           97.02.14 */
-/* by Michal Trojnara   <mtrojnar@ddc.daewoo.com.pl> */
-/* SSLeay support Adam Hernik <adas@infocentrum.com> */
-/*             Pawel Krawczyk <kravietz@ceti.com.pl> */
-/*****************************************************/
+/*
+ *   stunnel       Universal SSL tunnel for daemons invoked by inetd
+ *   Copyright (c) 1998 Michal Trojnara <mtrojnar@ddc.daewoo.com.pl>
+ *                 All Rights Reserved
+ *
+ *   Version:      1.3              (stunnel.c)
+ *   Date:         1998.02.14
+ *   Author:       Michal Trojnara  <mtrojnar@ddc.daewoo.com.pl>
+ *   SSL support:  Adam Hernik      <adas@infocentrum.com>
+ *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
 
 #define BUFFSIZE 8192	/* I/O buffer size */
 
@@ -12,8 +31,8 @@
 #include <errno.h>	/* for errno */
 #include <string.h>	/* for strerror */
 #include <sys/stat.h>	/* for stat */
-#include <netinet/in.h> /* for struct sockaddr_in */
-#include <arpa/inet.h>  /* for inet_ntoa */
+#include <netinet/in.h>	/* for struct sockaddr_in */
+#include <arpa/inet.h>	/* for inet_ntoa */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>	/* for select */
@@ -53,17 +72,16 @@ int main(int argc, char* argv[])
     signal(SIGQUIT, signal_handler);
     signal(SIGSEGV, signal_handler);
 
-    name=rindex(argv[0], '/');
-    if(!name)
-        name=argv[0]; /* relative name - no '/' */
-    else
+    if((name=rindex(argv[0], '/')))
         name++; /* first character after '/' */
+    else
+        name=argv[0]; /* relative name - no '/' */
     addrlen=sizeof(addr);
     memset(&addr, 0, addrlen);
     if(getpeername(0, (struct sockaddr *)&addr, &addrlen))
         ioerror("getpeername");
-    syslog(LOG_INFO, "%s connected from %s:%u",
-        name, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+    syslog(LOG_INFO, "%s connected from %s:%u", name,
+        inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
     sprintf(certfile, "%s/%s.pem", X509_get_default_cert_dir(), name);
     if(stat(certfile, &st))
         ioerror(certfile);
@@ -99,6 +117,8 @@ int main(int argc, char* argv[])
         SSL_set_fd(ssl, 0);
         if(!SSL_accept(ssl))
             sslerror("SSL_accept");
+        syslog(LOG_NOTICE, "SSLv%d opened for %s, cipher %s",
+            ssl->session->ssl_version, name, SSL_get_cipher(ssl));
         transfer(ssl, fd[0]);
         SSL_free(ssl);
         SSL_CTX_free(ctx);
@@ -140,7 +160,7 @@ void transfer(SSL *ssl, int tunnel) /* main loop */
             if(num==0)
                 return; /* close */
             if(SSL_write(ssl, buffer, num)!=num)
-                ioerror("SSL_write");
+                sslerror("SSL_write");
         }
     }
 }
@@ -176,7 +196,7 @@ static DH *tmp_dh_cb(SSL *s, int export) /* temporary DH key callback */
         if((dh_tmp = DH_new()) == NULL)
             sslerror("DH_new");
         if(!DH_generate_key(dh_tmp))
-	    sslerror("DH_generate_key");
+            sslerror("DH_generate_key");
         syslog(LOG_DEBUG, "Diffie-Hellman length: %u", DH_size(dh_tmp));
     }
     return(dh_tmp);

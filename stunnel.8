@@ -1,0 +1,95 @@
+.TH STUNNEL 8
+.SH NAME
+stunnel \- SSL encryption wrapper for \fIinetd\fR services
+.SH DESCRIPTION
+.PP
+The \fIstunnel\fR program is designed to intercept incoming
+connections to particular daemons started by 
+.BR inetd "(8)"
+super-deamon and perform \fISSL\fR (Secure Sockets Layer)
+handshake with the peer. After succesful handshake any incoming
+data is passed to the daemon in unencrypted form. Any outgoind
+data produced by the daemon and written to the network is encrypted.
+.PP
+.I stunnel
+can be used to add SSL functionality to commonly used \fIinetd\fR
+daemons like POP-2, POP-3 and IMAP servers without any changes
+in the programs' code. It cannot
+be used for FTP daemon because of the nature of FTP protocol which
+utilizes multiple ports for data transfers. There are available
+SSL enabled versions of FTP and telnet daemons, however.
+.PP
+.I stunnel
+is based on \fISSLeay\fR, free implementation of SSL protocol
+developed by Eric Young <eay@cryptsoft.com> and Tim Hudson <tjh@cryptsoft.com>.
+.SH INSTALLATION
+In order to run \fIstunnel\fR for a particular service you
+will need to change \fIinetd\fR configuration file, usually
+\fI/etc/inetd.conf\fR. Assuming that you have the following
+line starting POP-3 server: 
+.nf
+.sp
+.ti +5
+pop-3  stream  tcp  nowait  root  /usr/sbin/qpopper  qpopper -s
+.sp
+To run POP-3 server with SSL support add the following line to
+the \fI/etc/inetd.conf\fR:
+.sp
+.ti +5
+spop3  stream  tcp  nowait  root  /usr/sbin/stunnel  qpopper -s
+.sp
+.fi
+.PP
+As you may have noticed, this is done mostly like \fItcpd\fR
+wrapper.
+.PP
+You will also need definitions of those new services in your
+\fI/etc/services\fR file. Some commonly used SSL services are
+listed below:
+.RS
+.nf
+.sp
+.ta 3i
+https      443/tcp        # HTTP over SSL
+ssmtp      465/tcp        # SMTP over SSL
+snews      563/tcp        # NNTP over SSL
+ssl-ldap   636/tcp        # LDAP over SSL
+simap      993/tcp        # IMAP over SSL
+spop3      995/tcp        # POP-3 over SSL
+.sp
+.fi
+.RE
+.SH CERTIFICATES
+Each SSL enabled daemon needs to present a valid X.509 certificate
+to the peer. It also needs a private key to decrypt the incoming
+data. The easiest way to obtain a certificate and a key is to 
+generate the with free \fISSLeay\fR package. You can find more
+information on certificates generation on pages listed below.
+.PP
+When starting a daemon \fIstunnel\fR will try to load the certificate
+and key from the same file, whose name is the daemon's name
+with \fI.pem\fR extension. For example, with the above example
+of \fIinetd\fR service, \fIstunnel\fR will look for file \fIqpopper.pem\fR.
+Default directory for certificate files is \fI/usr/local/ssl/certs\fR.
+.SH LIMITATIONS
+\fIstunnel\fR won't work with 
+.BR tcpd "(8)"
+so there is no way
+to set any access control for daemons started from \fIstunnel\fR.
+It also ignores any client certificates presented by the peer, that
+could be used for authentication by underlying daemons.
+.SH SEE ALSO
+.BR tcpd (8)
+.TP
+.BI http://www.psy.uq.oz.au/~ftp/Crypto/
+SSLeay FAQ
+.TP
+.BI http://www.camb.opengroup.org/RI/www/prism/wwwj/
+overview of SSL certification using SSLeay package
+.SH AUTHORS
+.na
+.nf
+Michal Trojnara <mtrojnar@ddc.daewoo.com.pl>
+Adam Hernik <adas@infocentrum.com>
+Pawel Krawczyk <kravietz@ceti.com.pl>
+\" last updated 14.02.1998

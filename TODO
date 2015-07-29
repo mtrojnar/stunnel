@@ -1,3 +1,9 @@
 1. Implement make_sockets implemented with Internet sockets
    instead of Unix sockets for better compatibility.
-2. Add man pages, license, credits, etc.
+   (i.e. to avoid random data returned by getpeername(2)).
+
+2. If possible add certificate signed by a thrusted CA.
+   If not -> build a web page to add new certificate to browser.
+
+3. Add binary distributions for Solaris and HP-UX.
+
