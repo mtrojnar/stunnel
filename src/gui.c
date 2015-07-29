@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -138,8 +138,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         return 1;
 #endif
 
-    /* setup the windo caption before reading the configuration file
-     * options.win32_service is not available here and may not be used */
+    /* setup the initial window caption before reading the configuration file
+     * global_options.win32_service may not be used here */
 #ifdef _WIN32_WCE
     _tcscpy(win32_name, TEXT("stunnel ") TEXT(VERSION)
         TEXT(" on Windows CE (not configured)"));
@@ -159,7 +159,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             TEXT(" on Windows CE"));
 #else
         _snprintf(win32_name, STRLEN, "stunnel %s on Win32 (%s)",
-            VERSION, options.win32_service); /* update the information */
+            VERSION, global_options.win32_service); /* update the information */
         if(!cmdline.service) {
             if(cmdline.install)
                 return service_install(command_line);
@@ -171,6 +171,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                 return service_stop();
         }
 #endif
+    } else {
     }
 
     /* CATCH */
@@ -305,7 +306,7 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #endif
 
     /* create main window */
-    if(options.option.taskbar) { /* save menu resources */
+    if(global_options.option.taskbar) { /* save menu resources */
         htraymenu=LoadMenu(ghInst, MAKEINTRESOURCE(IDM_TRAYMENU));
         hpopup=GetSubMenu(htraymenu, 0);
     }
@@ -324,9 +325,11 @@ static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         EnableMenuItem(hmainmenu, IDM_SAVEAS, MF_GRAYED);
 #endif
 
-    if(error_mode) /* log window is hidden by default */
+    if(error_mode) { /* log window is hidden by default */
         set_visible(1);
-    else /* create the main thread */
+        EnableMenuItem(hmainmenu, IDM_RELOAD, MF_GRAYED);
+        EnableMenuItem(htraymenu, IDM_RELOAD, MF_GRAYED);
+    } else /* create the main thread */
         _beginthread(ThreadFunc, 0, NULL);
 
     while(GetMessage(&msg, NULL, 0, 0)) {
@@ -361,10 +364,14 @@ static void update_taskbar(void) { /* create the taskbar icon */
 }
 
 static void ThreadFunc(void *arg) {
-    if(!setjmp(jump_buf))
+    if(!setjmp(jump_buf)) {
         main_execute();
-    else
-        set_visible(1); /* could be unsafe to call it from another thread */
+    } else {
+        /* FIXME: could be unsafe to call it from another thread */
+        set_visible(1);
+        EnableMenuItem(hmainmenu, IDM_RELOAD, MF_GRAYED);
+        EnableMenuItem(htraymenu, IDM_RELOAD, MF_GRAYED);
+    }
     _endthread();
 }
 
@@ -380,7 +387,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 #endif
     switch(message) {
     case WM_CREATE:
-        if(options.option.taskbar) /* taskbar update enabled? */
+        if(global_options.option.taskbar) /* taskbar update enabled? */
             SetTimer(hwnd, 0x29a, 1000, NULL); /* 1-second timer */
 
 #ifdef _WIN32_WCE
@@ -469,15 +476,17 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
         case IDM_SAVEAS:
             save_file(hwnd);
             break;
-        case IDM_SETUP:
-            MessageBox(hwnd, TEXT("Function not implemented"),
-                win32_name, MB_ICONERROR);
+        case IDM_RELOAD:
+            log_close();
+            parse_conf(NULL, CONF_RELOAD);
+            log_open();
+            bind_ports();
             break;
         }
         return TRUE;
 
     case UWM_SYSTRAY: /* a taskbar event */
-        switch (lParam) {
+        switch(lParam) {
 #ifdef _WIN32_WCE
         case WM_LBUTTONDOWN: /* no right mouse button on Windows CE */
             GetWindowRect(GetDesktopWindow(), &rect); /* no cursor position */
@@ -526,7 +535,7 @@ static LRESULT CALLBACK pass_proc(HWND hDlg, UINT message,
     TCHAR sPassword[PEM_BUFSIZE];
     char* cPassword;
 
-    switch (message) {
+    switch(message) {
     case WM_INITDIALOG:
         /* set the default push button to "Cancel." */
         SendMessage(hDlg, DM_SETDEFID, (WPARAM) IDCANCEL, (LPARAM) 0);
@@ -748,11 +757,11 @@ static void error_box(const LPTSTR text) {
 
 static int service_initialize(void) {
     SERVICE_TABLE_ENTRY serviceTable[]={
-        {options.win32_service, service_main},
+        {global_options.win32_service, service_main},
         {0, 0}
     };
 
-    options.option.taskbar=0; /* disable taskbar for security */
+    global_options.option.taskbar=0; /* disable taskbar for security */
     if(!StartServiceCtrlDispatcher(serviceTable)) {
         error_box(TEXT("StartServiceCtrlDispatcher"));
         return 1;
@@ -775,9 +784,13 @@ static int service_install(LPSTR command_line) {
     safeconcat(service_path, "\" -service ");
     safeconcat(service_path, command_line);
     service=CreateService(scm,
-        options.win32_service, options.win32_service, SERVICE_ALL_ACCESS,
+        global_options.win32_service,
+        global_options.win32_service,
+        SERVICE_ALL_ACCESS,
         SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
-        SERVICE_AUTO_START, SERVICE_ERROR_NORMAL, service_path,
+        SERVICE_AUTO_START,
+        SERVICE_ERROR_NORMAL,
+        service_path,
         NULL, NULL, NULL, NULL, NULL);
     if(!service) {
         error_box(TEXT("CreateService"));
@@ -801,7 +814,7 @@ static int service_uninstall(void) {
         error_box(TEXT("OpenSCManager"));
         return 1;
     }
-    service=OpenService(scm, options.win32_service,
+    service=OpenService(scm, global_options.win32_service,
         SERVICE_QUERY_STATUS | DELETE);
     if(!service) {
         if(!cmdline.quiet)
@@ -845,7 +858,7 @@ static int service_start(void) {
         error_box(TEXT("OpenSCManager"));
         return 1;
     }
-    service=OpenService(scm, options.win32_service,
+    service=OpenService(scm, global_options.win32_service,
         SERVICE_QUERY_STATUS | SERVICE_START);
     if(!service) {
         error_box(TEXT("OpenService"));
@@ -891,7 +904,7 @@ static int service_stop(void) {
         error_box(TEXT("OpenSCManager"));
         return 1;
     }
-    service=OpenService(scm, options.win32_service,
+    service=OpenService(scm, global_options.win32_service,
         SERVICE_QUERY_STATUS | SERVICE_STOP);
     if(!service) {
         if(!cmdline.quiet)
@@ -947,7 +960,8 @@ static void WINAPI service_main(DWORD argc, LPTSTR* argv) {
     serviceStatus.dwWaitHint=0;
 
     serviceStatusHandle=
-        RegisterServiceCtrlHandler(options.win32_service, control_handler);
+        RegisterServiceCtrlHandler(global_options.win32_service,
+            control_handler);
 
     if(serviceStatusHandle) {
         /* service is starting */
@@ -975,7 +989,7 @@ static void WINAPI service_main(DWORD argc, LPTSTR* argv) {
 }
 
 static void WINAPI control_handler(DWORD controlCode) {
-    switch (controlCode) {
+    switch(controlCode) {
     case SERVICE_CONTROL_INTERROGATE:
         break;
 

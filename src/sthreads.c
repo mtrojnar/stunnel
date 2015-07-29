@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -87,65 +87,65 @@ unsigned long stunnel_thread_id(void) {
 }
 
 static CONTEXT *new_context(int stack_size) {
-    CONTEXT *ctx;
+    CONTEXT *context;
 
     /* allocate and fill the CONTEXT structure */
-    ctx=malloc(sizeof(CONTEXT));
-    if(!ctx) {
+    context=malloc(sizeof(CONTEXT));
+    if(!context) {
         s_log(LOG_ERR, "Unable to allocate CONTEXT structure");
         return NULL;
     }
-    ctx->stack=malloc(stack_size);
-    if(!ctx->stack) {
+    context->stack=malloc(stack_size);
+    if(!context->stack) {
         s_log(LOG_ERR, "Unable to allocate CONTEXT stack");
         return NULL;
     }
-    ctx->id=next_id++;
-    ctx->fds=NULL;
-    ctx->ready=0;
-    /* some manuals claim that initialization of ctx structure is required */
-    if(getcontext(&ctx->ctx)<0) {
-        free(ctx->stack);
-        free(ctx);
+    context->id=next_id++;
+    context->fds=NULL;
+    context->ready=0;
+    /* some manuals claim that initialization of context structure is required */
+    if(getcontext(&context->context)<0) {
+        free(context->stack);
+        free(context);
         ioerror("getcontext");
         return NULL;
     }
-    ctx->ctx.uc_link=NULL; /* it should never happen */
+    context->context.uc_link=NULL; /* it should never happen */
 #if defined(__sgi) || ARGC==2 /* obsolete ss_sp semantics */
-    ctx->ctx.uc_stack.ss_sp=ctx->stack+stack_size-8;
+    context->context.uc_stack.ss_sp=context->stack+stack_size-8;
 #else
-    ctx->ctx.uc_stack.ss_sp=ctx->stack;
+    context->context.uc_stack.ss_sp=context->stack;
 #endif
-    ctx->ctx.uc_stack.ss_size=stack_size;
-    ctx->ctx.uc_stack.ss_flags=0;
+    context->context.uc_stack.ss_size=stack_size;
+    context->context.uc_stack.ss_flags=0;
 
     /* attach to the tail of the ready queue */
-    ctx->next=NULL;
+    context->next=NULL;
     if(ready_tail)
-        ready_tail->next=ctx;
-    ready_tail=ctx;
+        ready_tail->next=context;
+    ready_tail=context;
     if(!ready_head)
-        ready_head=ctx;
-    return ctx;
+        ready_head=context;
+    return context;
 }
 
 void sthreads_init(void) {
     /* create the first (listening) context and put it in the running queue */
     if(!new_context(DEFAULT_STACK_SIZE)) {
-        s_log(LOG_RAW, "Unable create the listening context");
+        s_log(LOG_ERR, "Unable create the listening context");
         die(1);
     }
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
-    CONTEXT *ctx;
+    CONTEXT *context;
 
     s_log(LOG_DEBUG, "Creating a new context");
-    ctx=new_context(arg->opt->stack_size);
-    if(!ctx)
+    context=new_context(arg->opt->stack_size);
+    if(!context)
         return -1;
-    s_log(LOG_DEBUG, "Context %ld created", ctx->id);
-    makecontext(&ctx->ctx, (void(*)(void))cli, ARGC, arg);
+    s_log(LOG_DEBUG, "Context %ld created", context->id);
+    makecontext(&context->context, (void(*)(void))cli, ARGC, arg);
     return 0;
 }
 

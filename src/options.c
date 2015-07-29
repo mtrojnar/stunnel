@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -50,23 +50,25 @@
 
 #define CONFLINELEN (16*1024)
 
-static void section_validate(char *, int, LOCAL_OPTIONS *, int);
-static void config_error(char *, int, char *);
-static char *stralloc(char *);
-#ifndef USE_WIN32
-static char **argalloc(char *);
-#endif
+static int section_init(int, SERVICE_OPTIONS *, int);
 
 static int parse_debug_level(char *);
 static int parse_ssl_option(char *);
 static int print_socket_options(void);
 static void print_option(char *, int, OPT_UNION *);
 static int parse_socket_option(char *);
-static char *parse_ocsp_url(LOCAL_OPTIONS *, char *);
+static char *parse_ocsp_url(SERVICE_OPTIONS *, char *);
 static unsigned long parse_ocsp_flag(char *);
 
-GLOBAL_OPTIONS options;
-LOCAL_OPTIONS local_options;
+static void syntax(void);
+static void config_error(int, char *);
+static char *stralloc(char *);
+#ifndef USE_WIN32
+static char **argalloc(char *);
+#endif
+
+GLOBAL_OPTIONS global_options, new_global_options;
+SERVICE_OPTIONS service_options, new_service_options;
 
 typedef enum {
     CMD_INIT, /* initialize */
@@ -78,32 +80,33 @@ typedef enum {
 static char *option_not_found=
     "Specified option name is not valid here";
 
-static char *global_options(CMD cmd, char *opt, char *arg) {
+/**************************************** global options */
+
+static char *parse_global_option(CMD cmd, char *opt, char *arg, int reload) {
     char *tmpstr;
 #ifndef USE_WIN32
     struct group *gr;
     struct passwd *pw;
 #endif
 
-    if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
-        s_log(LOG_RAW, "Global options");
-    }
+    if(cmd==CMD_DEFAULT || cmd==CMD_HELP)
+        s_log(LOG_NOTICE, "Global options");
 
     /* chroot */
 #ifdef HAVE_CHROOT
     switch(cmd) {
     case CMD_INIT:
-        options.chroot_dir=NULL;
+        new_global_options.chroot_dir=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "chroot"))
             break;
-        options.chroot_dir=stralloc(arg);
+        new_global_options.chroot_dir=stralloc(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = directory to chroot stunnel process", "chroot");
+        s_log(LOG_NOTICE, "%-15s = directory to chroot stunnel process", "chroot");
         break;
     }
 #endif /* HAVE_CHROOT */
@@ -111,22 +114,22 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     /* compression */
     switch(cmd) {
     case CMD_INIT:
-        options.compression=COMP_NONE;
+        new_global_options.compression=COMP_NONE;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "compression"))
             break;
         if(!strcasecmp(arg, "zlib"))
-            options.compression=COMP_ZLIB;
+            new_global_options.compression=COMP_ZLIB;
         else if(!strcasecmp(arg, "rle"))
-            options.compression=COMP_RLE;
+            new_global_options.compression=COMP_RLE;
         else
             return "Compression type should be either 'zlib' or 'rle'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = zlib|rle compression type",
+        s_log(LOG_NOTICE, "%-15s = zlib|rle compression type",
             "compression");
         break;
     }
@@ -134,9 +137,9 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     /* debug */
     switch(cmd) {
     case CMD_INIT:
-        options.debug_level=5;
+        new_global_options.debug_level=LOG_NOTICE;
 #if !defined (USE_WIN32) && !defined (__vms)
-        options.facility=LOG_DAEMON;
+        new_global_options.facility=LOG_DAEMON;
 #endif
         break;
     case CMD_EXEC:
@@ -146,10 +149,14 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
             return "Illegal debug argument";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %d", "debug", options.debug_level);
+#if !defined (USE_WIN32) && !defined (__vms)
+        s_log(LOG_NOTICE, "%-15s = %s", "debug", "daemon.notice");
+#else
+        s_log(LOG_NOTICE, "%-15s = %s", "debug", "notice");
+#endif
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = [facility].level (e.g. daemon.info)", "debug");
+        s_log(LOG_NOTICE, "%-15s = [facility].level (e.g. daemon.info)", "debug");
         break;
     }
 
@@ -157,20 +164,20 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
 #if SSLEAY_VERSION_NUMBER >= 0x0090581fL
     switch(cmd) {
     case CMD_INIT:
-        options.egd_sock=NULL;
+        new_global_options.egd_sock=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "EGD"))
             break;
-        options.egd_sock=stralloc(arg);
+        new_global_options.egd_sock=stralloc(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
 #ifdef EGD_SOCKET
-        s_log(LOG_RAW, "%-15s = %s", "EGD", EGD_SOCKET);
+        s_log(LOG_NOTICE, "%-15s = %s", "EGD", EGD_SOCKET);
 #endif
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = path to Entropy Gathering Daemon socket", "EGD");
+        s_log(LOG_NOTICE, "%-15s = path to Entropy Gathering Daemon socket", "EGD");
         break;
     }
 #endif /* OpenSSL 0.9.5a */
@@ -183,12 +190,11 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "engine"))
             break;
-        open_engine(arg);
-        return NULL; /* OK */
+        return open_engine(arg);
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = auto|engine_id",
+        s_log(LOG_NOTICE, "%-15s = auto|engine_id",
             "engine");
         break;
     }
@@ -203,12 +209,11 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
         tmpstr=strchr(arg, ':');
         if(tmpstr)
             *tmpstr++='\0';
-        ctrl_engine(arg, tmpstr);
-        return NULL; /* OK */
+        return ctrl_engine(arg, tmpstr);
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = cmd[:arg]",
+        s_log(LOG_NOTICE, "%-15s = cmd[:arg]",
             "engineCtrl");
         break;
     }
@@ -218,22 +223,22 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
 #ifdef USE_FIPS
     switch(cmd) {
     case CMD_INIT:
-        options.option.fips=1;
+        new_global_options.option.fips=1;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "fips"))
             break;
         if(!strcasecmp(arg, "yes"))
-            options.option.fips=1;
+            new_global_options.option.fips=1;
         else if(!strcasecmp(arg, "no"))
-            options.option.fips=0;
+            new_global_options.option.fips=0;
         else
             return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no FIPS 140-2 mode",
+        s_log(LOG_NOTICE, "%-15s = yes|no FIPS 140-2 mode",
             "fips");
         break;
     }
@@ -243,22 +248,22 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
 #ifndef USE_WIN32
     switch(cmd) {
     case CMD_INIT:
-        options.option.foreground=0;
+        new_global_options.option.foreground=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "foreground"))
             break;
         if(!strcasecmp(arg, "yes"))
-            options.option.foreground=1;
+            new_global_options.option.foreground=1;
         else if(!strcasecmp(arg, "no"))
-            options.option.foreground=0;
+            new_global_options.option.foreground=0;
         else
             return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no foreground mode (don't fork, log to stderr)",
+        s_log(LOG_NOTICE, "%-15s = yes|no foreground mode (don't fork, log to stderr)",
             "foreground");
         break;
     }
@@ -267,17 +272,17 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     /* output */
     switch(cmd) {
     case CMD_INIT:
-        options.output_file=NULL;
+        new_global_options.output_file=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "output"))
             break;
-        options.output_file=stralloc(arg);
+        new_global_options.output_file=stralloc(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = file to append log messages", "output");
+        s_log(LOG_NOTICE, "%-15s = file to append log messages", "output");
         break;
     }
 
@@ -285,21 +290,21 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
 #ifndef USE_WIN32
     switch(cmd) {
     case CMD_INIT:
-        options.pidfile=PIDFILE;
+        new_global_options.pidfile=PIDFILE;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "pid"))
             break;
         if(arg[0]) /* is argument not empty? */
-            options.pidfile=stralloc(arg);
+            new_global_options.pidfile=stralloc(arg);
         else
-            options.pidfile=NULL; /* empty -> do not create a pid file */
+            new_global_options.pidfile=NULL; /* empty -> do not create a pid file */
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %s", "pid", PIDFILE);
+        s_log(LOG_NOTICE, "%-15s = %s", "pid", PIDFILE);
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = pid file (empty to disable creating)", "pid");
+        s_log(LOG_NOTICE, "%-15s = pid file (empty to disable creating)", "pid");
         break;
     }
 #endif
@@ -307,61 +312,61 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     /* RNDbytes */
     switch(cmd) {
     case CMD_INIT:
-        options.random_bytes=RANDOM_BYTES;
+        new_global_options.random_bytes=RANDOM_BYTES;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "RNDbytes"))
             break;
-        options.random_bytes=atoi(arg);
+        new_global_options.random_bytes=atoi(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %d", "RNDbytes", RANDOM_BYTES);
+        s_log(LOG_NOTICE, "%-15s = %d", "RNDbytes", RANDOM_BYTES);
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = bytes to read from random seed files", "RNDbytes");
+        s_log(LOG_NOTICE, "%-15s = bytes to read from random seed files", "RNDbytes");
         break;
     }
 
     /* RNDfile */
     switch(cmd) {
     case CMD_INIT:
-        options.rand_file=NULL;
+        new_global_options.rand_file=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "RNDfile"))
             break;
-        options.rand_file=stralloc(arg);
+        new_global_options.rand_file=stralloc(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
 #ifdef RANDOM_FILE
-        s_log(LOG_RAW, "%-15s = %s", "RNDfile", RANDOM_FILE);
+        s_log(LOG_NOTICE, "%-15s = %s", "RNDfile", RANDOM_FILE);
 #endif
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = path to file with random seed data", "RNDfile");
+        s_log(LOG_NOTICE, "%-15s = path to file with random seed data", "RNDfile");
         break;
     }
 
     /* RNDoverwrite */
     switch(cmd) {
     case CMD_INIT:
-        options.option.rand_write=1;
+        new_global_options.option.rand_write=1;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "RNDoverwrite"))
             break;
         if(!strcasecmp(arg, "yes"))
-            options.option.rand_write=1;
+            new_global_options.option.rand_write=1;
         else if(!strcasecmp(arg, "no"))
-            options.option.rand_write=0;
+            new_global_options.option.rand_write=0;
         else
             return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = yes", "RNDoverwrite");
+        s_log(LOG_NOTICE, "%-15s = yes", "RNDoverwrite");
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no overwrite seed datafiles with new random data",
+        s_log(LOG_NOTICE, "%-15s = yes|no overwrite seed datafiles with new random data",
             "RNDoverwrite");
         break;
     }
@@ -369,26 +374,26 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     /* service */
     switch(cmd) {
     case CMD_INIT:
-        local_options.servname=stralloc("stunnel");
+        new_service_options.servname=stralloc("stunnel");
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
-        options.win32_service="stunnel";
+        new_global_options.win32_service="stunnel";
 #endif
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "service"))
             break;
-        local_options.servname=stralloc(arg);
+        new_service_options.servname=stralloc(arg);
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
-        options.win32_service=stralloc(arg);
+        new_global_options.win32_service=stralloc(arg);
 #endif
         return NULL; /* OK */
     case CMD_DEFAULT:
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
-        s_log(LOG_RAW, "%-15s = %s", "service", options.win32_service);
+        s_log(LOG_NOTICE, "%-15s = %s", "service", "stunnel");
 #endif
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = service name", "service");
+        s_log(LOG_NOTICE, "%-15s = service name", "service");
         break;
     }
 
@@ -396,23 +401,23 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     /* setgid */
     switch(cmd) {
     case CMD_INIT:
-        options.gid=0;
+        new_global_options.gid=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "setgid"))
             break;
         gr=getgrnam(arg);
         if(gr)
-            options.gid=gr->gr_gid;
+            new_global_options.gid=gr->gr_gid;
         else if(atoi(arg)) /* numerical? */
-            options.gid=atoi(arg);
+            new_global_options.gid=atoi(arg);
         else
             return "Illegal GID";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = groupname for setgid()", "setgid");
+        s_log(LOG_NOTICE, "%-15s = groupname for setgid()", "setgid");
         break;
     }
 #endif
@@ -421,23 +426,23 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     /* setuid */
     switch(cmd) {
     case CMD_INIT:
-        options.uid=0;
+        new_global_options.uid=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "setuid"))
             break;
         pw=getpwnam(arg);
         if(pw)
-            options.uid=pw->pw_uid;
+            new_global_options.uid=pw->pw_uid;
         else if(atoi(arg)) /* numerical? */
-            options.uid=atoi(arg);
+            new_global_options.uid=atoi(arg);
         else
             return "Illegal UID";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = username for setuid()", "setuid");
+        s_log(LOG_NOTICE, "%-15s = username for setuid()", "setuid");
         break;
     }
 #endif
@@ -455,8 +460,8 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = a|l|r:option=value[:value]", "socket");
-        s_log(LOG_RAW, "%18sset an option on accept/local/remote socket", "");
+        s_log(LOG_NOTICE, "%-15s = a|l|r:option=value[:value]", "socket");
+        s_log(LOG_NOTICE, "%18sset an option on accept/local/remote socket", "");
         break;
     }
 
@@ -464,22 +469,22 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
 #ifndef USE_WIN32
     switch(cmd) {
     case CMD_INIT:
-        options.option.syslog=1;
+        new_global_options.option.syslog=1;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "syslog"))
             break;
         if(!strcasecmp(arg, "yes"))
-            options.option.syslog=1;
+            new_global_options.option.syslog=1;
         else if(!strcasecmp(arg, "no"))
-            options.option.syslog=0;
+            new_global_options.option.syslog=0;
         else
             return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no send logging messages to syslog",
+        s_log(LOG_NOTICE, "%-15s = yes|no send logging messages to syslog",
             "syslog");
         break;
     }
@@ -489,23 +494,23 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
 #ifdef USE_WIN32
     switch(cmd) {
     case CMD_INIT:
-        options.option.taskbar=1;
+        new_global_options.option.taskbar=1;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "taskbar"))
             break;
         if(!strcasecmp(arg, "yes"))
-            options.option.taskbar=1;
+            new_global_options.option.taskbar=1;
         else if(!strcasecmp(arg, "no"))
-            options.option.taskbar=0;
+            new_global_options.option.taskbar=0;
         else
             return "Argument should be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = yes", "taskbar");
+        s_log(LOG_NOTICE, "%-15s = yes", "taskbar");
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no enable the taskbar icon", "taskbar");
+        s_log(LOG_NOTICE, "%-15s = yes|no enable the taskbar icon", "taskbar");
         break;
     }
 #endif
@@ -515,13 +520,15 @@ static char *global_options(CMD cmd, char *opt, char *arg) {
     return NULL; /* OK */
 }
 
-static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
+/**************************************** service-level options */
+
+static char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         char *opt, char *arg) {
     int tmpnum;
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
-        s_log(LOG_RAW, " ");
-        s_log(LOG_RAW, "Service-level options");
+        s_log(LOG_NOTICE, " ");
+        s_log(LOG_NOTICE, "Service-level options");
     }
 
     /* accept */
@@ -541,7 +548,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = [host:]port accept connections on specified host:port",
+        s_log(LOG_NOTICE, "%-15s = [host:]port accept connections on specified host:port",
             "accept");
         break;
     }
@@ -564,12 +571,12 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         return NULL; /* OK */
     case CMD_DEFAULT:
 #if 0
-        s_log(LOG_RAW, "%-15s = %s", "CApath",
+        s_log(LOG_NOTICE, "%-15s = %s", "CApath",
             section->ca_dir ? section->ca_dir : "(none)");
 #endif
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = CA certificate directory for 'verify' option",
+        s_log(LOG_NOTICE, "%-15s = CA certificate directory for 'verify' option",
             "CApath");
         break;
     }
@@ -592,12 +599,12 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         return NULL; /* OK */
     case CMD_DEFAULT:
 #if 0
-        s_log(LOG_RAW, "%-15s = %s", "CAfile",
+        s_log(LOG_NOTICE, "%-15s = %s", "CAfile",
             section->ca_file ? section->ca_file : "(none)");
 #endif
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = CA certificate file for 'verify' option",
+        s_log(LOG_NOTICE, "%-15s = CA certificate file for 'verify' option",
             "CAfile");
         break;
     }
@@ -618,10 +625,14 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         section->option.cert=1;
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %s", "cert", section->cert);
+#ifdef CONFDIR
+        s_log(LOG_NOTICE, "%-15s = %s", "cert", CONFDIR CONFSEPARATOR "stunnel.pem");
+#else
+        s_log(LOG_NOTICE, "%-15s = %s", "cert", "stunnel.pem");
+#endif
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = certificate chain", "cert");
+        s_log(LOG_NOTICE, "%-15s = certificate chain", "cert");
         break;
     }
 
@@ -641,10 +652,10 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         section->cipher_list=stralloc(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %s", "ciphers", STUNNEL_DEFAULT_CIPHER_LIST);
+        s_log(LOG_NOTICE, "%-15s = %s", "ciphers", STUNNEL_DEFAULT_CIPHER_LIST);
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = list of permitted SSL ciphers", "ciphers");
+        s_log(LOG_NOTICE, "%-15s = list of permitted SSL ciphers", "ciphers");
         break;
     }
 
@@ -666,7 +677,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no client mode (remote service uses SSL)",
+        s_log(LOG_NOTICE, "%-15s = yes|no client mode (remote service uses SSL)",
             "client");
         break;
     }
@@ -685,14 +696,14 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         section->remote_address=stralloc(arg);
         if(!section->option.delayed_lookup &&
                 !name2addrlist(&section->remote_addr, arg, DEFAULT_LOOPBACK)) {
-            s_log(LOG_RAW, "Cannot resolve '%s' - delaying DNS lookup", arg);
+            s_log(LOG_INFO, "Cannot resolve '%s' - delaying DNS lookup", arg);
             section->option.delayed_lookup=1;
         }
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = [host:]port connect remote host:port",
+        s_log(LOG_NOTICE, "%-15s = [host:]port connect remote host:port",
             "connect");
         break;
     }
@@ -713,7 +724,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = CRL directory", "CRLpath");
+        s_log(LOG_NOTICE, "%-15s = CRL directory", "CRLpath");
         break;
     }
 
@@ -733,7 +744,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = CRL file", "CRLfile");
+        s_log(LOG_NOTICE, "%-15s = CRL file", "CRLfile");
         break;
     }
 
@@ -755,7 +766,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no delay DNS lookup for 'connect' option",
+        s_log(LOG_NOTICE, "%-15s = yes|no delay DNS lookup for 'connect' option",
             "delay");
         break;
     }
@@ -775,7 +786,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = number of engine to read the key from",
+        s_log(LOG_NOTICE, "%-15s = number of engine to read the key from",
             "engineNum");
         break;
     }
@@ -802,7 +813,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = file execute local inetd-type program",
+        s_log(LOG_NOTICE, "%-15s = file execute local inetd-type program",
             "exec");
         break;
     }
@@ -822,7 +833,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = arguments for 'exec' (including $0)",
+        s_log(LOG_NOTICE, "%-15s = arguments for 'exec' (including $0)",
             "execargs");
         break;
     }
@@ -846,7 +857,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = rr|prio chose failover strategy",
+        s_log(LOG_NOTICE, "%-15s = rr|prio chose failover strategy",
             "failover");
         break;
     }
@@ -864,7 +875,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = username for IDENT (RFC 1413) checking", "ident");
+        s_log(LOG_NOTICE, "%-15s = username for IDENT (RFC 1413) checking", "ident");
         break;
     }
 
@@ -879,10 +890,9 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         section->key=stralloc(arg);
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %s", "key", section->cert); /* set in stunnel.c */
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = certificate private key", "key");
+        s_log(LOG_NOTICE, "%-15s = certificate private key", "key");
         break;
     }
 
@@ -901,7 +911,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = IP address to be used as source for remote"
+        s_log(LOG_NOTICE, "%-15s = IP address to be used as source for remote"
             " connections", "local");
         break;
     }
@@ -922,7 +932,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = OCSP server URL", "ocsp");
+        s_log(LOG_NOTICE, "%-15s = OCSP server URL", "ocsp");
         break;
     }
 
@@ -942,7 +952,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = OCSP server flags", "OCSPflag");
+        s_log(LOG_NOTICE, "%-15s = OCSP server flags", "OCSPflag");
         break;
     }
 #endif /* OpenSSL-0.9.7 */
@@ -963,8 +973,8 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = SSL option", "options");
-        s_log(LOG_RAW, "%18sset an SSL option", "");
+        s_log(LOG_NOTICE, "%-15s = SSL option", "options");
+        s_log(LOG_NOTICE, "%18sset an SSL option", "");
         break;
     }
 
@@ -981,9 +991,9 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = protocol to negotiate before SSL initialization",
+        s_log(LOG_NOTICE, "%-15s = protocol to negotiate before SSL initialization",
             "protocol");
-        s_log(LOG_RAW, "%18scurrently supported: cifs, connect, nntp, pop3, smtp", "");
+        s_log(LOG_NOTICE, "%18scurrently supported: cifs, connect, nntp, pop3, smtp", "");
         break;
     }
 
@@ -1000,7 +1010,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = authentication type for protocol negotiations",
+        s_log(LOG_NOTICE, "%-15s = authentication type for protocol negotiations",
             "protocolAuthentication");
         break;
     }
@@ -1018,7 +1028,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = host:port for protocol negotiations",
+        s_log(LOG_NOTICE, "%-15s = host:port for protocol negotiations",
             "protocolHost");
         break;
     }
@@ -1036,7 +1046,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = password for protocol negotiations",
+        s_log(LOG_NOTICE, "%-15s = password for protocol negotiations",
             "protocolPassword");
         break;
     }
@@ -1054,7 +1064,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = username for protocol negotiations",
+        s_log(LOG_NOTICE, "%-15s = username for protocol negotiations",
             "protocolUsername");
         break;
     }
@@ -1078,7 +1088,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no allocate pseudo terminal for 'exec' option",
+        s_log(LOG_NOTICE, "%-15s = yes|no allocate pseudo terminal for 'exec' option",
             "pty");
         break;
     }
@@ -1103,7 +1113,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no retry connect+exec section",
+        s_log(LOG_NOTICE, "%-15s = yes|no retry connect+exec section",
             "retry");
         break;
     }
@@ -1112,7 +1122,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     /* session */
     switch(cmd) {
     case CMD_INIT:
-        section->session_timeout=300;
+        section->session_timeout=300L;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "session"))
@@ -1123,10 +1133,10 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             return "Illegal session timeout";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %ld seconds", "session", section->session_timeout);
+        s_log(LOG_NOTICE, "%-15s = %ld seconds", "session", 300L);
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = session cache timeout (in seconds)", "session");
+        s_log(LOG_NOTICE, "%-15s = session cache timeout (in seconds)", "session");
         break;
     }
 
@@ -1152,7 +1162,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = [host:]port use sessiond at host:port",
+        s_log(LOG_NOTICE, "%-15s = [host:]port use sessiond at host:port",
             "sessiond");
         break;
     }
@@ -1172,10 +1182,10 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             return "Illegal thread stack size";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %d bytes", "stack", section->stack_size);
+        s_log(LOG_NOTICE, "%-15s = %d bytes", "stack", DEFAULT_STACK_SIZE);
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = thread stack size (in bytes)", "stack");
+        s_log(LOG_NOTICE, "%-15s = thread stack size (in bytes)", "stack");
         break;
     }
 #endif
@@ -1211,13 +1221,13 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         return NULL; /* OK */
     case CMD_DEFAULT:
 #ifdef USE_FIPS
-        s_log(LOG_RAW, "%-15s = TLSv1", "sslVersion");
+        s_log(LOG_NOTICE, "%-15s = TLSv1", "sslVersion");
 #else
-        s_log(LOG_RAW, "%-15s = SSLv3 for client, all for server", "sslVersion");
+        s_log(LOG_NOTICE, "%-15s = SSLv3 for client, all for server", "sslVersion");
 #endif
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = all|SSLv2|SSLv3|TLSv1 SSL method", "sslVersion");
+        s_log(LOG_NOTICE, "%-15s = all|SSLv2|SSLv3|TLSv1 SSL method", "sslVersion");
         break;
     }
 
@@ -1235,10 +1245,10 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             return "Illegal busy timeout";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %d seconds", "TIMEOUTbusy", section->timeout_busy);
+        s_log(LOG_NOTICE, "%-15s = %d seconds", "TIMEOUTbusy", 300);
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = seconds to wait for expected data", "TIMEOUTbusy");
+        s_log(LOG_NOTICE, "%-15s = seconds to wait for expected data", "TIMEOUTbusy");
         break;
     }
 
@@ -1256,10 +1266,10 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             return "Illegal close timeout";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %d seconds", "TIMEOUTclose", section->timeout_close);
+        s_log(LOG_NOTICE, "%-15s = %d seconds", "TIMEOUTclose", 60);
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = seconds to wait for close_notify"
+        s_log(LOG_NOTICE, "%-15s = seconds to wait for close_notify"
             " (set to 0 for buggy MSIE)", "TIMEOUTclose");
         break;
     }
@@ -1278,11 +1288,10 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             return "Illegal connect timeout";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %d seconds", "TIMEOUTconnect",
-            section->timeout_connect);
+        s_log(LOG_NOTICE, "%-15s = %d seconds", "TIMEOUTconnect", 10);
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = seconds to connect remote host", "TIMEOUTconnect");
+        s_log(LOG_NOTICE, "%-15s = seconds to connect remote host", "TIMEOUTconnect");
         break;
     }
 
@@ -1300,10 +1309,10 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             return "Illegal idle timeout";
         return NULL; /* OK */
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = %d seconds", "TIMEOUTidle", section->timeout_idle);
+        s_log(LOG_NOTICE, "%-15s = %d seconds", "TIMEOUTidle", 43200);
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = seconds to keep an idle connection", "TIMEOUTidle");
+        s_log(LOG_NOTICE, "%-15s = seconds to keep an idle connection", "TIMEOUTidle");
         break;
     }
 
@@ -1326,7 +1335,7 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = yes|no transparent proxy mode",
+        s_log(LOG_NOTICE, "%-15s = yes|no transparent proxy mode",
             "transparent");
         break;
     }
@@ -1355,13 +1364,13 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             return "Bad verify level";
         }
     case CMD_DEFAULT:
-        s_log(LOG_RAW, "%-15s = none", "verify");
+        s_log(LOG_NOTICE, "%-15s = none", "verify");
         break;
     case CMD_HELP:
-        s_log(LOG_RAW, "%-15s = level of peer certificate verification", "verify");
-        s_log(LOG_RAW, "%18slevel 1 - verify peer certificate if present", "");
-        s_log(LOG_RAW, "%18slevel 2 - require valid peer certificate always", "");
-        s_log(LOG_RAW, "%18slevel 3 - verify peer with locally installed certificate",
+        s_log(LOG_NOTICE, "%-15s = level of peer certificate verification", "verify");
+        s_log(LOG_NOTICE, "%18slevel 1 - verify peer certificate if present", "");
+        s_log(LOG_NOTICE, "%18slevel 2 - require valid peer certificate always", "");
+        s_log(LOG_NOTICE, "%18slevel 3 - verify peer with locally installed certificate",
         "");
         break;
     }
@@ -1371,105 +1380,98 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
     return NULL; /* OK */
 }
 
-static void syntax(char *confname) {
-    s_log(LOG_RAW, " ");
-    s_log(LOG_RAW, "Syntax:");
-    s_log(LOG_RAW, "stunnel "
-#ifdef USE_WIN32
-#ifndef _WIN32_WCE
-        "[ [-install | -uninstall] "
-#endif
-        "[-quiet] "
-#endif
-        "[<filename>] ] "
-#ifndef USE_WIN32
-        "-fd <n> "
-#endif
-        "| -help | -version | -sockets");
-    s_log(LOG_RAW, "    <filename>  - use specified config file instead of %s",
-        confname);
-#ifdef USE_WIN32
-#ifndef _WIN32_WCE
-    s_log(LOG_RAW, "    -install    - install NT service");
-    s_log(LOG_RAW, "    -uninstall  - uninstall NT service");
-#endif
-    s_log(LOG_RAW, "    -quiet      - don't display a message box on success");
-#else
-    s_log(LOG_RAW, "    -fd <n>     - read the config file from a file descriptor");
-#endif
-    s_log(LOG_RAW, "    -help       - get config file help");
-    s_log(LOG_RAW, "    -version    - display version and defaults");
-    s_log(LOG_RAW, "    -sockets    - display default socket options");
-    die(1);
-}
+/**************************************** parse commandline parameters */
 
-void parse_config(char *name, char *parameter) {
-#ifdef CONFDIR
-    char *default_config_file=CONFDIR CONFSEPARATOR "stunnel.conf";
-#else
-    char *default_config_file="stunnel.conf";
-#endif
-    DISK_FILE *df;
-    char confline[CONFLINELEN], *arg, *opt, *errstr, *filename;
-    int line_number, i;
-#ifdef MAX_FD
-    int sections=0;
-#endif
-    LOCAL_OPTIONS *section, *new_section;
-
-    memset(&options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
-
-    memset(&local_options, 0, sizeof(LOCAL_OPTIONS)); /* reset local options */
-    local_options.next=NULL;
-    section=&local_options;
-
-    global_options(CMD_INIT, NULL, NULL);
-    service_options(CMD_INIT, section, NULL, NULL);
+void parse_commandline(char *name, char *parameter) {
     if(!name)
-        name=default_config_file;
+#ifdef CONFDIR
+        name=CONFDIR CONFSEPARATOR "stunnel.conf";
+#else
+        name="stunnel.conf";
+#endif
+
     if(!strcasecmp(name, "-help")) {
-        global_options(CMD_HELP, NULL, NULL);
-        service_options(CMD_HELP, section, NULL, NULL);
+        parse_global_option(CMD_HELP, NULL, NULL, 0);
+        parse_service_option(CMD_HELP, NULL, NULL, NULL);
         die(1);
     }
+
     if(!strcasecmp(name, "-version")) {
-        stunnel_info(1);
-        s_log(LOG_RAW, " ");
-        global_options(CMD_DEFAULT, NULL, NULL);
-        service_options(CMD_DEFAULT, section, NULL, NULL);
+        stunnel_info();
+        s_log(LOG_NOTICE, " ");
+        parse_global_option(CMD_DEFAULT, NULL, NULL, 0);
+        parse_service_option(CMD_DEFAULT, NULL, NULL, NULL);
         die(1);
     }
+
     if(!strcasecmp(name, "-sockets")) {
         print_socket_options();
         die(1);
     }
+
 #ifndef USE_WIN32
     if(!strcasecmp(name, "-fd")) {
         if(!parameter) {
-            s_log(LOG_RAW, "No file descriptor specified");
-            syntax(default_config_file);
+            s_log(LOG_ERR, "No file descriptor specified");
+            syntax();
+            die(1);
         }
-        for(arg=parameter, i=0; *arg; ++arg) {
-            if(*arg<'0' || *arg>'9') {
-                s_log(LOG_RAW, "Invalid file descriptor %s", parameter);
-                syntax(default_config_file);
-            }
-            i=10*i+*arg-'0';
-        }
-        df=file_fdopen(i);
-        if(!df) {
-            s_log(LOG_RAW, "Invalid file descriptor %s", parameter);
-            syntax(default_config_file);
-        }
-        filename="descriptor";
+        if(!parse_conf(parameter, CONF_FD))
+            die(1);
     } else
 #endif
-    {
-        df=file_open(name, 0);
-        if(!df)
-            syntax(default_config_file);
-        filename=name;
+        if(!parse_conf(name, CONF_FILE))
+            die(1);
+}
+
+/**************************************** parse configuration file */
+
+int parse_conf(char *name, CONF_TYPE type) {
+    DISK_FILE *df;
+    char confline[CONFLINELEN], *arg, *opt, *errstr;
+    int line_number, i;
+    SERVICE_OPTIONS *section, *new_section;
+    static char *filename=NULL; /* a copy of config file name for reloading */
+#ifdef MAX_FD
+    int sections=0;
+#endif
+#ifndef USE_WIN32
+    char *c;
+#endif
+
+    if(name) /* not reload */
+        filename=stralloc(name);
+
+    s_log(LOG_NOTICE, "Reading configuration from %s %s",
+        type==CONF_FD ? "descriptor" : "file", filename);
+#ifndef USE_WIN32
+    if(type==CONF_FD) { /* file descriptor */
+        i=0; /* cannot use atoi() here due to insufficient error checking */
+        for(c=filename; *c; ++c) {
+            if(*c<'0' || *c>'9') {
+                s_log(LOG_ERR, "Invalid file descriptor number");
+                syntax();
+                return 0;
+            }
+            i=10*i+*c-'0';
+        }
+        df=file_fdopen(i);
+    } else
+#endif
+        df=file_open(filename, 0);
+    if(!df) {
+        s_log(LOG_ERR, "Cannot read configuration");
+        syntax();
+        return 0;
     }
+
+    memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
+    memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS)); /* reset local options */
+    new_service_options.next=NULL;
+    section=&new_service_options;
+    parse_global_option(CMD_INIT, NULL, NULL, type==CONF_RELOAD);
+    parse_service_option(CMD_INIT, section, NULL, NULL);
+
     line_number=0;
     while(file_getline(df, confline, CONFLINELEN)) {
         ++line_number;
@@ -1481,79 +1483,106 @@ void parse_config(char *name, char *parameter) {
         if(opt[0]=='\0' || opt[0]=='#' || opt[0]==';') /* empty or comment */
             continue;
         if(opt[0]=='[' && opt[strlen(opt)-1]==']') { /* new section */
-            section_validate(filename, line_number, section, 0);
+            if(!section_init(line_number, section, 0)) {
+                file_close(df);
+                return 0;
+            }
             ++opt;
             opt[strlen(opt)-1]='\0';
-            new_section=calloc(1, sizeof(LOCAL_OPTIONS));
+            new_section=calloc(1, sizeof(SERVICE_OPTIONS));
             if(!new_section) {
-                s_log(LOG_RAW, "Fatal memory allocation error");
-                die(2);
+                s_log(LOG_ERR, "Fatal memory allocation error");
+                file_close(df);
+                return 0;
             }
-            memcpy(new_section, &local_options, sizeof(LOCAL_OPTIONS));
+            memcpy(new_section, &new_service_options, sizeof(SERVICE_OPTIONS));
             new_section->servname=stralloc(opt);
             new_section->session=NULL;
             new_section->next=NULL;
             section->next=new_section;
             section=new_section;
 #ifdef MAX_FD
-            if(++sections>MAX_FD)
-                config_error(filename, line_number, "Too many sections");
+            if(++sections>MAX_FD) {
+                config_error(line_number, "Too many sections");
+                file_close(df);
+                return 0;
+            }
 #endif
             continue;
         }
         arg=strchr(confline, '=');
-        if(!arg)
-            config_error(filename, line_number, "No '=' found");
+        if(!arg) {
+            config_error(line_number, "No '=' found");
+            file_close(df);
+            return 0;
+        }
         *arg++='\0'; /* split into option name and argument value */
         for(i=strlen(opt)-1; i>=0 && isspace((unsigned char)opt[i]); --i)
             opt[i]='\0'; /* remove trailing whitespaces */
         while(isspace((unsigned char)*arg))
             ++arg; /* remove initial whitespaces */
-        errstr=service_options(CMD_EXEC, section, opt, arg);
-        if(section==&local_options && errstr==option_not_found)
-            errstr=global_options(CMD_EXEC, opt, arg);
-        config_error(filename, line_number, errstr);
+        errstr=parse_service_option(CMD_EXEC, section, opt, arg);
+        if(section==&new_service_options && errstr==option_not_found)
+            errstr=parse_global_option(CMD_EXEC, opt, arg, type==CONF_RELOAD);
+        if(errstr) {
+            config_error(line_number, errstr);
+            file_close(df);
+            return 0;
+        }
     }
-    section_validate(filename, line_number, section, 1);
+    if(!section_init(line_number, section, 1)) {
+        file_close(df);
+        return 0;
+    }
     file_close(df);
-    if(!local_options.next) { /* inetd mode */
-        if (section->option.accept) {
-            s_log(LOG_RAW, "accept option is not allowed in inetd mode");
-            s_log(LOG_RAW, "remove accept option or define a [section]");
-            die(1);
+    if(!new_service_options.next) { /* inetd mode */
+        if(section->option.accept) {
+            s_log(LOG_ERR, "accept option is not allowed in inetd mode");
+            s_log(LOG_ERR, "remove accept option or define a [section]");
+            return 0;
         }
-        if (!section->option.remote && !section->execname) {
-            s_log(LOG_RAW, "inetd mode must define a remote host or an executable");
-            die(1);
+        if(!section->option.remote && !section->execname) {
+            s_log(LOG_ERR, "inetd mode must have 'connect' or 'exec' options");
+            return 0;
         }
     }
+    memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
+    s_log(LOG_NOTICE, "Configuration successful");
+    return 1;
 }
 
-static void section_validate(char *filename, int line_number,
-        LOCAL_OPTIONS *section, int final) {
-    if(section==&local_options) { /* global options just configured */
+/**************************************** validate and initialize section */
+
+static int section_init(int line_number,
+        SERVICE_OPTIONS *section, int final) {
+    if(section==&new_service_options) { /* global options just configured */
+        memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
 #ifdef HAVE_OSSL_ENGINE_H
         close_engine();
 #endif
-        ssl_configure(); /* configure global SSL settings */
+        if(!ssl_configure()) /* configure global SSL settings */
+            return 0;
         if(!final) /* no need to validate defaults */
-            return;
+            return 1; /* OK */
     }
+
     if(!section->option.client)
         section->option.cert=1; /* Server always needs a certificate */
-    context_init(section); /* initialize SSL context */
+    if(!context_init(section)) /* initialize SSL context */
+        return 0;
 
-    if(section==&local_options) { /* inetd mode */
-        if(section->option.accept)
-            config_error(filename, line_number,
-                "accept is not allowed in inetd mode");
-        /* TODO: some additional checks could be useful
+    if(section==&new_service_options) { /* inetd mode */
+        if(section->option.accept) {
+            config_error(line_number, "accept is not allowed in inetd mode");
+            return 0;
+        }
+#if 0
+        /* TODO: some additional checks could be useful */
         if((unsigned int)section->option.program +
                 (unsigned int)section->option.remote != 1)
-            config_error(filename, line_number,
+            config_error(line_number,
                 "Single endpoint is required in inetd mode");
-        */
-        return;
+#endif
     }
 
     /* standalone mode */
@@ -1564,56 +1593,15 @@ static void section_validate(char *filename, int line_number,
             (unsigned int)section->option.program +
             (unsigned int)section->option.remote != 2)
 #endif
-        config_error(filename, line_number,
-            "Each service section must define exactly two endpoints");
-    return; /* All tests passed -- continue program execution */
-}
-
-static void config_error(char *name, int num, char *str) {
-    if(!str) /* NULL -> no error */
-        return;
-    s_log(LOG_RAW, "file %s line %d: %s", name, num, str);
-    die(1);
-}
-
-static char *stralloc(char *str) { /* Allocate static string */
-    char *retval;
-
-    retval=calloc(strlen(str)+1, 1);
-    if(!retval) {
-        s_log(LOG_RAW, "Fatal memory allocation error");
-        die(2);
+    {
+        config_error(line_number,
+            "Each service section must define two endpoints");
+        return 0;
     }
-    strcpy(retval, str);
-    return retval;
+    return 1; /* All tests passed -- continue program execution */
 }
 
-#ifndef USE_WIN32
-static char **argalloc(char *str) { /* Allocate 'exec' argumets */
-    int max_arg, i;
-    char *ptr, **retval;
-
-    max_arg=strlen(str)/2+1;
-    ptr=stralloc(str);
-    retval=calloc(max_arg+1, sizeof(char *));
-    if(!retval) {
-        s_log(LOG_RAW, "Fatal memory allocation error");
-        die(2);
-    }
-    i=0;
-    while(*ptr && i<max_arg) {
-        retval[i++]=ptr;
-        while(*ptr && !isspace((unsigned char)*ptr))
-            ++ptr;
-        while(*ptr && isspace((unsigned char)*ptr))
-            *ptr++='\0';
-    }
-    retval[i]=NULL; /* to show that it's null-terminated */
-    return retval;
-}
-#endif
-
-/* Parse out the facility/debug level stuff */
+/**************************************** facility/debug level */
 
 typedef struct {
     char *name;
@@ -1663,16 +1651,16 @@ static int parse_debug_level(char *arg) {
 /* Facilities only make sense on Unix */
 #if !defined (USE_WIN32) && !defined (__vms)
     if(strchr(string, '.')) { /* We have a facility specified */
-        options.facility=-1;
+        new_global_options.facility=-1;
         string=strtok(arg_copy, "."); /* break it up */
 
         for(fl=facilities; fl->name; ++fl) {
             if(!strcasecmp(fl->name, string)) {
-                options.facility = fl->value;
+                new_global_options.facility=fl->value;
                 break;
             }
         }
-        if(options.facility==-1)
+        if(new_global_options.facility==-1)
             return 0; /* FAILED */
         string=strtok(NULL, ".");    /* set to the remainder */
     }
@@ -1680,22 +1668,22 @@ static int parse_debug_level(char *arg) {
 
     /* Time to check the syslog level */
     if(string && strlen(string)==1 && *string>='0' && *string<='7') {
-        options.debug_level=*string-'0';
+        new_global_options.debug_level=*string-'0';
         return 1; /* OK */
     }
-    options.debug_level=8;    /* illegal level */
+    new_global_options.debug_level=8;    /* illegal level */
     for(fl=levels; fl->name; ++fl) {
         if(!strcasecmp(fl->name, string)) {
-            options.debug_level=fl->value;
+            new_global_options.debug_level=fl->value;
             break;
         }
     }
-    if (options.debug_level==8)
+    if(new_global_options.debug_level==8)
         return 0; /* FAILED */
     return 1; /* OK */
 }
 
-/* Parse out SSL options stuff */
+/**************************************** SSL options */
 
 static int parse_ssl_option(char *arg) {
     struct {
@@ -1755,7 +1743,7 @@ static int parse_ssl_option(char *arg) {
     return 0; /* FAILED */
 }
 
-/* Parse out the socket options stuff */
+/**************************************** socket options */
 
 static int on=1;
 
@@ -1817,8 +1805,8 @@ static int print_socket_options(void) {
 
     fd=socket(AF_INET, SOCK_STREAM, 0);
 
-    s_log(LOG_RAW, "Socket option defaults:");
-    s_log(LOG_RAW, "    %-16s%-10s%-10s%-10s%-10s",
+    s_log(LOG_NOTICE, "Socket option defaults:");
+    s_log(LOG_NOTICE, "    %-16s%-10s%-10s%-10s%-10s",
         "Option", "Accept", "Local", "Remote", "OS default");
     for(ptr=sock_opts; ptr->opt_str; ++ptr) {
         /* display option name */
@@ -1832,14 +1820,14 @@ static int print_socket_options(void) {
         if(getsockopt(fd, ptr->opt_level,
                 ptr->opt_name, (void *)&val, &optlen)) {
             if(get_last_socket_error()!=ENOPROTOOPT) {
-                s_log(LOG_RAW, "%s", line); /* dump the name and assigned values */
+                s_log(LOG_ERR, "%s", line); /* dump the name and assigned values */
                 sockerror("getsockopt");
                 return 0; /* FAILED */
             }
             safeconcat(line, "    --    "); /* write-only value */
         } else
             print_option(line, ptr->opt_type, &val);
-        s_log(LOG_RAW, "%s", line);
+        s_log(LOG_NOTICE, "%s", line);
     }
     return 1; /* OK */
 }
@@ -1940,9 +1928,9 @@ static int parse_socket_option(char *arg) {
     return 0; /* FAILED */
 }
 
-/* Parse out OCSP URL */
+/**************************************** OCSP */
 
-static char *parse_ocsp_url(LOCAL_OPTIONS *section, char *arg) {
+static char *parse_ocsp_url(SERVICE_OPTIONS *section, char *arg) {
     char *host, *port, *path;
     int ssl;
 
@@ -1962,8 +1950,6 @@ static char *parse_ocsp_url(LOCAL_OPTIONS *section, char *arg) {
         OPENSSL_free(path);
     return NULL; /* OK! */
 }
-
-/* Parse out OCSP flags stuff */
 
 static unsigned long parse_ocsp_flag(char *arg) {
     struct {
@@ -1990,5 +1976,80 @@ static unsigned long parse_ocsp_flag(char *arg) {
             return option->value;
     return 0; /* FAILED */
 }
+
+/**************************************** print syntax */
+
+static void syntax(void) {
+    s_log(LOG_NOTICE, " ");
+    s_log(LOG_NOTICE, "Syntax:");
+    s_log(LOG_NOTICE, "stunnel "
+#ifdef USE_WIN32
+#ifndef _WIN32_WCE
+        "[ [-install | -uninstall] "
+#endif
+        "[-quiet] "
+#endif
+        "[<filename>] ] "
+#ifndef USE_WIN32
+        "-fd <n> "
+#endif
+        "| -help | -version | -sockets");
+    s_log(LOG_NOTICE, "    <filename>  - use specified config file");
+#ifdef USE_WIN32
+#ifndef _WIN32_WCE
+    s_log(LOG_NOTICE, "    -install    - install NT service");
+    s_log(LOG_NOTICE, "    -uninstall  - uninstall NT service");
+#endif
+    s_log(LOG_NOTICE, "    -quiet      - don't display a message box on success");
+#else
+    s_log(LOG_NOTICE, "    -fd <n>     - read the config file from a file descriptor");
+#endif
+    s_log(LOG_NOTICE, "    -help       - get config file help");
+    s_log(LOG_NOTICE, "    -version    - display version and defaults");
+    s_log(LOG_NOTICE, "    -sockets    - display default socket options");
+}
+
+/**************************************** various supporting funstions */
+
+static void config_error(int num, char *str) {
+    s_log(LOG_ERR, "line %d: %s", num, str);
+}
+
+static char *stralloc(char *str) { /* Allocate static string */
+    char *retval;
+
+    retval=calloc(strlen(str)+1, 1);
+    if(!retval) {
+        s_log(LOG_ERR, "Fatal memory allocation error");
+        die(2);
+    }
+    strcpy(retval, str);
+    return retval;
+}
+
+#ifndef USE_WIN32
+static char **argalloc(char *str) { /* Allocate 'exec' argumets */
+    int max_arg, i;
+    char *ptr, **retval;
+
+    max_arg=strlen(str)/2+1;
+    ptr=stralloc(str);
+    retval=calloc(max_arg+1, sizeof(char *));
+    if(!retval) {
+        s_log(LOG_ERR, "Fatal memory allocation error");
+        die(2);
+    }
+    i=0;
+    while(*ptr && i<max_arg) {
+        retval[i++]=ptr;
+        while(*ptr && !isspace((unsigned char)*ptr))
+            ++ptr;
+        while(*ptr && isspace((unsigned char)*ptr))
+            *ptr++='\0';
+    }
+    retval[i]=NULL; /* to show that it's null-terminated */
+    return retval;
+}
+#endif
 
 /* End of options.c */

@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -585,7 +585,7 @@ static char *base64(int encode, char *in, int len) {
     len=BIO_pending(bio);
     out=calloc(len+1, 1);
     if(!out) {
-        s_log(LOG_RAW, "Fatal memory allocation error");
+        s_log(LOG_ERR, "Fatal memory allocation error");
         die(2);
     }
     BIO_read(bio, out, len);

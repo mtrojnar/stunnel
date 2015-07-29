@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -82,7 +82,7 @@ void libwrap_init(int num) {
             drop_privileges(); /* libwrap processes are not chrooted */
             close(0); /* stdin */
             close(1); /* stdout */
-            if(!options.option.foreground) /* for logging in read_fd */
+            if(!global_options.option.foreground) /* for logging in read_fd */
                 close(2); /* stderr */
             close(ipc_socket[2*i]); /* close server-side socket */
             for(j=0; j<i; ++j) /* previously created client-side sockets */
@@ -181,12 +181,12 @@ void auth_libwrap(CLI *c) {
         leave_critical_section(CRIT_LIBWRAP);
     }
     if(!result) {
-        s_log(LOG_WARNING, "%s REFUSED by libwrap from %s",
+        s_log(LOG_WARNING, "Service %s REFUSED by libwrap from %s",
             c->opt->servname, c->accepted_address);
         s_log(LOG_DEBUG, "See hosts_access(5) manual for details");
         longjmp(c->err, 1);
     }
-    s_log(LOG_DEBUG, "%s permitted by libwrap from %s",
+    s_log(LOG_DEBUG, "Service %s permitted by libwrap from %s",
         c->opt->servname, c->accepted_address);
 }
 

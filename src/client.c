@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -76,12 +76,10 @@ static void print_bound_address(CLI *);
 static void reset(int, char *);
 
 int max_clients;
-#ifndef USE_WIN32
 int max_fds;
-#endif
 
 /* Allocate local data structure for the new thread */
-CLI *alloc_client_session(LOCAL_OPTIONS *opt, int rfd, int wfd) {
+CLI *alloc_client_session(SERVICE_OPTIONS *opt, int rfd, int wfd) {
     CLI *c;
 
     c=calloc(1, sizeof(CLI));
@@ -101,7 +99,7 @@ void *client(void *arg) {
 #ifdef DEBUG_STACK_SIZE
     stack_info(1); /* initialize */
 #endif
-    s_log(LOG_DEBUG, "%s started", c->opt->servname);
+    s_log(LOG_DEBUG, "Service %s started", c->opt->servname);
 #ifndef USE_WIN32
     if(c->opt->option.remote && c->opt->option.program) {
             /* connect and exec options specified together */
@@ -189,7 +187,7 @@ static void run_client(CLI *c) {
         child_status(); /* null SIGCHLD handler was used */
 #else
     enter_critical_section(CRIT_CLIENTS); /* for multi-cpu machines */
-    s_log(LOG_DEBUG, "%s finished (%d left)", c->opt->servname,
+    s_log(LOG_DEBUG, "Service %s finished (%d left)", c->opt->servname,
         --num_clients);
     leave_critical_section(CRIT_CLIENTS);
 #endif
@@ -241,7 +239,7 @@ static void init_local(CLI *c) {
         auth_libwrap(c);
 #endif /* USE_LIBWRAP */
         auth_user(c);
-        s_log(LOG_NOTICE, "%s accepted connection from %s",
+        s_log(LOG_NOTICE, "Service %s accepted connection from %s",
             c->opt->servname, c->accepted_address);
     }
 }
@@ -264,13 +262,11 @@ static void init_remote(CLI *c) {
     } else /* NOT in remote mode */
         c->remote_fd.fd=connect_local(c);
     c->remote_fd.is_socket=1; /* Always! */
-#ifndef USE_WIN32
-    if(c->remote_fd.fd>=max_fds) {
+    if(max_fds && c->remote_fd.fd>=max_fds) {
         s_log(LOG_ERR, "Remote file descriptor out of range (%d>=%d)",
             c->remote_fd.fd, max_fds);
         longjmp(c->err, 1);
     }
-#endif
     s_log(LOG_DEBUG, "Remote FD=%d initialized", c->remote_fd.fd);
     if(set_socket_options(c->remote_fd.fd, 2)<0)
         longjmp(c->err, 1);
@@ -699,15 +695,17 @@ static void transfer(CLI *c) {
 static void parse_socket_error(CLI *c, const char *text) {
     switch(get_last_socket_error()) {
     case EINTR:
-        s_log(LOG_DEBUG, "%s interrupted by a signal: retrying", text);
+        s_log(LOG_DEBUG,
+            "Function %s interrupted by a signal: retrying", text);
         return;
     case EWOULDBLOCK:
-        s_log(LOG_NOTICE, "%s would block: retrying", text);
+        s_log(LOG_NOTICE, "Function %s would block: retrying", text);
         sleep(1); /* Microsoft bug KB177346 */
         return;
 #if EAGAIN!=EWOULDBLOCK
     case EAGAIN:
-        s_log(LOG_DEBUG, "%s temporary lack of resources: retrying", text);
+        s_log(LOG_DEBUG,
+            "Function %s temporary lack of resources: retrying", text);
         return;
 #endif
     default:
@@ -718,7 +716,7 @@ static void parse_socket_error(CLI *c, const char *text) {
 
 static void print_cipher(CLI *c) { /* print negotiated cipher */
 #if SSLEAY_VERSION_NUMBER <= 0x0800
-    s_log(LOG_INFO, "%s opened with SSLv%d, cipher %s",
+    s_log(LOG_INFO, "Service %s opened with SSLv%d, cipher %s",
         c->opt->servname, ssl->session->ssl_version, SSL_get_cipher(c->ssl));
 #else
     SSL_CIPHER *cipher;
@@ -805,12 +803,12 @@ static int connect_local(CLI *c) { /* spawn local process */
     sigset_t newmask;
 #endif
 
-    if (c->opt->option.pty) {
+    if(c->opt->option.pty) {
         char tty[STRLEN];
 
         if(pty_allocate(fd, fd+1, tty, STRLEN))
             longjmp(c->err, 1);
-        s_log(LOG_DEBUG, "%s allocated", tty);
+        s_log(LOG_DEBUG, "TTY=%s allocated", tty);
     } else
         make_sockets(c, fd);
     pid=fork();
@@ -825,7 +823,7 @@ static int connect_local(CLI *c) { /* spawn local process */
         closesocket(fd[0]);
         dup2(fd[1], 0);
         dup2(fd[1], 1);
-        if(!options.option.foreground)
+        if(!global_options.option.foreground)
             dup2(fd[1], 2);
         closesocket(fd[1]);
         safecopy(env[0], "REMOTE_HOST=");
@@ -1024,7 +1022,7 @@ static void print_bound_address(CLI *c) {
         sockerror("getsockname");
     } else {
         s_ntop(txt, &addr);
-        s_log(LOG_NOTICE,"%s connected remote server from %s",
+        s_log(LOG_NOTICE,"Service %s connected remote server from %s",
             c->opt->servname, txt);
     }
 }

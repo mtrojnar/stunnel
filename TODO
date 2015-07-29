@@ -3,9 +3,9 @@ stunnel         Universal SSL tunnel
 * High priority features I'm going to support (sponsorship welcomed):
   - Add service-level logging.
   - Log file rotation with a signal on Unix and with GUI on Windows.
-  - Graceful configuration reload with a signal on Unix and with GUI on Windows.
   - In transparent proxy mode add an option to connect destination address
     of the the original connection instead of a fixed IP list.
+  - Support SSL_CTX_set_tlsext_servername_callback.
 
 * Low priority features I'm going to support (sponsorship welcomed):
   - Replace protocol.c with a scripting engine.

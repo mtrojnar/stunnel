@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2009.11.20" "4.29" "stunnel"
+.TH STUNNEL.PL 8 "2010.01.21" "4.30" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -748,6 +748,17 @@ sprawdzania stanu generatora.  W systemach z \fI/dev/urandom\fR urządzenie
 to będzie najprawdopodobniej użyte, pomimo że znajduje się na samym końcu
 powyższej listy.  Jest to właściwość biblioteki \fIOpenSSL\fR, a nie programu
 \&\fIstunnel\fR.
+.SH "SIGNAŁY"
+.IX Header "SIGNAŁY"
+Następujące sygnały mogą być użyte do sterowania programem w systemie Unix:
+.IP "\s-1SIGHUP\s0" 4
+.IX Item "SIGHUP"
+Załaduj ponownie plik konfiguracyjny.
+.IP "\s-1SIGTERM\s0, \s-1SIGQUIT\s0, \s-1SIGINT\s0" 4
+.IX Item "SIGTERM, SIGQUIT, SIGINT"
+Zakończ działanie programu.
+.PP
+Skutek wysłania innych sygnałów jest niezdefiniowany.
 .SH "ZOBACZ RÓWNIEŻ"
 .IX Header "ZOBACZ RÓWNIEŻ"
 .IP "\fItcpd\fR\|(8)" 4

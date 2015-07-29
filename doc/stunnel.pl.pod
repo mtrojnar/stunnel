@@ -798,6 +798,25 @@ powy¿szej listy.  Jest to w³a¶ciwo¶æ biblioteki I<OpenSSL>, a nie programu
 I<stunnel>.
 
 
+=head1 SIGNA£Y
+
+Nastêpuj±ce sygna³y mog± byæ u¿yte do sterowania programem w systemie Unix:
+
+=over 4
+
+=item SIGHUP
+
+Za³aduj ponownie plik konfiguracyjny.
+
+=item SIGTERM, SIGQUIT, SIGINT
+
+Zakoñcz dzia³anie programu.
+
+=back
+
+Skutek wys³ania innych sygna³ów jest niezdefiniowany.
+
+
 =head1 ZOBACZ RÓWNIE¯
 
 =over 4

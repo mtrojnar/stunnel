@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -76,8 +76,8 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     char buf[64];
     int i;
 
-    i = openpty(ptyfd, ttyfd, buf, NULL, NULL);
-    if (i < 0) {
+    i=openpty(ptyfd, ttyfd, buf, NULL, NULL);
+    if(i<0) {
         ioerror("openpty");
         return -1;
     }
@@ -91,15 +91,15 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
      */
     char *slave;
 
-    slave = _getpty(ptyfd, O_RDWR, 0622, 0);
-    if (slave == NULL) {
+    slave=_getpty(ptyfd, O_RDWR, 0622, 0);
+    if(slave==NULL) {
         ioerror("_getpty");
         return -1;
     }
     safecopy(namebuf, slave);
     /* Open the slave side. */
-    *ttyfd = open(namebuf, O_RDWR | O_NOCTTY);
-    if (*ttyfd < 0) {
+    *ttyfd=open(namebuf, O_RDWR|O_NOCTTY);
+    if(*ttyfd<0) {
         ioerror(namebuf);
         close(*ptyfd);
         return -1;
@@ -114,39 +114,39 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     int ptm;
     char *pts;
 
-    ptm = open("/dev/ptmx", O_RDWR | O_NOCTTY);
-    if (ptm < 0) {
+    ptm=open("/dev/ptmx", O_RDWR|O_NOCTTY);
+    if(ptm<0) {
         ioerror("/dev/ptmx");
         return -1;
     }
-    if (grantpt(ptm) < 0) {
+    if(grantpt(ptm)<0) {
         ioerror("grantpt");
         /* return -1; */
         /* Can you tell me why it doesn't work? */
     }
-    if (unlockpt(ptm) < 0) {
+    if(unlockpt(ptm)<0) {
         ioerror("unlockpt");
         return -1;
     }
-    pts = ptsname(ptm);
-    if (pts == NULL)
+    pts=ptsname(ptm);
+    if(pts==NULL)
         s_log(LOG_ERR, "Slave pty side name could not be obtained");
     safecopy(namebuf, pts);
-    *ptyfd = ptm;
+    *ptyfd=ptm;
 
     /* Open the slave side. */
-    *ttyfd = open(namebuf, O_RDWR | O_NOCTTY);
-    if (*ttyfd < 0) {
+    *ttyfd=open(namebuf, O_RDWR|O_NOCTTY);
+    if(*ttyfd<0) {
         ioerror(namebuf);
         close(*ptyfd);
         return -1;
     }
     /* Push the appropriate streams modules, as described in Solaris pts(7). */
-    if (ioctl(*ttyfd, I_PUSH, "ptem") < 0)
+    if(ioctl(*ttyfd, I_PUSH, "ptem")<0)
         ioerror("ioctl I_PUSH ptem");
-    if (ioctl(*ttyfd, I_PUSH, "ldterm") < 0)
+    if(ioctl(*ttyfd, I_PUSH, "ldterm")<0)
         ioerror("ioctl I_PUSH ldterm");
-    if (ioctl(*ttyfd, I_PUSH, "ttcompat") < 0)
+    if(ioctl(*ttyfd, I_PUSH, "ttcompat")<0)
         ioerror("ioctl I_PUSH ttcompat");
     return 0;
 #else /* HAVE_DEV_PTMX */
@@ -154,19 +154,19 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     /* AIX-style pty code. */
     const char *name;
 
-    *ptyfd = open("/dev/ptc", O_RDWR | O_NOCTTY);
-    if (*ptyfd < 0) {
+    *ptyfd=open("/dev/ptc", O_RDWR|O_NOCTTY);
+    if(*ptyfd<0) {
         ioerror("open(/dev/ptc)");
         return -1;
     }
-    name = ttyname(*ptyfd);
-    if (!name) {
+    name=ttyname(*ptyfd);
+    if(!name) {
         s_log(LOG_ERR, "Open of /dev/ptc returns device for which ttyname fails");
         return -1;
     }
     safecopy(namebuf, name);
-    *ttyfd = open(name, O_RDWR | O_NOCTTY);
-    if (*ttyfd < 0) {
+    *ttyfd=open(name, O_RDWR|O_NOCTTY);
+    if(*ttyfd<0) {
         ioerror(name);
         close(*ptyfd);
         return -1;
@@ -176,21 +176,21 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
     /* BSD-style pty code. */
     char buf[64];
     int i;
-    const char *ptymajors = "pqrstuvwxyzabcdefghijklmnoABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const char *ptyminors = "0123456789abcdef";
-    int num_minors = strlen(ptyminors);
-    int num_ptys = strlen(ptymajors) * num_minors;
+    const char *ptymajors="pqrstuvwxyzabcdefghijklmnoABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const char *ptyminors="0123456789abcdef";
+    int num_minors=strlen(ptyminors);
+    int num_ptys=strlen(ptymajors)*num_minors;
 
-    for (i = 0; i < num_ptys; i++) {
+    for(i=0; i<num_ptys; i++) {
 #ifdef HAVE_SNPRINTF
         snprintf(buf, sizeof buf,
 #else
         sprintf(buf,
 #endif
-             "/dev/pty%c%c", ptymajors[i / num_minors],
-             ptyminors[i % num_minors]);
-        *ptyfd = open(buf, O_RDWR | O_NOCTTY);
-        if (*ptyfd < 0)
+             "/dev/pty%c%c", ptymajors[i/num_minors],
+             ptyminors[i%num_minors]);
+        *ptyfd=open(buf, O_RDWR|O_NOCTTY);
+        if(*ptyfd<0)
             continue;
 #ifdef HAVE_SNPRINTF
         snprintf(namebuf, namebuflen,
@@ -198,11 +198,11 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
         sprintf(namebuf,
 #endif
             "/dev/tty%c%c",
-            ptymajors[i / num_minors], ptyminors[i % num_minors]);
+            ptymajors[i/num_minors], ptyminors[i%num_minors]);
 
         /* Open the slave side. */
-        *ttyfd = open(namebuf, O_RDWR | O_NOCTTY);
-        if (*ttyfd < 0) {
+        *ttyfd=open(namebuf, O_RDWR | O_NOCTTY);
+        if(*ttyfd<0) {
             ioerror(namebuf);
             close(*ptyfd);
             return -1;
@@ -237,21 +237,21 @@ void pty_make_controlling_tty(int *ttyfd, char *tty_name) {
 
     /* First disconnect from the old controlling tty. */
 #ifdef TIOCNOTTY
-    fd = open("/dev/tty", O_RDWR | O_NOCTTY);
-    if (fd >= 0) {
+    fd=open("/dev/tty", O_RDWR | O_NOCTTY);
+    if(fd>=0) {
         (void) ioctl(fd, TIOCNOTTY, NULL);
         close(fd);
     }
 #endif /* TIOCNOTTY */
-    if (setsid() < 0)
+    if(setsid()<0)
         ioerror("setsid");
 
     /*
      * Verify that we are successfully disconnected from the controlling
      * tty.
      */
-    fd = open("/dev/tty", O_RDWR | O_NOCTTY);
-    if (fd >= 0) {
+    fd=open("/dev/tty", O_RDWR | O_NOCTTY);
+    if(fd>=0) {
         s_log(LOG_ERR, "Failed to disconnect from controlling tty");
         close(fd);
     }
@@ -265,15 +265,15 @@ void pty_make_controlling_tty(int *ttyfd, char *tty_name) {
      */
     ioctl(*ttyfd, TIOCSCTTY, NULL);
 #endif /* TIOCSCTTY */
-    fd = open(tty_name, O_RDWR);
-    if (fd < 0)
+    fd=open(tty_name, O_RDWR);
+    if(fd<0)
         ioerror(tty_name);
     else
         close(fd);
 
     /* Verify that we now have a controlling tty. */
-    fd = open("/dev/tty", O_WRONLY);
-    if (fd < 0)
+    fd=open("/dev/tty", O_WRONLY);
+    if(fd<0)
         ioerror("open /dev/tty failed - could not set controlling tty");
     else {
         close(fd);

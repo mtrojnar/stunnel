@@ -9,7 +9,7 @@
 
 #define IDM_SAVEAS 40
 #define IDM_CLOSE 41
-#define IDM_SETUP 42
+#define IDM_RELOAD 42
 
 #define IDE_EDIT 50
 #define IDE_PASSEDIT 51

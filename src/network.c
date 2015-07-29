@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -42,8 +42,7 @@
 
 #ifndef USE_WIN32
 static int signal_pipe[2]={-1, -1};
-static char signal_buffer[16];
-static void sigchld_handler(int);
+static void signal_handler(int);
 #ifdef __INNOTEK_LIBC__
 struct sockaddr_un {
     u_char  sun_len;             /* sockaddr len including null */
@@ -109,7 +108,7 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
 /* move ready contexts from waiting queue to ready queue */
 static void scan_waiting_queue(void) {
     int retval, retry;
-    CONTEXT *ctx, *prev;
+    CONTEXT *context, *prev;
     int min_timeout;
     int nfds, i;
     time_t now;
@@ -121,11 +120,11 @@ static void scan_waiting_queue(void) {
     /* count file descriptors */
     min_timeout=-1;
     nfds=0;
-    for(ctx=waiting_head; ctx; ctx=ctx->next) {
-        nfds+=ctx->fds->nfds;
-        if(ctx->finish>=0) /* finite time */
-            if(min_timeout<0 || min_timeout>ctx->finish-now)
-                min_timeout=ctx->finish-now<0 ? 0 : ctx->finish-now;
+    for(context=waiting_head; context; context=context->next) {
+        nfds+=context->fds->nfds;
+        if(context->finish>=0) /* finite time */
+            if(min_timeout<0 || min_timeout>context->finish-now)
+                min_timeout=context->finish-now<0 ? 0 : context->finish-now;
     }
     /* setup ufds structure */
     if(nfds>max_nfds) { /* need to allocate more memory */
@@ -138,10 +137,10 @@ static void scan_waiting_queue(void) {
     }
     nfds=0;
     signal_revents=NULL;
-    for(ctx=waiting_head; ctx; ctx=ctx->next)
-        for(i=0; i<ctx->fds->nfds; i++) {
-            ufds[nfds].fd=ctx->fds->ufds[i].fd;
-            ufds[nfds].events=ctx->fds->ufds[i].events;
+    for(context=waiting_head; context; context=context->next)
+        for(i=0; i<context->fds->nfds; i++) {
+            ufds[nfds].fd=context->fds->ufds[i].fd;
+            ufds[nfds].events=context->fds->ufds[i].events;
             if(ufds[nfds].fd==signal_pipe[0])
                 signal_revents=&ufds[nfds].revents;
             nfds++;
@@ -163,15 +162,15 @@ static void scan_waiting_queue(void) {
     /* process the returned data */
     nfds=0;
     prev=NULL; /* previous element of the waiting queue */
-    ctx=waiting_head;
-    while(ctx) {
-        ctx->ready=0;
+    context=waiting_head;
+    while(context) {
+        context->ready=0;
         /* count ready file descriptors in each context */
-        for(i=0; i<ctx->fds->nfds; i++) {
-            ctx->fds->ufds[i].revents=ufds[nfds].revents;
+        for(i=0; i<context->fds->nfds; i++) {
+            context->fds->ufds[i].revents=ufds[nfds].revents;
 #ifdef DEBUG_UCONTEXT
             s_log(LOG_DEBUG, "CONTEXT %ld, FD=%d, (%s%s)->(%s%s%s%s%s)",
-                ctx->id, ufds[nfds].fd,
+                context->id, ufds[nfds].fd,
                 ufds[nfds].events & POLLIN ? "IN" : "",
                 ufds[nfds].events & POLLOUT ? "OUT" : "",
                 ufds[nfds].revents & POLLIN ? "IN" : "",
@@ -181,59 +180,59 @@ static void scan_waiting_queue(void) {
                 ufds[nfds].revents & POLLNVAL ? "NVAL" : "");
 #endif
             if(ufds[nfds].revents)
-                ctx->ready++;
+                context->ready++;
             nfds++;
         }
-        if(ctx->ready || (ctx->finish>=0 && ctx->finish<=now)) {
-            /* remove context ctx from the waiting queue */
+        if(context->ready || (context->finish>=0 && context->finish<=now)) {
+            /* remove context from the waiting queue */
             if(prev)
-                prev->next=ctx->next;
+                prev->next=context->next;
             else
-                waiting_head=ctx->next;
-            if(!ctx->next) /* same as ctx==waiting_tail */
+                waiting_head=context->next;
+            if(!context->next) /* same as context==waiting_tail */
                 waiting_tail=prev;
 
-            /* append context ctx to the ready queue */
-            ctx->next=NULL;
+            /* append context context to the ready queue */
+            context->next=NULL;
             if(ready_tail)
-                ready_tail->next=ctx;
-            ready_tail=ctx;
+                ready_tail->next=context;
+            ready_tail=context;
             if(!ready_head)
-                ready_head=ctx;
-        } else { /* leave the context ctx in the waiting queue */
-            prev=ctx;
+                ready_head=context;
+        } else { /* leave the context context in the waiting queue */
+            prev=context;
         }
-        ctx=prev ? prev->next : waiting_head;
+        context=prev ? prev->next : waiting_head;
     }
 }
 
 int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     /* FIXME: msec parameter is currently ignored with UCONTEXT threads */
-    CONTEXT *ctx; /* current context */
+    CONTEXT *context; /* current context */
     static CONTEXT *to_free=NULL; /* delayed memory deallocation */
 
     /* remove the current context from ready queue */
-    ctx=ready_head;
+    context=ready_head;
     ready_head=ready_head->next;
     if(!ready_head) /* the queue is empty */
         ready_tail=NULL;
 
     if(fds) { /* something to wait for -> swap the context */
-        ctx->fds=fds; /* set file descriptors to wait for */
-        ctx->finish=sec<0 ? -1 : time(NULL)+sec;
+        context->fds=fds; /* set file descriptors to wait for */
+        context->finish=sec<0 ? -1 : time(NULL)+sec;
         /* move (append) the current context to the waiting queue */
-        ctx->next=NULL;
+        context->next=NULL;
         if(waiting_tail)
-            waiting_tail->next=ctx;
-        waiting_tail=ctx;
+            waiting_tail->next=context;
+        waiting_tail=context;
         if(!waiting_head)
-            waiting_head=ctx;
+            waiting_head=context;
         while(!ready_head) /* no context ready */
             scan_waiting_queue();
-        if(ctx->id!=ready_head->id) {
+        if(context->id!=ready_head->id) {
             s_log(LOG_DEBUG, "Context swap: %ld -> %ld",
-                ctx->id, ready_head->id);
-            swapcontext(&ctx->ctx, &ready_head->ctx);
+                context->id, ready_head->id);
+            swapcontext(&context->context, &ready_head->context);
             s_log(LOG_DEBUG, "Current context: %ld", ready_head->id);
             if(to_free) {
                 s_log(LOG_DEBUG, "Releasing context %ld", to_free->id);
@@ -250,12 +249,12 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
             free(to_free->stack);
             free(to_free);
         }
-        to_free=ctx;
+        to_free=context;
         while(!ready_head) /* no context ready */
             scan_waiting_queue();
         s_log(LOG_DEBUG, "Context set: %ld (dropped) -> %ld",
-            ctx->id, ready_head->id);
-        setcontext(&ready_head->ctx);
+            context->id, ready_head->id);
+        setcontext(&ready_head->context);
         ioerror("setcontext"); /* should not ever happen */
         return 0;
     }
@@ -334,28 +333,13 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
 
 #ifndef USE_WIN32
 
-static void sigchld_handler(int sig) { /* SIGCHLD detected */
+static void signal_handler(int sig) { /* SIGCHLD detected */
     int save_errno;
-#ifdef __sgi
-    int status;
-#endif
 
     save_errno=errno;
-#ifdef __sgi
-    while(wait_for_pid(-1, &status, WNOHANG)>0) {
-        /* no logging is possible in a signal handler */
-#ifdef USE_FORK
-        --num_clients; /* one client less */
-#endif /* USE_FORK */
-    }
-#else /* __sgi */
-#ifdef __INNOTEK_LIBC__
-    writesocket(signal_pipe[1], signal_buffer, 1);
-#else
-    write(signal_pipe[1], signal_buffer, 1);
-#endif /* __INNOTEK_LIBC__ */
-#endif /* __sgi */
-    signal(SIGCHLD, sigchld_handler);
+    writesocket(signal_pipe[1], &sig, sizeof sig);
+    signal(SIGCHLD, signal_handler);
+    signal(SIGHUP, signal_handler);
     errno=save_errno;
 }
 
@@ -363,7 +347,8 @@ static void sigchld_handler(int sig) { /* SIGCHLD detected */
 
 int signal_pipe_init(void) {
 #if defined(__INNOTEK_LIBC__)
-    /* Innotek port of GCC can not use select on a pipe, use local socket instead */
+    /* Innotek port of GCC can not use select on a pipe */
+    /* use local socket instead */
     struct sockaddr_un un;
     fd_set set_pipe;
     int pipe_in;
@@ -382,12 +367,12 @@ int signal_pipe_init(void) {
     un.sun_len=sizeof un;
     un.sun_family=AF_OS2;
     sprintf(un.sun_path, "\\socket\\stunnel-%u", getpid());
-    /* Make the first endpoint listen */
+    /* make the first endpoint listen */
     bind(signal_pipe[0], (struct sockaddr *)&un, sizeof un);
     listen(signal_pipe[0], 5);
     connect(signal_pipe[1], (struct sockaddr *)&un, sizeof un);
     FD_SET(signal_pipe[0], &set_pipe);
-    if (select(signal_pipe[0]+1, &set_pipe, NULL, NULL, NULL)>0) {
+    if(select(signal_pipe[0]+1, &set_pipe, NULL, NULL, NULL)>0) {
         signal_pipe[0]=accept(signal_pipe[0], NULL, 0);
         closesocket(pipe_in);
     } else {
@@ -407,22 +392,33 @@ int signal_pipe_init(void) {
     fcntl(signal_pipe[1], F_SETFD, FD_CLOEXEC);
 #endif /* FD_CLOEXEC */
 #endif /* __INNOTEK_LIBC__ */
-    signal(SIGCHLD, sigchld_handler);
+    signal(SIGCHLD, signal_handler);
+    signal(SIGHUP, signal_handler);
     return signal_pipe[0];
 }
 
 static void signal_pipe_empty(void) {
+    int sig;
+
     s_log(LOG_DEBUG, "Cleaning up the signal pipe");
-#ifdef __INNOTEK_LIBC__
-    readsocket(signal_pipe[0], signal_buffer, sizeof signal_buffer);
-#else
-    read(signal_pipe[0], signal_buffer, sizeof signal_buffer);
-#endif
+    while(readsocket(signal_pipe[0], &sig, sizeof sig)==sizeof sig) {
+        switch(sig) {
+        case SIGCHLD:
 #ifdef USE_FORK
-    client_status(); /* report status of client process */
+            client_status(); /* report status of client process */
 #else /* USE_UCONTEXT || USE_PTHREAD */
-    child_status();  /* report status of libwrap or 'exec' process */
+            child_status();  /* report status of libwrap or 'exec' process */
 #endif /* defined USE_FORK */
+            break;
+        case SIGHUP:
+            log_close();
+            parse_conf(NULL, CONF_RELOAD);
+            log_open();
+            bind_ports();
+            break;
+        }
+    }
+    s_log(LOG_DEBUG, "Signal pipe is empty");
 }
 
 #ifdef USE_FORK
@@ -481,14 +477,12 @@ void child_status(void) { /* dead libwrap or 'exec' process detected */
 /**************************************** fd management */
 
 int alloc_fd(int sock) {
-#ifndef USE_WIN32
-    if(!max_fds || sock>=max_fds) {
+    if(max_fds && sock>=max_fds) {
         s_log(LOG_ERR,
             "File descriptor out of range (%d>=%d)", sock, max_fds);
         closesocket(sock);
         return -1;
     }
-#endif
     setnonblock(sock, 1);
     return 0;
 }
@@ -514,7 +508,7 @@ void setnonblock(int sock, unsigned long l) {
 #endif
         sockerror("nonblocking"); /* non-critical */
     else
-        s_log(LOG_DEBUG, "FD %d in %sblocking mode", sock,
+        s_log(LOG_DEBUG, "FD=%d in %sblocking mode", sock,
             l ? "non-" : "");
 }
 
@@ -542,7 +536,7 @@ int set_socket_options(int s, int type) {
             sockerror(ptr->opt_str);
             return -1; /* FAILED */
         } else {
-            s_log(LOG_DEBUG, "%s option set on %s socket",
+            s_log(LOG_DEBUG, "Option %s set on %s socket",
                 ptr->opt_str, type_str[type]);
         }
     }

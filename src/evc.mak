@@ -1,4 +1,4 @@
-# wce.mak for stunnel.exe by Michal Trojnara 2006-2009
+# wce.mak for stunnel.exe by Michal Trojnara 2006-2010
 #
 
 WCEVER=420
@@ -23,7 +23,7 @@ LIBS=libeay32.lib ssleay32.lib wcecompatex.lib winsock.lib
 # not correct because for armv4 cc is just clarm.exe. Moreover cc is already set in the ms wce$TARGETCPU.bat script, so it is not necessary to set it up here
 #  CC=CL$(TARGETCPU)
 
-VERSION=4.29
+VERSION=4.30
 DEFINES=/DVERSION=\"$(VERSION)\"
 CFLAGS=/nologo /MC /O1i /W3 /WX /GF /Gy $(DEFINES) /DHOST=\"$(TARGETCPU)-WCE-eVC-$(WCEVER)\" /D$(WCETARGETCPU) /D$(TARGETCPU) /DUNDER_CE=$(WCEVER) /D_WIN32_WCE=$(WCEVER) /DUNICODE -D_UNICODE $(INCLUDES)
 RFLAGS=/DVERSION=\"$(VERSION)\" $(INCLUDES)  

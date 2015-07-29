@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2009.11.20" "4.29" "stunnel"
+.TH STUNNEL 8 "2010.01.21" "4.30" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -705,6 +705,17 @@ seeding the \s-1PRNG\s0 with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
 at the very bottom of the list above.  This isn't \fBstunnel's\fR behaviour, it's
 OpenSSLs.
+.SH "SIGNALS"
+.IX Header "SIGNALS"
+The following signals can be used to control stunnel in Unix environment:
+.IP "\s-1SIGHUP\s0" 4
+.IX Item "SIGHUP"
+Force a reload of the configuration file.
+.IP "\s-1SIGTERM\s0, \s-1SIGQUIT\s0, \s-1SIGINT\s0" 4
+.IX Item "SIGTERM, SIGQUIT, SIGINT"
+Shut stunnel down.
+.PP
+The result of sending any other signals to the server is undefined.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 .IP "\fItcpd\fR\|(8)" 4

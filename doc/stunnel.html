@@ -40,6 +40,7 @@
 		<li><a href="#randomness">RANDOMNESS</a></li>
 	</ul>
 
+	<li><a href="#signals">SIGNALS</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 </ul>
@@ -774,6 +775,24 @@ seeding the PRNG with it even when checking the random state, so on
 systems with /dev/urandom you're likely to use it even though it's listed
 at the very bottom of the list above.  This isn't <strong>stunnel's</strong> behaviour, it's
 OpenSSLs.</p>
+<p>
+</p>
+<hr />
+<h1><a name="signals">SIGNALS</a></h1>
+<p>The following signals can be used to control stunnel in Unix environment:</p>
+<dl>
+<dt><strong><a name="sighup" class="item">SIGHUP</a></strong></dt>
+
+<dd>
+<p>Force a reload of the configuration file.</p>
+</dd>
+<dt><strong><a name="sigterm_sigquit_sigint" class="item">SIGTERM, SIGQUIT, SIGINT</a></strong></dt>
+
+<dd>
+<p>Shut stunnel down.</p>
+</dd>
+</dl>
+<p>The result of sending any other signals to the server is undefined.</p>
 <p>
 </p>
 <hr />

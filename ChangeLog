@@ -1,7 +1,12 @@
 stunnel         Universal SSL tunnel
 
+Version 4.30, 2010.01.21, urgency: LOW/EXPERIMENTAL:
+* New features
+  - Graceful configuration reload with HUP signal on Unix
+    and with GUI on Windows.
+
 Version 4.29, 2009.12.02, urgency: MEDIUM:
-* New features sponsored by Searchtech Limited http://www.astraweb.com/
+* New feature sponsored by Searchtech Limited http://www.astraweb.com/
   - sessiond, a high performance SSL session cache was built for stunnel.
     A new service-level "sessiond" option was added.  sessiond is
     available for download on ftp://stunnel.mirt.net/stunnel/sessiond/ .

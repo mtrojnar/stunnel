@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -56,11 +56,11 @@ static RSA *tmp_rsa_cb(SSL *, int, int);
 static RSA *make_temp_key(int);
 #endif /* NO_RSA */
 #ifdef USE_DH
-static int init_dh(SSL_CTX *, LOCAL_OPTIONS *);
+static int init_dh(SSL_CTX *, SERVICE_OPTIONS *);
 #endif /* USE_DH */
 
 /* loading certificate */
-static void load_certificate(LOCAL_OPTIONS *);
+static int load_certificate(SERVICE_OPTIONS *);
 static int password_cb(char *, int, int, void *);
 
 /* session cache callbacks */
@@ -84,7 +84,7 @@ static void sslerror_stack(void);
 
 /**************************************** initialize section->ctx */
 
-void context_init(LOCAL_OPTIONS *section) { /* init SSL context */
+int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     struct stat st; /* buffer for stat */
 
     /* check if certificate exists */
@@ -96,7 +96,7 @@ void context_init(LOCAL_OPTIONS *section) { /* init SSL context */
     if(section->option.cert) {
         if(stat(section->key, &st)) {
             ioerror(section->key);
-            die(1);
+            return 0;
         }
 #if !defined(USE_WIN32) && !defined(USE_OS2)
         if(st.st_mode & 7)
@@ -115,7 +115,7 @@ void context_init(LOCAL_OPTIONS *section) { /* init SSL context */
         SSL_CTX_set_tmp_rsa_callback(section->ctx, tmp_rsa_cb);
 #endif /* NO_RSA */
 #ifdef USE_DH
-        if(init_dh(section->ctx, section))
+        if(!init_dh(section->ctx, section))
             s_log(LOG_WARNING, "Diffie-Hellman initialization failed");
 #endif /* USE_DH */
     }
@@ -126,9 +126,9 @@ void context_init(LOCAL_OPTIONS *section) { /* init SSL context */
             SSL_CTX_set_options(section->ctx, section->ssl_options));
     }
     if(section->cipher_list) {
-        if (!SSL_CTX_set_cipher_list(section->ctx, section->cipher_list)) {
+        if(!SSL_CTX_set_cipher_list(section->ctx, section->cipher_list)) {
             sslerror("SSL_CTX_set_cipher_list");
-            die(1);
+            return 0;
         }
     }
 #if SSLEAY_VERSION_NUMBER >= 0x00906000L
@@ -150,11 +150,14 @@ void context_init(LOCAL_OPTIONS *section) { /* init SSL context */
 
     /* initialize certificate verification */
     if(section->option.cert)
-        load_certificate(section);
-    verify_init(section);
+        if(!load_certificate(section))
+            return 0;
+    if(!verify_init(section))
+        return 0;
 
     s_log(LOG_DEBUG, "SSL context initialized for service %s",
         section->servname);
+    return 1; /* OK */
 }
 
 /**************************************** temporary RSA keys generation */
@@ -193,7 +196,7 @@ static RSA *tmp_rsa_cb(SSL *s, int export, int keylen) {
                 RSA_free(oldkey);
         }
         retval=keytable[keylen].key;
-    } else { /* temp key > 2048 bits.  Is it possible? */
+    } else { /* temp key > 2048 bits */
         if(longtime<now || longlen!=keylen) {
             oldkey=longkey;
             longkey=make_temp_key(keylen);
@@ -226,7 +229,7 @@ static RSA *make_temp_key(int keylen) {
 /**************************************** DH initialization */
 
 #ifdef USE_DH
-static int init_dh(SSL_CTX *ctx, LOCAL_OPTIONS *section) {
+static int init_dh(SSL_CTX *ctx, SERVICE_OPTIONS *section) {
     FILE *fp;
     DH *dh;
     BIO *bio;
@@ -239,12 +242,12 @@ static int init_dh(SSL_CTX *ctx, LOCAL_OPTIONS *section) {
 #else
         ioerror(section->cert);
 #endif
-        return -1; /* FAILED */
+        return 0; /* FAILED */
     }
     bio=BIO_new_fp(fp, BIO_CLOSE|BIO_FP_TEXT);
     if(!bio) {
         s_log(LOG_ERR, "BIO_new_fp failed");
-        return -1; /* FAILED */
+        return 0; /* FAILED */
     }
     if((dh=PEM_read_bio_DHparams(bio, NULL, NULL
 #if SSLEAY_VERSION_NUMBER >= 0x00904000L
@@ -257,13 +260,13 @@ static int init_dh(SSL_CTX *ctx, LOCAL_OPTIONS *section) {
     } else { /* failed to load DH parameters from file */
         BIO_free(bio);
         s_log(LOG_NOTICE, "Could not load DH parameters from %s", section->cert);
-        return -1; /* FAILED */
+        return 0; /* FAILED */
     }
     SSL_CTX_set_tmp_dh(ctx, dh);
     s_log(LOG_INFO, "Diffie-Hellman initialized with %d bit key",
         8*DH_size(dh));
     DH_free(dh);
-    return 0; /* OK */
+    return 1; /* OK */
 }
 #endif /* USE_DH */
 
@@ -271,7 +274,7 @@ static int init_dh(SSL_CTX *ctx, LOCAL_OPTIONS *section) {
 
 static int cache_initialized=0;
 
-static void load_certificate(LOCAL_OPTIONS *section) {
+static int load_certificate(SERVICE_OPTIONS *section) {
     int i, reason;
     UI_DATA ui_data;
 #ifdef HAVE_OSSL_ENGINE_H
@@ -285,7 +288,7 @@ static void load_certificate(LOCAL_OPTIONS *section) {
     if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
         s_log(LOG_ERR, "Error reading certificate file: %s", section->cert);
         sslerror("SSL_CTX_use_certificate_chain_file");
-        die(1);
+        return 0;
     }
     s_log(LOG_DEBUG, "Certificate loaded");
 
@@ -312,12 +315,12 @@ static void load_certificate(LOCAL_OPTIONS *section) {
                     continue;
                 }
                 sslerror("ENGINE_load_private_key");
-                die(1);
+                return 0;
             }
             if(SSL_CTX_use_PrivateKey(section->ctx, pkey))
                 break; /* success */
             sslerror("SSL_CTX_use_PrivateKey");
-            die(1);
+            return 0;
         }
     else
 #endif
@@ -345,13 +348,14 @@ static void load_certificate(LOCAL_OPTIONS *section) {
 #else /* NO_RSA */
             sslerror("SSL_CTX_use_RSAPrivateKey_file");
 #endif /* NO_RSA */
-            die(1);
+            return 0;
         }
     if(!SSL_CTX_check_private_key(section->ctx)) {
         sslerror("Private key does not match the certificate");
-        die(1);
+        return 0;
     }
     s_log(LOG_DEBUG, "Private key loaded");
+    return 1; /* OK */
 }
 
 static int password_cb(char *buf, int size, int rwflag, void *userdata) {
@@ -443,7 +447,7 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
     SOCKADDR_UNION addr;
     struct timeval t;
     CACHE_PACKET *packet;
-    LOCAL_OPTIONS *opt;
+    SERVICE_OPTIONS *opt;
 
     if(ret) /* set error as the default result if required */
         *ret=NULL;
@@ -557,22 +561,22 @@ static void cache_transfer(SSL_CTX *ctx, const unsigned int type,
 /**************************************** informational callback */
 
 #if SSLEAY_VERSION_NUMBER >= 0x00907000L
-static void info_callback(const SSL *s, int where, int ret) {
+static void info_callback(const SSL *ssl, int where, int ret) {
 #else /* OpenSSL-0.9.7 */
-static void info_callback(SSL *s, int where, int ret) {
+static void info_callback(SSL *ssl, int where, int ret) {
 #endif /* OpenSSL-0.9.7 */
     if(where & SSL_CB_LOOP)
         s_log(LOG_DEBUG, "SSL state (%s): %s",
         where & SSL_ST_CONNECT ? "connect" :
         where & SSL_ST_ACCEPT ? "accept" :
-        "undefined", SSL_state_string_long(s));
+        "undefined", SSL_state_string_long(ssl));
     else if(where & SSL_CB_ALERT)
         s_log(LOG_DEBUG, "SSL alert (%s): %s: %s",
             where & SSL_CB_READ ? "read" : "write",
             SSL_alert_type_string_long(ret),
             SSL_alert_desc_string_long(ret));
     else if(where==SSL_CB_HANDSHAKE_DONE)
-        print_stats(s->ctx);
+        print_stats(ssl->ctx);
 }
 
 static void print_stats(SSL_CTX *ctx) { /* print statistics */

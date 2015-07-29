@@ -756,6 +756,25 @@ at the very bottom of the list above.  This isn't B<stunnel's> behaviour, it's
 OpenSSLs.
 
 
+=head1 SIGNALS
+
+The following signals can be used to control stunnel in Unix environment:
+
+=over 4
+
+=item SIGHUP
+
+Force a reload of the configuration file.
+
+=item SIGTERM, SIGQUIT, SIGINT
+
+Shut stunnel down.
+
+=back
+
+The result of sending any other signals to the server is undefined.
+
+
 =head1 SEE ALSO
 
 =over 4

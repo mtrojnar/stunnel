@@ -9,6 +9,7 @@ BEGIN
     BEGIN
         MENUITEM "&About", IDM_ABOUT
         MENUITEM "&Log", IDM_LOG
+        MENUITEM "&Reload", IDM_RELOAD
         MENUITEM SEPARATOR
         MENUITEM "E&xit", IDM_EXIT
     END
@@ -18,14 +19,17 @@ IDM_MAINMENU MENU
 BEGIN
     POPUP "&File"
     BEGIN
-        MENUITEM "&Save As", IDM_SAVEAS
+        MENUITEM "&Save Log As", IDM_SAVEAS
         MENUITEM SEPARATOR
         MENUITEM "&Close", IDM_CLOSE
+    END
+    POPUP "&Configuration"
+    BEGIN
+        MENUITEM "&Reload", IDM_RELOAD
     END
     POPUP "&Help"
     BEGIN
         MENUITEM "&About", IDM_ABOUT
-//        MENUITEM "S&etup", IDM_SETUP
     END
 END
 
@@ -36,7 +40,7 @@ BEGIN
     ICON            IDI_MYICON,-1,9,8,18,20
     LTEXT           "stunnel version",-1,30,4,52,8
     LTEXT           VERSION,-1,82,4,30,8
-    LTEXT           "© by Michal Trojnara 2009",-1,30,12,104,8
+    LTEXT           "© by Michal Trojnara 2010",-1,30,12,104,8
     LTEXT           "All Rights Reserved",-1,30,20,104,8
     LTEXT           "Licensed under the GNU GPL version 2",-1,4,28,130,8
     DEFPUSHBUTTON   "OK",IDOK,52,40,32,14,WS_GROUP

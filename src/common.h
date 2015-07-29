@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2009 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2010 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -221,12 +221,17 @@ typedef unsigned long u32;
 #endif
 
 #ifdef __INNOTEK_LIBC__
-# define get_last_socket_error() sock_errno()
-# define get_last_error()        errno
-# define readsocket(s,b,n)       recv((s),(b),(n),0)
-# define writesocket(s,b,n)      send((s),(b),(n),0)
-# define closesocket(s)          close(s)
-# define ioctlsocket(a,b,c)      so_ioctl((a),(b),(c))
+#define socklen_t               __socklen_t
+#define strcasecmp              stricmp
+#define strncasecmp             strnicmp
+#define NI_NUMERICHOST          1
+#define NI_NUMERICSERV          2
+#define get_last_socket_error() sock_errno()
+#define get_last_error()        errno
+#define readsocket(s,b,n)       recv((s),(b),(n),0)
+#define writesocket(s,b,n)      send((s),(b),(n),0)
+#define closesocket(s)          close(s)
+#define ioctlsocket(a,b,c)      so_ioctl((a),(b),(c))
 #else
 #define get_last_socket_error() errno
 #define get_last_error()        errno
@@ -235,6 +240,7 @@ typedef unsigned long u32;
 #define closesocket(s)          close(s)
 #define ioctlsocket(a,b,c)      ioctl((a),(b),(c))
 #endif
+
     /* OpenVMS compatibility */
 #ifdef __vms
 #define libdir "__NA__"
@@ -422,7 +428,6 @@ extern char *sys_errlist[];
 #define LOG_INFO        6
 #define LOG_DEBUG       7
 #endif /* defined (USE_WIN32) || defined (__vms) */
-#define LOG_RAW         -1
 
 #endif /* defined COMMON_H */
 
