@@ -3,8 +3,8 @@
  *   Copyright (c) 1998 Michal Trojnara <mtrojnar@ddc.daewoo.com.pl>
  *                 All Rights Reserved
  *
- *   Version:      1.4              (stunnel.c)
- *   Date:         1998.02.14
+ *   Version:      1.5              (stunnel.c)
+ *   Date:         1998.02.24
  *   Author:       Michal Trojnara  <mtrojnar@ddc.daewoo.com.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
@@ -24,6 +24,9 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+/* Change to 0 if you have problems with make_sockets() */
+#define INET_SOCKET_PAIR 1
+
 #define BUFFSIZE 8192	/* I/O buffer size */
 
 #include "config.h"
@@ -40,6 +43,7 @@
 #endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>	/* fork, execvp, exit */
+#endif
 
 /* Networking headers */
 #include <sys/types.h>  /* u_short, u_long */
@@ -47,7 +51,6 @@
 #include <sys/socket.h> /* getpeername */
 #include <arpa/inet.h>	/* inet_ntoa */
 #include <sys/time.h>	/* select */
-#endif
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>	/* for aix */
 #endif
@@ -77,7 +80,7 @@ void ioerror(char *);
 void sslerror(char *);
 void signal_handler(int);
 
-int main(int argc, char* argv[])
+int main(int argc, char* argv[]) /* execution begins here 8-) */
 {
     int fd[2];
     SSL *ssl;
@@ -102,7 +105,7 @@ int main(int argc, char* argv[])
     memset(&addr, 0, addrlen);
     if(getpeername(0, (struct sockaddr *)&addr, &addrlen))
         ioerror("getpeername");
-    syslog(LOG_INFO, "%s connected from %s:%u", name,
+    syslog(LOG_NOTICE, "%s connected from %s:%d", name,
         inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
     sprintf(certfile, "%s/%s.pem", X509_get_default_cert_dir(), name);
     if(stat(certfile, &st))
@@ -139,7 +142,7 @@ int main(int argc, char* argv[])
         SSL_set_fd(ssl, 0);
         if(!SSL_accept(ssl))
             sslerror("SSL_accept");
-        syslog(LOG_NOTICE, "SSLv%d opened for %s, cipher %s",
+        syslog(LOG_INFO, "SSLv%d opened for %s, cipher %s",
             ssl->session->ssl_version, name, SSL_get_cipher(ssl));
         transfer(ssl, fd[0]);
         SSL_free(ssl);
@@ -151,7 +154,7 @@ int main(int argc, char* argv[])
 void transfer(SSL *ssl, int tunnel) /* main loop */
 {
     fd_set rin, rout;
-    int num, fdno, fd_ssl;
+    int num, fdno, fd_ssl, bytes_in=0, bytes_out=0;
     char buffer[BUFFSIZE];
 
     fd_ssl=SSL_get_fd(ssl);
@@ -164,34 +167,72 @@ void transfer(SSL *ssl, int tunnel) /* main loop */
         rout=rin;
         if(select(fdno, &rout, NULL, NULL, NULL)<0)
             ioerror("select");
+        if(FD_ISSET(tunnel, &rout))
+        {
+            num=read(tunnel, buffer, BUFFSIZE);
+            if(num<0 && errno==ECONNRESET)
+            {
+                syslog(LOG_INFO, "IPC reset (child died)");
+                break; /* close connection */
+            }
+            if(num<0)
+                ioerror("read");
+            if(num==0)
+                break; /* close */
+            if(SSL_write(ssl, buffer, num)!=num)
+                sslerror("SSL_write");
+            bytes_out+=num;
+        }
         if(FD_ISSET(fd_ssl, &rout))
         {
             num=SSL_read(ssl, buffer, BUFFSIZE);
             if(num<0)
                 sslerror("SSL_read");
             if(num==0)
-                return; /* close */
+                break; /* close */
             if(write(tunnel, buffer, num)!=num)
                 ioerror("write");
-        }
-        if(FD_ISSET(tunnel, &rout))
-        {
-            num=read(tunnel, buffer, BUFFSIZE);
-            if(num<0)
-                ioerror("read");
-            if(num==0)
-                return; /* close */
-            if(SSL_write(ssl, buffer, num)!=num)
-                sslerror("SSL_write");
+            bytes_in+=num;
         }
     }
+    syslog(LOG_INFO, "Connection closed: %d bytes in, %d bytes out",
+        bytes_in, bytes_out);
 }
 
 /* Should be done with AF_INET instead of AF_UNIX */
 void make_sockets(int fd[2]) /* make pair of connected sockets */
 {
+#if INET_SOCKET_PAIR
+    struct sockaddr_in addr;
+    int addrlen;
+    int s; /* temporary socket awaiting for connection */
+
+    if((s=socket(AF_INET, SOCK_STREAM, 0))<0)
+        ioerror("socket#1");
+    if((fd[1]=socket(AF_INET, SOCK_STREAM, 0))<0)
+        ioerror("socket#2");
+    addrlen=sizeof(addr);
+    memset(&addr, 0, addrlen);
+    addr.sin_family=AF_INET;
+    addr.sin_addr.s_addr=INADDR_LOOPBACK;
+    addr.sin_port=0; /* dynamic port allocation */
+    if(bind(s, (struct sockaddr *)&addr, addrlen))
+        ioerror("bind#1");
+    if(bind(fd[1], (struct sockaddr *)&addr, addrlen))
+        ioerror("bind#2");
+    if(listen(s, 5))
+        ioerror("listen");
+    if(getsockname(s, (struct sockaddr *)&addr, &addrlen))
+        ioerror("getsockname");
+    if(connect(fd[1], (struct sockaddr *)&addr, addrlen))
+        ioerror("connect");
+    if((fd[0]=accept(s, (struct sockaddr *)&addr, &addrlen))<0)
+        ioerror("accept");
+    close(s); /* don't care about the result */
+#else
     if(socketpair(AF_UNIX, SOCK_STREAM, 0, fd))
         ioerror("socketpair");
+#endif
 }
 
 static RSA *tmp_rsa_cb(SSL *s, int export) /* temporary RSA key callback */
@@ -219,14 +260,14 @@ static DH *tmp_dh_cb(SSL *s, int export) /* temporary DH key callback */
             sslerror("DH_new");
         if(!DH_generate_key(dh_tmp))
             sslerror("DH_generate_key");
-        syslog(LOG_DEBUG, "Diffie-Hellman length: %u", DH_size(dh_tmp));
+        syslog(LOG_DEBUG, "Diffie-Hellman length: %d", DH_size(dh_tmp));
     }
     return(dh_tmp);
 }
 
 void ioerror(char *fun) /* Input/Output Error handler */
 {
-    syslog(LOG_ERR, "%s: %s (%u)", fun, strerror(errno), errno);
+    syslog(LOG_ERR, "%s: %s (%d)", fun, strerror(errno), errno);
     exit(1);
 }
 
@@ -244,4 +285,6 @@ void signal_handler(int sig) /* Signal handler */
     syslog(LOG_ERR, "Received signal %d; terminating.", sig);
     exit(3);
 }
+
+/* End of stunnel.c */
 

@@ -1,0 +1,40 @@
+stunnel         Universal SSL tunnel for daemons invoked by inetd
+
+Short description
+
+     The stunnel program is designed to intercept  incoming  con-
+     nections  to  particular  daemons started by inetd(8) super-
+     deamon and perform SSL (Secure Sockets Layer) handshake with
+     the  peer.  After  succesful  handshake any incoming data is
+     passed to the daemon in unencrypted form. Any outgoind  data
+     produced  by  the  daemon  and  written  to  the  network is
+     encrypted.
+
+     stunnel can be used to add  SSL  functionality  to  commonly
+     used  inetd  daemons  like  POP-2,  POP-3  and  IMAP servers
+     without any changes in the programs' code.
+
+
+Author              Michal Trojnara  <mtrojnar@ddc.daewoo.com.pl>
+SSL support         Adam Hernik      <adas@infocentrum.com>
+                    Pawel Krawczyk   <kravietz@ceti.com.pl>
+ 
+Compile instrucions
+
+     See INSTALL file.
+
+License
+
+     See COPYING file.
+
+Other files you should read
+
+     HISTORY        What we did
+     TODO           What we're going to do
+
+Reporting problems and other contacts
+
+     Please report any bugs, problems, and enhancements to
+
+                    mtrojnar@ddc.daewoo.com.pl
+

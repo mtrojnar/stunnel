@@ -1,6 +1,10 @@
-DISTRIBUTION METHODS:
+stunnel         Universal SSL tunnel for daemons invoked by inetd
 
-Source code is distributed under GPL license.
-Binary form is distributed under SSLeay license.
-Both licenses are included in this distribution.
+Distribution methods:
+
+     Source code is distributed under GPL license.
+     See COPYRIHGT.GPL file.
+
+     Binary form is distributed under SSLeay license.
+     See COPYRIGHT.SSLeay file.
 

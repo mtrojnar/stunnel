@@ -1,3 +1,10 @@
+stunnel         Universal SSL tunnel for daemons invoked by inetd
+
+1.5 1998.02.24	make_sockets() implemented with Internet sockets instead
+		of Unix sockets for better compatibility.
+		(i.e. to avoid random data returned by getpeername(2))
+		This feature can be disabled in stunnel.c.
+
 1.4 1998.02.16	Ported to HP-UX, Solaris and probably other UNIXes.
 		Autoconfiguration added.
 
@@ -8,8 +15,8 @@
 1.2 1998.02.14	Separate certificate for each service added.
 		Connection logging support.
 
-1.1 1998.02.14	Callback functions to support MSIE and Netscape Communicator
-		added by Pawel Krawczyk <kravietz@ceti.com.pl>.
+1.1 1998.02.14	Callback functions added by Pawel Krawczyk
+		<kravietz@ceti.com.pl>.
 
 1.0 1998.02.11	First version with SSL support
 		- special thx to Adam Hernik <adas@infocentrum.com>.

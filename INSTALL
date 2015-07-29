@@ -1,0 +1,26 @@
+stunnel         Universal SSL tunnel for daemons invoked by inetd
+
+1. Compile the software:
+
+        ./configure
+        make
+        make install
+
+   If you have problems with Internet Domain implementation of
+   make_sockets() change line:
+
+       #define INET_SOCKET_PAIR 1
+
+   in file stunnel.h to be:
+
+       #define INET_SOCKET_PAIR 0
+
+   and repeat:
+
+       make
+       make install
+
+2. Modify /etc/inetd.conf and /etc/services
+
+   See stunnel manual for details.
+

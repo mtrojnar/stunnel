@@ -1,9 +1,6 @@
-1. Implement make_sockets with Internet sockets instead of Unix
-   sockets for better compatibility.
-   (i.e. to avoid random data returned by getpeername(2)).
+stunnel         Universal SSL tunnel for daemons invoked by inetd
 
-2. If possible add certificate signed by a thrusted CA.
+1. If possible add certificate signed by a thrusted CA.
    If not -> build a web page to add new certificate to browser.
 
-3. Add binary distributions for Solaris and HP-UX.
-
+2. Make stunnel compatible with M$ products.
