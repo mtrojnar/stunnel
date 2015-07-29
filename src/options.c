@@ -793,6 +793,11 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
             break;
         section->option.program=1;
         section->execname=stralloc(arg);
+        if(!section->execargs) {
+            section->execargs=calloc(2, sizeof(char *));
+            section->execargs[0]=section->execname;
+            section->execargs[1]=NULL; /* to show that it's null-terminated */
+        }
         return NULL; /* OK */
     case CMD_DEFAULT:
         break;
@@ -1136,7 +1141,11 @@ static char *service_options(CMD cmd, LOCAL_OPTIONS *section,
         if(strcasecmp(opt, "sessiond"))
             break;
         section->option.sessiond=1;
+#ifdef SSL_OP_NO_TICKET
+        /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
+        /* this prevents session callbacks from beeing executed */
         section->ssl_options|=SSL_OP_NO_TICKET;
+#endif
         if(!name2addrlist(&section->sessiond_addr, arg, DEFAULT_LOOPBACK))
             return "Failed to resolve sessiond server address";
         return NULL; /* OK */
@@ -1599,7 +1608,7 @@ static char **argalloc(char *str) { /* Allocate 'exec' argumets */
         while(*ptr && isspace((unsigned char)*ptr))
             *ptr++='\0';
     }
-    retval[i]=NULL;
+    retval[i]=NULL; /* to show that it's null-terminated */
     return retval;
 }
 #endif
@@ -1704,15 +1713,23 @@ static int parse_ssl_option(char *arg) {
         {"TLS_D5_BUG", SSL_OP_TLS_D5_BUG},
         {"TLS_BLOCK_PADDING_BUG", SSL_OP_TLS_BLOCK_PADDING_BUG},
         {"DONT_INSERT_EMPTY_FRAGMENTS", SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS},
+#ifdef SSL_OP_NO_QUERY_MTU
         {"NO_QUERY_MTU", SSL_OP_NO_QUERY_MTU},
+#endif
+#ifdef SSL_OP_COOKIE_EXCHANGE
         {"COOKIE_EXCHANGE", SSL_OP_COOKIE_EXCHANGE},
+#endif
+#ifdef SSL_OP_NO_TICKET
         {"NO_TICKET", SSL_OP_NO_TICKET},
+#endif
         {"NO_SESSION_RESUMPTION_ON_RENEGOTIATION",
             SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION},
 #ifdef SSL_OP_NO_COMPRESSION
         {"NO_COMPRESSION", SSL_OP_NO_COMPRESSION},
 #endif
+#ifdef SSL_OP_SINGLE_ECDH_USE
         {"SINGLE_ECDH_USE", SSL_OP_SINGLE_ECDH_USE},
+#endif
         {"SINGLE_DH_USE", SSL_OP_SINGLE_DH_USE},
         {"EPHEMERAL_RSA", SSL_OP_EPHEMERAL_RSA},
         {"CIPHER_SERVER_PREFERENCE", SSL_OP_CIPHER_SERVER_PREFERENCE},

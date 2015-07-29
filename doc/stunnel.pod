@@ -171,6 +171,15 @@ control hardware engine
 Special commands "LOAD" and "INIT" can be used to load and initialize the
 engine cryptogaphic module.
 
+=item B<fips> = yes | no
+
+Enable or disable FIPS 140-2 mode.
+
+This option allows to disable entering FIPS mode if stunnel was compiled with
+FIPS 140-2 support.
+
+default: yes
+
 =item B<foreground> = yes | no (Unix only)
 
 foreground mode
@@ -479,6 +488,10 @@ default: no
 =item B<session> = timeout
 
 session cache timeout
+
+=item B<sessiond> = host:port
+
+address of sessiond SSL cache server
 
 =item B<sslVersion> = version
 

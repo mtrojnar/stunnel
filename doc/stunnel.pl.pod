@@ -177,6 +177,15 @@ konfiguracja urz±dzenia kryptograficznego
 Specjalne komendy "LOAD" i "INIT" pozwalaj± na za³adowanie i inicjalizacjê
 modu³u kryptograficznego urz±dzenia.
 
+=item B<fips> = yes | no
+
+W³±cz lub wy³±cz tryb FIPS 140-2.
+
+Opcja pozwala wy³±czyæ wej¶cie w tryb FIPS, je¶li stunnel zosta³ skompilowany
+ze wsparciem dla FIPS 140-2.
+
+domy¶lnie: yes (pracuj w trybie FIPS 140-2)
+
 =item B<foreground> = yes | no (tylko Unix)
 
 tryb pierwszoplanowy
@@ -502,6 +511,10 @@ domy¶lnie: no
 =item B<session> = przeterminowanie_pamiêci_podrêcznej_sesji
 
 czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
+
+=item B<sessiond> = adres:port
+
+adres sessiond - servera cache sesji SSL
 
 =item B<sslVersion> = wersja
 

@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2009.11.06" "4.28" "stunnel"
+.TH STUNNEL.PL 8 "2009.11.20" "4.29" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -197,6 +197,14 @@ konfiguracja urządzenia kryptograficznego
 .Sp
 Specjalne komendy \*(L"\s-1LOAD\s0\*(R" i \*(L"\s-1INIT\s0\*(R" pozwalają na załadowanie i inicjalizację
 modułu kryptograficznego urządzenia.
+.IP "\fBfips\fR = yes | no" 4
+.IX Item "fips = yes | no"
+Włącz lub wyłącz tryb \s-1FIPS\s0 140\-2.
+.Sp
+Opcja pozwala wyłączyć wejście w tryb \s-1FIPS\s0, jeśli stunnel został skompilowany
+ze wsparciem dla \s-1FIPS\s0 140\-2.
+.Sp
+domyślnie: yes (pracuj w trybie \s-1FIPS\s0 140\-2)
 .IP "\fBforeground\fR = yes | no (tylko Unix)" 4
 .IX Item "foreground = yes | no (tylko Unix)"
 tryb pierwszoplanowy
@@ -486,6 +494,9 @@ domyślnie: no
 .IP "\fBsession\fR = przeterminowanie_pamięci_podręcznej_sesji" 4
 .IX Item "session = przeterminowanie_pamięci_podręcznej_sesji"
 czas w sekundach, po którym sesja \s-1SSL\s0 zostanie usunięta z pamięci podręcznej
+.IP "\fBsessiond\fR = adres:port" 4
+.IX Item "sessiond = adres:port"
+adres sessiond \- servera cache sesji \s-1SSL\s0
 .IP "\fBsslVersion\fR = wersja" 4
 .IX Item "sslVersion = wersja"
 wersja protokołu \s-1SSL\s0

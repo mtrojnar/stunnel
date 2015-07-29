@@ -323,6 +323,11 @@ extern char *sys_errlist[];
     ((num)>=sys_nerr ? "Unknown error" : sys_errlist[num]))
 #endif /* SunOS 4 */
 
+/* AIX does not have SOL_TCP defined */
+#ifndef SOL_TCP
+#define SOL_TCP SOL_SOCKET
+#endif /* SOL_TCP */
+
 /* Linux */
 #ifdef __linux__
 #ifndef IP_TRANSPARENT

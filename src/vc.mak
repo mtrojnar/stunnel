@@ -4,7 +4,7 @@
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you?)
 SSLDIR=..\..\openssl-0.9.8l
-VERSION=4.28
+VERSION=4.29
 
 OBJS=stunnel.obj ssl.obj ctx.obj verify.obj file.obj client.obj \
 	protocol.obj sthreads.obj log.obj options.obj network.obj \

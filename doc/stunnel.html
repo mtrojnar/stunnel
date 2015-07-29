@@ -217,6 +217,14 @@ generator.  (Available only if compiled with OpenSSL 0.9.5a or higher)</p>
 <p>Special commands &quot;LOAD&quot; and &quot;INIT&quot; can be used to load and initialize the
 engine cryptogaphic module.</p>
 </dd>
+<dt><strong><a name="fips_yes_no" class="item"><strong>fips</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>Enable or disable FIPS 140-2 mode.</p>
+<p>This option allows to disable entering FIPS mode if stunnel was compiled with
+FIPS 140-2 support.</p>
+<p>default: yes</p>
+</dd>
 <dt><strong><a name="no" class="item"><strong>foreground</strong> = yes | no (Unix only)</a></strong></dt>
 
 <dd>
@@ -517,6 +525,11 @@ the following option can be used:</p>
 
 <dd>
 <p>session cache timeout</p>
+</dd>
+<dt><strong><a name="sessiond_host_port" class="item"><strong>sessiond</strong> = host:port</a></strong></dt>
+
+<dd>
+<p>address of sessiond SSL cache server</p>
 </dd>
 <dt><strong><a name="sslversion_version" class="item"><strong>sslVersion</strong> = version</a></strong></dt>
 

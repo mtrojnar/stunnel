@@ -62,7 +62,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2009.11.06" "4.28" "stunnel"
+.TH STUNNEL 8 "2009.11.20" "4.29" "stunnel"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -192,6 +192,14 @@ control hardware engine
 .Sp
 Special commands \*(L"\s-1LOAD\s0\*(R" and \*(L"\s-1INIT\s0\*(R" can be used to load and initialize the
 engine cryptogaphic module.
+.IP "\fBfips\fR = yes | no" 4
+.IX Item "fips = yes | no"
+Enable or disable \s-1FIPS\s0 140\-2 mode.
+.Sp
+This option allows to disable entering \s-1FIPS\s0 mode if stunnel was compiled with
+\&\s-1FIPS\s0 140\-2 support.
+.Sp
+default: yes
 .IP "\fBforeground\fR = yes | no (Unix only)" 4
 .IX Item "foreground = yes | no (Unix only)"
 foreground mode
@@ -463,6 +471,9 @@ default: no
 .IP "\fBsession\fR = timeout" 4
 .IX Item "session = timeout"
 session cache timeout
+.IP "\fBsessiond\fR = host:port" 4
+.IX Item "sessiond = host:port"
+address of sessiond \s-1SSL\s0 cache server
 .IP "\fBsslVersion\fR = version" 4
 .IX Item "sslVersion = version"
 select version of \s-1SSL\s0 protocol

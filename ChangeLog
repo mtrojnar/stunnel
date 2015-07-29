@@ -1,5 +1,16 @@
 stunnel         Universal SSL tunnel
 
+Version 4.29, 2009.12.02, urgency: MEDIUM:
+* New features sponsored by Searchtech Limited http://www.astraweb.com/
+  - sessiond, a high performance SSL session cache was built for stunnel.
+    A new service-level "sessiond" option was added.  sessiond is
+    available for download on ftp://stunnel.mirt.net/stunnel/sessiond/ .
+    stunnel clusters will be a lot faster, now!
+* Bugfixes
+  - "execargs" defaults to the "exec" parameter (thx to Peter Pentchev).
+  - Compilation fixes added for AIX and old versions of OpenSSL.
+  - Missing "fips" option was added to the manual.
+
 Version 4.28, 2009.11.08, urgency: MEDIUM:
 * New features
   - Win32 DLLs for OpenSSL 0.9.8l.

@@ -224,6 +224,14 @@ OpenSSL.  Opcja jest dostêpna z bibliotek± OpenSSL 0.9.5a lub nowsz±.</p>
 <p>Specjalne komendy &quot;LOAD&quot; i &quot;INIT&quot; pozwalaj± na za³adowanie i inicjalizacjê
 modu³u kryptograficznego urz±dzenia.</p>
 </dd>
+<dt><strong><a name="fips_yes_no" class="item"><strong>fips</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>W³±cz lub wy³±cz tryb FIPS 140-2.</p>
+<p>Opcja pozwala wy³±czyæ wej¶cie w tryb FIPS, je¶li stunnel zosta³ skompilowany
+ze wsparciem dla FIPS 140-2.</p>
+<p>domy¶lnie: yes (pracuj w trybie FIPS 140-2)</p>
+</dd>
 <dt><strong><a name="no" class="item"><strong>foreground</strong> = yes | no (tylko Unix)</a></strong></dt>
 
 <dd>
@@ -542,6 +550,11 @@ w programie Eudora mo¿na u¿yæ opcji:</p>
 
 <dd>
 <p>czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej</p>
+</dd>
+<dt><strong><a name="sessiond_adres_port" class="item"><strong>sessiond</strong> = adres:port</a></strong></dt>
+
+<dd>
+<p>adres sessiond - servera cache sesji SSL</p>
 </dd>
 <dt><strong><a name="sslversion_wersja" class="item"><strong>sslVersion</strong> = wersja</a></strong></dt>
 
