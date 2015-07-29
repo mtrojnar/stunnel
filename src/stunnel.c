@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.07             (stunnel.c)
- *   Date:         2005.01.03
+ *   Version:      4.08             (stunnel.c)
+ *   Date:         2005.02.27
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -452,15 +452,15 @@ int set_socket_options(int s, int type) {
     return 0; /* OK */
 }
 
-void ioerror(char *txt) { /* input/output error handler */
+void ioerror(const char *txt) { /* input/output error handler */
     log_error(LOG_ERR, get_last_error(), txt);
 }
 
-void sockerror(char *txt) { /* socket error handler */
+void sockerror(const char *txt) { /* socket error handler */
     log_error(LOG_ERR, get_last_socket_error(), txt);
 }
 
-void log_error(int level, int error, char *txt) { /* generic error logger */
+void log_error(int level, int error, const char *txt) { /* generic error logger */
     s_log(level, "%s: %s (%d)", txt, my_strerror(error), error);
 }
 
@@ -646,11 +646,11 @@ static void setnonblock(int sock, unsigned long l) {
     int retval, flags;
     do {
         flags=fcntl(sock, F_GETFL, 0);
-    }while(flags<0 && errno==EINTR);
+    }while(flags<0 && get_last_socket_error()==EINTR);
     flags=l ? flags|O_NONBLOCK : flags&(~O_NONBLOCK);
     do {
         retval=fcntl(sock, F_SETFL, flags);
-    }while(retval<0 && errno==EINTR);
+    }while(retval<0 && get_last_socket_error()==EINTR);
     if(retval<0)
 #else
     if(ioctlsocket(sock, FIONBIO, &l)<0)

@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2004.12.25" "4.06" "stunnel"
+.TH STUNNEL.PL 8 "2005.01.22" "4.08" "stunnel"
 .SH "NAZWA"
 .IX Header "NAZWA"
 stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
@@ -137,10 +137,11 @@ stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
 .IX Header "SK£ADNIA"
 .IP "\fBUnix:\fR" 4
 .IX Item "Unix:"
-\&\fBstunnel\fR [plik] | \-fd\ [n] | \-help | \-version | \-sockets
+\&\fBstunnel\fR [<plik>] | \-fd\ n | \-help | \-version | \-sockets
 .IP "\fB\s-1WIN32:\s0\fR" 4
 .IX Item "WIN32:"
-\&\fBstunnel\fR [plik] | \-install | \-uninstall | \-help | \-version | \-sockets
+\&\fBstunnel\fR [ [\-install | \-uninstall] [\-quiet] [<plik>] ]
+    | \-help | \-version | \-sockets
 .SH "OPIS"
 .IX Header "OPIS"
 Program \fBstunnel\fR zosta³ zaprojektowany do opakowywania w protokó³ \fI\s-1SSL\s0\fR
@@ -156,11 +157,11 @@ np. \fInntp\fR, \fIsmtp\fR lub \fIhttp\fR, a nawet tunelowaæ ppp poprzez gniazda
 bez zmian w kodzie ¼ród³owym.
 .SH "OPCJE"
 .IX Header "OPCJE"
-.IP "\fB[plik]\fR" 4
-.IX Item "[plik]"
+.IP "<\fBplik\fR>" 4
+.IX Item "<plik>"
 u¿yj podanego pliku konfiguracyjnego
-.IP "\fB\-fd [n]\fR (tylko Unix)" 4
-.IX Item "-fd [n] (tylko Unix)"
+.IP "\fB\-fd n\fR (tylko Unix)" 4
+.IX Item "-fd n (tylko Unix)"
 wczytaj konfiguracjê z podanego deskryptora pliku
 .IP "\fB\-help\fR" 4
 .IX Item "-help"
@@ -177,6 +178,10 @@ instaluj serwis \s-1NT\s0
 .IP "\fB\-uninstall\fR (tylko \s-1NT/2000/XP\s0)" 4
 .IX Item "-uninstall (tylko NT/2000/XP)"
 odinstaluj serwis \s-1NT\s0
+.IP "\fB\-quiet\fR (tylko \s-1NT/2000/XP\s0)" 4
+.IX Item "-quiet (tylko NT/2000/XP)"
+nie wy¶wietlaj okienka informuj±cego o pomy¶lnym zainstalowaniu lub
+odinstalowaniu
 .SH "PLIK KONFIGURACYJNY"
 .IX Header "PLIK KONFIGURACYJNY"
 Linia w pliku konfiguracyjnym mo¿e byæ:

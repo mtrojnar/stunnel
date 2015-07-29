@@ -4,7 +4,7 @@
 
 common_headers = common.h prototypes.h
 common_sources = client.c log.c options.c protocol.c \
-    network.c ssl.c sthreads.c stunnel.c
+    network.c resolver.c ssl.c sthreads.c stunnel.c
 unix_sources = pty.c
 shared_sources = env.c
 win32_sources = gui.c resources.h resources.rc stunnel.ico
@@ -39,7 +39,7 @@ WINCFLAGS=-O2 -Wall -I$(OPENSSLDIR)/outinc \
 	-DUSE_WIN32=1 -DHAVE_OPENSSL=1 -DVERSION=\"@VERSION@\"
 WINLIBS=-L$(OPENSSLDIR)/out -leay32 -lssl32 -lws2_32 -lgdi32 -mwindows
 WINOBJ=client.obj log.obj options.obj protocol.obj network.obj \
-    ssl.obj sthreads.obj stunnel.obj gui.obj resources.obj
+    resolver.obj ssl.obj sthreads.obj stunnel.obj gui.obj resources.obj
 WINGCC=i586-mingw32msvc-gcc
 WINDRES=i586-mingw32msvc-windres
 

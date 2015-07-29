@@ -14,30 +14,30 @@
 <ul>
 
 	<li><a href="#nazwa">NAZWA</a></li>
-	<li><a href="#sk³adnia">SK£ADNIA</a></li>
+	<li><a href="#sk_adnia">SK£ADNIA</a></li>
 	<li><a href="#opis">OPIS</a></li>
 	<li><a href="#opcje">OPCJE</a></li>
 	<li><a href="#plik_konfiguracyjny">PLIK KONFIGURACYJNY</a></li>
 	<ul>
 
 		<li><a href="#opcje_globalne">OPCJE GLOBALNE</a></li>
-		<li><a href="#opcje_us³ug">OPCJE US£UG</a></li>
+		<li><a href="#opcje_us_ug">OPCJE US£UG</a></li>
 	</ul>
 
-	<li><a href="#zwracana_warto¶æ">ZWRACANA WARTO¦Æ</a></li>
-	<li><a href="#przyk³ady">PRZYK£ADY</a></li>
+	<li><a href="#zwracana_warto__">ZWRACANA WARTO¦Æ</a></li>
+	<li><a href="#przyk_ady">PRZYK£ADY</a></li>
 	<li><a href="#pliki">PLIKI</a></li>
-	<li><a href="#b³êdy">B£ÊDY</a></li>
+	<li><a href="#b__dy">B£ÊDY</a></li>
 	<li><a href="#ograniczenia">OGRANICZENIA</a></li>
 	<li><a href="#notki">NOTKI</a></li>
 	<ul>
 
 		<li><a href="#tryb_inetd__tylko_unix_">TRYB INETD (tylko Unix)</a></li>
 		<li><a href="#certyfikaty">CERTYFIKATY</a></li>
-		<li><a href="#losowo¶æ">LOSOWO¦Æ</a></li>
+		<li><a href="#losowo__">LOSOWO¦Æ</a></li>
 	</ul>
 
-	<li><a href="#zobacz_równie¿">ZOBACZ RÓWNIE¯</a></li>
+	<li><a href="#zobacz_r_wnie_">ZOBACZ RÓWNIE¯</a></li>
 	<li><a href="#autor">AUTOR</a></li>
 </ul>
 <!-- INDEX END -->
@@ -50,18 +50,19 @@
 <p>
 </p>
 <hr />
-<h1><a name="sk³adnia">SK£ADNIA</a></h1>
+<h1><a name="sk_adnia">SK£ADNIA</a></h1>
 <dl>
 <dt><strong><a name="item_unix_3a"><strong>Unix:</strong></a></strong><br />
 </dt>
 <dd>
-<strong>stunnel</strong> [plik] | -fd&nbsp;[n] | -help | -version | -sockets
+<strong>stunnel</strong> [&lt;plik&gt;] | -fd&nbsp;n | -help | -version | -sockets
 </dd>
 <p></p>
 <dt><strong><a name="item_win32_3a"><strong>WIN32:</strong></a></strong><br />
 </dt>
 <dd>
-<strong>stunnel</strong> [plik] | -install | -uninstall | -help | -version | -sockets
+<strong>stunnel</strong> [ [-install | -uninstall] [-quiet] [&lt;plik&gt;] ]
+    | -help | -version | -sockets
 </dd>
 <p></p></dl>
 <p>
@@ -83,13 +84,13 @@ bez zmian w kodzie ¼ród³owym.</p>
 <hr />
 <h1><a name="opcje">OPCJE</a></h1>
 <dl>
-<dt><strong><a name="item__5bplik_5d"><strong>[plik]</strong></a></strong><br />
+<dt><strong><a name="item__3cplik_3e">&lt;<strong>plik</strong>&gt;</a></strong><br />
 </dt>
 <dd>
 u¿yj podanego pliku konfiguracyjnego
 </dd>
 <p></p>
-<dt><strong><a name="item__2dfd__5bn_5d__28tylko_unix_29"><strong>-fd [n]</strong> (tylko Unix)</a></strong><br />
+<dt><strong><a name="item_n"><strong>-fd n</strong> (tylko Unix)</a></strong><br />
 </dt>
 <dd>
 wczytaj konfiguracjê z podanego deskryptora pliku
@@ -123,6 +124,13 @@ instaluj serwis NT
 </dt>
 <dd>
 odinstaluj serwis NT
+</dd>
+<p></p>
+<dt><strong><a name="item_quiet"><strong>-quiet</strong> (tylko NT/2000/XP)</a></strong><br />
+</dt>
+<dd>
+nie wy¶wietlaj okienka informuj±cego o pomy¶lnym zainstalowaniu lub
+odinstalowaniu
 </dd>
 <p></p></dl>
 <p>
@@ -204,7 +212,7 @@ libwrap (TCP wrappers) jej pliki konfiguracyjne (/etc/hosts.allow i
 umieszczonego wewn±trz katalogu podanego w opcji <em>chroot</em>.</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_ciphers__3d_lista_szyfrów"><strong>ciphers</strong> = lista_szyfrów</a></strong><br />
+<dt><strong><a name="item_ciphers__3d_lista_szyfr_f3w"><strong>ciphers</strong> = lista_szyfrów</a></strong><br />
 </dt>
 <dd>
 lista dozwolonych szyfrów SSL
@@ -279,7 +287,7 @@ Podsystemy nie s± wspierane przez platformê Win32.</p>
 <p>Wielko¶æ liter jest ignorowana zarówno dla poziomu jak podsystemu.</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_¶cie¿ka_do_egd"><strong>EGD</strong> = ¶cie¿ka_do_EGD (tylko Unix)</a></strong><br />
+<dt><strong><a name="item_ka_do_egd"><strong>EGD</strong> = ¶cie¿ka_do_EGD (tylko Unix)</a></strong><br />
 </dt>
 <dd>
 ¶cie¿ka do gniazda programu Entropy Gathering Daemon
@@ -290,7 +298,7 @@ u¿ywanego do zainicjalizowania generatora ci±gów pseudolosowych biblioteki
 OpenSSL.  Opcja jest dostêpna z bibliotek± OpenSSL 0.9.5a lub nowsz±.</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_engine__3d_auto__7c__3cidentyfikator_urz±dzenia_3e"><strong>engine</strong> = auto | &lt;identyfikator urz±dzenia&gt;</a></strong><br />
+<dt><strong><a name="item_engine__3d_auto__7c__3cidentyfikator_urz_b1dzenia_"><strong>engine</strong> = auto | &lt;identyfikator urz±dzenia&gt;</a></strong><br />
 </dt>
 <dd>
 wybór sprzêtowego urz±dzenia kryptograficznego
@@ -376,7 +384,7 @@ po³o¿enie pliku z numerem procesu
 wzglêdem tego katalogu.</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_rndbytes__3d_liczba_bajtów"><strong>RNDbytes</strong> = liczba_bajtów</a></strong><br />
+<dt><strong><a name="item_rndbytes__3d_liczba_bajt_f3w"><strong>RNDbytes</strong> = liczba_bajtów</a></strong><br />
 </dt>
 <dd>
 liczba bajtów do zainicjowania generatora pseudolosowego
@@ -422,7 +430,7 @@ u¿yj parametru jako nazwy serwisu
 <p>domy¶lnie: stunnel</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_session__3d_przeterminowanie_pamiêci_podrêcznej_se"><strong>session</strong> = przeterminowanie_pamiêci_podrêcznej_sesji</a></strong><br />
+<dt><strong><a name="item_session__3d_przeterminowanie_pami_eaci_podr_eaczne"><strong>session</strong> = przeterminowanie_pamiêci_podrêcznej_sesji</a></strong><br />
 </dt>
 <dd>
 czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
@@ -434,7 +442,7 @@ czas w sekundach, po którym sesja SSL zostanie usuniêta z pamiêci podrêcznej
 grupa z której prawami pracowa³ bêdzie <em>stunnel</em>
 </dd>
 <p></p>
-<dt><strong><a name="item_identyfikator_u¿ytkownika"><strong>setuid</strong> = identyfikator_u¿ytkownika (tylko Unix)</a></strong><br />
+<dt><strong><a name="item_ytkownika"><strong>setuid</strong> = identyfikator_u¿ytkownika (tylko Unix)</a></strong><br />
 </dt>
 <dd>
 u¿ytkownik, z którego prawami pracowa³ bêdzie <em>stunnel</em>
@@ -499,7 +507,7 @@ weryfikuj certyfikat drugiej strony po³±czenia
 <p></p></dl>
 <p>
 </p>
-<h2><a name="opcje_us³ug">OPCJE US£UG</a></h2>
+<h2><a name="opcje_us_ug">OPCJE US£UG</a></h2>
 <p>Ka¿da sekcja konfiguracji us³ugi zaczyna siê jej nazw± ujêt± w nawias
 kwadratowy.  Nazwa us³ugi u¿ywana jest do kontroli dostêpu przez
 bibliotekê libwrap (TCP wrappers) oraz pozwala rozró¿niæ poszczególne
@@ -534,7 +542,7 @@ z lokalnym serwerem.</p>
 opó¼nij rozwiniêcie adresu DNS podanego w opcji <em>connect</em>
 </dd>
 <p></p>
-<dt><strong><a name="item_¶cie¿ka_do_programu"><strong>exec</strong> = ¶cie¿ka_do_programu (tylko Unix)</a></strong><br />
+<dt><strong><a name="item_ka_do_programu"><strong>exec</strong> = ¶cie¿ka_do_programu (tylko Unix)</a></strong><br />
 </dt>
 <dd>
 wykonaj lokalny program przystosowany do pracy z superdemonem inetd
@@ -554,7 +562,7 @@ argumenty do opcji <em>exec</em> w³±cznie z nazw± programu ($0)
 Argumenty s± rozdzielone dowoln± liczb± bia³ych znaków.</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_ident__3d_nazwa_u¿ytkownika"><strong>ident</strong> = nazwa_u¿ytkownika</a></strong><br />
+<dt><strong><a name="item_ident__3d_nazwa_u_bfytkownika"><strong>ident</strong> = nazwa_u¿ytkownika</a></strong><br />
 </dt>
 <dd>
 weryfikuj nazwê zdalnego u¿ytkownika korzystaj±c z protoko³u IDENT (RFC 1413)
@@ -570,7 +578,7 @@ IP ¼ród³a do nawi±zywania zdalnych po³±czeñ
 serwera, do którego nawi±zywane jest po³±czenie.</p>
 </dd>
 <p></p>
-<dt><strong><a name="item_protocol__3d_protokó³"><strong>protocol</strong> = protokó³</a></strong><br />
+<dt><strong><a name="item_protocol__3d_protok_f3_b3"><strong>protocol</strong> = protokó³</a></strong><br />
 </dt>
 <dd>
 negocjuj SSL podanym protoko³em aplikacyjnym
@@ -625,13 +633,13 @@ przy pomocy LD_PRELOAD biblioteki env.so, albo w trybie zdalnym (opcja
 <p>
 </p>
 <hr />
-<h1><a name="zwracana_warto¶æ">ZWRACANA WARTO¦Æ</a></h1>
+<h1><a name="zwracana_warto__">ZWRACANA WARTO¦Æ</a></h1>
 <p><strong>stunnel</strong> zwraca zero w przypadku sukcesu, lub warto¶æ niezerow±
 w przypadku b³êdu.</p>
 <p>
 </p>
 <hr />
-<h1><a name="przyk³ady">PRZYK£ADY</a></h1>
+<h1><a name="przyk_ady">PRZYK£ADY</a></h1>
 <p>Szyfrowanie po³±czeñ do lokalnego serwera <em>imapd</em> mo¿na u¿yæ:</p>
 <pre>
     [imapd]
@@ -678,7 +686,7 @@ certyfikat i klucz prywatny
 <p>
 </p>
 <hr />
-<h1><a name="b³êdy">B£ÊDY</a></h1>
+<h1><a name="b__dy">B£ÊDY</a></h1>
 <p>Opcja <em>execargs</em> nie obs³uguje cytowania.</p>
 <p>
 </p>
@@ -748,7 +756,7 @@ nastêpuj±c± postaæ:</p>
     [pusta linia]</pre>
 <p>
 </p>
-<h2><a name="losowo¶æ">LOSOWO¦Æ</a></h2>
+<h2><a name="losowo__">LOSOWO¦Æ</a></h2>
 <p><strong>stunnel</strong> potrzebuje zainicjowaæ PRNG (generator liczb pseudolosowych),
 gdy¿ protokó³ SSL wymaga do bezpieczeñstwa kryptograficznego ¼ród³a
 dobrej losowo¶ci.  Nastêpuj±ce ¼ród³a s± kolejno odczytywane a¿ do
@@ -804,7 +812,7 @@ powy¿szej listy.  Jest to w³a¶ciwo¶æ biblioteki <em>OpenSSL</em>, a nie programu
 <p>
 </p>
 <hr />
-<h1><a name="zobacz_równie¿">ZOBACZ RÓWNIE¯</a></h1>
+<h1><a name="zobacz_r_wnie_">ZOBACZ RÓWNIE¯</a></h1>
 <dl>
 <dt><strong><a name="item_tcpd"><a href="#item_tcpd">tcpd(8)</a></a></strong><br />
 </dt>
@@ -841,7 +849,7 @@ strona projektu <em>OpenSSL</em>
 <hr />
 <h1><a name="autor">AUTOR</a></h1>
 <dl>
-<dt><strong><a name="item_micha³_trojnara">Micha³ Trojnara</a></strong><br />
+<dt><strong><a name="item_micha_b3_trojnara">Micha³ Trojnara</a></strong><br />
 </dt>
 <dd>
 &lt;<em><a href="mailto:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net</a></em>&gt;

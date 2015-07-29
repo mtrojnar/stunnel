@@ -356,7 +356,7 @@ static int init_dh(void) {
     fp=fopen(options.cert, "r");
     if(!fp) {
 #ifdef USE_WIN32
-        /* Win32 doesn't seem to set errno in fopen() */
+        /* fopen() does not return the error via GetLastError() on Win32 */
         s_log(LOG_ERR, "Failed to open %s", options.cert);
 #else
         ioerror(options.cert);

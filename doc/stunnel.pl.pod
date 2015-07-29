@@ -9,11 +9,12 @@ stunnel - uniwersalny tunel protoko³u SSL
 
 =item B<Unix:>
 
-B<stunnel> S<[plik]> | S<-fd [n]> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [<S<plik>>] | S<-fd n> | S<-help> | S<-version> | S<-sockets>
 
 =item B<WIN32:>
 
-B<stunnel> S<[plik]> | S<-install> | S<-uninstall> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [ [S<-install> | S<-uninstall>] [S<-quiet>] [<S<plik>>] ]
+    | S<-help> | S<-version> | S<-sockets>
 
 =back
 
@@ -37,11 +38,11 @@ bez zmian w kodzie ¼ród³owym.
 
 =over 4
 
-=item B<[plik]>
+=item <B<plik>>
 
 u¿yj podanego pliku konfiguracyjnego
 
-=item B<-fd [n]> (tylko Unix)
+=item B<-fd n> (tylko Unix)
 
 wczytaj konfiguracjê z podanego deskryptora pliku
 
@@ -64,6 +65,11 @@ instaluj serwis NT
 =item B<-uninstall> (tylko NT/2000/XP)
 
 odinstaluj serwis NT
+
+=item B<-quiet> (tylko NT/2000/XP)
+
+nie wy¶wietlaj okienka informuj±cego o pomy¶lnym zainstalowaniu lub
+odinstalowaniu
 
 =back
 

@@ -13,13 +13,13 @@ examples_DATA = ca.html ca.pl importCA.html importCA.sh script.sh \
 	stunnel.spec stunnel.init
 
 install-data-local:
-	mkdir -p $(localstatedir)/stunnel
-	-chmod a=rwx,+t $(localstatedir)/stunnel
+	mkdir -p $(DESTDIR)$(localstatedir)/stunnel
+	-chmod a=rwx,+t $(DESTDIR)$(localstatedir)/stunnel
 	-uname | grep SunOS && \
-		mkdir -p $(localstatedir)/stunnel/dev && \
-		chmod u=rwx,go=rx $(localstatedir)/stunnel/dev && \
-		mknod $(localstatedir)/stunnel/dev/zero c 13 12 && \
-		chmod a=rw $(localstatedir)/stunnel/dev/zero
+		mkdir -p $(DESTDIR)$(localstatedir)/stunnel/dev && \
+		chmod u=rwx,go=rx $(DESTDIR)$(localstatedir)/stunnel/dev && \
+		mknod $(DESTDIR)$(localstatedir)/stunnel/dev/zero c 13 12 && \
+		chmod a=rw $(DESTDIR)$(localstatedir)/stunnel/dev/zero
 
 openssl=$(ssldir)/bin/openssl
 stunnel.pem: stunnel.cnf

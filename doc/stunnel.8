@@ -129,17 +129,18 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2004.12.25" "4.06" "stunnel"
+.TH STUNNEL 8 "2005.01.22" "4.08" "stunnel"
 .SH "NAME"
 stunnel \- universal SSL tunnel
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
 .IP "\fBUnix:\fR" 4
 .IX Item "Unix:"
-\&\fBstunnel\fR [filename] | \-fd\ [n] | \-help | \-version | \-sockets
+\&\fBstunnel\fR [<filename>] | \-fd\ n | \-help | \-version | \-sockets
 .IP "\fB\s-1WIN32:\s0\fR" 4
 .IX Item "WIN32:"
-\&\fBstunnel\fR [filename] | \-install | \-uninstall | \-help | \-version | \-sockets
+\&\fBstunnel\fR [ [\-install | \-uninstall] [\-quiet] [<filename>] ]
+    | \-help | \-version | \-sockets
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
 The \fBstunnel\fR program is designed to work as \fI\s-1SSL\s0\fR encryption wrapper 
@@ -157,11 +158,11 @@ This product includes cryptographic software written by
 Eric Young (eay@cryptsoft.com)
 .SH "OPTIONS"
 .IX Header "OPTIONS"
-.IP "\fB[filename]\fR" 4
-.IX Item "[filename]"
+.IP "<\fBfilename\fR>" 4
+.IX Item "<filename>"
 Use specified configuration file
-.IP "\fB\-fd [n]\fR (Unix only)" 4
-.IX Item "-fd [n] (Unix only)"
+.IP "\fB\-fd n\fR (Unix only)" 4
+.IX Item "-fd n (Unix only)"
 Read the config file from specified file descriptor
 .IP "\fB\-help\fR" 4
 .IX Item "-help"
@@ -178,6 +179,9 @@ Install \s-1NT\s0 Service
 .IP "\fB\-uninstall\fR (\s-1NT/2000/XP\s0 only)" 4
 .IX Item "-uninstall (NT/2000/XP only)"
 Uninstall \s-1NT\s0 Service
+.IP "\fB\-quiet\fR (\s-1NT/2000/XP\s0 only)" 4
+.IX Item "-quiet (NT/2000/XP only)"
+Don't display a message box when successfully installed or uninstalled \s-1NT\s0 service
 .SH "CONFIGURATION FILE"
 .IX Header "CONFIGURATION FILE"
 Each line of the configuration file can be either:

@@ -47,9 +47,9 @@ extern int num_clients;
 
 void main_initialize(char *, char *);
 void main_execute(void);
-void ioerror(char *);
-void sockerror(char *);
-void log_error(int, int, char *);
+void ioerror(const char *);
+void sockerror(const char *);
+void log_error(int, int, const char *);
 char *my_strerror(int);
 int set_socket_options(int, int);
 char *stunnel_info(void);
@@ -308,6 +308,9 @@ int fdscanf(CLI *, int, const char *, char *)
 #else
        ;
 #endif
+
+/**************************************** Prototypes for resolver.c */
+
 int name2addrlist(SOCKADDR_LIST *, char *, char *);
 int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
 char *s_ntop(char *, SOCKADDR_UNION *);

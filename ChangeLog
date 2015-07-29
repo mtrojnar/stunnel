@@ -1,5 +1,20 @@
 stunnel         Universal SSL tunnel
 
+Version 4.08, 2005.02.27, urgency: LOW:
+* New features
+  - New -quiet option was added to install NT service without a message box.
+* Bugfixes
+  - Using $(DESTDIR) in tools/Makefile.am.
+  - Define NI_NUMERICHOST and NI_NUMERICSERV when needed.
+  - Length of configuration file line increased from 256B to 16KB.
+  - Stunnel sends close_notify when a close_notify is received from SSL
+    peer and all remaining data is sent to SSL peer.
+  - Some fixes for bugs detected by the watchdog.
+* Release notes
+  - There were many changes in the transfer() function (the main loop).
+    This version should be thoroughly tested before using it in the
+    mission-critical environment.
+
 Version 4.07, 2005.01.03, urgency: MEDIUM:
 * Bugfixes
   - Problem with infinite poll() timeout negative, but not equal to -1 fixed.
@@ -9,8 +24,8 @@ Version 4.07, 2005.01.03, urgency: MEDIUM:
   - IP address and TCP port textual representation length (IPLEN) increased
     to 128 bytes.
   - OpenSSL engine support is only used if engine.h header file exists.
-  - Broken NT Service mode on WIN32 platform fixed.
-  - Support for IPv4-only WIN32 machines restored.
+  - Broken NT Service mode on Win32 platform fixed.
+  - Support for IPv4-only Win32 machines restored.
 
 Version 4.06, 2004.12.26, urgency: LOW:
 * New feature sponsored by SURFnet http://www.surfnet.nl/

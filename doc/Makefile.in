@@ -398,7 +398,7 @@ uninstall-man: uninstall-man8
 
 
 .pod.8:
-	pod2man --section=8 --release=4.07 --center=stunnel \
+	pod2man --section=8 --release=4.08 --center=stunnel \
 		--date=`date +%Y.%m.%d` $< $@
 
 stunnel.html: stunnel.pod

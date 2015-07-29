@@ -31,6 +31,8 @@
 #include "common.h"
 #include "prototypes.h"
 
+#define CONFLINELEN (16*1024)
+
 static int parse_debug_level(char *);
 static int parse_ssl_option(char *);
 static int print_socket_options(void);
@@ -989,21 +991,23 @@ static void syntax(char *confname) {
     log_raw(" ");
     log_raw("Syntax:");
 #ifdef USE_WIN32
-    log_raw("stunnel [filename] | -help | -version | -sockets"
-            " | -install | -uninstall");
+    log_raw("stunnel [ [-install | -uninstall] [-quiet] [<filename>] ]"
+        " | -help | -version | -sockets");
 #else
-    log_raw("stunnel [filename] | -fd [n] | -help | -version | -sockets");
+    log_raw("stunnel [<filename>] | -fd <n> | -help | -version | -sockets");
 #endif
-    log_raw("    filename    - use specified config file instead of %s",
+    log_raw("    <filename>  - use specified config file instead of %s",
         confname);
-    log_raw("    -fd n       - read the config file from specified file descriptor");
-    log_raw("    -help       - get config file help");
-    log_raw("    -version    - display version and defaults");
-    log_raw("    -sockets    - display default socket options");
 #ifdef USE_WIN32
     log_raw("    -install    - install NT service");
     log_raw("    -uninstall  - uninstall NT service");
+    log_raw("    -quiet      - don't display a message box on success");
+#else
+    log_raw("    -fd <n>     - read the config file from a file descriptor");
 #endif
+    log_raw("    -help       - get config file help");
+    log_raw("    -version    - display version and defaults");
+    log_raw("    -sockets    - display default socket options");
     exit(1);
 }
 
@@ -1014,7 +1018,7 @@ void parse_config(char *name, char *parameter) {
     char *default_config_file="stunnel.conf";
 #endif
     FILE *fp;
-    char line[STRLEN], *arg, *opt, *errstr, *filename;
+    char confline[CONFLINELEN], *arg, *opt, *errstr, *filename;
     int line_number, i;
     LOCAL_OPTIONS *section, *new_section;
     
@@ -1069,7 +1073,7 @@ void parse_config(char *name, char *parameter) {
         fp=fopen(name, "r");
         if(!fp) {
 #ifdef USE_WIN32
-            /* Win32 doesn't seem to set errno in fopen() */
+            /* fopen() does not return the error via GetLastError() on Win32 */
             log_raw("Failed to open configuration file %s", name);
 #else
             ioerror(name);
@@ -1079,14 +1083,14 @@ void parse_config(char *name, char *parameter) {
         filename=name;
     }
     line_number=0;
-    while(fgets(line, STRLEN, fp)) {
+    while(fgets(confline, CONFLINELEN, fp)) {
         line_number++;
-        opt=line;
+        opt=confline;
         while(isspace(*opt))
             opt++; /* remove initial whitespaces */
         for(i=strlen(opt)-1; i>=0 && isspace(opt[i]); i--)
             opt[i]='\0'; /* remove trailing whitespaces */
-        if(opt[0]=='\0' || opt[0]=='#' || opt[0]==';') /* empty line or comment */
+        if(opt[0]=='\0' || opt[0]=='#' || opt[0]==';') /* empty or comment */
             continue;
         if(opt[0]=='[' && opt[strlen(opt)-1]==']') { /* new section */
             errstr=section_validate(section);
@@ -1109,7 +1113,7 @@ void parse_config(char *name, char *parameter) {
             section=new_section;
             continue;
         }
-        arg=strchr(line, '=');
+        arg=strchr(confline, '=');
         if(!arg) {
             log_raw("file %s line %d: No '=' found", filename, line_number);
             exit(1);

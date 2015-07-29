@@ -43,6 +43,8 @@
 int unix_main(int, char *[]);
 
 /* Prototypes */
+static void parse_cmdline(LPSTR);
+static int set_cwd(void);
 static int load_ws2(char *);
 static void ThreadFunc(void *);
 static LRESULT CALLBACK wndProc(HWND, UINT, WPARAM, LPARAM);
@@ -55,7 +57,7 @@ static void set_visible(int);
 
 /* NT Service related function */
 static int start_service(void);
-static int install_service(void);
+static int install_service(LPTSTR);
 static int uninstall_service(void);
 static void WINAPI service_main(DWORD, LPTSTR *);
 static void WINAPI control_handler(DWORD);
@@ -73,7 +75,6 @@ static HMENU hpopup;
 static HWND hwnd=NULL;
 static HANDLE small_icon; /* 16x16 icon */
 
-static char service_path[MAX_PATH];
 static SERVICE_STATUS serviceStatus;
 static SERVICE_STATUS_HANDLE serviceStatusHandle=0;
 static HANDLE stopServiceEvent=0;
@@ -87,91 +88,120 @@ GETADDRINFO s_getaddrinfo=NULL;
 FREEADDRINFO s_freeaddrinfo=NULL;
 GETNAMEINFO s_getnameinfo=NULL;
 
+static struct {
+    char config_file[STRLEN];
+    unsigned int install, uninstall, service, quiet;
+} cmdline;
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     LPSTR lpszCmdLine, int nCmdShow) {
 
-    char exe_file_name[MAX_PATH], dir[MAX_PATH], *ptr;
     static struct WSAData wsa_state;
 
     ghInst=hInstance;
 
-    GetModuleFileName(0, exe_file_name, MAX_PATH);
-
-    /* set current directory */
-    strcpy(dir, exe_file_name);
-    ptr=strrchr(dir, '\\'); /* last backslash */
-    if(ptr)
-        ptr[1]='\0'; /* truncate program name */
-    if(!SetCurrentDirectory(dir)) {
-        MessageBox(hwnd, "Cannot set current directory",
-            options.win32_name, MB_ICONERROR);
+    parse_cmdline(lpszCmdLine); /* setup global cmdline structure */
+    if(set_cwd()) /* set current working directory */
         return 1;
-    }
-
-    /* setup service_path for CreateService() */
-    strcpy(service_path, "\"");
-    strcat(service_path, exe_file_name);
-    strcat(service_path, "\" -service");
-    /* strcat(service_path, lpszCmdLine); */
 
     if(WSAStartup(MAKEWORD( 2, 2 ), &wsa_state)) {
         MessageBox(hwnd, "Failed to initialize winsock",
-            options.win32_name, MB_ICONERROR);
+            "stunnel", MB_ICONERROR);
         return 1;
     }
-    if(!load_ws2("ws2_32.dll"))
+    if(load_ws2("ws2_32.dll"))
         load_ws2("wship6.dll");
 
-    if(!error_mode && !strcmpi(lpszCmdLine, "-service")) {
-        if(!setjmp(jump_buf))
-            main_initialize(NULL, NULL);
-        return start_service(); /* Always start service with -service option */
-    }
-
-    if(!error_mode && !setjmp(jump_buf)) { /* TRY */
-        if(!strcmpi(lpszCmdLine, "-install")) {
-            main_initialize(NULL, NULL);
-            return install_service();
-        } else if(!strcmpi(lpszCmdLine, "-uninstall")) {
-            main_initialize(NULL, NULL);
-            return uninstall_service();
-        } else { /* not -service, -install or -uninstall */
-            main_initialize(lpszCmdLine[0] ? lpszCmdLine : NULL, NULL);
+    if(!setjmp(jump_buf)) { /* TRY */
+        main_initialize(cmdline.config_file, NULL);
+        if(!cmdline.service) {
+            if(cmdline.install)
+                return install_service(lpszCmdLine);
+            if(cmdline.uninstall)
+                return uninstall_service();
         }
     }
 
     /* CATCH */
-    return win_main(hInstance, hPrevInstance, lpszCmdLine, nCmdShow);
+    if(cmdline.service)
+        return start_service();
+    else
+        return win_main(hInstance, hPrevInstance, lpszCmdLine, nCmdShow);
 }
 
-/* Try to load winsock2 resolver functions from a specified dll name */
+static void parse_cmdline(LPSTR lpszCmdLine) {
+    char line[STRLEN], *c, *opt;
+
+    safecopy(line, lpszCmdLine);
+    memset(&cmdline, 0, sizeof(cmdline));
+
+    c=line;
+    while(*c && (*c=='/' || *c=='-')) {
+        opt=c;
+        while(*c && !isspace(*c)) /* skip non-whitespaces */
+            c++;
+        while(*c && isspace(*c)) /* replace whitespaces with '\0' */
+            *c++='\0';
+        if(!strcmpi(opt+1, "install"))
+            cmdline.install=1;
+        else if(!strcmpi(opt+1, "uninstall"))
+            cmdline.uninstall=1;
+        else if(!strcmpi(opt+1, "service"))
+            cmdline.service=1;
+        else if(!strcmpi(opt+1, "quiet"))
+            cmdline.quiet=1;
+        else { /* option to be processed in options.c */
+            safecopy(cmdline.config_file, opt);
+            return; /* no need to parse other options */
+        }
+    }
+
+    if(*c) /* configuration file specified in the command line */
+        safecopy(cmdline.config_file, c);
+    else /* default configuration file name */
+        safecopy(cmdline.config_file, "stunnel.conf");
+}
+
+static int set_cwd(void) {
+    char *c, errmsg[STRLEN], exe_file_name[STRLEN];
+
+    GetModuleFileName(0, exe_file_name, STRLEN);
+    c=strrchr(exe_file_name, '\\'); /* last backslash */
+    if(c) /* found */
+        c[1]='\0'; /* truncate program name */
+    if(!SetCurrentDirectory(exe_file_name)) {
+        safecopy(errmsg, "Cannot set directory to ");
+        safeconcat(errmsg, exe_file_name);
+        MessageBox(hwnd, errmsg, "stunnel", MB_ICONERROR);
+        return 1;
+    }
+    return 0;
+}
+
+/* try to load winsock2 resolver functions from a specified dll name */
 static int load_ws2(char *name) {
     HINSTANCE handle;
     
     handle=LoadLibrary(name);
     if(!handle)
-        return 0;
-
+        return 1;
     s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
     if(!s_getaddrinfo) {
         FreeLibrary(handle);
-        return 0;
+        return 1;
     }
-
     s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
     if(!s_freeaddrinfo) {
         FreeLibrary(handle);
-        return 0;
+        return 1;
     }
-
     s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
     if(!s_getnameinfo) {
         FreeLibrary(handle);
-        return 0;
+        return 1;
     }
-
     FreeLibrary(handle);
-    return 1;
+    return 0; /* OK */
 }
 
 static int win_main(HINSTANCE hInstance, HINSTANCE hPrevInstance,
@@ -616,8 +646,9 @@ static int start_service(void) {
     return 0; /* NT service started */
 }
 
-static int install_service(void) {
+static int install_service(LPSTR lpszCmdLine) {
     SC_HANDLE scm, service;
+    char exe_file_name[STRLEN], service_path[STRLEN];
 
     scm=OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
     if(!scm) {
@@ -625,6 +656,11 @@ static int install_service(void) {
             options.win32_name, MB_ICONERROR);
         return 1;
     }
+    GetModuleFileName(0, exe_file_name, STRLEN);
+    safecopy(service_path, "\"");
+    safeconcat(service_path, exe_file_name);
+    safeconcat(service_path, "\" -service ");
+    safeconcat(service_path, lpszCmdLine);
     service=CreateService(scm,
         options.win32_service, options.win32_service, SERVICE_ALL_ACCESS,
         SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
@@ -636,8 +672,9 @@ static int install_service(void) {
         CloseServiceHandle(scm);
         return 1;
     }
-    MessageBox(hwnd, "Service installed", options.win32_name,
-        MB_ICONINFORMATION);
+    if(!cmdline.quiet)
+        MessageBox(hwnd, "Service installed", options.win32_name,
+            MB_ICONINFORMATION);
     CloseServiceHandle(service);
     CloseServiceHandle(scm);
     return 0;
@@ -682,8 +719,9 @@ static int uninstall_service(void) {
         CloseServiceHandle(scm);
         return 1;
     }
-    MessageBox(hwnd, "Service uninstalled", options.win32_name,
-        MB_ICONINFORMATION);
+    if(!cmdline.quiet)
+        MessageBox(hwnd, "Service uninstalled", options.win32_name,
+            MB_ICONINFORMATION);
     CloseServiceHandle(service);
     CloseServiceHandle(scm);
     return 0;

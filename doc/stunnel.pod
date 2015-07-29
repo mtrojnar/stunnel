@@ -9,11 +9,12 @@ stunnel - universal SSL tunnel
 
 =item B<Unix:>
 
-B<stunnel> S<[filename]> | S<-fd [n]> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [<S<filename>>] | S<-fd n> | S<-help> | S<-version> | S<-sockets>
 
 =item B<WIN32:>
 
-B<stunnel> S<[filename]> | S<-install> | S<-uninstall> | S<-help> | S<-version> | S<-sockets>
+B<stunnel> [ [S<-install> | S<-uninstall>] [S<-quiet>] [<S<filename>>] ]
+    | S<-help> | S<-version> | S<-sockets>
 
 =back
 
@@ -39,11 +40,11 @@ Eric Young (eay@cryptsoft.com)
 
 =over 4
 
-=item B<[filename]>
+=item <B<filename>>
 
 Use specified configuration file
 
-=item B<-fd [n]> (Unix only)
+=item B<-fd n> (Unix only)
 
 Read the config file from specified file descriptor
 
@@ -66,6 +67,10 @@ Install NT Service
 =item B<-uninstall> (NT/2000/XP only)
 
 Uninstall NT Service
+
+=item B<-quiet> (NT/2000/XP only)
+
+Don't display a message box when successfully installed or uninstalled NT service
 
 =back
 

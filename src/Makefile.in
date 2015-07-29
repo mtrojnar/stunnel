@@ -71,8 +71,8 @@ sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(sbin_PROGRAMS)
 am__objects_2 =
 am__objects_3 = client.$(OBJEXT) log.$(OBJEXT) options.$(OBJEXT) \
-	protocol.$(OBJEXT) network.$(OBJEXT) ssl.$(OBJEXT) \
-	sthreads.$(OBJEXT) stunnel.$(OBJEXT)
+	protocol.$(OBJEXT) network.$(OBJEXT) resolver.$(OBJEXT) \
+	ssl.$(OBJEXT) sthreads.$(OBJEXT) stunnel.$(OBJEXT)
 am__objects_4 = pty.$(OBJEXT)
 am_stunnel_OBJECTS = $(am__objects_2) $(am__objects_3) \
 	$(am__objects_4)
@@ -205,7 +205,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 common_headers = common.h prototypes.h
 common_sources = client.c log.c options.c protocol.c \
-    network.c ssl.c sthreads.c stunnel.c
+    network.c resolver.c ssl.c sthreads.c stunnel.c
 
 unix_sources = pty.c
 shared_sources = env.c
@@ -232,7 +232,7 @@ WINCFLAGS = -O2 -Wall -I$(OPENSSLDIR)/outinc \
 
 WINLIBS = -L$(OPENSSLDIR)/out -leay32 -lssl32 -lws2_32 -lgdi32 -mwindows
 WINOBJ = client.obj log.obj options.obj protocol.obj network.obj \
-    ssl.obj sthreads.obj stunnel.obj gui.obj resources.obj
+    resolver.obj ssl.obj sthreads.obj stunnel.obj gui.obj resources.obj
 
 WINGCC = i586-mingw32msvc-gcc
 WINDRES = i586-mingw32msvc-windres
@@ -366,6 +366,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protocol.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pty.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resolver.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sthreads.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel.Po@am__quote@

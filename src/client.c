@@ -63,6 +63,7 @@ static int init_local(CLI *);
 static int init_remote(CLI *);
 static int init_ssl(CLI *);
 static int transfer(CLI *);
+static int parse_socket_error(const char *);
 static void cleanup(CLI *, int);
 
 static void print_cipher(CLI *);
@@ -342,25 +343,33 @@ static int init_ssl(CLI *c) {
     return 0; /* OK */
 }
 
-/* open file descriptors for transfer() */
+/****************************** some defines for transfer() */
+/* is socket/SSL open for read/write? */
 #define sock_rd (c->sock_rfd->rd)
 #define sock_wr (c->sock_wfd->wr)
 #define ssl_rd  (c->ssl_rfd->rd)
 #define ssl_wr  (c->ssl_wfd->wr)
-
-/* ready file descriptors for transfer() */
+/* is socket/SSL ready for read/write? */
 #define sock_can_rd (s_poll_canread(&fds, c->sock_rfd->fd))
 #define sock_can_wr (s_poll_canwrite(&fds, c->sock_wfd->fd))
 #define ssl_can_rd  (s_poll_canread(&fds, c->ssl_rfd->fd))
 #define ssl_can_wr  (s_poll_canwrite(&fds, c->ssl_wfd->fd))
+/* NOTE: above defines are related to the logical data stream,
+ * no longer to the underlying file descriptors */
+/* does the underlaying file descriptor want to read/write? */
+#define want_rd     (SSL_want_read(c->ssl))
+#define want_wr     (SSL_want_write(c->ssl))
 
-static int transfer(CLI *c) { /* transfer data */
+/****************************** transfer data */
+static int transfer(CLI *c) {
     s_poll_set fds;
     int num, err;
     int check_SSL_pending;
     int ssl_closing=0;
-        /* 0=not closing SSL, 1=initiate SSL_shutdown,
-         * 2=retry SSL_shutdown, 3=SSL_shutdown done */
+        /* 0 = not closing SSL,
+         * 1 = need to initiate SSL_shutdown,
+         * 2 = need to retry SSL_shutdown,
+         * 3 = SSL closed */
     int watchdog=0; /* a counter to detect an infinite loop */
 
     c->sock_ptr=c->ssl_ptr=0;
@@ -368,34 +377,30 @@ static int transfer(CLI *c) { /* transfer data */
     c->sock_bytes=c->ssl_bytes=0;
 
     while(((sock_rd||c->sock_ptr)&&ssl_wr)||((ssl_rd||c->ssl_ptr)&&sock_wr)) {
-        s_poll_zero(&fds); /* Initialize the structure */
+        /* set flag to try and read any buffered SSL data
+         * if we made room in the buffer by writing to the socket */
+        check_SSL_pending=0;
 
+        /****************************** setup fds structure */
+        s_poll_zero(&fds); /* Initialize the structure */
         if(sock_rd && c->sock_ptr<BUFFSIZE) /* socket input buffer not full*/
             s_poll_add(&fds, c->sock_rfd->fd, 1, 0);
-        if(ssl_rd && (
-                c->ssl_ptr<BUFFSIZE || /* SSL input buffer not full */
-                ((c->sock_ptr||ssl_closing) && SSL_want_read(c->ssl))
-                /* I want to SSL_write or SSL_shutdown but read from the
+        if((ssl_rd && c->ssl_ptr<BUFFSIZE) /* SSL input buffer not full */ ||
+                ((c->sock_ptr || ssl_closing==2) && want_rd))
+                /* want to SSL_write or SSL_shutdown but read from the
                  * underlying socket needed for the SSL protocol */
-                )) {
             s_poll_add(&fds, c->ssl_rfd->fd, 1, 0);
-        }
-
         if(sock_wr && c->ssl_ptr) /* SSL input buffer not empty */
             s_poll_add(&fds, c->sock_wfd->fd, 0, 1);
-        if (ssl_wr && (
-                c->sock_ptr || /* socket input buffer not empty */
-                ssl_closing==1 || /* initiate SSL_shutdown */
-                ((c->ssl_ptr<BUFFSIZE || ssl_closing==2) &&
-                    SSL_want_write(c->ssl))
-                /* I want to SSL_read or SSL_shutdown but write to the
+        if((ssl_wr && c->sock_ptr) /* socket input buffer not empty */ ||
+                ssl_closing==1 /* need to send close_notify */ ||
+                ((c->ssl_ptr<BUFFSIZE || ssl_closing==2) && want_wr))
+                /* want to SSL_read or SSL_shutdown but write to the
                  * underlying socket needed for the SSL protocol */
-                )) {
             s_poll_add(&fds, c->ssl_wfd->fd, 0, 1);
-        }
 
-        switch(s_poll_wait(&fds,
-            sock_rd || (ssl_wr&&c->sock_ptr) || (sock_wr&&c->ssl_ptr) ?
+        /****************************** wait for an event */
+        switch(s_poll_wait(&fds, sock_rd && sock_wr && ssl_rd && ssl_wr ?
             c->opt->timeout_idle : c->opt->timeout_close)) {
         case -1:
             sockerror("s_poll_wait");
@@ -411,16 +416,13 @@ static int transfer(CLI *c) { /* transfer data */
             }
         }
 
-        if(ssl_closing==1 /* initiate SSL_shutdown */ || (ssl_closing==2 && (
-                (SSL_want_read(c->ssl) && ssl_can_rd) ||
-                (SSL_want_write(c->ssl) && ssl_can_wr)
-                ))) {
+        /****************************** send SSL close_notify message */
+        if(ssl_closing==1 || (ssl_closing==2 &&
+                ((want_rd && ssl_can_rd) || (want_wr && ssl_can_wr)))) {
             switch(SSL_shutdown(c->ssl)) { /* Send close_notify */
             case 1: /* the shutdown was successfully completed */
                 s_log(LOG_INFO, "SSL_shutdown successfully sent close_notify");
-                ssl_wr=0; /* SSL write closed */
-                /* TODO: It's not really closed.  We need to distinguish
-                 * closed SSL and closed underlying file descriptor */
+                ssl_wr=0; /* close_notify sent: SSL write closed */
                 ssl_closing=3; /* done! */
                 break;
             case 0: /* the shutdown is not yet finished */
@@ -433,87 +435,55 @@ static int transfer(CLI *c) { /* transfer data */
             }
         }
 
-        /* Set flag to try and read any buffered SSL data if we made */
-        /* room in the buffer by writing to the socket */
-        check_SSL_pending = 0;
-
+        /****************************** write to socket */
         if(sock_wr && sock_can_wr) {
-            switch(num=writesocket(c->sock_wfd->fd, c->ssl_buff, c->ssl_ptr)) {
+            num=writesocket(c->sock_wfd->fd, c->ssl_buff, c->ssl_ptr);
+            switch(num) {
             case -1: /* error */
-                switch(get_last_socket_error()) {
-                case EINTR:
-                    s_log(LOG_DEBUG,
-                        "writesocket interrupted by a signal: retrying");
-                    break;
-                case EWOULDBLOCK:
-                    s_log(LOG_NOTICE, "writesocket would block: retrying");
-                    break;
-                default:
-                    sockerror("writesocket");
+                if(parse_socket_error("writesocket"))
                     return -1;
-                }
                 break;
             case 0:
                 s_log(LOG_DEBUG, "No data written to the socket: retrying");
                 break;
             default:
                 memmove(c->ssl_buff, c->ssl_buff+num, c->ssl_ptr-num);
-                if(c->ssl_ptr==BUFFSIZE)
-                    check_SSL_pending=1;
+                if(c->ssl_ptr==BUFFSIZE) /* buffer was previously full */
+                    check_SSL_pending=1; /* check for data buffered by SSL */
                 c->ssl_ptr-=num;
                 c->sock_bytes+=num;
                 watchdog=0; /* reset watchdog */
-                if(!ssl_rd && !c->ssl_ptr) {
-                    shutdown(c->sock_wfd->fd, SHUT_WR);
-                    s_log(LOG_DEBUG,
-                        "Socket write shutdown (no more data to send)");
-                    sock_wr=0;
-                }
             }
         }
 
-        if(ssl_wr && ( /* SSL sockets are still open */
+        /****************************** write to SSL */
+        if(ssl_wr && ( /* SSL is open for write */
                 (c->sock_ptr && ssl_can_wr) ||
-                /* See if application data can be written */
-                (SSL_want_read(c->ssl) && ssl_can_rd)
-                /* I want to SSL_write but read from the underlying */
-                /* socket needed for the SSL protocol */
+                /* application data can be written */
+                (want_rd && ssl_can_rd)
+                /* SSL_write wants to read from the underlying descriptor */
                 )) {
             num=SSL_write(c->ssl, c->sock_buff, c->sock_ptr);
-
             switch(err=SSL_get_error(c->ssl, num)) {
             case SSL_ERROR_NONE:
                 memmove(c->sock_buff, c->sock_buff+num, c->sock_ptr-num);
                 c->sock_ptr-=num;
                 c->ssl_bytes+=num;
                 watchdog=0; /* reset watchdog */
-                if(!ssl_closing && !sock_rd && !c->sock_ptr && ssl_wr) {
-                    s_log(LOG_DEBUG,
-                        "SSL write shutdown (no more data to send)");
-                    ssl_closing=1;
-                }
                 break;
             case SSL_ERROR_WANT_WRITE:
-            case SSL_ERROR_WANT_READ:
-            case SSL_ERROR_WANT_X509_LOOKUP:
-                s_log(LOG_DEBUG, "SSL_write returned WANT_: retrying");
+                s_log(LOG_DEBUG, "SSL_write returned WANT_WRITE: retrying");
                 break;
-            case SSL_ERROR_SYSCALL:
-                if(num<0) { /* really an error */
-                    switch(get_last_socket_error()) {
-                    case EINTR:
-                        s_log(LOG_DEBUG,
-                            "SSL_write interrupted by a signal: retrying");
-                        break;
-                    case EAGAIN:
-                        s_log(LOG_DEBUG,
-                            "SSL_write returned EAGAIN: retrying");
-                        break;
-                    default:
-                        sockerror("SSL_write (ERROR_SYSCALL)");
-                        return -1;
-                    }
-                }
+            case SSL_ERROR_WANT_READ:
+                s_log(LOG_DEBUG, "SSL_write returned WANT_READ: retrying");
+                break;
+            case SSL_ERROR_WANT_X509_LOOKUP:
+                s_log(LOG_DEBUG,
+                    "SSL_write returned WANT_X509_LOOKUP: retrying");
+                break;
+            case SSL_ERROR_SYSCALL: /* really an error */
+                if(num && parse_socket_error("SSL_write"))
+                    return -1;
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
                 s_log(LOG_DEBUG, "SSL closed on SSL_write");
@@ -528,31 +498,18 @@ static int transfer(CLI *c) { /* transfer data */
             }
         }
 
+        /****************************** read from socket */
         if(sock_rd && sock_can_rd) {
-            switch(num=readsocket(c->sock_rfd->fd,
-                c->sock_buff+c->sock_ptr, BUFFSIZE-c->sock_ptr)) {
+            num=readsocket(c->sock_rfd->fd,
+                c->sock_buff+c->sock_ptr, BUFFSIZE-c->sock_ptr);
+            switch(num) {
             case -1:
-                switch(get_last_socket_error()) {
-                case EINTR:
-                    s_log(LOG_DEBUG,
-                        "readsocket interrupted by a signal: retrying");
-                    break;
-                case EWOULDBLOCK:
-                    s_log(LOG_NOTICE, "readsocket would block: retrying");
-                    break;
-                default:
-                    sockerror("readsocket");
+                if(parse_socket_error("readsocket"))
                     return -1;
-                }
                 break;
             case 0: /* close */
                 s_log(LOG_DEBUG, "Socket closed on read");
                 sock_rd=0;
-                if(!ssl_closing && !c->sock_ptr && ssl_wr) {
-                    s_log(LOG_DEBUG,
-                        "SSL write shutdown (output buffer empty)");
-                    ssl_closing=1;
-                }
                 break;
             default:
                 c->sock_ptr+=num;
@@ -560,61 +517,42 @@ static int transfer(CLI *c) { /* transfer data */
             }
         }
 
-        if(ssl_rd && ( /* SSL sockets are still open */
+        /****************************** read from SSL */
+        if(ssl_rd && ( /* SSL is open for read */
                 (c->ssl_ptr<BUFFSIZE && ssl_can_rd) ||
-                /* See if there's any application data coming in */
-                (SSL_want_write(c->ssl) && ssl_can_wr) ||
-                /* I want to SSL_read but write to the underlying */
-                /* socket needed for the SSL protocol */
+                /* there's any application data coming in */
+                (want_wr && ssl_can_wr) ||
+                /* SSL_read wants to write to the underlying descriptor */
                 (check_SSL_pending && SSL_pending(c->ssl))
-                /* Write made space from full buffer */
+                /* write made space from full buffer */
                 )) {
             num=SSL_read(c->ssl, c->ssl_buff+c->ssl_ptr, BUFFSIZE-c->ssl_ptr);
-
             switch(err=SSL_get_error(c->ssl, num)) {
             case SSL_ERROR_NONE:
                 c->ssl_ptr+=num;
                 watchdog=0; /* reset watchdog */
                 break;
             case SSL_ERROR_WANT_WRITE:
+                s_log(LOG_DEBUG, "SSL_read returned WANT_WRITE: retrying");
+                break;
             case SSL_ERROR_WANT_READ:
+                s_log(LOG_DEBUG, "SSL_read returned WANT_READ: retrying");
+                break;
             case SSL_ERROR_WANT_X509_LOOKUP:
-                s_log(LOG_DEBUG, "SSL_read returned WANT_: retrying");
+                s_log(LOG_DEBUG,
+                    "SSL_read returned WANT_X509_LOOKUP: retrying");
                 break;
             case SSL_ERROR_SYSCALL:
-                if(num<0) { /* not EOF */
-                    switch(get_last_socket_error()) {
-                    case EINTR:
-                        s_log(LOG_DEBUG,
-                            "SSL_read interrupted by a signal: retrying");
-                        break;
-                    case EAGAIN:
-                        s_log(LOG_DEBUG,
-                            "SSL_read returned EAGAIN: retrying");
-                        break;
-                    default:
-                        sockerror("SSL_read (ERROR_SYSCALL)");
-                        return -1;
-                    }
-                } else { /* EOF */
+                if(!num) { /* EOF */
                     s_log(LOG_DEBUG, "SSL socket closed on SSL_read");
-                    ssl_rd=ssl_wr=0;
-                }
+                    ssl_rd=ssl_wr=0; /* buggy peer didn't send close_notify */
+                    ssl_closing=3; /* don't try to send it back */
+                } else if(parse_socket_error("SSL_read"))
+                    return -1;
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify received */
                 s_log(LOG_DEBUG, "SSL closed on SSL_read");
                 ssl_rd=0;
-                if(!ssl_closing && !c->sock_ptr && ssl_wr) {
-                    s_log(LOG_DEBUG,
-                        "SSL write shutdown (output buffer empty)");
-                    ssl_closing=1;
-                }
-                if(!c->ssl_ptr && sock_wr) {
-                    shutdown(c->sock_wfd->fd, SHUT_WR);
-                    s_log(LOG_DEBUG,
-                        "Socket write shutdown (output buffer empty)");
-                    sock_wr=0;
-                }
                 break;
             case SSL_ERROR_SSL:
                 sslerror("SSL_read");
@@ -625,26 +563,61 @@ static int transfer(CLI *c) { /* transfer data */
             }
         }
 
-        if(++watchdog>1000) { /* loop executes not transferring any data */
+        /****************************** check write shutdown conditions */
+        if(sock_wr && !ssl_rd && !c->ssl_ptr) {
+            s_log(LOG_DEBUG, "Socket write shutdown");
+            shutdown(c->sock_wfd->fd, SHUT_WR);
+            sock_wr=0;
+        }
+        if(!ssl_closing && (!sock_rd || SSL_get_shutdown(c->ssl)) &&
+                !c->sock_ptr) {
+            s_log(LOG_DEBUG, "SSL write shutdown");
+            ssl_closing=1;
+        }
+
+        /****************************** check watchdog */
+        if(++watchdog>1000) { /* loop executes without transferring any data */
             s_log(LOG_ERR,
                 "transfer() loop executes not transferring any data");
             s_log(LOG_ERR,
                 "please report the problem to Michal.Trojnara@mirt.net");
-            s_log(LOG_ERR, "socket open rd=%s wr=%s, ssl open rd=%s wr=%s",
+            s_log(LOG_ERR, "socket open: rd=%s wr=%s, ssl open: rd=%s wr=%s",
                 sock_rd ? "yes" : "no", sock_wr ? "yes" : "no",
                 ssl_rd ? "yes" : "no", ssl_wr ? "yes" : "no");
-            s_log(LOG_ERR, "socket ready rd=%s wr=%s, ssl ready rd=%s wr=%s",
+            s_log(LOG_ERR, "socket ready: rd=%s wr=%s, ssl ready: rd=%s wr=%s",
                 sock_can_rd ? "yes" : "no", sock_can_wr ? "yes" : "no",
                 ssl_can_rd ? "yes" : "no", ssl_can_wr ? "yes" : "no");
+            s_log(LOG_ERR, "ssl want: rd=%s wr=%s",
+                want_rd ? "yes" : "no", want_wr ? "yes" : "no");
+            s_log(LOG_ERR, "socket write buffer: %d byte(s), "
+                "ssl write buffer: %d byte(s)", c->sock_ptr, c->ssl_ptr);
             s_log(LOG_ERR, "check_SSL_pending=%d, ssl_closing=%d",
                 check_SSL_pending, ssl_closing);
-
             return -1;
         }
 
-    } /* while */
+    } /* while loop */
 
     return 0; /* OK */
+}
+
+static int parse_socket_error(const char *text) {
+    switch(get_last_socket_error()) {
+    case EINTR:
+        s_log(LOG_DEBUG, "%s interrupted by a signal: retrying", text);
+        return 0;
+    case EWOULDBLOCK:
+        s_log(LOG_NOTICE, "%s would block: retrying", text);
+        return 0;
+#if EWOULDBLOCK!=EAGAIN
+    case EAGAIN:
+        s_log(LOG_DEBUG, "%s temporary lack of resources: retrying", text);
+        return 0;
+#endif
+    default:
+        sockerror(text);
+        return -1;
+    }
 }
 
 static void cleanup(CLI *c, int error) {
