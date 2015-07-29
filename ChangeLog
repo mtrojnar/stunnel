@@ -1,5 +1,14 @@
 stunnel         Universal SSL tunnel
 
+Version 4.20, 2006.11.30, urgency: MEDIUM:
+* Release notes
+  - The new transfer() function has been well tested.
+    I recommend upgrading any previous version with this one.
+* Bugfixes
+  - Fixed support for encrypted passphases (broken in 4.19).
+  - Reduced amount of debug logs.
+  - A minor man page update.
+
 Version 4.19, 2006.11.11, urgency: LOW/EXPERIMENTAL:
 * Release notes
   - There are a lot of new features in this version.  I recommend

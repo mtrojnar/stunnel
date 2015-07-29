@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL.PL 8"
-.TH STUNNEL.PL 8 "2006.11.11" "4.08" "stunnel"
+.TH STUNNEL.PL 8 "2006.11.15" "4.08" "stunnel"
 .SH "NAZWA"
 .IX Header "NAZWA"
 stunnel \- uniwersalny tunel protoko³u \s-1SSL\s0
@@ -680,14 +680,7 @@ Najprostsz± metod± uzyskania certyfikatu jest wygenerowanie
 go przy pomocy wolnego pakietu \fIOpenSSL\fR.  Wiêcej informacji na temat
 generowania certyfikatów mo¿na znale¼æ na umieszczonych poni¿ej stronach.
 .PP
-Przy generowaniu par certyfikat-klucz dla programu \fBstunnel\fR istotne
-s± dwie kwestie.  Po pierwsze klucz prywatny nie mo¿e byæ zaszyfrowany,
-poniewa¿ startuj±cy serwer nie ma w ogólnym przypadku mo¿liwo¶ci
-uzyskania has³a od u¿ytkownika.  Do wytworzenia niezaszyfrowanego
-klucza nale¿y przy uruchamianiu komendy \fIopenssl req\fR
-podaæ jej parametr \fI\-nodes\fR.
-.PP
-Drug± istotn± kwesti± jest kolejno¶æ zawarto¶ci pliku \fI.pem\fR.
+Istotn± kwesti± jest kolejno¶æ zawarto¶ci pliku \fI.pem\fR.
 W pierwszej kolejno¶ci powinien on zawieraæ klucz prywatny,
 a dopiero za nim podpisany certyfikat (nie ¿±danie certyfikatu).
 Po certyfikacie i kluczu prywatnym powinny znajdowaæ siê puste linie.

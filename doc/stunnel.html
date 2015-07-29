@@ -813,15 +813,9 @@ to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
 generate them with the free <em>OpenSSL</em> package. You can find more
 information on certificates generation on pages listed below.</p>
-<p>Two things are important when generating certificate-key pairs for
-<strong>stunnel</strong>. The private key cannot be encrypted, because the server
-has no way to obtain the password from the user. To produce an
-unencrypted key add the <em>-nodes</em> option when running the <strong>req</strong>
-command from the <em>OpenSSL</em> kit.</p>
-<p>The order of contents of the <em>.pem</em> file is also important.
-It should contain the unencrypted private key first, then a signed certificate
-(not certificate request).
-There should be also empty lines after certificate and private key.
+<p>The order of contents of the <em>.pem</em> file is important.  It should contain the
+unencrypted private key first, then a signed certificate (not certificate
+request).  There should be also empty lines after certificate and private key.
 Plaintext certificate information appended on the top of generated certificate
 should be discarded. So the file should look like this:</p>
 <pre>

@@ -273,12 +273,12 @@ static void load_certificate(LOCAL_OPTIONS *section) {
 #endif
 #ifdef HAVE_OSSL_ENGINE_H
     if(section->engine)
-        for(i=0; i<3; i++) {
+        for(i=1; i<=3; i++) {
             pkey=ENGINE_load_private_key(section->engine, section->key,
                 uim, &ui_data);
             if(!pkey) {
                 reason=ERR_GET_REASON(ERR_peek_error());
-                if(i<2 && (reason==7 || reason==160)) { /* wrong PIN */
+                if(i<=2 && (reason==7 || reason==160)) { /* wrong PIN */
                     sslerror_stack(); /* dump the error stack */
                     s_log(LOG_ERR, "Wrong PIN: retrying");
                     continue;
@@ -293,7 +293,7 @@ static void load_certificate(LOCAL_OPTIONS *section) {
         }
     else
 #endif
-        for(i=0; i<4; i++) {
+        for(i=0; i<=3; i++) {
             if(!i && !cache_initialized)
                 continue; /* there is no cached value */
             SSL_CTX_set_default_passwd_cb_userdata(section->ctx,
@@ -307,7 +307,7 @@ static void load_certificate(LOCAL_OPTIONS *section) {
 #endif /* NO_RSA */
                 break;
             reason=ERR_GET_REASON(ERR_peek_error());
-            if(i<2 && reason==EVP_R_BAD_DECRYPT) {
+            if(i<=2 && reason==EVP_R_BAD_DECRYPT) {
                 sslerror_stack(); /* dump the error stack */
                 s_log(LOG_ERR, "Wrong pass phrase: retrying");
                 continue;
@@ -337,7 +337,7 @@ static int cache_cb(char *buf, int size, int rwflag, void *userdata) {
 #ifdef USE_WIN32
         len=passwd_cb(buf, size, rwflag, userdata);
 #else
-        len=PEM_def_callback(buf, size, rwflag, userdata);
+        len=PEM_def_callback(buf, size, rwflag, NULL);
 #endif
         memcpy(cache, buf, size); /* save in cache */
         cache_initialized=1;

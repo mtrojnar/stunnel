@@ -36,9 +36,6 @@
 /* I/O buffer size */
 #define BUFFSIZE        2048
 
-/* Length of strings (including the terminating '\0' character) */
-#define STRLEN          128
-
 #else /* OPTIMIZE_SCALABILITY */
 
 /* CPU stack size */
@@ -47,10 +44,11 @@
 /* I/O buffer size */
 #define BUFFSIZE        16384
 
-/* Length of strings (including the terminating '\0' character) */
-#define STRLEN          256
-
 #endif /* OPTIMIZE_SCALABILITY */
+
+/* Length of strings (including the terminating '\0' character) */
+/* It can't be lower than 256 bytes or NTLM authentication will break */
+#define STRLEN          256
 
 /* IP address and TCP port textual representation length */
 #define IPLEN           128

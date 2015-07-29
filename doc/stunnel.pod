@@ -607,16 +607,9 @@ data. The easiest way to obtain a certificate and a key is to
 generate them with the free I<OpenSSL> package. You can find more
 information on certificates generation on pages listed below.
 
-Two things are important when generating certificate-key pairs for
-B<stunnel>. The private key cannot be encrypted, because the server
-has no way to obtain the password from the user. To produce an
-unencrypted key add the I<-nodes> option when running the B<req>
-command from the I<OpenSSL> kit.
-
-The order of contents of the I<.pem> file is also important.
-It should contain the unencrypted private key first, then a signed certificate
-(not certificate request).
-There should be also empty lines after certificate and private key.
+The order of contents of the I<.pem> file is important.  It should contain the
+unencrypted private key first, then a signed certificate (not certificate
+request).  There should be also empty lines after certificate and private key.
 Plaintext certificate information appended on the top of generated certificate
 should be discarded. So the file should look like this:
 

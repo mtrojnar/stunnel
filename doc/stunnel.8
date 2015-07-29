@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "STUNNEL 8"
-.TH STUNNEL 8 "2006.11.11" "4.08" "stunnel"
+.TH STUNNEL 8 "2006.11.15" "4.08" "stunnel"
 .SH "NAME"
 stunnel \- universal SSL tunnel
 .SH "SYNOPSIS"
@@ -641,16 +641,9 @@ data. The easiest way to obtain a certificate and a key is to
 generate them with the free \fIOpenSSL\fR package. You can find more
 information on certificates generation on pages listed below.
 .PP
-Two things are important when generating certificate-key pairs for
-\&\fBstunnel\fR. The private key cannot be encrypted, because the server
-has no way to obtain the password from the user. To produce an
-unencrypted key add the \fI\-nodes\fR option when running the \fBreq\fR
-command from the \fIOpenSSL\fR kit.
-.PP
-The order of contents of the \fI.pem\fR file is also important.
-It should contain the unencrypted private key first, then a signed certificate
-(not certificate request).
-There should be also empty lines after certificate and private key.
+The order of contents of the \fI.pem\fR file is important.  It should contain the
+unencrypted private key first, then a signed certificate (not certificate
+request).  There should be also empty lines after certificate and private key.
 Plaintext certificate information appended on the top of generated certificate
 should be discarded. So the file should look like this:
 .PP

@@ -851,13 +851,7 @@ odpowiadaj±cy certyfikatowi klucz prywatny.
 Najprostsz± metod± uzyskania certyfikatu jest wygenerowanie
 go przy pomocy wolnego pakietu <em>OpenSSL</em>.  Wiêcej informacji na temat
 generowania certyfikatów mo¿na znale¼æ na umieszczonych poni¿ej stronach.</p>
-<p>Przy generowaniu par certyfikat-klucz dla programu <strong>stunnel</strong> istotne
-s± dwie kwestie.  Po pierwsze klucz prywatny nie mo¿e byæ zaszyfrowany,
-poniewa¿ startuj±cy serwer nie ma w ogólnym przypadku mo¿liwo¶ci
-uzyskania has³a od u¿ytkownika.  Do wytworzenia niezaszyfrowanego
-klucza nale¿y przy uruchamianiu komendy <em>openssl req</em>
-podaæ jej parametr <em>-nodes</em>.</p>
-<p>Drug± istotn± kwesti± jest kolejno¶æ zawarto¶ci pliku <em>.pem</em>.
+<p>Istotn± kwesti± jest kolejno¶æ zawarto¶ci pliku <em>.pem</em>.
 W pierwszej kolejno¶ci powinien on zawieraæ klucz prywatny,
 a dopiero za nim podpisany certyfikat (nie ¿±danie certyfikatu).
 Po certyfikacie i kluczu prywatnym powinny znajdowaæ siê puste linie.

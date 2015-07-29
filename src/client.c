@@ -516,8 +516,7 @@ static void transfer(CLI *c) {
                 c->ssl_bytes+=num;
                 watchdog=0; /* reset watchdog */
                 break;
-            case SSL_ERROR_WANT_WRITE:
-                s_log(LOG_DEBUG, "SSL_write returned WANT_WRITE: retrying");
+            case SSL_ERROR_WANT_WRITE: /* nothing unexpected */
                 break;
             case SSL_ERROR_WANT_READ:
                 s_log(LOG_DEBUG, "SSL_write returned WANT_READ: retrying");
@@ -587,8 +586,7 @@ static void transfer(CLI *c) {
                 s_log(LOG_DEBUG, "SSL_read returned WANT_WRITE: retrying");
                 SSL_read_wants_write=1;
                 break;
-            case SSL_ERROR_WANT_READ:
-                s_log(LOG_DEBUG, "SSL_read returned WANT_READ: retrying");
+            case SSL_ERROR_WANT_READ: /* nothing unexpected */
                 break;
             case SSL_ERROR_WANT_X509_LOOKUP:
                 s_log(LOG_DEBUG,
