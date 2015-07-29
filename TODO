@@ -3,29 +3,30 @@ stunnel TODO
 
 High priority features.  They will likely be supported some day.
 A sponsor could allocate my time to get them faster.
-* Implement reference counting to deallocate the SERVICE_OPTIONS structure
-  after the configuration file is reloaded *and* old connections are closed.
-* Add '-status' command line option reporting the number of clients connected
-  to each service.
-* Add 'leastconn' failover strategy to order defined 'connect' targets
-  by the number of active connections.
-* Command-line server control interface on both Unix and Windows.
-* Separate GUI process running as current user on Windows.
 * Optional line-buffering of the log file.
-* etc/stunnel/conf.d/* files automatically processed while reading
-  etc/stunnel/stunnel.conf
-* Android GUI.
-* Indirect CRL support (RFC 3280, section 5).
 * Configuration file option to limit the number of concurrent connections.
 * SOCKS 4 protocol support.
   http://archive.socks.permeo.com/protocol/socks4.protocol
-
-Low priority features.  They will unlikely ever be supported.
+* Implement reference counting of the SERVICE_OPTIONS structure
+  - Add 'leastconn' failover strategy to order defined 'connect' targets
+    by the number of active connections.
+  - Add '-status' command line option reporting the number of clients
+    connected to each service.
+  - Deallocate SERVICE_OPTIONS structure when the configuration file
+    is reloaded *and* old connections are closed.
+* Command-line server control interface on both Unix and Windows.
+* Separate GUI process running as current user on Windows.
+* etc/stunnel/conf.d/* files automatically processed while reading
+  etc/stunnel/stunnel.conf
+* An Android GUI.
+* Indirect CRL support (RFC 3280, section 5).
 * Provide 64-bit Windows builds (besides 32-bit builds).
   This requires either Microsoft Visual Studio Standard Edition or Microsoft
   Visual Studio Professional Edition in order to retain FIPS compliance.
+* MSI installer for Windows.
+
+Low priority features.  They will unlikely ever be supported.
 * Support static FIPS-enabled build.
-* Perform protocol negotiations after SSL negotiations if possible.
 * Service-level logging configuration (separate verbosity and destination).
 * Enforce key renegotiation (re-handshake) for long connections.
 * Logging to NT EventLog on Windows.

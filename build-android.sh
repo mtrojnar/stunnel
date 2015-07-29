@@ -1,6 +1,6 @@
 #!/bin/sh
 set -ev
-VERSION=5.02
+VERSION=5.03
 DST=stunnel-$VERSION-android
 
 # to build Zlib:
@@ -27,5 +27,5 @@ cp bin/android/src/stunnel /opt/androideabi/sysroot/bin/openssl $DST
 arm-linux-androideabi-strip $DST/openssl
 zip -r $DST.zip $DST
 rm -rf $DST
-sha256sum $DST.zip
-mv $DST.zip ../dist/
+# sha256sum $DST.zip
+# mv $DST.zip ../dist/

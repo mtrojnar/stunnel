@@ -440,11 +440,6 @@ extern char *sys_errlist[];
 #include <openssl/ocsp.h>
 #endif /* HAVE_OSSL_OCSP_H */
 
-#ifdef HAVE_OSSL_FIPS_H
-#include <openssl/fips.h>
-#include <openssl/fips_rand.h>
-#endif /* HAVE_OSSL_FIPS_H */
-
 #if OPENSSL_VERSION_NUMBER<0x0090800fL
 #define OPENSSL_NO_ECDH
 #endif /* OpenSSL version < 0.8.0 */

@@ -1,10 +1,10 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.02])
+AC_INIT([stunnel],[5.03])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(stunnel, 5.02)
+AM_INIT_AUTOMAKE(stunnel, 5.03)
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
@@ -383,7 +383,8 @@ int hosts_access(); int allow_severity, deny_severity;
 hosts_access()
                 ]
             )],
-            [AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_LIBWRAP], [1], [Define to 1 if you have 'libwrap' library.])],
+            [AC_MSG_RESULT([yes]); AC_DEFINE([HAVE_LIBWRAP], [1],
+                [Define to 1 if you have 'libwrap' library.])],
             [AC_MSG_RESULT([no]); LIBS="$valid_LIBS"]
         )
     ]
@@ -396,12 +397,11 @@ AC_ARG_ENABLE(fips,
     [
         case "$enableval" in
             yes) AC_MSG_RESULT([yes])
-                 sub_dirs="/ssl/fips /ssl/fips-1.0 /"
                  fips="yes"
-                 AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS mode])
+                 AC_DEFINE([USE_FIPS], [1],
+                    [Define to 1 to enable OpenSSL FIPS mode])
                  ;;
             no)  AC_MSG_RESULT([no])
-                 sub_dirs="/ssl /openssl /"
                  fips="no"
                  ;;
             *)   AC_MSG_RESULT([error])
@@ -410,7 +410,6 @@ AC_ARG_ENABLE(fips,
         esac
     ],
     [
-        sub_dirs="/ssl/fips /ssl/fips-1.0 /ssl /openssl /"
         fips="auto"
         AC_MSG_RESULT([autodetecting])
     ]
@@ -434,7 +433,7 @@ AC_ARG_WITH(ssl,
     ],
     [
         for main_dir in /usr/local /usr/lib /usr/pkg /opt/local /opt /usr; do
-            for sub_dir in $sub_dirs; do
+            for sub_dir in /ssl /openssl /; do
                 check_ssl_dir "$main_dir$sub_dir" && break 2
             done
         done
@@ -463,11 +462,6 @@ AC_CHECK_HEADER([$SSLDIR/include/openssl/ocsp.h],
     [AC_DEFINE([HAVE_OSSL_OCSP_H], [1],
     [Define to 1 if you have <ocsp.h> header file.])],
     [AC_MSG_WARN([OpenSSL ocsp header not found])])
-
-AC_CHECK_HEADER([$SSLDIR/include/openssl/fips.h],
-    [AC_DEFINE([HAVE_OSSL_FIPS_H], [1],
-    [Define to 1 if you have <fips.h> header file.])],
-    [AC_MSG_WARN([OpenSSL fips header not found])])
 
 if test "$fips" = "auto"; then
     AC_CHECK_FUNCS(FIPS_mode_set, [

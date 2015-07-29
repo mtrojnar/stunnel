@@ -21,18 +21,24 @@ DESC="SSL tunnels"
 OPTIONS=""
 ENABLED=0
 
+get_opt() {
+  sed -e "s;^[[:space:]]*;;" -e "s;[[:space:]]*$;;" \
+    -e "s;[[:space:]]*=[[:space:]]*;=;" "$1" |
+    grep -i "^$2=" | sed -e "s;^[^=]*=;;"
+}
+
 get_pids() {
-   local file=$1
-   if test -f $file; then
-     CHROOT=`grep "^chroot" $file|sed "s;.*= *;;"`
-     PIDFILE=`grep "^pid" $file|sed "s;.*= *;;"`
-     if [ "$PIDFILE" = "" ]; then
-       PIDFILE=$DEFAULTPIDFILE
-     fi
-     if test -f $CHROOT/$PIDFILE; then
-       cat $CHROOT/$PIDFILE
-     fi
-   fi
+  local file=$1
+  if [ -f $file ]; then
+    CHROOT=`get_opt $file chroot`
+    PIDFILE=`get_opt $file pid"`
+    if [ "$PIDFILE" = "" ]; then
+      PIDFILE=$DEFAULTPIDFILE
+    fi
+    if [ -f $CHROOT/$PIDFILE ]; then
+      cat $CHROOT/$PIDFILE
+    fi
+  fi
 }
 
 startdaemons() {
@@ -44,7 +50,7 @@ startdaemons() {
     ulimit $RLIMITS
   fi
   for file in $FILES; do 
-    if test -f $file; then
+    if [ -f $file ]; then
       ARGS="$file $OPTIONS"
       PROCLIST=`get_pids $file`
       if [ "$PROCLIST" ] && kill -s 0 $PROCLIST 2>/dev/null; then
@@ -94,7 +100,7 @@ if [ "x$OPTIONS" != "x" ]; then
   OPTIONS="-- $OPTIONS"
 fi
 
-test -f /etc/default/stunnel && . /etc/default/stunnel
+[ -f /etc/default/stunnel ] && . /etc/default/stunnel
 if [ "$ENABLED" = "0" ] ; then
   echo "$DESC disabled, see /etc/default/stunnel"
   exit 0
@@ -116,7 +122,7 @@ else
   fi
 fi
 
-test -x $DAEMON || exit 0
+[ -x $DAEMON ] || exit 0
 
 set -e
 

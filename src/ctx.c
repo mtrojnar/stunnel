@@ -60,7 +60,7 @@ NOEXPORT int init_ecdh(SERVICE_OPTIONS *);
 NOEXPORT int load_cert(SERVICE_OPTIONS *);
 NOEXPORT int load_key_file(SERVICE_OPTIONS *);
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
-#if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
 NOEXPORT int password_cb(char *, int, int, void *);
 #endif
 
@@ -98,7 +98,8 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     SSL_CTX_set_ex_data(section->ctx, opt_index, section); /* for callbacks */
 
     /* load certificate and private key to be verified by the peer server */
-#ifdef HAVE_OSSL_ENGINE_H
+#if defined(HAVE_OSSL_ENGINE_H) && OPENSSL_VERSION_NUMBER>=0x0090809fL
+    /* SSL_CTX_set_client_cert_engine() was introduced in OpenSSL 0.9.8i */
     if(section->option.client && section->engine) {
         if(SSL_CTX_set_client_cert_engine(section->ctx, section->engine))
             s_log(LOG_INFO, "Client certificate engine (%s) enabled",
@@ -187,15 +188,15 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
 
     /* leave the alert type at SSL_AD_UNRECOGNIZED_NAME */
     (void)ad; /* skip warning about unused parameter */
-    if(!section->servername_list_head) { /* no virtual services defined */
+    if(!section->servername_list_head) {
         s_log(LOG_DEBUG, "SNI: no virtual services defined");
         return SSL_TLSEXT_ERR_OK;
     }
-    if(!servername) { /* no SNI extension received from the client */
-        s_log(LOG_NOTICE, "SNI: extension not received from the client");
+    if(!servername) {
+        s_log(LOG_NOTICE, "SNI: no servername received");
         return SSL_TLSEXT_ERR_NOACK;
     }
-    s_log(LOG_DEBUG, "SNI: searching service for servername: %s", servername);
+    s_log(LOG_INFO, "SNI: requested servername: %s", servername);
 
     for(list=section->servername_list_head; list; list=list->next)
         if(matches_wildcard((char *)servername, list->servername)) {
@@ -205,7 +206,8 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
             SSL_set_SSL_CTX(ssl, c->opt->ctx);
             SSL_set_verify(ssl, SSL_CTX_get_verify_mode(c->opt->ctx),
                 SSL_CTX_get_verify_callback(c->opt->ctx));
-            s_log(LOG_INFO, "SNI: switched to service [%s]", c->opt->servname);
+            s_log(LOG_NOTICE, "SNI: switched to service [%s]",
+                c->opt->servname);
 #ifdef USE_LIBWRAP
             accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
             libwrap_auth(c, accepted_address); /* retry on a service switch */
@@ -413,7 +415,7 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
 #endif
 
     ui_data.section=section; /* setup current section for callbacks */
-#if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
     SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
 #endif
 
@@ -447,7 +449,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
     s_log(LOG_INFO, "Loading key from engine: %s", section->key);
 
     ui_data.section=section; /* setup current section for callbacks */
-#if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
     SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
 #endif
 
@@ -481,7 +483,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
 }
 #endif /* HAVE_OSSL_ENGINE_H */
 
-#if defined(USE_WIN32) || OPENSSL_VERSION_NUMBER>=0x0090700fL
+#if OPENSSL_VERSION_NUMBER>=0x0090700fL
 NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
     static char cache[PEM_BUFSIZE];
     int len;
@@ -685,7 +687,7 @@ NOEXPORT void info_callback(
         SSL *ssl, int where, int ret) {
     CLI *c;
 
-    c=SSL_get_ex_data(ssl, cli_index);
+    c=SSL_get_ex_data((SSL *)ssl, cli_index);
     if(c) {
         if((where&SSL_CB_HANDSHAKE_DONE)
                 && c->reneg_state==RENEG_INIT) {
@@ -694,7 +696,7 @@ NOEXPORT void info_callback(
             c->reneg_state=RENEG_ESTABLISHED;
         } else if((where&SSL_CB_ACCEPT_LOOP)
                 && c->reneg_state==RENEG_ESTABLISHED) {
-            int state=SSL_get_state(ssl);
+            int state=SSL_get_state((SSL *)ssl);
 
             if(state==SSL3_ST_SR_CLNT_HELLO_A
                     || state==SSL23_ST_SR_CLNT_HELLO_A) {

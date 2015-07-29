@@ -1,18 +1,30 @@
 stunnel change log
 
+Version 5.03, 2014.08.07, urgency: HIGH:
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.1i.
+    See https://www.openssl.org/news/secadv_20140806.txt
+* New features
+  - FIPS autoconfiguration cleanup.
+  - FIPS canister updated to version 2.0.6.
+  - Improved SNI diagnostic logging.
+* Bugfixes
+  - Compilation fixes for old versions of OpenSSL.
+  - Fixed whitespace handling in the stunnel.init script.
+
 Version 5.02, 2014.06.09, urgency: HIGH:
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.1h.
-    See http://www.openssl.org/news/secadv_20140605.txt
+    See https://www.openssl.org/news/secadv_20140605.txt
 * New features
   - Major rewrite of the protocol.c interface: it is now possible to add
     protocol negotiations at multiple connection phases, protocols can
-    individually decide whether the remote connection will be established
-    before or after SSL/TLS is negotiated.
+    individually decide whether the remote connection will be
+    established before or after SSL/TLS is negotiated.
   - Heap memory blocks are wiped before release.  This only works for
     block allocated by stunnel, and not by OpenSSL or other libraries.
-  - A safe_memcmp() implemented with execution time not dependent on
-    the compared data.
+  - The safe_memcmp() function implemented with execution time not
+    dependent on the compared data.
   - Updated the stunnel.conf and stunnel.init templates.
   - Added a client-mode example to the manual.
 * Bugfixes

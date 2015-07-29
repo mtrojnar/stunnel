@@ -24,7 +24,7 @@ TARGET=win64
 #FIPSDIR=$(SSLDIR)\include
 #LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-SSLDIR=..\..\openssl-1.0.1h-$(TARGET)
+SSLDIR=..\..\openssl-1.0.1i-$(TARGET)
 INCDIR=$(SSLDIR)\inc32
 FIPSDIR=$(SSLDIR)\inc32
 LIBDIR=$(SSLDIR)\out32dll

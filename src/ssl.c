@@ -121,7 +121,7 @@ NOEXPORT int init_compression(GLOBAL_OPTIONS *global) {
             s_log(LOG_ERR, "Failed to initialize compression method");
             return 1;
         }
-        comp->name=comp->method->name;
+        comp->name=(char *)(comp->method->name);
         sk_SSL_COMP_push(ssl_comp_methods, comp);
     }
 
@@ -148,7 +148,7 @@ NOEXPORT int init_compression(GLOBAL_OPTIONS *global) {
         s_log(LOG_ERR, "Failed to initialize compression method");
         return 1;
     }
-    comp->name=comp->method->name;
+    comp->name=(char *)(comp->method->name);
     sk_SSL_COMP_push(ssl_comp_methods, comp);
     s_log(LOG_INFO, "Compression enabled: %d algorithm(s)",
         sk_SSL_COMP_num(ssl_comp_methods));

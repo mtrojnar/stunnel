@@ -343,7 +343,7 @@ NOEXPORT void init_ssl(CLI *c) {
     if(c->opt->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
         if(c->opt->sni) {
-            s_log(LOG_DEBUG, "SNI: sending servername: %s", c->opt->sni);
+            s_log(LOG_INFO, "SNI: sending servername: %s", c->opt->sni);
             if(!SSL_set_tlsext_host_name(c->ssl, c->opt->sni)) {
                 sslerror("SSL_set_tlsext_host_name");
                 longjmp(c->err, 1);

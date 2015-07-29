@@ -81,9 +81,6 @@
 /* Define to 1 if you have <engine.h> header file. */
 #undef HAVE_OSSL_ENGINE_H
 
-/* Define to 1 if you have <fips.h> header file. */
-#undef HAVE_OSSL_FIPS_H
-
 /* Define to 1 if you have <ocsp.h> header file. */
 #undef HAVE_OSSL_OCSP_H
 
