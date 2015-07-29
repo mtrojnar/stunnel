@@ -41,6 +41,11 @@ A: If possible avoid starting stunnel from inetd.  It's slow (SSL needs
    than the old one (2.x).
    Don't forget to add "imaps 993/tcp" to /etc/services and restart inetd.
 
+Q: Is there a way to delay DNS lookups until connect time?
+A: Instead of "-r host:port" option use
+   "-l /usr/bin/redir -- redir --inetd --caddr host --cport port".
+   "redir" can be downloaded from http://sammy.net/~sammy/hacks/.
+
 Q: How is the service name (for logging and for libwrap) created?
 A: Here are the rules:
    1. If the are some arguments (after options) the first one

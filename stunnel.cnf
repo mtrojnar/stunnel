@@ -26,6 +26,7 @@ organizationalUnitName          = Organizational Unit Name (eg, section)
 #organizationalUnitName_default =
 
 0.commonName                    = Common Name (FQDN of your server)
+0.commonName_default            = localhost
 
 # To create a certificate for more than one name uncomment:
 # 1.commonName                  = DNS alias of your server

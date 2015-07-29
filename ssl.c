@@ -16,17 +16,24 @@
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *   In addition, as a special exception, Michal Trojnara gives
+ *   permission to link the code of this program with the OpenSSL
+ *   library (or with modified versions of OpenSSL that use the same
+ *   license as OpenSSL), and distribute linked combinations including
+ *   the two.  You must obey the GNU General Public License in all
+ *   respects for all of the code used other than OpenSSL.  If you modify
+ *   this file, you may extend this exception to your version of the
+ *   file, but you are not obligated to do so.  If you do not wish to
+ *   do so, delete this exception statement from your version.
  */
 
 /* Uncomment the next line to disable RSA support */
 /* #define NO_RSA */
 
-/* Experimental DH support is disabled by default */
-/* Comment out the next line if you need it */
+/* DH support is disabled by default */
+/* It needs DH parameters in .pem file */
 #define NO_DH
-
-/* Non-blocking sockets are disabled by default */
-/* #define USE_NBIO */
 
 #ifndef NO_RSA
 
@@ -39,6 +46,7 @@
 #endif /* NO_RSA */
 
 #include "common.h"
+#include "prototypes.h"
 
 #ifdef HAVE_OPENSSL
 #include <openssl/lhash.h>
@@ -54,26 +62,25 @@
 extern server_options options;
 
     /* SSL functions */
-static void initialize_prng();
-static int  prng_seeded(int);
-static int  add_rand_file(char *);
+static int init_dh();
+static int init_prng();
+static int prng_seeded(int);
+static int add_rand_file(char *);
 #ifndef NO_RSA
 static RSA *tmp_rsa_cb(SSL *, int, int);
 static RSA *make_temp_key(int);
 #endif /* NO_RSA */
-static int verify_callback (int, X509_STORE_CTX *);
+static void verify_init();
+static int verify_callback(int, X509_STORE_CTX *);
 static void info_callback(SSL *, int, int);
 static void print_stats();
 
 SSL_CTX *ctx; /* global SSL context */
 
 void context_init() { /* init SSL */
-#ifndef NO_DH
-    static DH *dh=NULL;
-    BIO *bio=NULL;
-#endif /* NO_DH */
 
-    initialize_prng();
+    if(!init_prng())
+        log(LOG_INFO, "PRNG seeded successfully");
     SSLeay_add_ssl_algorithms();
     SSL_load_error_strings();
     if(options.option&OPT_CLIENT) {
@@ -83,34 +90,14 @@ void context_init() { /* init SSL */
 #ifndef NO_RSA
         SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb);
 #endif /* NO_RSA */
-#ifndef NO_DH
-        if(!(bio=BIO_new_file(options.pem, "r"))) {
-            log(LOG_ERR, "DH: Could not read %s: %s", options.pem,
-                strerror(get_last_error()));
-            goto dh_failed;
-        }
-        if(!(dh=PEM_read_bio_DHparams(bio, NULL, NULL
-#if SSLEAY_VERSION_NUMBER >= 0x00904000L
-                , NULL
-#endif
-                ))) {
-            log(LOG_ERR, "Could not load DH parameters from %s",
-                options.pem);
-            goto dh_failed;
-        }
-        SSL_CTX_set_tmp_dh(ctx, dh);
-        log(LOG_DEBUG, "Diffie-Hellman initialized with %d bit key",
-            8*DH_size(dh));
-        goto dh_done;
-dh_failed:
-        log(LOG_WARNING, "Diffie-Hellman initialization failed");
-dh_done:
-        if(bio)
-            BIO_free(bio);
-        if(dh)
-            DH_free(dh);
-#endif /* NO_DH */
+        if(init_dh())
+            log(LOG_WARNING, "Diffie-Hellman initialization failed");
     }
+
+#if SSLEAY_VERSION_NUMBER >= 0x00906000L
+    SSL_CTX_set_mode(ctx,
+        SSL_MODE_ENABLE_PARTIAL_WRITE|SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+#endif /* OpenSSL-0.9.6 */
 
     SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_BOTH);
     SSL_CTX_set_timeout(ctx, options.session_timeout);
@@ -140,62 +127,11 @@ dh_done:
             exit(1);
         }
     }
-    if(options.verify_level!=SSL_VERIFY_NONE) {
-        log(LOG_DEBUG, "cert_defaults is %d", options.cert_defaults);
-        log(LOG_DEBUG, "cert_dir is %s", options.cert_dir);
-        log(LOG_DEBUG, "cert_file is %s", options.cert_file);
-        if (options.cert_defaults & SSL_CERT_DEFAULTS) {
-                log(LOG_DEBUG, "Initializing SSL library verify paths");
-                if ((!SSL_CTX_set_default_verify_paths(ctx))) {
-                    sslerror("X509_set_default_verify_paths");
-                    exit(1);
-                }
-        }
 
-        /* put in defaults (if not set on cmd line) if -S says to */
-        if ( options.cert_defaults & STUNNEL_CERT_DEFAULTS ) {
-                log(LOG_DEBUG, "installing defaults where not set");
-                if ( ! options.cert_file[0] )
-                        safecopy(options.cert_file, CERT_FILE);
-                if ( ! options.cert_dir[0] )
-                        safecopy(options.cert_dir, CERT_DIR);
-        }
-        if ( options.cert_file[0] ) {
-            if (!SSL_CTX_load_verify_locations(ctx, options.cert_file,NULL)) {
-                log(LOG_ERR, "Error loading verify certificates from %s",
-                    options.cert_file);
-                sslerror("SSL_CTX_load_verify_locations");
-                exit(1);
-            }
-            SSL_CTX_set_client_CA_list(ctx,
-                SSL_load_client_CA_file(options.cert_file));
-            log(LOG_DEBUG, "Loaded verify certificates from %s",
-                options.cert_file);
-        }
-        if ( options.cert_dir[0] ) {
-            if (!SSL_CTX_load_verify_locations(ctx,NULL ,options.cert_dir)) {
-                log(LOG_ERR, "Error setting verify directory to %s",
-                    options.cert_dir);
-                sslerror("SSL_CTX_load_verify_locations");
-                exit(1);
-            }
-            log(LOG_DEBUG, "Set verify directory to %s", options.cert_dir);
-        }
+    verify_init(); /* Initialize certificate verification */
 
-        /*
-        if (!SSL_CTX_load_verify_locations(ctx, options.cert_file,
-                options.cert_dir)) {
-            sslerror("X509_load_verify_locations");
-            exit(1);
-        }
-        */
-
-        SSL_CTX_set_verify(ctx, options.verify_level, verify_callback);
-
-        if (options.verify_use_only_my)
-            log(LOG_NOTICE, "Peer certificate location %s", options.cert_dir);
-    }
     SSL_CTX_set_info_callback(ctx, info_callback);
+
     if(options.cipher_list) {
         if (!SSL_CTX_set_cipher_list(ctx, options.cipher_list)) {
             sslerror("SSL_CTX_set_cipher_list");
@@ -208,7 +144,7 @@ void context_free() { /* free SSL */
     SSL_CTX_free(ctx);
 }
 
-static void initialize_prng( void ) {
+static int init_prng() {
     int totbytes=0;
     char filename[STRLEN];
     int bytes;
@@ -221,9 +157,8 @@ static void initialize_prng( void ) {
     if(options.rand_file) {
         totbytes+=add_rand_file(options.rand_file);
         if(prng_seeded(totbytes))
-            goto SEEDED;
+            return 0;
     }
-    /* Yes.  goto.  Deal with it. */
 
     /* try the $RANDFILE or $HOME/.rnd files */
     RAND_file_name(filename, STRLEN);
@@ -231,23 +166,22 @@ static void initialize_prng( void ) {
         filename[STRLEN-1]='\0';        /* just in case */
         totbytes+=add_rand_file(filename);
         if(prng_seeded(totbytes))
-            goto SEEDED;
+            return 0;
     }
 
 #ifdef RANDOM_FILE
     totbytes += add_rand_file( RANDOM_FILE );
     if(prng_seeded(totbytes))
-        goto SEEDED;
+        return 0;
 #endif
 
 #ifdef USE_WIN32
     RAND_screen();
     if(prng_seeded(totbytes)) {
         log(LOG_DEBUG, "Seeded PRNG with RAND_screen");
-        goto SEEDED;
-    } else {
-        log(LOG_DEBUG, "RAND_screen failed to sufficiently seed PRNG");
+        return 0;
     }
+    log(LOG_DEBUG, "RAND_screen failed to sufficiently seed PRNG");
 #else
 
 #if SSLEAY_VERSION_NUMBER >= 0x0090581fL
@@ -259,8 +193,8 @@ static void initialize_prng( void ) {
             totbytes += bytes;
             log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
                 bytes, options.egd_sock);
-            goto SEEDED;  /* openssl always gets what it needs or fails,
-                             so no need to check if seeded sufficiently */
+            return 0; /* OpenSSL always gets what it needs or fails,
+                         so no need to check if seeded sufficiently */
         }
     }
 #ifdef EGD_SOCKET
@@ -270,7 +204,7 @@ static void initialize_prng( void ) {
         totbytes += bytes;
         log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
                 bytes, EGD_SOCKET);
-        goto SEEDED; /* ditto */
+        return 0;
     }
 #endif /* EGD_SOCKET */
 
@@ -280,16 +214,43 @@ static void initialize_prng( void ) {
     /* Try the good-old default /dev/urandom, if available  */
     totbytes+=add_rand_file( "/dev/urandom" );
     if(prng_seeded(totbytes))
-        goto SEEDED;
+        return 0;
 
     /* Random file specified during configure */
 
     log(LOG_INFO, "PRNG seeded with %d bytes total", totbytes);
     log(LOG_WARNING, "PRNG may not have been seeded with enough random bytes");
-    return;
-SEEDED:
-    log(LOG_INFO, "PRNG seeded successfully");
-    return;
+    return -1; /* FAILED */
+}
+
+static int init_dh() {
+#ifndef NO_DH
+    DH *dh;
+    BIO *bio;
+
+    if(!(bio=BIO_new_file(options.pem, "r"))) {
+        ioerror(options.pem);
+        return -1; /* FAILED */
+    }
+    if((dh=PEM_read_bio_DHparams(bio, NULL, NULL
+#if SSLEAY_VERSION_NUMBER >= 0x00904000L
+            , NULL
+#endif
+            ))) {
+        BIO_free(bio);
+        log(LOG_DEBUG, "Using Diffie-Hellman parameters from %s",
+            options.pem);
+    } else { /* Failed to load DH parameters from file */
+        BIO_free(bio);
+        log(LOG_NOTICE, "Could not load DH parameters from %s", options.pem);
+        return -1; /* FAILED */
+    }
+    SSL_CTX_set_tmp_dh(ctx, dh);
+    log(LOG_INFO, "Diffie-Hellman initialized with %d bit key",
+        8*DH_size(dh));
+    DH_free(dh);
+#endif /* NO_DH */
+    return 0; /* OK */
 }
 
 /* shortcut to determine if sufficient entropy for PRNG is present */
@@ -330,19 +291,6 @@ static int add_rand_file(char *filename) {
     }
     return readbytes;
 }
-
-#if 0
-static void verify_info() {
-    STACK_OF(X509_NAME) *stack;
-    X509_STORE *store;
-
-    stack=SSL_CTX_get_client_CA_list(ctx);
-    log(LOG_DEBUG, "there are %d CA_list things", sk_X509_NAME_num(stack));
-
-    store=SSL_CTX_get_cert_store(ctx);
-    log(LOG_DEBUG, "it's a %p", store);
-}
-#endif
 
 #ifndef NO_RSA
 
@@ -398,25 +346,94 @@ static RSA *make_temp_key(int keylen) {
     log(LOG_DEBUG, "Generating %d bit temporary RSA key...", keylen);
 #if SSLEAY_VERSION_NUMBER >= 0x0900
     result=RSA_generate_key(keylen, RSA_F4, NULL, NULL);
-# else
+#else
     result=RSA_generate_key(keylen, RSA_F4, NULL);
-# endif
+#endif
     log(LOG_DEBUG, "Temporary RSA key created");
     return result;
 }
 
 #endif /* NO_RSA */
 
-static int verify_callback(int state, X509_STORE_CTX *ctx) {
+static void verify_init() {
+    if(options.verify_level<0)
+        return; /* No certificate verification */
+    log(LOG_DEBUG, "cert_defaults is %d", options.cert_defaults);
+    log(LOG_DEBUG, "cert_dir is %s", options.cert_dir);
+    log(LOG_DEBUG, "cert_file is %s", options.cert_file);
+    if (options.cert_defaults & SSL_CERT_DEFAULTS) {
+        log(LOG_DEBUG, "Initializing SSL library verify paths");
+        if(!SSL_CTX_set_default_verify_paths(ctx)) {
+            sslerror("X509_set_default_verify_paths");
+            exit(1);
+        }
+    }
+
+    /* put in defaults (if not set on cmd line) if -S says to */
+    if (options.cert_defaults & STUNNEL_CERT_DEFAULTS) {
+        log(LOG_DEBUG, "installing defaults where not set");
+        if(!options.cert_file[0])
+            safecopy(options.cert_file, CERT_FILE);
+        if(!options.cert_dir[0])
+            safecopy(options.cert_dir, CERT_DIR);
+    }
+    if(options.cert_file[0]) {
+        if(!SSL_CTX_load_verify_locations(ctx, options.cert_file, NULL)) {
+            log(LOG_ERR, "Error loading verify certificates from %s",
+                options.cert_file);
+            sslerror("SSL_CTX_load_verify_locations");
+            exit(1);
+        }
+        SSL_CTX_set_client_CA_list(ctx,
+            SSL_load_client_CA_file(options.cert_file));
+        log(LOG_DEBUG, "Loaded verify certificates from %s",
+            options.cert_file);
+    }
+    if(options.cert_dir[0]) {
+        if (!SSL_CTX_load_verify_locations(ctx, NULL ,options.cert_dir)) {
+            log(LOG_ERR, "Error setting verify directory to %s",
+                options.cert_dir);
+            sslerror("SSL_CTX_load_verify_locations");
+            exit(1);
+        }
+        log(LOG_DEBUG, "Set verify directory to %s", options.cert_dir);
+    }
+
+    SSL_CTX_set_verify(ctx, options.verify_level==SSL_VERIFY_NONE ?
+        SSL_VERIFY_PEER : options.verify_level, verify_callback);
+
+    if (options.verify_use_only_my)
+        log(LOG_NOTICE, "Peer certificate location %s", options.cert_dir);
+}
+
+#if 0
+static void verify_info() {
+    STACK_OF(X509_NAME) *stack;
+    X509_STORE *store;
+
+    stack=SSL_CTX_get_client_CA_list(ctx);
+    log(LOG_DEBUG, "there are %d CA_list things", sk_X509_NAME_num(stack));
+
+    store=SSL_CTX_get_cert_store(ctx);
+    log(LOG_DEBUG, "it's a %p", store);
+}
+#endif
+
+static int verify_callback(int preverify_ok, X509_STORE_CTX *ctx) {
         /* our verify callback function */
-    char txt[256];
+    char txt[STRLEN];
     X509_OBJECT ret;
 
     X509_NAME_oneline(X509_get_subject_name(ctx->current_cert),
-        txt, sizeof(txt));
-    if(!state) {
+        txt, STRLEN);
+    safestring(txt);
+    if(options.verify_level==SSL_VERIFY_NONE) {
+        log(LOG_NOTICE, "VERIFY IGNORE: depth=%d, %s", ctx->error_depth, txt);
+        return 1; /* Accept connection */
+    }
+    if(!preverify_ok) {
         /* Remote site specified a certificate, but it's not correct */
-        log(LOG_WARNING, "VERIFY ERROR: depth=%d error=%s: %s",
+        log(LOG_WARNING, "VERIFY ERROR: depth=%d, error=%s: %s",
             ctx->error_depth,
             X509_verify_cert_error_string (ctx->error), txt);
         return 0; /* Reject connection */
@@ -424,10 +441,10 @@ static int verify_callback(int state, X509_STORE_CTX *ctx) {
     if(options.verify_use_only_my && ctx->error_depth==0 &&
             X509_STORE_get_by_subject(ctx, X509_LU_X509,
                 X509_get_subject_name(ctx->current_cert), &ret)!=1) {
-        log(LOG_WARNING, "VERIFY ERROR ONLY MY: no cert for: %s", txt);
+        log(LOG_WARNING, "VERIFY ERROR ONLY MY: no cert for %s", txt);
         return 0; /* Reject connection */
     }
-    log(LOG_NOTICE, "VERIFY OK: depth=%d: %s", ctx->error_depth, txt);
+    log(LOG_NOTICE, "VERIFY OK: depth=%d, %s", ctx->error_depth, txt);
     return 1; /* Accept connection */
 }
 

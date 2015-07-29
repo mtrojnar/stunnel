@@ -1,5 +1,28 @@
 stunnel         Universal SSL tunnel
 
+Version 3.21, 2001.10.31, urgency: MEDIUM:
+* Problem with errno and posix threads fixed.
+* It is assumed that system has getopt() if it has getopt.h header file.
+* SSL_CLIENT_DN and SSL_CLIENT_I_DN environment variables set in local mode
+  (-l) process.  This feature doesn't work if
+  client mode (-c) or protocol negotiation (-n) is used.
+* Winsock error descriptions hardcoded (English version only).
+* SetConsoleCtrlHandler() used to handle CTRL+C, logoff and shutdown on Win32.
+* Stunnel always requests peer certificate with -v 0.
+* sysconf()/getrlimit() used to calculate number of clients allowed.
+* SSL mode changed for OpenSSL >= 0.9.6.
+* close-on-exec option used to avoid socket inheriting.
+* Buffer size increased from 8KB to 16KB.
+* fdscanf()/fdprintf() changes:
+   - non-blocking socket support,
+   - timeout after 1 minute of inactivity.
+* auth_user() redesigned to force 1 minute timeout.
+* Some source arrangement towards 4.x architecture.
+* No need for "goto" any more.
+* New Makefile "test" rule.  It performs basic test of
+  standalone/inetd, remote/local and server/client mode.
+* pop3 server mode support added.
+
 Version 3.20, 2001.08.15, urgency: LOW:
 * setsockopt() optlen set according to the optval for Solaris.
 * Minor NetBSD compatibility fixes by Martti Kuparinen.

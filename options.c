@@ -16,15 +16,26 @@
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *   In addition, as a special exception, Michal Trojnara gives
+ *   permission to link the code of this program with the OpenSSL
+ *   library (or with modified versions of OpenSSL that use the same
+ *   license as OpenSSL), and distribute linked combinations including
+ *   the two.  You must obey the GNU General Public License in all
+ *   respects for all of the code used other than OpenSSL.  If you modify
+ *   this file, you may extend this exception to your version of the
+ *   file, but you are not obligated to do so.  If you do not wish to
+ *   do so, delete this exception statement from your version.
  */
 
 #include "common.h"
+#include "prototypes.h"
 
 /* Needed so we know which version of OpenSSL we're using */
 #ifdef HAVE_OPENSSL
-#include <openssl/crypto.h>
+#include <openssl/ssl.h>
 #else
-#include <crypto.h>
+#include <ssl.h>
 #endif
 
 extern server_options options;
@@ -54,7 +65,7 @@ void parse_options(int argc, char *argv[]) {
     char *servname_selected=NULL;
 
     options.option=0;
-    options.verify_level=0x00; /* SSL_VERIFY_NONE */
+    options.verify_level=-1;
     options.verify_use_only_my=0;
     options.debug_level=5;
 #ifndef USE_WIN32
@@ -98,15 +109,15 @@ void parse_options(int argc, char *argv[]) {
                 safecopy(options.pem, optarg);
                 break;
             case 'v':
+                options.verify_level=SSL_VERIFY_NONE;
                 switch(atoi(optarg)) {
                 case 3:
                     options.verify_use_only_my=1;
                 case 2:
-                    options.verify_level |= 0x02;
-                        /* SSL_VERIFY_FAIL_IF_NO_PEER_CERT */
+                    options.verify_level|=SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
                 case 1:
-                    options.verify_level |= 0x01;
-                        /* SSL_VERIFY_PEER */
+                    options.verify_level|=SSL_VERIFY_PEER;
+                case 0:
                     break;
                 default:
                     log(LOG_ERR, "Bad verify level");
@@ -166,7 +177,7 @@ void parse_options(int argc, char *argv[]) {
                 if (!(options.option & OPT_PROGRAM)) {
                     /* Default servname is optarg with '.' instead of ':' */
                     safecopy(options.servname, optarg);
-                    safestring(options.servname);
+                    safename(options.servname);
                 }
                 options.remotenames=NULL;
                 name2nums(optarg, &options.remotenames, &options.remoteport);
@@ -269,8 +280,9 @@ void parse_options(int argc, char *argv[]) {
         options.execargs = argv + optind;
         safecopy(options.servname, options.execargs[0]);
     }
-    if ( servname_selected ) {
-            safecopy(options.servname, servname_selected);
+    if(servname_selected) {
+        safecopy(options.servname, servname_selected);
+        safename(options.servname);
     }
 }
 
@@ -639,7 +651,7 @@ static int print_socket_options() {
 
     fprintf(stderr, "Socket option defaults:\n");
     fprintf(stderr, "\t%-16s%-10s%-10s%-10s%-10s\n",
-        "Option", "Accept", "Local", "Remote", "OS defalut");
+        "Option", "Accept", "Local", "Remote", "OS default");
     for(ptr=sock_opts; ptr->opt_str; ptr++) {
         fprintf(stderr, "\t%-16s", ptr->opt_str);
         print_option(ptr->opt_type, ptr->opt_val[0]);

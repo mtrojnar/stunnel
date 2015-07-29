@@ -899,7 +899,7 @@ else
 fi
 
 
-VERSION="3.20"
+VERSION="3.21"
 
 cat >> confdefs.h <<EOF
 #define VERSION "$VERSION"
@@ -1587,7 +1587,7 @@ else
 fi
 echo "$ac_t""$CPP" 1>&6
 
-for ac_hdr in getopt.h unistd.h sys/select.h tcpd.h pthread.h sys/ioctl.h util.h pty.h stropts.h
+for ac_hdr in getopt.h unistd.h sys/select.h tcpd.h pthread.h sys/ioctl.h util.h pty.h stropts.h sys/filio.h sys/resource.h
 do
 ac_safe=`echo "$ac_hdr" | sed 'y%./+-%__p_%'`
 echo $ac_n "checking for $ac_hdr""... $ac_c" 1>&6
@@ -1635,7 +1635,7 @@ done
 # AC_TYPE_PID_T
 # AC_HEADER_TIME
 
-for ac_func in getopt snprintf vsnprintf openpty _getpty daemon waitpid
+for ac_func in getopt snprintf vsnprintf openpty _getpty daemon waitpid wait4 sysconf getrlimit
 do
 echo $ac_n "checking for $ac_func""... $ac_c" 1>&6
 echo "configure:1642: checking for $ac_func" >&5

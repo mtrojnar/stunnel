@@ -16,9 +16,20 @@
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *   In addition, as a special exception, Michal Trojnara gives
+ *   permission to link the code of this program with the OpenSSL
+ *   library (or with modified versions of OpenSSL that use the same
+ *   license as OpenSSL), and distribute linked combinations including
+ *   the two.  You must obey the GNU General Public License in all
+ *   respects for all of the code used other than OpenSSL.  If you modify
+ *   this file, you may extend this exception to your version of the
+ *   file, but you are not obligated to do so.  If you do not wish to
+ *   do so, delete this exception statement from your version.
  */
 
 #include "common.h"
+#include "prototypes.h"
 
 #ifdef HAVE_OPENSSL
 #include <openssl/crypto.h> /* for CRYPTO_* */
@@ -79,24 +90,26 @@ unsigned long thread_id() {
     return (unsigned long)pthread_self();
 }
 
-int create_client(int ls, int s, void (*cli)(int)) {
-     pthread_t thread;
-     sigset_t mask, oldmask;
+int create_client(int ls, int s, void *(*cli)(void *)) {
+    pthread_t thread;
+    sigset_t newmask, oldmask;
 
-     sigemptyset(&mask);
-     sigaddset(&mask, SIGCHLD);
-     sigaddset(&mask, SIGTERM);
-     sigaddset(&mask, SIGQUIT);
-     sigaddset(&mask, SIGINT);
-     sigaddset(&mask, SIGHUP);
-     pthread_sigmask(SIG_BLOCK, &mask, &oldmask); /* block SIGCHLD */
-     if(pthread_create(&thread, &pth_attr, (void *)cli, (void *)s)) {
-         /* SIGCHLD will remain blocked here */
-         closesocket(s);
-         return -1;
-     }
-     pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
-     return 0;
+    /* The idea is that only the main thread handles all the signals with
+     * posix threads.  Signals are blocked for any other thread. */
+    sigemptyset(&newmask);
+    sigaddset(&newmask, SIGCHLD);
+    sigaddset(&newmask, SIGTERM);
+    sigaddset(&newmask, SIGQUIT);
+    sigaddset(&newmask, SIGINT);
+    sigaddset(&newmask, SIGHUP);
+    pthread_sigmask(SIG_BLOCK, &newmask, &oldmask); /* block signals */
+    if(pthread_create(&thread, &pth_attr, cli, (void *)s)) {
+        pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
+        closesocket(s);
+        return -1;
+    }
+    pthread_sigmask(SIG_SETMASK, &oldmask, NULL); /* restore the mask */
+    return 0;
 }
 
 #endif
@@ -122,14 +135,14 @@ void sthreads_init() {
 }
 
 unsigned long process_id() {
-    return GetCurrentProcessId();
+    return GetCurrentProcessId() & 0x00ffffff;
 }
 
 unsigned long thread_id() {
-    return GetCurrentThreadId();
+    return GetCurrentThreadId() & 0x00ffffff;
 }
 
-int create_client(int ls, int s, void (*cli)(int)) {
+int create_client(int ls, int s, void *(*cli)(void *)) {
     DWORD iID;
 
     CloseHandle(CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)cli,
@@ -161,15 +174,15 @@ unsigned long thread_id() {
     return 0L;
 }
 
-int create_client(int ls, int s, void (*cli)(int)) {
+int create_client(int ls, int s, void *(*cli)(void *)) {
     switch(fork()) {
     case -1:    /* error */
         closesocket(s);
         return -1;
     case  0:    /* child */
         closesocket(ls);
-        signal(SIGCHLD, SIG_IGN);
-        cli(s);
+        signal(SIGCHLD, local_handler);
+        cli((void *)s);
         exit(0);
     default:    /* parent */
         closesocket(s);

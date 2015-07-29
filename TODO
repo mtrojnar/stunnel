@@ -1,5 +1,7 @@
 stunnel         Universal SSL tunnel
 
+* Use poll(2) instead of socket(2) where possibe.
+
 * New user interface with configuration file and long options (--option).
 
 * Log to file on Win32, log to EventLog on NT.

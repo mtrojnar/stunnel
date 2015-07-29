@@ -18,9 +18,20 @@
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *   In addition, as a special exception, Michal Trojnara gives
+ *   permission to link the code of this program with the OpenSSL
+ *   library (or with modified versions of OpenSSL that use the same
+ *   license as OpenSSL), and distribute linked combinations including
+ *   the two.  You must obey the GNU General Public License in all
+ *   respects for all of the code used other than OpenSSL.  If you modify
+ *   this file, you may extend this exception to your version of the
+ *   file, but you are not obligated to do so.  If you do not wish to
+ *   do so, delete this exception statement from your version.
  */
 
 #include "common.h"
+#include "prototypes.h"
 
 #ifdef HAVE_UTIL_H
 #include <util.h>
@@ -199,10 +210,10 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen) {
 /* Releases the tty.  Its ownership is returned to root, and permissions to 0666. */
 
 void pty_release(char *ttyname) {
-    if (chown(ttyname, (uid_t) 0, (gid_t) 0) < 0)
+    if(chown(ttyname, (uid_t)0, (gid_t)0)<0)
         log(LOG_DEBUG, "chown %.100s 0 0 failed: %.100s", ttyname,
             strerror(get_last_socket_error()));
-    if (chmod(ttyname, (mode_t) 0666) < 0)
+    if(chmod(ttyname, (mode_t)0666)<0)
         log(LOG_DEBUG, "chmod %.100s 0666 failed: %.100s", ttyname,
             strerror(get_last_socket_error()));
 }

@@ -16,9 +16,20 @@
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *   In addition, as a special exception, Michal Trojnara gives
+ *   permission to link the code of this program with the OpenSSL
+ *   library (or with modified versions of OpenSSL that use the same
+ *   license as OpenSSL), and distribute linked combinations including
+ *   the two.  You must obey the GNU General Public License in all
+ *   respects for all of the code used other than OpenSSL.  If you modify
+ *   this file, you may extend this exception to your version of the
+ *   file, but you are not obligated to do so.  If you do not wish to
+ *   do so, delete this exception statement from your version.
  */
 
 #include "common.h"
+#include "prototypes.h"
 
 extern server_options options;
 
@@ -29,6 +40,16 @@ FILE *outfile=NULL; /* Logging to file disabled by default */
 /* HANDLE evt=NULL; */
 
 void log_open() { /* Win32 version */
+#if 0
+    AllocConsole();
+    /* reopen stdin handle as console window input */
+    freopen("CONIN$", "rb", stdin);
+    /* reopen stout handle as console window output */
+    freopen("CONOUT$", "wb", stdout);
+    /* reopen stderr handle as console window output */
+    freopen("CONOUT$", "wb", stderr);
+    printf("Close this window to exit stunnel\n\n");
+#endif
     if(options.output_file)
         outfile=fopen(options.output_file, "a");
     if(outfile)
@@ -42,6 +63,10 @@ void log_open() { /* Win32 version */
 void log_close() {
     if(outfile)
         fclose(outfile);
+#if 0
+    else
+        FreeConsole();
+#endif
 }
 
 #else /* USE_WIN32 */

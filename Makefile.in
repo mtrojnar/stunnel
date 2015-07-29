@@ -19,12 +19,13 @@ CC=@CC@
 INSTALL=@INSTALL@
 CFLAGS=@CFLAGS@ @DEFS@ -Dlibdir=\"$(libdir)\" -DPIDDIR=\"$(piddir)\"
 LIBS=@LIBS@
-OBJS=stunnel.o ssl.o client.o protocol.o sthreads.o pty.o log.o options.o
+HEADERS=common.h prototypes.h client.h
+OBJS=client.o stunnel.o ssl.o protocol.o sthreads.o pty.o log.o options.o
 DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(man8dir)/stunnel.8  $(PEM_DIR)/stunnel.pem
 
 WINGCC=i386-mingw32msvc-gcc 
-WINCFLAGS=-O2 -Wall -DUSE_WIN32 -DHAVE_OPENSSL -DVERSION=\"@VERSION@\" -I../openssl-0.9.6/outinc
-WINSRC=stunnel.c ssl.c client.c protocol.c sthreads.c log.c options.c
+WINCFLAGS=-O2 -Wall -DUSE_WIN32=1 -DHAVE_OPENSSL=1 -DFD_SETSIZE=4096 -DVERSION=\"@VERSION@\" -I../openssl-0.9.6/outinc
+WINSRC=client.c stunnel.c ssl.c protocol.c sthreads.c log.c options.c
 WINLIBS=-L../openssl-0.9.6/out -leay32 -lssl32 -lwsock32 -lgdi32
 
 # standard external rules
@@ -40,7 +41,7 @@ install-strip:
 	$(MAKE) INSTALL='$(INSTALL) -s' install
 
 clean:
-	rm -f stunnel stunnel.so $(OBJS) core config.log
+	rm -f stunnel stunnel.so $(OBJS) core config.log stunnel.log
 
 distclean: clean
 	rm -f config.cache config.status Makefile stunnel.pem
@@ -49,8 +50,9 @@ mostlyclean: distclean
 
 maintainer-clean: distclean
 
-dist: distclean ../dist/$(VERSION).exe
+dist: ../dist/$(VERSION).exe
 	cp -rp . ../dist/$(VERSION)
+	$(MAKE) -C ../dist/$(VERSION) distclean
 	tar -cf - -C ../dist $(VERSION) | gzip > ../dist/$(VERSION).tar.gz
 	rm -rf ../dist/$(VERSION)
 	gpg --yes --armor --detach-sign --force-v3-sigs ../dist/$(VERSION).tar.gz
@@ -61,7 +63,7 @@ installdirs: mkinstalldirs
 
 # non-standard external rules
 
-stunnel.exe: $(WINSRC) Makefile common.h
+stunnel.exe: $(WINSRC) Makefile $(HEADERS)
 	$(WINGCC) $(WINCFLAGS) -s -o stunnel.exe $(WINSRC) $(WINLIBS)
 
 stunnel.8: stunnel.sdf
@@ -74,6 +76,10 @@ stunnel.html: stunnel.sdf
 cert:
 	rm -f stunnel.pem
 	$(MAKE) stunnel.pem
+
+test: stunnel stunnel.pem
+	./stunnel -D 7 -o stunnel.log -P `pwd`/stunnel.pid -d 33345 -l echo echo "It's alive!"
+	./stunnel -D 7 -o stunnel.log -c -r 33345 && sleep 1 && kill `cat stunnel.pid`
 
 # internal rules
 
@@ -91,7 +97,7 @@ Makefile: configure Makefile.in
 configure: configure.in
 	autoconf
 
-$(OBJS): Makefile common.h
+$(OBJS): Makefile $(HEADERS)
 
 stunnel.pem: stunnel.cnf
 	$(ssldir)/bin/openssl req -new -x509 -days 365 -nodes \
@@ -109,9 +115,7 @@ $(man8dir)/stunnel.8: stunnel.8
 	$(INSTALL) -m 644 stunnel.8 $(man8dir)
 
 $(PEM_DIR)/stunnel.pem: stunnel.pem
-	if [ -n "$(PEM_DIR)" ] ; then \
-		$(INSTALL) -m 600 stunnel.pem $(PEM_DIR); \
-	fi
+	test -n "$(PEM_DIR)" -a ! -f "$(PEM_DIR)/stunnel.pem" && $(INSTALL) -m 600 stunnel.pem $(PEM_DIR)
 
 ../dist/$(VERSION).exe: stunnel.exe
 	./mkinstalldirs ../dist
