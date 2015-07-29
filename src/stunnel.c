@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-2005 Michal Trojnara <Michal.Trojnara@mirt.net>
  *                 All Rights Reserved
  *
- *   Version:      4.13             (stunnel.c)
- *   Date:         2005.10.21
+ *   Version:      4.14             (stunnel.c)
+ *   Date:         2005.11.02
  *
  *   Author:       Michal Trojnara  <Michal.Trojnara@mirt.net>
  *
@@ -81,6 +81,7 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
 void main_initialize(char *arg1, char *arg2) {
     struct stat st; /* buffer for stat */
 
+    ssl_init(); /* initialize SSL library */
     sthreads_init(); /* initialize critical sections & SSL callbacks */
     parse_config(arg1, arg2);
     log_open();
@@ -102,7 +103,7 @@ void main_initialize(char *arg1, char *arg2) {
 }
 
 void main_execute(void) {
-    ssl_init(); /* initialize SSL library */
+    ssl_configure(); /* configure global SSL settings */
     context_init(); /* initialize global SSL context */
     /* check if started from inetd */
     if(local_options.next) { /* there are service sections -> daemon mode */

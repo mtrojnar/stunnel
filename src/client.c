@@ -387,15 +387,14 @@ static int transfer(CLI *c) {
         s_poll_zero(&c->fds); /* Initialize the structure */
         if(sock_rd && c->sock_ptr<BUFFSIZE) /* socket input buffer not full*/
             s_poll_add(&c->fds, c->sock_rfd->fd, 1, 0);
-        if((ssl_rd && c->ssl_ptr<BUFFSIZE && !want_wr) ||
-                /* SSL input buffer not full */
+        if((ssl_rd && c->ssl_ptr<BUFFSIZE) || /* SSL input buffer not full */
                 ((c->sock_ptr || ssl_closing==CL_RETRY) && want_rd))
                 /* want to SSL_write or SSL_shutdown but read from the
                  * underlying socket needed for the SSL protocol */
             s_poll_add(&c->fds, c->ssl_rfd->fd, 1, 0);
         if(c->ssl_ptr) /* SSL input buffer not empty */
             s_poll_add(&c->fds, c->sock_wfd->fd, 0, 1);
-        if((c->sock_ptr && !want_rd) || /* socket input buffer not empty */
+        if(c->sock_ptr || /* socket input buffer not empty */
                 ssl_closing==CL_INIT /* need to send close_notify */ ||
                 ((c->ssl_ptr<BUFFSIZE || ssl_closing==CL_RETRY) && want_wr))
                 /* want to SSL_read or SSL_shutdown but write to the
@@ -466,10 +465,8 @@ static int transfer(CLI *c) {
         }
 
         /****************************** write to SSL */
-        if(ssl_wr && ( /* SSL is open for write */
-                (c->sock_ptr && ssl_can_wr) ||
-                /* application data can be written */
-                (want_rd && ssl_can_rd)
+        if(ssl_wr && c->sock_ptr && ( /* output buffer not empty */
+                ssl_can_wr || (want_rd && ssl_can_rd)
                 /* SSL_write wants to read from the underlying descriptor */
                 )) {
             num=SSL_write(c->ssl, c->sock_buff, c->sock_ptr);
@@ -527,10 +524,8 @@ static int transfer(CLI *c) {
         }
 
         /****************************** read from SSL */
-        if(ssl_rd && ( /* SSL is open for read */
-                (c->ssl_ptr<BUFFSIZE && ssl_can_rd) ||
-                /* there's any application data coming in */
-                (want_wr && ssl_can_wr) ||
+        if(ssl_rd && c->ssl_ptr<BUFFSIZE  && ( /* input buffer not full */
+                ssl_can_rd || (want_wr && ssl_can_wr) ||
                 /* SSL_read wants to write to the underlying descriptor */
                 (check_SSL_pending && SSL_pending(c->ssl))
                 /* write made space from full buffer */

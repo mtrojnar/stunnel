@@ -27,7 +27,7 @@
 /* #define DEBUG_STACK_SIZE */
 
 #ifndef VERSION
-#define VERSION "4.13"
+#define VERSION "4.14"
 #endif
 
 #ifndef USE_WIN32

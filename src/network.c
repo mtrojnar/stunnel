@@ -31,7 +31,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-/* #define DEBUG_UCONTEXT */
+#define DEBUG_UCONTEXT
 
 #ifndef USE_WIN32
 static int signal_pipe[2]={-1, -1};
@@ -77,7 +77,7 @@ int s_poll_canread(s_poll_set *fds, int fd) {
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&POLLIN;
+            return fds->ufds[i].revents&~POLLOUT; /* read or error */
     return 0;
 }
 
@@ -86,7 +86,7 @@ int s_poll_canwrite(s_poll_set *fds, int fd) {
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
-            return fds->ufds[i].revents&POLLOUT;
+            return fds->ufds[i].revents&POLLOUT; /* write */
     return 0;
 }
 
@@ -156,14 +156,17 @@ static void scan_waiting_queue(void) {
         for(i=0; i<ctx->fds->nfds; i++) {
             ctx->fds->ufds[i].revents=ufds[nfds].revents;
 #ifdef DEBUG_UCONTEXT
-            s_log(LOG_DEBUG, "CONTEXT %ld, FD=%d, (%s%s)->(%s%s)",
+            s_log(LOG_DEBUG, "CONTEXT %ld, FD=%d, (%s%s)->(%s%s%s%s%s)",
                 ctx->id, ufds[nfds].fd,
                 ufds[nfds].events & POLLIN ? "IN" : "",
                 ufds[nfds].events & POLLOUT ? "OUT" : "",
                 ufds[nfds].revents & POLLIN ? "IN" : "",
-                ufds[nfds].revents & POLLOUT ? "OUT" : "");
+                ufds[nfds].revents & POLLOUT ? "OUT" : "",
+                ufds[nfds].revents & POLLERR ? "ERR" : "",
+                ufds[nfds].revents & POLLHUP ? "HUP" : "",
+                ufds[nfds].revents & POLLNVAL ? "NVAL" : "");
 #endif
-            if(ufds[nfds].revents & (POLLIN|POLLOUT))
+            if(ufds[nfds].revents)
                 ctx->ready++;
             nfds++;
         }
@@ -438,7 +441,7 @@ static void setnonblock(int sock, unsigned long l) {
     do {
         flags=fcntl(sock, F_GETFL, 0);
     }while(flags<0 && get_last_socket_error()==EINTR);
-    flags=l ? flags|O_NONBLOCK : flags&(~O_NONBLOCK);
+    flags=l ? flags|O_NONBLOCK : flags&~O_NONBLOCK;
     do {
         retval=fcntl(sock, F_SETFL, flags);
     }while(retval<0 && get_last_socket_error()==EINTR);

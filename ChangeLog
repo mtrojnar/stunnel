@@ -1,5 +1,16 @@
 stunnel         Universal SSL tunnel
 
+Version 4.14, 2005.11.02, urgency: HIGH:
+* Bugfixes
+  - transfer() fixed to avoid random stalls introduced in version 4.12.
+  - poll() error handing bug fixed.
+  - Checking for dynamic loader libraries added again.
+  - Default pidfile changed from $localstatedir/run/stunnel.pid
+    to $localstatedir/stunnel/stunnel.pid.
+  - Basic SSL library initalization moved to the beginning of execution.
+* Release notes
+  - This is an important bugfix release.  Upgrade is recommended.
+
 Version 4.13, 2005.10.21, urgency: MEDIUM:
 * DLLs for OpenSSL 0.9.7i included because protection faults were reported
   in 0.9.8 and 0.9.8a.

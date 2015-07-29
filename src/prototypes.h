@@ -56,6 +56,7 @@ typedef enum {
 } COMP_TYPE;
 
 void ssl_init(void);
+void ssl_configure(void);
 void context_init(void);
 void context_free(void);
 void sslerror(char *);

@@ -74,9 +74,12 @@ static void sslerror_stack(void);
 SSL_CTX *ctx; /* global SSL context */
 static X509_STORE *revocation_store=NULL;
 
-void ssl_init(void) { /* init SSL */
+void ssl_init(void) { /* init SSL before parsing configuration file */
     SSLeay_add_ssl_algorithms();
     SSL_load_error_strings();
+}
+
+void ssl_configure(void) { /* configure global SSL settings */
 #if (SSLEAY_VERSION_NUMBER >= 0x00907000L) && defined(HAVE_OSSL_ENGINE_H)
     if(options.engine)
         init_engine();

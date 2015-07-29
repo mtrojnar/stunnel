@@ -1,9 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel], [4.13])
+AC_INIT([stunnel], [4.14])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
-AM_INIT_AUTOMAKE(stunnel, 4.13)
+AM_INIT_AUTOMAKE(stunnel, 4.14)
 AC_CONFIG_SRCDIR(src/stunnel.c)
 
 AC_CANONICAL_HOST
@@ -40,11 +40,12 @@ AC_CHECK_FILE("/dev/ptc", AC_DEFINE(HAVE_DEV_PTS_AND_PTC))
 
 AC_MSG_NOTICE([**************************************** libraries])
 # Checks for standard libraries
-#AC_CHECK_LIB(dl, dlopen)
-#AC_CHECK_LIB(dld, shl_load)
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(util, openpty)
+# Checks for dynamic loader and zlib needed by OpenSSL
+AC_CHECK_LIB(dl, dlopen)
+AC_CHECK_LIB(dld, shl_load)
 AC_CHECK_LIB(z, inflateEnd)
 
 # Add BeOS libraries
@@ -295,7 +296,7 @@ AC_ARG_ENABLE(libwrap,
 )
 
 AC_MSG_NOTICE([**************************************** write the results])
-CPPFLAGS="$CPPFLAGS -DLIBDIR=\\\"$libdir\\\" -DCONFDIR=\\\"$sysconfdir/stunnel\\\" -DPIDFILE=\\\"$localstatedir/run/stunnel.pid\\\""
+CPPFLAGS="$CPPFLAGS -DLIBDIR=\\\"$libdir\\\" -DCONFDIR=\\\"$sysconfdir/stunnel\\\" -DPIDFILE=\\\"$localstatedir/stunnel/stunnel.pid\\\""
 AC_CONFIG_FILES([Makefile src/Makefile src/stunnel3 doc/Makefile tools/Makefile tools/stunnel.conf-sample tools/stunnel.init])
 AC_OUTPUT
 
