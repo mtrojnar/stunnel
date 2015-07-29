@@ -3,8 +3,8 @@
  *   Copyright (c) 1998-1999 Michal Trojnara <Michal.Trojnara@centertel.pl>
  *                 All Rights Reserved
  *
- *   Version:      3.3              (stunnel.c)
- *   Date:         1999.06.17
+ *   Version:      3.4              (stunnel.c)
+ *   Date:         1999.07.12
  *   Author:       Michal Trojnara  <Michal.Trojnara@centertel.pl>
  *   SSL support:  Adam Hernik      <adas@infocentrum.com>
  *                 Pawel Krawczyk   <kravietz@ceti.com.pl>
@@ -74,9 +74,6 @@ static struct WSAData wsa_state;
 #include <signal.h>      /* signal */
 #include <sys/wait.h>    /* wait */
 #include <netdb.h>
-#ifdef HAVE_STRINGS_H
-#include <strings.h>     /* rindex */
-#endif
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>      /* getopt */
 #endif
@@ -130,9 +127,6 @@ static void sigchld_handler(int);
 #ifndef USE_WIN32
 static void signal_handler(int);
 #endif
-#ifndef HAVE_RINDEX
-static char *rindex(char *, int);
-#endif
 #ifndef HAVE_GETOPT
 static int getopt(int, char **, char*);
 #endif
@@ -148,8 +142,8 @@ server_options options;
     (dst[STRLEN-1]='\0', strncpy((dst), (src), STRLEN-1))
 
     /* Functions */
-int main(int argc, char* argv[]) /* execution begins here 8-) */
-{
+int main(int argc, char* argv[])
+{ /* execution begins here 8-) */
     struct stat st; /* buffer for stat */
 
 #ifdef USE_WIN32
@@ -220,10 +214,11 @@ static void get_options(int argc, char *argv[])
     options.verify_use_only_my=0;
     options.debug_level=5;
     options.session_timeout=0;
+    options.cipher_list=NULL;
     options.username=NULL;
     options.protocol=NULL;
     opterr=0;
-    while ((c = getopt(argc, argv, "a:cp:v:d:fTl:r:t:u:n:hD:V")) != EOF)
+    while ((c = getopt(argc, argv, "a:cp:v:d:fTl:r:t:u:n:hC:D:V")) != EOF)
         switch (c) {
             case 'a':
                 safecopy(options.clientdir, optarg);
@@ -279,7 +274,7 @@ static void get_options(int argc, char *argv[])
                 options.execname=optarg;
                 /* Default servname is options.execname w/o path */
                 safecopy(options.servname, optarg);
-                tmpstr=rindex(options.servname, '/');
+                tmpstr=strrchr(options.servname, '/');
                 if(tmpstr)
                     safecopy(options.servname, tmpstr+1);
                 break;
@@ -310,6 +305,9 @@ static void get_options(int argc, char *argv[])
                 break;
             case 'n':
                 options.protocol=optarg;
+                break;
+            case 'C':
+                options.cipher_list=optarg;
                 break;
             case 'D':
                 if(optarg[0]<'0' || optarg[0]>'7' || optarg[1]!='\0') {
@@ -417,7 +415,7 @@ static void create_pid()
 #ifdef HAVE_SNPRINTF
     snprintf(options.pidfile, STRLEN,
 #else
-    sprintf(options.pidifle,
+    sprintf(options.pidfile,
 #endif
         "/var/run/stunnel.%s.pid", options.servname);
     umask(022);
@@ -470,13 +468,14 @@ static int listen_local() /* bind and listen on local interface */
     return ls;
 }
 
-int connect_local() /* connect to local host */
+int connect_local(u_long ip) /* connect to local host */
 {
 #ifdef USE_WIN32
     log(LOG_ERR, "LOCAL MODE NOT SUPPORTED ON WIN32 PLATFORM");
     return -1;
 #else
     int fd[2];
+    struct in_addr addr;
 
     if(make_sockets(fd))
         return -1;
@@ -494,6 +493,11 @@ int connect_local() /* connect to local host */
         if(!options.foreground)
             dup2(fd[1], 2);
         closesocket(fd[1]);
+        if(ip) {
+            setenv("LD_PRELOAD", libdir "/stunnel.so", 1);
+            addr.s_addr=ip;
+            setenv("REMOTE_HOST", inet_ntoa(addr), 1);
+        }
         execvp(options.execname, options.execargs);
         ioerror("execvp"); /* execvp failed */
         exit(1);
@@ -658,7 +662,7 @@ static void name2nums(char *name, u_long **names, u_short *port)
     char hostname[STRLEN], *portname;
 
     safecopy(hostname, name);
-    if((portname=rindex(hostname, ':'))) {
+    if((portname=strrchr(hostname, ':'))) {
         *portname++='\0';
         host2num(names, hostname);
         *port=port2num(portname);
@@ -747,18 +751,6 @@ static void signal_handler(int sig) /* Signal handler */
 }
 #endif /* !defined USE_WIN32 */
 
-#ifndef HAVE_RINDEX
-static char *rindex(char *txt, int c)
-{ /* Find last 'c' in "txt" */
-    char *retval;
-
-    for(retval=NULL; *txt; txt++)
-        if(*txt==c)
-            retval=txt;
-    return retval;
-}
-#endif /* !defined HAVE_RIDEX */
-
 #ifndef HAVE_GETOPT
 char *optarg;
 int optind=1, opterr=0, optopt;
@@ -770,7 +762,7 @@ static int getopt(int argc, char **argv, char *options)
     if(optind==argc || argv[optind][0]!='-')
         return EOF;
     optopt=argv[optind][1];
-    option=rindex(options, optopt);
+    option=strrchr(options, optopt);
     if(!option)
         return '?';
     if(option[1]==':') {
@@ -787,7 +779,7 @@ static int getopt(int argc, char **argv, char *options)
 static void safestring(char *string)
 { /* change all unsafe characters to '.' */
     for(; *string; string++)
-        if(!isalnum(*string))
+        if(!isalnum((unsigned char)*string))
 		*string='.';
 }
 
@@ -811,7 +803,7 @@ static void print_help()
 #ifndef USE_WIN32
         "\n\t\t[-d [ip:]port [-f]] -l program | -r [ip:]port"
 #else
-        "\n\t\t[-d [ip:]port] -r [ip:]port"
+        "\n\t\t-d [ip:]port -r [ip:]port"
 #endif
         "\n\n  -c\t\tclient mode (remote service uses SSL)"
         "\n\t\tdefault: server mode"
@@ -832,8 +824,8 @@ static void print_help()
         "\n  -n proto\tNegotiate SSL with specified protocol"
         "\n\t\tcurrenty supported: smtp"
         "\n  -d [ip:]port\tdaemon mode (ip defaults to INADDR_ANY)"
-        "\n\t\tdefault: inetd mode"
 #ifndef USE_WIN32
+        "\n\t\tdefault: inetd mode"
         "\n  -f\t\tforeground mode (don't fork, log to stderr)"
         "\n\t\tdefault: background in daemon mode"
         "\n  -l program\texecute local inetd-type program"
@@ -841,7 +833,8 @@ static void print_help()
         "\n  -r [ip:]port\tconnect to remote daemon"
         " (ip defaults to INADDR_LOOPBACK)"
         "\n  -h\t\tprint this help screen"
-        "\n  -D\t\tdebug level (0-7)  default: 5"
+        "\n  -C list\tset permitted SSL ciphers"
+        "\n  -D level\tdebug level (0-7)  default: 5"
         "\n  -V\t\tprint stunnel version\n");
     exit(1);
 }

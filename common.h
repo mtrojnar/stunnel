@@ -68,6 +68,11 @@ int _vsnprintf(char *, int, char *, ...);
 #define USE_FORK
 #endif
 
+/* Pseudoterminals */
+#if HAVE_PTY_H && HAVE_LIBUTIL
+#define USE_PTY
+#endif
+
 /* TCP wrapper */
 #if HAVE_TCPD_H && HAVE_LIBWRAP
 #define USE_LIBWRAP
@@ -111,6 +116,7 @@ typedef struct {
     int verify_use_only_my;
     int debug_level;
     long session_timeout;
+    char *cipher_list;
     char *username;
     char *protocol;
 } server_options;
@@ -118,7 +124,7 @@ typedef struct {
 /* Prototypes for stunnel.c */
 
 void sockerror(char *);
-int connect_local();
+int connect_local(unsigned long);
 int connect_remote(unsigned long);
 
 /* Prototypes for ssl.c */

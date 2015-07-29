@@ -5,21 +5,30 @@
 <DD><BR><DT><B>NAME</B><DD>
 stunnel - universal SSL tunnel
 <DD><BR><DT><B>SYNOPSIS</B><DD>
-stunnel [-c][-p pemfile][-v level][-d[ip:]port[-f]] -l program | -r [ip:]port
+<B>stunnel</B>
+[-T] [-p pemfile] [-v level] [-a directory]
+[-t timeout] [-u username] [-n protocol]
+[-d [ip:]port [-f]] [ -l program | -r [ip:]port | -L program [-- args] ]
+
+<B>stunnel</B>
+{-c} [-T] [-p pemfile] [-v level] [-a directory]
+[-t timeout] [-u username] [-n protocol]
+-r [ip:]port [ -d [ip:]port [-f] | -l program | -L program [-- args] ]
 <DD><BR><DT><B>DESCRIPTION</B><DD>
 <DD>
 
 The <B>stunnel</B> program is designed to work as <I>SSL</I> encryption wrapper 
-between remote client and local (<I>inetd</I>-startable) or remote
-server. The concept is that having non-SSL aware daemons running on
-your system you can easily setup them to communicate with clients over
-secure SSL channel.
+between remote clients and local (<I>inetd</I>-startable) or remote
+servers. The concept is that having non-SSL aware daemons running on
+your system you can easily set them up to communicate with clients over
+secure SSL channels.
 <DD>
 
 <B>stunnel</B>
 can be used to add SSL functionality to commonly used <I>inetd</I>
-daemons like POP-2, POP-3 and IMAP servers as well as to standalone
-daemons like NNTP, SMTP and HTTP without changes to the source code.
+daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
+NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
+changes to the source code.
 <DD>
 
 This product includes cryptographic software written by
@@ -36,17 +45,61 @@ default: server mode
 
 <DD>
 
+<B>-T</B>
+transparent proxy mode (on hosts that support it)
+<DD>
+
 <B>-p pemfile</B>
 certificate (*.pem) file name
 <BLOCKQUOTE>
 
-default: /usr/lib/ssl/certs/stunnel.pem
+default: @sslcnf@/certs/stunnel.pem for server mode,
+none for client mode
 </BLOCKQUOTE>
 
 <DD>
 
 <B>-v level</B>
 verify peer certificate
+<BLOCKQUOTE>
+
+level 1 - verify peer certificate if present
+level 2 - verify peer certificate
+level 3 - verify peer with locally installed certificate
+default: no verify
+</BLOCKQUOTE>
+
+<DD>
+
+<B>-a directory</B>
+client certificate directory for -v 3 option
+<BLOCKQUOTE>
+
+default: @sslcnf@/certs/trusted
+</BLOCKQUOTE>
+
+<DD>
+
+<B>-t timeout</B>
+session cache timeout
+<BLOCKQUOTE>
+
+default: 300 s.
+</BLOCKQUOTE>
+
+<DD>
+
+<B>-u user</B>
+Use IDENT (RFC 1413) username checking
+<DD>
+
+<B>-n proto</B>
+Negotiate SSL with specified protocol
+<BLOCKQUOTE>
+
+currenty supported: smtp
+</BLOCKQUOTE>
+
 <DD>
 
 <B>-d [ip:]port</B>
@@ -67,33 +120,50 @@ default: background in daemon mode
 
 <DD>
 
-<B>-l program</B>
+<B>-l program [-- args]</B>
 execute local inetd-type program
 <DD>
 
+<B>-L program [-- args]</B>
+open local pty and execute program
+<DD>
+
 <B>-r [ip:]port</B>
-connect to remote daemon
+connect to remote service
 <BLOCKQUOTE>
 
 (ip defaults to INADDR_LOOPBACK)
 </BLOCKQUOTE>
 
+<DD><BR><DT><B>EXAMPLES</B><DD>
+In order to provide SSL encapsulation to your local <I>imapd</I> service, use
+<PRE><SUB><I>.in +5</I></SUB>
+stunnel -d 993 -l /usr/sbin/imapd -- imapd</PRE>
+
+<DD>
+
+If you want to provide tunneling to your <I>pppd</I> daemon on port 2020,
+use something like
+<PRE><SUB><I>.in +5</I></SUB>
+stunnel -d 2020 -L /usr/sbin/pppd -- pppd local</PRE>
+
 <DD><BR><DT><B>CERTIFICATES</B><DD>
 Each SSL enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
-generate the with free <I>SSLeay</I> package. You can find more
+generate them with the free <I>openssl</I> package. You can find more
 information on certificates generation on pages listed below.
 <DD>
 
-Two things are important when generating certificate-key pair for <B>stunnel</B>.
-The private key cannot be encrypted, because the server has no way to obtain
-password from the user. To produce an unencrypted key add <I>-nodes</I> option
-when running <I>req</I> command from <I>SSLeay</I> kit.
+Two things are important when generating certificate-key pairs for
+<B>stunnel</B>. The private key cannot be encrypted, because the server
+has no way to obtain the password from the user. To produce an
+unencrypted key add the <I>-nodes</I> option when running the <I>req</I>
+command from the <I>openssl</I> kit.
 <DD>
 
-Order of contents of the <I>.pem</I> file is also important. It should contain
-unencrypted private key first, then a signed certificate
+The order of contents of the <I>.pem</I> file is also important.
+It should contain the unencrypted private key first, then a signed certificate
 (not certificate request).
 There should be also empty lines after certificate and private key.
 Plaintext certificate information appended on the top of generated certificate
@@ -109,21 +179,20 @@ should be discarded. So the file should look like this:
 [empty line]</PRE>
 
 <DD><BR><DT><B>LIMITATIONS</B><DD>
-<I>stunnel</I> cannot be used for FTP daemon because of the nature
-of FTP protocol which utilizes multiple ports for data transfers.
+<I>stunnel</I> cannot be used for the FTP daemon because of the nature
+of the FTP protocol which utilizes multiple ports for data transfers.
 There are available SSL enabled versions of FTP and telnet daemons, however.
 <DD><BR><DT><B>SEE ALSO</B><DD>
-<FONT FACE="Roman"><B>ssl (1),</FONT></B>
 <FONT FACE="Roman"><B>tcpd (8),</FONT></B>
 <FONT FACE="Roman"><B>inetd (8)</FONT></B>
 <DD>
 
-<I><B><A HREF="http://www.psy.uq.oz.au/~ftp/Crypto/">http://www.psy.uq.oz.au/~ftp/Crypto/</A></I></B>
-SSLeay FAQ
+<I><B><A HREF="http://mike.daewoo.com.pl/computer/stunnel">http://mike.daewoo.com.pl/computer/stunnel</A></I></B>
+Stunnel home page
 <DD>
 
-<I><B><A HREF="http://www.camb.opengroup.org/RI/www/prism/wwwj/">http://www.camb.opengroup.org/RI/www/prism/wwwj/</A></I></B>
-overview of SSL certification using SSLeay package
+<I><B><A HREF="http://www.openssl.org">http://www.openssl.org</A></I></B>
+OpenSSL project website
 <DD><BR><DT><B>AUTHORS</B><DD>
 
 <PRE>Michal Trojnara &lt;<A HREF="MAILTO:Michal.Trojnara@centertel.pl">Michal.Trojnara@centertel.pl</A>&gt;

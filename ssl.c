@@ -21,10 +21,10 @@
 /* For US citizens having problems with patents, undefined by default */
 /* #define NO_RSA */
 
-/* DH is an experimental code, so it's defined by default */
-#define NO_DH
+/* DH is an experimental code, so feel free to uncomment the next line */
+/* #define NO_DH */
 
-/* Lentgh of temporary RSA key */
+/* Length of temporary RSA key */
 #ifndef NO_RSA
 #define KEYLENGTH      512
 #endif /* NO_RSA */
@@ -106,9 +106,6 @@
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>      /* getopt */
 #endif
-#ifdef HAVE_STRINGS_H
-#include <strings.h>     /* rindex */
-#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>      /* getpid, fork, execvp, exit */
 #endif
@@ -145,9 +142,6 @@ static int transfer(SSL *, int);
 #ifndef NO_RSA
 static RSA *tmp_rsa_cb(SSL *, int, int);
 #endif /* NO_RSA */
-#ifndef NO_DH
-static DH *tmp_dh_cb(SSL *, int);
-#endif /* NO_DH */
 static int verify_callback (int, X509_STORE_CTX *);
 static void info_callback(SSL *, int, int);
 static void print_stats();
@@ -162,30 +156,69 @@ static void sslerror(char *);
 #define SSL_CTX_set_tmp_rsa_callback(ctx,cb) \
     SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_RSA_CB,0,(char *)cb)
 #endif /* NO_RSA */
-#ifndef NO_DH
-#ifdef SSL_CTX_set_tmp_dh_callback
-    #undef SSL_CTX_set_tmp_dh_callback
-#endif
-#define SSL_CTX_set_tmp_dh_callback(ctx,dh) \
-    SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_DH_CB,0,(char *)dh)
-#endif /* NO_DH */
 
 SSL_CTX *ctx;           /* global SSL context */
 #ifndef NO_RSA
 RSA *rsa_tmp;           /* temporary RSA key */
 #endif /* NO_RSA */
 #if SSLEAY_VERSION_NUMBER >= 0x0922
-static unsigned char *sid_ctx="stunnel SID"; /* const allowed here */
+static unsigned char *sid_ctx=(unsigned char *)"stunnel SID";
+    /* const allowed here */
 #endif
 
 void context_init() /* init SSL */
 {
+#ifndef NO_DH
+    static DH *dh=NULL;
+    BIO *bio=NULL;
+#endif /* NO_DH */
+
     SSLeay_add_ssl_algorithms();
     SSL_load_error_strings();
     if(options.option&OPT_CLIENT) {
-        ctx=SSL_CTX_new(SSLv3_client_method());
-    } else {
-        ctx=SSL_CTX_new(SSLv23_server_method());
+        ctx=SSL_CTX_new(TLSv1_client_method());
+    } else { /* Server mode */
+        ctx=SSL_CTX_new(TLSv1_server_method());
+#ifndef NO_RSA
+        log(LOG_DEBUG, "Generating %d bit temporary RSA key...", KEYLENGTH);
+#if SSLEAY_VERSION_NUMBER <= 0x0800
+        rsa_tmp=RSA_generate_key(KEYLENGTH, RSA_F4, NULL);
+#else
+        rsa_tmp=RSA_generate_key(KEYLENGTH, RSA_F4, NULL, NULL);
+#endif
+        if(!rsa_tmp) {
+            sslerror("tmp_rsa_cb");
+            exit(1);
+        }
+        log(LOG_DEBUG, "Temporary RSA key generated");
+        if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb)) {
+            sslerror("SSL_CTX_set_tmp_rsa_callback");
+            exit(1);
+        }
+#endif /* NO_RSA */
+#ifndef NO_DH
+        if(!(bio=BIO_new_file(options.certfile, "r"))) {
+            log(LOG_ERR, "DH: Could not read %s: %s", options.certfile,
+                strerror(errno));
+            goto dh_failed;
+        }
+        if(!(dh=PEM_read_bio_DHparams(bio, NULL, NULL))) {
+            log(LOG_ERR, "Could not load DH parameters from %s",
+                options.certfile);
+            goto dh_failed;
+        }
+        SSL_CTX_set_tmp_dh(ctx, dh);
+        log(LOG_DEBUG, "Diffie-Hellman initialized with %d bit key",
+            8*DH_size(dh));
+        goto dh_done;
+dh_failed:
+        log(LOG_WARNING, "Diffie-Hellman initialization failed");
+dh_done:
+        if(bio)
+            BIO_free(bio);
+        if(dh)
+            DH_free(dh);
+#endif /* NO_DH */
     }
     SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_BOTH);
     SSL_CTX_set_timeout(ctx, options.session_timeout);
@@ -222,32 +255,15 @@ void context_init() /* init SSL */
         if (options.verify_use_only_my)
             log(LOG_NOTICE, "Peer certificate location %s", options.clientdir);
     }
-#ifndef NO_RSA
-    log(LOG_DEBUG, "Generating %d bit temporary RSA key...", KEYLENGTH);
-#if SSLEAY_VERSION_NUMBER <= 0x0800
-    rsa_tmp=RSA_generate_key(KEYLENGTH, RSA_F4, NULL);
-#else
-    rsa_tmp=RSA_generate_key(KEYLENGTH, RSA_F4, NULL, NULL);
-#endif
-    if(!rsa_tmp) {
-        sslerror("tmp_rsa_cb");
-        exit(1);
-    }
-    log(LOG_DEBUG, "Temporary RSA key generated");
-    if(!SSL_CTX_set_tmp_rsa_callback(ctx, tmp_rsa_cb)) {
-        sslerror("SSL_CTX_set_tmp_rsa_callback");
-        exit(1);
-    }
-#endif /* NO_RSA */
-#ifndef NO_DH
-    if(!SSL_CTX_set_tmp_dh_callback(ctx, tmp_dh_cb)) {
-        sslerror("SSL_CTX_set_tmp_dh_callback");
-        exit(1);
-    }
-#endif /* NO_DH */
     if(!SSL_CTX_set_info_callback(ctx, info_callback)) {
         sslerror("SSL_CTX_set_info_callback");
         exit(1);
+    }
+    if(options.cipher_list) {
+        if (!SSL_CTX_set_cipher_list(ctx, options.cipher_list)) {
+            sslerror("SSL_CTX_set_cipher_list");
+            exit(1);
+        }
     }
 }
 
@@ -263,6 +279,7 @@ void client(int local)
     SSL *ssl;
     int remote;
     struct linger l;
+    u_long ip;
 #ifdef USE_LIBWRAP
     struct request_info request;
 #endif
@@ -297,13 +314,13 @@ void client(int local)
     }
 
     /* create connection to host/service */
+    ip=options.option&OPT_TRANSPARENT ? addr.sin_addr.s_addr : 0;
     if(options.option&OPT_REMOTE) { /* remote host */
-        if((remote=connect_remote(options.option&OPT_TRANSPARENT ?
-            addr.sin_addr.s_addr : 0))<0)
+        if((remote=connect_remote(ip))<0)
             goto cleanup_local; /* Failed to connect remote server */
         log(LOG_DEBUG, "Remote host connected");
     } else { /* local service */
-        if((remote=connect_local())<0)
+        if((remote=connect_local(ip))<0)
             goto cleanup_local; /* Failed to spawn local service */
         log(LOG_DEBUG, "Local service connected");
     }
@@ -356,20 +373,19 @@ cleanup_ssl: /* close SSL and reset sockets */
     SSL_free(ssl);
     ERR_remove_state(0);
 cleanup_remote: /* reset remote and local socket */
-    if(setsockopt(remote, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l))<0 &&
-            errno!=ENOTSOCK)
-        sockerror("linger (remote)");
+    setsockopt(remote, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l));
+    /* Ignore the error */
     closesocket(remote);
 cleanup_local: /* reset local socket */
-    if(setsockopt(local, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l))<0 &&
-            errno!=ENOTSOCK)
-        sockerror("linger (local)");
+    setsockopt(local, SOL_SOCKET, SO_LINGER, (char *)&l, sizeof(l));
+    /* Ignore the error */
     closesocket(local);
 done:
 #ifndef USE_FORK
     log(LOG_DEBUG, "%s finished (%d left)", options.servname,
         --options.clients);
 #endif
+    ; /* ANSI C compiler needs it */
 }
 
 static int transfer(SSL *ssl, int sock_fd) /* transfer data */
@@ -516,7 +532,7 @@ done:
 
     log(LOG_NOTICE,
         "Connection %s: %d bytes sent to SSL, %d bytes sent to socket",
-        retval<0 ? "reset" : "closed", sock_bytes, ssl_bytes);
+        retval<0 ? "reset" : "closed", ssl_bytes, sock_bytes);
     return retval;
 }
 
@@ -526,36 +542,6 @@ static RSA *tmp_rsa_cb(SSL *s, int export, int keylength)
     return rsa_tmp;
 }
 #endif /* NO_RSA */
-
-#ifndef NO_DH
-static DH *tmp_dh_cb(SSL *s, int export)
-{ /* temporary DH key callback */
-    static DH *dh_tmp = NULL;
-    BIO *in=NULL;
-
-    if(dh_tmp)
-        return(dh_tmp);
-    log(LOG_DEBUG, "Generating Diffie-Hellman key...");
-    in=BIO_new_file(options.certfile, "r");
-    if(in == NULL) {
-        log(LOG_ERR, "DH: could not read %s: %s", options.certfile,
-            strerror(errno));
-        return(NULL);
-    }
-    dh_tmp=PEM_read_bio_DHparams(in,NULL,NULL);
-    if(dh_tmp==NULL) {
-        log(LOG_ERR, "could not load DH parameters");
-        return(NULL);
-    }
-    if(!DH_generate_key(dh_tmp)) {
-        log(LOG_ERR, "could not generate DH keys");
-        return(NULL);
-    }
-    log(LOG_DEBUG, "Diffie-Hellman length: %d", DH_size(dh_tmp));
-    if(in != NULL) BIO_free(in);
-    return(dh_tmp);
-}
-#endif /* NO_DH */
 
 static int verify_callback(int state, X509_STORE_CTX *ctx)
 { /* our verify callback function */

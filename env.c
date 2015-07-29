@@ -18,57 +18,25 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "common.h"
-#include <stdio.h>
-#include <stdarg.h>
+/* getpeername can't be declarated in a normal way */
+#define getpeername no_getpeername
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#undef getpeername
 
-extern server_options options;
+int getpeername(int s, struct sockaddr_in *name, int *len) {
+    char *value;
 
-#ifdef USE_WIN32
-
-void log_open()
-{
-}
-
-void log_close()
-{
-}
-
-#else /* USE_WIN32 */
-
-void log_open()
-{
-    openlog("stunnel", LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-}
-
-void log_close()
-{
-    closelog();
-}
-
-#endif /* USE_WIN32 */
-
-void log(int level, char *format, ...)
-{
-    va_list arglist;
-    char text[256];
-
-    if(level>options.debug_level)
-        return;
-    va_start(arglist, format);
-#ifdef HAVE_VSNPRINTF
-    vsnprintf(text, 256, format, arglist);
-#else
-    vsprintf(text, format, arglist);
-#endif
-    va_end(arglist);
-#ifndef USE_WIN32
-    if(!options.foreground)
-        syslog(level, text);
+    name->sin_family=AF_INET;
+    if((value=getenv("REMOTE_HOST")))
+        name->sin_addr.s_addr=inet_addr(value);
     else
-#endif
-        fprintf(stderr, "LOG%d[%lu:%lu]: %s\n",
-            level, process_id(), thread_id(), text);
-    fflush(stderr);
+        name->sin_addr.s_addr=htonl(INADDR_ANY);
+    if((value=getenv("REMOTE_PORT")))
+        name->sin_port=htons(atoi(value));
+    else
+        name->sin_port=htons(0);
+    return 0;
 }
 

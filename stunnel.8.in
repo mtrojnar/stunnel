@@ -1,20 +1,29 @@
-.TH STUNNEL 8 "18 January 1999"
+.TH STUNNEL 8 "10 June 1999"
 .SH NAME
 stunnel \- universal SSL tunnel
 .SH SYNOPSIS
-stunnel [-c][-p pemfile][-v level][-d[ip:]port[-f]] -l program | -r [ip:]port
+.B stunnel
+[-T] [-p pemfile] [-v level] [-a directory]
+[-t timeout] [-u username] [-n protocol]
+[-d [ip:]port [-f]] [ -l program | -r [ip:]port | -L program [-- args] ]
+
+.B stunnel
+{-c} [-T] [-p pemfile] [-v level] [-a directory]
+[-t timeout] [-u username] [-n protocol]
+-r [ip:]port [ -d [ip:]port [-f] | -l program | -L program [-- args] ]
 .SH DESCRIPTION
 .PP
 The \fBstunnel\fR program is designed to work as \fISSL\fR encryption wrapper 
-between remote client and local (\fIinetd\fR-startable) or remote
-server. The concept is that having non-SSL aware daemons running on
-your system you can easily setup them to communicate with clients over
-secure SSL channel.
+between remote clients and local (\fIinetd\fR-startable) or remote
+servers. The concept is that having non-SSL aware daemons running on
+your system you can easily set them up to communicate with clients over
+secure SSL channels.
 .PP
 .B stunnel
 can be used to add SSL functionality to commonly used \fIinetd\fR
-daemons like POP-2, POP-3 and IMAP servers as well as to standalone
-daemons like NNTP, SMTP and HTTP without changes to the source code.
+daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
+NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
+changes to the source code.
 .PP
 This product includes cryptographic software written by
 Eric Young (eay@cryptsoft.com)
@@ -26,14 +35,45 @@ client mode (remote service uses SSL)
 default: server mode
 .RE
 .TP
+.B -T
+transparent proxy mode (on hosts that support it)
+.TP
 .B -p pemfile
 certificate (*.pem) file name
 .RS
-default: @SSLDIR@/certs/stunnel.pem
+default: @sslcnf@/certs/stunnel.pem for server mode,
+none for client mode
 .RE
 .TP
 .B -v level
 verify peer certificate
+.RS
+level 1 - verify peer certificate if present
+level 2 - verify peer certificate
+level 3 - verify peer with locally installed certificate
+default: no verify
+.RE
+.TP
+.B -a directory
+client certificate directory for -v 3 option
+.RS
+default: @sslcnf@/certs/trusted
+.RE
+.TP
+.B -t timeout
+session cache timeout
+.RS
+default: 300 s.
+.RE
+.TP
+.B -u user
+Use IDENT (RFC 1413) username checking
+.TP
+.B -n proto
+Negotiate SSL with specified protocol
+.RS
+currenty supported: smtp
+.RE
 .TP
 .B -d [ip:]port
 daemon mode (ip defaults to INADDR_ANY)
@@ -47,28 +87,49 @@ foreground mode (don't fork, log to stderr)
 default: background in daemon mode
 .RE
 .TP
-.B -l program
+.B -l program [-- args]
 execute local inetd-type program
 .TP
+.B -L program [-- args]
+open local pty and execute program
+.TP
 .B -r [ip:]port
-connect to remote daemon
+connect to remote service
 .RS
 (ip defaults to INADDR_LOOPBACK)
 .RE
+
+.SH EXAMPLES
+In order to provide SSL encapsulation to your local \fIimapd\fR service, use
+.nf
+.sp
+.in +5
+stunnel -d 993 -l /usr/sbin/imapd -- imapd
+.fi
+.PP
+If you want to provide tunneling to your \fIpppd\fR daemon on port 2020,
+use something like
+.nf
+.sp
+.in +5
+stunnel -d 2020 -L /usr/sbin/pppd -- pppd local
+.fi
+
 .SH CERTIFICATES
 Each SSL enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
-generate the with free \fISSLeay\fR package. You can find more
+generate them with the free \fIopenssl\fR package. You can find more
 information on certificates generation on pages listed below.
 .PP
-Two things are important when generating certificate-key pair for \fBstunnel\fR.
-The private key cannot be encrypted, because the server has no way to obtain
-password from the user. To produce an unencrypted key add \fI-nodes\fR option
-when running \fIreq\fR command from \fISSLeay\fR kit.
+Two things are important when generating certificate-key pairs for
+\fBstunnel\fR. The private key cannot be encrypted, because the server
+has no way to obtain the password from the user. To produce an
+unencrypted key add the \fI-nodes\fR option when running the \fIreq\fR
+command from the \fIopenssl\fR kit.
 .PP
-Order of contents of the \fI.pem\fR file is also important. It should contain
-unencrypted private key first, then a signed certificate
+The order of contents of the \fI.pem\fR file is also important.
+It should contain the unencrypted private key first, then a signed certificate
 (not certificate request).
 There should be also empty lines after certificate and private key.
 Plaintext certificate information appended on the top of generated certificate
@@ -86,22 +147,18 @@ should be discarded. So the file should look like this:
 .fi
 .sp
 .SH LIMITATIONS
-\fIstunnel\fR cannot be used for FTP daemon because of the nature
-of FTP protocol which utilizes multiple ports for data transfers.
+\fIstunnel\fR cannot be used for the FTP daemon because of the nature
+of the FTP protocol which utilizes multiple ports for data transfers.
 There are available SSL enabled versions of FTP and telnet daemons, however.
 .SH SEE ALSO
-.BR ssl (1),
 .BR tcpd (8),
 .BR inetd (8)
 .TP
 .BI http://mike.daewoo.com.pl/computer/stunnel
 Stunnel home page
 .TP
-.BI http://www.psy.uq.oz.au/~ftp/Crypto/
-SSLeay FAQ
-.TP
-.BI http://www.camb.opengroup.org/RI/www/prism/wwwj/
-overview of SSL certification using SSLeay package
+.BI http://www.openssl.org
+OpenSSL project website
 .SH AUTHORS
 .na
 .nf

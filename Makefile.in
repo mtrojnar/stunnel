@@ -5,6 +5,7 @@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 sbindir=@sbindir@
+libdir=@libdir@
 mandir=@mandir@/man8
 ssldir=@ssldir@
 certdir=$(ssldir)/certs
@@ -12,14 +13,15 @@ certdir=$(ssldir)/certs
 VERSION=stunnel-@VERSION@
 CC=@CC@
 INSTALL=@INSTALL@
-CFLAGS=@CFLAGS@
+CFLAGS=@CFLAGS@ -Dlibdir=\"@libdir@\"
 LIBS=@LIBS@
 OBJS=stunnel.o ssl.o protocol.o sthreads.o log.o
-DESTFILES=$(sbindir)/stunnel $(mandir)/stunnel.8 $(certdir)/stunnel.pem
+DESTFILES=$(sbindir)/stunnel $(libdir)/stunnel.so $(mandir)/stunnel.8 \
+    $(certdir)/stunnel.pem
 
 # standard external rules
 
-all: stunnel
+all: stunnel stunnel.so
 
 install: installdirs $(DESTFILES)
 
@@ -30,7 +32,7 @@ install-strip:
 	$(MAKE) INSTALL='$(INSTALL) -s' install
 
 clean:
-	rm -f stunnel $(OBJS) core config.log
+	rm -f stunnel stunnel.so $(OBJS) core config.log
 
 distclean: clean
 	rm -f stunnel.8 config.cache config.status Makefile config.h
@@ -47,7 +49,7 @@ dist: distclean
 	rm -rf ../dist/$(VERSION)
 
 installdirs: mkinstalldirs
-	./mkinstalldirs $(sbindir) $(mandir) $(certdir)
+	./mkinstalldirs $(sbindir) $(libdir) $(mandir) $(certdir)
 
 # non-standard external rules
 
@@ -63,6 +65,10 @@ cert:
 stunnel: $(OBJS)
 	$(CC) $(LDFLAGS) -o stunnel $(OBJS) $(LIBS)
 
+stunnel.so: Makefile env.c
+	$(CC) -fPIC -shared $(LDFLAGS) -o stunnel.so env.c $(LIBS) || \
+	(touch stunnel.so && echo && echo "You can ignore this error" && echo)
+
 Makefile: configure Makefile.in
 	./configure
 	$(MAKE) clean
@@ -76,11 +82,16 @@ $(OBJS): Makefile common.h
 stunnel.pem:
 	$(ssldir)/bin/openssl req -new -x509 -days 365 -config stunnel.cnf \
 		-out stunnel.pem -keyout stunnel.pem
+	$(ssldir)/bin/openssl gendh -rand \
+		`test -c /dev/random && echo /dev/random` 512 >> stunnel.pem
 	$(ssldir)/bin/openssl x509 -subject -dates -fingerprint -noout \
 		-in stunnel.pem
 
 $(sbindir)/stunnel: stunnel
 	$(INSTALL) -m 711 stunnel $(sbindir)
+
+$(libdir)/stunnel.so: stunnel.so
+	test ! -s stunnel.so || $(INSTALL) -m 755 stunnel.so $(libdir)
 
 $(mandir)/stunnel.8: stunnel.8
 	$(INSTALL) -m 644 stunnel.8 $(mandir)

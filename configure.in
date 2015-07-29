@@ -9,10 +9,29 @@ if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-VERSION="3.3"
+VERSION="3.4"
 AC_SUBST(VERSION)
 AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
 
+AC_SUBST(host)
+AC_DEFINE_UNQUOTED(HOST, "$host")
+
+dnl Checks for standard libraries.
+AC_CHECK_LIB(nsl, gethostbyname)
+AC_CHECK_LIB(socket, socket)
+AC_CHECK_LIB(pthread, pthread_create)
+AC_CHECK_LIB(util, forkpty)
+
+dnl Check for libwrap library.
+AC_MSG_CHECKING([for hosts_access in -lwrap])
+saved_LIBS="$LIBS"
+LIBS="-lwrap $saved_LIBS"
+AC_TRY_LINK([int hosts_access(); int allow_severity, deny_severity;],
+[hosts_access()],
+[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBWRAP)],
+[AC_MSG_RESULT(no)]; LIBS="$saved_LIBS")
+
+dnl Check for SSL directories.
 AC_MSG_CHECKING([for SSL directory])
 for dir in /usr/local/ssl /usr/lib/ssl /usr/pkg /usr/local /usr; do
     ssldir="$dir"
@@ -27,30 +46,13 @@ done
 AC_MSG_RESULT($ssldir)
 AC_SUBST(ssldir)
 AC_DEFINE_UNQUOTED(ssldir, "$ssldir")
-
-AC_SUBST(host)
-AC_DEFINE_UNQUOTED(HOST, "$host")
-
 CFLAGS="$CFLAGS -I$ssldir/include"
-LIBS="-L$ssldir/lib -lssl -lcrypto $LIBS"
+LIBS="$LIBS -L$ssldir/lib -lssl -lcrypto"
 
-dnl Checks for libraries.
-AC_CHECK_LIB(nsl, gethostbyname)
-AC_CHECK_LIB(socket, socket)
-AC_CHECK_LIB(pthread, pthread_create)
-# AC_CHECK_LIB(rsaref, RSA_PKCS1_RSAPrivateEncrypt)
-
-AC_MSG_CHECKING([for hosts_access in -lwrap])
-saved_LIBS="$LIBS"
-LIBS="-lwrap $saved_LIBS"
-AC_TRY_LINK([int hosts_access(); int allow_severity, deny_severity;],
-[hosts_access()],
-[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LIBWRAP)],
-[AC_MSG_RESULT(no)]; LIBS="$saved_LIBS")
-
+dnl Check for RSAref library.
 AC_MSG_CHECKING([for RSAref library])
 saved_LIBS="$LIBS"
-LIBS="-lRSAglue -lrsaref $saved_LIBS"
+LIBS="$saved_LIBS -lRSAglue -lrsaref"
 AC_TRY_LINK([], [],
 [AC_MSG_RESULT(yes); ],
 [AC_MSG_RESULT(no)]; LIBS="$saved_LIBS")
@@ -59,7 +61,7 @@ dnl Checks for header files.
 # AC_HEADER_DIRENT
 # AC_HEADER_STDC
 # AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(getopt.h strings.h unistd.h sys/select.h tcpd.h pthread.h)
+AC_CHECK_HEADERS(getopt.h unistd.h sys/select.h tcpd.h pthread.h pty.h)
 
 # dnl Checks for typedefs, structures, and compiler characteristics.
 # AC_C_CONST
@@ -68,8 +70,8 @@ AC_CHECK_HEADERS(getopt.h strings.h unistd.h sys/select.h tcpd.h pthread.h)
 # AC_TYPE_PID_T
 # AC_HEADER_TIME
 
-# dnl Checks for library functions.
-AC_CHECK_FUNCS(rindex getopt snprintf vsnprintf)
+dnl Checks for library functions.
+AC_CHECK_FUNCS(getopt snprintf vsnprintf)
 
 AC_OUTPUT(Makefile stunnel.8)
 

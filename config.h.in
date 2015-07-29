@@ -18,9 +18,6 @@
 /* Define if you have the getopt function.  */
 #undef HAVE_GETOPT
 
-/* Define if you have the rindex function.  */
-#undef HAVE_RINDEX
-
 /* Define if you have the snprintf function.  */
 #undef HAVE_SNPRINTF
 
@@ -33,8 +30,8 @@
 /* Define if you have the <pthread.h> header file.  */
 #undef HAVE_PTHREAD_H
 
-/* Define if you have the <strings.h> header file.  */
-#undef HAVE_STRINGS_H
+/* Define if you have the <pty.h> header file.  */
+#undef HAVE_PTY_H
 
 /* Define if you have the <sys/select.h> header file.  */
 #undef HAVE_SYS_SELECT_H
@@ -53,3 +50,6 @@
 
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET
+
+/* Define if you have the util library (-lutil).  */
+#undef HAVE_LIBUTIL

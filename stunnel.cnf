@@ -11,11 +11,12 @@ x509_extensions = cert_type
 [ req_dn ]
 countryName = Country Name (2 letter code)
 countryName_default = PL
+countryName_min = 2
+countryName_max = 2
 
 organizationName = Organization Name (eg, company)
 organizationName_default = Stunnel Developers Ltd
 
-# 0.commonName = Common Name (eg, YOUR name)
 0.commonName = Common Name (FQDN of your server)
 
 1.commonName = Common Name (default)

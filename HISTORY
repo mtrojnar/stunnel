@@ -1,6 +1,13 @@
 stunnel         Universal SSL tunnel
 
-3.3 1999.04.28	Support for openssl 0.9.3 added.
+3.4 1999.07.12	Local transparent proxy added with LD_PRELOADed shared library.
+		DH code rewritten.
+		Added -C option to set cipher list.
+		stderr fflushed after fprintf().
+		Minor portability bugfixes.
+		Manual updated (but still not perfect).
+
+3.3 1999.06.18	Support for openssl 0.9.3 added.
 		Generic support for protocol negotiation added (protocol.c).
 		SMTP protocol negotiation support for Netscape client added.
 		Transparent proxy mode (currently works on Linux only).
