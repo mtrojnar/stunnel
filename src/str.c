@@ -42,10 +42,9 @@ struct alloc_list_struct {
     ALLOC_LIST *prev, *next;
     TLS_DATA *tls;
     size_t size;
-    const char *file;
-    int line;
-    int valid_canary;
-    unsigned magic;
+    const char *alloc_file, *free_file;
+    int alloc_line, free_line;
+    unsigned valid_canary, magic;
         /* at least on IA64 allocations need to be aligned */
 #ifdef __GNUC__
 } __attribute__((aligned(16)));
@@ -63,7 +62,7 @@ NOEXPORT void str_leak_debug(ALLOC_LIST *, int);
 
 TLS_DATA *ui_tls;
 static uint8_t canary[10]; /* 80-bit canary value */
-static volatile int canary_initialized=0;
+static volatile unsigned canary_initialized=0xabadbabe;
 
 /**************************************** string manipulation functions */
 
@@ -158,12 +157,12 @@ void str_cleanup(TLS_DATA *tls_data) {
 }
 
 void str_canary_init() {
-    if(canary_initialized) /* prevent double initialization on config reload */
-        return;
+    if(canary_initialized!=0xabadbabe)
+        return; /* prevent double initialization on config reload */
     RAND_bytes(canary, sizeof canary);
     /* an error would reduce the effectiveness of canaries */
     /* this is nothing critical, so the return value is ignored here */
-    canary_initialized=1; /* after RAND_bytes */
+    canary_initialized=0xc0ded; /* after RAND_bytes */
 }
 
 void str_stats() {
@@ -187,7 +186,7 @@ void str_stats() {
             break;
         s_log(LOG_DEBUG, "str_stats: %lu byte(s) at %s:%d",
             (unsigned long)alloc_list->size,
-            alloc_list->file, alloc_list->line);
+            alloc_list->alloc_file, alloc_list->alloc_line);
     }
 }
 
@@ -230,11 +229,13 @@ void *str_alloc_detached_debug(size_t size, const char *file, int line) {
     alloc_list->next=NULL; /* for debugging */
     alloc_list->tls=NULL;
     alloc_list->size=size;
-    alloc_list->file=file;
-    alloc_list->line=line;
+    alloc_list->alloc_file=file;
+    alloc_list->alloc_line=line;
+    alloc_list->free_file="none";
+    alloc_list->free_line=0;
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
     memcpy((uint8_t *)(alloc_list+1)+size, canary, sizeof canary);
-    alloc_list->magic=0xdeadbeef;
+    alloc_list->magic=0xa110c8ed;
     str_leak_debug(alloc_list, 1);
 
     return alloc_list+1;
@@ -268,8 +269,10 @@ void *str_realloc_debug(void *ptr, size_t size, const char *file, int line) {
         alloc_list->tls->alloc_bytes+=size-alloc_list->size;
     }
     alloc_list->size=size;
-    alloc_list->file=file;
-    alloc_list->line=line;
+    alloc_list->alloc_file=file;
+    alloc_list->alloc_line=line;
+    alloc_list->free_file="none";
+    alloc_list->free_line=0;
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
     memcpy((uint8_t *)ptr+size, canary, sizeof canary);
     str_leak_debug(alloc_list, 1);
@@ -307,9 +310,21 @@ void str_free_debug(void *ptr, const char *file, int line) {
 
     if(!ptr) /* do not attempt to free null pointers */
         return;
-    str_detach_debug(ptr, file, line);
     alloc_list=(ALLOC_LIST *)ptr-1;
+    if(alloc_list->magic==0xdefec8ed) {
+        /* this may (unlikely) log garbage instead of file names */
+        s_log(LOG_CRIT,
+            "Double free attempt: ptr=%p alloc=%s:%d free#1=%s:%d free#2=%s:%d",
+            ptr,
+            alloc_list->alloc_file, alloc_list->alloc_line,
+            alloc_list->free_file, alloc_list->free_line,
+            file, line);
+        return;
+    }
+    str_detach_debug(ptr, file, line);
     str_leak_debug(alloc_list, -1);
+    alloc_list->free_file=file;
+    alloc_list->free_line=line;
     alloc_list->magic=0xdefec8ed; /* to detect double free attempts */
     memset(ptr, 0, alloc_list->size); /* paranoia */
     free(alloc_list);
@@ -321,15 +336,11 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
     if(!tls_initialized)
         fatal_debug("str not initialized", file, line);
     alloc_list=(ALLOC_LIST *)ptr-1;
-    if(alloc_list->magic!=0xdeadbeef) { /* not allocated by str_alloc() */
-        if(alloc_list->magic==0xdefec8ed)
-            fatal_debug("Double free attempt", file, line);
-        else
-            fatal_debug("Bad magic", file, line); /* LOL */
-    }
+    if(alloc_list->magic!=0xa110c8ed) /* not allocated by str_alloc() */
+        fatal_debug("Bad magic", file, line); /* LOL */
     if(alloc_list->tls /* not detached */ && alloc_list->tls!=tls_get())
         fatal_debug("Memory allocated in a different thread", file, line);
-    if(alloc_list->valid_canary &&
+    if(alloc_list->valid_canary!=0xabadbabe &&
             safe_memcmp((uint8_t *)ptr+alloc_list->size, canary, sizeof canary))
         fatal_debug("Dead canary", file, line); /* LOL */
     return alloc_list;
@@ -345,8 +356,8 @@ NOEXPORT void str_leak_debug(ALLOC_LIST *alloc_list, int change) {
 #define ALLOC_TABLE_SIZE 1000
 #define MAX_ALLOCS 200
     static struct {
-        const char *file;
-        int line;
+        const char *alloc_file;
+        int alloc_line;
         int num;
     } alloc_table[ALLOC_TABLE_SIZE];
     static size_t alloc_num=0;
@@ -354,24 +365,26 @@ NOEXPORT void str_leak_debug(ALLOC_LIST *alloc_list, int change) {
 
     enter_critical_section(CRIT_LEAK);
     for(i=0; i<alloc_num; ++i)
-        if(alloc_table[i].file==alloc_list->file &&
-                alloc_table[i].line==alloc_list->line)
+        if(alloc_table[i].alloc_file==alloc_list->alloc_file &&
+                alloc_table[i].alloc_line==alloc_list->alloc_line)
             break;
     if(i==alloc_num) {
         if(alloc_num==ALLOC_TABLE_SIZE) {
             leave_critical_section(CRIT_LEAK);
             return;
         }
-        alloc_table[i].file=alloc_list->file;
-        alloc_table[i].line=alloc_list->line;
+        alloc_table[i].alloc_file=alloc_list->alloc_file;
+        alloc_table[i].alloc_line=alloc_list->alloc_line;
         alloc_table[i].num=0;
         ++alloc_num;
     }
     alloc_table[i].num+=change;
     leave_critical_section(CRIT_LEAK);
-    if(alloc_table[i].num>MAX_ALLOCS && strcmp(alloc_table[i].file, "lhash.c"))
+    if(alloc_table[i].num>MAX_ALLOCS &&
+            strcmp(alloc_table[i].alloc_file, "lhash.c"))
         fprintf(stderr, "%d allocations detected at %s:%d\n",
-            alloc_table[i].num, alloc_table[i].file, alloc_table[i].line);
+            alloc_table[i].num,
+            alloc_table[i].alloc_file, alloc_table[i].alloc_line);
 #endif
 }
 

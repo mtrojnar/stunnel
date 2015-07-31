@@ -179,7 +179,8 @@ TLS_DATA *tls_get() {
 
 NOEXPORT void free_function(void *ptr) {
     /* CRYPTO_set_mem_ex_functions() needs a function rather than a macro */
-    str_free(ptr);
+    /* unfortunately, OpenSSL provides no file:line information here */
+    str_free_debug(ptr, "OpenSSL", 0);
 }
 
 /* end of tls.c */

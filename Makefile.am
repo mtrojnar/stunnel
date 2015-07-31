@@ -36,7 +36,7 @@ sign: dist
 	sha256sum $(distdir).tar.gz >../dist/$(distdir).tar.gz.sha256
 	sha256sum $(distdir)-installer.exe >../dist/$(distdir)-installer.exe.sha256
 	sha256sum $(distdir)-android.zip >../dist/$(distdir)-android.zip.sha256
-	cat ../dist/$(distdir)*.sha256
+	cat ../dist/$(distdir)*.sha256 | tac
 
 cert:
 	$(MAKE) -C tools cert

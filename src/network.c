@@ -527,7 +527,7 @@ int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     s_log(LOG_INFO, "s_connect: connecting %s", dst);
 
     if(!connect(c->fd, &addr->sa, addrlen)) {
-        s_log(LOG_NOTICE, "s_connect: connected %s", dst);
+        s_log(LOG_INFO, "s_connect: connected %s", dst);
         str_free(dst);
         return 0; /* no error -> success (on some OSes over the loopback) */
     }

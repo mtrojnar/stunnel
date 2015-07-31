@@ -891,8 +891,8 @@ NOEXPORT void sslerror_queue(void) { /* recursive dump of the error queue */
 NOEXPORT void sslerror_log(unsigned long err, char *txt) {
     char *error_string;
 
-    error_string=str_alloc(120);
-    ERR_error_string(err, error_string);
+    error_string=str_alloc(256);
+    ERR_error_string_n(err, error_string, 256);
     s_log(LOG_ERR, "%s: %lX: %s", txt, err, error_string);
     str_free(error_string);
 }

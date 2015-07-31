@@ -1,5 +1,15 @@
 stunnel change log
 
+Version 5.22, 2015.07.30, urgency: HIGH
+* New features
+  - "OCSPaia = yes" added to the configuration file templates.
+  - Improved double free detection.
+* Bugfixes
+  - Fixed a number of OCSP bugs.  The most severe of those
+    bugs caused stunnel to treat OCSP responses that failed
+    OCSP_basic_verify() checks as if they were successful.
+  - Fixed the passive IPv6 resolver (broken in stunnel 5.21).
+
 Version 5.21, 2015.07.27, urgency: MEDIUM
 * New features
   - Signal names are displayed instead of numbers.
@@ -15,7 +25,7 @@ Version 5.21, 2015.07.27, urgency: MEDIUM
 * Bugfixes
   - Fixed the FORK and UCONTEXT threading support.
   - Fixed "failover=prio" (broken since stunnel 5.15).
-  - Added a retry when sleep(3) was interrupted by a singal
+  - Added a retry when sleep(3) was interrupted by a signal
     in the cron thread scheduler.
 
 Version 5.20, 2015.07.09, urgency: HIGH 

@@ -233,7 +233,7 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         hints.ai_family=AF_INET; /* first try IPv4 for passive requests */
         hints.ai_flags|=AI_PASSIVE;
     }
-    do {
+    for(;;) {
         err=getaddrinfo(host_name, port_name, &hints, &res);
         if(!err)
             break;
@@ -250,7 +250,8 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
             continue; /* retry for non-IPv4 addresses */
         }
 #endif
-    } while(0);
+        break;
+    }
     if(err==EAI_SERVICE) {
         s_log(LOG_ERR, "Unknown TCP service \"%s\"", port_name);
         return 0; /* error */
