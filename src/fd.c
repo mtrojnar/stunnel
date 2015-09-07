@@ -205,7 +205,7 @@ NOEXPORT SOCKET setup_fd(SOCKET fd, int nonblock, char *msg) {
 #endif
 
 #ifdef USE_NEW_LINUX_API
-    (void)nonblock; /* skip warning about unused parameter */
+    (void)nonblock; /* squash the unused parameter warning */
 #else /* set O_NONBLOCK and F_SETFD */
     set_nonblock(fd, (unsigned long)nonblock);
 #ifdef FD_CLOEXEC

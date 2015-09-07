@@ -78,7 +78,7 @@ NOEXPORT void *cron_thread(void *arg) {
     struct sched_param param;
 #endif
 
-    (void)arg; /* skip warning about unused parameter */
+    (void)arg; /* squash the unused parameter warning */
     tls_alloc(NULL, NULL, "cron");
 #ifdef SCHED_BATCH
     param.sched_priority=0;
@@ -98,7 +98,7 @@ int cron_init() {
 }
 
 NOEXPORT void cron_thread(void *arg) {
-    (void)arg; /* skip warning about unused parameter */
+    (void)arg; /* squash the unused parameter warning */
     tls_alloc(NULL, NULL, "cron");
     if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST))
         ioerror("SetThreadPriority");

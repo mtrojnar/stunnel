@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.07.27" "5.22" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.07.31" "5.23" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -636,7 +636,7 @@ extension.
 The \fIsni\fR option is only available when compiled with \fBOpenSSL 1.0.0\fR and later.
 .IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
 .IX Item "OCSP = URL"
-select \s-1OCSP\s0 server for certificate verification
+select \s-1OCSP\s0 responder for certificate verification
 .IP "\fBOCSPaia\fR = yes | no" 4
 .IX Item "OCSPaia = yes | no"
 validate certificates with their \s-1AIA OCSP\s0 responders
@@ -646,12 +646,19 @@ This option enables \fIstunnel\fR to validate certificates with the list of
 extension.
 .IP "\fBOCSPflag\fR = \s-1OCSP_FLAG\s0" 4
 .IX Item "OCSPflag = OCSP_FLAG"
-specify \s-1OCSP\s0 server flag
+specify \s-1OCSP\s0 responder flag
 .Sp
 Several \fIOCSPflag\fR can be used to specify multiple flags.
 .Sp
 currently supported flags: \s-1NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME\s0
+.IP "\fBOCSPnonce\fR = yes | no" 4
+.IX Item "OCSPnonce = yes | no"
+send and verify the \s-1OCSP\s0 nonce extension
+.Sp
+This option protects the \s-1OCSP\s0 protocol against replay attacks.  Due to its
+computational overhead, the nonce extension is usually only supported on
+internal (e.g. corporate) responders, and not on public \s-1OCSP\s0 responders.
 .IP "\fBoptions\fR = \s-1SSL_OPTIONS\s0" 4
 .IX Item "options = SSL_OPTIONS"
 \&\fBOpenSSL\fR library options

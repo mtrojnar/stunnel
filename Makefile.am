@@ -24,9 +24,9 @@ distclean-local:
 #	rm -f $(distdir)-installer.exe
 
 #dist-hook:
-#	makensis -NOCD -DVERSION=${VERSION} -DSRCDIR=$(srcdir) \
-#		-DOPENSSL=/usr/src/openssl-0.9.8u-fips/out32dll \
-#		-DZLIB=/usr/src/zlib-1.2.8-i586 \
+#	makensis -NOCD -DVERSION=${VERSION} \
+#		-DSTUNNEL_DIR=$(srcdir) \
+#		-DROOT_DIR=/usr/src \
 #		$(srcdir)/tools/stunnel.nsi
 
 

@@ -212,7 +212,7 @@ int file_permissions(const char *file_name) {
         s_log(LOG_WARNING,
             "Insecure file permissions on %s", file_name);
 #else
-    (void)file_name; /* skip warning about unused parameter */
+    (void)file_name; /* squash the unused parameter warning */
 #endif
     return 0;
 }

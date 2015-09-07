@@ -215,12 +215,12 @@ void ui_config_reloaded(void) {
 #ifdef ICON_IMAGE
 
 ICON_IMAGE load_icon_default(ICON_TYPE icon) {
-    (void)icon; /* skip warning about unused parameter */
+    (void)icon; /* squash the unused parameter warning */
     return (ICON_IMAGE)0;
 }
 
 ICON_IMAGE load_icon_file(const char *file) {
-    (void)file; /* skip warning about unused parameter */
+    (void)file; /* squash the unused parameter warning */
     return (ICON_IMAGE)0;
 }
 
@@ -229,11 +229,11 @@ ICON_IMAGE load_icon_file(const char *file) {
 /**************************************** client callbacks */
 
 void ui_new_chain(const unsigned section_number) {
-    (void)section_number; /* skip warning about unused parameter */
+    (void)section_number; /* squash the unused parameter warning */
 }
 
 void ui_clients(const long num) {
-    (void)num; /* skip warning about unused parameter */
+    (void)num; /* squash the unused parameter warning */
 }
 
 /**************************************** s_log callbacks */
@@ -245,17 +245,17 @@ void ui_new_log(const char *line) {
 /**************************************** ctx callbacks */
 
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
-    (void)buf; /* skip warning about unused parameter */
-    (void)size; /* skip warning about unused parameter */
-    (void)rwflag; /* skip warning about unused parameter */
-    (void)userdata; /* skip warning about unused parameter */
+    (void)buf; /* squash the unused parameter warning */
+    (void)size; /* squash the unused parameter warning */
+    (void)rwflag; /* squash the unused parameter warning */
+    (void)userdata; /* squash the unused parameter warning */
     return 0; /* not implemented */
 }
 
 #ifndef OPENSSL_NO_ENGINE
 int pin_cb(UI *ui, UI_STRING *uis) {
-    (void)ui; /* skip warning about unused parameter */
-    (void)uis; /* skip warning about unused parameter */
+    (void)ui; /* squash the unused parameter warning */
+    (void)uis; /* squash the unused parameter warning */
     return 0; /* not implemented */
 }
 #endif

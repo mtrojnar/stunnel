@@ -3,7 +3,7 @@
 
 Summary: Program that wraps normal socket connections with SSL/TLS
 Name: stunnel
-Version: 5.22
+Version: 5.23
 Release: 1
 License: GPL with an OpenSSL exception
 Group: Applications/Networking
@@ -65,7 +65,7 @@ ldconfig
 %files
 %defattr(-,root,root)
 %doc COPYING COPYRIGHT.GPL README ChangeLog doc/stunnel.html
-%doc tools/ca.html tools/ca.pl tools/importCA.html tools/importCA.sh tools/stunnel.cnf
+%doc tools/ca.html tools/ca.pl tools/importCA.html tools/importCA.sh tools/openssl.cnf
 %dir %{_sysconfdir}/stunnel
 %config %{_sysconfdir}/stunnel/*
 %{_sbindir}/stunnel

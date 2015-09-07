@@ -671,7 +671,7 @@ The I<sni> option is only available when compiled with B<OpenSSL 1.0.0> and late
 
 =item B<OCSP> = URL
 
-select OCSP server for certificate verification
+select OCSP responder for certificate verification
 
 =item B<OCSPaia> = yes | no
 
@@ -683,12 +683,20 @@ extension.
 
 =item B<OCSPflag> = OCSP_FLAG
 
-specify OCSP server flag
+specify OCSP responder flag
 
 Several I<OCSPflag> can be used to specify multiple flags.
 
 currently supported flags: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
+
+=item B<OCSPnonce> = yes | no
+
+send and verify the OCSP nonce extension
+
+This option protects the OCSP protocol against replay attacks.  Due to its
+computational overhead, the nonce extension is usually only supported on
+internal (e.g. corporate) responders, and not on public OCSP responders.
 
 =item B<options> = SSL_OPTIONS
 

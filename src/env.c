@@ -53,8 +53,8 @@
 int getpeername(int s, struct sockaddr_in *name, int *len) {
     char *value;
 
-    (void)s; /* skip warning about unused parameter */
-    (void)len; /* skip warning about unused parameter */
+    (void)s; /* squash the unused parameter warning */
+    (void)len; /* squash the unused parameter warning */
     name->sin_family=AF_INET;
     if((value=getenv("REMOTE_HOST")))
         name->sin_addr.s_addr=inet_addr(value);

@@ -222,7 +222,7 @@ int options_cmdline(char *name, char *parameter) {
     CONF_TYPE type=CONF_FILE;
 
 #ifdef USE_WIN32
-    (void)parameter; /* skip warning about unused parameter */
+    (void)parameter; /* squash the unused parameter warning */
 #endif
     if(!name) {
         /* leave the previous value of configuration_file */
@@ -461,8 +461,8 @@ int scandir(const char *dirp, struct dirent ***namelist,
     char *name;
     DWORD saved_errno;
 
-    (void)filter; /* skip warning about unused parameter */
-    (void)compar; /* skip warning about unused parameter */
+    (void)filter; /* squash the unused parameter warning */
+    (void)compar; /* squash the unused parameter warning */
     path=str2tstr(dirp);
     pattern=str_tprintf(TEXT("%s\\*"), path);
     str_free(path);
@@ -492,8 +492,8 @@ int scandir(const char *dirp, struct dirent ***namelist,
 }
 
 int alphasort(const struct dirent **a, const struct dirent **b) {
-    (void)a; /* skip warning about unused parameter */
-    (void)b; /* skip warning about unused parameter */
+    (void)a; /* squash the unused parameter warning */
+    (void)b; /* squash the unused parameter warning */
     /* most Windows filesystem return sorted data */
     return 0;
 }
@@ -1820,15 +1820,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     switch(cmd) {
     case CMD_BEGIN:
         section->option.local=0;
-        memset(&section->source_addr, 0, sizeof(SOCKADDR_UNION));
-        section->source_addr.in.sin_family=AF_INET;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "local"))
             break;
-        section->option.local=1;
         if(!hostport2addr(&section->source_addr, arg, "0", 1))
             return "Failed to resolve local address";
+        section->option.local=1;
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -1891,7 +1889,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = OCSP server URL", "ocsp");
+        s_log(LOG_NOTICE, "%-22s = OCSP responder URL", "ocsp");
         break;
     }
 
@@ -1917,7 +1915,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = yes|no check the AIA responders from certificates",
+        s_log(LOG_NOTICE,
+            "%-22s = yes|no check the AIA responders from certificates",
             "OCSPaia");
         break;
     }
@@ -1944,7 +1943,35 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = OCSP server flags", "OCSPflag");
+        s_log(LOG_NOTICE, "%-22s = OCSP responder flags", "OCSPflag");
+        break;
+    }
+
+    /* OCSPnonce */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->option.nonce=0; /* disable OCSP nonce by default */
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "OCSPnonce"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.nonce=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.nonce=0;
+        else
+            return "The argument needs to be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE,
+            "%-22s = yes|no send and verify the OCSP nonce extension",
+            "OCSPnonce");
         break;
     }
 
@@ -1984,8 +2011,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         s_log(LOG_NOTICE, "%-22s = %s", "options", "NO_SSLv3");
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = SSL option", "options");
-        s_log(LOG_NOTICE, "%25sset an SSL option", "");
+        s_log(LOG_NOTICE, "%-22s = SSL option to set/reset", "options");
         break;
     }
 
@@ -2000,13 +2026,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->protocol=str_dup(arg);
         return NULL; /* OK */
     case CMD_END:
-        /* this also initializes section->option.connect_before_ssl */
+        /* PROTOCOL_CHECK also initializes:
+           section->option.connect_before_ssl
+           section->option.protocol_endpoint */
         tmp_str=protocol(NULL, section, PROTOCOL_CHECK);
         if(tmp_str)
             return tmp_str;
-        if(section->protocol && !strcasecmp(section->protocol, "socks")) {
-            ++endpoints;
-        }
+        endpoints+=section->option.protocol_endpoint;
 #ifdef SSL_OP_NO_TICKET
         /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
         /* session tickets do not support SSL_SESSION_*_ex_data() */

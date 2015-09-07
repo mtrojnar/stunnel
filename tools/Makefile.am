@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
 EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
-	stunnel.spec stunnel.cnf stunnel.nsi stunnel.license stunnel.conf \
+	stunnel.spec openssl.cnf stunnel.nsi stunnel.license stunnel.conf \
 	stunnel.conf-sample.in stunnel.init.in stunnel.service.in
 
 confdir = $(sysconfdir)/stunnel
@@ -32,7 +32,7 @@ cert:
 			RND=""; \
 		fi; \
 		$(OPENSSL) req -new -x509 -days 365 $$RND \
-			-config $(srcdir)/stunnel.cnf \
+			-config $(srcdir)/openssl.cnf \
 			-out stunnel.pem -keyout stunnel.pem; \
 		$(OPENSSL) x509 -subject -dates -fingerprint -noout -in stunnel.pem; \
 		${INSTALL} -m 600 stunnel.pem $(DESTDIR)$(confdir)/stunnel.pem; \

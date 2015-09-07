@@ -20,16 +20,13 @@ TARGET=win64
 # either install a precompiled version (*not* the "Light" one) from
 # http://www.slproweb.com/products/Win32OpenSSL.html
 #SSLDIR=C:\OpenSSL-Win32
-#INCDIR=$(SSLDIR)\include
-#LIBDIR=$(SSLDIR)\lib
 # or compile one yourself
-SSLDIR=..\..\openssl-1.0.2d-$(TARGET)
-INCDIR=$(SSLDIR)\inc32
-LIBDIR=$(SSLDIR)\out32dll
+SSLDIR=\devel\$(TARGET)\openssl
 # or simply install with "nmake -f ms\ntdll.mak install"
 #SSLDIR=\usr\local\ssl
-#INCDIR=$(SSLDIR)\include
-#LIBDIR=$(SSLDIR)\lib
+
+INCDIR=$(SSLDIR)\include
+LIBDIR=$(SSLDIR)\lib
 
 SRC=..\src
 OBJROOT=..\obj

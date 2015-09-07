@@ -65,7 +65,7 @@
 
 /* START CUSTOMIZE */
 #define VERSION_MAJOR 5
-#define VERSION_MINOR 22
+#define VERSION_MINOR 23
 /* END CUSTOMIZE */
 
 /* all the following macros are ABSOLUTELY NECESSARY to have proper string

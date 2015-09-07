@@ -1,5 +1,29 @@
 stunnel change log
 
+Version 5.23, 2015.09.02, urgency: LOW
+* New features
+  - Client-side support for the SOCKS protocol.
+    See https://www.stunnel.org/socksvpn.html for details.
+  - Reject SOCKS requests to connect loopback addresses.
+  - New service-level option "OCSPnonce".
+    The default value is "OCSPnonce = no".
+  - Win32 directory structure rearranged.  The installer
+    script provides automatic migration for common setups.
+  - Added Win32 installer option to install stunnel for the
+    current user only.  This feature does not deploy the NT
+    service, but it also does not require aministrative
+    privileges to install and configure stunnel.
+  - stunnel.cnf was renamed to openssl.cnf in order to
+    to prevent users from mixing it up with stunnel.conf.
+  - Win32 desktop is automatically refreshed when the icon
+    is created or removed.
+  - The ca-certs.pem file is now updated on stunnel upgrade.
+  - Inactive ports were removed from the PORTS file.
+  - Added IPv6 support to the transparent proxy code.
+* Bugfixes
+  - Compilation fix for OpenSSL version older than 1.0.0.
+  - Compilation fix for mingw.
+
 Version 5.22, 2015.07.30, urgency: HIGH
 * New features
   - "OCSPaia = yes" added to the configuration file templates.
@@ -929,7 +953,7 @@ Version 4.19, 2006.11.11, urgency: LOW/EXPERIMENTAL:
   - There are a lot of new features in this version.  I recommend
     to test it well before upgrading your mission-critical systems.
 * New features
-  - New service-level option to specify OCSP server flag:
+  - New service-level option to specify an OCSP responder flag:
     OCSPflag = <flag>
   - "protocolCredentials" option changed to "protocolUsername"
     and "protocolPassword"

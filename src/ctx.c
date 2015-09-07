@@ -209,7 +209,7 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
 #endif /* USE_LIBWRAP */
 
     /* leave the alert type at SSL_AD_UNRECOGNIZED_NAME */
-    (void)ad; /* skip warning about unused parameter */
+    (void)ad; /* squash the unused parameter warning */
     if(!section->servername_list_head) {
         s_log(LOG_DEBUG, "SNI: no virtual services defined");
         return SSL_TLSEXT_ERR_OK;
@@ -364,7 +364,7 @@ NOEXPORT unsigned psk_client_callback(SSL *ssl, const char *hint,
     CLI *c;
     size_t identity_len;
 
-    (void)hint; /* skip warning about unused parameter */
+    (void)hint; /* squash the unused parameter warning */
     c=SSL_get_ex_data(ssl, index_cli);
     if(!c->opt->psk_selected) {
         s_log(LOG_ERR, "INTERNAL ERROR: No PSK identity selected");
@@ -795,6 +795,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
 NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
     CLI *c;
     SSL_CTX *ctx;
+    const char *state_string;
 
     c=SSL_get_ex_data((SSL *)ssl, index_cli);
     if(c) {
@@ -819,10 +820,12 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
     }
 
     if(where & SSL_CB_LOOP) {
-        s_log(LOG_DEBUG, "SSL state (%s): %s",
-            where & SSL_ST_CONNECT ? "connect" :
-            where & SSL_ST_ACCEPT ? "accept" :
-            "undefined", SSL_state_string_long(ssl));
+        state_string=SSL_state_string_long(ssl);
+        if(strcmp(state_string, "unknown state"))
+            s_log(LOG_DEBUG, "SSL state (%s): %s",
+                where & SSL_ST_CONNECT ? "connect" :
+                where & SSL_ST_ACCEPT ? "accept" :
+                "undefined", state_string);
     } else if(where & SSL_CB_ALERT) {
         s_log(LOG_DEBUG, "SSL alert (%s): %s: %s",
             where & SSL_CB_READ ? "read" : "write",

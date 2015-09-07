@@ -285,11 +285,13 @@ typedef struct service_options_struct {
         unsigned transparent_src:1;
         unsigned transparent_dst:1;     /* endpoint: transparent destination */
 #endif
+        unsigned protocol_endpoint:1;   /* dynamic target from the protocol */
         unsigned reset:1;               /* reset sockets on error */
         unsigned renegotiation:1;
         unsigned connect_before_ssl:1;
 #ifndef OPENSSL_NO_OCSP
         unsigned aia:1;                 /* Authority Information Access */
+        unsigned nonce:1;               /* send and verify OCSP nonce */
 #endif /* !defined(OPENSSL_NO_OCSP) */
 #ifndef OPENSSL_NO_DH
         unsigned dh_needed:1;

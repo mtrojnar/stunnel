@@ -79,10 +79,10 @@ int ssl_init(void) { /* init SSL before parsing configuration file */
 
 NOEXPORT void cb_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
         int idx, long argl, void *argp) {
-    (void)parent; /* skip warning about unused parameter */
-    (void)ad; /* skip warning about unused parameter */
-    (void)idx; /* skip warning about unused parameter */
-    (void)argl; /* skip warning about unused parameter */
+    (void)parent; /* squash the unused parameter warning */
+    (void)ad; /* squash the unused parameter warning */
+    (void)idx; /* squash the unused parameter warning */
+    (void)argl; /* squash the unused parameter warning */
     s_log(LOG_DEBUG, "Deallocating application specific data for %s",
         (char *)argp);
     str_free(ptr);

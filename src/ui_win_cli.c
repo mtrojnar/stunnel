@@ -47,8 +47,12 @@ int main(int argc, char *argv[]) {
     /* set current working directory and engine path */
     GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
     c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* last backslash */
-    if(c) /* found */
-        c[1]=TEXT('\0'); /* truncate program name */
+    if(c) { /* found */
+        *c=TEXT('\0'); /* truncate the program name */
+        c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* previous backslash */
+        if(c && !_tcscmp(c+1, TEXT("bin")))
+            *c=TEXT('\0'); /* truncate "bin" */
+    }
 #ifndef _WIN32_WCE
     if(!SetCurrentDirectory(stunnel_exe_path)) {
         /* log to stderr, as s_log() is not initialized */
@@ -56,8 +60,11 @@ int main(int argc, char *argv[]) {
             stunnel_exe_path);
         return 1;
     }
+    /* try to enter the "config" subdirectory, ignore the result */
+    SetCurrentDirectory(TEXT("config"));
 #endif
-    _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s"), stunnel_exe_path));
+    _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s\\engines"),
+        stunnel_exe_path));
 
     if(WSAStartup(MAKEWORD(1, 1), &wsa_state))
         return 1;
@@ -76,23 +83,23 @@ void ui_config_reloaded(void) {
 }
 
 ICON_IMAGE load_icon_default(ICON_TYPE type) {
-    (void)type; /* skip warning about unused parameter */
+    (void)type; /* squash the unused parameter warning */
     return NULL;
 }
 
 ICON_IMAGE load_icon_file(const char *name) {
-    (void)name; /* skip warning about unused parameter */
+    (void)name; /* squash the unused parameter warning */
     return NULL;
 }
 
 /**************************************** client callbacks */
 
 void ui_new_chain(const unsigned section_number) {
-    (void)section_number; /* skip warning about unused parameter */
+    (void)section_number; /* squash the unused parameter warning */
 }
 
 void ui_clients(const long num) {
-    (void)num; /* skip warning about unused parameter */
+    (void)num; /* squash the unused parameter warning */
 }
 
 /**************************************** s_log callbacks */
@@ -119,17 +126,17 @@ void ui_new_log(const char *line) {
 /**************************************** ctx callbacks */
 
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
-    (void)buf; /* skip warning about unused parameter */
-    (void)size; /* skip warning about unused parameter */
-    (void)rwflag; /* skip warning about unused parameter */
-    (void)userdata; /* skip warning about unused parameter */
+    (void)buf; /* squash the unused parameter warning */
+    (void)size; /* squash the unused parameter warning */
+    (void)rwflag; /* squash the unused parameter warning */
+    (void)userdata; /* squash the unused parameter warning */
     return 0; /* not implemented */
 }
 
 #ifndef OPENSSL_NO_ENGINE
 int pin_cb(UI *ui, UI_STRING *uis) {
-    (void)ui; /* skip warning about unused parameter */
-    (void)uis; /* skip warning about unused parameter */
+    (void)ui; /* squash the unused parameter warning */
+    (void)uis; /* squash the unused parameter warning */
     return 0; /* not implemented */
 }
 #endif

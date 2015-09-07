@@ -47,12 +47,12 @@
 /* no need for critical sections */
 
 void enter_critical_section(SECTION_CODE i) {
-    (void)i; /* skip warning about unused parameter */
+    (void)i; /* squash the unused parameter warning */
     /* empty */
 }
 
 void leave_critical_section(SECTION_CODE i) {
-    (void)i; /* skip warning about unused parameter */
+    (void)i; /* squash the unused parameter warning */
     /* empty */
 }
 
@@ -178,7 +178,7 @@ unsigned long stunnel_thread_id(void) {
 }
 
 NOEXPORT void null_handler(int sig) {
-    (void)sig; /* skip warning about unused parameter */
+    (void)sig; /* squash the unused parameter warning */
     signal(SIGCHLD, null_handler);
 }
 
@@ -219,8 +219,8 @@ void leave_critical_section(SECTION_CODE i) {
 }
 
 NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
-    (void)file; /* skip warning about unused parameter */
-    (void)line; /* skip warning about unused parameter */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
     if(mode&CRYPTO_LOCK)
         pthread_mutex_lock(lock_cs+type);
     else
@@ -235,8 +235,8 @@ NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
         int line) {
     struct CRYPTO_dynlock_value *value;
 
-    (void)file; /* skip warning about unused parameter */
-    (void)line; /* skip warning about unused parameter */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
     value=str_alloc_detached(sizeof(struct CRYPTO_dynlock_value));
     pthread_mutex_init(&value->mutex, NULL);
     return value;
@@ -244,8 +244,8 @@ NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
 NOEXPORT void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
-    (void)file; /* skip warning about unused parameter */
-    (void)line; /* skip warning about unused parameter */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
     if(mode&CRYPTO_LOCK)
         pthread_mutex_lock(&value->mutex);
     else
@@ -254,8 +254,8 @@ NOEXPORT void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
 
 NOEXPORT void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
-    (void)file; /* skip warning about unused parameter */
-    (void)line; /* skip warning about unused parameter */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
     pthread_mutex_destroy(&value->mutex);
     str_free(value);
 }
@@ -360,8 +360,8 @@ void leave_critical_section(SECTION_CODE i) {
 }
 
 NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
-    (void)file; /* skip warning about unused parameter */
-    (void)line; /* skip warning about unused parameter */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
     if(mode&CRYPTO_LOCK)
         EnterCriticalSection(lock_cs+type);
     else
@@ -376,8 +376,8 @@ NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
         int line) {
     struct CRYPTO_dynlock_value *value;
 
-    (void)file; /* skip warning about unused parameter */
-    (void)line; /* skip warning about unused parameter */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
     value=str_alloc_detached(sizeof(struct CRYPTO_dynlock_value));
     InitializeCriticalSection(&value->mutex);
     return value;
@@ -385,8 +385,8 @@ NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
 NOEXPORT void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
-    (void)file; /* skip warning about unused parameter */
-    (void)line; /* skip warning about unused parameter */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
     if(mode&CRYPTO_LOCK)
         EnterCriticalSection(&value->mutex);
     else
@@ -395,8 +395,8 @@ NOEXPORT void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
 
 NOEXPORT void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
         const char *file, int line) {
-    (void)file; /* skip warning about unused parameter */
-    (void)line; /* skip warning about unused parameter */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
     DeleteCriticalSection(&value->mutex);
     str_free(value);
 }

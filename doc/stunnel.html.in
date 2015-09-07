@@ -755,7 +755,7 @@
 <dt id="OCSP-URL"><b>OCSP</b> = URL</dt>
 <dd>
 
-<p>select OCSP server for certificate verification</p>
+<p>select OCSP responder for certificate verification</p>
 
 </dd>
 <dt id="OCSPaia-yes-no"><b>OCSPaia</b> = yes | no</dt>
@@ -769,11 +769,19 @@
 <dt id="OCSPflag-OCSP_FLAG"><b>OCSPflag</b> = OCSP_FLAG</dt>
 <dd>
 
-<p>specify OCSP server flag</p>
+<p>specify OCSP responder flag</p>
 
 <p>Several <i>OCSPflag</i> can be used to specify multiple flags.</p>
 
 <p>currently supported flags: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY, NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
+
+</dd>
+<dt id="OCSPnonce-yes-no"><b>OCSPnonce</b> = yes | no</dt>
+<dd>
+
+<p>send and verify the OCSP nonce extension</p>
+
+<p>This option protects the OCSP protocol against replay attacks. Due to its computational overhead, the nonce extension is usually only supported on internal (e.g. corporate) responders, and not on public OCSP responders.</p>
 
 </dd>
 <dt id="options-SSL_OPTIONS"><b>options</b> = SSL_OPTIONS</dt>

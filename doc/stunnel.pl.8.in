@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.07.27" "5.22" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.07.31" "5.23" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -660,21 +660,29 @@ Użyj parametru jako wartości rozszerzenia \s-1TLS\s0 Server Name Indication
 Opcja \fIsni\fR jest dostępna począwszy od \fBOpenSSL 1.0.0\fR.
 .IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
 .IX Item "OCSP = URL"
-serwer \s-1OCSP\s0 do weryfikacji certyfikatów
+responder \s-1OCSP\s0 do weryfikacji certyfikatów
 .IP "\fBOCSPaia\fR = yes | no" 4
 .IX Item "OCSPaia = yes | no"
 weryfikuj certyfikaty przy użyciu respondertów \s-1AIA\s0
 .Sp
 Opcja \fIOCSPaia\fR pozwala na weryfikowanie certyfikatów przy pomocy listy URLi
-serwerów \s-1OCSP\s0 przesłanych w rozszerzeniach \s-1AIA \s0(Authority Information Access).
+responderów \s-1OCSP\s0 przesłanych w rozszerzeniach \s-1AIA \s0(Authority Information Access).
 .IP "\fBOCSPflag\fR = \s-1FLAGA_OCSP\s0" 4
 .IX Item "OCSPflag = FLAGA_OCSP"
-flaga serwera \s-1OCSP\s0
+flaga respondera \s-1OCSP\s0
 .Sp
 aktualnie wspierane flagi: \s-1NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME\s0
 .Sp
 Aby wyspecyfikować kilka flag należy użyć \fIOCSPflag\fR wielokrotnie.
+.IP "\fBOCSPnonce\fR = yes | no" 4
+.IX Item "OCSPnonce = yes | no"
+wysyłaj i weryfikuj \s-1OCSP\s0 nonce
+.Sp
+Opcja \fBOCSPnonce\fR zabezpiecza protokół \s-1OCSP\s0 przed atakami powtórzeniowymi.
+Ze względu na złożoność obliczeniową rozszerzenie nonce jest zwykle wspierane
+jedynie przez wewnętrzne (np. korporacyjne), a nie przez publiczne respondery
+\&\s-1OCSP.\s0
 .IP "\fBoptions\fR = \s-1OPCJE_SSL\s0" 4
 .IX Item "options = OPCJE_SSL"
 opcje biblioteki \fBOpenSSL\fR

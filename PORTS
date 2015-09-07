@@ -1,8 +1,6 @@
 stunnel known port maintainers
 
 
-* AmigaOS
-  - Diego Casorran <dcr8520@amiga.org>
 * Cygwin
   - Andrew Schulman <andrex@alumni.utexas.net>
 * Debian GNU/Linux
@@ -15,10 +13,5 @@ stunnel known port maintainers
   - Gleydson Soares <gsoares@openbsd.org>
 * OpenCSW Solaris
   - Dagobert Michelsen <dam@opencsw.org>
-* OpenSolaris
-  - Mark Fenwick <Mark.Fenwick@sun.com>
-* OS/2
-  - Paul Smedley <paul@smedley.info>
 * RedHat Linux
   - Damien Miller <dmiller@ilogic.com.au>
-

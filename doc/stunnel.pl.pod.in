@@ -693,23 +693,32 @@ Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
 =item B<OCSP> = URL
 
-serwer OCSP do weryfikacji certyfikatów
+responder OCSP do weryfikacji certyfikatów
 
 =item B<OCSPaia> = yes | no
 
 weryfikuj certyfikaty przy użyciu respondertów AIA
 
 Opcja I<OCSPaia> pozwala na weryfikowanie certyfikatów przy pomocy listy URLi
-serwerów OCSP przesłanych w rozszerzeniach AIA (Authority Information Access).
+responderów OCSP przesłanych w rozszerzeniach AIA (Authority Information Access).
 
 =item B<OCSPflag> = FLAGA_OCSP
 
-flaga serwera OCSP
+flaga respondera OCSP
 
 aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
 
 Aby wyspecyfikować kilka flag należy użyć I<OCSPflag> wielokrotnie.
+
+=item B<OCSPnonce> = yes | no
+
+wysyłaj i weryfikuj OCSP nonce
+
+Opcja B<OCSPnonce> zabezpiecza protokół OCSP przed atakami powtórzeniowymi.
+Ze względu na złożoność obliczeniową rozszerzenie nonce jest zwykle wspierane
+jedynie przez wewnętrzne (np. korporacyjne), a nie przez publiczne respondery
+OCSP.
 
 =item B<options> = OPCJE_SSL
 

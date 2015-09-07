@@ -755,7 +755,7 @@
 <dt id="OCSP-URL"><b>OCSP</b> = URL</dt>
 <dd>
 
-<p>serwer OCSP do weryfikacji certyfikat&oacute;w</p>
+<p>responder OCSP do weryfikacji certyfikat&oacute;w</p>
 
 </dd>
 <dt id="OCSPaia-yes-no"><b>OCSPaia</b> = yes | no</dt>
@@ -763,17 +763,25 @@
 
 <p>weryfikuj certyfikaty przy u&#x17C;yciu respondert&oacute;w AIA</p>
 
-<p>Opcja <i>OCSPaia</i> pozwala na weryfikowanie certyfikat&oacute;w przy pomocy listy URLi serwer&oacute;w OCSP przes&#x142;anych w rozszerzeniach AIA (Authority Information Access).</p>
+<p>Opcja <i>OCSPaia</i> pozwala na weryfikowanie certyfikat&oacute;w przy pomocy listy URLi responder&oacute;w OCSP przes&#x142;anych w rozszerzeniach AIA (Authority Information Access).</p>
 
 </dd>
 <dt id="OCSPflag-FLAGA_OCSP"><b>OCSPflag</b> = FLAGA_OCSP</dt>
 <dd>
 
-<p>flaga serwera OCSP</p>
+<p>flaga respondera OCSP</p>
 
 <p>aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY, NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
 
 <p>Aby wyspecyfikowa&#x107; kilka flag nale&#x17C;y u&#x17C;y&#x107; <i>OCSPflag</i> wielokrotnie.</p>
+
+</dd>
+<dt id="OCSPnonce-yes-no"><b>OCSPnonce</b> = yes | no</dt>
+<dd>
+
+<p>wysy&#x142;aj i weryfikuj OCSP nonce</p>
+
+<p>Opcja <b>OCSPnonce</b> zabezpiecza protok&oacute;&#x142; OCSP przed atakami powt&oacute;rzeniowymi. Ze wzgl&#x119;du na z&#x142;o&#x17C;ono&#x15B;&#x107; obliczeniow&#x105; rozszerzenie nonce jest zwykle wspierane jedynie przez wewn&#x119;trzne (np. korporacyjne), a nie przez publiczne respondery OCSP.</p>
 
 </dd>
 <dt id="options-OPCJE_SSL"><b>options</b> = OPCJE_SSL</dt>

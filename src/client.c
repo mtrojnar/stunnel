@@ -1321,9 +1321,14 @@ NOEXPORT void setup_connect_addr(CLI *c) {
     if(c->opt->option.transparent_dst) {
         c->connect_addr.num=1;
         c->connect_addr.addr=str_alloc(sizeof(SOCKADDR_UNION));
-        if(getsockopt(c->local_rfd.fd, SOL_IP, SO_ORIGINAL_DST,
-                c->connect_addr.addr, &addrlen)) {
-            sockerror("setsockopt SO_ORIGINAL_DST");
+        if(
+#ifdef USE_IPv6
+                getsockopt(c->local_rfd.fd, SOL_IPV6, SO_ORIGINAL_DST,
+                    c->connect_addr.addr, &addrlen) &&
+#endif
+                getsockopt(c->local_rfd.fd, SOL_IP, SO_ORIGINAL_DST,
+                    c->connect_addr.addr, &addrlen)) {
+            sockerror("getsockopt SO_ORIGINAL_DST");
             longjmp(c->err, 1);
         }
         return;

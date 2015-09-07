@@ -256,7 +256,7 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     static CONTEXT *to_free=NULL; /* delayed memory deallocation */
 
     /* FIXME: msec parameter is currently ignored with UCONTEXT threads */
-    (void)msec; /* skip warning about unused parameter */
+    (void)msec; /* squash the unused parameter warning */
 
     /* remove the current context from ready queue */
     context=ready_head;
@@ -394,14 +394,14 @@ int s_poll_canwrite(s_poll_set *fds, SOCKET fd) {
 }
 
 int s_poll_hup(s_poll_set *fds, SOCKET fd) {
-    (void)fds; /* skip warning about unused parameter */
-    (void)fd; /* skip warning about unused parameter */
+    (void)fds; /* squash the unused parameter warning */
+    (void)fd; /* squash the unused parameter warning */
     return 0; /* FIXME: how to detect HUP condition with select()? */
 }
 
 int s_poll_rdhup(s_poll_set *fds, SOCKET fd) {
-    (void)fds; /* skip warning about unused parameter */
-    (void)fd; /* skip warning about unused parameter */
+    (void)fds; /* squash the unused parameter warning */
+    (void)fd; /* squash the unused parameter warning */
     return 0; /* FIXME: how to detect RDHUP condition with select()? */
 }
 

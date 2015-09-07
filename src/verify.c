@@ -520,6 +520,7 @@ NOEXPORT int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     OCSP_CERTID *cert_id;
     STACK_OF(OPENSSL_STRING) *aia;
     int i, ocsp_status=V_OCSP_CERTSTATUS_UNKNOWN, saved_error;
+    char *url;
 
     /* the original error code is restored unless we report our own error */
     saved_error=X509_STORE_CTX_get_error(callback_ctx);
@@ -547,7 +548,7 @@ NOEXPORT int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
 
     /* use the responder specified in the configuration file */
     if(c->opt->ocsp_url) {
-        s_log(LOG_NOTICE, "OCSP: Connecting configured responder \"%s\"",
+        s_log(LOG_NOTICE, "OCSP: Connecting the configured responder \"%s\"",
             c->opt->ocsp_url);
         if(ocsp_request(c, callback_ctx, cert_id, c->opt->ocsp_url)!=
                 V_OCSP_CERTSTATUS_GOOD) {
@@ -559,10 +560,9 @@ NOEXPORT int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     /* use the responder from AIA (Authority Information Access) */
     if(c->opt->option.aia && (aia=X509_get1_ocsp(cert))) {
         for(i=0; i<sk_OPENSSL_STRING_num(aia); i++) {
-            s_log(LOG_NOTICE, "OCSP: Connecting AIA responder \"%s\"",
-                sk_OPENSSL_STRING_value(aia, i));
-            ocsp_status=ocsp_request(c, callback_ctx, cert_id,
-                sk_OPENSSL_STRING_value(aia, i));
+            url=sk_OPENSSL_STRING_value(aia, i);
+            s_log(LOG_NOTICE, "OCSP: Connecting the AIA responder \"%s\"", url);
+            ocsp_status=ocsp_request(c, callback_ctx, cert_id, url);
             if(ocsp_status!=V_OCSP_CERTSTATUS_UNKNOWN)
                 break; /* we received a definitive response */
         }
@@ -604,9 +604,8 @@ NOEXPORT int ocsp_request(CLI *c, X509_STORE_CTX *callback_ctx,
         sslerror("OCSP: OCSP_request_add0_id");
         goto cleanup;
     }
-#if 0
-    OCSP_request_add1_nonce(request, NULL, -1);
-#endif
+    if(c->opt->option.nonce)
+        OCSP_request_add1_nonce(request, NULL, -1);
 
     /* send the request and get a response */
     response=ocsp_get_response(c, request, url);
@@ -614,7 +613,7 @@ NOEXPORT int ocsp_request(CLI *c, X509_STORE_CTX *callback_ctx,
         goto cleanup;
     response_status=OCSP_response_status(response);
     if(response_status!=OCSP_RESPONSE_STATUS_SUCCESSFUL) {
-        s_log(LOG_WARNING, "OCSP: Responder error: %d: %s",
+        s_log(LOG_ERR, "OCSP: Responder error: %d: %s",
             response_status, OCSP_response_status_str(response_status));
         goto cleanup;
     }
@@ -625,12 +624,10 @@ NOEXPORT int ocsp_request(CLI *c, X509_STORE_CTX *callback_ctx,
         sslerror("OCSP: OCSP_response_get1_basic");
         goto cleanup;
     }
-#if 0
-    if(OCSP_check_nonce(request, basic_response)<=0) {
-        s_log(LOG_WARNING, "OCSP: Invalid nonce");
+    if(c->opt->option.nonce && OCSP_check_nonce(request, basic_response)<=0) {
+        s_log(LOG_ERR, "OCSP: Invalid or unsupported nonce");
         goto cleanup;
     }
-#endif
     if(OCSP_basic_verify(basic_response, X509_STORE_CTX_get_chain(callback_ctx),
             c->opt->revocation_store, c->opt->ocsp_flags)<=0) {
         sslerror("OCSP: OCSP_basic_verify");
@@ -656,9 +653,9 @@ NOEXPORT int ocsp_request(CLI *c, X509_STORE_CTX *callback_ctx,
         break;
     case V_OCSP_CERTSTATUS_REVOKED:
         if(reason==-1)
-            s_log(LOG_WARNING, "OCSP: Certificate revoked");
+            s_log(LOG_ERR, "OCSP: Certificate revoked");
         else
-            s_log(LOG_WARNING, "OCSP: Certificate revoked: %d: %s",
+            s_log(LOG_ERR, "OCSP: Certificate revoked: %d: %s",
                 reason, OCSP_crl_reason_str(reason));
         log_time(LOG_NOTICE, "OCSP: Revoked at", revoked_at);
         ctx_err=X509_V_ERR_CERT_REVOKED;
@@ -683,7 +680,6 @@ NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *c,
     BIO *bio=NULL;
     OCSP_REQ_CTX *req_ctx=NULL;
     OCSP_RESPONSE *resp=NULL;
-    int err;
     char *host=NULL, *port=NULL, *path=NULL;
     SOCKADDR_UNION addr;
     int ssl;
@@ -695,49 +691,67 @@ NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *c,
     }
     if(ssl) {
         s_log(LOG_ERR, "OCSP: SSL not supported for OCSP"
-            " - additional stunnel service needs to be defined");
+            " - an additional stunnel service needs to be defined");
         goto cleanup;
     }
-    memset(&addr, 0, sizeof addr);
-    addr.in.sin_family=AF_INET;
     if(!hostport2addr(&addr, host, port, 0)) {
-        s_log(LOG_ERR, "OCSP: Failed to resolve the OCSP server address");
+        s_log(LOG_ERR, "OCSP: Failed to resolve the OCSP responder address");
         goto cleanup;
     }
 
-    /* connect specified OCSP server (responder) */
+    /* connect specified OCSP responder */
     c->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "OCSP: socket");
     if(c->fd==INVALID_SOCKET)
         goto cleanup;
     if(s_connect(c, &addr, addr_len(&addr)))
         goto cleanup;
     bio=BIO_new_socket((int)c->fd, BIO_NOCLOSE);
-    if(!bio)
+    if(!bio) {
+        sslerror("OCSP: BIO_new_socket");
         goto cleanup;
+    }
     s_log(LOG_DEBUG, "OCSP: Connected %s:%s", host, port);
 
-    /* OCSP protocol communication loop */
+    /* initialize an HTTP request with the POST method */
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
     req_ctx=OCSP_sendreq_new(bio, path, NULL, -1);
+#else
+    /* there is no way to send the Host header with older OpenSSL versions */
+    req_ctx=OCSP_sendreq_new(bio, path, req, -1);
+#endif
     if(!req_ctx) {
         sslerror("OCSP: OCSP_sendreq_new");
         goto cleanup;
     }
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+    /* add the HTTP headers */
     if(!OCSP_REQ_CTX_add1_header(req_ctx, "Host", host)) {
         sslerror("OCSP: OCSP_REQ_CTX_add1_header");
         goto cleanup;
     }
-    if(!OCSP_REQ_CTX_set1_req(req_ctx, req))
+    if(!OCSP_REQ_CTX_add1_header(req_ctx, "User-Agent", "stunnel")) {
+        sslerror("OCSP: OCSP_REQ_CTX_add1_header");
         goto cleanup;
+    }
+    /* add the remaining HTTP headers and the OCSP request body */
+    if(!OCSP_REQ_CTX_set1_req(req_ctx, req)) {
+        sslerror("OCSP: OCSP_REQ_CTX_set1_req");
+        goto cleanup;
+    }
+#endif
+
+    /* OCSP protocol communication loop */
     while(OCSP_sendreq_nbio(&resp, req_ctx)==-1) {
         s_poll_init(c->fds);
         s_poll_add(c->fds, c->fd, BIO_should_read(bio), BIO_should_write(bio));
-        err=s_poll_wait(c->fds, c->opt->timeout_busy, 0);
-        if(err==-1)
+        switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
+        case -1:
             sockerror("OCSP: s_poll_wait");
-        if(err==0)
-            s_log(LOG_INFO, "OCSP: s_poll_wait: TIMEOUTbusy exceeded");
-        if(err<=0)
             goto cleanup;
+        case 0:
+            s_log(LOG_INFO, "OCSP: s_poll_wait: TIMEOUTbusy exceeded");
+            goto cleanup;
+        }
     }
 #if 0
     s_log(LOG_DEBUG, "OCSP: context state: 0x%x", *(int *)req_ctx);

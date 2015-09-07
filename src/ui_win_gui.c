@@ -87,7 +87,6 @@ NOEXPORT void tray_update(const int);
 NOEXPORT void tray_delete(void);
 NOEXPORT void error_box(LPCTSTR);
 NOEXPORT void edit_config(HWND);
-NOEXPORT BOOL is_admin(void);
 
 /* NT Service related function */
 #ifndef _WIN32_WCE
@@ -162,9 +161,9 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
     LPTSTR errmsg;
 #endif
 
-    (void)prev_instance; /* skip warning about unused parameter */
-    (void)lpCmdLine; /* skip warning about unused parameter */
-    (void)nCmdShow; /* skip warning about unused parameter */
+    (void)prev_instance; /* squash the unused parameter warning */
+    (void)lpCmdLine; /* squash the unused parameter warning */
+    (void)nCmdShow; /* squash the unused parameter warning */
 
     tls_init(); /* initialize thread-local storage */
     ghInst=this_instance;
@@ -178,14 +177,18 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
             !cmdline.start && !cmdline.stop) {
         EnumWindows(enum_windows, (LPARAM)stunnel_exe_path);
         if(cmdline.exit)
-            return 0; /* in case EnumWindows didn't find a previous instance */
+            return 1; /* in case EnumWindows didn't find a previous instance */
     }
 #endif
 
     /* set current working directory and engine path */
     c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* last backslash */
-    if(c) /* found */
-        c[1]=TEXT('\0'); /* truncate program name */
+    if(c) { /* found */
+        *c=TEXT('\0'); /* truncate the program name */
+        c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* previous backslash */
+        if(c && !_tcscmp(c+1, TEXT("bin")))
+            *c=TEXT('\0'); /* truncate "bin" */
+    }
 #ifndef _WIN32_WCE
     if(!SetCurrentDirectory(stunnel_exe_path)) {
         errmsg=str_tprintf(TEXT("Cannot set directory to %s"),
@@ -194,8 +197,11 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
         str_free(errmsg);
         return 1;
     }
+    /* try to enter the "config" subdirectory, ignore the result */
+    SetCurrentDirectory(TEXT("config"));
 #endif
-    _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s"), stunnel_exe_path));
+    _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s\\engines"),
+        stunnel_exe_path));
 
     if(initialize_winsock())
         return 1;
@@ -400,10 +406,10 @@ NOEXPORT int gui_loop() {
 }
 
 NOEXPORT void CALLBACK timer_proc(HWND hwnd, UINT msg, UINT_PTR id, DWORD t) {
-    (void)hwnd; /* skip warning about unused parameter */
-    (void)msg; /* skip warning about unused parameter */
-    (void)id; /* skip warning about unused parameter */
-    (void)t; /* skip warning about unused parameter */
+    (void)hwnd; /* squash the unused parameter warning */
+    (void)msg; /* squash the unused parameter warning */
+    (void)id; /* squash the unused parameter warning */
+    (void)t; /* squash the unused parameter warning */
     if(visible)
         update_logs();
     tray_update(num_clients); /* needed when explorer.exe (re)starts */
@@ -578,7 +584,7 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
 #ifndef _WIN32_WCE
             if(!cmdline.service) /* security */
                 ShellExecute(main_window_handle, TEXT("open"),
-                    TEXT("stunnel.html"), NULL, NULL, SW_SHOWNORMAL);
+                    TEXT("..\\doc\\stunnel.html"), NULL, NULL, SW_SHOWNORMAL);
 #endif
             break;
         case IDM_HOMEPAGE:
@@ -654,7 +660,7 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
 
 NOEXPORT LRESULT CALLBACK about_proc(HWND dialog_handle, UINT message,
         WPARAM wParam, LPARAM lParam) {
-    (void)lParam; /* skip warning about unused parameter */
+    (void)lParam; /* squash the unused parameter warning */
 
     switch(message) {
         case WM_INITDIALOG:
@@ -735,7 +741,7 @@ NOEXPORT LRESULT CALLBACK pass_proc(HWND dialog_handle, UINT message,
 }
 
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
-    (void)rwflag; /* skip warning about unused parameter */
+    (void)rwflag; /* squash the unused parameter warning */
 
     ui_data=userdata;
     if(size<0) /* just in case */
@@ -871,7 +877,7 @@ NOEXPORT LPTSTR log_txt(void) {
 /**************************************** worker thread */
 
 NOEXPORT void daemon_thread(void *arg) {
-    (void)arg; /* skip warning about unused parameter */
+    (void)arg; /* squash the unused parameter warning */
 
     tls_alloc(NULL, NULL, "main"); /* new thread-local storage */
     main_init();
@@ -1154,6 +1160,7 @@ void ui_clients(const long num) {
 NOEXPORT void edit_config(HWND main_window_handle) {
     TCHAR cwd[MAX_PATH];
     LPTSTR conf_file, conf_path;
+    DISK_FILE *df;
 
     conf_file=str2tstr(configuration_file);
     if(*conf_file==TEXT('\"')) {
@@ -1167,7 +1174,9 @@ NOEXPORT void edit_config(HWND main_window_handle) {
         str_free(conf_file);
     }
 
-    if(is_admin()) {
+    df=file_open(configuration_file, FILE_MODE_APPEND);
+    if(df) { /* the configuration file is writable */
+        file_close(df);
         ShellExecute(main_window_handle, TEXT("open"),
             TEXT("notepad.exe"), conf_path,
             NULL, SW_SHOWNORMAL);
@@ -1177,26 +1186,6 @@ NOEXPORT void edit_config(HWND main_window_handle) {
             NULL, SW_SHOWNORMAL);
     }
     str_free(conf_path);
-}
-
-NOEXPORT BOOL is_admin(void) {
-#ifndef _WIN32_WCE
-    SID_IDENTIFIER_AUTHORITY NtAuthority={SECURITY_NT_AUTHORITY};
-    PSID admin_group;
-    BOOL retval;
-
-    retval=AllocateAndInitializeSid(&NtAuthority, 2,
-        SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS,
-        0, 0, 0, 0, 0, 0, &admin_group);
-    if(retval) {
-        if(!CheckTokenMembership(NULL, admin_group, &retval))
-            retval=FALSE;
-        FreeSid(admin_group);
-    }
-    return retval;
-#else
-    return TRUE; /* always an admin on WCE */
-#endif
 }
 
 /**************************************** windows service */
@@ -1438,8 +1427,8 @@ NOEXPORT int service_user(DWORD sig) {
 }
 
 NOEXPORT void WINAPI service_main(DWORD argc, LPTSTR* argv) {
-    (void)argc; /* skip warning about unused parameter */
-    (void)argv; /* skip warning about unused parameter */
+    (void)argc; /* squash the unused parameter warning */
+    (void)argv; /* squash the unused parameter warning */
 
     tls_alloc(NULL, NULL, "service"); /* new thread-local storage */
 

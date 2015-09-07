@@ -350,8 +350,8 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
 /* the implementation is slow, but it's not going to be used in production */
 NOEXPORT void str_leak_debug(ALLOC_LIST *alloc_list, int change) {
 #ifndef STR_LEAK_DEBUG
-    (void)alloc_list; /* skip warning about unused parameter */
-    (void)change; /* skip warning about unused parameter */
+    (void)alloc_list; /* squash the unused parameter warning */
+    (void)change; /* squash the unused parameter warning */
 #else
 #define ALLOC_TABLE_SIZE 1000
 #define MAX_ALLOCS 200
