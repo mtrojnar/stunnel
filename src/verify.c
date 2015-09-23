@@ -43,6 +43,7 @@
 /* verify initialization */
 NOEXPORT void set_client_CA_list(SERVICE_OPTIONS *section);
 NOEXPORT void auth_warnings(SERVICE_OPTIONS *);
+NOEXPORT int crl_init(SERVICE_OPTIONS *section);
 NOEXPORT int load_file_lookup(X509_STORE *, char *);
 NOEXPORT int add_dir_lookup(X509_STORE *, char *);
 
@@ -55,7 +56,6 @@ NOEXPORT int cert_check_subject(CLI *, X509_STORE_CTX *);
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
 NOEXPORT int cert_check_local(X509_STORE_CTX *);
 NOEXPORT int compare_pubkeys(X509 *, X509 *);
-NOEXPORT int crl_check(CLI *, X509_STORE_CTX *);
 #ifndef OPENSSL_NO_OCSP
 NOEXPORT int ocsp_check(CLI *, X509_STORE_CTX *);
 NOEXPORT int ocsp_request(CLI *, X509_STORE_CTX *, OCSP_CERTID *, char *);
@@ -73,49 +73,21 @@ NOEXPORT void log_time(const int, const char *, ASN1_TIME *);
 int verify_init(SERVICE_OPTIONS *section) {
     int verify_mode=0;
 
-    /* revocation store initialization */
-    section->revocation_store=X509_STORE_new();
-    if(!section->revocation_store) {
-        sslerror("X509_STORE_new");
-        return 1; /* FAILED */
-    }
-
     /* CA initialization */
-    if(section->ca_file) {
+    if(section->ca_file || section->ca_dir) {
         if(!SSL_CTX_load_verify_locations(section->ctx,
-                section->ca_file, NULL)) {
-            s_log(LOG_ERR, "Error loading verify certificates from %s",
-                section->ca_file);
+                section->ca_file, section->ca_dir)) {
             sslerror("SSL_CTX_load_verify_locations");
             return 1; /* FAILED */
         }
-        /* revocation store needs CA certificates for CRL validation */
-        if(load_file_lookup(section->revocation_store, section->ca_file))
-            return 1; /* FAILED */
-        if(!section->option.client) /* only performed on server */
-            set_client_CA_list(section);
     }
-    if(section->ca_dir) {
-        if(!SSL_CTX_load_verify_locations(section->ctx,
-                NULL, section->ca_dir)) {
-            s_log(LOG_ERR, "Error setting verify directory to %s",
-                section->ca_dir);
-            sslerror("SSL_CTX_load_verify_locations");
-            return 1; /* FAILED */
-        }
-        s_log(LOG_INFO, "Verify directory set to %s", section->ca_dir);
-        /* revocation store needs CA certificates for CRL validation */
-        add_dir_lookup(section->revocation_store, section->ca_dir);
-    }
+    if(section->ca_file && !section->option.client)
+        set_client_CA_list(section); /* only performed on the server */
 
     /* CRL initialization */
-    if(section->crl_file)
-        if(load_file_lookup(section->revocation_store, section->crl_file))
+    if(section->crl_file || section->crl_dir)
+        if(crl_init(section))
             return 1; /* FAILED */
-    if(section->crl_dir) {
-        section->revocation_store->cache=0; /* don't cache CRLs */
-        add_dir_lookup(section->revocation_store, section->crl_dir);
-    }
 
     /* verify callback setup */
     if(section->verify_level>=0)
@@ -142,6 +114,57 @@ NOEXPORT void set_client_CA_list(SERVICE_OPTIONS *section) {
         str_free(ca_name);
     }
     SSL_CTX_set_client_CA_list(section->ctx, ca_dn);
+}
+
+int crl_init(SERVICE_OPTIONS *section) {
+    X509_STORE *store;
+
+    store=SSL_CTX_get_cert_store(section->ctx);
+    if(section->ca_file) {
+        if(load_file_lookup(store, section->crl_file))
+            return 1; /* FAILED */
+    }
+    if(section->crl_dir) {
+        store->cache=0; /* don't cache CRLs */
+        if(add_dir_lookup(store, section->crl_dir))
+            return 1; /* FAILED */
+    }
+    X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK);
+    return 0; /* OK */
+}
+
+NOEXPORT int load_file_lookup(X509_STORE *store, char *name) {
+    X509_LOOKUP *lookup;
+
+    lookup=X509_STORE_add_lookup(store, X509_LOOKUP_file());
+    if(!lookup) {
+        sslerror("X509_STORE_add_lookup(X509_LOOKUP_file)");
+        return 1; /* FAILED */
+    }
+    if(!X509_load_crl_file(lookup, name, X509_FILETYPE_PEM)) {
+        s_log(LOG_ERR, "Failed to load %s revocation lookup file", name);
+        sslerror("X509_load_crl_file");
+        return 1; /* FAILED */
+    }
+    s_log(LOG_DEBUG, "Loaded %s revocation lookup file", name);
+    return 0; /* OK */
+}
+
+NOEXPORT int add_dir_lookup(X509_STORE *store, char *name) {
+    X509_LOOKUP *lookup;
+
+    lookup=X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir());
+    if(!lookup) {
+        sslerror("X509_STORE_add_lookup(X509_LOOKUP_hash_dir)");
+        return 1; /* FAILED */
+    }
+    if(!X509_LOOKUP_add_dir(lookup, name, X509_FILETYPE_PEM)) {
+        s_log(LOG_ERR, "Failed to add %s revocation lookup directory", name);
+        sslerror("X509_LOOKUP_add_dir");
+        return 1; /* FAILED */
+    }
+    s_log(LOG_DEBUG, "Added %s revocation lookup directory", name);
+    return 0; /* OK */
 }
 
 /* issue warnings on insecure/missing authentication */
@@ -175,40 +198,6 @@ NOEXPORT void auth_warnings(SERVICE_OPTIONS *section) {
 #endif /* OPENSSL_VERSION_NUMBER<0x10002000L */
     s_log(LOG_WARNING,
         "Use \"checkHost\" or \"checkIP\" to restrict trusted certificates");
-}
-
-NOEXPORT int load_file_lookup(X509_STORE *store, char *name) {
-    X509_LOOKUP *lookup;
-
-    lookup=X509_STORE_add_lookup(store, X509_LOOKUP_file());
-    if(!lookup) {
-        sslerror("X509_STORE_add_lookup");
-        return 1; /* FAILED */
-    }
-    if(!X509_LOOKUP_load_file(lookup, name, X509_FILETYPE_PEM)) {
-        s_log(LOG_ERR, "Failed to load %s revocation lookup file", name);
-        sslerror("X509_LOOKUP_load_file");
-        return 1; /* FAILED */
-    }
-    s_log(LOG_DEBUG, "Loaded %s revocation lookup file", name);
-    return 0; /* OK */
-}
-
-NOEXPORT int add_dir_lookup(X509_STORE *store, char *name) {
-    X509_LOOKUP *lookup;
-
-    lookup=X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir());
-    if(!lookup) {
-        sslerror("X509_STORE_add_lookup");
-        return 1; /* FAILED */
-    }
-    if(!X509_LOOKUP_add_dir(lookup, name, X509_FILETYPE_PEM)) {
-        s_log(LOG_ERR, "Failed to add %s revocation lookup directory", name);
-        sslerror("X509_LOOKUP_add_dir");
-        return 1; /* FAILED */
-    }
-    s_log(LOG_DEBUG, "Added %s revocation lookup directory", name);
-    return 0; /* OK */
 }
 
 /**************************************** verify callback */
@@ -252,12 +241,6 @@ NOEXPORT int verify_checks(CLI *c,
 
     if(!cert_check(c, callback_ctx, preverify_ok)) {
         s_log(LOG_WARNING, "Rejected by CERT at depth=%d: %s", depth, subject);
-        str_free(subject);
-        return 0; /* reject */
-    }
-    if((c->opt->crl_file || c->opt->crl_dir) &&
-            !crl_check(c, callback_ctx)) {
-        s_log(LOG_WARNING, "Rejected by CRL at depth=%d: %s", depth, subject);
         str_free(subject);
         return 0; /* reject */
     }
@@ -406,106 +389,9 @@ NOEXPORT int compare_pubkeys(X509 *c1, X509 *c2) {
     return 1; /* accept */
 }
 
-/**************************************** CRL checking */
-
-/* based on the BSD-style licensed code of mod_ssl */
-NOEXPORT int crl_check(CLI *c, X509_STORE_CTX *callback_ctx) {
-    X509_STORE_CTX store_ctx;
-    X509_OBJECT obj;
-    X509_NAME *subject;
-    X509_NAME *issuer;
-    X509 *cert;
-    X509_CRL *crl;
-    X509_REVOKED *revoked;
-    EVP_PKEY *pubkey;
-    long serial;
-    int i, n, rc;
-    char *cp;
-    ASN1_TIME *last_update=NULL, *next_update=NULL;
-
-    cert=X509_STORE_CTX_get_current_cert(callback_ctx);
-    subject=X509_get_subject_name(cert);
-    issuer=X509_get_issuer_name(cert);
-
-    /* try to retrieve a CRL corresponding to the _subject_ of
-     * the current certificate in order to verify it's integrity */
-    X509_STORE_CTX_init(&store_ctx, c->opt->revocation_store, NULL, NULL);
-    memset((char *)&obj, 0, sizeof obj);
-    rc=X509_STORE_get_by_subject(&store_ctx, X509_LU_CRL, subject, &obj);
-    X509_STORE_CTX_cleanup(&store_ctx);
-    crl=obj.data.crl;
-    if(rc>0 && crl) {
-        cp=X509_NAME2text(subject);
-        s_log(LOG_INFO, "CRL: issuer: %s", cp);
-        str_free(cp);
-        last_update=X509_CRL_get_lastUpdate(crl);
-        next_update=X509_CRL_get_nextUpdate(crl);
-        log_time(LOG_INFO, "CRL: last update", last_update);
-        log_time(LOG_INFO, "CRL: next update", next_update);
-
-        /* verify the signature on this CRL */
-        pubkey=X509_get_pubkey(cert);
-        if(X509_CRL_verify(crl, pubkey)<=0) {
-            s_log(LOG_WARNING, "CRL: Invalid signature");
-            X509_STORE_CTX_set_error(callback_ctx,
-                X509_V_ERR_CRL_SIGNATURE_FAILURE);
-            X509_OBJECT_free_contents(&obj);
-            if(pubkey)
-                EVP_PKEY_free(pubkey);
-            return 0; /* reject */
-        }
-        if(pubkey)
-            EVP_PKEY_free(pubkey);
-
-        /* check date of CRL to make sure it's not expired */
-        if(!next_update) {
-            s_log(LOG_WARNING, "CRL: Invalid nextUpdate field");
-            X509_STORE_CTX_set_error(callback_ctx,
-                X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD);
-            X509_OBJECT_free_contents(&obj);
-            return 0; /* reject */
-        }
-        if(X509_cmp_current_time(next_update)<0) {
-            s_log(LOG_WARNING, "CRL: CRL Expired - revoking all certificates");
-            X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CRL_HAS_EXPIRED);
-            X509_OBJECT_free_contents(&obj);
-            return 0; /* reject */
-        }
-        X509_OBJECT_free_contents(&obj);
-    }
-
-    /* try to retrieve a CRL corresponding to the _issuer_ of
-     * the current certificate in order to check for revocation */
-    memset((char *)&obj, 0, sizeof obj);
-    X509_STORE_CTX_init(&store_ctx, c->opt->revocation_store, NULL, NULL);
-    rc=X509_STORE_get_by_subject(&store_ctx, X509_LU_CRL, issuer, &obj);
-    X509_STORE_CTX_cleanup(&store_ctx);
-    crl=obj.data.crl;
-    if(rc>0 && crl) {
-        /* check if the current certificate is revoked by this CRL */
-        n=sk_X509_REVOKED_num(X509_CRL_get_REVOKED(crl));
-        for(i=0; i<n; i++) {
-            revoked=sk_X509_REVOKED_value(X509_CRL_get_REVOKED(crl), i);
-            if(ASN1_INTEGER_cmp(revoked->serialNumber,
-                    X509_get_serialNumber(cert))==0) {
-                serial=ASN1_INTEGER_get(revoked->serialNumber);
-                cp=X509_NAME2text(issuer);
-                s_log(LOG_WARNING, "CRL: Certificate with serial %ld (0x%lX) "
-                    "revoked per CRL from issuer %s", serial, serial, cp);
-                str_free(cp);
-                X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REVOKED);
-                X509_OBJECT_free_contents(&obj);
-                return 0; /* reject */
-            }
-        }
-        X509_OBJECT_free_contents(&obj);
-    }
-    return 1; /* accept */
-}
+/**************************************** OCSP checking */
 
 #ifndef OPENSSL_NO_OCSP
-
-/**************************************** OCSP checking */
 
 /* type checks not available -- use generic functions */
 #ifndef sk_OPENSSL_STRING_num
@@ -629,7 +515,7 @@ NOEXPORT int ocsp_request(CLI *c, X509_STORE_CTX *callback_ctx,
         goto cleanup;
     }
     if(OCSP_basic_verify(basic_response, X509_STORE_CTX_get_chain(callback_ctx),
-            c->opt->revocation_store, c->opt->ocsp_flags)<=0) {
+            SSL_CTX_get_cert_store(c->opt->ctx), c->opt->ocsp_flags)<=0) {
         sslerror("OCSP: OCSP_basic_verify");
         goto cleanup;
     }

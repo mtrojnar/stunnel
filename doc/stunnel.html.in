@@ -886,33 +886,41 @@
 <dt id="protocolAuthentication-basic-ntlm"><b>protocolAuthentication</b> = basic | ntlm</dt>
 <dd>
 
-<p>authentication type for protocol negotiations</p>
+<p>authentication type for the protocol negotiations</p>
 
 <p>Currently the authentication type only applies to the &#39;connect&#39; protocol.</p>
 
 <p>default: basic</p>
 
 </dd>
+<dt id="protocolDomain-DOMAIN"><b>protocolDomain</b> = DOMAIN</dt>
+<dd>
+
+<p>domain for the protocol negotiations</p>
+
+<p>Currently the protocol domain only applies to the &#39;connect&#39; protocol.</p>
+
+</dd>
 <dt id="protocolHost-HOST:PORT"><b>protocolHost</b> = HOST:PORT</dt>
 <dd>
 
-<p>destination address for protocol negotiations</p>
+<p>destination address for the protocol negotiations</p>
 
 <p><i>protocolHost</i> specifies the final SSL server to be connected to by the proxy, and not the proxy server directly connected by <b>stunnel</b>. The proxy server should be specified with the &#39;connect&#39; option.</p>
 
-<p>Currently the protocol destination address only applies to &#39;connect&#39; protocol.</p>
+<p>Currently the protocol destination address only applies to the &#39;connect&#39; protocol.</p>
 
 </dd>
 <dt id="protocolPassword-PASSWORD"><b>protocolPassword</b> = PASSWORD</dt>
 <dd>
 
-<p>password for protocol negotiations</p>
+<p>password for the protocol negotiations</p>
 
 </dd>
 <dt id="protocolUsername-USERNAME"><b>protocolUsername</b> = USERNAME</dt>
 <dd>
 
-<p>username for protocol negotiations</p>
+<p>username for the protocol negotiations</p>
 
 </dd>
 <dt id="PSKidentity-IDENTITY"><b>PSKidentity</b> = IDENTITY</dt>

@@ -207,7 +207,7 @@ NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
         return 0; /* success */
     }
     s_log(LOG_DEBUG, "RAND_screen failed to sufficiently seed PRNG");
-#else
+#elif !defined(OPENSSL_NO_EGD)
     if(global->egd_sock) {
         if((bytes=RAND_egd(global->egd_sock))==-1) {
             s_log(LOG_WARNING, "EGD Socket %s failed", global->egd_sock);
@@ -220,6 +220,7 @@ NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
                          so no need to check if seeded sufficiently */
         }
     }
+#else
     /* try the good-old default /dev/urandom, if available  */
     totbytes+=add_rand_file(global, "/dev/urandom");
     if(RAND_status())

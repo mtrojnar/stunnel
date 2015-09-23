@@ -452,9 +452,9 @@ int bind_ports(void) {
             /* we don't bind or listen on a socket inherited from systemd */
             if(listening_section>=systemd_fds) {
                 if(bind(opt->fd, &opt->local_addr.sa, addr_len(&opt->local_addr))) {
+                    sockerror("bind");
                     s_log(LOG_ERR, "Error binding service [%s] to %s",
                         opt->servname, local_address);
-                    sockerror("bind");
                     closesocket(opt->fd);
                     opt->fd=INVALID_SOCKET;
                     str_free(local_address);

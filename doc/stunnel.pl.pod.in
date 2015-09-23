@@ -817,6 +817,12 @@ Obecnie typ uwierzytelnienia ma zastosowanie wyłącznie w protokole 'connect'.
 
 domyślnie: basic
 
+=item B<protocolDomain> = DOMENA
+
+domena do negocjacji protokołu
+
+W obecnej wersji wybrana domena ma zastosowanie wyłącznie w protokole 'connect'.
+
 =item B<protocolHost> = HOST:PORT
 
 adres docelowy do negocjacji protokołu

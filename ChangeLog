@@ -1,5 +1,24 @@
 stunnel change log
 
+Version 5.24, unreleased, urgency: LOW
+* New features
+  - Custom CRL verification was replaced with the internal
+    OpenSSL functionality.
+  - FreeBSD and OS X support for "transparent = destination"
+    and client-side "protocol = socks".
+  - Added a new "protocolDomain" option for the NTLM
+    authentication (thx to Andreas Botsikas).
+  - Improved compatibility of the NTLM phase 1 message (thx
+    to Andreas Botsikas).
+  - Added OPENSSL_NO_EGD support (thx to Bernard Spil).
+  - VC autodetection added to makew32.bat (thx to Andreas
+    Botsikas).
+* Bugfixes
+  - Fixed SOCKS5 RESOLVE [F0] TOR extension support.
+  - Fixed the error code reported on the failed bind()
+    requests.
+  - Fixed the sequential log id with the fork threading.
+
 Version 5.23, 2015.09.02, urgency: LOW
 * New features
   - Client-side support for the SOCKS protocol.

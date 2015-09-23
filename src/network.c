@@ -792,6 +792,8 @@ char *ssl_getstring(CLI *c) { /* get null-terminated string */
     return line;
 }
 
+/**************************************** network helpers */
+
 #define INET_SOCKET_PAIR
 
 int make_sockets(SOCKET fd[2]) { /* make a pair of connected ipv4 sockets */
@@ -853,6 +855,28 @@ int make_sockets(SOCKET fd[2]) { /* make a pair of connected ipv4 sockets */
         return 1;
 #endif
     return 0;
+}
+
+/* returns 0 on success, and -1 on error */
+int original_dst(const SOCKET fd, SOCKADDR_UNION *addr) {
+    socklen_t addrlen;
+
+    memset(addr, 0, sizeof(SOCKADDR_UNION));
+    addrlen=sizeof(SOCKADDR_UNION);
+#ifdef SO_ORIGINAL_DST
+#ifdef USE_IPv6
+    if(!getsockopt(fd, SOL_IPV6, SO_ORIGINAL_DST, &addr->sa, &addrlen))
+        return 0; /* succeeded */
+#endif /* USE_IPv6 */
+    if(!getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, &addr->sa, &addrlen))
+        return 0; /* succeeded */
+    sockerror("getsockopt SO_ORIGINAL_DST");
+#else /* SO_ORIGINAL_DST */
+    if(!getsockname(fd, &addr->sa, &addrlen))
+        return 0; /* succeeded */
+    sockerror("getsockname");
+#endif /* SO_ORIGINAL_DST */
+    return -1; /* failed */
 }
 
 /* end of network.c */

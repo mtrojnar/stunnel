@@ -792,29 +792,36 @@ encryption.
 
 =item B<protocolAuthentication> = basic | ntlm
 
-authentication type for protocol negotiations
+authentication type for the protocol negotiations
 
 Currently the authentication type only applies to the 'connect' protocol.
 
 default: basic
 
+=item B<protocolDomain> = DOMAIN
+
+domain for the protocol negotiations
+
+Currently the protocol domain only applies to the 'connect' protocol.
+
 =item B<protocolHost> = HOST:PORT
 
-destination address for protocol negotiations
+destination address for the protocol negotiations
 
 I<protocolHost> specifies the final SSL server to be connected to by the proxy,
 and not the proxy server directly connected by B<stunnel>.
 The proxy server should be specified with the 'connect' option.
 
-Currently the protocol destination address only applies to 'connect' protocol.
+Currently the protocol destination address only applies to the 'connect'
+protocol.
 
 =item B<protocolPassword> = PASSWORD
 
-password for protocol negotiations
+password for the protocol negotiations
 
 =item B<protocolUsername> = USERNAME
 
-username for protocol negotiations
+username for the protocol negotiations
 
 =item B<PSKidentity> = IDENTITY
 

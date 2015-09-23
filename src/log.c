@@ -257,8 +257,6 @@ NOEXPORT void log_raw(const SERVICE_OPTIONS *opt,
 #pragma GCC diagnostic ignored "-Wformat-extra-args"
 #endif /* __GNUC__ */
 char *log_id(CLI *c) {
-    static volatile unsigned long long seq=0;
-    unsigned long long my_seq;
     const char table[62]=
         "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     unsigned char rnd[22];
@@ -267,11 +265,8 @@ char *log_id(CLI *c) {
     unsigned long tid;
 
     switch(c->opt->log_id) {
-    case LOG_ID_SEQENTIAL:
-        enter_critical_section(CRIT_ID);
-        my_seq=seq++;
-        leave_critical_section(CRIT_ID);
-        return str_printf("%llu", my_seq);
+    case LOG_ID_SEQUENTIAL:
+        return str_printf("%llu", c->seq);
     case LOG_ID_UNIQUE:
         if(RAND_bytes(rnd, sizeof rnd)<=0) /* log2(62^22)=130.99 */
             return str_dup("error");

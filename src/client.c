@@ -70,6 +70,7 @@ NOEXPORT void reset(SOCKET, char *);
 
 /* allocate local data structure for the new thread */
 CLI *alloc_client_session(SERVICE_OPTIONS *opt, SOCKET rfd, SOCKET wfd) {
+    static unsigned long long seq=0;
     CLI *c;
 
     c=str_alloc_detached(sizeof(CLI));
@@ -77,6 +78,7 @@ CLI *alloc_client_session(SERVICE_OPTIONS *opt, SOCKET rfd, SOCKET wfd) {
     c->local_rfd.fd=rfd;
     c->local_wfd.fd=wfd;
     c->redirect=REDIRECT_OFF;
+    c->seq=seq++;
     return c;
 }
 
@@ -1298,10 +1300,6 @@ NOEXPORT unsigned connect_index(CLI *c) {
 }
 
 NOEXPORT void setup_connect_addr(CLI *c) {
-#ifdef SO_ORIGINAL_DST
-    socklen_t addrlen=sizeof(SOCKADDR_UNION);
-#endif /* SO_ORIGINAL_DST */
-
     /* process "redirect" first */
     if(c->redirect==REDIRECT_ON) {
         s_log(LOG_NOTICE, "Redirecting connection");
@@ -1317,23 +1315,13 @@ NOEXPORT void setup_connect_addr(CLI *c) {
         return;
 
     /* transparent destination */
-#ifdef SO_ORIGINAL_DST
     if(c->opt->option.transparent_dst) {
         c->connect_addr.num=1;
         c->connect_addr.addr=str_alloc(sizeof(SOCKADDR_UNION));
-        if(
-#ifdef USE_IPv6
-                getsockopt(c->local_rfd.fd, SOL_IPV6, SO_ORIGINAL_DST,
-                    c->connect_addr.addr, &addrlen) &&
-#endif
-                getsockopt(c->local_rfd.fd, SOL_IP, SO_ORIGINAL_DST,
-                    c->connect_addr.addr, &addrlen)) {
-            sockerror("getsockopt SO_ORIGINAL_DST");
+        if(original_dst(c->local_rfd.fd, c->connect_addr.addr))
             longjmp(c->err, 1);
-        }
         return;
     }
-#endif /* SO_ORIGINAL_DST */
 
     /* default "connect" target */
     addrlist_dup(&c->connect_addr, &c->opt->connect_addr);

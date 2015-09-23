@@ -42,10 +42,8 @@
 
 /* protocol-specific function prototypes */
 NOEXPORT char *socks_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-#ifdef SO_ORIGINAL_DST
 NOEXPORT void socks5_client_method(CLI *);
 NOEXPORT void socks5_client_address(CLI *);
-#endif /* SO_ORIGINAL_DST */
 NOEXPORT char *socks_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT void socks4_server(CLI *);
 NOEXPORT void socks5_server_method(CLI *);
@@ -68,7 +66,7 @@ NOEXPORT char *connect_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 #ifndef OPENSSL_NO_MD4
 NOEXPORT void ntlm(CLI *, SERVICE_OPTIONS *);
 NOEXPORT char *ntlm1();
-NOEXPORT char *ntlm3(char *, char *, char *);
+NOEXPORT char *ntlm3(char *, char *, char *, char *);
 NOEXPORT void crypt_DES(DES_cblock, DES_cblock, DES_cblock);
 #endif
 NOEXPORT char *base64(int, char *, int);
@@ -140,21 +138,12 @@ typedef union {
 
 NOEXPORT char *socks_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     (void)opt; /* squash the unused parameter warning */
-#ifdef SO_ORIGINAL_DST
     if(phase!=PROTOCOL_LATE)
         return NULL;
     socks5_client_method(c);
     socks5_client_address(c);
     return NULL;
-#else /* SO_ORIGINAL_DST */
-    (void)c; /* squash the unused parameter warning */
-    (void)phase; /* squash the unused parameter warning */
-    return "The 'socks' protocol is not supported in the client mode"
-        " (missing SO_ORIGINAL_DST socket option)";
-#endif /* SO_ORIGINAL_DST */
 }
-
-#ifdef SO_ORIGINAL_DST
 
 NOEXPORT void socks5_client_method(CLI *c) {
     const struct {
@@ -180,20 +169,10 @@ NOEXPORT void socks5_client_method(CLI *c) {
 
 NOEXPORT void socks5_client_address(CLI *c) {
     SOCKADDR_UNION addr;
-    socklen_t addrlen;
     SOCKS5_UNION socks;
 
-    addrlen=sizeof addr;
-    if(
-#ifdef USE_IPv6
-            getsockopt(c->local_rfd.fd, SOL_IPV6, SO_ORIGINAL_DST,
-                &addr, &addrlen) &&
-#endif
-            getsockopt(c->local_rfd.fd, SOL_IP, SO_ORIGINAL_DST,
-                &addr, &addrlen)) {
-        sockerror("getsockopt SO_ORIGINAL_DST");
+    if(original_dst(c->local_rfd.fd, &addr))
         longjmp(c->err, 2); /* don't reset */
-    }
     memset(&socks, 0, sizeof socks);
     socks.req.ver=5; /* SOCKS5 */
     socks.req.cmd=0x01; /* CONNECT */
@@ -271,8 +250,6 @@ NOEXPORT void socks5_client_address(CLI *c) {
     }
     longjmp(c->err, 2); /* don't reset */
 }
-
-#endif /* SO_ORIGINAL_DST */
 
 NOEXPORT char *socks_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     uint8_t version;
@@ -484,8 +461,13 @@ NOEXPORT void socks5_server(CLI *c) {
             socks.resp.rep=0x07; /* Address type not supported */
         }
     } else if(socks.req.cmd==0xf0) { /* RESOLVE (a TOR extension) */
-        host_name=ssl_getstring(c);
-        if(hostport2addr(&addr, host_name, "0", 0)) {
+        s_ssl_read(c, &host_len, sizeof host_len);
+        host_name=str_alloc((size_t)host_len+1);
+        s_ssl_read(c, host_name, host_len);
+        host_name[host_len]='\0';
+        s_ssl_read(c, &port_number, 2);
+        port_name=str_printf("%u", ntohs(port_number));
+        if(hostport2addr(&addr, host_name, port_name, 0)) {
             if(addr.sa.sa_family==AF_INET) {
                 s_log(LOG_INFO, "SOCKS5/TOR resolved \"%s\" to IPv4", host_name);
                 memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
@@ -508,6 +490,7 @@ NOEXPORT void socks5_server(CLI *c) {
             socks.resp.rep=0x04; /* Host unreachable */
         }
         str_free(host_name);
+        str_free(port_name);
     } else {
         s_log(LOG_ERR, "Unsupported SOCKS5 command 0x%02x", socks.req.cmd);
         socks.resp.rep=0x07; /* Command not supported */
@@ -1210,7 +1193,8 @@ NOEXPORT void ntlm(CLI *c, SERVICE_OPTIONS *opt) {
     /* send Proxy-Authorization (phase 3) */
     fd_printf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1", opt->protocol_host);
     fd_printf(c, c->remote_fd.fd, "Host: %s", opt->protocol_host);
-    ntlm3_txt=ntlm3(opt->protocol_username, opt->protocol_password, ntlm2_txt);
+    ntlm3_txt=ntlm3(opt->protocol_domain,
+        opt->protocol_username, opt->protocol_password, ntlm2_txt);
     str_free(ntlm2_txt);
     if(!ntlm3_txt) {
         s_log(LOG_ERR, "Proxy-Authenticate: Failed to build NTLM response");
@@ -1221,42 +1205,63 @@ NOEXPORT void ntlm(CLI *c, SERVICE_OPTIONS *opt) {
 }
 
 NOEXPORT char *ntlm1() {
-    char phase1[16];
+    char phase1[32];
 
     memset(phase1, 0, sizeof phase1);
     strcpy(phase1, "NTLMSSP");
     phase1[8]=1; /* type: 1 */
     phase1[12]=2; /* flag: negotiate OEM */
     phase1[13]=2; /* flag: negotiate NTLM */
+    /* bytes 16-23: supplied domain security buffer */
+    /* bytes 24-31: supplied workstation security buffer */
     return base64(1, phase1, sizeof phase1); /* encode */
 }
 
-NOEXPORT char *ntlm3(char *username, char *password, char *phase2) {
+NOEXPORT char *ntlm3(char *domain,
+        char *user, char *password, char *phase2) {
     MD4_CTX md4;
     uint8_t *decoded; /* decoded reply from proxy */
     uint8_t phase3[146];
     uint8_t md4_hash[21];
-    size_t userlen=strlen(username);
-    size_t phase3len=s_min(88+userlen, sizeof phase3);
+    const size_t ntlm_len=24; /* length of the NTLM hash response */
+    const size_t domain_len=strlen(domain);
+    const size_t user_len=strlen(user);
+    const size_t ntlm_off=64; /* start of the data block in version 2 */
+    const size_t domain_off=ntlm_off+ntlm_len;
+    const size_t user_off=domain_off+domain_len;
+    const size_t end_off=user_off+user_len;
 
-    /* setup phase3 structure */
+    /* setup the phase3 structure */
+    if(end_off>sizeof phase3)
+        return NULL;
     memset(phase3, 0, sizeof phase3);
+    /* bytes 0-7: null-terminated NTLMSSP signature */
     strcpy((char *)phase3, "NTLMSSP");
+    /* bytes 8-11: NTLM message type */
     phase3[8]=3;                    /* type: 3 */
-    phase3[16]=(uint8_t)phase3len;  /* LM-resp off */
-    phase3[20]=24;                  /* NT-resp len */
-    phase3[22]=24;                  /* NT-Resp len */
-    phase3[24]=64;                  /* NT-resp off */
-    phase3[32]=(uint8_t)phase3len;  /* domain offset */
-    phase3[36]=(uint8_t)userlen;    /* user length */
-    phase3[38]=(uint8_t)userlen;    /* user length */
-    phase3[40]=88;                  /* user offset */
-    phase3[48]=(uint8_t)phase3len;  /* host offset */
-    phase3[56]=(uint8_t)phase3len;  /* message len */
+    /* bytes 12-19: LM/LMv2 response */
+    phase3[16]=(uint8_t)end_off;    /* LM response offset */
+    /* bytes 20-27: NTLM/NTLMv2 response */
+    phase3[20]=(uint8_t)ntlm_len;   /* NTLM response length */
+    phase3[22]=(uint8_t)ntlm_len;   /* NTLM response length */
+    phase3[24]=(uint8_t)ntlm_off;   /* NTLM response offset */
+    /* bytes 28-35: target (domain/server) name */
+    phase3[28]=(uint8_t)domain_len; /* domain length */
+    phase3[30]=(uint8_t)domain_len; /* domain length */
+    phase3[32]=(uint8_t)domain_off; /* domain offset */
+    /* bytes 36-43: user name */
+    phase3[36]=(uint8_t)user_len;   /* user length */
+    phase3[38]=(uint8_t)user_len;   /* user length */
+    phase3[40]=(uint8_t)user_off;   /* user offset */
+    /* bytes 44-51: workstation name */
+    phase3[48]=(uint8_t)end_off;    /* host offset */
+    /* bytes 52-59: session key */
+    phase3[56]=(uint8_t)end_off;    /* session key offset */
+    /* bytes 60-63: flags */
     phase3[60]=2;                   /* flag: negotiate OEM */
     phase3[61]=2;                   /* flag: negotiate NTLM */
 
-    /* calculate MD4 of UTF-16 encoded password */
+    /* calculate MD4 of the UTF-16 encoded password */
     MD4_Init(&md4);
     while(*password) {
         MD4_Update(&md4, password++, 1);
@@ -1265,18 +1270,19 @@ NOEXPORT char *ntlm3(char *username, char *password, char *phase2) {
     MD4_Final(md4_hash, &md4);
     memset(md4_hash+16, 0, 5); /* pad to 21 bytes */
 
-    /* decode challenge and calculate response */
+    /* decode the challenge and calculate the response */
     decoded=(uint8_t *)base64(0, phase2, (int)strlen(phase2)); /* decode */
     if(!decoded)
         return NULL;
-    crypt_DES(phase3+64, decoded+24, md4_hash);
-    crypt_DES(phase3+72, decoded+24, md4_hash+7);
-    crypt_DES(phase3+80, decoded+24, md4_hash+14);
+    crypt_DES(phase3+ntlm_off,    decoded+24, md4_hash);
+    crypt_DES(phase3+ntlm_off+8,  decoded+24, md4_hash+7);
+    crypt_DES(phase3+ntlm_off+16, decoded+24, md4_hash+14);
     str_free(decoded);
 
-    strncpy((char *)phase3+88, username, sizeof phase3-88);
+    strncpy((char *)phase3+domain_off, domain, domain_len);
+    strncpy((char *)phase3+user_off, user, user_len);
 
-    return base64(1, (char *)phase3, (int)phase3len); /* encode */
+    return base64(1, (char *)phase3, (int)end_off); /* encode */
 }
 
 NOEXPORT void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {

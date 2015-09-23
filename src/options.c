@@ -1843,13 +1843,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* logId */
     switch(cmd) {
     case CMD_BEGIN:
-        section->log_id=LOG_ID_SEQENTIAL;
+        section->log_id=LOG_ID_SEQUENTIAL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "logId"))
             break;
         if(!strcasecmp(arg, "sequential"))
-            section->log_id=LOG_ID_SEQENTIAL;
+            section->log_id=LOG_ID_SEQUENTIAL;
         else if(!strcasecmp(arg, "unique"))
             section->log_id=LOG_ID_UNIQUE;
         else if(!strcasecmp(arg, "thread"))
@@ -2071,6 +2071,28 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-22s = authentication type for protocol negotiations",
             "protocolAuthentication");
+        break;
+    }
+
+    /* protocolDomain */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->protocol_domain=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "protocolDomain"))
+            break;
+        section->protocol_domain=str_dup(arg);
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = domain for protocol negotiations",
+            "protocolDomain");
         break;
     }
 
@@ -2703,14 +2725,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         } else if(!strcasecmp(arg, "source") || !strcasecmp(arg, "yes")) {
             section->option.transparent_src=1;
             section->option.transparent_dst=0;
-#ifdef SO_ORIGINAL_DST
         } else if(!strcasecmp(arg, "destination")) {
             section->option.transparent_src=0;
             section->option.transparent_dst=1;
         } else if(!strcasecmp(arg, "both")) {
             section->option.transparent_src=1;
             section->option.transparent_dst=1;
-#endif
         } else
             return "Selected transparent proxy mode is not available";
         return NULL; /* OK */

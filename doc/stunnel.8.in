@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.07.31" "5.23" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.09.13" "5.24" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -746,26 +746,32 @@ encryption.
 .RE
 .IP "\fBprotocolAuthentication\fR = basic | ntlm" 4
 .IX Item "protocolAuthentication = basic | ntlm"
-authentication type for protocol negotiations
+authentication type for the protocol negotiations
 .Sp
 Currently the authentication type only applies to the 'connect' protocol.
 .Sp
 default: basic
+.IP "\fBprotocolDomain\fR = \s-1DOMAIN\s0" 4
+.IX Item "protocolDomain = DOMAIN"
+domain for the protocol negotiations
+.Sp
+Currently the protocol domain only applies to the 'connect' protocol.
 .IP "\fBprotocolHost\fR = \s-1HOST:PORT\s0" 4
 .IX Item "protocolHost = HOST:PORT"
-destination address for protocol negotiations
+destination address for the protocol negotiations
 .Sp
 \&\fIprotocolHost\fR specifies the final \s-1SSL\s0 server to be connected to by the proxy,
 and not the proxy server directly connected by \fBstunnel\fR.
 The proxy server should be specified with the 'connect' option.
 .Sp
-Currently the protocol destination address only applies to 'connect' protocol.
+Currently the protocol destination address only applies to the 'connect'
+protocol.
 .IP "\fBprotocolPassword\fR = \s-1PASSWORD\s0" 4
 .IX Item "protocolPassword = PASSWORD"
-password for protocol negotiations
+password for the protocol negotiations
 .IP "\fBprotocolUsername\fR = \s-1USERNAME\s0" 4
 .IX Item "protocolUsername = USERNAME"
-username for protocol negotiations
+username for the protocol negotiations
 .IP "\fBPSKidentity\fR = \s-1IDENTITY\s0" 4
 .IX Item "PSKidentity = IDENTITY"
 \&\s-1PSK\s0 identity for the \s-1PSK\s0 client

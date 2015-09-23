@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.07.31" "5.23" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.09.13" "5.24" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -772,6 +772,11 @@ rodzaj uwierzytelnienia do negocjacji protokołu
 Obecnie typ uwierzytelnienia ma zastosowanie wyłącznie w protokole 'connect'.
 .Sp
 domyślnie: basic
+.IP "\fBprotocolDomain\fR = \s-1DOMENA\s0" 4
+.IX Item "protocolDomain = DOMENA"
+domena do negocjacji protokołu
+.Sp
+W obecnej wersji wybrana domena ma zastosowanie wyłącznie w protokole 'connect'.
 .IP "\fBprotocolHost\fR = \s-1HOST:PORT\s0" 4
 .IX Item "protocolHost = HOST:PORT"
 adres docelowy do negocjacji protokołu

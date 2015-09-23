@@ -893,6 +893,14 @@
 <p>domy&#x15B;lnie: basic</p>
 
 </dd>
+<dt id="protocolDomain-DOMENA"><b>protocolDomain</b> = DOMENA</dt>
+<dd>
+
+<p>domena do negocjacji protoko&#x142;u</p>
+
+<p>W obecnej wersji wybrana domena ma zastosowanie wy&#x142;&#x105;cznie w protokole &#39;connect&#39;.</p>
+
+</dd>
 <dt id="protocolHost-HOST:PORT"><b>protocolHost</b> = HOST:PORT</dt>
 <dd>
 
