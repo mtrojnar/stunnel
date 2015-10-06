@@ -405,18 +405,6 @@
 <p>default: stunnel</p>
 
 </dd>
-<dt id="setgid-GROUP-Unix-only"><b>setgid</b> = GROUP (Unix only)</dt>
-<dd>
-
-<p>setgid() to the specified group in daemon mode and clear all other groups</p>
-
-</dd>
-<dt id="setuid-USER-Unix-only"><b>setuid</b> = USER (Unix only)</dt>
-<dd>
-
-<p>setuid() to the specified user in daemon mode</p>
-
-</dd>
 <dt id="socket-a-l-r:OPTION-VALUE-:VALUE"><b>socket</b> = a|l|r:OPTION=VALUE[:VALUE]</dt>
 <dd>
 
@@ -988,9 +976,29 @@
 <dt id="retry-yes-no"><b>retry</b> = yes | no</dt>
 <dd>
 
-<p>reconnect a connect+exec section after it&#39;s disconnected</p>
+<p>reconnect a connect+exec section after it was disconnected</p>
 
 <p>default: no</p>
+
+</dd>
+<dt id="setgid-GROUP-Unix-only"><b>setgid</b> = GROUP (Unix only)</dt>
+<dd>
+
+<p>Unix group id</p>
+
+<p>As a global option: setgid() to the specified group in daemon mode and clear all other groups.</p>
+
+<p>As a service-level option: set the group of the Unix socket specified with &quot;accept&quot;.</p>
+
+</dd>
+<dt id="setuid-USER-Unix-only"><b>setuid</b> = USER (Unix only)</dt>
+<dd>
+
+<p>Unix user id</p>
+
+<p>As a global option: setuid() to the specified user in daemon mode.</p>
+
+<p>As a service-level option: set the owner of the Unix socket specified with &quot;accept&quot;.</p>
 
 </dd>
 <dt id="sessionCacheSize-NUM_ENTRIES"><b>sessionCacheSize</b> = NUM_ENTRIES</dt>

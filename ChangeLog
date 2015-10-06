@@ -4,12 +4,19 @@ Version 5.24, unreleased, urgency: LOW
 * New features
   - Custom CRL verification was replaced with the internal
     OpenSSL functionality.
-  - FreeBSD and OS X support for "transparent = destination"
-    and client-side "protocol = socks".
+  - *BSD support for "transparent = destination" and
+    client-side "protocol = socks". This feature should
+    work at least on FreeBSD, OpenBSD and OS X.
   - Added a new "protocolDomain" option for the NTLM
     authentication (thx to Andreas Botsikas).
   - Improved compatibility of the NTLM phase 1 message (thx
     to Andreas Botsikas).
+  - "setuid" and "setgid" options are now also available
+    in service sections.  They can be used to set owner
+    and group of the Unix socket specified with "accept".
+  - Added support for "options = NO_DTLSv1",
+    "options = NO_DTLSv1_2", and "options = NO_SSL_MASK"
+    supported since OpenSSL 1.0.2.
   - Added OPENSSL_NO_EGD support (thx to Bernard Spil).
   - VC autodetection added to makew32.bat (thx to Andreas
     Botsikas).
@@ -18,6 +25,7 @@ Version 5.24, unreleased, urgency: LOW
   - Fixed the error code reported on the failed bind()
     requests.
   - Fixed the sequential log id with the fork threading.
+  - Restored Microsoft.VC90.CRT.manifest.
 
 Version 5.23, 2015.09.02, urgency: LOW
 * New features

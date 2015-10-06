@@ -128,8 +128,6 @@ typedef struct {
 #endif
     unsigned long dpid;
     char *pidfile;
-    uid_t uid;
-    gid_t gid;
 #endif
 
         /* logging-support data for log.c */
@@ -182,6 +180,12 @@ typedef struct service_options_struct {
     struct service_options_struct *next;   /* next node in the services list */
     SSL_CTX *ctx;                                            /*  SSL context */
     char *servname;        /* service name for logging & permission checking */
+
+        /* service-specific data for stunnel.c */
+#ifndef USE_WIN32
+    uid_t uid;
+    gid_t gid;
+#endif
 
         /* service-specific data for log.c */
     int log_level;                                /* debug level for logging */

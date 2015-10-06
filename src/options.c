@@ -160,6 +160,15 @@ static const SSL_OPTION ssl_opts[] = {
 #ifdef SSL_OP_CRYPTOPRO_TLSEXT_BUG
     {"CRYPTOPRO_TLSEXT_BUG", (long)SSL_OP_CRYPTOPRO_TLSEXT_BUG},
 #endif
+#ifdef SSL_OP_NO_DTLSv1
+    {"NO_DTLSv1", SSL_OP_NO_DTLSv1},
+#endif
+#ifdef SSL_OP_NO_DTLSv1_2
+    {"NO_DTLSv1_2", SSL_OP_NO_DTLSv1_2},
+#endif
+#ifdef SSL_OP_NO_SSL_MASK
+    {"NO_SSL_MASK", SSL_OP_NO_SSL_MASK},
+#endif
     {NULL, 0}
 };
 
@@ -520,10 +529,6 @@ void options_apply() { /* apply default/validated configuration */
 
 NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     char *tmp_str;
-#ifndef USE_WIN32
-    struct group *gr;
-    struct passwd *pw;
-#endif
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
@@ -1018,66 +1023,6 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     }
 #endif
 
-#ifndef USE_WIN32
-    /* setgid */
-    switch(cmd) {
-    case CMD_BEGIN:
-        new_global_options.gid=0;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "setgid"))
-            break;
-        gr=getgrnam(arg);
-        if(gr) {
-            new_global_options.gid=gr->gr_gid;
-            return NULL; /* OK */
-        }
-        new_global_options.gid=(gid_t)strtol(arg, &tmp_str, 10);
-        if(tmp_str==arg || *tmp_str) /* not a number */
-            return "Illegal GID";
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = groupname for setgid()", "setgid");
-        break;
-    }
-#endif
-
-#ifndef USE_WIN32
-    /* setuid */
-    switch(cmd) {
-    case CMD_BEGIN:
-        new_global_options.uid=0;
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "setuid"))
-            break;
-        pw=getpwnam(arg);
-        if(pw) {
-            new_global_options.uid=pw->pw_uid;
-            return NULL; /* OK */
-        }
-        new_global_options.uid=(uid_t)strtol(arg, &tmp_str, 10);
-        if(tmp_str==arg || *tmp_str) /* not a number */
-            return "Illegal UID";
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = username for setuid()", "setuid");
-        break;
-    }
-#endif
-
     /* socket */
     switch(cmd) {
     case CMD_BEGIN:
@@ -1176,6 +1121,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     char *tmp_str;
     int endpoints=0;
     long tmp_long;
+#ifndef USE_WIN32
+    struct group *gr;
+    struct passwd *pw;
+#endif
 
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
@@ -2383,6 +2332,66 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             "retry");
         break;
     }
+
+#ifndef USE_WIN32
+    /* setgid */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->gid=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "setgid"))
+            break;
+        gr=getgrnam(arg);
+        if(gr) {
+            section->gid=gr->gr_gid;
+            return NULL; /* OK */
+        }
+        section->gid=(gid_t)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
+            return "Illegal GID";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = groupname for setgid()", "setgid");
+        break;
+    }
+#endif
+
+#ifndef USE_WIN32
+    /* setuid */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->uid=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "setuid"))
+            break;
+        pw=getpwnam(arg);
+        if(pw) {
+            section->uid=pw->pw_uid;
+            return NULL; /* OK */
+        }
+        section->uid=(uid_t)strtol(arg, &tmp_str, 10);
+        if(tmp_str==arg || *tmp_str) /* not a number */
+            return "Illegal UID";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = username for setuid()", "setuid");
+        break;
+    }
+#endif
 
     /* sessionCacheSize */
     switch(cmd) {

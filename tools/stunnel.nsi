@@ -153,6 +153,7 @@ no_service_restart:
 
   Delete "$INSTDIR\bin\*.exe"
   Delete "$INSTDIR\bin\*.dll"
+  Delete "$INSTDIR\bin\*.manifest"
   Delete "$INSTDIR\bin\*.pdb"
   RMDir "$INSTDIR\bin"
 
@@ -283,6 +284,7 @@ Section "Core Files" sectionCORE
   File "${OPENSSL_BIN_DIR}\ssleay32.dll"
   File "${ZLIB_DIR}\zlib1.dll"
   File "${REDIST_DIR}\msvcr90.dll"
+  File "${REDIST_DIR}\Microsoft.VC90.CRT.manifest"
   # MINGW builds requires libssp-0.dll instead of msvcr90.dll
 
   # write new engine libraries

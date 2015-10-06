@@ -23,10 +23,12 @@ A sponsor could allocate my time to get them faster.
   Visual Studio Professional Edition in order to retain FIPS compliance.
 * MSI installer for Windows.
 * Database and/or directory interface for retrieving PSK secrets.
-* Extend session tickets and/or sessiond to also serialize
-  application data ("redirect" state and session persistence).
-* Add user-defined headers to proxy requests in order to impersonate
+* Extend session tickets and/or sessiond to also serialize application
+  data ("redirect" state and session persistence).
+* Add user-defined headers to CONNECT proxy requests in order to impersonate
   other software (e.g. web browsers).
+* Add post-STARTTLS username/password authentication into the client-side
+  SMTP protocol negotiation.
 
 Low priority features.  They will unlikely ever be supported.
 * Support static FIPS-enabled build.

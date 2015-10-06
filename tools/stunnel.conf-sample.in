@@ -113,4 +113,10 @@ OCSPaia = yes
 ;ciphers = PSK
 ;PSKsecrets = @sysconfdir@/stunnel/secrets.txt
 
+; Non-standard MySQL-over-TLS encapsulation connecting the Unix socket
+;[mysql]
+;cert = @sysconfdir@/stunnel/stunnel.pem
+;accept = 3307
+;connect = /run/mysqld/mysqld.sock
+
 ; vim:ft=dosini

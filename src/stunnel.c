@@ -170,21 +170,21 @@ int drop_privileges(int critical) {
 #endif
 
     /* set uid and gid */
-    if(global_options.gid) {
-        if(setgid(global_options.gid) && critical) {
+    if(service_options.gid) {
+        if(setgid(service_options.gid) && critical) {
             sockerror("setgid");
             return 1;
         }
 #ifdef HAVE_SETGROUPS
-        gr_list[0]=global_options.gid;
+        gr_list[0]=service_options.gid;
         if(setgroups(1, gr_list) && critical) {
             sockerror("setgroups");
             return 1;
         }
 #endif
     }
-    if(global_options.uid) {
-        if(setuid(global_options.uid) && critical) {
+    if(service_options.uid) {
+        if(setuid(service_options.uid) && critical) {
             sockerror("setuid");
             return 1;
         }
@@ -358,7 +358,7 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt) {
 void unbind_ports(void) {
     SERVICE_OPTIONS *opt;
 #ifdef HAVE_STRUCT_SOCKADDR_UN
-    struct stat sb; /* buffer for stat */
+    struct stat sb; /* buffer for lstat() */
 #endif
 
     s_poll_init(fds);
@@ -408,6 +408,9 @@ int bind_ports(void) {
     SERVICE_OPTIONS *opt;
     char *local_address;
     int listening_section;
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+    struct stat sb; /* buffer for lstat() */
+#endif
 
 #ifdef USE_LIBWRAP
     /* execute after options_cmdline() to know service_options.next,
@@ -468,6 +471,26 @@ int bind_ports(void) {
                     return 1;
                 }
             }
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+            /* chown the UNIX socket, errors are ignored */
+            if(opt->local_addr.sa.sa_family==AF_UNIX &&
+                    (opt->uid || opt->gid)) {
+                /* fchown() does *not* work on UNIX sockets */
+                if(!lchown(opt->local_addr.un.sun_path, opt->uid, opt->gid))
+                    s_log(LOG_DEBUG,
+                        "Socket chown succeeded: %s, UID=%d, GID=%d",
+                        opt->local_addr.un.sun_path, opt->uid, opt->gid);
+                else if(lstat(opt->local_addr.un.sun_path, &sb))
+                    sockerror(opt->local_addr.un.sun_path);
+                else if(sb.st_uid==opt->uid && sb.st_gid==opt->gid)
+                    s_log(LOG_DEBUG,
+                        "Socket chown unneeded: %s, UID=%d, GID=%d",
+                        opt->local_addr.un.sun_path, opt->uid, opt->gid);
+                else
+                    s_log(LOG_ERR, "Socket chown failed: %s, UID=%d, GID=%d",
+                        opt->local_addr.un.sun_path, opt->uid, opt->gid);
+            }
+#endif
             s_poll_add(fds, opt->fd, 1, 0);
             s_log(LOG_DEBUG, "Service [%s] (FD=%d) bound to %s",
                 opt->servname, opt->fd, local_address);

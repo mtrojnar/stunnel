@@ -403,18 +403,6 @@
 <p>domy&#x15B;lnie: stunnel</p>
 
 </dd>
-<dt id="setgid-IDENTYFIKATOR_GRUPY-tylko-Unix"><b>setgid</b> = IDENTYFIKATOR_GRUPY (tylko Unix)</dt>
-<dd>
-
-<p>grupa z kt&oacute;rej prawami pracowa&#x142; b&#x119;dzie <b>stunnel</b></p>
-
-</dd>
-<dt id="setuid-IDENTYFIKATOR_UYTKOWNIKA-tylko-Unix"><b>setuid</b> = IDENTYFIKATOR_U&#x17B;YTKOWNIKA (tylko Unix)</dt>
-<dd>
-
-<p>u&#x17C;ytkownik, z kt&oacute;rego prawami pracowa&#x142; b&#x119;dzie <b>stunnel</b></p>
-
-</dd>
 <dt id="socket-a-l-r:OPCJA-WARTO-:WARTO"><b>socket</b> = a|l|r:OPCJA=WARTO&#x15A;&#x106;[:WARTO&#x15A;&#x106;]</dt>
 <dd>
 
@@ -991,6 +979,26 @@
 <p>po&#x142;&#x105;cz ponownie sekcj&#x119; connect+exec po roz&#x142;&#x105;czeniu</p>
 
 <p>domy&#x15B;lnie: no</p>
+
+</dd>
+<dt id="setgid-IDENTYFIKATOR_GRUPY-tylko-Unix"><b>setgid</b> = IDENTYFIKATOR_GRUPY (tylko Unix)</dt>
+<dd>
+
+<p>identyfikator grupy Unix</p>
+
+<p>Jako opcja globalna: grupa, z kt&oacute;rej prawami pracowa&#x142; b&#x119;dzie <b>stunnel</b>.</p>
+
+<p>Jako opcja us&#x142;ugi: grupa gniazda Unix utworzonego przy pomocy opcji &quot;accept&quot;.</p>
+
+</dd>
+<dt id="setuid-IDENTYFIKATOR_UYTKOWNIKA-tylko-Unix"><b>setuid</b> = IDENTYFIKATOR_U&#x17B;YTKOWNIKA (tylko Unix)</dt>
+<dd>
+
+<p>identyfikator u&#x17C;ytkownika Unix</p>
+
+<p>Jako opcja globalna: u&#x17C;ytkownik, z kt&oacute;rego prawami pracowa&#x142; b&#x119;dzie <b>stunnel</b>.</p>
+
+<p>Jako opcja us&#x142;ugi: w&#x142;a&#x15B;ciciel gniazda Unix utworzonego przy pomocy opcji &quot;accept&quot;.</p>
 
 </dd>
 <dt id="sessionCacheSize-LICZBA_POZYCJI_CACHE"><b>sessionCacheSize</b> = LICZBA_POZYCJI_CACHE</dt>

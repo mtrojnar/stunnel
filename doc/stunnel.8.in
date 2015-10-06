@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.09.13" "5.24" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.10.06" "5.24" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -337,12 +337,6 @@ name for \s-1TCP\s0 Wrappers.  While this option can technically be specified in
 service sections, it is only useful in global options.
 .Sp
 default: stunnel
-.IP "\fBsetgid\fR = \s-1GROUP \s0(Unix only)" 4
-.IX Item "setgid = GROUP (Unix only)"
-\&\fIsetgid()\fR to the specified group in daemon mode and clear all other groups
-.IP "\fBsetuid\fR = \s-1USER \s0(Unix only)" 4
-.IX Item "setuid = USER (Unix only)"
-\&\fIsetuid()\fR to the specified user in daemon mode
 .IP "\fBsocket\fR = a|l|r:OPTION=VALUE[:VALUE]" 4
 .IX Item "socket = a|l|r:OPTION=VALUE[:VALUE]"
 Set an option on the accept/local/remote socket
@@ -826,9 +820,23 @@ This option is not supported on some platforms.
 default: yes
 .IP "\fBretry\fR = yes | no" 4
 .IX Item "retry = yes | no"
-reconnect a connect+exec section after it's disconnected
+reconnect a connect+exec section after it was disconnected
 .Sp
 default: no
+.IP "\fBsetgid\fR = \s-1GROUP \s0(Unix only)" 4
+.IX Item "setgid = GROUP (Unix only)"
+Unix group id
+.Sp
+As a global option: \fIsetgid()\fR to the specified group in daemon mode and clear all other groups.
+.Sp
+As a service-level option: set the group of the Unix socket specified with \*(L"accept\*(R".
+.IP "\fBsetuid\fR = \s-1USER \s0(Unix only)" 4
+.IX Item "setuid = USER (Unix only)"
+Unix user id
+.Sp
+As a global option: \fIsetuid()\fR to the specified user in daemon mode.
+.Sp
+As a service-level option: set the owner of the Unix socket specified with \*(L"accept\*(R".
 .IP "\fBsessionCacheSize\fR = \s-1NUM_ENTRIES\s0" 4
 .IX Item "sessionCacheSize = NUM_ENTRIES"
 session cache size

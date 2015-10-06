@@ -340,14 +340,6 @@ service sections, it is only useful in global options.
 
 default: stunnel
 
-=item B<setgid> = GROUP (Unix only)
-
-setgid() to the specified group in daemon mode and clear all other groups
-
-=item B<setuid> = USER (Unix only)
-
-setuid() to the specified user in daemon mode
-
 =item B<socket> = a|l|r:OPTION=VALUE[:VALUE]
 
 Set an option on the accept/local/remote socket
@@ -881,9 +873,25 @@ default: yes
 
 =item B<retry> = yes | no
 
-reconnect a connect+exec section after it's disconnected
+reconnect a connect+exec section after it was disconnected
 
 default: no
+
+=item B<setgid> = GROUP (Unix only)
+
+Unix group id
+
+As a global option: setgid() to the specified group in daemon mode and clear all other groups.
+
+As a service-level option: set the group of the Unix socket specified with "accept".
+
+=item B<setuid> = USER (Unix only)
+
+Unix user id
+
+As a global option: setuid() to the specified user in daemon mode.
+
+As a service-level option: set the owner of the Unix socket specified with "accept".
 
 =item B<sessionCacheSize> = NUM_ENTRIES
 

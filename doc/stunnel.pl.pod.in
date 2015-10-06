@@ -344,14 +344,6 @@ globalnych.
 
 domyślnie: stunnel
 
-=item B<setgid> = IDENTYFIKATOR_GRUPY (tylko Unix)
-
-grupa z której prawami pracował będzie B<stunnel>
-
-=item B<setuid> = IDENTYFIKATOR_UŻYTKOWNIKA (tylko Unix)
-
-użytkownik, z którego prawami pracował będzie B<stunnel>
-
 =item B<socket> = a|l|r:OPCJA=WARTOŚĆ[:WARTOŚĆ]
 
 ustaw opcję na akceptującym/lokalnym/zdalnym gnieździe
@@ -904,6 +896,22 @@ domyślnie: yes
 połącz ponownie sekcję connect+exec po rozłączeniu
 
 domyślnie: no
+
+=item B<setgid> = IDENTYFIKATOR_GRUPY (tylko Unix)
+
+identyfikator grupy Unix
+
+Jako opcja globalna: grupa, z której prawami pracował będzie B<stunnel>.
+
+Jako opcja usługi: grupa gniazda Unix utworzonego przy pomocy opcji "accept".
+
+=item B<setuid> = IDENTYFIKATOR_UŻYTKOWNIKA (tylko Unix)
+
+identyfikator użytkownika Unix
+
+Jako opcja globalna: użytkownik, z którego prawami pracował będzie B<stunnel>.
+
+Jako opcja usługi: właściciel gniazda Unix utworzonego przy pomocy opcji "accept".
 
 =item B<sessionCacheSize> = LICZBA_POZYCJI_CACHE
 
