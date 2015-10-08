@@ -1,6 +1,6 @@
 stunnel change log
 
-Version 5.24, unreleased, urgency: LOW
+Version 5.24, 2015.10.08, urgency: MEDIUM
 * New features
   - Custom CRL verification was replaced with the internal
     OpenSSL functionality.
@@ -14,18 +14,16 @@ Version 5.24, unreleased, urgency: LOW
   - "setuid" and "setgid" options are now also available
     in service sections.  They can be used to set owner
     and group of the Unix socket specified with "accept".
-  - Added support for "options = NO_DTLSv1",
-    "options = NO_DTLSv1_2", and "options = NO_SSL_MASK"
-    supported since OpenSSL 1.0.2.
+  - Added support for the new OpenSSL 1.0.2 SSL options.
   - Added OPENSSL_NO_EGD support (thx to Bernard Spil).
   - VC autodetection added to makew32.bat (thx to Andreas
     Botsikas).
 * Bugfixes
-  - Fixed SOCKS5 RESOLVE [F0] TOR extension support.
+  - Fixed the RESOLVE [F0] TOR extension support in SOCKS5.
   - Fixed the error code reported on the failed bind()
     requests.
-  - Fixed the sequential log id with the fork threading.
-  - Restored Microsoft.VC90.CRT.manifest.
+  - Fixed the sequential log id with the FORK threading.
+  - Restored the missing Microsoft.VC90.CRT.manifest file.
 
 Version 5.23, 2015.09.02, urgency: LOW
 * New features
