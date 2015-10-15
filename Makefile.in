@@ -14,6 +14,8 @@
 
 @SET_MAKE@
 
+# by Michal Trojnara 2015
+
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -860,7 +862,7 @@ libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status libtool
 
 distclean-local:
-	rm -rf autom4te.cache
+	rm -rf autom4te.cache obj bin
 #	rm -f $(distdir)-installer.exe
 
 #dist-hook:

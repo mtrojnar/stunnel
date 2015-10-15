@@ -175,10 +175,10 @@ ssize_t file_getline(DISK_FILE *df, char *line, int len) {
 
 ssize_t file_putline(DISK_FILE *df, char *line) {
     char *buff;
-#ifdef USE_WIN32
-    DWORD len, num;
-#else /* USE_WIN32 */
     size_t len;
+#ifdef USE_WIN32
+    DWORD num;
+#else /* USE_WIN32 */
     ssize_t num;
 #endif /* USE_WIN32 */
 
@@ -190,7 +190,7 @@ ssize_t file_putline(DISK_FILE *df, char *line) {
 #endif /* USE_WIN32 */
     buff[len++]='\n'; /* LF */
 #ifdef USE_WIN32
-    WriteFile(df->fh, buff, len, &num, NULL);
+    WriteFile(df->fh, buff, (DWORD)len, &num, NULL);
 #else /* USE_WIN32 */
     /* no file -> write to stderr */
     num=write(df ? df->fd : 2, buff, len);

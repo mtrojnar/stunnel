@@ -26,8 +26,20 @@ Building stunnel from source (optional):
       mv openssl-(version) openssl-(version)-i686
 
  4) Build OpenSSL.
-      ./Configure --cross-compile-prefix=i686-w64-mingw32- mingw shared zlib-dynamic
+    For 32-bit Windows:
+      ./Configure \
+        --cross-compile-prefix=i686-w64-mingw32- \
+        --openssldir=/opt/openssl-mingw mingw shared
       make
+      sudo make install
+      sudo cp ms/applink.c /opt/openssl-mingw/include/openssl/
+    For 64-bit Windows:
+      ./Configure \
+        --cross-compile-prefix=x86_64-w64-mingw32- \
+        --openssldir=/opt/openssl-mingw64 mingw64 shared
+      make
+      sudo make install
+      sudo cp ms/applink.c /opt/openssl-mingw64/include/openssl/
 
  5) Download and unpack stunnel-(version).tar.gz.
 

@@ -208,6 +208,7 @@ typedef struct service_options_struct {
 #endif /* !defined(OPENSSL_NO_OCSP) */
 #if OPENSSL_VERSION_NUMBER>=0x10002000L
     NAME_LIST *check_host, *check_email, *check_ip;   /* cert subject checks */
+    NAME_LIST *config;                               /* OpenSSL CONF options */
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
 
         /* service-specific data for ctx.c */
@@ -396,7 +397,7 @@ typedef struct {
     /* data for transfer() function */
     char sock_buff[BUFFSIZE]; /* socket read buffer */
     char ssl_buff[BUFFSIZE]; /* SSL read buffer */
-    unsigned long sock_ptr, ssl_ptr; /* index of the first unused byte */
+    size_t sock_ptr, ssl_ptr; /* index of the first unused byte */
     FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
     FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
     uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and SSL */

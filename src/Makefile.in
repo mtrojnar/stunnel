@@ -14,6 +14,12 @@
 
 @SET_MAKE@
 
+# by Michal Trojnara 2015
+
+###############################################################################
+# File lists                                                                  #
+###############################################################################
+
 
 
 VPATH = @srcdir@
@@ -81,8 +87,6 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = stunnel$(EXEEXT)
-@AUTHOR_TESTS_TRUE@check_PROGRAMS = stunnel.exe$(EXEEXT) \
-@AUTHOR_TESTS_TRUE@	tstunnel.exe$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(srcdir)/config.h.in $(top_srcdir)/auto/depcomp
@@ -164,22 +168,6 @@ stunnel_LDADD = $(LDADD)
 stunnel_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(stunnel_LDFLAGS) $(LDFLAGS) -o $@
-am__objects_5 = tls.$(OBJEXT) str.$(OBJEXT) file.$(OBJEXT) \
-	client.$(OBJEXT) log.$(OBJEXT) options.$(OBJEXT) \
-	protocol.$(OBJEXT) network.$(OBJEXT) resolver.$(OBJEXT) \
-	ssl.$(OBJEXT) ctx.$(OBJEXT) verify.$(OBJEXT) \
-	sthreads.$(OBJEXT) fd.$(OBJEXT) dhparam.$(OBJEXT) \
-	cron.$(OBJEXT) stunnel.$(OBJEXT)
-am__objects_6 = ui_win_gui.$(OBJEXT)
-am_stunnel_exe_OBJECTS = $(am__objects_2) $(am__objects_5) \
-	$(am__objects_6)
-stunnel_exe_OBJECTS = $(am_stunnel_exe_OBJECTS)
-stunnel_exe_LDADD = $(LDADD)
-am__objects_7 = ui_win_cli.$(OBJEXT)
-am_tstunnel_exe_OBJECTS = $(am__objects_2) $(am__objects_5) \
-	$(am__objects_7)
-tstunnel_exe_OBJECTS = $(am_tstunnel_exe_OBJECTS)
-tstunnel_exe_LDADD = $(LDADD)
 SCRIPTS = $(bin_SCRIPTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -215,10 +203,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES) \
-	$(stunnel_exe_SOURCES) $(tstunnel_exe_SOURCES)
-DIST_SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES) \
-	$(stunnel_exe_SOURCES) $(tstunnel_exe_SOURCES)
+SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES)
+DIST_SOURCES = $(libstunnel_la_SOURCES) $(stunnel_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -367,8 +353,6 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-
-# File lists
 common_headers = common.h prototypes.h version.h
 common_sources = tls.c str.c file.c client.c log.c options.c \
 	protocol.c network.c resolver.c ssl.c ctx.c verify.c \
@@ -382,16 +366,10 @@ stunnel_SOURCES = $(common_headers) $(common_sources) $(unix_sources)
 bin_SCRIPTS = stunnel3
 
 # Remaining files to be included
-# EXTRA_PROGRAMS = stunnel.exe tstunnel.exe
-# EXTRA_DIST += $(win32_gui_sources) $(win32_cli_sources)
-EXTRA_DIST = stunnel3.in make.bat makece.bat makew32.bat mingw.mak \
-	evc.mak vc.mak os2.mak
-CLEANFILES = stunnel3 stunnel.exe tstunnel.exe
-
-# Unix shared library
-pkglib_LTLIBRARIES = libstunnel.la
-libstunnel_la_SOURCES = $(shared_sources)
-libstunnel_la_LDFLAGS = -avoid-version
+EXTRA_DIST = stunnel3.in $(win32_gui_sources) $(win32_cli_sources) \
+	make.bat makece.bat makew32.bat mingw.mk mingw.mak evc.mak \
+	vc.mak os2.mak
+CLEANFILES = stunnel3
 
 # Red Hat "by design" bug #82369
 
@@ -401,34 +379,16 @@ stunnel_CPPFLAGS = -I/usr/kerberos/include -I$(SSLDIR)/include \
 
 # SSL library
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
-stunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_gui_sources)
-tstunnel_exe_SOURCES = $(common_headers) $(common_sources) $(win32_cli_sources)
 
-# win32_ssl_dir = /usr/src/openssl-0.9.8u-fips
-# win32_cppflags = -I$(win32_ssl_dir)/inc32
-win32_ssl_dir = /usr/src/openssl-1.0.2d-i686
-win32_cppflags = -I$(win32_ssl_dir)/include
-win32_cflags = -mthreads -fstack-protector -O2 -Wall -Wextra \
-	-Wpedantic -Wformat=2 -Wconversion -Wno-long-long \
-	-D_FORTIFY_SOURCE=2 -DUNICODE -D_UNICODE
-win32_ldflags = -mthreads -fstack-protector -s
-win32_common_libs = -lws2_32
-win32_ssl_libs = -L$(win32_ssl_dir) -lcrypto -lssl
-win32_gui_libs = $(win32_common_libs) -lgdi32 -lpsapi $(win32_ssl_libs)
-win32_cli_libs = $(win32_common_libs) $(win32_ssl_libs)
-win32_common_objs = tls.obj str.obj file.obj client.obj log.obj \
-	options.obj protocol.obj network.obj resolver.obj ssl.obj \
-	ctx.obj verify.obj sthreads.obj fd.obj dhparam.obj cron.obj \
-	stunnel.obj
-win32_gui_objs = ui_win_gui.obj resources.obj
-win32_cli_objs = ui_win_cli.obj
-win32_prefix = i686-w64-mingw32-
-win32_cc = $(win32_prefix)gcc
-win32_windres = $(win32_prefix)windres
-MOSTLYCLEANFILES = $(win32_common_objs) $(win32_gui_objs) $(win32_cli_objs)
+# stunnel3 script
 edit = sed \
 	-e 's|@bindir[@]|$(bindir)|g'
 
+
+# Unix shared library
+pkglib_LTLIBRARIES = libstunnel.la
+libstunnel_la_SOURCES = $(shared_sources)
+libstunnel_la_LDFLAGS = -avoid-version
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -567,15 +527,6 @@ clean-binPROGRAMS:
 	echo " rm -f" $$list; \
 	rm -f $$list
 
-clean-checkPROGRAMS:
-	@list='$(check_PROGRAMS)'; test -n "$$list" || exit 0; \
-	echo " rm -f" $$list; \
-	rm -f $$list || exit $$?; \
-	test -n "$(EXEEXT)" || exit 0; \
-	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
-	echo " rm -f" $$list; \
-	rm -f $$list
-
 stunnel$(EXEEXT): $(stunnel_OBJECTS) $(stunnel_DEPENDENCIES) $(EXTRA_stunnel_DEPENDENCIES) 
 	@rm -f stunnel$(EXEEXT)
 	$(AM_V_CCLD)$(stunnel_LINK) $(stunnel_OBJECTS) $(stunnel_LDADD) $(LIBS)
@@ -621,21 +572,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cron.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ctx.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dhparam.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/env.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fd.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/file.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/network.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protocol.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resolver.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sthreads.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/str.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-client.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-cron.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-ctx.Po@am__quote@
@@ -656,11 +593,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-tls.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-ui_unix.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel-verify.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stunnel.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ui_win_cli.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ui_win_gui.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/verify.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -1051,8 +983,9 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
+@AUTHOR_TESTS_FALSE@check-local:
 check-am: all-am
-	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
+	$(MAKE) $(AM_MAKEFLAGS) check-local
 check: check-am
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) config.h
 installdirs:
@@ -1079,7 +1012,6 @@ install-strip:
 	    "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'" install; \
 	fi
 mostlyclean-generic:
-	-test -z "$(MOSTLYCLEANFILES)" || rm -f $(MOSTLYCLEANFILES)
 
 clean-generic:
 	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
@@ -1093,8 +1025,8 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
-	clean-libtool clean-pkglibLTLIBRARIES mostlyclean-am
+clean-am: clean-binPROGRAMS clean-generic clean-libtool \
+	clean-pkglibLTLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -1166,53 +1098,50 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 .MAKE: all check-am install-am install-strip
 
-.PHONY: CTAGS GTAGS TAGS all all-am check check-am clean \
-	clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
-	clean-libtool clean-pkglibLTLIBRARIES cscopelist-am ctags \
-	ctags-am distclean distclean-compile distclean-generic \
-	distclean-hdr distclean-libtool distclean-tags distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-binSCRIPTS install-data \
-	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
-	install-pkglibLTLIBRARIES install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags tags-am uninstall uninstall-am \
-	uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-pkglibLTLIBRARIES
+.PHONY: CTAGS GTAGS TAGS all all-am check check-am check-local clean \
+	clean-binPROGRAMS clean-generic clean-libtool \
+	clean-pkglibLTLIBRARIES cscopelist-am ctags ctags-am distclean \
+	distclean-compile distclean-generic distclean-hdr \
+	distclean-libtool distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-binPROGRAMS \
+	install-binSCRIPTS install-data install-data-am install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-pdf install-pdf-am install-pkglibLTLIBRARIES \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-binSCRIPTS uninstall-pkglibLTLIBRARIES
 
 
-# Generate a new set of DH parameters for each version
+###############################################################################
+# Generate a new set of DH parameters for each version                        #
+###############################################################################
+
 dhparam.c: version.h
 	echo '#include "common.h"' >dhparam.c
 	echo '#ifndef OPENSSL_NO_DH' >>dhparam.c
 	echo '#define DN_new DH_new' >>dhparam.c
 	openssl dhparam -noout -C 2048 >>dhparam.c
 	echo '#endif /* OPENSSL_NO_DH */' >>dhparam.c
-
-# dist-hook: stunnel.exe tstunnel.exe
-
-# SUFFIXES = .c .rc .obj
-
-stunnel.exe: $(win32_common_objs) $(win32_gui_objs)
-	$(win32_cc) -mwindows $(win32_ldflags) -o stunnel.exe $(win32_common_objs) $(win32_gui_objs) $(win32_gui_libs)
-
-tstunnel.exe: $(win32_common_objs) $(win32_cli_objs)
-	$(win32_cc) $(win32_ldflags) -o tstunnel.exe $(win32_common_objs) $(win32_cli_objs) $(win32_cli_libs)
-
-%.obj: %.c $(common_headers)
-	$(win32_cc) -c $(win32_cppflags) $(win32_cflags) -o $@ $<
-
-resources.obj: resources.rc resources.h version.h
-	$(win32_windres) --include-dir $(srcdir) $< $@
-
 stunnel3: Makefile
 	$(edit) '$(srcdir)/$@.in' >$@
-
 stunnel3: $(srcdir)/stunnel3.in
+
+###############################################################################
+# Win32 executables                                                           #
+###############################################################################
+
+# Just check if the programs can be built, don't perform any actual tests
+@AUTHOR_TESTS_TRUE@check-local: mingw mingw64
+
+mingw:
+	$(MAKE) -f $(srcdir)/mingw.mk srcdir=$(srcdir) win32_targetcpu=i686 win32_mingw=mingw
+mingw64:
+	$(MAKE) -f $(srcdir)/mingw.mk srcdir=$(srcdir) win32_targetcpu=x86_64 win32_mingw=mingw64
+.PHONY: mingw mingw64
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -229,14 +229,14 @@ int WINAPI WinMain(HINSTANCE this_instance, HINSTANCE prev_instance,
 
 NOEXPORT BOOL CALLBACK enum_windows(HWND other_window_handle, LPARAM lParam) {
     DWORD pid;
-    HINSTANCE hInstance;
+    HMODULE module;
     HANDLE process_handle;
     TCHAR window_exe_path[MAX_PATH];
     LPTSTR stunnel_exe_path=(LPTSTR)lParam;
 
     if(!other_window_handle)
         return TRUE;
-    hInstance=(HINSTANCE)GetWindowLong(other_window_handle, GWL_HINSTANCE);
+    module=(HMODULE)GetWindowLongPtr(other_window_handle, GWLP_HINSTANCE);
     GetWindowThreadProcessId(other_window_handle, &pid);
     process_handle=OpenProcess(SYNCHRONIZE|         /* WaitForSingleObject() */
         PROCESS_TERMINATE|                          /* TerminateProcess()    */
@@ -245,7 +245,7 @@ NOEXPORT BOOL CALLBACK enum_windows(HWND other_window_handle, LPARAM lParam) {
     if(!process_handle)
         return TRUE;
     if(!GetModuleFileNameEx(process_handle,
-            hInstance, window_exe_path, MAX_PATH)) {
+            module, window_exe_path, MAX_PATH)) {
         CloseHandle(process_handle);
         return TRUE;
     }
@@ -533,10 +533,10 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
                 return 0;
 #ifndef _WIN32_WCE
             if(main_menu_handle)
-                CheckMenuItem(main_menu_handle, wParam, MF_CHECKED);
+                CheckMenuItem(main_menu_handle, (UINT)wParam, MF_CHECKED);
 #endif
             if(tray_menu_handle)
-                CheckMenuItem(tray_menu_handle, wParam, MF_CHECKED);
+                CheckMenuItem(tray_menu_handle, (UINT)wParam, MF_CHECKED);
             message_box(section->help, MB_ICONINFORMATION);
             return 0;
         }
@@ -644,10 +644,12 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
     case WM_NEW_CHAIN:
 #ifndef _WIN32_WCE
         if(main_menu_handle)
-            EnableMenuItem(main_menu_handle, IDM_PEER_MENU+wParam, MF_ENABLED);
+            EnableMenuItem(main_menu_handle,
+                (UINT)(IDM_PEER_MENU+wParam), MF_ENABLED);
 #endif
         if(tray_menu_handle)
-            EnableMenuItem(tray_menu_handle, IDM_PEER_MENU+wParam, MF_ENABLED);
+            EnableMenuItem(tray_menu_handle,
+                (UINT)(IDM_PEER_MENU+wParam), MF_ENABLED);
         return 0;
 
     case WM_CLIENTS:
@@ -809,7 +811,7 @@ NOEXPORT int save_text_file(LPTSTR file_name, char *str) {
         error_box(TEXT("CreateFile"));
         return 1;
     }
-    if(!WriteFile(file_handle, str, strlen(str), &ignore, NULL)) {
+    if(!WriteFile(file_handle, str, (DWORD)strlen(str), &ignore, NULL)) {
         CloseHandle(file_handle);
         error_box(TEXT("WriteFile"));
         return 1;
@@ -856,7 +858,7 @@ NOEXPORT void update_logs(void) {
 
 NOEXPORT LPTSTR log_txt(void) {
     LPTSTR buff;
-    unsigned ptr=0, len=0;
+    size_t ptr=0, len=0;
     struct LIST *curr;
 
     for(curr=head; curr; curr=curr->next)

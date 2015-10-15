@@ -1392,6 +1392,32 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
+#if OPENSSL_VERSION_NUMBER>=0x10002000L
+
+    /* config */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->config=NULL;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "config"))
+            break;
+        name_list_append(&section->config, arg);
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = command[:parameter] to execute",
+            "config");
+        break;
+    }
+
+#endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
+
     /* connect */
     switch(cmd) {
     case CMD_BEGIN:

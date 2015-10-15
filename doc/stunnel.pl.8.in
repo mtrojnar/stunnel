@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.10.06" "5.24" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.10.15" "5.25" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -270,9 +270,9 @@ domyślnie: no (od wersji 5.00)
 .IX Item "foreground = yes | no (tylko Unix)"
 tryb pierwszoplanowy
 .Sp
-Użycie tej opcji powoduje, że \fBstunnel\fR nie przechodzi w tło logując
-swoje komunikaty na konsolę zamiast przez \fIsyslog\fR (o ile nie użyto
-opcji \fIoutput\fR).
+Użycie tej opcji powoduje, że \fBstunnel\fR nie przechodzi w tło.  Dodatkowo
+komunikaty diagnostyczne logowane są na standardowe wyjście oprócz wyjść
+zdefiniowanych przy pomocy opcji \fIsyslog\fR i \fIoutput\fR.
 .IP "\fBiconActive\fR = PLIK_Z_IKONKĄ (tylko \s-1GUI\s0)" 4
 .IX Item "iconActive = PLIK_Z_IKONKĄ (tylko GUI)"
 ikonka wyświetlana przy obecności aktywnych połączeń do usługi
@@ -434,6 +434,8 @@ Pojedyncza sekcja może zawierać wiele wystąpień opcji \fBcheckEmail\fR.
 Certyfikaty są akceptowane, jeżeli sekcja nie zawiera opcji \fBcheckEmail\fR,
 albo adres email przedstawionego certyfikatu pasuje do jednego z adresów
 email określonych przy pomocy \fBcheckEmail\fR.
+.Sp
+Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 .IP "\fBcheckHost\fR = \s-1NAZWA_SERWERA\s0" 4
 .IX Item "checkHost = NAZWA_SERWERA"
 nazwa serwera przedstawionego certyfikatu
@@ -442,6 +444,8 @@ Pojedyncza sekcja może zawierać wiele wystąpień opcji \fBcheckHost\fR.
 Certyfikaty są akceptowane, jeżeli sekcja nie zawiera opcji \fBcheckHost\fR, albo
 nazwa serwera przedstawionego certyfikatu pasuje do jednego nazw określonych
 przy pomocy \fBcheckHost\fR.
+.Sp
+Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 .IP "\fBcheckIP\fR = \s-1IP\s0" 4
 .IX Item "checkIP = IP"
 adres \s-1IP\s0 przedstawionego certyfikatu
@@ -450,6 +454,8 @@ Pojedyncza sekcja może zawierać wiele wystąpień opcji \fBcheckIP\fR.  Certyf
 są akceptowane, jeżeli sekcja nie zawiera opcji \fBcheckIP\fR, albo adres \s-1IP\s0
 przedstawionego certyfikatu pasuje do jednego z adresów \s-1IP\s0 określonych przy
 pomocy \fBcheckIP\fR.
+.Sp
+Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 .IP "\fBciphers\fR = LISTA_SZYFRÓW" 4
 .IX Item "ciphers = LISTA_SZYFRÓW"
 lista dozwolonych szyfrów \s-1SSL\s0
@@ -461,6 +467,19 @@ otwieraniu nowych połączeń \s-1SSL,\s0 np.:  \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD
 tryb kliencki (zdalna usługa używa \s-1SSL\s0)
 .Sp
 domyślnie: no (tryb serwerowy)
+.IP "\fBconfig\fR = KOMENDA[:PARAMETR]" 4
+.IX Item "config = KOMENDA[:PARAMETR]"
+komenda konfiguracyjna \fBOpenSSL\fR
+.Sp
+Komenda konfiguracyjna \fBOpenSSL\fR zostaje wykonana z podanym parametrem.
+Pozwala to na wydawanie komend konfiguracyjnych \fBOpenSSL\fR z pliku
+konfiguracyjnego stunnela.  Dostępne komendy opisane są w manualu
+\&\fI\fISSL_CONF_cmd\fI\|(3ssl)\fR.
+.Sp
+Możliwe jest wyspecyfikowanie wielu opcji \fBOpenSSL\fR przez wielokrotne użycie
+komendy \fBconfig\fR.
+.Sp
+Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 .IP "\fBconnect\fR = [\s-1HOST:\s0]PORT" 4
 .IX Item "connect = [HOST:]PORT"
 połącz się ze zdalnym serwerem na podany port
@@ -468,7 +487,7 @@ połącz się ze zdalnym serwerem na podany port
 Jeżeli nie został podany adres, \fBstunnel\fR domyślnie łączy się
 z lokalnym serwerem.
 .Sp
-Komenda może byc użyta wielokrotnie w pojedynczej sekcji
+Komenda może być użyta wielokrotnie w pojedynczej sekcji
 celem zapewnienia wysokiej niezawodności lub rozłożenia
 ruchu pomiędzy wiele serwerów.
 .IP "\fBCRLpath\fR = \s-1KATALOG_CRL\s0" 4

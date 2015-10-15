@@ -40,18 +40,18 @@
 
 /* http://www.openssl.org/support/faq.html#PROG2 */
 #ifdef USE_WIN32
+
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-pedantic"
 #endif /* __GNUC__ */
-#ifdef __GNUC__
-#include <../ms/applink.c>
-#else /* __GNUC__ */
+
 #include <openssl/applink.c>
-#endif /* __GNUC__ */
+
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif /* __GNUC__ */
+
 #endif /* USE_WIN32 */
 
 /**************************************** prototypes */
@@ -330,8 +330,8 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt) {
         }
     }
     from_address=s_ntop(&addr, addrlen);
-    s_log(LOG_DEBUG, "Service [%s] accepted (FD=%d) from %s",
-        opt->servname, s, from_address);
+    s_log(LOG_DEBUG, "Service [%s] accepted (FD=%ld) from %s",
+        opt->servname, (long)s, from_address);
     str_free(from_address);
 #ifdef USE_FORK
     RAND_add("", 1, 0.0); /* each child needs a unique entropy pool */
@@ -370,8 +370,8 @@ void unbind_ports(void) {
             if(opt->fd<(SOCKET)listen_fds_start ||
                     opt->fd>=(SOCKET)(listen_fds_start+systemd_fds))
                 closesocket(opt->fd);
-            s_log(LOG_DEBUG, "Service [%s] closed (FD=%d)",
-                opt->servname, opt->fd);
+            s_log(LOG_DEBUG, "Service [%s] closed (FD=%ld)",
+                opt->servname, (long)opt->fd);
             opt->fd=INVALID_SOCKET;
 #ifdef HAVE_STRUCT_SOCKADDR_UN
             if(opt->local_addr.sa.sa_family==AF_UNIX) {
@@ -435,15 +435,15 @@ int bind_ports(void) {
             if(listening_section<systemd_fds) {
                 opt->fd=(SOCKET)(listen_fds_start+listening_section);
                 s_log(LOG_DEBUG,
-                    "Listening file descriptor received from systemd (FD=%d)",
-                    opt->fd);
+                    "Listening file descriptor received from systemd (FD=%ld)",
+                    (long)opt->fd);
             } else {
                 opt->fd=s_socket(opt->local_addr.sa.sa_family,
                     SOCK_STREAM, 0, 1, "accept socket");
                 if(opt->fd==INVALID_SOCKET)
                     return 1;
-                s_log(LOG_DEBUG, "Listening file descriptor created (FD=%d)",
-                    opt->fd);
+                s_log(LOG_DEBUG, "Listening file descriptor created (FD=%ld)",
+                    (long)opt->fd);
             }
             if(set_socket_options(opt->fd, 0)<0) {
                 closesocket(opt->fd);
@@ -492,8 +492,8 @@ int bind_ports(void) {
             }
 #endif
             s_poll_add(fds, opt->fd, 1, 0);
-            s_log(LOG_DEBUG, "Service [%s] (FD=%d) bound to %s",
-                opt->servname, opt->fd, local_address);
+            s_log(LOG_DEBUG, "Service [%s] (FD=%ld) bound to %s",
+                opt->servname, (long)opt->fd, local_address);
             str_free(local_address);
             ++listening_section;
         } else if(opt->exec_name && opt->connect_addr.names) {

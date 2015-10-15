@@ -1,4 +1,5 @@
 ## Process this file with automake to produce Makefile.in
+# by Michal Trojnara 2015
 
 EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
 	stunnel.spec openssl.cnf stunnel.nsi stunnel.license stunnel.conf \

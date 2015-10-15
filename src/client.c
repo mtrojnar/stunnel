@@ -60,6 +60,10 @@ NOEXPORT int parse_socket_error(CLI *, const char *);
 NOEXPORT void print_cipher(CLI *);
 NOEXPORT void auth_user(CLI *, char *);
 NOEXPORT SOCKET connect_local(CLI *);
+#if !defined(USE_WIN32) && !defined(__vms)
+NOEXPORT char **env_alloc(CLI *);
+NOEXPORT void env_free(char **);
+#endif
 NOEXPORT SOCKET connect_remote(CLI *);
 NOEXPORT void connect_cache(SSL_SESSION *, SOCKADDR_UNION *);
 NOEXPORT unsigned connect_index(CLI *);
@@ -201,7 +205,8 @@ NOEXPORT void client_run(CLI *c) {
         if(rst && c->remote_fd.is_socket) /* reset */
             reset(c->remote_fd.fd, "linger (remote)");
         closesocket(c->remote_fd.fd);
-        s_log(LOG_DEBUG, "Remote socket (FD=%d) closed", c->remote_fd.fd);
+        s_log(LOG_DEBUG, "Remote descriptor (FD=%ld) closed",
+            (long)c->remote_fd.fd);
         c->remote_fd.fd=INVALID_SOCKET;
     }
 
@@ -211,7 +216,8 @@ NOEXPORT void client_run(CLI *c) {
             if(rst && c->local_rfd.is_socket)
                 reset(c->local_rfd.fd, "linger (local)");
             closesocket(c->local_rfd.fd);
-            s_log(LOG_DEBUG, "Local socket (FD=%d) closed", c->local_rfd.fd);
+            s_log(LOG_DEBUG, "Local descriptor (FD=%ld) closed",
+                (long)c->local_rfd.fd);
         } else { /* stdin/stdout */
             if(rst && c->local_rfd.is_socket)
                 reset(c->local_rfd.fd, "linger (local_rfd)");
@@ -342,10 +348,18 @@ NOEXPORT void remote_start(CLI *c) {
     else
         c->remote_fd.fd=connect_remote(c);
 
-    c->remote_fd.is_socket=1; /* always! */
-    s_log(LOG_DEBUG, "Remote socket (FD=%d) initialized", c->remote_fd.fd);
-    if(set_socket_options(c->remote_fd.fd, 2))
-        s_log(LOG_WARNING, "Failed to set remote socket options");
+#ifndef USE_WIN32
+    if(c->opt->option.pty) { /* descriptor created with pty_allocate() */
+        c->remote_fd.is_socket=0;
+    } else
+#endif
+    {
+        c->remote_fd.is_socket=1;
+        if(set_socket_options(c->remote_fd.fd, 2))
+            s_log(LOG_WARNING, "Failed to set remote socket options");
+    }
+    s_log(LOG_DEBUG, "Remote descriptor (FD=%ld) initialized",
+        (long)c->remote_fd.fd);
 }
 
 NOEXPORT void ssl_start(CLI *c) {
@@ -603,13 +617,35 @@ NOEXPORT void transfer(CLI *c) {
         ssl_can_rd=s_poll_canread(c->fds, c->ssl_rfd->fd);
         ssl_can_wr=s_poll_canwrite(c->fds, c->ssl_wfd->fd);
 
-        /****************************** checks for internal failures */
-        /* please report any internal errors to stunnel-users mailing list */
+        /****************************** hangups without read or write */
         if(!(sock_can_rd || sock_can_wr || ssl_can_rd || ssl_can_wr)) {
-            s_log(LOG_ERR, "INTERNAL ERROR: "
-                "s_poll_wait returned %d, but no descriptor is ready", err);
-            s_poll_dump(c->fds, LOG_ERR);
-            longjmp(c->err, 1);
+            if(s_poll_hup(c->fds, c->sock_rfd->fd) ||
+                    s_poll_hup(c->fds, c->sock_wfd->fd)) {
+                if(c->ssl_ptr) {
+                    s_log(LOG_ERR,
+                        "Socket closed (HUP) with %ld unsent byte(s)",
+                        (long)c->ssl_ptr);
+                    longjmp(c->err, 1); /* reset the sockets */
+                }
+                s_log(LOG_INFO, "Socket closed (HUP)");
+                sock_open_rd=sock_open_wr=0;
+            } else if(s_poll_hup(c->fds, c->ssl_rfd->fd) ||
+                    s_poll_hup(c->fds, c->ssl_wfd->fd)) {
+                if(c->sock_ptr) {
+                    s_log(LOG_ERR,
+                        "SSL socket closed (HUP) with %ld unsent byte(s)",
+                        (long)c->sock_ptr);
+                    longjmp(c->err, 1); /* reset the sockets */
+                }
+                s_log(LOG_INFO, "SSL socket closed (HUP)");
+                SSL_set_shutdown(c->ssl,
+                    SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+            } else { /* please report it to the stunnel-users mailing list */
+                s_log(LOG_ERR, "INTERNAL ERROR: "
+                    "s_poll_wait returned %d, but no descriptor is ready", err);
+                s_poll_dump(c->fds, LOG_ERR);
+                longjmp(c->err, 1);
+            }
         }
 
         if(c->reneg_state==RENEG_DETECTED && !c->opt->option.renegotiation) {
@@ -736,8 +772,8 @@ NOEXPORT void transfer(CLI *c) {
                 if(c->sock_ptr) { /* TODO: what about buffered data? */
                     s_log(LOG_ERR,
                         "SSL socket closed (SSL_write) with %ld unsent byte(s)",
-                        c->sock_ptr);
-                    longjmp(c->err, 1); /* reset the socket */
+                        (long)c->sock_ptr);
+                    longjmp(c->err, 1); /* reset the sockets */
                 }
                 s_log(LOG_INFO, "SSL socket closed (SSL_write)");
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
@@ -793,8 +829,8 @@ NOEXPORT void transfer(CLI *c) {
                 if(c->sock_ptr || write_wants_write) {
                     s_log(LOG_ERR,
                         "SSL socket closed (SSL_read) with %ld unsent byte(s)",
-                        c->sock_ptr);
-                    longjmp(c->err, 1); /* reset the socket */
+                        (long)c->sock_ptr);
+                    longjmp(c->err, 1); /* reset the sockets */
                 }
                 s_log(LOG_INFO, "SSL socket closed (SSL_read)");
                 SSL_set_shutdown(c->ssl,
@@ -827,8 +863,8 @@ NOEXPORT void transfer(CLI *c) {
             if(c->ssl_ptr) {
                 s_log(LOG_ERR,
                     "Write socket closed (write hangup) with %ld unsent byte(s)",
-                    c->ssl_ptr);
-                longjmp(c->err, 1); /* reset the socket */
+                    (long)c->ssl_ptr);
+                longjmp(c->err, 1); /* reset the sockets */
             }
             s_log(LOG_INFO, "Write socket closed (write hangup)");
             sock_open_wr=0;
@@ -848,8 +884,8 @@ NOEXPORT void transfer(CLI *c) {
             if(c->sock_ptr || write_wants_write) {
                 s_log(LOG_ERR,
                     "SSL socket closed (write hangup) with %ld unsent byte(s)",
-                    c->sock_ptr);
-                longjmp(c->err, 1); /* reset the socket */
+                    (long)c->sock_ptr);
+                longjmp(c->err, 1); /* reset the sockets */
             }
             s_log(LOG_INFO, "SSL socket closed (write hangup)");
             SSL_set_shutdown(c->ssl,
@@ -912,7 +948,8 @@ NOEXPORT void transfer(CLI *c) {
                 shutdown_wants_read ? "Y" : "n",
                 shutdown_wants_write ? "Y" : "n");
             s_log(LOG_ERR, "socket input buffer: %ld byte(s), "
-                "ssl input buffer: %ld byte(s)", c->sock_ptr, c->ssl_ptr);
+                "ssl input buffer: %ld byte(s)",
+                (long)c->sock_ptr, (long)c->ssl_ptr);
             longjmp(c->err, 1);
         }
 
@@ -1099,9 +1136,8 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
 #else /* standard Unix version */
 
 NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
-    char *name, host[40], port[6];
     int fd[2], pid;
-    X509 *peer_cert;
+    char **env;
 #ifdef HAVE_PTHREAD_SIGMASK
     sigset_t newmask;
 #endif
@@ -1115,56 +1151,28 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
     } else
         if(make_sockets(fd))
             longjmp(c->err, 1);
+    set_nonblock(fd[1], 0); /* switch back to the blocking mode */
 
+    env=env_alloc(c);
     pid=fork();
     c->pid=(unsigned long)pid;
     switch(pid) {
     case -1:    /* error */
         closesocket(fd[0]);
         closesocket(fd[1]);
+        env_free(env);
         ioerror("fork");
         longjmp(c->err, 1);
     case  0:    /* child */
-        tls_alloc(NULL, c->tls, NULL); /* reuse thread-local storage */
+        /* the child is not allowed to play with thread-local storage */
+        /* see http://linux.die.net/man/3/pthread_atfork for details */
         closesocket(fd[0]);
-        set_nonblock(fd[1], 0); /* switch back to blocking mode */
         /* dup2() does not copy FD_CLOEXEC flag */
         dup2(fd[1], 0);
         dup2(fd[1], 1);
         if(!global_options.option.foreground)
             dup2(fd[1], 2);
         closesocket(fd[1]); /* not really needed due to FD_CLOEXEC */
-
-        if(!getnameinfo(&c->peer_addr.sa, c->peer_addr_len,
-                host, 40, port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
-            /* just don't set these variables if getnameinfo() fails */
-            putenv(str_printf("REMOTE_HOST=%s", host));
-            putenv(str_printf("REMOTE_PORT=%s", port));
-            if(c->opt->option.transparent_src) {
-#ifndef LIBDIR
-#define LIBDIR "."
-#endif
-#ifdef MACH64
-                putenv("LD_PRELOAD_32=" LIBDIR "/libstunnel.so");
-                putenv("LD_PRELOAD_64=" LIBDIR "/" MACH64 "/libstunnel.so");
-#elif __osf /* for Tru64 _RLD_LIST is used instead */
-                putenv("_RLD_LIST=" LIBDIR "/libstunnel.so:DEFAULT");
-#else
-                putenv("LD_PRELOAD=" LIBDIR "/libstunnel.so");
-#endif
-            }
-        }
-
-        if(c->ssl) {
-            peer_cert=SSL_get_peer_certificate(c->ssl);
-            if(peer_cert) {
-                name=X509_NAME2text(X509_get_subject_name(peer_cert));
-                putenv(str_printf("SSL_CLIENT_DN=%s", name));
-                name=X509_NAME2text(X509_get_issuer_name(peer_cert));
-                putenv(str_printf("SSL_CLIENT_I_DN=%s", name));
-                X509_free(peer_cert);
-            }
-        }
 #ifdef HAVE_PTHREAD_SIGMASK
         sigemptyset(&newmask);
         sigprocmask(SIG_SETMASK, &newmask, NULL);
@@ -1176,14 +1184,77 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
         signal(SIGTERM, SIG_DFL);
         signal(SIGQUIT, SIG_DFL);
         signal(SIGINT, SIG_DFL);
-        execvp(c->opt->exec_name, c->opt->exec_args);
-        ioerror(c->opt->exec_name); /* execvp failed */
-        _exit(1);
+        execve(c->opt->exec_name, c->opt->exec_args, env);
+        _exit(1); /* failed, but there is no way to report an error here */
     default: /* parent */
-        s_log(LOG_INFO, "Local mode child started (PID=%lu)", c->pid);
         closesocket(fd[1]);
+        env_free(env);
+        s_log(LOG_INFO, "Local mode child started (PID=%lu)", c->pid);
         return fd[0];
     }
+}
+
+char **env_alloc(CLI *c) {
+    char **env=NULL, **p;
+    unsigned n=0; /* (n+2) keeps the list NULL-terminated */
+    char *name, host[40], port[6];
+    X509 *peer_cert;
+
+    if(!getnameinfo(&c->peer_addr.sa, c->peer_addr_len,
+            host, 40, port, 6, NI_NUMERICHOST|NI_NUMERICSERV)) {
+        /* just don't set these variables if getnameinfo() fails */
+        env=str_realloc(env, (n+2)*sizeof(char *));
+        env[n++]=str_printf("REMOTE_HOST=%s", host);
+        env=str_realloc(env, (n+2)*sizeof(char *));
+        env[n++]=str_printf("REMOTE_PORT=%s", port);
+        if(c->opt->option.transparent_src) {
+#ifndef LIBDIR
+#define LIBDIR "."
+#endif
+#ifdef MACH64
+            env=str_realloc(env, (n+2)*sizeof(char *));
+            env[n++]=str_dup("LD_PRELOAD_32=" LIBDIR "/libstunnel.so");
+            env=str_realloc(env, (n+2)*sizeof(char *));
+            env[n++]=str_dup("LD_PRELOAD_64=" LIBDIR "/" MACH64 "/libstunnel.so");
+#elif __osf /* for Tru64 _RLD_LIST is used instead */
+            env=str_realloc(env, (n+2)*sizeof(char *));
+            env[n++]=str_dup("_RLD_LIST=" LIBDIR "/libstunnel.so:DEFAULT");
+#else
+            env=str_realloc(env, (n+2)*sizeof(char *));
+            env[n++]=str_dup("LD_PRELOAD=" LIBDIR "/libstunnel.so");
+#endif
+        }
+    }
+
+    if(c->ssl) {
+        peer_cert=SSL_get_peer_certificate(c->ssl);
+        if(peer_cert) {
+            name=X509_NAME2text(X509_get_subject_name(peer_cert));
+            env=str_realloc(env, (n+2)*sizeof(char *));
+            env[n++]=str_printf("SSL_CLIENT_DN=%s", name);
+            str_free(name);
+            name=X509_NAME2text(X509_get_issuer_name(peer_cert));
+            env=str_realloc(env, (n+2)*sizeof(char *));
+            env[n++]=str_printf("SSL_CLIENT_I_DN=%s", name);
+            str_free(name);
+            X509_free(peer_cert);
+        }
+    }
+
+    for(p=environ; *p; ++p) {
+        env=str_realloc(env, (n+2)*sizeof(char *));
+        env[n++]=str_dup(*p);
+    }
+
+    return env;
+}
+
+void env_free(char **env) {
+    char **p;
+
+    for(p=env; *p; ++p)
+        str_free(*p);
+    str_free(env);
 }
 
 #endif /* not USE_WIN32 or __vms */

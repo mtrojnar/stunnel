@@ -434,7 +434,8 @@ int sthreads_init(void) {
 int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
-    if((long)_beginthread((void(*)(void *))cli, arg->opt->stack_size, arg)==-1) {
+    if((long)_beginthread((void(*)(void *))cli,
+            (unsigned)arg->opt->stack_size, arg)==-1) {
         ioerror("_beginthread");
         str_free(arg);
         if(s!=INVALID_SOCKET)

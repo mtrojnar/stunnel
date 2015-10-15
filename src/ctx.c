@@ -51,7 +51,7 @@ NOEXPORT int servername_cb(SSL *, int *, void *);
 NOEXPORT int matches_wildcard(char *, char *);
 #endif
 
-/* DH/ECDH initialization */
+/* DH/ECDH */
 #ifndef OPENSSL_NO_DH
 NOEXPORT int dh_init(SERVICE_OPTIONS *);
 NOEXPORT DH *dh_read(char *);
@@ -60,7 +60,10 @@ NOEXPORT DH *dh_read(char *);
 NOEXPORT int ecdh_init(SERVICE_OPTIONS *);
 #endif /* USE_ECDH */
 
-/* initialize authentication */
+/* configuration commands */
+NOEXPORT int conf_init(SERVICE_OPTIONS *section);
+
+/* authentication */
 NOEXPORT int auth_init(SERVICE_OPTIONS *);
 #ifndef OPENSSL_NO_PSK
 NOEXPORT unsigned psk_client_callback(SSL *, const char *,
@@ -182,6 +185,11 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
         SSL_CTX_get_options(section->ctx),
         section->ssl_options_set);
 #endif /* OpenSSL 0.9.8m or later */
+
+    /* initialize OpenSSL CONF options */
+    if(conf_init(section))
+        return 1; /* FAILED */
+
 #ifdef SSL_MODE_RELEASE_BUFFERS
     SSL_CTX_set_mode(section->ctx,
         SSL_MODE_ENABLE_PARTIAL_WRITE |
@@ -337,6 +345,72 @@ NOEXPORT int ecdh_init(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 #endif /* OPENSSL_NO_ECDH */
+
+/**************************************** initialize OpenSSL CONF */
+
+NOEXPORT int conf_init(SERVICE_OPTIONS *section) {
+#if OPENSSL_VERSION_NUMBER>=0x10002000L
+    SSL_CONF_CTX *cctx;
+    NAME_LIST *curr;
+    char *cmd, *param;
+
+    if(!section->config)
+        return 0; /* OK */
+    cctx=SSL_CONF_CTX_new();
+    if(!cctx) {
+        sslerror("SSL_CONF_CTX_new");
+        return 1; /* FAILED */
+    }
+    SSL_CONF_CTX_set_ssl_ctx(cctx, section->ctx);
+    SSL_CONF_CTX_set_flags(cctx, SSL_CONF_FLAG_FILE);
+    SSL_CONF_CTX_set_flags(cctx, section->option.client ?
+        SSL_CONF_FLAG_CLIENT : SSL_CONF_FLAG_SERVER);
+    SSL_CONF_CTX_set_flags(cctx, SSL_CONF_FLAG_CERTIFICATE);
+
+    for(curr=section->config; curr; curr=curr->next) {
+        cmd=str_dup(curr->name);
+        param=strchr(cmd, ':');
+        if(param)
+            *param++='\0';
+        switch(SSL_CONF_cmd(cctx, cmd, param)) {
+        case 2:
+            s_log(LOG_DEBUG, "OpenSSL config \"%s\" set to \"%s\"", cmd, param);
+            break;
+        case 1:
+            s_log(LOG_DEBUG, "OpenSSL config command \"%s\" executed", cmd);
+            break;
+        case -2:
+            s_log(LOG_ERR,
+                "OpenSSL config command \"%s\" was not recognised", cmd);
+            str_free(cmd);
+            SSL_CONF_CTX_free(cctx);
+            return 1; /* FAILED */
+        case -3:
+            s_log(LOG_ERR,
+                "OpenSSL config command \"%s\" requires a parameter", cmd);
+            str_free(cmd);
+            SSL_CONF_CTX_free(cctx);
+            return 1; /* FAILED */
+        default:
+            sslerror("SSL_CONF_cmd");
+            str_free(cmd);
+            SSL_CONF_CTX_free(cctx);
+            return 1; /* FAILED */
+        }
+        str_free(cmd);
+    }
+
+    if(!SSL_CONF_CTX_finish(cctx)) {
+        sslerror("SSL_CONF_CTX_finish");
+        SSL_CONF_CTX_free(cctx);
+        return 1; /* FAILED */
+    }
+    SSL_CONF_CTX_free(cctx);
+#else /* OpenSSL earlier than 1.0.2 */
+    (void)section; /* squash the unused parameter warning */
+#endif /* OpenSSL 1.0.2 or later */
+    return 0; /* OK */
+}
 
 /**************************************** initialize authentication */
 
@@ -644,7 +718,7 @@ NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
 #if OPENSSL_VERSION_NUMBER>=0x0090800fL
         (const unsigned char **)
 #endif /* OpenSSL version >= 0.8.0 */
-        &val_tmp, val_len);
+        &val_tmp, (long)val_len);
     str_free(val);
     return sess;
 }

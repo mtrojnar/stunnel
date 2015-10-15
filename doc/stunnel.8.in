@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.10.06" "5.24" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.10.15" "5.25" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -266,8 +266,8 @@ default: no (since version 5.00)
 .IX Item "foreground = yes | no (Unix only)"
 foreground mode
 .Sp
-Stay in foreground (don't fork) and log to stderr
-instead of via syslog (unless \fIoutput\fR is specified).
+Stay in foreground (don't fork).  Also log to stderr in addition to
+the destinations specified with \fIsyslog\fR and \fIoutput\fR.
 .Sp
 default: background in daemon mode
 .IP "\fBiconActive\fR = \s-1ICON_FILE \s0(\s-1GUI\s0 only)" 4
@@ -422,6 +422,8 @@ Multiple \fIcheckEmail\fR options are allowed in a single service section.
 Certificates are accepted if no \fIcheckEmail\fR option was specified, or the
 email address of the peer certificate matches any of the email addresses
 specified with \fIcheckEmail\fR.
+.Sp
+This option requires OpenSSL 1.0.2 or later.
 .IP "\fBcheckHost\fR = \s-1HOST\s0" 4
 .IX Item "checkHost = HOST"
 host of the peer certificate subject
@@ -430,6 +432,8 @@ Multiple \fIcheckHost\fR options are allowed in a single service section.
 Certificates are accepted if no \fIcheckHost\fR option was specified, or the host
 name of the peer certificate matches any of the hosts specified with
 \&\fIcheckHost\fR.
+.Sp
+This option requires OpenSSL 1.0.2 or later.
 .IP "\fBcheckIP\fR = \s-1IP\s0" 4
 .IX Item "checkIP = IP"
 \&\s-1IP\s0 address of the peer certificate subject
@@ -438,6 +442,8 @@ Multiple \fIcheckIP\fR options are allowed in a single service section.
 Certificates are accepted if no \fIcheckIP\fR option was specified, or the \s-1IP\s0
 address of the peer certificate matches any of the \s-1IP\s0 addresses specified with
 \&\fIcheckIP\fR.
+.Sp
+This option requires OpenSSL 1.0.2 or later.
 .IP "\fBciphers\fR = \s-1CIPHER_LIST\s0" 4
 .IX Item "ciphers = CIPHER_LIST"
 Select permitted \s-1SSL\s0 ciphers
@@ -449,6 +455,18 @@ for example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5.\s0
 client mode (remote service uses \s-1SSL\s0)
 .Sp
 default: no (server mode)
+.IP "\fBconfig\fR = COMMAND[:PARAMETER]" 4
+.IX Item "config = COMMAND[:PARAMETER]"
+\&\fBOpenSSL\fR configuration command
+.Sp
+The \fBOpenSSL\fR configuration command is executed with the specified parameter.
+This allows any configuration commands to be invoked from the stunnel
+configuration file.  Supported commands are described on the
+\&\fI\fISSL_CONF_cmd\fI\|(3ssl)\fR manual page.
+.Sp
+Several \fIconfig\fR lines can be used to specify multiple configuration commands.
+.Sp
+This option requires OpenSSL 1.0.2 or later.
 .IP "\fBconnect\fR = [\s-1HOST:\s0]PORT" 4
 .IX Item "connect = [HOST:]PORT"
 connect to a remote address
@@ -663,7 +681,7 @@ The parameter is the \fBOpenSSL\fR option name as described in the
 current combination of \fIstunnel\fR and the \fIOpenSSL\fR library used
 to build it.
 .Sp
-Several \fIoptions\fR can be used to specify multiple options.
+Several \fIoption\fR lines can be used to specify multiple options.
 An option name can be prepended with a dash (\*(L"\-\*(R") to disable the option.
 .Sp
 For example, for compatibility with the erroneous Eudora \s-1SSL\s0

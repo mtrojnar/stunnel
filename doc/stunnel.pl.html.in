@@ -312,7 +312,7 @@
 
 <p>tryb pierwszoplanowy</p>
 
-<p>U&#x17C;ycie tej opcji powoduje, &#x17C;e <b>stunnel</b> nie przechodzi w t&#x142;o loguj&#x105;c swoje komunikaty na konsol&#x119; zamiast przez <i>syslog</i> (o ile nie u&#x17C;yto opcji <i>output</i>).</p>
+<p>U&#x17C;ycie tej opcji powoduje, &#x17C;e <b>stunnel</b> nie przechodzi w t&#x142;o. Dodatkowo komunikaty diagnostyczne logowane s&#x105; na standardowe wyj&#x15B;cie opr&oacute;cz wyj&#x15B;&#x107; zdefiniowanych przy pomocy opcji <i>syslog</i> i <i>output</i>.</p>
 
 </dd>
 <dt id="iconActive-PLIK_Z_IKONK-tylko-GUI"><b>iconActive</b> = PLIK_Z_IKONK&#x104; (tylko GUI)</dt>
@@ -500,6 +500,8 @@
 
 <p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkEmail</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie zawiera opcji <b>checkEmail</b>, albo adres email przedstawionego certyfikatu pasuje do jednego z adres&oacute;w email okre&#x15B;lonych przy pomocy <b>checkEmail</b>.</p>
 
+<p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
+
 </dd>
 <dt id="checkHost-NAZWA_SERWERA"><b>checkHost</b> = NAZWA_SERWERA</dt>
 <dd>
@@ -508,6 +510,8 @@
 
 <p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkHost</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie zawiera opcji <b>checkHost</b>, albo nazwa serwera przedstawionego certyfikatu pasuje do jednego nazw okre&#x15B;lonych przy pomocy <b>checkHost</b>.</p>
 
+<p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
+
 </dd>
 <dt id="checkIP-IP"><b>checkIP</b> = IP</dt>
 <dd>
@@ -515,6 +519,8 @@
 <p>adres IP przedstawionego certyfikatu</p>
 
 <p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkIP</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie zawiera opcji <b>checkIP</b>, albo adres IP przedstawionego certyfikatu pasuje do jednego z adres&oacute;w IP okre&#x15B;lonych przy pomocy <b>checkIP</b>.</p>
+
+<p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
 
 </dd>
 <dt id="ciphers-LISTA_SZYFRW"><b>ciphers</b> = LISTA_SZYFR&Oacute;W</dt>
@@ -533,6 +539,18 @@
 <p>domy&#x15B;lnie: no (tryb serwerowy)</p>
 
 </dd>
+<dt id="config-KOMENDA-:PARAMETR"><b>config</b> = KOMENDA[:PARAMETR]</dt>
+<dd>
+
+<p>komenda konfiguracyjna <b>OpenSSL</b></p>
+
+<p>Komenda konfiguracyjna <b>OpenSSL</b> zostaje wykonana z podanym parametrem. Pozwala to na wydawanie komend konfiguracyjnych <b>OpenSSL</b> z pliku konfiguracyjnego stunnela. Dost&#x119;pne komendy opisane s&#x105; w manualu <i>SSL_CONF_cmd(3ssl)</i>.</p>
+
+<p>Mo&#x17C;liwe jest wyspecyfikowanie wielu opcji <b>OpenSSL</b> przez wielokrotne u&#x17C;ycie komendy <b>config</b>.</p>
+
+<p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
+
+</dd>
 <dt id="connect-HOST:-PORT"><b>connect</b> = [HOST:]PORT</dt>
 <dd>
 
@@ -540,7 +558,7 @@
 
 <p>Je&#x17C;eli nie zosta&#x142; podany adres, <b>stunnel</b> domy&#x15B;lnie &#x142;&#x105;czy si&#x119; z lokalnym serwerem.</p>
 
-<p>Komenda mo&#x17C;e byc u&#x17C;yta wielokrotnie w pojedynczej sekcji celem zapewnienia wysokiej niezawodno&#x15B;ci lub roz&#x142;o&#x17C;enia ruchu pomi&#x119;dzy wiele serwer&oacute;w.</p>
+<p>Komenda mo&#x17C;e by&#x107; u&#x17C;yta wielokrotnie w pojedynczej sekcji celem zapewnienia wysokiej niezawodno&#x15B;ci lub roz&#x142;o&#x17C;enia ruchu pomi&#x119;dzy wiele serwer&oacute;w.</p>
 
 </dd>
 <dt id="CRLpath-KATALOG_CRL"><b>CRLpath</b> = KATALOG_CRL</dt>

@@ -156,8 +156,8 @@ void s_poll_dump(s_poll_set *fds, int level) {
     unsigned i;
 
     for(i=0; i<fds->nfds; i++)
-        s_log(level, "fd=%d events=0x%X revents=0x%X",
-            fds->ufds[i].fd, fds->ufds[i].events, fds->ufds[i].revents);
+        s_log(level, "FD=%ld events=0x%X revents=0x%X",
+            (long)fds->ufds[i].fd, fds->ufds[i].events, fds->ufds[i].revents);
 }
 
 #ifdef USE_UCONTEXT
@@ -453,7 +453,7 @@ void s_poll_dump(s_poll_set *fds, int level) {
         ow=FD_ISSET(fd, fds->owfds);
         ox=FD_ISSET(fd, fds->oxfds);
         if(ir || iw || ix || or || ow || ox)
-            s_log(level, "fd=%d ifds=%c%c%c ofds=%c%c%c", fd,
+            s_log(level, "FD=%ld ifds=%c%c%c ofds=%c%c%c", (long)fd,
                 ir?'r':'-', iw?'w':'-', ix?'x':'-',
                 or?'r':'-', ow?'w':'-', ox?'x':'-');
     }

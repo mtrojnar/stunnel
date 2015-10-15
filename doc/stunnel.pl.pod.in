@@ -261,9 +261,9 @@ domyślnie: no (od wersji 5.00)
 
 tryb pierwszoplanowy
 
-Użycie tej opcji powoduje, że B<stunnel> nie przechodzi w tło logując
-swoje komunikaty na konsolę zamiast przez I<syslog> (o ile nie użyto
-opcji I<output>).
+Użycie tej opcji powoduje, że B<stunnel> nie przechodzi w tło.  Dodatkowo
+komunikaty diagnostyczne logowane są na standardowe wyjście oprócz wyjść
+zdefiniowanych przy pomocy opcji I<syslog> i I<output>.
 
 =item B<iconActive> = PLIK_Z_IKONKĄ (tylko GUI)
 
@@ -446,6 +446,8 @@ Certyfikaty są akceptowane, jeżeli sekcja nie zawiera opcji B<checkEmail>,
 albo adres email przedstawionego certyfikatu pasuje do jednego z adresów
 email określonych przy pomocy B<checkEmail>.
 
+Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
+
 =item B<checkHost> = NAZWA_SERWERA
 
 nazwa serwera przedstawionego certyfikatu
@@ -455,6 +457,8 @@ Certyfikaty są akceptowane, jeżeli sekcja nie zawiera opcji B<checkHost>, albo
 nazwa serwera przedstawionego certyfikatu pasuje do jednego nazw określonych
 przy pomocy B<checkHost>.
 
+Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
+
 =item B<checkIP> = IP
 
 adres IP przedstawionego certyfikatu
@@ -463,6 +467,8 @@ Pojedyncza sekcja może zawierać wiele wystąpień opcji B<checkIP>.  Certyfika
 są akceptowane, jeżeli sekcja nie zawiera opcji B<checkIP>, albo adres IP
 przedstawionego certyfikatu pasuje do jednego z adresów IP określonych przy
 pomocy B<checkIP>.
+
+Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 
 =item B<ciphers> = LISTA_SZYFRÓW
 
@@ -477,6 +483,20 @@ tryb kliencki (zdalna usługa używa SSL)
 
 domyślnie: no (tryb serwerowy)
 
+=item B<config> = KOMENDA[:PARAMETR]
+
+komenda konfiguracyjna B<OpenSSL>
+
+Komenda konfiguracyjna B<OpenSSL> zostaje wykonana z podanym parametrem.
+Pozwala to na wydawanie komend konfiguracyjnych B<OpenSSL> z pliku
+konfiguracyjnego stunnela.  Dostępne komendy opisane są w manualu
+I<SSL_CONF_cmd(3ssl)>.
+
+Możliwe jest wyspecyfikowanie wielu opcji B<OpenSSL> przez wielokrotne użycie
+komendy B<config>.
+
+Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
+
 =item B<connect> = [HOST:]PORT
 
 połącz się ze zdalnym serwerem na podany port
@@ -484,7 +504,7 @@ połącz się ze zdalnym serwerem na podany port
 Jeżeli nie został podany adres, B<stunnel> domyślnie łączy się
 z lokalnym serwerem.
 
-Komenda może byc użyta wielokrotnie w pojedynczej sekcji
+Komenda może być użyta wielokrotnie w pojedynczej sekcji
 celem zapewnienia wysokiej niezawodności lub rozłożenia
 ruchu pomiędzy wiele serwerów.
 

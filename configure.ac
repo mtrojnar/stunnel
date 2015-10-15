@@ -1,12 +1,13 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.24])
+AC_INIT([stunnel],[5.25])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AM_INIT_AUTOMAKE
+#AM_INIT_AUTOMAKE([subdir-objects])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
 
 AM_CONDITIONAL([AUTHOR_TESTS], [test -d ".git"])

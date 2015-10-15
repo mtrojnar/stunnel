@@ -315,7 +315,7 @@ void fatal_debug(char *txt, const char *file, int line) {
 
     if(outfile) {
 #ifdef USE_WIN32
-        WriteFile(outfile->fh, msg, strlen(msg), &num, NULL);
+        WriteFile(outfile->fh, msg, (DWORD)strlen(msg), &num, NULL);
 #else /* USE_WIN32 */
         /* no file -> write to stderr */
         /* no meaningful way here to handle the result */

@@ -314,7 +314,7 @@
 
 <p>foreground mode</p>
 
-<p>Stay in foreground (don&#39;t fork) and log to stderr instead of via syslog (unless <i>output</i> is specified).</p>
+<p>Stay in foreground (don&#39;t fork). Also log to stderr in addition to the destinations specified with <i>syslog</i> and <i>output</i>.</p>
 
 <p>default: background in daemon mode</p>
 
@@ -500,6 +500,8 @@
 
 <p>Multiple <i>checkEmail</i> options are allowed in a single service section. Certificates are accepted if no <i>checkEmail</i> option was specified, or the email address of the peer certificate matches any of the email addresses specified with <i>checkEmail</i>.</p>
 
+<p>This option requires OpenSSL 1.0.2 or later.</p>
+
 </dd>
 <dt id="checkHost-HOST"><b>checkHost</b> = HOST</dt>
 <dd>
@@ -508,6 +510,8 @@
 
 <p>Multiple <i>checkHost</i> options are allowed in a single service section. Certificates are accepted if no <i>checkHost</i> option was specified, or the host name of the peer certificate matches any of the hosts specified with <i>checkHost</i>.</p>
 
+<p>This option requires OpenSSL 1.0.2 or later.</p>
+
 </dd>
 <dt id="checkIP-IP"><b>checkIP</b> = IP</dt>
 <dd>
@@ -515,6 +519,8 @@
 <p>IP address of the peer certificate subject</p>
 
 <p>Multiple <i>checkIP</i> options are allowed in a single service section. Certificates are accepted if no <i>checkIP</i> option was specified, or the IP address of the peer certificate matches any of the IP addresses specified with <i>checkIP</i>.</p>
+
+<p>This option requires OpenSSL 1.0.2 or later.</p>
 
 </dd>
 <dt id="ciphers-CIPHER_LIST"><b>ciphers</b> = CIPHER_LIST</dt>
@@ -531,6 +537,18 @@
 <p>client mode (remote service uses SSL)</p>
 
 <p>default: no (server mode)</p>
+
+</dd>
+<dt id="config-COMMAND-:PARAMETER"><b>config</b> = COMMAND[:PARAMETER]</dt>
+<dd>
+
+<p><b>OpenSSL</b> configuration command</p>
+
+<p>The <b>OpenSSL</b> configuration command is executed with the specified parameter. This allows any configuration commands to be invoked from the stunnel configuration file. Supported commands are described on the <i>SSL_CONF_cmd(3ssl)</i> manual page.</p>
+
+<p>Several <i>config</i> lines can be used to specify multiple configuration commands.</p>
+
+<p>This option requires OpenSSL 1.0.2 or later.</p>
 
 </dd>
 <dt id="connect-HOST:-PORT"><b>connect</b> = [HOST:]PORT</dt>
@@ -779,7 +797,7 @@
 
 <p>The parameter is the <b>OpenSSL</b> option name as described in the <i>SSL_CTX_set_options(3ssl)</i> manual, but without <i>SSL_OP_</i> prefix. <i>stunnel -options</i> lists the options found to be allowed in the current combination of <i>stunnel</i> and the <i>OpenSSL</i> library used to build it.</p>
 
-<p>Several <i>options</i> can be used to specify multiple options. An option name can be prepended with a dash (&quot;-&quot;) to disable the option.</p>
+<p>Several <i>option</i> lines can be used to specify multiple options. An option name can be prepended with a dash (&quot;-&quot;) to disable the option.</p>
 
 <p>For example, for compatibility with the erroneous Eudora SSL implementation, the following option can be used:</p>
 

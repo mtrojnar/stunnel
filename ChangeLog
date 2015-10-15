@@ -1,5 +1,18 @@
 stunnel change log
 
+Version 5.25, unreleased, urgency: LOW
+* New features
+  - New service-level option "config" to specify OpenSSL
+    >=1.0.2 configuration commands (thx to Stephen Wall).
+* Bugfixes
+  - Fixed the "s_poll_wait returned 1, but no descriptor
+    is ready" internal error.
+  - Fixed "exec" hangs due to incorrect thread-local
+    storage handling (thx to Philip Craig).
+  - Fixed PRNG initialization (thx to Philip Craig).
+  - Setting socket options no longer performed on PTYs.
+  - Fixed 64-bit Windows build.
+
 Version 5.24, 2015.10.08, urgency: MEDIUM
 * New features
   - Custom CRL verification was replaced with the internal
