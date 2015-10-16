@@ -2,8 +2,14 @@ stunnel change log
 
 Version 5.25, unreleased, urgency: LOW
 * New features
+  - SMTP client protocol negotiation support for
+    "protocolUsername", "protocolPassword", and
+    "protocolAuthentication" (thx to Douglas Harris).
   - New service-level option "config" to specify OpenSSL
     >=1.0.2 configuration commands (thx to Stephen Wall).
+  - The global option "foreground" now also accepts "quiet"
+    parameter, which does not enable logging to stderr.
+  - Manual page updated.
 * Bugfixes
   - Fixed the "s_poll_wait returned 1, but no descriptor
     is ready" internal error.

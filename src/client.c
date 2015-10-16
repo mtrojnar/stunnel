@@ -1170,7 +1170,7 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
         /* dup2() does not copy FD_CLOEXEC flag */
         dup2(fd[1], 0);
         dup2(fd[1], 1);
-        if(!global_options.option.foreground)
+        if(!global_options.option.log_stderr)
             dup2(fd[1], 2);
         closesocket(fd[1]); /* not really needed due to FD_CLOEXEC */
 #ifdef HAVE_PTHREAD_SIGMASK

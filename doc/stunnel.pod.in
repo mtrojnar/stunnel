@@ -254,11 +254,13 @@ with FIPS 140-2 support.
 
 default: no (since version 5.00)
 
-=item B<foreground> = yes | no (Unix only)
+=item B<foreground> = yes | quiet | no (Unix only)
 
 foreground mode
 
-Stay in foreground (don't fork).  Also log to stderr in addition to
+Stay in foreground (don't fork).
+
+With the I<yes> parameter it also logs to stderr in addition to
 the destinations specified with I<syslog> and I<output>.
 
 default: background in daemon mode
@@ -801,19 +803,24 @@ encryption.
 
 =back
 
-=item B<protocolAuthentication> = basic | ntlm
+=item B<protocolAuthentication> = AUTHENTICATION
 
 authentication type for the protocol negotiations
 
-Currently the authentication type only applies to the 'connect' protocol.
+Currently, this option is only supported in the client-side 'connect' and
+'smtp' protocols.
 
-default: basic
+Supported authentication types for the 'connect' protocol are 'basic' or
+'ntlm'.  The default 'connect' authentication type is 'basic'.
+
+Supported authentication types for the 'smtp' protocol are 'plain' or 'login'.
+The default 'smtp' authentication type is 'plain'.
 
 =item B<protocolDomain> = DOMAIN
 
 domain for the protocol negotiations
 
-Currently the protocol domain only applies to the 'connect' protocol.
+Currently, this option is only supported in the client-side 'connect' protocol.
 
 =item B<protocolHost> = HOST:PORT
 
@@ -830,9 +837,15 @@ protocol.
 
 password for the protocol negotiations
 
+Currently, this option is only supported in the client-side 'connect' and
+'smtp' protocols.
+
 =item B<protocolUsername> = USERNAME
 
 username for the protocol negotiations
+
+Currently, this option is only supported in the client-side 'connect' and
+'smtp' protocols.
 
 =item B<PSKidentity> = IDENTITY
 

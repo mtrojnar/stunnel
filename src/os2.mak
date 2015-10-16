@@ -14,7 +14,6 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DHAVE_MEMORY_H=1 \
 	-DHAVE_STRINGS_H=1 \
 	-DHAVE_UNISTD_H=1 \
-	-DHAVE_OSSL_ENGINE_H=1 \
 	-DSSLDIR=\"/usr\" \
 	-DHOST=\"i386-pc-os2-emx\" \
 	-DHAVE_LIBSOCKET=1 \

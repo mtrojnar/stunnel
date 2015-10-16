@@ -149,7 +149,8 @@ typedef struct {
         unsigned taskbar:1;                       /* enable the taskbar icon */
 #else /* !USE_WIN32 */
         unsigned foreground:1;
-        unsigned syslog:1;
+        unsigned log_stderr:1;
+        unsigned log_syslog:1;
 #endif
 #ifdef USE_FIPS
         unsigned fips:1;                           /* enable FIPS 140-2 mode */
@@ -562,6 +563,8 @@ void fd_printf(CLI *, SOCKET, const char *, ...)
 void s_ssl_write(CLI *, const void *, int);
 void s_ssl_read(CLI *, void *, int);
 char *ssl_getstring(CLI *c);
+char *ssl_getline(CLI *c);
+void ssl_putline(CLI *c, const char *);
 
 /**************************************** prototype for protocol.c */
 

@@ -257,13 +257,15 @@ skompilowany ze wsparciem dla FIPS 140-2.
 
 domyślnie: no (od wersji 5.00)
 
-=item B<foreground> = yes | no (tylko Unix)
+=item B<foreground> = yes | quiet | no (tylko Unix)
 
 tryb pierwszoplanowy
 
-Użycie tej opcji powoduje, że B<stunnel> nie przechodzi w tło.  Dodatkowo
-komunikaty diagnostyczne logowane są na standardowe wyjście oprócz wyjść
-zdefiniowanych przy pomocy opcji I<syslog> i I<output>.
+Użycie tej opcji powoduje, że B<stunnel> nie przechodzi w tło.
+
+Parametr I<yes> powoduje dodatkowo, że komunikaty diagnostyczne logowane są na
+standardowy strumień błędów (stderr) oprócz wyjść zdefiniowanych przy pomocy
+opcji I<syslog> i I<output>.
 
 =item B<iconActive> = PLIK_Z_IKONKĄ (tylko GUI)
 
@@ -821,13 +823,17 @@ w oparciu o szyfrowany protokół SOCKS.
 
 =back
 
-=item B<protocolAuthentication> = basic | ntlm
+=item B<protocolAuthentication> = UWIERZYTELNIENIE
 
 rodzaj uwierzytelnienia do negocjacji protokołu
 
-Obecnie typ uwierzytelnienia ma zastosowanie wyłącznie w protokole 'connect'.
+Opcja ta jest wpierana wyłącznie w klienckich protokołach 'connect' i 'smtp'.
 
-domyślnie: basic
+W protokole 'connect' wspierane jest uwierzytelnienie 'basic' oraz 'ntlm'.
+Domyślnym rodzajem uwierzytelnienia protokołu 'connect' jest 'basic'.
+
+W protokole 'smtp' wspierane jest uwierzytelnienie 'plain' oraz 'login'.
+Domyślnym rodzajem uwierzytelnienia protokołu 'smtp' jest 'plain'.
 
 =item B<protocolDomain> = DOMENA
 
@@ -850,9 +856,13 @@ W obecnej wersji adres docelowy protokołu ma zastosowanie wyłącznie w protoko
 
 hasło do negocjacji protokołu
 
+Opcja ta jest wspierana wyłącznie w klienckich protokołach 'connect' i 'smtp'.
+
 =item B<protocolUsername> = UŻYTKOWNIK
 
 nazwa użytkownika do negocjacji protokołu
+
+Opcja ta jest wspierana wyłącznie w klienckich protokołach 'connect' i 'smtp'.
 
 =item B<PSKidentity> = TOŻSAMOŚĆ
 

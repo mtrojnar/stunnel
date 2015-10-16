@@ -65,8 +65,8 @@ NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *, OCSP_REQUEST *, char *);
 /* utility functions */
 #ifndef OPENSSL_NO_OCSP
 NOEXPORT X509 *get_current_issuer(X509_STORE_CTX *);
-#endif
 NOEXPORT void log_time(const int, const char *, ASN1_TIME *);
+#endif
 
 /**************************************** verify initialization */
 
@@ -682,31 +682,6 @@ NOEXPORT X509 *get_current_issuer(X509_STORE_CTX *callback_ctx) {
     return sk_X509_value(chain, depth);
 }
 
-#endif /* !defined(OPENSSL_NO_OCSP) */
-
-char *X509_NAME2text(X509_NAME *name) {
-    char *text;
-    BIO *bio;
-    int n;
-
-    bio=BIO_new(BIO_s_mem());
-    if(!bio)
-        return str_dup("BIO_new() failed");
-    X509_NAME_print_ex(bio, name, 0,
-        XN_FLAG_ONELINE & ~ASN1_STRFLGS_ESC_MSB & ~XN_FLAG_SPC_EQ);
-    n=BIO_pending(bio);
-    text=str_alloc((size_t)n+1);
-    n=BIO_read(bio, text, n);
-    if(n<0) {
-        BIO_free(bio);
-        str_free(text);
-        return str_dup("BIO_read() failed");
-    }
-    text[n]='\0';
-    BIO_free(bio);
-    return text;
-}
-
 NOEXPORT void log_time(const int level, const char *txt, ASN1_TIME *t) {
     char *cp;
     BIO *bio;
@@ -730,6 +705,31 @@ NOEXPORT void log_time(const int level, const char *txt, ASN1_TIME *t) {
     BIO_free(bio);
     s_log(level, "%s: %s", txt, cp);
     str_free(cp);
+}
+
+#endif /* !defined(OPENSSL_NO_OCSP) */
+
+char *X509_NAME2text(X509_NAME *name) {
+    char *text;
+    BIO *bio;
+    int n;
+
+    bio=BIO_new(BIO_s_mem());
+    if(!bio)
+        return str_dup("BIO_new() failed");
+    X509_NAME_print_ex(bio, name, 0,
+        XN_FLAG_ONELINE & ~ASN1_STRFLGS_ESC_MSB & ~XN_FLAG_SPC_EQ);
+    n=BIO_pending(bio);
+    text=str_alloc((size_t)n+1);
+    n=BIO_read(bio, text, n);
+    if(n<0) {
+        BIO_free(bio);
+        str_free(text);
+        return str_dup("BIO_read() failed");
+    }
+    text[n]='\0';
+    BIO_free(bio);
+    return text;
 }
 
 /* end of verify.c */

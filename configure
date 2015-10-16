@@ -14995,32 +14995,6 @@ _ACEOF
 valid_CPPFLAGS="$CPPFLAGS"; CPPFLAGS="$CPPFLAGS -I$SSLDIR/include"
 valid_LIBS="$LIBS"; LIBS="$LIBS -L$SSLDIR/lib64 -L$SSLDIR/lib -lssl -lcrypto"
 
-as_ac_Header=`$as_echo "ac_cv_header_$SSLDIR/include/openssl/engine.h" | $as_tr_sh`
-ac_fn_c_check_header_mongrel "$LINENO" "$SSLDIR/include/openssl/engine.h" "$as_ac_Header" "$ac_includes_default"
-if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
-
-$as_echo "#define HAVE_OSSL_ENGINE_H 1" >>confdefs.h
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: OpenSSL engine header not found" >&5
-$as_echo "$as_me: WARNING: OpenSSL engine header not found" >&2;}
-fi
-
-
-
-as_ac_Header=`$as_echo "ac_cv_header_$SSLDIR/include/openssl/ocsp.h" | $as_tr_sh`
-ac_fn_c_check_header_mongrel "$LINENO" "$SSLDIR/include/openssl/ocsp.h" "$as_ac_Header" "$ac_includes_default"
-if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
-
-$as_echo "#define HAVE_OSSL_OCSP_H 1" >>confdefs.h
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: OpenSSL ocsp header not found" >&5
-$as_echo "$as_me: WARNING: OpenSSL ocsp header not found" >&2;}
-fi
-
-
-
 if test "x$use_fips" = "xauto"; then
     for ac_func in FIPS_mode_set
 do :

@@ -309,12 +309,14 @@
 <p>default: no (since version 5.00)</p>
 
 </dd>
-<dt id="foreground-yes-no-Unix-only"><b>foreground</b> = yes | no (Unix only)</dt>
+<dt id="foreground-yes-quiet-no-Unix-only"><b>foreground</b> = yes | quiet | no (Unix only)</dt>
 <dd>
 
 <p>foreground mode</p>
 
-<p>Stay in foreground (don&#39;t fork). Also log to stderr in addition to the destinations specified with <i>syslog</i> and <i>output</i>.</p>
+<p>Stay in foreground (don&#39;t fork).</p>
+
+<p>With the <i>yes</i> parameter it also logs to stderr in addition to the destinations specified with <i>syslog</i> and <i>output</i>.</p>
 
 <p>default: background in daemon mode</p>
 
@@ -889,14 +891,16 @@
 </dl>
 
 </dd>
-<dt id="protocolAuthentication-basic-ntlm"><b>protocolAuthentication</b> = basic | ntlm</dt>
+<dt id="protocolAuthentication-AUTHENTICATION"><b>protocolAuthentication</b> = AUTHENTICATION</dt>
 <dd>
 
 <p>authentication type for the protocol negotiations</p>
 
-<p>Currently the authentication type only applies to the &#39;connect&#39; protocol.</p>
+<p>Currently, this option is only supported in the client-side &#39;connect&#39; and &#39;smtp&#39; protocols.</p>
 
-<p>default: basic</p>
+<p>Supported authentication types for the &#39;connect&#39; protocol are &#39;basic&#39; or &#39;ntlm&#39;. The default &#39;connect&#39; authentication type is &#39;basic&#39;.</p>
+
+<p>Supported authentication types for the &#39;smtp&#39; protocol are &#39;plain&#39; or &#39;login&#39;. The default &#39;smtp&#39; authentication type is &#39;plain&#39;.</p>
 
 </dd>
 <dt id="protocolDomain-DOMAIN"><b>protocolDomain</b> = DOMAIN</dt>
@@ -904,7 +908,7 @@
 
 <p>domain for the protocol negotiations</p>
 
-<p>Currently the protocol domain only applies to the &#39;connect&#39; protocol.</p>
+<p>Currently, this option is only supported in the client-side &#39;connect&#39; protocol.</p>
 
 </dd>
 <dt id="protocolHost-HOST:PORT"><b>protocolHost</b> = HOST:PORT</dt>
@@ -922,11 +926,15 @@
 
 <p>password for the protocol negotiations</p>
 
+<p>Currently, this option is only supported in the client-side &#39;connect&#39; and &#39;smtp&#39; protocols.</p>
+
 </dd>
 <dt id="protocolUsername-USERNAME"><b>protocolUsername</b> = USERNAME</dt>
 <dd>
 
 <p>username for the protocol negotiations</p>
+
+<p>Currently, this option is only supported in the client-side &#39;connect&#39; and &#39;smtp&#39; protocols.</p>
 
 </dd>
 <dt id="PSKidentity-IDENTITY"><b>PSKidentity</b> = IDENTITY</dt>

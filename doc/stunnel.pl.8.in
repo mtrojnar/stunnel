@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.10.15" "5.25" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.10.16" "5.25" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -266,13 +266,15 @@ Opcja pozwala wyłączyć wejście w tryb \s-1FIPS,\s0 jeśli \fBstunnel\fR zost
 skompilowany ze wsparciem dla \s-1FIPS 140\-2.\s0
 .Sp
 domyślnie: no (od wersji 5.00)
-.IP "\fBforeground\fR = yes | no (tylko Unix)" 4
-.IX Item "foreground = yes | no (tylko Unix)"
+.IP "\fBforeground\fR = yes | quiet | no (tylko Unix)" 4
+.IX Item "foreground = yes | quiet | no (tylko Unix)"
 tryb pierwszoplanowy
 .Sp
-Użycie tej opcji powoduje, że \fBstunnel\fR nie przechodzi w tło.  Dodatkowo
-komunikaty diagnostyczne logowane są na standardowe wyjście oprócz wyjść
-zdefiniowanych przy pomocy opcji \fIsyslog\fR i \fIoutput\fR.
+Użycie tej opcji powoduje, że \fBstunnel\fR nie przechodzi w tło.
+.Sp
+Parametr \fIyes\fR powoduje dodatkowo, że komunikaty diagnostyczne logowane są na
+standardowy strumień błędów (stderr) oprócz wyjść zdefiniowanych przy pomocy
+opcji \fIsyslog\fR i \fIoutput\fR.
 .IP "\fBiconActive\fR = PLIK_Z_IKONKĄ (tylko \s-1GUI\s0)" 4
 .IX Item "iconActive = PLIK_Z_IKONKĄ (tylko GUI)"
 ikonka wyświetlana przy obecności aktywnych połączeń do usługi
@@ -778,13 +780,17 @@ w oparciu o szyfrowany protokół \s-1SOCKS.\s0
 .RE
 .RS 4
 .RE
-.IP "\fBprotocolAuthentication\fR = basic | ntlm" 4
-.IX Item "protocolAuthentication = basic | ntlm"
+.IP "\fBprotocolAuthentication\fR = \s-1UWIERZYTELNIENIE\s0" 4
+.IX Item "protocolAuthentication = UWIERZYTELNIENIE"
 rodzaj uwierzytelnienia do negocjacji protokołu
 .Sp
-Obecnie typ uwierzytelnienia ma zastosowanie wyłącznie w protokole 'connect'.
+Opcja ta jest wpierana wyłącznie w klienckich protokołach 'connect' i 'smtp'.
 .Sp
-domyślnie: basic
+W protokole 'connect' wspierane jest uwierzytelnienie 'basic' oraz 'ntlm'.
+Domyślnym rodzajem uwierzytelnienia protokołu 'connect' jest 'basic'.
+.Sp
+W protokole 'smtp' wspierane jest uwierzytelnienie 'plain' oraz 'login'.
+Domyślnym rodzajem uwierzytelnienia protokołu 'smtp' jest 'plain'.
 .IP "\fBprotocolDomain\fR = \s-1DOMENA\s0" 4
 .IX Item "protocolDomain = DOMENA"
 domena do negocjacji protokołu
@@ -803,9 +809,13 @@ W obecnej wersji adres docelowy protokołu ma zastosowanie wyłącznie w protoko
 .IP "\fBprotocolPassword\fR = HASŁO" 4
 .IX Item "protocolPassword = HASŁO"
 hasło do negocjacji protokołu
+.Sp
+Opcja ta jest wspierana wyłącznie w klienckich protokołach 'connect' i 'smtp'.
 .IP "\fBprotocolUsername\fR = UŻYTKOWNIK" 4
 .IX Item "protocolUsername = UŻYTKOWNIK"
 nazwa użytkownika do negocjacji protokołu
+.Sp
+Opcja ta jest wspierana wyłącznie w klienckich protokołach 'connect' i 'smtp'.
 .IP "\fBPSKidentity\fR = TOŻSAMOŚĆ" 4
 .IX Item "PSKidentity = TOŻSAMOŚĆ"
 tożsamość klienta \s-1PSK\s0

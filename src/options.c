@@ -756,16 +756,22 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     switch(cmd) {
     case CMD_BEGIN:
         new_global_options.option.foreground=0;
+        new_global_options.option.log_stderr=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "foreground"))
             break;
-        if(!strcasecmp(arg, "yes"))
+        if(!strcasecmp(arg, "yes")) {
             new_global_options.option.foreground=1;
-        else if(!strcasecmp(arg, "no"))
+            new_global_options.option.log_stderr=1;
+        } else if(!strcasecmp(arg, "quiet")) {
+            new_global_options.option.foreground=1;
+            new_global_options.option.log_stderr=0;
+        } else if(!strcasecmp(arg, "no")) {
             new_global_options.option.foreground=0;
-        else
-            return "The argument needs to be either 'yes' or 'no'";
+            new_global_options.option.log_stderr=0;
+        } else
+            return "The argument needs to be either 'yes', 'quiet' or 'no'";
         return NULL; /* OK */
     case CMD_END:
         break;
@@ -774,7 +780,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = yes|no foreground mode (don't fork, log to stderr)",
+        s_log(LOG_NOTICE, "%-22s = yes|quiet|no foreground mode (don't fork, log to stderr)",
             "foreground");
         break;
     }
@@ -1049,15 +1055,15 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 #ifndef USE_WIN32
     switch(cmd) {
     case CMD_BEGIN:
-        new_global_options.option.syslog=1;
+        new_global_options.option.log_syslog=1;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "syslog"))
             break;
         if(!strcasecmp(arg, "yes"))
-            new_global_options.option.syslog=1;
+            new_global_options.option.log_syslog=1;
         else if(!strcasecmp(arg, "no"))
-            new_global_options.option.syslog=0;
+            new_global_options.option.log_syslog=0;
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */

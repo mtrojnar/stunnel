@@ -57,7 +57,7 @@ static int syslog_opened=0;
 
 void syslog_open(void) {
     syslog_close();
-    if(global_options.option.syslog)
+    if(global_options.option.log_syslog)
 #ifdef __ultrix__
         openlog(service_options.servname, 0);
 #else
@@ -69,7 +69,7 @@ void syslog_open(void) {
 
 void syslog_close(void) {
     if(syslog_opened) {
-        if(global_options.option.syslog)
+        if(global_options.option.log_syslog)
             closelog();
         syslog_opened=0;
     }
@@ -222,7 +222,7 @@ NOEXPORT void log_raw(const SERVICE_OPTIONS *opt,
         line=str_printf("%s %s: %s", stamp, id, text);
         if(level<=opt->log_level) {
 #if !defined(USE_WIN32) && !defined(__vms)
-            if(global_options.option.syslog)
+            if(global_options.option.log_syslog)
                 syslog(level, "%s: %s", id, text);
 #endif /* USE_WIN32, __vms */
             if(outfile)
@@ -243,7 +243,7 @@ NOEXPORT void log_raw(const SERVICE_OPTIONS *opt,
             level<=opt->log_level
 #else
             (level<=opt->log_level &&
-            global_options.option.foreground)
+            global_options.option.log_stderr)
 #endif
             )
         ui_new_log(line);
@@ -324,7 +324,7 @@ void fatal_debug(char *txt, const char *file, int line) {
     }
 
 #ifndef USE_WIN32
-    if(mode!=LOG_MODE_CONFIGURED || global_options.option.foreground) {
+    if(mode!=LOG_MODE_CONFIGURED || global_options.option.log_stderr) {
         fputs(msg, stderr);
         fflush(stderr);
     }
@@ -334,7 +334,7 @@ void fatal_debug(char *txt, const char *file, int line) {
         "INTERNAL ERROR: %s at %s, line %d", txt, file, line);
 
 #if !defined(USE_WIN32) && !defined(__vms)
-    if(global_options.option.syslog)
+    if(global_options.option.log_syslog)
         syslog(LOG_CRIT, "%s", msg);
 #endif /* USE_WIN32, __vms */
 

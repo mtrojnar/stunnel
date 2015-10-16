@@ -49,8 +49,8 @@ Building stunnel from source (optional):
 
  7) Build windows executable.
       cd src
-      make stunnel.exe
-
+      make mingw
+      make mingw64
 
 Installing stunnel:
 

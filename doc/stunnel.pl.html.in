@@ -307,12 +307,14 @@
 <p>domy&#x15B;lnie: no (od wersji 5.00)</p>
 
 </dd>
-<dt id="foreground-yes-no-tylko-Unix"><b>foreground</b> = yes | no (tylko Unix)</dt>
+<dt id="foreground-yes-quiet-no-tylko-Unix"><b>foreground</b> = yes | quiet | no (tylko Unix)</dt>
 <dd>
 
 <p>tryb pierwszoplanowy</p>
 
-<p>U&#x17C;ycie tej opcji powoduje, &#x17C;e <b>stunnel</b> nie przechodzi w t&#x142;o. Dodatkowo komunikaty diagnostyczne logowane s&#x105; na standardowe wyj&#x15B;cie opr&oacute;cz wyj&#x15B;&#x107; zdefiniowanych przy pomocy opcji <i>syslog</i> i <i>output</i>.</p>
+<p>U&#x17C;ycie tej opcji powoduje, &#x17C;e <b>stunnel</b> nie przechodzi w t&#x142;o.</p>
+
+<p>Parametr <i>yes</i> powoduje dodatkowo, &#x17C;e komunikaty diagnostyczne logowane s&#x105; na standardowy strumie&#x144; b&#x142;&#x119;d&oacute;w (stderr) opr&oacute;cz wyj&#x15B;&#x107; zdefiniowanych przy pomocy opcji <i>syslog</i> i <i>output</i>.</p>
 
 </dd>
 <dt id="iconActive-PLIK_Z_IKONK-tylko-GUI"><b>iconActive</b> = PLIK_Z_IKONK&#x104; (tylko GUI)</dt>
@@ -889,14 +891,16 @@
 </dl>
 
 </dd>
-<dt id="protocolAuthentication-basic-ntlm"><b>protocolAuthentication</b> = basic | ntlm</dt>
+<dt id="protocolAuthentication-UWIERZYTELNIENIE"><b>protocolAuthentication</b> = UWIERZYTELNIENIE</dt>
 <dd>
 
 <p>rodzaj uwierzytelnienia do negocjacji protoko&#x142;u</p>
 
-<p>Obecnie typ uwierzytelnienia ma zastosowanie wy&#x142;&#x105;cznie w protokole &#39;connect&#39;.</p>
+<p>Opcja ta jest wpierana wy&#x142;&#x105;cznie w klienckich protoko&#x142;ach &#39;connect&#39; i &#39;smtp&#39;.</p>
 
-<p>domy&#x15B;lnie: basic</p>
+<p>W protokole &#39;connect&#39; wspierane jest uwierzytelnienie &#39;basic&#39; oraz &#39;ntlm&#39;. Domy&#x15B;lnym rodzajem uwierzytelnienia protoko&#x142;u &#39;connect&#39; jest &#39;basic&#39;.</p>
+
+<p>W protokole &#39;smtp&#39; wspierane jest uwierzytelnienie &#39;plain&#39; oraz &#39;login&#39;. Domy&#x15B;lnym rodzajem uwierzytelnienia protoko&#x142;u &#39;smtp&#39; jest &#39;plain&#39;.</p>
 
 </dd>
 <dt id="protocolDomain-DOMENA"><b>protocolDomain</b> = DOMENA</dt>
@@ -922,11 +926,15 @@
 
 <p>has&#x142;o do negocjacji protoko&#x142;u</p>
 
+<p>Opcja ta jest wspierana wy&#x142;&#x105;cznie w klienckich protoko&#x142;ach &#39;connect&#39; i &#39;smtp&#39;.</p>
+
 </dd>
 <dt id="protocolUsername-UYTKOWNIK"><b>protocolUsername</b> = U&#x17B;YTKOWNIK</dt>
 <dd>
 
 <p>nazwa u&#x17C;ytkownika do negocjacji protoko&#x142;u</p>
+
+<p>Opcja ta jest wspierana wy&#x142;&#x105;cznie w klienckich protoko&#x142;ach &#39;connect&#39; i &#39;smtp&#39;.</p>
 
 </dd>
 <dt id="PSKidentity-TOSAMO"><b>PSKidentity</b> = TO&#x17B;SAMO&#x15A;&#x106;</dt>

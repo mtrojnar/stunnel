@@ -55,6 +55,9 @@ NOEXPORT char *cifs_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *pgsql_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *pgsql_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *smtp_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT void smtp_client_negotiate(CLI *);
+NOEXPORT void smtp_client_plain(CLI *, const char *, const char *);
+NOEXPORT void smtp_client_login(CLI *, const char *, const char *);
 NOEXPORT char *smtp_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *pop3_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *pop3_server(CLI *, SERVICE_OPTIONS *, const PHASE);
@@ -69,7 +72,7 @@ NOEXPORT char *ntlm1();
 NOEXPORT char *ntlm3(char *, char *, char *, char *);
 NOEXPORT void crypt_DES(DES_cblock, DES_cblock, DES_cblock);
 #endif
-NOEXPORT char *base64(int, char *, int);
+NOEXPORT char *base64(int, const char *, int);
 
 /**************************************** framework */
 
@@ -699,11 +702,30 @@ NOEXPORT char *pgsql_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 /**************************************** smtp */
 
 NOEXPORT char *smtp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+    (void)opt; /* squash the unused parameter warning */
+    switch(phase) {
+    case PROTOCOL_MIDDLE:
+        smtp_client_negotiate(c);
+        break;
+    case PROTOCOL_LATE:
+        if(opt->protocol_username && opt->protocol_password) {
+            if(!strcasecmp(c->opt->protocol_authentication, "LOGIN"))
+                smtp_client_login(c,
+                    opt->protocol_username, opt->protocol_password);
+            else /* use PLAIN by default */
+                smtp_client_plain(c,
+                    opt->protocol_username, opt->protocol_password);
+        }
+        break;
+    default:
+        break;
+    }
+    return NULL;
+}
+
+NOEXPORT void smtp_client_negotiate(CLI *c) {
     char *line;
 
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
     line=str_dup("");
     do { /* copy multiline greeting */
         str_free(line);
@@ -733,7 +755,76 @@ NOEXPORT char *smtp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         longjmp(c->err, 1);
     }
     str_free(line);
-    return NULL;
+}
+
+/* http://www.samlogic.net/articles/smtp-commands-reference-auth.htm */
+
+NOEXPORT void smtp_client_plain(CLI *c, const char *user, const char *pass) {
+    char *line, *encoded;
+
+    line=str_printf("%c%s%c%s", '\0', user, '\0', pass);
+    encoded=base64(1, line, (int)strlen(user) + (int)strlen(pass) + 2);
+    if(!encoded) {
+        s_log(LOG_ERR, "Base64 encoder failed");
+        str_free(line);
+        longjmp(c->err, 1);
+    }
+    str_free(line);
+    line=str_printf("AUTH PLAIN %s", encoded);
+    str_free(encoded);
+    ssl_putline(c, line);
+    str_free(line);
+
+    line=ssl_getline(c);
+    if(!is_prefix(line, "235 ")) { /* not 'Authentication successful' */
+        s_log(LOG_ERR, "PLAIN Authentication Failed");
+        str_free(line);
+        longjmp(c->err, 1);
+    }
+    str_free(line);
+}
+
+NOEXPORT void smtp_client_login(CLI *c, const char *user, const char *pass) {
+    char *line, *encoded;
+
+    ssl_putline(c, "AUTH LOGIN");
+    line=ssl_getline(c);
+    if(!is_prefix(line, "334 ")) { /* not the username challenge */
+        s_log(LOG_ERR, "Remote server does not support LOGIN authentication");
+        str_free(line);
+        longjmp(c->err, 1);
+    }
+    str_free(line);
+
+    encoded=base64(1, user, (int)strlen(user));
+    if(!encoded) {
+        s_log(LOG_ERR, "Base64 encoder failed");
+        longjmp(c->err, 1);
+    }
+    ssl_putline(c, encoded);
+    str_free(encoded);
+    line=ssl_getline(c);
+    if(!is_prefix(line, "334 ")) { /* not the password challenge */
+        s_log(LOG_ERR, "LOGIN authentication failed");
+        str_free(line);
+        longjmp(c->err, 1);
+    }
+    str_free(line);
+
+    encoded=base64(1, pass, (int)strlen(pass));
+    if(!encoded) {
+        s_log(LOG_ERR, "Base64 encoder failed");
+        longjmp(c->err, 1);
+    }
+    ssl_putline(c, encoded);
+    str_free(encoded);
+    line=ssl_getline(c);
+    if(!is_prefix(line, "235 ")) { /* not 'Authentication successful' */
+        s_log(LOG_ERR, "LOGIN authentication failed");
+        str_free(line);
+        longjmp(c->err, 1);
+    }
+    str_free(line);
 }
 
 NOEXPORT char *smtp_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
@@ -1308,7 +1399,7 @@ NOEXPORT void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
 
 #endif
 
-NOEXPORT char *base64(int encode, char *in, int len) {
+NOEXPORT char *base64(int encode, const char *in, int len) {
     BIO *bio, *b64;
     char *out;
     int n;

@@ -96,7 +96,7 @@ int libwrap_init() {
             drop_privileges(0); /* libwrap processes are not chrooted */
             close(0); /* stdin */
             close(1); /* stdout */
-            if(!global_options.option.foreground) /* for logging in read_fd */
+            if(!global_options.option.log_stderr) /* for logging in read_fd */
                 close(2); /* stderr */
             for(j=0; j<=i; ++j) /* close parent-side sockets created so far */
                 close(ipc_socket[2*j]);
