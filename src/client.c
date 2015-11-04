@@ -402,8 +402,9 @@ NOEXPORT void ssl_start(CLI *c) {
         SSL_set_accept_state(c->ssl);
     }
 
-    unsafe_openssl=SSLeay()<0x0090810fL ||
-        (SSLeay()>=0x10000000L && SSLeay()<0x1000002fL);
+    unsafe_openssl=OpenSSL_version_num()<0x0090810fL ||
+        (OpenSSL_version_num()>=0x10000000L &&
+        OpenSSL_version_num()<0x1000002fL);
     while(1) {
         /* critical section for OpenSSL version < 0.9.8p or 1.x.x < 1.0.0b *
          * this critical section is a crude workaround for CVE-2010-3864   *

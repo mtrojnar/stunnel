@@ -1,6 +1,6 @@
 stunnel change log
 
-Version 5.25, unreleased, urgency: LOW
+Version 5.25, 2015.11.02, urgency: MEDIUM
 * New features
   - SMTP client protocol negotiation support for
     "protocolUsername", "protocolPassword", and
@@ -10,6 +10,10 @@ Version 5.25, unreleased, urgency: LOW
   - The global option "foreground" now also accepts "quiet"
     parameter, which does not enable logging to stderr.
   - Manual page updated.
+  - Obsolete OpenSSL engines removed from the Windows build:
+    4758cca, aep, atalla, cswift, nuron, sureware.
+  - Improved compatibility with the current OpenSSL 1.1.0-dev tree:
+    gracefully handle symbols renamed from SSLeay* to OpenSSL*.
 * Bugfixes
   - Fixed the "s_poll_wait returned 1, but no descriptor
     is ready" internal error.

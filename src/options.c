@@ -567,7 +567,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "compression"))
             break;
-        if(SSLeay()>=0x00908051L && !strcasecmp(arg, "deflate"))
+        if(OpenSSL_version_num()>=0x00908051L && !strcasecmp(arg, "deflate"))
             new_global_options.compression=COMP_DEFLATE;
         else if(!strcasecmp(arg, "zlib"))
             new_global_options.compression=COMP_ZLIB;

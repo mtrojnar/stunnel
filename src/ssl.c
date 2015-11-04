@@ -127,7 +127,7 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
     }
 
     if(global->compression==COMP_NONE ||
-            SSLeay()<0x00908051L /* 0.9.8e-beta1 */) {
+            OpenSSL_version_num()<0x00908051L /* 0.9.8e-beta1 */) {
         /* delete OpenSSL defaults (empty the SSL_COMP stack) */
         /* cannot use sk_SSL_COMP_pop_free,
          * as it also destroys the stack itself */

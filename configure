@@ -3076,7 +3076,6 @@ END
   fi
 fi
 
-#AM_INIT_AUTOMAKE([subdir-objects])
 
 $as_echo "#define _GNU_SOURCE 1" >>confdefs.h
 

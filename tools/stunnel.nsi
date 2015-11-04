@@ -24,6 +24,9 @@ BrandingText "Author: Michal Trojnara"
 !define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_VALUENAME "Install_Mode"
 !include MultiUser.nsh
 # Modern UI
+!define MUI_FINISHPAGE_RUN "$INSTDIR\bin\stunnel.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "Start stunnel after installation"
+!define MUI_FINISHPAGE_RUN_NOTCHECKED
 !include "MUI2.nsh"
 # define SF_SELECTED
 !include "Sections.nsh"
@@ -53,6 +56,7 @@ BrandingText "Author: Michal Trojnara"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES

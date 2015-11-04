@@ -7,7 +7,6 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AM_INIT_AUTOMAKE
-#AM_INIT_AUTOMAKE([subdir-objects])
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
 
 AM_CONDITIONAL([AUTHOR_TESTS], [test -d ".git"])

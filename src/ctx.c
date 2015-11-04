@@ -882,8 +882,13 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
                 && c->reneg_state==RENEG_ESTABLISHED) {
             int state=SSL_get_state((SSL *)ssl);
 
+#ifndef SSL3_ST_SR_CLNT_HELLO_A
+            if(state==TLS_ST_SR_CLNT_HELLO
+                    || state==TLS_ST_SR_CLNT_HELLO) {
+#else
             if(state==SSL3_ST_SR_CLNT_HELLO_A
                     || state==SSL23_ST_SR_CLNT_HELLO_A) {
+#endif
                 /* client hello received after initial handshake,
                  * this means renegotiation -> mark it */
                 c->reneg_state=RENEG_DETECTED;

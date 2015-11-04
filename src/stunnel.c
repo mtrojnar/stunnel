@@ -782,9 +782,9 @@ NOEXPORT char *signal_name(int signum) {
 
 void stunnel_info(int level) {
     s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " platform");
-    if(strcmp(OPENSSL_VERSION_TEXT, SSLeay_version(SSLEAY_VERSION))) {
+    if(strcmp(OPENSSL_VERSION_TEXT, OpenSSL_version(OPENSSL_VERSION))) {
         s_log(level, "Compiled with " OPENSSL_VERSION_TEXT);
-        s_log(level, "Running  with %s", SSLeay_version(SSLEAY_VERSION));
+        s_log(level, "Running  with %s", OpenSSL_version(OPENSSL_VERSION));
         s_log(level, "Update OpenSSL shared libraries or rebuild stunnel");
     } else {
         s_log(level, "Compiled/running with " OPENSSL_VERSION_TEXT);
