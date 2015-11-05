@@ -92,6 +92,10 @@ char *str_printf(const char *format, ...) {
     return txt;
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#endif /* __GNUC__ */
 char *str_vprintf(const char *format, va_list start_ap) {
     int n;
     size_t size=32;
@@ -111,6 +115,9 @@ char *str_vprintf(const char *format, va_list start_ap) {
         p=str_realloc(p, size);
     }
 }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 
 #ifdef USE_WIN32
 
@@ -159,7 +166,7 @@ void str_cleanup(TLS_DATA *tls_data) {
 void str_canary_init() {
     if(canary_initialized!=0xabadbabe)
         return; /* prevent double initialization on config reload */
-    RAND_bytes(canary, sizeof canary);
+    RAND_bytes(canary, (int)sizeof canary);
     /* an error would reduce the effectiveness of canaries */
     /* this is nothing critical, so the return value is ignored here */
     canary_initialized=0xc0ded; /* after RAND_bytes */

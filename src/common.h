@@ -289,6 +289,9 @@ typedef int SOCKET;
     /* Unix-specific headers */
 #include <signal.h>         /* signal */
 #include <sys/wait.h>       /* wait */
+#ifdef HAVE_LIMITS_H
+#include <limits.h>         /* INT_MAX */
+#endif
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>   /* getrlimit */
 #endif

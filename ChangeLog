@@ -1,5 +1,9 @@
 stunnel change log
 
+Version 5.26, unreleased, urgency: LOW
+* Bugfixes
+  - Compilation fixes for *BSD and Solaris.
+
 Version 5.25, 2015.11.02, urgency: MEDIUM
 * New features
   - SMTP client protocol negotiation support for

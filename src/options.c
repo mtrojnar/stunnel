@@ -3300,13 +3300,14 @@ NOEXPORT int parse_socket_option(char *arg) {
         if(opt_val2_str) {
             *opt_val2_str++='\0';
             ptr->opt_val[socket_type]->timeval_val.tv_usec=
-                strtol(opt_val2_str, &tmp_str, 10);
+                (int)strtol(opt_val2_str, &tmp_str, 10);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return 1; /* FAILED */
         } else {
             ptr->opt_val[socket_type]->timeval_val.tv_usec=0;
         }
-        ptr->opt_val[socket_type]->timeval_val.tv_sec=strtol(opt_val_str, &tmp_str, 10);
+        ptr->opt_val[socket_type]->timeval_val.tv_sec=
+            (int)strtol(opt_val_str, &tmp_str, 10);
         if(tmp_str==arg || *tmp_str) /* not a number */
             return 1; /* FAILED */
         return 0; /* OK */

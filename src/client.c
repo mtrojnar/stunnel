@@ -1136,6 +1136,8 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
 
 #else /* standard Unix version */
 
+extern char **environ;
+
 NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
     int fd[2], pid;
     char **env;
