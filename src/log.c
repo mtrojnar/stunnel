@@ -481,7 +481,7 @@ char *s_strerror(int errnum) {
 /* replace non-UTF-8 and non-printable control characters with '.' */
 NOEXPORT void safestring(char *c) {
     for(; *c; ++c)
-        if(!(*c&0x80 || isprint(*c)))
+        if(!(*c&0x80 || isprint((int)*c)))
             *c='.';
 }
 
