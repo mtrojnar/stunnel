@@ -213,27 +213,24 @@ select hardware engine
 
 default: software-only cryptography
 
-Here is an example of advanced engine configuration to read the private key from an
-OpenSC engine
+An example of advanced engine configuration to use the certificate and the
+corresponding private key from an OpenSC PKCS#11 engine:
 
-    engine=dynamic
-    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-    engineCtrl=ID:pkcs11
-    engineCtrl=LIST_ADD:1
-    engineCtrl=LOAD
-    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
-    engineCtrl=INIT
+    engine = dynamic
+    engineCtrl = SO_PATH:/usr/local/lib/engines/libpkcs11.so
+    engineCtrl = LOAD
+    engineCtrl = MODULE_PATH:opensc-pkcs11.so
+    engineCtrl = PIN:123456
 
     [service]
-    engineNum=1
-    key=id_45
+    engineId = pkcs11
+    cert = id_45
 
 =item B<engineCtrl> = COMMAND[:PARAMETER]
 
 control hardware engine
 
-Special commands "LOAD" and "INIT" can be used to load and initialize the
-engine cryptogaphic module.
+A special command "LOAD" can be used to load engine cryptographic module.
 
 =item B<engineDefault> = TASK_LIST
 
@@ -428,6 +425,9 @@ The certificates must be in PEM format, and must be from the
 actual server/client certificate to the self-signed root CA certificate.
 
 A certificate is required in server mode, and optional in client mode.
+
+This parameter is also used as the certificate identifier when a hardware
+engine is enabled.
 
 =item B<checkEmail> = EMAIL
 
@@ -639,6 +639,9 @@ by its owner.  On Unix systems you can use the following command:
 
     chmod 600 keyfile
 
+This parameter is also used as the private key identifier when a hardware
+engine is enabled.
+
 default: the value of the I<cert> option
 
 =item B<libwrap> = yes | no
@@ -649,8 +652,8 @@ default: no (since version 5.00)
 
 =item B<local> = HOST
 
-By default, the IP address of the outgoing interface is used as the source for remote connections.
-Use this option to bind a static local IP address instead.
+By default, the IP address of the outgoing interface is used as the source for
+remote connections.  Use this option to bind a static local IP address instead.
 
 =item B<sni> = SERVICE:SERVER_PATTERN (server mode)
 
@@ -1046,9 +1049,9 @@ The original destination is used instead of the I<connect> option.
 A service section for transparent destination may look like this:
 
     [transparent]
-    client=yes
-    accept=<stunnel_port>
-    transparent=destination
+    client = yes
+    accept = <stunnel_port>
+    transparent = destination
 
 This configuration requires iptables setup to work,
 possibly in /etc/rc.local or equivalent file.

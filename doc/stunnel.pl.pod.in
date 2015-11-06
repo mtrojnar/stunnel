@@ -215,27 +215,25 @@ wybór sprzętowego urządzenia kryptograficznego
 
 domyślnie: bez wykorzystania urządzeń kryptograficznych
 
-Przykładowa konfiguracja umożliwiająca odczytanie klucza prywatnego z
+Przykładowa konfiguracja umożliwiająca użycie certyfikatu i klucza prywatnego z
 urządzenia zgodnego z OpenSC:
 
-    engine=dynamic
-    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-    engineCtrl=ID:pkcs11
-    engineCtrl=LIST_ADD:1
-    engineCtrl=LOAD
-    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
-    engineCtrl=INIT
+    engine = dynamic
+    engineCtrl = SO_PATH:/usr/local/lib/engines/libpkcs11.so
+    engineCtrl = LOAD
+    engineCtrl = MODULE_PATH:opensc-pkcs11.so
+    engineCtrl = PIN:123456
 
     [service]
-    engineNum=1
-    key=id_45
+    engineId = pkcs11
+    cert = id_45
 
 =item B<engineCtrl> = KOMENDA[:PARAMETR]
 
 konfiguracja urządzenia kryptograficznego
 
-Specjalne komendy "LOAD" i "INIT" pozwalają na załadowanie i inicjalizację
-modułu kryptograficznego urządzenia.
+Specjalna komenda "LOAD" pozwala na załadowanie modułu urządzenia
+kryptograficznego.
 
 =item B<engineDefault> = LISTA_ZADAŃ
 
@@ -438,6 +436,9 @@ Opcja określa położenie pliku zawierającego certyfikaty używane przez
 program B<stunnel> do uwierzytelnienia się przed drugą stroną połączenia.
 Certyfikat jest konieczny, aby używać programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
+
+Jeżeli używane jest sprzętowe urządzenie kryptograficzne, to opcja B<cert>
+pozwala wybrać identyfikator używanego certyfikatu.
 
 =item B<checkEmail> = EMAIL
 
@@ -657,6 +658,9 @@ powinien mieć wyłącznie właściciel pliku.  W systemie Unix można to osiąg
 komendą:
 
     chmod 600 keyfile
+
+Jeżeli używane jest sprzętowe urządzenie kryptograficzne, to opcja B<key>
+pozwala wybrać identyfikator używanego klucza prywatnego.
 
 domyślnie: wartość opcji I<cert>
 
@@ -1062,9 +1066,9 @@ Oryginalny adres docelowy jest używany zamiast opcji I<connect>.
 Przykładowana konfiguracja przezroczystego adresu docelowego:
 
     [transparent]
-    client=yes
-    accept=<port_stunnela>
-    transparent=destination
+    client = yes
+    accept = <port_stunnela>
+    transparent = destination
 
 Konfiguracja wymaga ustawień iptables, na przykład w pliku
 /etc/rc.local lub analogicznym.

@@ -71,9 +71,10 @@ NOEXPORT unsigned psk_client_callback(SSL *, const char *,
 NOEXPORT unsigned psk_server_callback(SSL *, const char *,
     unsigned char *, unsigned);
 #endif /* !defined(OPENSSL_NO_PSK) */
-NOEXPORT int load_cert(SERVICE_OPTIONS *);
+NOEXPORT int load_cert_file(SERVICE_OPTIONS *);
 NOEXPORT int load_key_file(SERVICE_OPTIONS *);
 #ifndef OPENSSL_NO_ENGINE
+NOEXPORT int load_cert_engine(SERVICE_OPTIONS *);
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
 #endif
 NOEXPORT int password_cb(char *, int, int, void *);
@@ -415,19 +416,40 @@ NOEXPORT int conf_init(SERVICE_OPTIONS *section) {
 /**************************************** initialize authentication */
 
 NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
-    int result;
+    int cert_needed=1, key_needed=1;
 
-    result=load_cert(section);
 #ifndef OPENSSL_NO_PSK
     if(section->psk_keys) {
         if(section->option.client)
             SSL_CTX_set_psk_client_callback(section->ctx, psk_client_callback);
         else
             SSL_CTX_set_psk_server_callback(section->ctx, psk_server_callback);
-        result=0;
     }
 #endif /* !defined(OPENSSL_NO_PSK) */
-    return result;
+
+    /* load the certificate and private key */
+    if(!section->cert || !section->key) {
+        s_log(LOG_DEBUG, "No certificate or private key specified");
+        return 0; /* OK */
+    }
+#ifndef OPENSSL_NO_ENGINE
+    if(section->engine) { /* try to use the engine first */
+        cert_needed=load_cert_engine(section);
+        key_needed=load_key_engine(section);
+    }
+#endif
+    if(cert_needed && load_cert_file(section))
+        return 1; /* FAILED */
+    if(key_needed && load_key_file(section))
+        return 1; /* FAILED */
+
+    /* validate the private key against the certificate */
+    if(!SSL_CTX_check_private_key(section->ctx)) {
+        sslerror("Private key does not match the certificate");
+        return 1; /* FAILED */
+    }
+    s_log(LOG_DEBUG, "Private key check succeeded");
+    return 0; /* OK */
 }
 
 #ifndef OPENSSL_NO_PSK
@@ -538,50 +560,25 @@ PSK_KEYS *psk_find(const PSK_TABLE *table, const char *identity) {
 
 #endif /* !defined(OPENSSL_NO_PSK) */
 
-static int cache_initialized=0;
-
-NOEXPORT int load_cert(SERVICE_OPTIONS *section) {
-    /* load the certificate */
-    if(section->cert) {
-        s_log(LOG_INFO, "Loading certificate from file: %s", section->cert);
-        if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
-            sslerror("SSL_CTX_use_certificate_chain_file");
-            return 1; /* FAILED */
-        }
-    }
-
-    /* load the private key */
-    if(!section->key) {
-        s_log(LOG_DEBUG, "No private key specified");
-        return 0; /* OK */
-    }
-#ifndef OPENSSL_NO_ENGINE
-    if(section->engine) {
-        if(load_key_engine(section))
-            return 1; /* FAILED */
-    } else
-#endif
-    {
-        if(load_key_file(section))
-            return 1; /* FAILED */
-    }
-
-    /* validate the private key */
-    if(!SSL_CTX_check_private_key(section->ctx)) {
-        sslerror("Private key does not match the certificate");
+NOEXPORT int load_cert_file(SERVICE_OPTIONS *section) {
+    s_log(LOG_INFO, "Loading certificate from file: %s", section->cert);
+    if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
+        sslerror("SSL_CTX_use_certificate_chain_file");
         return 1; /* FAILED */
     }
-    s_log(LOG_DEBUG, "Private key check succeeded");
+    s_log(LOG_INFO, "Certificate loaded from file: %s", section->cert);
     return 0; /* OK */
 }
+
+static int cache_initialized=0;
 
 NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
     int i, reason;
     UI_DATA ui_data;
 
-    s_log(LOG_INFO, "Loading key from file: %s", section->key);
+    s_log(LOG_INFO, "Loading private key from file: %s", section->key);
     if(file_permissions(section->key))
-        return 1;
+        return 1; /* FAILED */
 
     ui_data.section=section; /* setup current section for callbacks */
     SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
@@ -603,17 +600,41 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
         sslerror("SSL_CTX_use_PrivateKey_file");
         return 1; /* FAILED */
     }
+    s_log(LOG_INFO, "Private key loaded from file: %s", section->key);
     return 0; /* OK */
 }
 
 #ifndef OPENSSL_NO_ENGINE
+
+NOEXPORT int load_cert_engine(SERVICE_OPTIONS *section) {
+    struct {
+        const char *id;
+        X509 *cert;
+    } parms;
+
+    s_log(LOG_INFO, "Loading certificate from engine ID: %s", section->cert);
+    parms.id=section->cert;
+    parms.cert=NULL;
+    ENGINE_ctrl_cmd(section->engine, "LOAD_CERT_CTRL", 0, &parms, NULL, 1);
+    if(!parms.cert) {
+        sslerror("ENGINE_ctrl_cmd");
+        return 1; /* FAILED */
+    }
+    if(!SSL_CTX_use_certificate(section->ctx, parms.cert)) {
+        sslerror("SSL_CTX_use_certificate");
+        return 1; /* FAILED */
+    }
+    s_log(LOG_INFO, "Certificate loaded from engine ID: %s", section->cert);
+    return 0; /* OK */
+}
+
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
     int i, reason;
     UI_DATA ui_data;
     EVP_PKEY *pkey;
     UI_METHOD *ui_method;
 
-    s_log(LOG_INFO, "Loading key from engine: %s", section->key);
+    s_log(LOG_INFO, "Initializing private key on engine ID: %s", section->key);
 
     ui_data.section=section; /* setup current section for callbacks */
     SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
@@ -644,8 +665,10 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
         sslerror("SSL_CTX_use_PrivateKey");
         return 1; /* FAILED */
     }
+    s_log(LOG_INFO, "Private key initialized on engine ID: %s", section->key);
     return 0; /* OK */
 }
+
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
 NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {

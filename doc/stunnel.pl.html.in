@@ -264,19 +264,17 @@
 
 <p>domy&#x15B;lnie: bez wykorzystania urz&#x105;dze&#x144; kryptograficznych</p>
 
-<p>Przyk&#x142;adowa konfiguracja umo&#x17C;liwiaj&#x105;ca odczytanie klucza prywatnego z urz&#x105;dzenia zgodnego z OpenSC:</p>
+<p>Przyk&#x142;adowa konfiguracja umo&#x17C;liwiaj&#x105;ca u&#x17C;ycie certyfikatu i klucza prywatnego z urz&#x105;dzenia zgodnego z OpenSC:</p>
 
-<pre><code>    engine=dynamic
-    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-    engineCtrl=ID:pkcs11
-    engineCtrl=LIST_ADD:1
-    engineCtrl=LOAD
-    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
-    engineCtrl=INIT
+<pre><code>    engine = dynamic
+    engineCtrl = SO_PATH:/usr/local/lib/engines/libpkcs11.so
+    engineCtrl = LOAD
+    engineCtrl = MODULE_PATH:opensc-pkcs11.so
+    engineCtrl = PIN:123456
 
     [service]
-    engineNum=1
-    key=id_45</code></pre>
+    engineId = pkcs11
+    cert = id_45</code></pre>
 
 </dd>
 <dt id="engineCtrl-KOMENDA-:PARAMETR"><b>engineCtrl</b> = KOMENDA[:PARAMETR]</dt>
@@ -284,7 +282,7 @@
 
 <p>konfiguracja urz&#x105;dzenia kryptograficznego</p>
 
-<p>Specjalne komendy &quot;LOAD&quot; i &quot;INIT&quot; pozwalaj&#x105; na za&#x142;adowanie i inicjalizacj&#x119; modu&#x142;u kryptograficznego urz&#x105;dzenia.</p>
+<p>Specjalna komenda &quot;LOAD&quot; pozwala na za&#x142;adowanie modu&#x142;u urz&#x105;dzenia kryptograficznego.</p>
 
 </dd>
 <dt id="engineDefault-LISTA_ZADA"><b>engineDefault</b> = LISTA_ZADA&#x143;</dt>
@@ -493,6 +491,8 @@
 <p>plik z &#x142;a&#x144;cuchem certyfikat&oacute;w</p>
 
 <p>Opcja okre&#x15B;la po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez program <b>stunnel</b> do uwierzytelnienia si&#x119; przed drug&#x105; stron&#x105; po&#x142;&#x105;czenia. Certyfikat jest konieczny, aby u&#x17C;ywa&#x107; programu w trybie serwera. W trybie klienta certyfikat jest opcjonalny.</p>
+
+<p>Je&#x17C;eli u&#x17C;ywane jest sprz&#x119;towe urz&#x105;dzenie kryptograficzne, to opcja <b>cert</b> pozwala wybra&#x107; identyfikator u&#x17C;ywanego certyfikatu.</p>
 
 </dd>
 <dt id="checkEmail-EMAIL"><b>checkEmail</b> = EMAIL</dt>
@@ -716,6 +716,8 @@
 <p>Klucz prywatny jest potrzebny do uwierzytelnienia w&#x142;a&#x15B;ciciela certyfikatu. Poniewa&#x17C; powinien on by&#x107; zachowany w tajemnicy, prawa do jego odczytu powinien mie&#x107; wy&#x142;&#x105;cznie w&#x142;a&#x15B;ciciel pliku. W systemie Unix mo&#x17C;na to osi&#x105;gn&#x105;&#x107; komend&#x105;:</p>
 
 <pre><code>    chmod 600 keyfile</code></pre>
+
+<p>Je&#x17C;eli u&#x17C;ywane jest sprz&#x119;towe urz&#x105;dzenie kryptograficzne, to opcja <b>key</b> pozwala wybra&#x107; identyfikator u&#x17C;ywanego klucza prywatnego.</p>
 
 <p>domy&#x15B;lnie: warto&#x15B;&#x107; opcji <i>cert</i></p>
 
@@ -1164,9 +1166,9 @@
 <p>Przyk&#x142;adowana konfiguracja przezroczystego adresu docelowego:</p>
 
 <pre><code>    [transparent]
-    client=yes
-    accept=&lt;port_stunnela&gt;
-    transparent=destination</code></pre>
+    client = yes
+    accept = &lt;port_stunnela&gt;
+    transparent = destination</code></pre>
 
 <p>Konfiguracja wymaga ustawie&#x144; iptables, na przyk&#x142;ad w pliku /etc/rc.local lub analogicznym.</p>
 

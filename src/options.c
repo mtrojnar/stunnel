@@ -190,7 +190,6 @@ NOEXPORT char *engine_open(const char *);
 NOEXPORT char *engine_ctrl(const char *, const char *);
 NOEXPORT char *engine_default(const char *);
 NOEXPORT char *engine_init(void);
-NOEXPORT void engine_next(void);
 NOEXPORT ENGINE *engine_get_by_id(const char *);
 NOEXPORT ENGINE *engine_get_by_num(const int);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
@@ -658,8 +657,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else
             return engine_open(arg);
     case CMD_END:
-        engine_next();
-        break;
+        return engine_init();
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -3365,15 +3363,16 @@ static int engine_initialized;
 
 NOEXPORT void engine_reset_list(void) {
     current_engine=-1;
+    engine_initialized=1;
 }
 
 NOEXPORT char *engine_auto(void) {
     ENGINE *e;
 
-    s_log(LOG_DEBUG, "Enabling automatic engine support");
+    s_log(LOG_INFO, "Enabling automatic engine support");
     ENGINE_register_all_complete();
-    current_engine=-1;
     /* rebuild the internal list of engines */
+    engine_reset_list();
     for(e=ENGINE_get_first(); e; e=ENGINE_get_next(e)) {
         if(++current_engine>=MAX_ENGINES)
             return "Too many open engines";
@@ -3381,22 +3380,21 @@ NOEXPORT char *engine_auto(void) {
         s_log(LOG_INFO, "Engine #%d (%s) registered",
             current_engine+1, ENGINE_get_id(e));
     }
-    engine_initialized=1;
-    s_log(LOG_DEBUG, "Automatic engine support enabled");
+    s_log(LOG_INFO, "Automatic engine support enabled");
     return NULL; /* OK */
 }
 
 NOEXPORT char *engine_open(const char *name) {
-    engine_next();
-    if(current_engine>=MAX_ENGINES)
+    engine_init(); /* initialize the previous engine (if any) */
+    if(++current_engine>=MAX_ENGINES)
         return "Too many open engines";
     s_log(LOG_DEBUG, "Enabling support for engine \"%s\"", name);
     engines[current_engine]=ENGINE_by_id(name);
-    engine_initialized=0;
     if(!engines[current_engine]) {
         sslerror("ENGINE_by_id");
         return "Failed to open the engine";
     }
+    engine_initialized=0;
     return NULL; /* OK */
 }
 
@@ -3429,9 +3427,7 @@ NOEXPORT char *engine_default(const char *list) {
 }
 
 NOEXPORT char *engine_init(void) {
-    if(current_engine<0)
-        return "No engine was defined";
-    if(engine_initialized)
+    if(engine_initialized) /* either first or already initialized */
         return NULL; /* OK */
     s_log(LOG_DEBUG, "Initializing engine #%d (%s)",
         current_engine+1, ENGINE_get_id(engines[current_engine]));
@@ -3457,23 +3453,17 @@ NOEXPORT char *engine_init(void) {
     return NULL; /* OK */
 }
 
-NOEXPORT void engine_next(void) {
-    if(current_engine>=0)
-        engine_init();
-    ++current_engine;
-}
-
 NOEXPORT ENGINE *engine_get_by_id(const char *id) {
     int i;
 
-    for(i=0; i<current_engine; ++i)
+    for(i=0; i<=current_engine; ++i)
         if(!strcmp(id, ENGINE_get_id(engines[i])))
             return engines[i];
     return NULL;
 }
 
 NOEXPORT ENGINE *engine_get_by_num(const int i) {
-    if(i<0 || i>=current_engine)
+    if(i<0 || i>current_engine)
         return NULL;
     return engines[i];
 }

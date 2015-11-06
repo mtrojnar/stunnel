@@ -1,5 +1,9 @@
 stunnel change log
 
+Version 5.27, unreleased, urgency: LOW
+* New features
+* Bugfixes
+
 Version 5.26, 2015.11.06, urgency: MEDIUM
 * Bugfixes
   - Compilation fixes for OSX, *BSD and Solaris.

@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.11.02" "5.26" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.11.06" "5.27" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -223,28 +223,25 @@ select hardware engine
 .Sp
 default: software-only cryptography
 .Sp
-Here is an example of advanced engine configuration to read the private key from an
-OpenSC engine
+An example of advanced engine configuration to use the certificate and the
+corresponding private key from an OpenSC PKCS#11 engine:
 .Sp
-.Vb 7
-\&    engine=dynamic
-\&    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-\&    engineCtrl=ID:pkcs11
-\&    engineCtrl=LIST_ADD:1
-\&    engineCtrl=LOAD
-\&    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc\-pkcs11.so
-\&    engineCtrl=INIT
+.Vb 5
+\&    engine = dynamic
+\&    engineCtrl = SO_PATH:/usr/local/lib/engines/libpkcs11.so
+\&    engineCtrl = LOAD
+\&    engineCtrl = MODULE_PATH:opensc\-pkcs11.so
+\&    engineCtrl = PIN:123456
 \&
 \&    [service]
-\&    engineNum=1
-\&    key=id_45
+\&    engineId = pkcs11
+\&    cert = id_45
 .Ve
 .IP "\fBengineCtrl\fR = COMMAND[:PARAMETER]" 4
 .IX Item "engineCtrl = COMMAND[:PARAMETER]"
 control hardware engine
 .Sp
-Special commands \*(L"\s-1LOAD\*(R"\s0 and \*(L"\s-1INIT\*(R"\s0 can be used to load and initialize the
-engine cryptogaphic module.
+A special command \*(L"\s-1LOAD\*(R"\s0 can be used to load engine cryptographic module.
 .IP "\fBengineDefault\fR = \s-1TASK_LIST\s0" 4
 .IX Item "engineDefault = TASK_LIST"
 set OpenSSL tasks delegated to the current engine
@@ -416,6 +413,9 @@ The certificates must be in \s-1PEM\s0 format, and must be from the
 actual server/client certificate to the self-signed root \s-1CA\s0 certificate.
 .Sp
 A certificate is required in server mode, and optional in client mode.
+.Sp
+This parameter is also used as the certificate identifier when a hardware
+engine is enabled.
 .IP "\fBcheckEmail\fR = \s-1EMAIL\s0" 4
 .IX Item "checkEmail = EMAIL"
 email address of the peer certificate subject
@@ -610,6 +610,9 @@ by its owner.  On Unix systems you can use the following command:
 \&    chmod 600 keyfile
 .Ve
 .Sp
+This parameter is also used as the private key identifier when a hardware
+engine is enabled.
+.Sp
 default: the value of the \fIcert\fR option
 .IP "\fBlibwrap\fR = yes | no" 4
 .IX Item "libwrap = yes | no"
@@ -618,8 +621,8 @@ Enable or disable the use of /etc/hosts.allow and /etc/hosts.deny.
 default: no (since version 5.00)
 .IP "\fBlocal\fR = \s-1HOST\s0" 4
 .IX Item "local = HOST"
-By default, the \s-1IP\s0 address of the outgoing interface is used as the source for remote connections.
-Use this option to bind a static local \s-1IP\s0 address instead.
+By default, the \s-1IP\s0 address of the outgoing interface is used as the source for
+remote connections.  Use this option to bind a static local \s-1IP\s0 address instead.
 .IP "\fBsni\fR = \s-1SERVICE:SERVER_PATTERN \s0(server mode)" 4
 .IX Item "sni = SERVICE:SERVER_PATTERN (server mode)"
 Use the service as a slave service (a name-based virtual server) for Server
@@ -975,9 +978,9 @@ A service section for transparent destination may look like this:
 .Sp
 .Vb 4
 \&    [transparent]
-\&    client=yes
-\&    accept=<stunnel_port>
-\&    transparent=destination
+\&    client = yes
+\&    accept = <stunnel_port>
+\&    transparent = destination
 .Ve
 .Sp
 This configuration requires iptables setup to work,

@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2015.11.02" "5.26" "stunnel TLS Proxy"
+.TH stunnel 8 "2015.11.06" "5.27" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -226,28 +226,26 @@ wybór sprzętowego urządzenia kryptograficznego
 .Sp
 domyślnie: bez wykorzystania urządzeń kryptograficznych
 .Sp
-Przykładowa konfiguracja umożliwiająca odczytanie klucza prywatnego z
+Przykładowa konfiguracja umożliwiająca użycie certyfikatu i klucza prywatnego z
 urządzenia zgodnego z OpenSC:
 .Sp
-.Vb 7
-\&    engine=dynamic
-\&    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-\&    engineCtrl=ID:pkcs11
-\&    engineCtrl=LIST_ADD:1
-\&    engineCtrl=LOAD
-\&    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc\-pkcs11.so
-\&    engineCtrl=INIT
+.Vb 5
+\&    engine = dynamic
+\&    engineCtrl = SO_PATH:/usr/local/lib/engines/libpkcs11.so
+\&    engineCtrl = LOAD
+\&    engineCtrl = MODULE_PATH:opensc\-pkcs11.so
+\&    engineCtrl = PIN:123456
 \&
 \&    [service]
-\&    engineNum=1
-\&    key=id_45
+\&    engineId = pkcs11
+\&    cert = id_45
 .Ve
 .IP "\fBengineCtrl\fR = KOMENDA[:PARAMETR]" 4
 .IX Item "engineCtrl = KOMENDA[:PARAMETR]"
 konfiguracja urządzenia kryptograficznego
 .Sp
-Specjalne komendy \*(L"\s-1LOAD\*(R"\s0 i \*(L"\s-1INIT\*(R"\s0 pozwalają na załadowanie i inicjalizację
-modułu kryptograficznego urządzenia.
+Specjalna komenda \*(L"\s-1LOAD\*(R"\s0 pozwala na załadowanie modułu urządzenia
+kryptograficznego.
 .IP "\fBengineDefault\fR = LISTA_ZADAŃ" 4
 .IX Item "engineDefault = LISTA_ZADAŃ"
 lista zadań OpenSSL oddelegowanych do bieżącego urządzenia
@@ -428,6 +426,9 @@ Opcja określa położenie pliku zawierającego certyfikaty używane przez
 program \fBstunnel\fR do uwierzytelnienia się przed drugą stroną połączenia.
 Certyfikat jest konieczny, aby używać programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
+.Sp
+Jeżeli używane jest sprzętowe urządzenie kryptograficzne, to opcja \fBcert\fR
+pozwala wybrać identyfikator używanego certyfikatu.
 .IP "\fBcheckEmail\fR = \s-1EMAIL\s0" 4
 .IX Item "checkEmail = EMAIL"
 adres email przedstawionego certyfikatu
@@ -630,6 +631,9 @@ komendą:
 .Vb 1
 \&    chmod 600 keyfile
 .Ve
+.Sp
+Jeżeli używane jest sprzętowe urządzenie kryptograficzne, to opcja \fBkey\fR
+pozwala wybrać identyfikator używanego klucza prywatnego.
 .Sp
 domyślnie: wartość opcji \fIcert\fR
 .IP "\fBlibwrap\fR = yes | no" 4
@@ -993,9 +997,9 @@ Przykładowana konfiguracja przezroczystego adresu docelowego:
 .Sp
 .Vb 4
 \&    [transparent]
-\&    client=yes
-\&    accept=<port_stunnela>
-\&    transparent=destination
+\&    client = yes
+\&    accept = <port_stunnela>
+\&    transparent = destination
 .Ve
 .Sp
 Konfiguracja wymaga ustawień iptables, na przykład w pliku

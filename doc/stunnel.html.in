@@ -266,19 +266,17 @@
 
 <p>default: software-only cryptography</p>
 
-<p>Here is an example of advanced engine configuration to read the private key from an OpenSC engine</p>
+<p>An example of advanced engine configuration to use the certificate and the corresponding private key from an OpenSC PKCS#11 engine:</p>
 
-<pre><code>    engine=dynamic
-    engineCtrl=SO_PATH:/usr/lib/opensc/engine_pkcs11.so
-    engineCtrl=ID:pkcs11
-    engineCtrl=LIST_ADD:1
-    engineCtrl=LOAD
-    engineCtrl=MODULE_PATH:/usr/lib/pkcs11/opensc-pkcs11.so
-    engineCtrl=INIT
+<pre><code>    engine = dynamic
+    engineCtrl = SO_PATH:/usr/local/lib/engines/libpkcs11.so
+    engineCtrl = LOAD
+    engineCtrl = MODULE_PATH:opensc-pkcs11.so
+    engineCtrl = PIN:123456
 
     [service]
-    engineNum=1
-    key=id_45</code></pre>
+    engineId = pkcs11
+    cert = id_45</code></pre>
 
 </dd>
 <dt id="engineCtrl-COMMAND-:PARAMETER"><b>engineCtrl</b> = COMMAND[:PARAMETER]</dt>
@@ -286,7 +284,7 @@
 
 <p>control hardware engine</p>
 
-<p>Special commands &quot;LOAD&quot; and &quot;INIT&quot; can be used to load and initialize the engine cryptogaphic module.</p>
+<p>A special command &quot;LOAD&quot; can be used to load engine cryptographic module.</p>
 
 </dd>
 <dt id="engineDefault-TASK_LIST"><b>engineDefault</b> = TASK_LIST</dt>
@@ -493,6 +491,8 @@
 <p>The certificates must be in PEM format, and must be from the actual server/client certificate to the self-signed root CA certificate.</p>
 
 <p>A certificate is required in server mode, and optional in client mode.</p>
+
+<p>This parameter is also used as the certificate identifier when a hardware engine is enabled.</p>
 
 </dd>
 <dt id="checkEmail-EMAIL"><b>checkEmail</b> = EMAIL</dt>
@@ -718,6 +718,8 @@
 <p>A private key is needed to authenticate the certificate owner. Since this file should be kept secret it should only be readable by its owner. On Unix systems you can use the following command:</p>
 
 <pre><code>    chmod 600 keyfile</code></pre>
+
+<p>This parameter is also used as the private key identifier when a hardware engine is enabled.</p>
 
 <p>default: the value of the <i>cert</i> option</p>
 
@@ -1166,9 +1168,9 @@
 <p>A service section for transparent destination may look like this:</p>
 
 <pre><code>    [transparent]
-    client=yes
-    accept=&lt;stunnel_port&gt;
-    transparent=destination</code></pre>
+    client = yes
+    accept = &lt;stunnel_port&gt;
+    transparent = destination</code></pre>
 
 <p>This configuration requires iptables setup to work, possibly in /etc/rc.local or equivalent file.</p>
 
