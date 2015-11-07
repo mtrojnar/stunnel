@@ -393,7 +393,7 @@ check_ssl_dir() { :
 find_ssl_dir() { :
     stunnel_prefix="$prefix"
     test "x$stunnel_prefix" = "xNONE" && stunnel_prefix=$ac_default_prefix
-    for main_dir in "$stunnel_prefix" "/usr/local" "/usr/lib" "/usr/pkg" "/opt/local" "/opt" "/usr" ""; do
+    for main_dir in "$stunnel_prefix" "/usr/local" "/usr/lib" "/usr/pkg" "/opt/local" "/opt" "/opt/csw" "/usr" ""; do
         for sub_dir in "/ssl" "/openssl" "/ossl" ""; do
             check_ssl_dir "$sysroot$main_dir$sub_dir"
             test -n "$SSLDIR" && return

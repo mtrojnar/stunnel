@@ -22,8 +22,15 @@
  
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=../openssl-1.0.0f
-#SSLDIR=C:/Users/standard/Documents/Dvts/Contrib/openssl/v1.0.0c/patched3
+SSLDIR=../../openssl-0.9.8zg
+
+# For mingw compiled openssl
+SSLINC=$(SSLDIR)/outinc
+SSLLIBS=-L$(SSLDIR)/out -leay32 -lssl32
+
+# For MSVC compiled openssl
+#SSLINC=$(SSLDIR)/inc32
+#SSLLIBS=-L$(SSLDIR)/out32dll -lssleay32 -llibeay32
 
 # c:\, backslash is not correctly recognized by mingw32-make, produces some
 # "missing separator" issue.
@@ -39,12 +46,14 @@ NULLDEV=NUL
 MKDIR="C:\Program Files\GnuWin32\bin\mkdir.exe"
 DELFILES="C:\Program Files\GnuWin32\bin\rm.exe" -f
 DELDIR="C:\Program Files\GnuWin32\bin\rm.exe" -rf
+COPYFILES="C:\Program Files\GnuWin32\bin\cp.exe" -f
 else
 $(info  host machine is a linux machine )
 NULLDEV=/dev/null
 MKDIR=mkdir
 DELFILES=rm -f
 DELDIR=rm -rf
+COPYFILES=cp -f
 endif
 
 TARGETCPU=MGW32
@@ -71,9 +80,7 @@ DEFINES=-D_WIN32_WINNT=0x0501
 
 # some preprocessing debug : $(info  DEFINES is $(DEFINES) )
 
-#CFLAGS=-g -O2 -Wall $(DEFINES) -I$(SSLDIR)/outinc
-#pdelaage : outinc not correct, it is inc32!
-CFLAGS=-g -O2 -Wall $(DEFINES) -I$(SSLDIR)/inc32
+CFLAGS=-g -O2 -Wall $(DEFINES) -I$(SSLINC)
 
 # RFLAGS, note of pdelaage: windres accepts -fo for compatibility with ms tools
 # default options : -J rc -O coff, input rc file, output coff file.
@@ -83,10 +90,7 @@ RFLAGS=-v --use-temp-file $(DEFINES)
 RFLAGS2=-v $(DEFINES)
 LDFLAGS=-s
 
-# LIBS=-L$(SSLDIR)/out -lssl -lcrypto -lwsock32 -lgdi32 -lcrypt32
-#20101030 pdelaage fix winsock2 and BAD sslpath  ! LIBS=-L$(SSLDIR)/out -lzdll -leay32 -lssl32 -lwsock32 -lgdi32 -lcrypt32
-# added libeay instead of eay, ssleay instead of ssl32, suppressed zdll useless.
-LIBS=-L$(SSLDIR)/out32dll -lssleay32 -llibeay32 -lws2_32 -lpsapi -lgdi32 -lcrypt32
+LIBS=$(SSLLIBS) -lws2_32 -lpsapi -lgdi32 -lcrypt32
 # IMPORTANT pdelaage : restore this if you need (but I do not see why) -lzdll
 
 $(OBJ)/%.o: $(SRC)/%.c
@@ -116,10 +120,15 @@ $(OBJ)/%.o: $(OBJ)/%.rcp
 
 all: testenv makedirs $(BIN)/stunnel.exe
 
+testopenssl:
+	@if not exist $(SSLDIR) echo You mush have a compiled OpenSSL tree
+	@if not exist $(SSLINC)/openssl/applink.c $(COPYFILES) $(SSLDIR)/ms/applink.c $(SSLINC)/openssl
+
+
 #pdelaage : testenv purpose is to detect, on windows, whether Gnu-win32 has been properly installed...
 # a first call to "true" is made to detect availability, a second is made to stop the make process.
 ifdef windir
-testenv:
+testenv: testopenssl
 	-@ echo OFF
 	-@ true >$(NULLDEV) 2>&1 || echo You MUST install Gnu-Win32 coreutils \
 	from http://gnuwin32.sourceforge.net/downlinks/coreutils.php \

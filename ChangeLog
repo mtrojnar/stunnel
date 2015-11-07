@@ -3,7 +3,9 @@ stunnel change log
 Version 5.27, unreleased, urgency: LOW
 * New features
   - Added reading server certificates from hardware engines.
-    Example: cert = id_45
+    For example: cert = id_45
+  - /opt/csw added to the OpenSSL directory lookup list.
+  - mingw.mak updates (thx to Jose Alf.).
 * Bugfixes
 
 Version 5.26, 2015.11.06, urgency: MEDIUM
