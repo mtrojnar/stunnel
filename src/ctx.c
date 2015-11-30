@@ -79,12 +79,15 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
 #endif
 NOEXPORT int password_cb(char *, int, int, void *);
 
-/* session cache callbacks */
+/* session callbacks */
 NOEXPORT int sess_new_cb(SSL *, SSL_SESSION *);
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *, unsigned char *, int, int *);
 NOEXPORT void sess_remove_cb(SSL_CTX *, SSL_SESSION *);
 
 /* sessiond interface */
+NOEXPORT void cache_new(SSL *, SSL_SESSION *);
+NOEXPORT SSL_SESSION *cache_get(SSL *, unsigned char *, int);
+NOEXPORT void cache_remove(SSL_CTX *, SSL_SESSION *);
 NOEXPORT void cache_transfer(SSL_CTX *, const u_char, const long,
     const u_char *, const size_t,
     const u_char *, const size_t,
@@ -160,11 +163,9 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
 #endif
     SSL_CTX_sess_set_cache_size(section->ctx, section->session_size);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
-    if(section->option.sessiond) {
-        SSL_CTX_sess_set_new_cb(section->ctx, sess_new_cb);
-        SSL_CTX_sess_set_get_cb(section->ctx, sess_get_cb);
-        SSL_CTX_sess_set_remove_cb(section->ctx, sess_remove_cb);
-    }
+    SSL_CTX_sess_set_new_cb(section->ctx, sess_new_cb);
+    SSL_CTX_sess_set_get_cb(section->ctx, sess_get_cb);
+    SSL_CTX_sess_set_remove_cb(section->ctx, sess_remove_cb);
 
     /* set info callback */
     SSL_CTX_set_info_callback(section->ctx, info_callback);
@@ -694,7 +695,40 @@ NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
     return len;
 }
 
-/**************************************** session cache callbacks */
+/**************************************** session callbacks */
+
+NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
+    CLI *c;
+
+    s_log(LOG_DEBUG, "New session callback");
+    c=SSL_get_ex_data(ssl, index_cli);
+    if(c->opt->option.sessiond)
+        cache_new(ssl, sess);
+    return 1; /* leave the session in local cache for reuse */
+}
+
+NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
+        unsigned char *key, int key_len, int *do_copy) {
+    CLI *c;
+
+    s_log(LOG_DEBUG, "Get session callback");
+    *do_copy=0; /* allow the session to be freed automatically */
+    c=SSL_get_ex_data(ssl, index_cli);
+    if(c->opt->option.sessiond)
+        return cache_get(ssl, key, key_len);
+    return NULL; /* no session to resume */
+}
+
+NOEXPORT void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
+    SERVICE_OPTIONS *opt;
+
+    s_log(LOG_DEBUG, "Remove session callback");
+    opt=SSL_CTX_get_ex_data(ctx, index_opt);
+    if(opt->option.sessiond)
+        cache_remove(ctx, sess);
+}
+
+/**************************************** sessiond functionality */
 
 #define CACHE_CMD_NEW     0x00
 #define CACHE_CMD_GET     0x01
@@ -702,7 +736,7 @@ NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
 #define CACHE_RESP_ERR    0x80
 #define CACHE_RESP_OK     0x81
 
-NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
+NOEXPORT void cache_new(SSL *ssl, SSL_SESSION *sess) {
     unsigned char *val, *val_tmp;
     ssize_t val_len;
     const unsigned char *session_id;
@@ -722,16 +756,14 @@ NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
         SSL_SESSION_get_timeout(sess),
         session_id, session_id_length, val, (size_t)val_len, NULL, NULL);
     str_free(val);
-    return 1; /* leave the session in local cache for reuse */
 }
 
-NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
-        unsigned char *key, int key_len, int *do_copy) {
+NOEXPORT SSL_SESSION *cache_get(SSL *ssl,
+        unsigned char *key, int key_len) {
     unsigned char *val, *val_tmp=NULL;
     ssize_t val_len=0;
     SSL_SESSION *sess;
 
-    *do_copy = 0; /* allow the session to be freed autmatically */
     cache_transfer(SSL_get_SSL_CTX(ssl), CACHE_CMD_GET, 0,
         key, (size_t)key_len, NULL, 0, &val, (size_t *)&val_len);
     if(!val)
@@ -746,7 +778,7 @@ NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
     return sess;
 }
 
-NOEXPORT void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
+NOEXPORT void cache_remove(SSL_CTX *ctx, SSL_SESSION *sess) {
     const unsigned char *session_id;
     unsigned int session_id_length;
 

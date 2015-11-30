@@ -4,6 +4,8 @@ Version 5.27, unreleased, urgency: LOW
 * New features
   - Added reading server certificates from hardware engines.
     For example: cert = id_45
+  - Only attempt to use potentially harmful compiler or linker
+    options if gcc was detected.
   - /opt/csw added to the OpenSSL directory lookup list.
   - mingw.mak updates (thx to Jose Alf.).
 * Bugfixes

@@ -38,7 +38,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-    /* global OpenSSL initalization: compression, engine, entropy */
+    /* global OpenSSL initialization: compression, engine, entropy */
 NOEXPORT void cb_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
     int idx, long argl, void *argp);
 #ifndef OPENSSL_NO_COMP

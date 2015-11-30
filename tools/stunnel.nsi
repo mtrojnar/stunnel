@@ -155,14 +155,34 @@ no_service_restart:
   # current versions
   Delete "$INSTDIR\config\openssl.cnf"
 
-  Delete "$INSTDIR\bin\*.exe"
-  Delete "$INSTDIR\bin\*.dll"
-  Delete "$INSTDIR\bin\*.manifest"
-  Delete "$INSTDIR\bin\*.pdb"
+  Delete "$INSTDIR\bin\stunnel.exe"
+  Delete "$INSTDIR\bin\stunnel.pdb"
+  Delete "$INSTDIR\bin\tstunnel.exe"
+  Delete "$INSTDIR\bin\tstunnel.pdb"
+  Delete "$INSTDIR\bin\openssl.exe"
+  Delete "$INSTDIR\bin\openssl.pdb"
+  Delete "$INSTDIR\bin\libeay32.dll"
+  Delete "$INSTDIR\bin\libeay32.pdb"
+  Delete "$INSTDIR\bin\ssleay32.dll"
+  Delete "$INSTDIR\bin\ssleay32.pdb"
+  Delete "$INSTDIR\bin\zlib1.dll"
+  Delete "$INSTDIR\bin\zlib1.pdb"
+  Delete "$INSTDIR\bin\msvcr90.dll"
+  Delete "$INSTDIR\bin\Microsoft.VC90.CRT.Manifest"
   RMDir "$INSTDIR\bin"
 
-  Delete "$INSTDIR\engines\*.dll"
-  Delete "$INSTDIR\engines\*.pdb"
+  Delete "$INSTDIR\engines\capi.dll"
+  Delete "$INSTDIR\engines\capi.pdb"
+  Delete "$INSTDIR\engines\chil.dll"
+  Delete "$INSTDIR\engines\chil.pdb"
+  Delete "$INSTDIR\engines\gmp.dll"
+  Delete "$INSTDIR\engines\gmp.pdb"
+  Delete "$INSTDIR\engines\gost.dll"
+  Delete "$INSTDIR\engines\gost.pdb"
+  Delete "$INSTDIR\engines\padlock.dll"
+  Delete "$INSTDIR\engines\padlock.pdb"
+  Delete "$INSTDIR\engines\ubsec.dll"
+  Delete "$INSTDIR\engines\ubsec.pdb"
   RMDir "$INSTDIR\engines"
 
   Delete "$INSTDIR\doc\*.html"
@@ -177,20 +197,16 @@ no_service_restart:
   # obsolete versions
   Delete "$INSTDIR\stunnel.exe"
   Delete "$INSTDIR\stunnel.pdb"
-
   Delete "$INSTDIR\tstunnel.exe"
   Delete "$INSTDIR\tstunnel.pdb"
-
   Delete "$INSTDIR\openssl.exe"
   Delete "$INSTDIR\openssl.pdb"
   Delete "$INSTDIR\libeay32.dll"
   Delete "$INSTDIR\libeay32.pdb"
   Delete "$INSTDIR\ssleay32.dll"
   Delete "$INSTDIR\ssleay32.pdb"
-
   Delete "$INSTDIR\zlib1.dll"
   Delete "$INSTDIR\zlib1.pdb"
-
   Delete "$INSTDIR\msvcr90.dll"
 
   Delete "$INSTDIR\openssl.cnf"
@@ -203,7 +219,7 @@ no_service_restart:
   Delete "$INSTDIR\libeay32.dll.manifest"
   Delete "$INSTDIR\ssleay32.dll.manifest"
   Delete "$INSTDIR\zlib1.dll.manifest"
-  Delete "$INSTDIR\Microsoft.VC90.CRT.manifest"
+  Delete "$INSTDIR\Microsoft.VC90.CRT.Manifest"
 
   Delete "$INSTDIR\4758cca.dll"
   Delete "$INSTDIR\4758cca.dll.manifest"
@@ -288,12 +304,17 @@ Section "Core Files" sectionCORE
   File "${OPENSSL_BIN_DIR}\ssleay32.dll"
   File "${ZLIB_DIR}\zlib1.dll"
   File "${REDIST_DIR}\msvcr90.dll"
-  File "${REDIST_DIR}\Microsoft.VC90.CRT.manifest"
+  File "${REDIST_DIR}\Microsoft.VC90.CRT.Manifest"
   # MINGW builds requires libssp-0.dll instead of msvcr90.dll
 
   # write new engine libraries
   SetOutPath "$INSTDIR\engines"
-  File "${OPENSSL_ENGINES_DIR}\*.dll"
+  File "${OPENSSL_ENGINES_DIR}\capi.dll"
+  File "${OPENSSL_ENGINES_DIR}\chil.dll"
+  File "${OPENSSL_ENGINES_DIR}\gmp.dll"
+  File "${OPENSSL_ENGINES_DIR}\gost.dll"
+  File "${OPENSSL_ENGINES_DIR}\padlock.dll"
+  File "${OPENSSL_ENGINES_DIR}\ubsec.dll"
 
   # write new documentation
   SetOutPath "$INSTDIR\doc"
@@ -457,7 +478,12 @@ no_openssl_pdb:
 
   # engines
   SetOutPath "$INSTDIR\engines"
-  File "${OPENSSL_ENGINES_DIR}\*.pdb"
+  File "${OPENSSL_ENGINES_DIR}\capi.pdb"
+  File "${OPENSSL_ENGINES_DIR}\chil.pdb"
+  File "${OPENSSL_ENGINES_DIR}\gmp.pdb"
+  File "${OPENSSL_ENGINES_DIR}\gost.pdb"
+  File "${OPENSSL_ENGINES_DIR}\padlock.pdb"
+  File "${OPENSSL_ENGINES_DIR}\ubsec.pdb"
   SetOutPath "$INSTDIR"
 SectionEnd
 

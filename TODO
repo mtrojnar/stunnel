@@ -3,6 +3,8 @@ stunnel TODO
 
 High priority features.  They will likely be supported some day.
 A sponsor could allocate my time to get them faster.
+* Add client certificate autoselection based on the list of accepted issuers:
+  SSL_CTX_set_client_cert_cb(), SSL_get_client_CA_list().
 * Add an Apparmor profile.
 * Optional line-buffering of the log file.
 * Log rotation on Windows.
@@ -17,18 +19,19 @@ A sponsor could allocate my time to get them faster.
 * Command-line server control interface on both Unix and Windows.
 * Separate GUI process running as current user on Windows.
 * An Android GUI.
+* OCSP stapling (tlsext_status).
+* Extend session tickets and/or sessiond to also serialize application
+  data ("redirect" state and session persistence).
 * Indirect CRL support (RFC 3280, section 5).
 * Provide 64-bit Windows builds (besides 32-bit builds).
   This requires either Microsoft Visual Studio Standard Edition or Microsoft
   Visual Studio Professional Edition in order to retain FIPS compliance.
 * MSI installer for Windows.
-* Database and/or directory interface for retrieving PSK secrets.
-* Extend session tickets and/or sessiond to also serialize application
-  data ("redirect" state and session persistence).
 * Add user-defined headers to CONNECT proxy requests.
   This can be used to impersonate other software (e.g. web browsers).
 
 Low priority features.  They will unlikely ever be supported.
+* Database and/or directory interface for retrieving PSK secrets.
 * Support static FIPS-enabled build.
 * Service-level logging destination.
 * Enforce key renegotiation (re-handshake) for long connections.

@@ -2485,7 +2485,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->option.sessiond=1;
 #ifdef SSL_OP_NO_TICKET
         /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
-        /* this prevents session callbacks from beeing executed */
+        /* this prevents session callbacks from being executed */
         section->ssl_options_set|=SSL_OP_NO_TICKET;
 #endif
         if(!name2addr(&section->sessiond_addr, arg, 0))
