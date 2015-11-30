@@ -886,6 +886,9 @@ sign: dist
 cert:
 	$(MAKE) -C tools cert
 
+test:
+	@echo "No tests are currently implemented"
+
 install-data-hook:
 	@echo "*********************************************************"
 	@echo "* Type 'make cert' to also install a sample certificate *"
