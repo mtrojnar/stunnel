@@ -359,7 +359,7 @@ top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = src doc tools
 EXTRA_DIST = PORTS BUGS COPYRIGHT.GPL CREDITS INSTALL.W32 INSTALL.WCE \
-	INSTALL.FIPS build-android.sh
+	INSTALL.FIPS build-android.sh .travis.yml
 doc_DATA = INSTALL README TODO COPYING AUTHORS ChangeLog PORTS BUGS \
 	COPYRIGHT.GPL CREDITS INSTALL.W32 INSTALL.WCE INSTALL.FIPS
 distcleancheck_listfiles = find -type f -exec sh -c 'test -f $(srcdir)/{} || echo {}' ';'

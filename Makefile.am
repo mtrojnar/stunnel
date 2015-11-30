@@ -11,7 +11,7 @@ libtool: $(LIBTOOL_DEPS)
 
 EXTRA_DIST = PORTS BUGS COPYRIGHT.GPL CREDITS
 EXTRA_DIST += INSTALL.W32 INSTALL.WCE INSTALL.FIPS
-EXTRA_DIST += build-android.sh
+EXTRA_DIST += build-android.sh .travis.yml
 
 docdir = $(datadir)/doc/stunnel
 doc_DATA = INSTALL README TODO COPYING AUTHORS ChangeLog
