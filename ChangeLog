@@ -1,14 +1,18 @@
 stunnel change log
 
-Version 5.27, unreleased, urgency: LOW
+Version 5.27, unreleased, urgency: MEDIUM
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.2e.
+    https://www.openssl.org/news/secadv_20151203.txt
 * New features
+  - Automated build testing configured with .travis.yml.
   - Added reading server certificates from hardware engines.
     For example: cert = id_45
   - Only attempt to use potentially harmful compiler or linker
     options if gcc was detected.
   - /opt/csw added to the OpenSSL directory lookup list.
   - mingw.mak updates (thx to Jose Alf.).
-* Bugfixes
+  - TODO list updated.
 
 Version 5.26, 2015.11.06, urgency: MEDIUM
 * Bugfixes

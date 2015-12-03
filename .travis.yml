@@ -12,4 +12,4 @@ before_install:
   - if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then sudo apt-get update -qq; fi
   - if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then sudo apt-get install -y libssl-dev libwrap0-dev; fi
 
-before_script: autoreconf -fvi
+before_script: autoreconf -fvi && touch src/dhparam.c

@@ -124,7 +124,7 @@ NOEXPORT void cron_worker(void) {
     time_t now, then;
     int delay;
 
-    s_log(LOG_DEBUG, "Cron started");
+    s_log(LOG_DEBUG, "Cron thread initialized");
     sleep(60); /* allow the other services to start with idle CPU */
     time(&then);
     for(;;) {
