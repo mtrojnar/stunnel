@@ -8,7 +8,7 @@ AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AM_INIT_AUTOMAKE
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
-AC_DEFINE([_POSIX_C_SOURCE], [199309L], [Use POSIX.1b])
+AC_DEFINE([_DARWIN_C_SOURCE], [1], [Use Darwin source])
 AC_DEFINE([_XOPEN_SOURCE], [700], [Use X/Open 7])
 
 AM_CONDITIONAL([AUTHOR_TESTS], [test -d ".git"])
