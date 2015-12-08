@@ -8,6 +8,7 @@ AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AM_INIT_AUTOMAKE
 AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
+AC_DEFINE([_XOPEN_SOURCE], [700], [X/Open 7 with POSIX 2008])
 
 AM_CONDITIONAL([AUTHOR_TESTS], [test -d ".git"])
 AC_CANONICAL_HOST

@@ -2,7 +2,9 @@ stunnel change log
 
 Version 5.28, unreleased, urgency: LOW
 * New features
+  - Build matrix (.travis.yml) extended with ./configure options.
 * Bugfixes
+  - Fixed UCONTEXT threading on OSX.
 
 Version 5.27, 2015.12.03, urgency: MEDIUM
 * Security bugfixes

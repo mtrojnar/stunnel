@@ -45,6 +45,7 @@ cert:
 	$(MAKE) -C tools cert
 
 test:
+	$(abs_builddir)/src/stunnel -version
 	@echo "No tests are currently implemented"
 
 install-data-hook:

@@ -3080,6 +3080,9 @@ fi
 $as_echo "#define _GNU_SOURCE 1" >>confdefs.h
 
 
+$as_echo "#define _XOPEN_SOURCE 700" >>confdefs.h
+
+
  if test -d ".git"; then
   AUTHOR_TESTS_TRUE=
   AUTHOR_TESTS_FALSE='#'
