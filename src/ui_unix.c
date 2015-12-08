@@ -61,6 +61,8 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
 }
 
 NOEXPORT int main_unix(int argc, char* argv[]) {
+    int configure_status;
+
 #if !defined(__vms) && !defined(USE_OS2)
     int fd;
 
@@ -69,9 +71,15 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         fatal("Could not open /dev/null");
 #endif
     main_init();
-    if(main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL)) {
+    configure_status=main_configure(argc>1 ? argv[1] : NULL,
+        argc>2 ? argv[2] : NULL);
+    switch(configure_status) {
+    case 1: /* error -> exit with 1 to indicate error */
         close(fd);
         return 1;
+    case 2: /* information printed -> exit with 0 to indicate success */
+        close(fd);
+        return 0;
     }
     if(service_options.next) { /* there are service sections -> daemon mode */
 #if !defined(__vms) && !defined(USE_OS2)

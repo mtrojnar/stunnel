@@ -125,10 +125,19 @@ void main_init() { /* one-time initialization */
     stunnel_info(LOG_NOTICE);
 }
 
+/* return values:
+   0 - configuration accepted
+   1 - error
+   2 - information printed
+*/
+
     /* configuration-dependent initialization */
 int main_configure(char *arg1, char *arg2) {
-    if(options_cmdline(arg1, arg2))
-        return 1;
+    int cmdline_status;
+
+    cmdline_status=options_cmdline(arg1, arg2);
+    if(cmdline_status) /* cannot proceed */
+        return cmdline_status;
     options_apply();
     str_canary_init(); /* needs prng initialization from options_cmdline */
 #if !defined(USE_WIN32) && !defined(__vms)

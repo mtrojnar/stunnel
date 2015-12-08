@@ -226,6 +226,12 @@ static char *stunnel_cipher_list=
 
 /**************************************** parse commandline parameters */
 
+/* return values:
+   0 - configuration accepted
+   1 - error
+   2 - information printed
+*/
+
 int options_cmdline(char *name, char *parameter) {
     CONF_TYPE type=CONF_FILE;
 
@@ -238,20 +244,20 @@ int options_cmdline(char *name, char *parameter) {
         parse_global_option(CMD_HELP, NULL, NULL);
         parse_service_option(CMD_HELP, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
-        return 1;
+        return 2;
     } else if(!strcasecmp(name, "-version")) {
         parse_global_option(CMD_DEFAULT, NULL, NULL);
         parse_service_option(CMD_DEFAULT, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
-        return 1;
+        return 2;
     } else if(!strcasecmp(name, "-sockets")) {
         print_socket_options();
         log_flush(LOG_MODE_INFO);
-        return 1;
+        return 2;
     } else if(!strcasecmp(name, "-options")) {
         print_ssl_options();
         log_flush(LOG_MODE_INFO);
-        return 1;
+        return 2;
     } else
 #ifndef USE_WIN32
     if(!strcasecmp(name, "-fd")) {
