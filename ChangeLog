@@ -1,5 +1,9 @@
 stunnel change log
 
+Version 5.28, unreleased, urgency: LOW
+* New features
+* Bugfixes
+
 Version 5.27, 2015.12.03, urgency: MEDIUM
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2e.
@@ -23,8 +27,8 @@ Version 5.25, 2015.11.02, urgency: MEDIUM
   - SMTP client protocol negotiation support for
     "protocolUsername", "protocolPassword", and
     "protocolAuthentication" (thx to Douglas Harris).
-  - New service-level option "config" to specify OpenSSL
-    >=1.0.2 configuration commands (thx to Stephen Wall).
+  - New service-level option "config" to specify configuration
+    commands introduced in OpenSSL 1.0.2 (thx to Stephen Wall).
   - The global option "foreground" now also accepts "quiet"
     parameter, which does not enable logging to stderr.
   - Manual page updated.

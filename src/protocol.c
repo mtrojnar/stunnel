@@ -514,7 +514,9 @@ NOEXPORT void socks5_server(CLI *c) {
 
 /* validate the allocated address */
 NOEXPORT int validate(CLI *c) {
+#ifdef USE_IPv6
     const unsigned char ipv6_loopback[16]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
+#endif
     unsigned i;
 
     for(i=0; i<c->connect_addr.num; ++i) {
