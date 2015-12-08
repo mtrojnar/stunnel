@@ -1,3 +1,5 @@
+sudo: false
+
 language: c
 
 os:
@@ -14,8 +16,11 @@ env:
   - CONFIGURE_OPTIONS='--with-threads=ucontext'
   - CONFIGURE_OPTIONS='--disable-ipv6 --disable-fips --disable-systemd --disable-libwrap'
 
-before_install:
-  - if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then sudo apt-get update -qq; sudo apt-get install -y libssl-dev libwrap0-dev; fi
+addons:
+  apt:
+    packages:
+    - libssl-dev
+    - libwrap0-dev
 
 before_script: autoreconf -fvi && touch src/dhparam.c
 
