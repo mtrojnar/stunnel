@@ -3082,8 +3082,9 @@ $as_echo "#define _GNU_SOURCE 1" >>confdefs.h
 
 $as_echo "#define _DARWIN_C_SOURCE 1" >>confdefs.h
 
+# Newer _XOPEN_SOURCE versions don't declare chroot() on OSX
 
-$as_echo "#define _XOPEN_SOURCE 700" >>confdefs.h
+$as_echo "#define _XOPEN_SOURCE 500" >>confdefs.h
 
 
  if test -d ".git"; then

@@ -287,7 +287,7 @@
    #define below would cause a syntax error. */
 #undef _UINT8_T
 
-/* Use X/Open 7 */
+/* Use X/Open 5 with POSIX 1995 */
 #undef _XOPEN_SOURCE
 
 /* Define to `int' if <sys/types.h> doesn't define. */
