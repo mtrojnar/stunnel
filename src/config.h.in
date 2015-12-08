@@ -269,6 +269,9 @@
 /* Use GNU source */
 #undef _GNU_SOURCE
 
+/* Use POSIX.1b */
+#undef _POSIX_C_SOURCE
+
 /* Define for Solaris 2.5.1 so the uint32_t typedef from <sys/synch.h>,
    <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the
    #define below would cause a syntax error. */
@@ -284,7 +287,7 @@
    #define below would cause a syntax error. */
 #undef _UINT8_T
 
-/* X/Open 7 with POSIX 2008 */
+/* Use X/Open 7 */
 #undef _XOPEN_SOURCE
 
 /* Define to `int' if <sys/types.h> doesn't define. */

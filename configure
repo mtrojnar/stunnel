@@ -3080,6 +3080,9 @@ fi
 $as_echo "#define _GNU_SOURCE 1" >>confdefs.h
 
 
+$as_echo "#define _POSIX_C_SOURCE 199309L" >>confdefs.h
+
+
 $as_echo "#define _XOPEN_SOURCE 700" >>confdefs.h
 
 
