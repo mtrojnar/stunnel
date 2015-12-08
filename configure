@@ -3082,9 +3082,13 @@ $as_echo "#define _GNU_SOURCE 1" >>confdefs.h
 
 $as_echo "#define _DARWIN_C_SOURCE 1" >>confdefs.h
 
-# Newer _XOPEN_SOURCE versions don't declare chroot() on OSX
+# OSX does not declare chroot() with newer _XOPEN_SOURCE versions
 
 $as_echo "#define _XOPEN_SOURCE 500" >>confdefs.h
+
+# Solaris does not declare IPv6 structures without __EXTENSIONS__
+
+$as_echo "#define __EXTENSIONS__ 1" >>confdefs.h
 
 
  if test -d ".git"; then
