@@ -663,7 +663,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else
             return engine_open(arg);
     case CMD_END:
-        return engine_init();
+        engine_init();
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
