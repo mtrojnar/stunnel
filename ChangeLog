@@ -1,10 +1,11 @@
 stunnel change log
 
-Version 5.28, unreleased, urgency: MEDIUM
+Version 5.28, 2015.12.11, urgency: HIGH
 * New features
   - Build matrix (.travis.yml) extended with ./configure options.
+  - mingw.mak updated to build tstunnel.exe (thx to Jose Alf.).
 * Bugfixes
-  - Fixed configuration file initialization.
+  - Fixed incomplete initialization.
   - Fixed UCONTEXT threading on OSX.
   - Fixed exit codes for information requests (as
     in "stunnel -version" or "stunnel -help").

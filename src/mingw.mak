@@ -22,11 +22,17 @@
  
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
-SSLDIR=../../openssl-0.9.8zg
+#SSLDIR=../../openssl-0.9.8zh
+#SSLDIR=../../openssl-1.0.0t
+SSLDIR=../../openssl-1.0.1q
 
-# For mingw compiled openssl
-SSLINC=$(SSLDIR)/outinc
-SSLLIBS=-L$(SSLDIR)/out -leay32 -lssl32
+# For 0.9.8 mingw compiled openssl
+#SSLINC=$(SSLDIR)/outinc
+#SSLLIBS=-L$(SSLDIR)/out -leay32 -lssl32
+
+# for 1.0.0/1.0.1 mingw (msys2) compiled
+SSLINC=$(SSLDIR)/include
+SSLLIBS=-L$(SSLDIR) -lcrypto.dll -lssl.dll
 
 # For MSVC compiled openssl
 #SSLINC=$(SSLDIR)/inc32
@@ -41,14 +47,14 @@ SSLLIBS=-L$(SSLDIR)/out -leay32 -lssl32
 #       $(info is !MESSAGE in MS nmake or Borland make.
 
 ifdef windir
-$(info  host machine is a Windows machine )
+$(info host machine is a Windows machine )
 NULLDEV=NUL
 MKDIR="C:\Program Files\GnuWin32\bin\mkdir.exe"
 DELFILES="C:\Program Files\GnuWin32\bin\rm.exe" -f
 DELDIR="C:\Program Files\GnuWin32\bin\rm.exe" -rf
 COPYFILES="C:\Program Files\GnuWin32\bin\cp.exe" -f
 else
-$(info  host machine is a linux machine )
+$(info host machine is a linux machine )
 NULLDEV=/dev/null
 MKDIR=mkdir
 DELFILES=rm -f
@@ -67,6 +73,12 @@ OBJS=$(OBJ)/stunnel.o $(OBJ)/ssl.o $(OBJ)/ctx.o $(OBJ)/verify.o \
 	$(OBJ)/file.o $(OBJ)/client.o $(OBJ)/protocol.o $(OBJ)/sthreads.o \
 	$(OBJ)/log.o $(OBJ)/options.o $(OBJ)/network.o $(OBJ)/resolver.o \
 	$(OBJ)/ui_win_gui.o $(OBJ)/resources.o $(OBJ)/str.o $(OBJ)/tls.o \
+	$(OBJ)/fd.o $(OBJ)/dhparam.o $(OBJ)/cron.o
+
+TOBJS=$(OBJ)/stunnel.o $(OBJ)/ssl.o $(OBJ)/ctx.o $(OBJ)/verify.o \
+	$(OBJ)/file.o $(OBJ)/client.o $(OBJ)/protocol.o $(OBJ)/sthreads.o \
+	$(OBJ)/log.o $(OBJ)/options.o $(OBJ)/network.o $(OBJ)/resolver.o \
+	$(OBJ)/ui_win_cli.o $(OBJ)/str.o $(OBJ)/tls.o \
 	$(OBJ)/fd.o $(OBJ)/dhparam.o $(OBJ)/cron.o
 
 CC=gcc
@@ -91,6 +103,7 @@ RFLAGS2=-v $(DEFINES)
 LDFLAGS=-s
 
 LIBS=$(SSLLIBS) -lws2_32 -lpsapi -lgdi32 -lcrypt32
+TLIBS=$(SSLLIBS) -lws2_32 -lpsapi -lcrypt32
 # IMPORTANT pdelaage : restore this if you need (but I do not see why) -lzdll
 
 $(OBJ)/%.o: $(SRC)/%.c
@@ -118,12 +131,11 @@ $(OBJ)/%.o: $(OBJ)/%.rcp
 # in the system...
 # for debug of the preprocessed rcp file, because it is automatically deleted by gnu-make:	cp $< $<.2
 
-all: testenv makedirs $(BIN)/stunnel.exe
+all: testenv makedirs $(BIN)/stunnel.exe $(BIN)/tstunnel.exe
 
 testopenssl:
 	@if not exist $(SSLDIR) echo You mush have a compiled OpenSSL tree
 	@if not exist $(SSLINC)/openssl/applink.c $(COPYFILES) $(SSLDIR)/ms/applink.c $(SSLINC)/openssl
-
 
 #pdelaage : testenv purpose is to detect, on windows, whether Gnu-win32 has been properly installed...
 # a first call to "true" is made to detect availability, a second is made to stop the make process.
@@ -143,8 +155,8 @@ endif
 clean: 
 	-@ $(DELFILES) $(OBJ)/*.o
 	-@ $(DELFILES) $(BIN)/stunnel.exe >$(NULLDEV) 2>&1
-	-@ $(DELDIR) $(OBJ)   >$(NULLDEV) 2>&1
-	-@ $(DELDIR) $(BIN)   >$(NULLDEV) 2>&1
+	-@ $(DELDIR) $(OBJ) >$(NULLDEV) 2>&1
+	-@ $(DELDIR) $(BIN) >$(NULLDEV) 2>&1
 
 makedirs:
 	-@ $(MKDIR) $(OBJROOT) >$(NULLDEV) 2>&1
@@ -161,6 +173,9 @@ $(OBJS): *.h mingw.mak
 
 $(BIN)/stunnel.exe: $(OBJS)
 	$(CC) $(LDFLAGS) -o $(BIN)/stunnel.exe $(OBJS) $(LIBS) -mwindows
+
+$(BIN)/tstunnel.exe: $(TOBJS)
+	$(CC) $(LDFLAGS) -o $(BIN)/tstunnel.exe $(TOBJS) $(TLIBS)
 
 # "missing separator" issue with mingw32-make: tabs MUST BE TABS in your text
 # editor, and not set of spaces even if your development host is windows.
