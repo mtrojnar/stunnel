@@ -3177,7 +3177,7 @@ _ACEOF
 
 
 case "$host_os" in
-darwin.*)
+*darwin*)
     # OSX does not declare ucontext without _XOPEN_SOURCE
 
 $as_echo "#define _XOPEN_SOURCE 500" >>confdefs.h

@@ -18,7 +18,7 @@ AC_DEFINE_UNQUOTED(esc(VENDOR_$host_vendor))
 AC_DEFINE_UNQUOTED(esc(OS_$host_os))
 
 case "$host_os" in
-darwin.*)
+*darwin*)
     # OSX does not declare ucontext without _XOPEN_SOURCE
     AC_DEFINE([_XOPEN_SOURCE], [500], [Use X/Open 5 with POSIX 1995])
     # OSX does not declare chroot() without _DARWIN_C_SOURCE
