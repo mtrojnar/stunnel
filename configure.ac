@@ -1,18 +1,12 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.28])
+AC_INIT([stunnel],[5.29])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AM_INIT_AUTOMAKE
-AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
-AC_DEFINE([_DARWIN_C_SOURCE], [1], [Use Darwin source])
-# OSX does not declare chroot() with newer _XOPEN_SOURCE versions
-AC_DEFINE([_XOPEN_SOURCE], [500], [Use X/Open 5 with POSIX 1995])
-# Solaris does not declare IPv6 structures without __EXTENSIONS__
-AC_DEFINE([__EXTENSIONS__], [1], [Use extended system interfaces])
 
 AM_CONDITIONAL([AUTHOR_TESTS], [test -d ".git"])
 AC_CANONICAL_HOST
@@ -22,6 +16,18 @@ define([esc], [`echo ]$1[ | tr abcdefghijklmnopqrstuvwxyz.- ABCDEFGHIJKLMNOPQRST
 AC_DEFINE_UNQUOTED(esc(CPU_$host_cpu))
 AC_DEFINE_UNQUOTED(esc(VENDOR_$host_vendor))
 AC_DEFINE_UNQUOTED(esc(OS_$host_os))
+
+case "$host_os" in
+darwin.*)
+    # OSX does not declare ucontext without _XOPEN_SOURCE
+    AC_DEFINE([_XOPEN_SOURCE], [500], [Use X/Open 5 with POSIX 1995])
+    # OSX does not declare chroot() without _DARWIN_C_SOURCE
+    AC_DEFINE([_DARWIN_C_SOURCE], [1], [Use Darwin source])
+    ;;
+*)
+    AC_DEFINE([_GNU_SOURCE], [1], [Use GNU source])
+    ;;
+esac
 
 AC_PROG_CC
 AM_PROG_CC_C_O
