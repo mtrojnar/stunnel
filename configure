@@ -14497,7 +14497,7 @@ fi
 done
 
 # Unix
-for ac_func in daemon waitpid wait4 setsid setgroups chroot
+for ac_func in daemon waitpid wait4 setsid setgroups chroot realpath
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"

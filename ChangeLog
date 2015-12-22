@@ -1,8 +1,14 @@
 stunnel change log
 
 Version 5.29, unreleased, urgency: LOW
+* New features
+  - New icons.
+  - Performance improvement: rwlocks used for locking with pthreads.
 * Bugfixes
   - Compilation fix for *BSD.
+  - Fixed configuration file reload for relative stunnel.conf path.
+  - Fixed ignoring CRLfile unless CAfile was also specified (thx
+    to Strukov Petr).
 
 Version 5.28, 2015.12.11, urgency: HIGH
 * New features

@@ -75,6 +75,9 @@ mingw64:
 	$(MAKE) -f $(srcdir)/mingw.mk srcdir=$(srcdir) win32_targetcpu=x86_64 win32_mingw=mingw64
 .PHONY: mingw mingw64
 
+clean-local:
+	rm -rf ../obj ../bin
+
 # Remaining files to be included
 EXTRA_DIST += $(win32_gui_sources) $(win32_cli_sources)
 EXTRA_DIST += make.bat makece.bat makew32.bat

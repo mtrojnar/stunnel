@@ -290,9 +290,9 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
         DH_free(dh);
         return 0; /* OK */
     }
-    enter_critical_section(CRIT_DH); /* it only needs an rwlock here */
+    CRYPTO_r_lock(stunnel_locks[LOCK_DH]);
     SSL_CTX_set_tmp_dh(section->ctx, dh_params);
-    leave_critical_section(CRIT_DH);
+    CRYPTO_r_unlock(stunnel_locks[LOCK_DH]);
     dh_needed=1; /* generate temporary DH parameters in cron */
     section->option.dh_needed=1; /* update this context */
     s_log(LOG_INFO, "Using dynamic DH parameters");

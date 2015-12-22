@@ -201,16 +201,7 @@ NOEXPORT void name_list_append(NAME_LIST **, char *);
 NOEXPORT char **argalloc(char *);
 #endif
 
-char *configuration_file=
-#ifdef CONFDIR
-            CONFDIR
-#ifdef USE_WIN32
-            "\\"
-#else
-            "/"
-#endif
-#endif
-            "stunnel.conf";
+char configuration_file[PATH_MAX];
 
 GLOBAL_OPTIONS global_options;
 SERVICE_OPTIONS service_options;
@@ -232,48 +223,71 @@ static char *stunnel_cipher_list=
    2 - information printed
 */
 
-int options_cmdline(char *name, char *parameter) {
-    CONF_TYPE type=CONF_FILE;
+int options_cmdline(char *arg1, char *arg2) {
+    char *name;
+    CONF_TYPE type;
 
+    if(!arg1) {
+        name=
+#ifdef CONFDIR
+            CONFDIR
 #ifdef USE_WIN32
-    (void)parameter; /* squash the unused parameter warning */
+            "\\"
+#else
+            "/"
 #endif
-    if(!name) {
-        /* leave the previous value of configuration_file */
-    } else if(!strcasecmp(name, "-help")) {
+#endif
+            "stunnel.conf";
+        type=CONF_FILE;
+    } else if(!strcasecmp(arg1, "-help")) {
         parse_global_option(CMD_HELP, NULL, NULL);
         parse_service_option(CMD_HELP, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
         return 2;
-    } else if(!strcasecmp(name, "-version")) {
+    } else if(!strcasecmp(arg1, "-version")) {
         parse_global_option(CMD_DEFAULT, NULL, NULL);
         parse_service_option(CMD_DEFAULT, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
         return 2;
-    } else if(!strcasecmp(name, "-sockets")) {
+    } else if(!strcasecmp(arg1, "-sockets")) {
         print_socket_options();
         log_flush(LOG_MODE_INFO);
         return 2;
-    } else if(!strcasecmp(name, "-options")) {
+    } else if(!strcasecmp(arg1, "-options")) {
         print_ssl_options();
         log_flush(LOG_MODE_INFO);
         return 2;
     } else
-#ifndef USE_WIN32
-    if(!strcasecmp(name, "-fd")) {
-        if(!parameter) {
+#ifdef USE_WIN32
+    (void)arg2; /* squash the unused parameter warning */
+#else
+    if(!strcasecmp(arg1, "-fd")) {
+        if(!arg2) {
             s_log(LOG_ERR, "No file descriptor specified");
             print_syntax();
             return 1;
         }
-        configuration_file=parameter;
+        name=arg2;
         type=CONF_FD;
     } else
 #endif
-        configuration_file=name;
-    configuration_file=str_dup(configuration_file);
-    str_detach(configuration_file); /* do not track this allocation */
+    {
+        name=arg1;
+        type=CONF_FILE;
+    }
 
+#ifdef HAVE_REALPATH
+    if(type==CONF_FILE) {
+        if(!realpath(name, configuration_file)) {
+            s_log(LOG_ERR, "Invalid configuration file name \"%s\"", name);
+            ioerror("realpath");
+            return 1;
+        }
+        return options_parse(type);
+    }
+#endif
+    strncpy(configuration_file, name, PATH_MAX-1);
+    configuration_file[PATH_MAX-1]='\0';
     return options_parse(type);
 }
 

@@ -212,7 +212,7 @@ AC_CHECK_FUNCS(snprintf vsnprintf)
 # pseudoterminal
 AC_CHECK_FUNCS(openpty _getpty)
 # Unix
-AC_CHECK_FUNCS(daemon waitpid wait4 setsid setgroups chroot)
+AC_CHECK_FUNCS(daemon waitpid wait4 setsid setgroups chroot realpath)
 # limits
 AC_CHECK_FUNCS(sysconf getrlimit)
 # threads/reentrant functions

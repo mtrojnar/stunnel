@@ -432,7 +432,7 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
     /* not numerical: need to call resolver library */
     *res=NULL;
     ai=NULL;
-    enter_critical_section(CRIT_INET);
+    CRYPTO_w_lock(stunnel_locks[LOCK_INET]);
 #ifdef HAVE_GETHOSTBYNAME2
     h=gethostbyname2(node, AF_INET6);
     if(h) /* some IPv6 addresses found */
@@ -450,7 +450,7 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
 #ifdef HAVE_ENDHOSTENT
     endhostent();
 #endif
-    leave_critical_section(CRIT_INET);
+    CRYPTO_w_unlock(stunnel_locks[LOCK_INET]);
     if(retval) { /* error: free allocated memory */
         freeaddrinfo(*res);
         *res=NULL;
@@ -585,10 +585,10 @@ int getnameinfo(const struct sockaddr *sa, socklen_t salen,
                 (void *)&((struct sockaddr_in *)sa)->sin_addr,
             host, hostlen);
 #else /* USE_IPv6 */
-        enter_critical_section(CRIT_INET); /* inet_ntoa is not mt-safe */
+        CRYPTO_w_lock(stunnel_locks[LOCK_INET]); /* inet_ntoa is not mt-safe */
         strncpy(host, inet_ntoa(((struct sockaddr_in *)sa)->sin_addr),
             hostlen);
-        leave_critical_section(CRIT_INET);
+        CRYPTO_w_unlock(stunnel_locks[LOCK_INET]);
         host[hostlen-1]='\0';
 #endif /* USE_IPv6 */
     }

@@ -428,7 +428,7 @@ void stunnel_info(int);
 
 /**************************************** prototypes for options.c */
 
-extern char *configuration_file;
+extern char configuration_file[PATH_MAX];
 
 int options_cmdline(char *, char *);
 int options_parse(CONF_TYPE);
@@ -630,21 +630,20 @@ int getnameinfo(const struct sockaddr *, socklen_t,
 /**************************************** prototypes for sthreads.c */
 
 typedef enum {
-    CRIT_SESSION, CRIT_ADDR,
-    CRIT_CLIENTS, CRIT_SSL,                 /* client.c */
-    CRIT_INET,                              /* resolver.c */
+    LOCK_SESSION, LOCK_ADDR,
+    LOCK_CLIENTS, LOCK_SSL,                 /* client.c */
+    LOCK_INET,                              /* resolver.c */
 #ifndef USE_WIN32
-    CRIT_LIBWRAP,                           /* libwrap.c */
+    LOCK_LIBWRAP,                           /* libwrap.c */
 #endif
-    CRIT_LOG, CRIT_LEAK,                    /* log.c */
+    LOCK_LOG, LOCK_LEAK,                    /* log.c */
 #ifndef OPENSSL_NO_DH
-    CRIT_DH,                                /* ctx.c */
+    LOCK_DH,                                /* ctx.c */
 #endif /* OPENSSL_NO_DH */
-    CRIT_SECTIONS                           /* number of critical sections */
-} SECTION_CODE;
+    STUNNEL_LOCKS                           /* number of locks */
+} LOCK_TYPE;
+extern int stunnel_locks[STUNNEL_LOCKS];
 
-void enter_critical_section(SECTION_CODE);
-void leave_critical_section(SECTION_CODE);
 int sthreads_init(void);
 unsigned long stunnel_process_id(void);
 unsigned long stunnel_thread_id(void);

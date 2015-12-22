@@ -183,10 +183,10 @@ NOEXPORT void cron_dh_param(void) {
 #endif
 
     /* update global dh_params for future configuration reloads */
-    enter_critical_section(CRIT_DH); /* it only needs an rwlock here */
+    CRYPTO_w_lock(stunnel_locks[LOCK_DH]);
     DH_free(dh_params);
     dh_params=dh;
-    leave_critical_section(CRIT_DH);
+    CRYPTO_w_unlock(stunnel_locks[LOCK_DH]);
 
     /* set for all sections that require it */
     for(opt=service_options.next; opt; opt=opt->next)

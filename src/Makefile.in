@@ -1025,7 +1025,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-binPROGRAMS clean-generic clean-libtool \
+clean-am: clean-binPROGRAMS clean-generic clean-libtool clean-local \
 	clean-pkglibLTLIBRARIES mostlyclean-am
 
 distclean: distclean-am
@@ -1099,7 +1099,7 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 .MAKE: all check-am install-am install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am check check-am check-local clean \
-	clean-binPROGRAMS clean-generic clean-libtool \
+	clean-binPROGRAMS clean-generic clean-libtool clean-local \
 	clean-pkglibLTLIBRARIES cscopelist-am ctags ctags-am distclean \
 	distclean-compile distclean-generic distclean-hdr \
 	distclean-libtool distclean-tags distdir dvi dvi-am html \
@@ -1142,6 +1142,9 @@ mingw:
 mingw64:
 	$(MAKE) -f $(srcdir)/mingw.mk srcdir=$(srcdir) win32_targetcpu=x86_64 win32_mingw=mingw64
 .PHONY: mingw mingw64
+
+clean-local:
+	rm -rf ../obj ../bin
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

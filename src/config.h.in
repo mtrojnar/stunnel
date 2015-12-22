@@ -102,6 +102,9 @@
 /* Define to 1 if you have the <pty.h> header file. */
 #undef HAVE_PTY_H
 
+/* Define to 1 if you have the `realpath' function. */
+#undef HAVE_REALPATH
+
 /* Define to 1 if you have the `setgroups' function. */
 #undef HAVE_SETGROUPS
 

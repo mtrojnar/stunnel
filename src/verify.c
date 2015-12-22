@@ -120,7 +120,7 @@ int crl_init(SERVICE_OPTIONS *section) {
     X509_STORE *store;
 
     store=SSL_CTX_get_cert_store(section->ctx);
-    if(section->ca_file) {
+    if(section->crl_file) {
         if(load_file_lookup(store, section->crl_file))
             return 1; /* FAILED */
     }

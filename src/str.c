@@ -38,13 +38,18 @@
 #include "common.h"
 #include "prototypes.h"
 
+#define CANARY_INITIALIZED  0x0000c0ded0000000L
+#define CANARY_UNINTIALIZED 0x0000abadbabe0000L
+#define MAGIC_ALLOCATED     0x0000a110c8ed0000L
+#define MAGIC_DEALLOCATED   0x0000defec8ed0000L
+
 struct alloc_list_struct {
     ALLOC_LIST *prev, *next;
     TLS_DATA *tls;
     size_t size;
     const char *alloc_file, *free_file;
     int alloc_line, free_line;
-    unsigned valid_canary, magic;
+    uint64_t valid_canary, magic;
         /* at least on IA64 allocations need to be aligned */
 #ifdef __GNUC__
 } __attribute__((aligned(16)));
@@ -62,7 +67,7 @@ NOEXPORT void str_leak_debug(ALLOC_LIST *, int);
 
 TLS_DATA *ui_tls;
 static uint8_t canary[10]; /* 80-bit canary value */
-static volatile unsigned canary_initialized=0xabadbabe;
+static volatile uint64_t canary_initialized=CANARY_UNINTIALIZED;
 
 /**************************************** string manipulation functions */
 
@@ -164,12 +169,12 @@ void str_cleanup(TLS_DATA *tls_data) {
 }
 
 void str_canary_init() {
-    if(canary_initialized!=0xabadbabe)
+    if(canary_initialized!=CANARY_UNINTIALIZED)
         return; /* prevent double initialization on config reload */
     RAND_bytes(canary, (int)sizeof canary);
     /* an error would reduce the effectiveness of canaries */
     /* this is nothing critical, so the return value is ignored here */
-    canary_initialized=0xc0ded; /* after RAND_bytes */
+    canary_initialized=CANARY_INITIALIZED; /* after RAND_bytes */
 }
 
 void str_stats() {
@@ -242,7 +247,7 @@ void *str_alloc_detached_debug(size_t size, const char *file, int line) {
     alloc_list->free_line=0;
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
     memcpy((uint8_t *)(alloc_list+1)+size, canary, sizeof canary);
-    alloc_list->magic=0xa110c8ed;
+    alloc_list->magic=MAGIC_ALLOCATED;
     str_leak_debug(alloc_list, 1);
 
     return alloc_list+1;
@@ -257,8 +262,7 @@ void *str_realloc_debug(void *ptr, size_t size, const char *file, int line) {
     str_leak_debug(prev_alloc_list, -1);
     if(prev_alloc_list->size>size) /* shrinking the allocation */
         memset((uint8_t *)ptr+size, 0, prev_alloc_list->size-size); /* paranoia */
-    alloc_list=realloc(prev_alloc_list,
-        sizeof(ALLOC_LIST)+size+sizeof canary);
+    alloc_list=realloc(prev_alloc_list, sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
         fatal_debug("Out of memory", file, line);
     ptr=alloc_list+1;
@@ -318,7 +322,7 @@ void str_free_debug(void *ptr, const char *file, int line) {
     if(!ptr) /* do not attempt to free null pointers */
         return;
     alloc_list=(ALLOC_LIST *)ptr-1;
-    if(alloc_list->magic==0xdefec8ed) {
+    if(alloc_list->magic==MAGIC_DEALLOCATED) { /* double free */
         /* this may (unlikely) log garbage instead of file names */
         s_log(LOG_CRIT,
             "Double free attempt: ptr=%p alloc=%s:%d free#1=%s:%d free#2=%s:%d",
@@ -332,7 +336,7 @@ void str_free_debug(void *ptr, const char *file, int line) {
     str_leak_debug(alloc_list, -1);
     alloc_list->free_file=file;
     alloc_list->free_line=line;
-    alloc_list->magic=0xdefec8ed; /* to detect double free attempts */
+    alloc_list->magic=MAGIC_DEALLOCATED; /* detect double free attempts */
     memset(ptr, 0, alloc_list->size); /* paranoia */
     free(alloc_list);
 }
@@ -343,11 +347,11 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
     if(!tls_initialized)
         fatal_debug("str not initialized", file, line);
     alloc_list=(ALLOC_LIST *)ptr-1;
-    if(alloc_list->magic!=0xa110c8ed) /* not allocated by str_alloc() */
+    if(alloc_list->magic!=MAGIC_ALLOCATED) /* not allocated by str_alloc() */
         fatal_debug("Bad magic", file, line); /* LOL */
     if(alloc_list->tls /* not detached */ && alloc_list->tls!=tls_get())
         fatal_debug("Memory allocated in a different thread", file, line);
-    if(alloc_list->valid_canary!=0xabadbabe &&
+    if(alloc_list->valid_canary!=CANARY_UNINTIALIZED &&
             safe_memcmp((uint8_t *)ptr+alloc_list->size, canary, sizeof canary))
         fatal_debug("Dead canary", file, line); /* LOL */
     return alloc_list;
@@ -370,14 +374,14 @@ NOEXPORT void str_leak_debug(ALLOC_LIST *alloc_list, int change) {
     static size_t alloc_num=0;
     size_t i;
 
-    enter_critical_section(CRIT_LEAK);
+    CRYPTO_w_lock(stunnel_locks[LOCK_LEAK]);
     for(i=0; i<alloc_num; ++i)
         if(alloc_table[i].alloc_file==alloc_list->alloc_file &&
                 alloc_table[i].alloc_line==alloc_list->alloc_line)
             break;
     if(i==alloc_num) {
         if(alloc_num==ALLOC_TABLE_SIZE) {
-            leave_critical_section(CRIT_LEAK);
+            CRYPTO_w_unlock(stunnel_locks[LOCK_LEAK]);
             return;
         }
         alloc_table[i].alloc_file=alloc_list->alloc_file;
@@ -386,7 +390,7 @@ NOEXPORT void str_leak_debug(ALLOC_LIST *alloc_list, int change) {
         ++alloc_num;
     }
     alloc_table[i].num+=change;
-    leave_critical_section(CRIT_LEAK);
+    CRYPTO_w_unlock(stunnel_locks[LOCK_LEAK]);
     if(alloc_table[i].num>MAX_ALLOCS &&
             strcmp(alloc_table[i].alloc_file, "lhash.c"))
         fprintf(stderr, "%d allocations detected at %s:%d\n",
@@ -398,12 +402,12 @@ NOEXPORT void str_leak_debug(ALLOC_LIST *alloc_list, int change) {
 /**************************************** memcmp() replacement */
 
 /* a version of memcmp() with execution time not dependent on data values */
-/* it does *not* allow to test wheter s1 is greater or lesser than s2  */
+/* it does *not* allow to test whether s1 is greater or lesser than s2  */
 int safe_memcmp(const void *s1, const void *s2, size_t n) {
     uint8_t *p1=(uint8_t *)s1, *p2=(uint8_t *)s2;
     int r=0;
     while(n--)
-        r|=*p1++^*p2++;
+        r|=(*p1++)^(*p2++);
     return r;
 }
 

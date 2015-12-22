@@ -200,9 +200,9 @@ void libwrap_auth(CLI *c, char *accepted_address) {
     } else
 #endif /* USE_LIBWRAP_POOL */
     { /* use original, synchronous libwrap calls */
-        enter_critical_section(CRIT_LIBWRAP);
+        CRYPTO_w_lock(stunnel_locks[LOCK_LIBWRAP]);
         result=check(c->opt->servname, c->local_rfd.fd);
-        leave_critical_section(CRIT_LIBWRAP);
+        CRYPTO_w_unlock(stunnel_locks[LOCK_LIBWRAP]);
     }
     if(!result) {
         s_log(LOG_WARNING, "Service [%s] REFUSED by libwrap from %s",
