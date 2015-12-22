@@ -43,6 +43,8 @@
 #include "common.h"
 #include "prototypes.h"
 
+int stunnel_locks[STUNNEL_LOCKS];
+
 #if defined(USE_UCONTEXT) || defined(USE_FORK)
 /* no need for critical sections */
 
@@ -200,6 +202,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
 struct CRYPTO_dynlock_value {
     pthread_rwlock_t rwlock;
 };
+static struct CRYPTO_dynlock_value *lock_cs;
 
 NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
         int line) {
@@ -235,9 +238,6 @@ NOEXPORT void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
     pthread_rwlock_destroy(&value->rwlock);
     str_free(value);
 }
-
-static struct CRYPTO_dynlock_value *lock_cs;
-int stunnel_locks[STUNNEL_LOCKS];
 
 NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
     dyn_lock_function(mode, lock_cs+type, file, line);
@@ -338,6 +338,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
 struct CRYPTO_dynlock_value {
     CRITICAL_SECTION mutex;
 };
+static struct CRYPTO_dynlock_value *lock_cs;
 
 NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
         int line) {
@@ -367,9 +368,6 @@ NOEXPORT void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
     DeleteCriticalSection(&value->mutex);
     str_free(value);
 }
-
-static struct CRYPTO_dynlock_value *lock_cs;
-int stunnel_locks[STUNNEL_LOCKS];
 
 NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
     dyn_lock_function(mode, lock_cs+type, file, line);
