@@ -337,7 +337,7 @@ void str_free_debug(void *ptr, const char *file, int line) {
     alloc_list->free_file=file;
     alloc_list->free_line=line;
     alloc_list->magic=MAGIC_DEALLOCATED; /* detect double free attempts */
-    memset(ptr, 0, alloc_list->size); /* paranoia */
+    memset(ptr, 0, alloc_list->size+sizeof canary); /* paranoia */
     free(alloc_list);
 }
 

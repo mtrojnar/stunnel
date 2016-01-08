@@ -227,6 +227,9 @@ int options_cmdline(char *arg1, char *arg2) {
     char *name;
     CONF_TYPE type;
 
+#ifdef USE_WIN32
+    (void)arg2; /* squash the unused parameter warning */
+#endif
     if(!arg1) {
         name=
 #ifdef CONFDIR
@@ -258,9 +261,7 @@ int options_cmdline(char *arg1, char *arg2) {
         log_flush(LOG_MODE_INFO);
         return 2;
     } else
-#ifdef USE_WIN32
-    (void)arg2; /* squash the unused parameter warning */
-#else
+#ifndef USE_WIN32
     if(!strcasecmp(arg1, "-fd")) {
         if(!arg2) {
             s_log(LOG_ERR, "No file descriptor specified");
