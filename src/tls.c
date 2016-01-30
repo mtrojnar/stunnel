@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -41,7 +41,9 @@
 volatile int tls_initialized=0;
 
 NOEXPORT void tls_platform_init();
+#if OPENSSL_VERSION_NUMBER<0x10100000L
 NOEXPORT void free_function(void *);
+#endif
 
 /**************************************** thread local storage */
 
@@ -50,8 +52,12 @@ void tls_init() {
     tls_platform_init();
     tls_initialized=1;
     ui_tls=tls_alloc(NULL, NULL, "ui");
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+    /* the ability to set the "memory debug" functions
+     * at runtme was removed in OpenSSL 1.1 */
     CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
         str_realloc_debug, free_function);
+#endif
 }
 
 /* this has to be the first function called by a new thread */
@@ -177,10 +183,12 @@ TLS_DATA *tls_get() {
 
 /**************************************** OpenSSL allocator hook */
 
+#if OPENSSL_VERSION_NUMBER<0x10100000L
 NOEXPORT void free_function(void *ptr) {
     /* CRYPTO_set_mem_ex_functions() needs a function rather than a macro */
     /* unfortunately, OpenSSL provides no file:line information here */
     str_free_debug(ptr, "OpenSSL", 0);
 }
+#endif
 
 /* end of tls.c */

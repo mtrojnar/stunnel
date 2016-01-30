@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -172,9 +172,6 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
 NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
     int totbytes=0;
     char filename[256];
-#ifndef USE_WIN32
-    int bytes;
-#endif
 
     filename[0]='\0';
 
@@ -210,7 +207,8 @@ NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
 #else
 #ifndef OPENSSL_NO_EGD
     if(global->egd_sock) {
-        if((bytes=RAND_egd(global->egd_sock))==-1) {
+        int bytes=RAND_egd(global->egd_sock);
+        if(bytes==-1) {
             s_log(LOG_WARNING, "EGD Socket %s failed", global->egd_sock);
             bytes=0;
         } else {

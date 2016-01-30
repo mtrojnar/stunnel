@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -101,6 +101,12 @@ NOEXPORT void sslerror_log(unsigned long, char *);
 
 /**************************************** initialize section->ctx */
 
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+typedef long SSL_OPTIONS_TYPE;
+#else /* OpenSSL >= 1.1.0 */
+typedef long unsigned SSL_OPTIONS_TYPE;
+#endif
+
 int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
     /* create SSL context */
     if(section->option.client)
@@ -176,9 +182,11 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
             sslerror("SSL_CTX_set_cipher_list");
             return 1; /* FAILED */
         }
-    SSL_CTX_set_options(section->ctx, section->ssl_options_set);
+    SSL_CTX_set_options(section->ctx,
+        (SSL_OPTIONS_TYPE)(section->ssl_options_set));
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
-    SSL_CTX_clear_options(section->ctx, section->ssl_options_clear);
+    SSL_CTX_clear_options(section->ctx,
+        (SSL_OPTIONS_TYPE)(section->ssl_options_clear));
     s_log(LOG_DEBUG, "SSL options: 0x%08lX (+0x%08lX, -0x%08lX)",
         SSL_CTX_get_options(section->ctx),
         section->ssl_options_set, section->ssl_options_clear);

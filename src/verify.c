@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -393,13 +393,17 @@ NOEXPORT int compare_pubkeys(X509 *c1, X509 *c2) {
 
 #ifndef OPENSSL_NO_OCSP
 
-/* type checks not available -- use generic functions */
+#ifdef DEFINE_STACK_OF
+/* defined in openssl/safestack.h:
+ * DEFINE_SPECIAL_STACK_OF(OPENSSL_STRING, char) */
+#else /* DEFINE_STACK_OF */
 #ifndef sk_OPENSSL_STRING_num
 #define sk_OPENSSL_STRING_num(st) sk_num(st)
-#endif
+#endif /* sk_OPENSSL_STRING_num */
 #ifndef sk_OPENSSL_STRING_value
 #define sk_OPENSSL_STRING_value(st, i) sk_value((st),(i))
-#endif
+#endif /* sk_OPENSSL_STRING_value */
+#endif /* DEFINE_STACK_OF */
 
 NOEXPORT int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     X509 *cert;

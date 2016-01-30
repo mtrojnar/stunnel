@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 2015
+# by Michal Trojnara 2015-2016
 
 ACLOCAL_AMFLAGS = -I m4
 

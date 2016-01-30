@@ -9,10 +9,15 @@
 # Default-Stop:      0 1 6
 # Short-Description: Start or stop stunnel 4.x (SSL tunnel for network daemons)
 # Description:       Starts or stops all configured SSL network tunnels. Each *.conf file in
-#                    /etc/stunnel/ will spawn a separate stunnel process. The list of files
-#                    can be overriden in /etc/default/stunnel, and that same file can be used
+#                    @sysconfdir@/stunnel/ will spawn a separate stunnel process. The list of files
+#                    can be overriden in @sysconfdir@/default/stunnel, and that same file can be used
 #                    to completely disable *all* tunnels.
 ### END INIT INFO
+
+# Author / upstream maintainer note:
+# With the planned introduction of a control interface (conceptually similar to
+# apache2ctl), running separate processes for each *.conf will become obsolete.
+# Please add "include = @sysconfdir@/stunnel/conf.d" to stunnel.conf instead.
 
 . /lib/lsb/init-functions
 
@@ -136,15 +141,15 @@ if [ "x$OPTIONS" != "x" ]; then
   OPTIONS="-- $OPTIONS"
 fi
 
-[ -f @sysconfdir@/default/stunnel ] && . /etc/default/stunnel
+[ -f @sysconfdir@/default/stunnel ] && . @sysconfdir@/default/stunnel
 if [ "$ENABLED" = "0" ] ; then
   echo "$DESC disabled, see @sysconfdir@/default/stunnel"
   exit 0
 fi
 
 # If the user want to manage a single tunnel, the conf file's name
-# is in $2. Otherwise, respect /etc/default/stunnel4 setting. If no
-# setting there, use /etc/stunnel/*.conf
+# is in $2. Otherwise, respect @sysconfdir@/default/stunnel4 setting.
+# If no setting there, use @sysconfdir@/stunnel/*.conf.
 if [ -n "${2:-}" ]; then
   if [ -e "@sysconfdir@/stunnel/$2.conf" ]; then
     FILES="@sysconfdir@/stunnel/$2.conf"

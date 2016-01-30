@@ -1,5 +1,5 @@
 ## mingw/mingw64 Makefile
-# by Michal Trojnara 2015
+# by Michal Trojnara 2015-2016
 
 # 32-bit Windows
 #win32_targetcpu=i686

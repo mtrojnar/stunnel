@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.29])
+AC_INIT([stunnel],[5.30])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -33,6 +33,8 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+# silent build by default
+ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_MSG_NOTICE([**************************************** thread model])
 # thread detection should be done first, as it may change the CC variable
@@ -84,8 +86,14 @@ if test "$GCC" = yes; then
     AX_APPEND_COMPILE_FLAGS([-Wconversion])
     AX_APPEND_COMPILE_FLAGS([-Wno-long-long])
     AX_APPEND_COMPILE_FLAGS([-Wno-deprecated-declarations])
-    AX_APPEND_COMPILE_FLAGS([-fstack-protector])
     AX_APPEND_COMPILE_FLAGS([-fPIE])
+    case "${host}" in
+        avr-*.* | powerpc-*-aix* | rl78-*.* | visium-*.*)
+            ;;
+        *)
+            AX_APPEND_COMPILE_FLAGS([-fstack-protector])
+            ;;
+    esac
     AX_APPEND_LINK_FLAGS([-fPIE -pie])
     AX_APPEND_LINK_FLAGS([-Wl,-z,relro])
     AX_APPEND_LINK_FLAGS([-Wl,-z,now])
@@ -408,14 +416,14 @@ find_ssl_dir() { :
     test "x$stunnel_prefix" = "xNONE" && stunnel_prefix=$ac_default_prefix
     for main_dir in "$stunnel_prefix" "/usr/local" "/usr/lib" "/usr/pkg" "/opt/local" "/opt" "/opt/csw" "/usr" ""; do
         for sub_dir in "/ssl" "/openssl" "/ossl" ""; do
-            check_ssl_dir "$sysroot$main_dir$sub_dir"
-            test -n "$SSLDIR" && return
+            check_ssl_dir "$sysroot$main_dir$sub_dir" && return
         done
     done
     if test -x "/usr/bin/xcrun"; then
         sdk_path=`/usr/bin/xcrun --sdk macosx --show-sdk-path`
-        check_ssl_dir "$sdk_path/usr"
+        check_ssl_dir "$sdk_path/usr" && return
     fi
+    check_ssl_dir "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-migrator/sdk/MacOSX.sdk/usr"
 }
 
 SSLDIR=""
@@ -456,5 +464,5 @@ AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile])
 AC_OUTPUT
 
 AC_MSG_NOTICE([**************************************** success])
-# End of configure.ac
 # vim:ft=automake
+# End of configure.ac

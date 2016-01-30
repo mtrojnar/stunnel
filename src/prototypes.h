@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2015 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -217,9 +217,9 @@ typedef struct service_options_struct {
     char *cert;                                             /* cert filename */
     char *key;                               /* pem (priv key/cert) filename */
     long session_size, session_timeout;
-    long ssl_options_set;
+    long unsigned ssl_options_set;
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
-    long ssl_options_clear;
+    long unsigned ssl_options_clear;
 #endif /* OpenSSL 0.9.8m or later */
     SSL_METHOD *client_method, *server_method;
     SOCKADDR_UNION sessiond_addr;
