@@ -618,6 +618,53 @@ NOEXPORT void transfer(CLI *c) {
         ssl_can_rd=s_poll_canread(c->fds, c->ssl_rfd->fd);
         ssl_can_wr=s_poll_canwrite(c->fds, c->ssl_wfd->fd);
 
+        /****************************** identify exceptions */
+        if(c->sock_rfd->fd==c->sock_wfd->fd) {
+            if((sock_can_rd || sock_can_wr) &&
+                    s_poll_err(c->fds, c->sock_rfd->fd)) {
+                err=get_socket_error(c->sock_rfd->fd);
+                if(err)
+                    s_log(LOG_ERR, "socket fd: %s (%d)",
+                        s_strerror(err), err);
+            }
+        } else {
+            if(sock_can_rd && s_poll_err(c->fds, c->sock_rfd->fd)) {
+                err=get_socket_error(c->sock_rfd->fd);
+                if(err)
+                    s_log(LOG_ERR, "socket rfd: %s (%d)",
+                        s_strerror(err), err);
+            }
+            if(sock_can_wr && s_poll_err(c->fds, c->sock_wfd->fd)) {
+                err=get_socket_error(c->sock_wfd->fd);
+                if(err)
+                    s_log(LOG_ERR, "socket wfd: %s (%d)",
+                        s_strerror(err), err);
+            }
+        }
+        if(c->ssl_rfd->fd==c->ssl_wfd->fd) {
+            if((ssl_can_rd || ssl_can_wr) &&
+                    s_poll_err(c->fds, c->ssl_rfd->fd)) {
+                err=get_socket_error(c->ssl_rfd->fd);
+                if(err)
+                    s_log(LOG_ERR, "ssl fd: %s (%d)",
+                        s_strerror(err), err);
+            }
+        } else {
+            if(ssl_can_rd && s_poll_err(c->fds, c->ssl_rfd->fd)) {
+                err=get_socket_error(c->ssl_rfd->fd);
+                if(err)
+                    s_log(LOG_ERR, "ssl rfd: %s (%d)",
+                        s_strerror(err), err);
+            }
+            if(c->ssl_rfd->fd!=c->ssl_wfd->fd &&
+                    ssl_can_wr && s_poll_err(c->fds, c->ssl_wfd->fd)) {
+                err=get_socket_error(c->ssl_wfd->fd);
+                if(err)
+                    s_log(LOG_ERR, "ssl wfd: %s (%d)",
+                        s_strerror(err), err);
+            }
+        }
+
         /****************************** hangups without read or write */
         if(!(sock_can_rd || sock_can_wr || ssl_can_rd || ssl_can_wr)) {
             if(s_poll_hup(c->fds, c->sock_rfd->fd) ||
@@ -641,11 +688,6 @@ NOEXPORT void transfer(CLI *c) {
                 s_log(LOG_INFO, "SSL socket closed (HUP)");
                 SSL_set_shutdown(c->ssl,
                     SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-            } else { /* please report it to the stunnel-users mailing list */
-                s_log(LOG_ERR, "INTERNAL ERROR: "
-                    "s_poll_wait returned %d, but no descriptor is ready", err);
-                s_poll_dump(c->fds, LOG_ERR);
-                longjmp(c->err, 1);
             }
         }
 
@@ -700,12 +742,15 @@ NOEXPORT void transfer(CLI *c) {
                     break; /* a non-critical error: retry */
                 sock_open_rd=sock_open_wr=0;
                 break;
+            case 0: /* nothing was written: ignore */
+                s_log(LOG_DEBUG, "writesocket returned 0");
+                break; /* do not reset the watchdog */
             default:
                 memmove(c->ssl_buff, c->ssl_buff+num, c->ssl_ptr-(size_t)num);
                 c->ssl_ptr-=(size_t)num;
                 memset(c->ssl_buff+c->ssl_ptr, 0, (size_t)num); /* paranoia */
                 c->sock_bytes+=(size_t)num;
-                watchdog=0; /* reset watchdog */
+                watchdog=0; /* reset the watchdog */
             }
         }
 
@@ -722,10 +767,10 @@ NOEXPORT void transfer(CLI *c) {
             case 0: /* close */
                 s_log(LOG_INFO, "Read socket closed (readsocket)");
                 sock_open_rd=0;
-                break;
+                break; /* do not reset the watchdog */
             default:
                 c->sock_ptr+=(size_t)num;
-                watchdog=0; /* reset watchdog */
+                watchdog=0; /* reset the watchdog */
             }
         }
 
@@ -744,14 +789,16 @@ NOEXPORT void transfer(CLI *c) {
             num=SSL_write(c->ssl, c->sock_buff, (int)(c->sock_ptr));
             switch(err=SSL_get_error(c->ssl, (int)num)) {
             case SSL_ERROR_NONE:
-                if(num==0)
+                if(num==0) { /* nothing was written: ignore */
                     s_log(LOG_DEBUG, "SSL_write returned 0");
+                    break; /* do not reset the watchdog */
+                }
                 memmove(c->sock_buff, c->sock_buff+num,
                     c->sock_ptr-(size_t)num);
                 c->sock_ptr-=(size_t)num;
                 memset(c->sock_buff+c->sock_ptr, 0, (size_t)num); /* paranoia */
                 c->ssl_bytes+=(size_t)num;
-                watchdog=0; /* reset watchdog */
+                watchdog=0; /* reset the watchdog */
                 break;
             case SSL_ERROR_WANT_WRITE: /* buffered data? */
                 s_log(LOG_DEBUG, "SSL_write returned WANT_WRITE: retrying");
@@ -803,10 +850,12 @@ NOEXPORT void transfer(CLI *c) {
             num=SSL_read(c->ssl, c->ssl_buff+c->ssl_ptr, (int)(BUFFSIZE-c->ssl_ptr));
             switch(err=SSL_get_error(c->ssl, (int)num)) {
             case SSL_ERROR_NONE:
-                if(num==0)
+                if(num==0) { /* nothing was read: ignore */
                     s_log(LOG_DEBUG, "SSL_read returned 0");
+                    break; /* do not reset the watchdog */
+                }
                 c->ssl_ptr+=(size_t)num;
-                watchdog=0; /* reset watchdog */
+                watchdog=0; /* reset the watchdog */
                 break;
             case SSL_ERROR_WANT_WRITE:
                 s_log(LOG_DEBUG, "SSL_read returned WANT_WRITE: retrying");

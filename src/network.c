@@ -46,7 +46,6 @@
 /* #define DEBUG_UCONTEXT */
 
 NOEXPORT void s_poll_realloc(s_poll_set *);
-NOEXPORT int get_socket_error(const SOCKET);
 
 /**************************************** s_poll functions */
 
@@ -145,6 +144,15 @@ int s_poll_rdhup(s_poll_set *fds, SOCKET fd) {
 #else
             return fds->ufds[i].revents&POLLHUP; /* read and write closed */
 #endif
+    return 0; /* not listed in fds */
+}
+
+int s_poll_err(s_poll_set *fds, SOCKET fd) {
+    unsigned i;
+
+    for(i=0; i<fds->nfds; i++)
+        if(fds->ufds[i].fd==fd)
+            return fds->ufds[i].revents&POLLERR;
     return 0; /* not listed in fds */
 }
 
@@ -386,23 +394,31 @@ void s_poll_remove(s_poll_set *fds, SOCKET fd) {
 }
 
 int s_poll_canread(s_poll_set *fds, SOCKET fd) {
-    return FD_ISSET(fd, fds->orfds) || FD_ISSET(fd, fds->oxfds);
+    /* ignore exception if there is no error (WinCE 6.0 anomaly) */
+    return FD_ISSET(fd, fds->orfds) ||
+        (FD_ISSET(fd, fds->oxfds) && get_socket_error(fd));
 }
 
 int s_poll_canwrite(s_poll_set *fds, SOCKET fd) {
-    return FD_ISSET(fd, fds->owfds) || FD_ISSET(fd, fds->oxfds);
+    /* ignore exception if there is no error (WinCE 6.0 anomaly) */
+    return FD_ISSET(fd, fds->owfds) ||
+        (FD_ISSET(fd, fds->oxfds) && get_socket_error(fd));
 }
 
 int s_poll_hup(s_poll_set *fds, SOCKET fd) {
     (void)fds; /* squash the unused parameter warning */
     (void)fd; /* squash the unused parameter warning */
-    return 0; /* FIXME: how to detect HUP condition with select()? */
+    return 0; /* FIXME: how to detect the HUP condition with select()? */
 }
 
 int s_poll_rdhup(s_poll_set *fds, SOCKET fd) {
     (void)fds; /* squash the unused parameter warning */
     (void)fd; /* squash the unused parameter warning */
-    return 0; /* FIXME: how to detect RDHUP condition with select()? */
+    return 0; /* FIXME: how to detect the RDHUP condition with select()? */
+}
+
+int s_poll_err(s_poll_set *fds, SOCKET fd) {
+    return FD_ISSET(fd, fds->oxfds);
 }
 
 #ifdef USE_WIN32
@@ -508,7 +524,7 @@ int set_socket_options(SOCKET s, int type) {
     return retval; /* returns 0 when all options succeeded */
 }
 
-NOEXPORT int get_socket_error(const SOCKET fd) {
+int get_socket_error(const SOCKET fd) {
     int err;
     socklen_t optlen=sizeof err;
 

@@ -81,12 +81,16 @@ NOEXPORT int password_cb(char *, int, int, void *);
 
 /* session callbacks */
 NOEXPORT int sess_new_cb(SSL *, SSL_SESSION *);
-NOEXPORT SSL_SESSION *sess_get_cb(SSL *, unsigned char *, int, int *);
+NOEXPORT SSL_SESSION *sess_get_cb(SSL *,
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    const
+#endif
+    unsigned char *, int, int *);
 NOEXPORT void sess_remove_cb(SSL_CTX *, SSL_SESSION *);
 
 /* sessiond interface */
 NOEXPORT void cache_new(SSL *, SSL_SESSION *);
-NOEXPORT SSL_SESSION *cache_get(SSL *, unsigned char *, int);
+NOEXPORT SSL_SESSION *cache_get(SSL *, const unsigned char *, int);
 NOEXPORT void cache_remove(SSL_CTX *, SSL_SESSION *);
 NOEXPORT void cache_transfer(SSL_CTX *, const u_char, const long,
     const u_char *, const size_t,
@@ -101,10 +105,10 @@ NOEXPORT void sslerror_log(unsigned long, char *);
 
 /**************************************** initialize section->ctx */
 
-#if OPENSSL_VERSION_NUMBER<0x10100000L
-typedef long SSL_OPTIONS_TYPE;
-#else /* OpenSSL >= 1.1.0 */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
 typedef long unsigned SSL_OPTIONS_TYPE;
+#else
+typedef long SSL_OPTIONS_TYPE;
 #endif
 
 int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
@@ -716,6 +720,9 @@ NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
 }
 
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+        const
+#endif
         unsigned char *key, int key_len, int *do_copy) {
     CLI *c;
 
@@ -767,7 +774,7 @@ NOEXPORT void cache_new(SSL *ssl, SSL_SESSION *sess) {
 }
 
 NOEXPORT SSL_SESSION *cache_get(SSL *ssl,
-        unsigned char *key, int key_len) {
+        const unsigned char *key, int key_len) {
     unsigned char *val, *val_tmp=NULL;
     ssize_t val_len=0;
     SSL_SESSION *sess;
@@ -936,6 +943,28 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
 
     c=SSL_get_ex_data((SSL *)ssl, index_cli);
     if(c) {
+        int state=SSL_get_state((SSL *)ssl);
+
+#if 0
+        s_log(LOG_DEBUG, "state = %x", state);
+#endif
+
+        /* log the client certificate request (if received) */
+#ifndef SSL3_ST_CR_CERT_REQ_A
+        if(state==TLS_ST_CR_CERT_REQ)
+#else
+        if(state==SSL3_ST_CR_CERT_REQ_A)
+#endif
+            print_client_CA_list(SSL_get_client_CA_list(ssl));
+#ifndef SSL3_ST_CR_SRVR_DONE_A
+        if(state==TLS_ST_CR_SRVR_DONE)
+#else
+        if(state==SSL3_ST_CR_SRVR_DONE_A)
+#endif
+            if(!SSL_get_client_CA_list(ssl))
+                s_log(LOG_INFO, "Client certificate not requested");
+
+        /* prevent renegotiation DoS attack */
         if((where&SSL_CB_HANDSHAKE_DONE)
                 && c->reneg_state==RENEG_INIT) {
             /* first (initial) handshake was completed, remember this,
@@ -943,8 +972,6 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
             c->reneg_state=RENEG_ESTABLISHED;
         } else if((where&SSL_CB_ACCEPT_LOOP)
                 && c->reneg_state==RENEG_ESTABLISHED) {
-            int state=SSL_get_state((SSL *)ssl);
-
 #ifndef SSL3_ST_SR_CLNT_HELLO_A
             if(state==TLS_ST_SR_CLNT_HELLO
                     || state==TLS_ST_SR_CLNT_HELLO) {
@@ -957,6 +984,7 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
                 c->reneg_state=RENEG_DETECTED;
             }
         }
+
         if(c->opt->log_level<LOG_DEBUG) /* performance optimization */
             return;
     }

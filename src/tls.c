@@ -52,9 +52,10 @@ void tls_init() {
     tls_platform_init();
     tls_initialized=1;
     ui_tls=tls_alloc(NULL, NULL, "ui");
-#if OPENSSL_VERSION_NUMBER<0x10100000L
-    /* the ability to set the "memory debug" functions
-     * at runtme was removed in OpenSSL 1.1 */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    CRYPTO_set_mem_functions(str_alloc_detached_debug,
+        str_realloc_debug, str_free_debug);
+#else
     CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
         str_realloc_debug, free_function);
 #endif
