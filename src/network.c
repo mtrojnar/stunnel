@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -382,7 +382,10 @@ void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
     if(wr)
         FD_SET(fd, fds->iwfds);
     /* always expect errors (and the Spanish Inquisition) */
+    /* this, however, causes permanent errors on WinCE */
+#ifndef _WIN32_WCE
     FD_SET(fd, fds->ixfds);
+#endif
     if(fd>fds->max)
         fds->max=fd;
 }

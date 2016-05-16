@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -145,16 +145,16 @@ unsigned name2addr(SOCKADDR_UNION *addr, char *name, int passive) {
 unsigned hostport2addr(SOCKADDR_UNION *addr,
         char *host_name, char *port_name, int passive) {
     SOCKADDR_LIST *addr_list;
-    unsigned retval;
+    unsigned num;
 
     addr_list=str_alloc(sizeof(SOCKADDR_LIST));
     addrlist_clear(addr_list, passive);
-    retval=hostport2addrlist(addr_list, host_name, port_name);
-    if(retval)
+    num=hostport2addrlist(addr_list, host_name, port_name);
+    if(num)
         addrlist2addr(addr, addr_list);
     str_free(addr_list->addr);
     str_free(addr_list);
-    return retval;
+    return num;
 }
 
 NOEXPORT void addrlist2addr(SOCKADDR_UNION *addr, SOCKADDR_LIST *addr_list) {
@@ -180,7 +180,7 @@ NOEXPORT void addrlist2addr(SOCKADDR_UNION *addr, SOCKADDR_LIST *addr_list) {
 
 unsigned name2addrlist(SOCKADDR_LIST *addr_list, char *name) {
     char *tmp, *host_name, *port_name;
-    unsigned retval;
+    unsigned num;
 
     /* first check if this is a UNIX socket */
 #ifdef HAVE_STRUCT_SOCKADDR_UN
@@ -194,7 +194,8 @@ unsigned name2addrlist(SOCKADDR_LIST *addr_list, char *name) {
             (addr_list->num+1)*sizeof(SOCKADDR_UNION));
         addr_list->addr[addr_list->num].un.sun_family=AF_UNIX;
         strcpy(addr_list->addr[addr_list->num].un.sun_path, name);
-        return ++(addr_list->num); /* ok - return the number of addresses */
+        ++(addr_list->num);
+        return 1; /* ok - return the number of new addresses */
     }
 #endif
 
@@ -210,15 +211,16 @@ unsigned name2addrlist(SOCKADDR_LIST *addr_list, char *name) {
     }
 
     /* fill addr_list structure */
-    retval=hostport2addrlist(addr_list, host_name, port_name);
+    num=hostport2addrlist(addr_list, host_name, port_name);
     str_free(tmp);
-    return retval;
+    return num; /* ok - return the number of new addresses */
 }
 
 unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         char *host_name, char *port_name) {
     struct addrinfo hints, *res=NULL, *cur;
     int err, retry=0;
+    unsigned num=0;
 
     memset(&hints, 0, sizeof hints);
 #if defined(USE_IPv6) || defined(USE_WIN32)
@@ -276,9 +278,10 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         memcpy(&addr_list->addr[addr_list->num], cur->ai_addr,
             (size_t)cur->ai_addrlen);
         ++(addr_list->num);
+        ++num;
     }
     freeaddrinfo(res);
-    return addr_list->num; /* ok - return the number of addresses */
+    return num; /* ok - return the number of new addresses */
 }
 
 /* initialize the structure */

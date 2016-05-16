@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -151,9 +151,9 @@ NOEXPORT void client_run(CLI *c) {
 #endif
 
 #ifndef USE_FORK
-    CRYPTO_w_lock(stunnel_locks[LOCK_CLIENTS]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_CLIENTS]);
     ui_clients(++num_clients);
-    CRYPTO_w_unlock(stunnel_locks[LOCK_CLIENTS]);
+    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_CLIENTS]);
 #endif
 
         /* initialize the client context */
@@ -193,11 +193,16 @@ NOEXPORT void client_run(CLI *c) {
         SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         SSL_free(c->ssl);
         c->ssl=NULL;
-#if OPENSSL_VERSION_NUMBER>=0x10000000L
+#if OPENSSL_VERSION_NUMBER==0x10100004L || OPENSSL_VERSION_NUMBER==0x10100005L
+        /* OpenSSL version 1.1.0-pre4 or 1.1.0-pre5 (to be removed) */
+        ERR_remove_thread_state();
+#elif OPENSSL_VERSION_NUMBER>=0x10000000L
+        /* OpenSSL version >= 1.0.0 */
         ERR_remove_thread_state(NULL);
-#else /* OpenSSL version < 1.0.0 */
+#else
+         /* OpenSSL version < 1.0.0 */
         ERR_remove_state(0);
-#endif /* OpenSSL version >= 1.0.0 */
+#endif
     }
 
         /* cleanup the remote socket */
@@ -234,10 +239,10 @@ NOEXPORT void client_run(CLI *c) {
         child_status(); /* null SIGCHLD handler was used */
     s_log(LOG_DEBUG, "Service [%s] finished", c->opt->servname);
 #else
-    CRYPTO_w_lock(stunnel_locks[LOCK_CLIENTS]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_CLIENTS]);
     ui_clients(--num_clients);
     num_clients_copy=num_clients; /* to move s_log() away from CRIT_CLIENTS */
-    CRYPTO_w_unlock(stunnel_locks[LOCK_CLIENTS]);
+    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_CLIENTS]);
     s_log(LOG_DEBUG, "Service [%s] finished (%ld left)",
         c->opt->servname, num_clients_copy);
 #endif
@@ -385,9 +390,9 @@ NOEXPORT void ssl_start(CLI *c) {
         }
 #endif
         if(c->opt->session) {
-            CRYPTO_w_lock(stunnel_locks[LOCK_SESSION]);
+            CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
             SSL_set_session(c->ssl, c->opt->session);
-            CRYPTO_w_unlock(stunnel_locks[LOCK_SESSION]);
+            CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_SESSION]);
         }
         SSL_set_fd(c->ssl, (int)c->remote_fd.fd);
         SSL_set_connect_state(c->ssl);
@@ -412,7 +417,7 @@ NOEXPORT void ssl_start(CLI *c) {
          * alternative solution is to disable internal session caching     *
          * NOTE: this critical section also covers callbacks (e.g. OCSP)   */
         if(unsafe_openssl)
-            CRYPTO_w_lock(stunnel_locks[LOCK_SSL]);
+            CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SSL]);
 
         if(c->opt->option.client)
             i=SSL_connect(c->ssl);
@@ -420,7 +425,7 @@ NOEXPORT void ssl_start(CLI *c) {
             i=SSL_accept(c->ssl);
 
         if(unsafe_openssl)
-            CRYPTO_w_unlock(stunnel_locks[LOCK_SSL]);
+            CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_SSL]);
 
         err=SSL_get_error(c->ssl, i);
         if(err==SSL_ERROR_NONE)
@@ -483,10 +488,10 @@ NOEXPORT void ssl_start(CLI *c) {
         SSL_SESSION_set_ex_data(SSL_get_session(c->ssl),
             index_redirect, (void *)c->redirect);
         if(c->opt->option.client) {
-            CRYPTO_w_lock(stunnel_locks[LOCK_SESSION]);
+            CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
             old_session=c->opt->session;
             c->opt->session=SSL_get1_session(c->ssl); /* store it */
-            CRYPTO_w_unlock(stunnel_locks[LOCK_SESSION]);
+            CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_SESSION]);
             if(old_session)
                 SSL_SESSION_free(old_session); /* release the old one */
         } else { /* SSL server */
@@ -977,7 +982,7 @@ NOEXPORT void transfer(CLI *c) {
             s_log(LOG_ERR,
                 "transfer() loop executes not transferring any data");
             s_log(LOG_ERR,
-                "please report the problem to Michal.Trojnara@mirt.net");
+                "please report the problem to Michal.Trojnara@stunnel.org");
             stunnel_info(LOG_ERR);
             s_log(LOG_ERR, "protocol=%s, SSL_pending=%d",
                 SSL_get_version(c->ssl), SSL_pending(c->ssl));
@@ -1370,10 +1375,10 @@ NOEXPORT void connect_cache(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
     s_log(LOG_INFO, "persistence: %s cached", addr_txt);
     str_free(addr_txt);
 
-    CRYPTO_w_lock(stunnel_locks[LOCK_ADDR]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_ADDR]);
     old_addr=SSL_SESSION_get_ex_data(sess, index_addr);
     SSL_SESSION_set_ex_data(sess, index_addr, new_addr);
-    CRYPTO_w_unlock(stunnel_locks[LOCK_ADDR]);
+    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_ADDR]);
     str_free(old_addr); /* NULL pointers are ignored */
 }
 
@@ -1384,12 +1389,12 @@ NOEXPORT unsigned connect_index(CLI *c) {
     char *addr_txt;
 
     if(c->ssl && SSL_session_reused(c->ssl)) {
-        CRYPTO_r_lock(stunnel_locks[LOCK_ADDR]);
+        CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_ADDR]);
         ptr=SSL_SESSION_get_ex_data(SSL_get_session(c->ssl), index_addr);
         if(ptr) {
             len=addr_len(ptr);
             memcpy(&addr, ptr, (size_t)len);
-            CRYPTO_r_unlock(stunnel_locks[LOCK_ADDR]);
+            CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_ADDR]);
             /* address was copied, ptr itself is no longer valid */
             for(i=0; i<c->connect_addr.num; ++i) {
                 if(addr_len(&c->connect_addr.addr[i])==len &&
@@ -1405,7 +1410,7 @@ NOEXPORT unsigned connect_index(CLI *c) {
             s_log(LOG_INFO, "persistence: %s not available", addr_txt);
             str_free(addr_txt);
         } else {
-            CRYPTO_r_unlock(stunnel_locks[LOCK_ADDR]);
+            CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_ADDR]);
             s_log(LOG_NOTICE, "persistence: No cached address found");
         }
     }

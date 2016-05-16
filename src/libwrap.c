@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -200,9 +200,9 @@ void libwrap_auth(CLI *c, char *accepted_address) {
     } else
 #endif /* USE_LIBWRAP_POOL */
     { /* use original, synchronous libwrap calls */
-        CRYPTO_w_lock(stunnel_locks[LOCK_LIBWRAP]);
+        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LIBWRAP]);
         result=check(c->opt->servname, c->local_rfd.fd);
-        CRYPTO_w_unlock(stunnel_locks[LOCK_LIBWRAP]);
+        CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LIBWRAP]);
     }
     if(!result) {
         s_log(LOG_WARNING, "Service [%s] REFUSED by libwrap from %s",

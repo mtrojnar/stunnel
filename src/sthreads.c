@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -43,7 +43,11 @@
 #include "common.h"
 #include "prototypes.h"
 
-int stunnel_locks[STUNNEL_LOCKS];
+STUNNEL_RWLOCK stunnel_locks[STUNNEL_LOCKS];
+
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+#define CRYPTO_THREAD_lock_new() CRYPTO_get_new_dynlockid()
+#endif
 
 #if defined(USE_UCONTEXT) || defined(USE_FORK)
 /* no need for critical sections */
@@ -199,6 +203,8 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
 
 #ifdef USE_PTHREAD
 
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+
 struct CRYPTO_dynlock_value {
     pthread_rwlock_t rwlock;
 };
@@ -243,6 +249,8 @@ NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
     dyn_lock_function(mode, lock_cs+type, file, line);
 }
 
+#endif
+
 unsigned long stunnel_process_id(void) {
     return (unsigned long)getpid();
 }
@@ -255,7 +263,7 @@ unsigned long stunnel_thread_id(void) {
 #endif
 }
 
-#if OPENSSL_VERSION_NUMBER>=0x10000000L
+#if OPENSSL_VERSION_NUMBER>=0x10000000L && OPENSSL_VERSION_NUMBER<0x10100004L
 NOEXPORT void threadid_func(CRYPTO_THREADID *tid) {
     CRYPTO_THREADID_set_numeric(tid, stunnel_thread_id());
 }
@@ -264,16 +272,13 @@ NOEXPORT void threadid_func(CRYPTO_THREADID *tid) {
 int sthreads_init(void) {
     int i;
 
-    /* initialize OpenSSL dynamic locks callbacks */
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+    /* initialize the OpenSSL dynamic locking */
     CRYPTO_set_dynlock_create_callback(dyn_create_function);
     CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
 
-    /* initialize stunnel critical sections */
-    for(i=0; i<STUNNEL_LOCKS; i++)
-        stunnel_locks[i]=CRYPTO_get_new_dynlockid();
-
-    /* initialize OpenSSL locking callback */
+    /* initialize the OpenSSL static locking */
     lock_cs=str_alloc_detached(
         (size_t)CRYPTO_num_locks()*sizeof(struct CRYPTO_dynlock_value));
     for(i=0; i<CRYPTO_num_locks(); i++)
@@ -284,6 +289,11 @@ int sthreads_init(void) {
     CRYPTO_set_id_callback(stunnel_thread_id);
 #endif
     CRYPTO_set_locking_callback(locking_callback);
+#endif
+
+    /* initialize stunnel critical sections */
+    for(i=0; i<STUNNEL_LOCKS; i++)
+        stunnel_locks[i]=CRYPTO_THREAD_lock_new();
 
     return 0;
 }
@@ -335,6 +345,8 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
  * but it is unsupported on Windows XP (and earlier versions of Windows):
  * https://msdn.microsoft.com/en-us/library/windows/desktop/aa904937%28v=vs.85%29.aspx */
 
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+
 struct CRYPTO_dynlock_value {
     CRITICAL_SECTION mutex;
 };
@@ -373,6 +385,8 @@ NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
     dyn_lock_function(mode, lock_cs+type, file, line);
 }
 
+#endif
+
 unsigned long stunnel_process_id(void) {
     return GetCurrentProcessId() & 0x00ffffff;
 }
@@ -384,21 +398,23 @@ unsigned long stunnel_thread_id(void) {
 int sthreads_init(void) {
     int i;
 
-    /* initialize OpenSSL dynamic locks callbacks */
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+    /* initialize the OpenSSL dynamic locking */
     CRYPTO_set_dynlock_create_callback(dyn_create_function);
     CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
 
-    /* initialize stunnel critical sections */
-    for(i=0; i<STUNNEL_LOCKS; i++)
-        stunnel_locks[i]=CRYPTO_get_new_dynlockid();
-
-    /* initialize OpenSSL locking callback */
+    /* initialize the OpenSSL static locking */
     lock_cs=str_alloc_detached(
         (size_t)CRYPTO_num_locks()*sizeof(struct CRYPTO_dynlock_value));
     for(i=0; i<CRYPTO_num_locks(); i++)
         InitializeCriticalSection(&lock_cs[i].mutex);
     CRYPTO_set_locking_callback(locking_callback);
+#endif
+
+    /* initialize stunnel critical sections */
+    for(i=0; i<STUNNEL_LOCKS; i++)
+        stunnel_locks[i]=CRYPTO_THREAD_lock_new();
 
     return 0;
 }

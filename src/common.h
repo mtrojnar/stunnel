@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -435,8 +435,11 @@ extern char *sys_errlist[];
 #endif /* !defined(OPENSSL_NO_OCSP) */
 #endif /* OpenSSL older than 0.9.8h */
 
-#if OPENSSL_VERSION_NUMBER<0x10000000L
+#if OPENSSL_VERSION_NUMBER<0x00908060L
 #define OPENSSL_NO_TLSEXT
+#endif /* OpenSSL older than 0.9.8f */
+
+#if OPENSSL_VERSION_NUMBER<0x10000000L
 #define OPENSSL_NO_PSK
 #endif /* OpenSSL older than 1.0.0 */
 
@@ -449,6 +452,8 @@ extern char *sys_errlist[];
 #ifndef OPENSSL_NO_SSL2
 #define OPENSSL_NO_SSL2
 #endif /* !defined(OPENSSL_NO_SSL2) */
+#else /* OpenSSL older than 1.1.0 */
+#define X509_STORE_CTX_get0_chain(x) X509_STORE_CTX_get_chain(x)
 #endif /* OpenSSL 1.1.0 or newer */
 
 #if defined(USE_WIN32) && defined(OPENSSL_FIPS)
@@ -469,6 +474,9 @@ extern char *sys_errlist[];
 #include <openssl/des.h>
 #ifndef OPENSSL_NO_DH
 #include <openssl/dh.h>
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+#endif /* OpenSSL older than 1.1.0 */
 #endif /* !defined(OPENSSL_NO_DH) */
 #ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>

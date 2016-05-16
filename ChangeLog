@@ -1,5 +1,29 @@
 stunnel change log
 
+Version 5.33, unreleased, urgency: MEDIUM
+* New features
+  - Updated the memory leak detection heuristics.
+  - Improved compatibility with the current OpenSSL 1.1.0-dev tree.
+  - SNI support also enabled on OpenSSL 0.9.8f and later (thx to
+    Guillermo Rodriguez Garcia).
+* Bugfixes
+  - Fixed a memory leak in the TLS session caching code (thx to
+    Richard Kraemer).
+  - Fixed a FORK threading build regression bug.
+
+Version 5.32, 2016.05.03, urgency: HIGH
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.2h.
+    https://www.openssl.org/news/secadv_20160503.txt
+* New features
+  - New "socket = a:IPV6_V6ONLY=yes" option to only bind IPv6.
+  - Memory leak detection.
+  - Improved compatibility with the current OpenSSL 1.1.0-dev tree.
+  - Added/fixed Red Hat scripts (thx to Andrew Colin Kissa).
+* Bugfixes
+  - Workaround for a WinCE sockets quirk (thx to Richard Kraemer).
+  - Fixed data alignment on 64-bit MSVC (thx to Yuris W. Auzins).
+
 Version 5.31, 2016.03.01, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2g.
@@ -11,6 +35,8 @@ Version 5.31, 2016.03.01, urgency: HIGH
   - Only reset the watchdog if some data was actually transferred.
   - A workaround implemented for the unexpected exceptfds set by
     select() on WinCE 6.0 (thx to Richard Kraemer).
+  - Fixed logging an incorrect value of the round-robin starting
+    point (thx to Jose Alf.).
 
 Version 5.30, 2016.01.28, urgency: HIGH
 * Security bugfixes

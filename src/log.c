@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -120,7 +120,7 @@ void log_flush(LOG_MODE new_mode) {
     if(mode!=LOG_MODE_CONFIGURED)
         mode=new_mode;
 
-    CRYPTO_w_lock(stunnel_locks[LOCK_LOG]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG]);
     while(head) {
         log_raw(head->opt, head->level, head->stamp, head->id, head->text);
         str_free(head->stamp);
@@ -130,7 +130,7 @@ void log_flush(LOG_MODE new_mode) {
         head=head->next;
         str_free(tmp);
     }
-    CRYPTO_w_unlock(stunnel_locks[LOCK_LOG]);
+    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG]);
     head=tail=NULL;
 }
 
@@ -184,7 +184,7 @@ void s_log(int level, const char *format, ...) {
     safestring(text);
 
     if(mode==LOG_MODE_NONE) { /* save the text to log it later */
-        CRYPTO_w_lock(stunnel_locks[LOCK_LOG]);
+        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG]);
         tmp=str_alloc_detached(sizeof(struct LIST));
         tmp->next=NULL;
         tmp->opt=tls_data->opt;
@@ -200,7 +200,7 @@ void s_log(int level, const char *format, ...) {
         else
             head=tmp;
         tail=tmp;
-        CRYPTO_w_unlock(stunnel_locks[LOCK_LOG]);
+        CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG]);
     } else { /* ready log the text directly */
         log_raw(tls_data->opt, level, stamp, id, text);
         str_free(stamp);

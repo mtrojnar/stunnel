@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -378,7 +378,7 @@ typedef enum {
 } RENEG_STATE;
 
 typedef struct {
-    jmp_buf err; /* exception handler needs to be 16-byte aligned on Itanium */
+    jmp_buf err; /* 64-bit platforms require jmp_buf to be 16-byte aligned */
     SSL *ssl; /* SSL connnection */
     SERVICE_OPTIONS *opt;
     TLS_DATA *tls;
@@ -429,6 +429,7 @@ void stunnel_info(int);
 /**************************************** prototypes for options.c */
 
 extern char configuration_file[PATH_MAX];
+extern unsigned number_of_sections;
 
 int options_cmdline(char *, char *);
 int options_parse(CONF_TYPE);
@@ -639,13 +640,35 @@ typedef enum {
 #ifndef USE_WIN32
     LOCK_LIBWRAP,                           /* libwrap.c */
 #endif
-    LOCK_LOG, LOCK_LEAK,                    /* log.c */
+    LOCK_LOG, LOCK_LEAK_ALLOCATIONS,
+    LOCK_LEAK_HASH, LOCK_LEAK_RESULTS,      /* log.c */
 #ifndef OPENSSL_NO_DH
     LOCK_DH,                                /* ctx.c */
 #endif /* OPENSSL_NO_DH */
     STUNNEL_LOCKS                           /* number of locks */
 } LOCK_TYPE;
-extern int stunnel_locks[STUNNEL_LOCKS];
+#if OPENSSL_VERSION_NUMBER < 0x10100004L
+typedef int STUNNEL_RWLOCK;
+#else
+typedef CRYPTO_RWLOCK *STUNNEL_RWLOCK;
+#endif
+extern STUNNEL_RWLOCK stunnel_locks[STUNNEL_LOCKS];
+#if OPENSSL_VERSION_NUMBER>=0x10100004L
+#define CRYPTO_THREAD_read_unlock(type) CRYPTO_THREAD_unlock(type)
+#define CRYPTO_THREAD_write_unlock(type) CRYPTO_THREAD_unlock(type)
+#else
+/* Emulate the OpenSSL 1.1 locking API for older OpenSSL versions */
+#define CRYPTO_THREAD_read_lock(type) \
+    if(type) CRYPTO_lock(CRYPTO_LOCK|CRYPTO_READ,type,__FILE__,__LINE__)
+#define CRYPTO_THREAD_read_unlock(type) \
+    if(type) CRYPTO_lock(CRYPTO_UNLOCK|CRYPTO_READ,type,__FILE__,__LINE__)
+#define CRYPTO_THREAD_write_lock(type) \
+    if(type) CRYPTO_lock(CRYPTO_LOCK|CRYPTO_WRITE,type,__FILE__,__LINE__)
+#define CRYPTO_THREAD_write_unlock(type) \
+    if(type) CRYPTO_lock(CRYPTO_UNLOCK|CRYPTO_WRITE,type,__FILE__,__LINE__)
+#define CRYPTO_atomic_add(addr,amount,result,type) \
+    *result = type ? CRYPTO_add(addr,amount,type) : (*addr+=amount)
+#endif
 
 int sthreads_init(void);
 unsigned long stunnel_process_id(void);

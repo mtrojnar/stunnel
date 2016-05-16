@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -38,11 +38,28 @@
 #include "common.h"
 #include "prototypes.h"
 
-#define CANARY_INITIALIZED  0x0000c0ded0000000L
-#define CANARY_UNINTIALIZED 0x0000abadbabe0000L
-#define MAGIC_ALLOCATED     0x0000a110c8ed0000L
-#define MAGIC_DEALLOCATED   0x0000defec8ed0000L
+/* reportedly, malloc does not always return 16-byte aligned addresses
+ * for 64-bit targets as specified by
+ * https://msdn.microsoft.com/en-us/library/6ewkz86d.aspx */
+#ifdef USE_WIN32
+#define system_malloc(n) _aligned_malloc((n),16)
+#define system_realloc(p,n) _aligned_realloc((p),(n),16)
+#define system_free(p) _aligned_free(p)
+#else
+#define system_malloc(n) malloc(n)
+#define system_realloc(p,n) realloc((p),(n))
+#define system_free(p) free(p)
+#endif
 
+#define CANARY_INITIALIZED  0x0000c0ded0000000LL
+#define CANARY_UNINTIALIZED 0x0000abadbabe0000LL
+#define MAGIC_ALLOCATED     0x0000a110c8ed0000LL
+#define MAGIC_DEALLOCATED   0x0000defec8ed0000LL
+
+/* most platforms require allocations to be aligned */
+#ifdef _MSC_VER
+__declspec(align(16))
+#endif
 struct alloc_list_struct {
     ALLOC_LIST *prev, *next;
     TLS_DATA *tls;
@@ -50,24 +67,39 @@ struct alloc_list_struct {
     const char *alloc_file, *free_file;
     int alloc_line, free_line;
     uint64_t valid_canary, magic;
-        /* at least on IA64 allocations need to be aligned */
 #ifdef __GNUC__
 } __attribute__((aligned(16)));
 #else
+#ifndef MSC_VER
     uint64_t :0; /* align the structure */
+#endif
 };
 #endif
+
+#define LEAK_TABLE_SIZE 997
+typedef struct {
+    const char *alloc_file;
+    int alloc_line;
+    int num, max;
+} LEAK_ENTRY;
+NOEXPORT LEAK_ENTRY leak_hash_table[LEAK_TABLE_SIZE],
+    *leak_results[LEAK_TABLE_SIZE];
+NOEXPORT int leak_result_num=0;
 
 #ifdef USE_WIN32
 NOEXPORT LPTSTR str_vtprintf(LPCTSTR, va_list);
 #endif /* USE_WIN32 */
 
 NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
-NOEXPORT void str_leak_debug(ALLOC_LIST *, int);
+NOEXPORT void str_leak_debug(const ALLOC_LIST *, int);
+
+NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *);
+NOEXPORT void leak_report();
+NOEXPORT long leak_threshold();
 
 TLS_DATA *ui_tls;
-static uint8_t canary[10]; /* 80-bit canary value */
-static volatile uint64_t canary_initialized=CANARY_UNINTIALIZED;
+NOEXPORT uint8_t canary[10]; /* 80-bit canary value */
+NOEXPORT volatile uint64_t canary_initialized=CANARY_UNINTIALIZED;
 
 /**************************************** string manipulation functions */
 
@@ -184,6 +216,7 @@ void str_stats() {
 
     if(!tls_initialized)
         fatal("str not initialized");
+    leak_report();
     tls_data=tls_get();
     if(!tls_data || (!tls_data->alloc_blocks && !tls_data->alloc_bytes))
         return; /* skip if no data is allocated */
@@ -234,9 +267,10 @@ void *str_alloc_detached_debug(size_t size, const char *file, int line) {
 #if 0
     printf("allocating %lu bytes at %s:%d\n", (unsigned long)size, file, line);
 #endif
-    alloc_list=calloc(1, sizeof(ALLOC_LIST)+size+sizeof canary);
+    alloc_list=system_malloc(sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
         fatal_debug("Out of memory", file, line);
+    memset(alloc_list, 0, sizeof(ALLOC_LIST)+size+sizeof canary);
     alloc_list->prev=NULL; /* for debugging */
     alloc_list->next=NULL; /* for debugging */
     alloc_list->tls=NULL;
@@ -262,7 +296,7 @@ void *str_realloc_debug(void *ptr, size_t size, const char *file, int line) {
     str_leak_debug(prev_alloc_list, -1);
     if(prev_alloc_list->size>size) /* shrinking the allocation */
         memset((uint8_t *)ptr+size, 0, prev_alloc_list->size-size); /* paranoia */
-    alloc_list=realloc(prev_alloc_list, sizeof(ALLOC_LIST)+size+sizeof canary);
+    alloc_list=system_realloc(prev_alloc_list, sizeof(ALLOC_LIST)+size+sizeof canary);
     if(!alloc_list)
         fatal_debug("Out of memory", file, line);
     ptr=alloc_list+1;
@@ -338,7 +372,7 @@ void str_free_debug(void *ptr, const char *file, int line) {
     alloc_list->free_line=line;
     alloc_list->magic=MAGIC_DEALLOCATED; /* detect double free attempts */
     memset(ptr, 0, alloc_list->size+sizeof canary); /* paranoia */
-    free(alloc_list);
+    system_free(alloc_list);
 }
 
 NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
@@ -357,46 +391,90 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
     return alloc_list;
 }
 
-/* #define STR_LEAK_DEBUG */
-/* the implementation is slow, but it's not going to be used in production */
-NOEXPORT void str_leak_debug(ALLOC_LIST *alloc_list, int change) {
-#ifndef STR_LEAK_DEBUG
-    (void)alloc_list; /* squash the unused parameter warning */
-    (void)change; /* squash the unused parameter warning */
-#else
-#define ALLOC_TABLE_SIZE 1000
-#define MAX_ALLOCS 200
-    static struct {
-        const char *alloc_file;
-        int alloc_line;
-        int num;
-    } alloc_table[ALLOC_TABLE_SIZE];
-    static size_t alloc_num=0;
-    size_t i;
+/**************************************** memory leak detection */
 
-    CRYPTO_w_lock(stunnel_locks[LOCK_LEAK]);
-    for(i=0; i<alloc_num; ++i)
-        if(alloc_table[i].alloc_file==alloc_list->alloc_file &&
-                alloc_table[i].alloc_line==alloc_list->alloc_line)
-            break;
-    if(i==alloc_num) {
-        if(alloc_num==ALLOC_TABLE_SIZE) {
-            CRYPTO_w_unlock(stunnel_locks[LOCK_LEAK]);
-            return;
+NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
+    static size_t entries=0;
+    LEAK_ENTRY *entry;
+    int new_entry, allocations;
+    long limit;
+
+    if(!stunnel_locks[STUNNEL_LOCKS-1]) /* threads not initialized */
+        return;
+    if(!number_of_sections) /* configuration file not initialized */
+        return;
+
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LEAK_HASH]);
+    entry=leak_search(alloc_list);
+    new_entry=entry->alloc_line==0;
+    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_LEAK_HASH]);
+
+    if(new_entry) { /* the file:line pair was encountered for the first time */
+        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LEAK_HASH]);
+        entry=leak_search(alloc_list); /* the list may have changed */
+        if(entry->alloc_line==0) {
+            if(entries>LEAK_TABLE_SIZE-100) { /* this should never happen */
+                CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LEAK_HASH]);
+                return;
+            }
+            entries++;
+            entry->alloc_line=alloc_list->alloc_line;
+            entry->alloc_file=alloc_list->alloc_file;
         }
-        alloc_table[i].alloc_file=alloc_list->alloc_file;
-        alloc_table[i].alloc_line=alloc_list->alloc_line;
-        alloc_table[i].num=0;
-        ++alloc_num;
+        CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LEAK_HASH]);
     }
-    alloc_table[i].num+=change;
-    CRYPTO_w_unlock(stunnel_locks[LOCK_LEAK]);
-    if(alloc_table[i].num>MAX_ALLOCS &&
-            strcmp(alloc_table[i].alloc_file, "lhash.c"))
-        fprintf(stderr, "%d allocations detected at %s:%d\n",
-            alloc_table[i].num,
-            alloc_table[i].alloc_file, alloc_table[i].alloc_line);
+
+    CRYPTO_atomic_add(&entry->num, change, &allocations,
+        stunnel_locks[LOCK_LEAK_ALLOCATIONS]);
+
+    limit=leak_threshold();
+
+    if(allocations>limit) {
+        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LEAK_RESULTS]);
+        if(allocations>entry->max) {
+            if(entry->max==0) /* discovered for the first time */
+                leak_results[leak_result_num++]=entry;
+            entry->max=allocations;
+        }
+        CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LEAK_RESULTS]);
+    }
+}
+
+/* O(1) hash table lookup */
+NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *alloc_list) {
+    int i=alloc_list->alloc_line%LEAK_TABLE_SIZE;
+
+    while(!(leak_hash_table[i].alloc_line==0 ||
+            (leak_hash_table[i].alloc_line==alloc_list->alloc_line &&
+            leak_hash_table[i].alloc_file==alloc_list->alloc_file)))
+        i=(i+1)%LEAK_TABLE_SIZE;
+    return leak_hash_table+i;
+}
+
+/* report identified leaks */
+NOEXPORT void leak_report() {
+    int i;
+    long limit;
+
+    limit=leak_threshold();
+
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LEAK_RESULTS]);
+    for(i=0; i<leak_result_num; ++i)
+        if(leak_results[i]->max>limit) /* the limit could have changed */
+            s_log(LOG_WARNING, "Possible memory leak at %s:%d: %d allocations",
+                leak_results[i]->alloc_file, leak_results[i]->alloc_line,
+                leak_results[i]->max);
+    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_LEAK_RESULTS]);
+}
+
+NOEXPORT long leak_threshold() {
+    long limit;
+
+    limit=10000*((int)number_of_sections+1);
+#ifndef USE_FORK
+    limit+=100*num_clients;
 #endif
+    return limit;
 }
 
 /**************************************** memcmp() replacement */

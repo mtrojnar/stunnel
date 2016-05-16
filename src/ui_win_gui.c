@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -109,8 +109,6 @@ static struct LIST {
   size_t len;
   TCHAR txt[1]; /* single character for trailing '\0' */
 } *head=NULL, *tail=NULL;
-
-static unsigned number_of_sections=0;
 
 static HINSTANCE ghInst;
 static HWND edit_handle=NULL;
@@ -967,10 +965,6 @@ NOEXPORT void update_peer_menu(void) {
             DeleteMenu(tray_peer_list, 0, MF_BYPOSITION);
 
     /* initialize data structures */
-    number_of_sections=0;
-    for(section=service_options.next; section; section=section->next)
-        section->section_number=number_of_sections++;
-
     section_number=0;
     for(section=service_options.next; section; section=section->next) {
         servname=str2tstr(section->servname);

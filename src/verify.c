@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -119,7 +119,10 @@ NOEXPORT int crl_init(SERVICE_OPTIONS *section) {
             return 1; /* FAILED */
     }
     if(section->crl_dir) {
-        store->cache=0; /* don't cache CRLs */
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+        /* do not cache CRLs (only required with OpenSSL version < 1.0.0) */
+        store->cache=0;
+#endif
         if(add_dir_lookup(store, section->crl_dir))
             return 1; /* FAILED */
     }
@@ -337,8 +340,10 @@ NOEXPORT int cert_check_local(X509_STORE_CTX *callback_ctx) {
     STACK_OF(X509) *sk;
     int i;
 #endif
+#if OPENSSL_VERSION_NUMBER<0x10100000L
     X509_OBJECT obj;
     int success;
+#endif
 
     cert=X509_STORE_CTX_get_current_cert(callback_ctx);
     subject=X509_get_subject_name(cert);
@@ -356,7 +361,9 @@ NOEXPORT int cert_check_local(X509_STORE_CTX *callback_ctx) {
     }
 #endif
 
+#if OPENSSL_VERSION_NUMBER<0x10100000L
     /* pre-1.0.0 API only returns a single matching certificate */
+    /* we also invoke it for other OpenSSL versions before 1.1.0 */
     memset((char *)&obj, 0, sizeof obj);
     if(X509_STORE_get_by_subject(callback_ctx, X509_LU_X509,
             subject, &obj)<=0) {
@@ -366,11 +373,13 @@ NOEXPORT int cert_check_local(X509_STORE_CTX *callback_ctx) {
     }
     success=compare_pubkeys(cert, obj.data.x509);
     X509_OBJECT_free_contents(&obj);
-    if(!success) {
-        s_log(LOG_WARNING, "CERT: Public keys do not match");
-        X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REJECTED);
-    }
-    return success;
+    if(success)
+        return 1; /* accept */
+#endif
+
+    s_log(LOG_WARNING, "CERT: Public keys do not match");
+    X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REJECTED);
+    return 0; /* reject */
 }
 
 NOEXPORT int compare_pubkeys(X509 *c1, X509 *c2) {
@@ -512,7 +521,8 @@ NOEXPORT int ocsp_request(CLI *c, X509_STORE_CTX *callback_ctx,
         s_log(LOG_ERR, "OCSP: Invalid or unsupported nonce");
         goto cleanup;
     }
-    if(OCSP_basic_verify(basic_response, X509_STORE_CTX_get_chain(callback_ctx),
+    if(OCSP_basic_verify(basic_response,
+            X509_STORE_CTX_get0_chain(callback_ctx),
             SSL_CTX_get_cert_store(c->opt->ctx), c->opt->ocsp_flags)<=0) {
         sslerror("OCSP: OCSP_basic_verify");
         goto cleanup;
@@ -673,7 +683,7 @@ NOEXPORT X509 *get_current_issuer(X509_STORE_CTX *callback_ctx) {
     STACK_OF(X509) *chain;
     int depth;
 
-    chain=X509_STORE_CTX_get_chain(callback_ctx);
+    chain=X509_STORE_CTX_get0_chain(callback_ctx);
     depth=X509_STORE_CTX_get_error_depth(callback_ctx);
     if(depth<sk_X509_num(chain)-1) /* not the root CA cert */
         ++depth; /* index of the issuer cert */

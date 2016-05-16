@@ -1,16 +1,18 @@
 ## Process this file with automake to produce Makefile.in
 # by Michal Trojnara 2015-2016
 
-EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh makecert.sh \
-	stunnel.spec openssl.cnf stunnel.nsi stunnel.license stunnel.conf \
-	stunnel.conf-sample.in stunnel.init.in stunnel.service.in
+EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh makecert.sh
+EXTRA_DIST += openssl.cnf stunnel.nsi stunnel.license stunnel.conf
+EXTRA_DIST += stunnel.conf-sample.in stunnel.init.in stunnel.service.in
+EXTRA_DIST += stunnel.logrotate stunnel.rh.init stunnel.spec
 
 confdir = $(sysconfdir)/stunnel
 conf_DATA = stunnel.conf-sample
 
 docdir = $(datadir)/doc/stunnel
 examplesdir = $(docdir)/examples
-examples_DATA = stunnel.spec stunnel.init stunnel.service
+examples_DATA = stunnel.init stunnel.service
+examples_DATA += stunnel.logrotate stunnel.rh.init stunnel.spec
 examples_DATA += ca.html ca.pl importCA.html importCA.sh script.sh
 
 CLEANFILES = stunnel.conf-sample stunnel.init stunnel.service

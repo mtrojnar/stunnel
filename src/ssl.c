@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -76,6 +76,24 @@ int ssl_init(void) { /* init SSL before parsing configuration file */
 #endif /* OPENSSL_NO_DH */
     return 0;
 }
+
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+/* this is needed for dhparam.c generated with OpenSSL >= 1.1.0
+ * to be linked against the older versions */
+int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g) {
+    if(!p || !g) /* q is optional */
+        return 0;
+    BN_free(dh->p);
+    BN_free(dh->q);
+    BN_free(dh->g);
+    dh->p = p;
+    dh->q = q;
+    dh->g = g;
+    if(q)
+        dh->length = BN_num_bits(q);
+    return 1;
+}
+#endif
 
 NOEXPORT void cb_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
         int idx, long argl, void *argp) {

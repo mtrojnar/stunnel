@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -205,6 +205,7 @@ char configuration_file[PATH_MAX];
 
 GLOBAL_OPTIONS global_options;
 SERVICE_OPTIONS service_options;
+unsigned number_of_sections=0;
 
 static GLOBAL_OPTIONS new_global_options;
 static SERVICE_OPTIONS new_service_options;
@@ -539,10 +540,16 @@ void options_defaults() {
 }
 
 void options_apply() { /* apply default/validated configuration */
+    unsigned num=0;
+    SERVICE_OPTIONS *section;
+
+    for(section=new_service_options.next; section; section=section->next)
+        section->section_number=num++;
     /* FIXME: this operation may be unsafe, as client() threads use it */
     memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
     /* service_options are used for inetd mode and to enumerate services */
     memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
+    number_of_sections=num;
 }
 
 /**************************************** global options */
@@ -3174,58 +3181,61 @@ static int on=1;
 #define DEF_ON ((void *)&on)
 
 SOCK_OPT sock_opts[] = {
-    {"SO_DEBUG",        SOL_SOCKET,  SO_DEBUG,        TYPE_FLAG,    {NULL, NULL, NULL}},
-    {"SO_DONTROUTE",    SOL_SOCKET,  SO_DONTROUTE,    TYPE_FLAG,    {NULL, NULL, NULL}},
-    {"SO_KEEPALIVE",    SOL_SOCKET,  SO_KEEPALIVE,    TYPE_FLAG,    {NULL, NULL, NULL}},
-    {"SO_LINGER",       SOL_SOCKET,  SO_LINGER,       TYPE_LINGER,  {NULL, NULL, NULL}},
-    {"SO_OOBINLINE",    SOL_SOCKET,  SO_OOBINLINE,    TYPE_FLAG,    {NULL, NULL, NULL}},
-    {"SO_RCVBUF",       SOL_SOCKET,  SO_RCVBUF,       TYPE_INT,     {NULL, NULL, NULL}},
-    {"SO_SNDBUF",       SOL_SOCKET,  SO_SNDBUF,       TYPE_INT,     {NULL, NULL, NULL}},
+    {"SO_DEBUG",        SOL_SOCKET,     SO_DEBUG,        TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"SO_DONTROUTE",    SOL_SOCKET,     SO_DONTROUTE,    TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"SO_KEEPALIVE",    SOL_SOCKET,     SO_KEEPALIVE,    TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"SO_LINGER",       SOL_SOCKET,     SO_LINGER,       TYPE_LINGER,  {NULL, NULL, NULL}},
+    {"SO_OOBINLINE",    SOL_SOCKET,     SO_OOBINLINE,    TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"SO_RCVBUF",       SOL_SOCKET,     SO_RCVBUF,       TYPE_INT,     {NULL, NULL, NULL}},
+    {"SO_SNDBUF",       SOL_SOCKET,     SO_SNDBUF,       TYPE_INT,     {NULL, NULL, NULL}},
 #ifdef SO_RCVLOWAT
-    {"SO_RCVLOWAT",     SOL_SOCKET,  SO_RCVLOWAT,     TYPE_INT,     {NULL, NULL, NULL}},
+    {"SO_RCVLOWAT",     SOL_SOCKET,     SO_RCVLOWAT,     TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef SO_SNDLOWAT
-    {"SO_SNDLOWAT",     SOL_SOCKET,  SO_SNDLOWAT,     TYPE_INT,     {NULL, NULL, NULL}},
+    {"SO_SNDLOWAT",     SOL_SOCKET,     SO_SNDLOWAT,     TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef SO_RCVTIMEO
-    {"SO_RCVTIMEO",     SOL_SOCKET,  SO_RCVTIMEO,     TYPE_TIMEVAL, {NULL, NULL, NULL}},
+    {"SO_RCVTIMEO",     SOL_SOCKET,     SO_RCVTIMEO,     TYPE_TIMEVAL, {NULL, NULL, NULL}},
 #endif
 #ifdef SO_SNDTIMEO
-    {"SO_SNDTIMEO",     SOL_SOCKET,  SO_SNDTIMEO,     TYPE_TIMEVAL, {NULL, NULL, NULL}},
+    {"SO_SNDTIMEO",     SOL_SOCKET,     SO_SNDTIMEO,     TYPE_TIMEVAL, {NULL, NULL, NULL}},
 #endif
-    {"SO_REUSEADDR",    SOL_SOCKET,  SO_REUSEADDR,    TYPE_FLAG,    {DEF_ON, NULL, NULL}},
+    {"SO_REUSEADDR",    SOL_SOCKET,     SO_REUSEADDR,    TYPE_FLAG,    {DEF_ON, NULL, NULL}},
 #ifdef SO_BINDTODEVICE
-    {"SO_BINDTODEVICE", SOL_SOCKET,  SO_BINDTODEVICE, TYPE_STRING,  {NULL, NULL, NULL}},
+    {"SO_BINDTODEVICE", SOL_SOCKET,     SO_BINDTODEVICE, TYPE_STRING,  {NULL, NULL, NULL}},
 #endif
 #ifdef TCP_KEEPCNT
-    {"TCP_KEEPCNT",     SOL_TCP,     TCP_KEEPCNT,     TYPE_INT,     {NULL, NULL, NULL}},
+    {"TCP_KEEPCNT",     SOL_TCP,        TCP_KEEPCNT,     TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef TCP_KEEPIDLE
-    {"TCP_KEEPIDLE",    SOL_TCP,     TCP_KEEPIDLE,    TYPE_INT,     {NULL, NULL, NULL}},
+    {"TCP_KEEPIDLE",    SOL_TCP,        TCP_KEEPIDLE,    TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef TCP_KEEPINTVL
-    {"TCP_KEEPINTVL",   SOL_TCP,     TCP_KEEPINTVL,   TYPE_INT,     {NULL, NULL, NULL}},
+    {"TCP_KEEPINTVL",   SOL_TCP,        TCP_KEEPINTVL,   TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef IP_TOS
-    {"IP_TOS",          IPPROTO_IP,  IP_TOS,          TYPE_INT,     {NULL, NULL, NULL}},
+    {"IP_TOS",          IPPROTO_IP,     IP_TOS,          TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef IP_TTL
-    {"IP_TTL",          IPPROTO_IP,  IP_TTL,          TYPE_INT,     {NULL, NULL, NULL}},
+    {"IP_TTL",          IPPROTO_IP,     IP_TTL,          TYPE_INT,     {NULL, NULL, NULL}},
 #endif
 #ifdef IP_MAXSEG
-    {"TCP_MAXSEG",      IPPROTO_TCP, TCP_MAXSEG,      TYPE_INT,     {NULL, NULL, NULL}},
+    {"TCP_MAXSEG",      IPPROTO_TCP,    TCP_MAXSEG,      TYPE_INT,     {NULL, NULL, NULL}},
 #endif
-    {"TCP_NODELAY",     IPPROTO_TCP, TCP_NODELAY,     TYPE_FLAG,    {NULL, DEF_ON, DEF_ON}},
+    {"TCP_NODELAY",     IPPROTO_TCP,    TCP_NODELAY,     TYPE_FLAG,    {NULL, DEF_ON, DEF_ON}},
 #ifdef IP_FREEBIND
-    {"IP_FREEBIND",     IPPROTO_IP,  IP_FREEBIND,     TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"IP_FREEBIND",     IPPROTO_IP,     IP_FREEBIND,     TYPE_FLAG,    {NULL, NULL, NULL}},
 #endif
 #ifdef IP_BINDANY
-    {"IP_BINDANY",      IPPROTO_IP,  IP_BINDANY,      TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"IP_BINDANY",      IPPROTO_IP,     IP_BINDANY,      TYPE_FLAG,    {NULL, NULL, NULL}},
 #endif
 #ifdef IPV6_BINDANY
-    {"IPV6_BINDANY",    IPPROTO_IPV6,IPV6_BINDANY,    TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"IPV6_BINDANY",    IPPROTO_IPV6,   IPV6_BINDANY,    TYPE_FLAG,    {NULL, NULL, NULL}},
 #endif
-    {NULL,              0,           0,               TYPE_NONE,    {NULL, NULL, NULL}}
+#ifdef IPV6_V6ONLY
+    {"IPV6_V6ONLY",     IPPROTO_IPV6,   IPV6_V6ONLY,     TYPE_FLAG,    {NULL, NULL, NULL}},
+#endif
+    {NULL,              0,              0,               TYPE_NONE,    {NULL, NULL, NULL}}
 };
 
 NOEXPORT int print_socket_options(void) {
@@ -3248,13 +3258,17 @@ NOEXPORT int print_socket_options(void) {
         optlen=sizeof val;
         if(getsockopt(fd, ptr->opt_level,
                 ptr->opt_name, (void *)&val, &optlen)) {
-            if(get_last_socket_error()!=S_ENOPROTOOPT) {
+            switch(get_last_socket_error()) {
+            case S_ENOPROTOOPT:
+            case S_EOPNOTSUPP:
+                td=str_dup("write-only");
+                break;
+            default:
                 s_log(LOG_ERR, "Failed to get %s OS default", ptr->opt_str);
                 sockerror("getsockopt");
                 closesocket(fd);
                 return 1; /* FAILED */
             }
-            td=str_dup("write-only");
         } else
             td=print_option(ptr->opt_type, &val);
         /* get stunnel default values */

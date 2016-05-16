@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -302,9 +302,9 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
         DH_free(dh);
         return 0; /* OK */
     }
-    CRYPTO_r_lock(stunnel_locks[LOCK_DH]);
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_DH]);
     SSL_CTX_set_tmp_dh(section->ctx, dh_params);
-    CRYPTO_r_unlock(stunnel_locks[LOCK_DH]);
+    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_DH]);
     dh_needed=1; /* generate temporary DH parameters in cron */
     section->option.dh_needed=1; /* update this context */
     s_log(LOG_INFO, "Using dynamic DH parameters");
@@ -741,6 +741,7 @@ NOEXPORT void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
     opt=SSL_CTX_get_ex_data(ctx, index_opt);
     if(opt->option.sessiond)
         cache_remove(ctx, sess);
+    SSL_SESSION_free(sess);
 }
 
 /**************************************** sessiond functionality */

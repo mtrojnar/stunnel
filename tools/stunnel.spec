@@ -1,80 +1,105 @@
-%define _prefix /usr
-%define _sysconfdir /etc
-
-Summary: Program that wraps normal socket connections with SSL/TLS
-Name: stunnel
-Version: 5.31
-Release: 1
-License: GPL with an OpenSSL exception
-Group: Applications/Networking
-Source: stunnel-%{version}.tar.gz
-Packager: Bill Quayle <Bill.Quayle@citadel.com>
-Requires: openssl >= 0.9.7
-BuildRequires: openssl-devel >= 0.9.7
-Buildroot: /var/tmp/stunnel-%{version}-root
+Name:           stunnel
+Version:        5.33
+Release:        1%{?dist}
+Summary:        An SSL-encrypting socket wrapper
+Group:          Applications/Internet
+License:        GPLv2
+URL:            http://www.stunnel.org/
+Source0:        https://www.stunnel.org/downloads/stunnel-%{version}.tar.gz
+Source1:        %{name}.init
+Source2:        %{name}.logrotate
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+BuildRequires:  openssl-devel
+BuildRequires:  tcp_wrappers-devel
+Requires(pre):  shadow-utils
+Requires(post): chkconfig
+Requires(preun): chkconfig
+Requires(postun): initscripts
 
 %description
-The stunnel program is designed to work as SSL encryption wrapper
-between remote clients and local (inetd-startable) or remote
-servers. The concept is that having non-SSL aware daemons running on
-your system you can easily set them up to communicate with clients over
-secure SSL channels.
-stunnel can be used to add SSL functionality to commonly used inetd
-daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
-NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
-changes to the source code.
+Stunnel is a socket wrapper which can provide SSL (Secure Sockets
+Layer) support to ordinary applications. For example, it can be used
+in conjunction with imapd to create an SSL secure IMAP server.
 
 %prep
-%setup -n stunnel-%{version}
-
+%setup -q
 
 %build
-if [ ! -x ./configure ]; then
-    autoconf
-    autoheader
-fi
+%configure --enable-fips --enable-ipv6 --with-ssl=%{_prefix}\
+     --sysconfdir=%{_sysconfdir}\
+     CPPFLAGS="-UPIDFILE -DPIDFILE='\"%{_localstatedir}/lib/%{name}/%{name}.pid\"'"
+make LDADD="-pie -Wl,-z,defs,-z,relro,-z,now" %{?_smp_mflags}
 
-CFLAGS="%{optflags}" ./configure --prefix=%{_prefix} --sysconfdir=%{_sysconfdir}
 
-%{__make}
 
 %install
-%{__rm} -rf %{buildroot}
-%{__mkdir} -p %{buildroot}%{_sysconfdir}/stunnel
-%{__mkdir} -p %{buildroot}%{_sbindir}
-%{__mkdir} -p %{buildroot}%{_libdir}
-%{__mkdir} -p %{buildroot}%{_mandir}/man8
-%{__mkdir} -p %{buildroot}%{_initrddir}
-
-%{__install} -m755 -s src/stunnel %{buildroot}%{_sbindir}
-%{__install} -m755 src/.libs/libstunnel.so %{buildroot}%{_libdir}
-%{__install} -m755 src/.libs/libstunnel.la %{buildroot}%{_libdir}
-%{__install} -m644 doc/stunnel.8 %{buildroot}%{_mandir}/man8/stunnel.8
-%{__install} -m644 tools/stunnel.conf-sample %{buildroot}%{_sysconfdir}/stunnel
-%{__install} -m500 tools/stunnel.init %{buildroot}%{_initrddir}/stunnel
+rm -rf $RPM_BUILD_ROOT
+make install DESTDIR=$RPM_BUILD_ROOT
+%{__mv} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/%{name}.conf-sample\
+    $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/%{name}.conf
+%{__install} -d $RPM_BUILD_ROOT%{_initrddir}
+%{__install} -d $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig
+%{__install} -d $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d
+%{__install} -d $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/conf.d
+%{__install} -d $RPM_BUILD_ROOT%{_localstatedir}/log/%{name}
+%{__install} -d $RPM_BUILD_ROOT%{_localstatedir}/lib/%{name}
+%{__install} -p -m0755 %{SOURCE1} $RPM_BUILD_ROOT%{_initrddir}/%{name}
+%{__install} -p -m0644 %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d/%{name}
+for lang in pl ; do
+    mkdir -p $RPM_BUILD_ROOT/%{_mandir}/${lang}/man8
+    mv $RPM_BUILD_ROOT/%{_mandir}/man8/*.${lang}.8* $RPM_BUILD_ROOT/%{_mandir}/${lang}/man8/
+    rename ".${lang}" "" $RPM_BUILD_ROOT/%{_mandir}/${lang}/man8/*
+done
+echo "# %{name} options" > $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/%{name}
 
 %clean
-%{__rm} -rf %{buildroot}
+rm -rf $RPM_BUILD_ROOT
+
+%pre
+getent group %{name} >/dev/null || groupadd -f -r %{name}
+if ! getent passwd %{name} >/dev/null ; then
+   useradd -r -g %{name} -d %{_localstatedir}/lib/%{name} \
+      -s /sbin/nologin -c "%{name} user" %{name}
+fi
+exit 0
 
 %post
-ldconfig
+/sbin/ldconfig
+/sbin/chkconfig --add %{name}
 
 %postun
-ldconfig
+/sbin/ldconfig
+if [ "$1" -ge "1" ] ; then
+    /sbin/service %{name} restart >/dev/null 2>&1 || :
+fi
+
+%preun
+if [ $1 -eq 0 ] ; then
+    /sbin/service %{name} stop >/dev/null 2>&1
+    /sbin/chkconfig --del %{name}
+fi
 
 %files
-%defattr(-,root,root)
+%defattr(-,root,root,-)
 %doc COPYING COPYRIGHT.GPL README ChangeLog doc/stunnel.html
 %doc tools/ca.html tools/ca.pl tools/importCA.html tools/importCA.sh tools/openssl.cnf
-%dir %{_sysconfdir}/stunnel
-%config %{_sysconfdir}/stunnel/*
-%{_sbindir}/stunnel
-%{_libdir}/libstunnel.so
-%{_libdir}/libstunnel.la
-%{_mandir}/man8/stunnel.8.gz
-%{_initrddir}/stunnel
+%{_bindir}/*
+%{_libdir}/%{name}
+%{_sysconfdir}/%{name}
+%{_initrddir}/%{name}
+%{_mandir}/man8/%{name}.*
+%{_mandir}/pl/man8/%{name}.*
+%config(noreplace) %{_sysconfdir}/sysconfig/%{name}
+%config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
+%config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
+%attr(0750,%{name},%{name}) %{_localstatedir}/lib/%{name}
+%attr(0750,%{name},%{name}) %{_localstatedir}/log/%{name}
 
 %changelog
+* Wed Apr 27 2016 Andrew Colin Kissa <andrew@topdog.za.net> - 5.32-1
+- Added init script that actually works on Redhat
+- Lots of changes and cleanup to improve spec
+
 * Tue May 26 2015 Bill Quayle <Bill.Quayle@citadel.com>
 - updated license specification
 - the manual page is no longer marked as compressed

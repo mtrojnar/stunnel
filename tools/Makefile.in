@@ -271,15 +271,17 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh makecert.sh \
-	stunnel.spec openssl.cnf stunnel.nsi stunnel.license stunnel.conf \
-	stunnel.conf-sample.in stunnel.init.in stunnel.service.in
-
+EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
+	makecert.sh openssl.cnf stunnel.nsi stunnel.license \
+	stunnel.conf stunnel.conf-sample.in stunnel.init.in \
+	stunnel.service.in stunnel.logrotate stunnel.rh.init \
+	stunnel.spec
 confdir = $(sysconfdir)/stunnel
 conf_DATA = stunnel.conf-sample
 examplesdir = $(docdir)/examples
-examples_DATA = stunnel.spec stunnel.init stunnel.service ca.html \
-	ca.pl importCA.html importCA.sh script.sh
+examples_DATA = stunnel.init stunnel.service stunnel.logrotate \
+	stunnel.rh.init stunnel.spec ca.html ca.pl importCA.html \
+	importCA.sh script.sh
 CLEANFILES = stunnel.conf-sample stunnel.init stunnel.service
 edit = sed \
 	-e 's|@prefix[@]|$(prefix)|g' \
