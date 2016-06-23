@@ -253,18 +253,13 @@ void ui_new_log(const char *line) {
 /**************************************** ctx callbacks */
 
 int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
-    (void)buf; /* squash the unused parameter warning */
-    (void)size; /* squash the unused parameter warning */
-    (void)rwflag; /* squash the unused parameter warning */
     (void)userdata; /* squash the unused parameter warning */
-    return 0; /* not implemented */
+    return PEM_def_callback(buf, size, rwflag, NULL);
 }
 
 #ifndef OPENSSL_NO_ENGINE
-int pin_cb(UI *ui, UI_STRING *uis) {
-    (void)ui; /* squash the unused parameter warning */
-    (void)uis; /* squash the unused parameter warning */
-    return 0; /* not implemented */
+UI_METHOD *UI_stunnel() {
+    return UI_OpenSSL();
 }
 #endif
 

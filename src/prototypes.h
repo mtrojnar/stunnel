@@ -640,8 +640,8 @@ typedef enum {
 #ifndef USE_WIN32
     LOCK_LIBWRAP,                           /* libwrap.c */
 #endif
-    LOCK_LOG, LOCK_LEAK_ALLOCATIONS,
-    LOCK_LEAK_HASH, LOCK_LEAK_RESULTS,      /* log.c */
+    LOCK_LOG,                               /* log.c */
+    LOCK_LEAK_HASH, LOCK_LEAK_RESULTS,      /* str.c */
 #ifndef OPENSSL_NO_DH
     LOCK_DH,                                /* ctx.c */
 #endif /* OPENSSL_NO_DH */
@@ -784,7 +784,7 @@ void message_box(LPCTSTR, const UINT);
 
 int passwd_cb(char *, int, int, void *);
 #ifndef OPENSSL_NO_ENGINE
-int pin_cb(UI *, UI_STRING *);
+UI_METHOD *UI_stunnel(void);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
 #ifdef ICON_IMAGE

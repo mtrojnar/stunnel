@@ -73,11 +73,14 @@ NOEXPORT unsigned psk_server_callback(SSL *, const char *,
 #endif /* !defined(OPENSSL_NO_PSK) */
 NOEXPORT int load_cert_file(SERVICE_OPTIONS *);
 NOEXPORT int load_key_file(SERVICE_OPTIONS *);
+NOEXPORT int pkcs12_extension(const char *);
+NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *);
 #ifndef OPENSSL_NO_ENGINE
 NOEXPORT int load_cert_engine(SERVICE_OPTIONS *);
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
 #endif
-NOEXPORT int password_cb(char *, int, int, void *);
+NOEXPORT int passphrase_cb(char *, int, int, void *);
+NOEXPORT int ui_retry();
 
 /* session callbacks */
 NOEXPORT int sess_new_cb(SSL *, SSL_SESSION *);
@@ -451,6 +454,12 @@ NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
         key_needed=load_key_engine(section);
     }
 #endif
+    if (cert_needed && pkcs12_extension(section->cert)) {
+        if (load_pkcs12_file(section)) {
+            return 1; /* FAILED */
+        }
+        cert_needed=key_needed=0; /* don't load any PEM files */
+    }
     if(cert_needed && load_cert_file(section))
         return 1; /* FAILED */
     if(key_needed && load_key_file(section))
@@ -573,6 +582,79 @@ PSK_KEYS *psk_find(const PSK_TABLE *table, const char *identity) {
 
 #endif /* !defined(OPENSSL_NO_PSK) */
 
+NOEXPORT int pkcs12_extension(const char *filename) {
+    const char *ext=strrchr(filename, '.');
+    return ext && (!strcasecmp(ext, ".p12") || !strcasecmp(ext, ".pfx"));
+}
+
+NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section) {
+    int i, success;
+    UI_DATA ui_data;
+    BIO *bio=NULL;
+    PKCS12 *p12=NULL;
+    X509 *cert=NULL;
+    STACK_OF(X509) *ca=NULL;
+    EVP_PKEY *pkey=NULL;
+    char pass[PEM_BUFSIZE];
+
+    s_log(LOG_INFO, "Loading certificate and private key from file: %s",
+        section->cert);
+    if(file_permissions(section->cert))
+        return 1; /* FAILED */
+
+    bio=BIO_new_file(section->cert, "rb");
+    if(!bio) {
+        sslerror("BIO_new_file");
+        return 1; /* FAILED */
+    }
+    p12=d2i_PKCS12_bio(bio, NULL);
+    if(!p12) {
+        sslerror("d2i_PKCS12_bio");
+        BIO_free(bio);
+        return 1; /* FAILED */
+    }
+    BIO_free(bio);
+
+    ui_data.section=section; /* setup current section for callbacks */
+
+    /* try the cached value (initially an empty passphrase) */
+    passphrase_cb(pass, PEM_BUFSIZE, 0, NULL);
+    success=PKCS12_parse(p12, pass, &pkey, &cert, &ca);
+
+    /* invoke the UI */
+    for(i=0; !success && i<3; i++) {
+        if(!ui_retry())
+            break;
+        if(i==0) { /* silence the cached attempt */
+            ERR_clear_error();
+        } else {
+            sslerror_queue(); /* dump the error queue */
+            s_log(LOG_ERR, "Wrong passphrase: retrying");
+        }
+        passphrase_cb(pass, PEM_BUFSIZE, 0, &ui_data);
+        success=PKCS12_parse(p12, pass, &pkey, &cert, &ca);
+    }
+    if(!success) {
+        sslerror("PKCS12_parse");
+        PKCS12_free(p12);
+        return 1; /* FAILED */
+    }
+
+    PKCS12_free(p12);
+
+    if(!SSL_CTX_use_certificate(section->ctx, cert)) {
+        sslerror("SSL_CTX_use_certificate");
+        return 1; /* FAILED */
+    }
+    if(!SSL_CTX_use_PrivateKey(section->ctx, pkey)) {
+        sslerror("SSL_CTX_use_PrivateKey");
+        return 1; /* FAILED */
+    }
+    s_log(LOG_INFO, "Certificate and private key loaded from file: %s",
+        section->cert);
+    return 0; /* OK */
+}
+
 NOEXPORT int load_cert_file(SERVICE_OPTIONS *section) {
     s_log(LOG_INFO, "Loading certificate from file: %s", section->cert);
     if(!SSL_CTX_use_certificate_chain_file(section->ctx, section->cert)) {
@@ -583,10 +665,8 @@ NOEXPORT int load_cert_file(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 
-static int cache_initialized=0;
-
 NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
-    int i, reason;
+    int i, success;
     UI_DATA ui_data;
 
     s_log(LOG_INFO, "Loading private key from file: %s", section->key);
@@ -594,22 +674,28 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
         return 1; /* FAILED */
 
     ui_data.section=section; /* setup current section for callbacks */
-    SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
+    SSL_CTX_set_default_passwd_cb(section->ctx, passphrase_cb);
 
-    for(i=0; i<=3; i++) {
-        if(!i && !cache_initialized)
-            continue; /* there is no cached value */
-        SSL_CTX_set_default_passwd_cb_userdata(section->ctx,
-            i ? &ui_data : NULL); /* try the cached password first */
-        if(SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
-                SSL_FILETYPE_PEM))
+    /* try the cached value (initially an empty passphrase) */
+    SSL_CTX_set_default_passwd_cb_userdata(section->ctx, NULL);
+    success=SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
+        SSL_FILETYPE_PEM);
+
+    /* invoke the UI */
+    SSL_CTX_set_default_passwd_cb_userdata(section->ctx, &ui_data);
+    for(i=0; !success && i<3; i++) {
+        if(!ui_retry())
             break;
-        reason=ERR_GET_REASON(ERR_peek_error());
-        if(i<=2 && reason==EVP_R_BAD_DECRYPT) {
+        if(i==0) { /* silence the cached attempt */
+            ERR_clear_error();
+        } else {
             sslerror_queue(); /* dump the error queue */
-            s_log(LOG_ERR, "Wrong pass phrase: retrying");
-            continue;
+            s_log(LOG_ERR, "Wrong passphrase: retrying");
         }
+        success=SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
+            SSL_FILETYPE_PEM);
+    }
+    if(!success) {
         sslerror("SSL_CTX_use_PrivateKey_file");
         return 1; /* FAILED */
     }
@@ -642,7 +728,7 @@ NOEXPORT int load_cert_engine(SERVICE_OPTIONS *section) {
 }
 
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
-    int i, reason;
+    int i;
     UI_DATA ui_data;
     EVP_PKEY *pkey;
     UI_METHOD *ui_method;
@@ -650,22 +736,16 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
     s_log(LOG_INFO, "Initializing private key on engine ID: %s", section->key);
 
     ui_data.section=section; /* setup current section for callbacks */
-    SSL_CTX_set_default_passwd_cb(section->ctx, password_cb);
+    SSL_CTX_set_default_passwd_cb(section->ctx, passphrase_cb);
 
-#ifdef USE_WIN32
-    ui_method=UI_create_method("stunnel WIN32 UI");
-    UI_method_set_reader(ui_method, pin_cb);
-#else /* USE_WIN32 */
-    ui_method=UI_OpenSSL();
+    ui_method=UI_stunnel();
     /* workaround for broken engines */
     /* ui_data.section=NULL; */
-#endif /* USE_WIN32 */
-    for(i=1; i<=3; i++) {
+    for(i=0; i<3; i++) {
         pkey=ENGINE_load_private_key(section->engine, section->key,
             ui_method, &ui_data);
         if(!pkey) {
-            reason=ERR_GET_REASON(ERR_peek_error());
-            if(i<=2 && (reason==7 || reason==160)) { /* wrong PIN */
+            if(i<2 && ui_retry()) { /* wrong PIN */
                 sslerror_queue(); /* dump the error queue */
                 s_log(LOG_ERR, "Wrong PIN: retrying");
                 continue;
@@ -684,27 +764,70 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
 
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
-NOEXPORT int password_cb(char *buf, int size, int rwflag, void *userdata) {
-    static char cache[PEM_BUFSIZE];
+NOEXPORT int passphrase_cb(char *buf, int size, int rwflag, void *userdata) {
+    static char cache[PEM_BUFSIZE]=""; /* try an empty passphrase first */
     int len;
 
     if(size>PEM_BUFSIZE)
         size=PEM_BUFSIZE;
 
-    if(userdata) { /* prompt the user */
-#ifdef USE_WIN32
-        len=passwd_cb(buf, size, rwflag, userdata);
-#else
-        len=PEM_def_callback(buf, size, rwflag, NULL);
-#endif
-        memcpy(cache, buf, (size_t)size); /* save in cache */
-        cache_initialized=1;
-    } else { /* try the cached value */
+    if(!userdata) { /* try the cached value first */
         strncpy(buf, cache, (size_t)size);
         buf[size-1]='\0';
         len=(int)strlen(buf);
+    } else { /* prompt the user on subsequent requests */
+        len=passwd_cb(buf, size, rwflag, userdata); /* invoke the UI */
+        memcpy(cache, buf, (size_t)size); /* save in cache */
     }
     return len;
+}
+
+NOEXPORT int ui_retry() {
+    unsigned long err=ERR_peek_error();
+
+    switch(ERR_GET_LIB(err)) {
+    case ERR_LIB_ASN1:
+        return 1;
+    case ERR_LIB_PKCS12:
+        switch(ERR_GET_REASON(err)) {
+        case PKCS12_R_MAC_VERIFY_FAILURE:
+            return 1;
+        default:
+            return 0;
+        }
+    case ERR_LIB_EVP:
+        switch(ERR_GET_REASON(err)) {
+        case EVP_R_BAD_DECRYPT:
+            return 1;
+        default:
+            return 0;
+        }
+    case ERR_LIB_PEM:
+        switch(ERR_GET_REASON(err)) {
+        case PEM_R_BAD_PASSWORD_READ:
+            return 1;
+        default:
+            return 0;
+        }
+    case ERR_LIB_UI:
+        switch(ERR_GET_REASON(err)) {
+        case UI_R_RESULT_TOO_LARGE:
+        case UI_R_RESULT_TOO_SMALL:
+            return 1;
+        default:
+            return 0;
+        }
+    case ERR_LIB_USER: /* PKCS#11 hacks */
+        switch(ERR_GET_REASON(err)) {
+        case 7UL: /* CKR_ARGUMENTS_BAD */
+        case 0xa0UL: /* CKR_PIN_INCORRECT */
+            return 1;
+        default:
+            return 0;
+        }
+    default:
+        return 0;
+    }
 }
 
 /**************************************** session callbacks */

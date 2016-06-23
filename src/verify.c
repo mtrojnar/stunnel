@@ -349,8 +349,11 @@ NOEXPORT int cert_check_local(X509_STORE_CTX *callback_ctx) {
     subject=X509_get_subject_name(cert);
 
 #if OPENSSL_VERSION_NUMBER>=0x10000000L
+#if OPENSSL_VERSION_NUMBER<0x10100006L
+#define X509_STORE_CTX_get1_certs X509_STORE_get1_certs
+#endif
     /* modern API allows retrieving multiple matching certificates */
-    sk=X509_STORE_get1_certs(callback_ctx, subject);
+    sk=X509_STORE_CTX_get1_certs(callback_ctx, subject);
     if(sk) {
         for(i=0; i<sk_X509_num(sk); i++)
             if(compare_pubkeys(cert, sk_X509_value(sk, i))) {

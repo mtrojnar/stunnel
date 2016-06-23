@@ -71,6 +71,7 @@ NOEXPORT void CALLBACK timer_proc(HWND, UINT, UINT_PTR, DWORD);
 NOEXPORT LRESULT CALLBACK window_proc(HWND, UINT, WPARAM, LPARAM);
 NOEXPORT LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
 NOEXPORT LRESULT CALLBACK pass_proc(HWND, UINT, WPARAM, LPARAM);
+NOEXPORT int pin_cb(UI *, UI_STRING *);
 
 NOEXPORT void save_log(void);
 NOEXPORT void win_log(LPCTSTR);
@@ -721,7 +722,7 @@ NOEXPORT LRESULT CALLBACK pass_proc(HWND dialog_handle, UINT message,
                 (WPARAM)0 /* line 0 */, (LPARAM)pass_dialog.txt);
             pass_dialog.txt[pass_len]='\0'; /* null-terminate the string */
 
-            /* convert input password to UTF-8 string (as ui_data->pass) */
+            /* convert input passphrase to UTF-8 string (as ui_data->pass) */
             pass_txt=tstr2str(pass_dialog.txt);
             strcpy(ui_data->pass, pass_txt);
             str_free(pass_txt);
@@ -754,7 +755,21 @@ int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
 }
 
 #ifndef OPENSSL_NO_ENGINE
-int pin_cb(UI *ui, UI_STRING *uis) {
+UI_METHOD *UI_stunnel() {
+    static UI_METHOD *ui_method=NULL;
+
+    if(ui_method) /* already initialized */
+        return ui_method;
+    ui_method=UI_create_method("stunnel WIN32 UI");
+    if(!ui_method) {
+        sslerror("UI_create_method");
+        return NULL;
+    }
+    UI_method_set_reader(ui_method, pin_cb);
+    return ui_method;
+}
+
+NOEXPORT int pin_cb(UI *ui, UI_STRING *uis) {
     ui_data=UI_get0_user_data(ui); /* was: ui_data=UI_get_app_data(ui); */
     if(!ui_data) {
         s_log(LOG_ERR, "INTERNAL ERROR: user data data pointer");

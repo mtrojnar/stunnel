@@ -382,10 +382,7 @@ void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
     if(wr)
         FD_SET(fd, fds->iwfds);
     /* always expect errors (and the Spanish Inquisition) */
-    /* this, however, causes permanent errors on WinCE */
-#ifndef _WIN32_WCE
     FD_SET(fd, fds->ixfds);
-#endif
     if(fd>fds->max)
         fds->max=fd;
 }
@@ -437,7 +434,11 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     do { /* skip "Interrupted system call" errors */
         memcpy(fds->orfds, fds->irfds, FD_SIZE(fds));
         memcpy(fds->owfds, fds->iwfds, FD_SIZE(fds));
+#ifndef _WIN32_WCE
         memcpy(fds->oxfds, fds->ixfds, FD_SIZE(fds));
+#else /* WinCE reports unexpected permanent exceptions */
+        FD_ZERO(fds->oxfds);
+#endif
         if(sec<0) { /* infinite timeout */
             tv_ptr=NULL;
         } else {

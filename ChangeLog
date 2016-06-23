@@ -1,15 +1,20 @@
 stunnel change log
 
-Version 5.33, unreleased, urgency: MEDIUM
+Version 5.33, 2016.06.23, urgency: HIGH
 * New features
-  - Updated the memory leak detection heuristics.
+  - Improved memory leak detection performance and accuracy.
   - Improved compatibility with the current OpenSSL 1.1.0-dev tree.
   - SNI support also enabled on OpenSSL 0.9.8f and later (thx to
     Guillermo Rodriguez Garcia).
+  - Added support for PKCS #12 (.p12/.pfx) certificates (thx to
+    Dmitry Bakshaev).
 * Bugfixes
-  - Fixed a memory leak in the TLS session caching code (thx to
-    Richard Kraemer).
+  - Fixed a TLS session caching memory leak (thx to Richard Kraemer).
+    Before stunnel 5.27 this leak only emerged with sessiond enabled.
+  - Yet another WinCE socket fix (thx to Richard Kraemer).
+  - Fixed passphrase/pin dialogs in tstunnel.exe.
   - Fixed a FORK threading build regression bug.
+  - OPENSSL_NO_DH compilation fix (thx to Brian Lin).
 
 Version 5.32, 2016.05.03, urgency: HIGH
 * Security bugfixes

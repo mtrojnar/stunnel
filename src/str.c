@@ -404,10 +404,10 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
     if(!number_of_sections) /* configuration file not initialized */
         return;
 
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LEAK_HASH]);
     entry=leak_search(alloc_list);
-    new_entry=entry->alloc_line==0;
-    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_LEAK_HASH]);
+    /* the race condition may lead to false positives, which is handled later */
+    new_entry=entry->alloc_line!=alloc_list->alloc_line ||
+        entry->alloc_file!=alloc_list->alloc_file;
 
     if(new_entry) { /* the file:line pair was encountered for the first time */
         CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LEAK_HASH]);
@@ -424,8 +424,13 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
         CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LEAK_HASH]);
     }
 
+#ifdef PRECISE_LEAK_ALLOCATON_COUNTERS
+    /* this is *really* slow in OpenSSL < 1.1.0 */
     CRYPTO_atomic_add(&entry->num, change, &allocations,
-        stunnel_locks[LOCK_LEAK_ALLOCATIONS]);
+        stunnel_locks[LOCK_LEAK_HASH]);
+#else
+    allocations=(entry->num+=change); /* we just need an estimate... */
+#endif
 
     limit=leak_threshold();
 

@@ -468,6 +468,7 @@ extern char *sys_errlist[];
 #include <openssl/crypto.h> /* for CRYPTO_* and SSLeay_version */
 #include <openssl/rand.h>
 #include <openssl/bn.h>
+#include <openssl/pkcs12.h>
 #ifndef OPENSSL_NO_MD4
 #include <openssl/md4.h>
 #endif /* !defined(OPENSSL_NO_MD4) */

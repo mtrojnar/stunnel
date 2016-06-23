@@ -77,6 +77,7 @@ int ssl_init(void) { /* init SSL before parsing configuration file */
     return 0;
 }
 
+#ifndef OPENSSL_NO_DH
 #if OPENSSL_VERSION_NUMBER<0x10100000L
 /* this is needed for dhparam.c generated with OpenSSL >= 1.1.0
  * to be linked against the older versions */
@@ -93,6 +94,7 @@ int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g) {
         dh->length = BN_num_bits(q);
     return 1;
 }
+#endif
 #endif
 
 NOEXPORT void cb_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
