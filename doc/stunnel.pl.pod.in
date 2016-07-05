@@ -410,9 +410,9 @@ Aby nasłuchiwać na wszystkich adresach IPv6 należy użyć:
 
 katalog Centrum Certyfikacji
 
-Opcja określa katalog, w którym B<stunnel> będzie szukał certyfikatów,
-jeżeli użyta została opcja I<verify>.  Pliki z certyfikatami muszą
-posiadać specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
+Opcja określa katalog, w którym B<stunnel> będzie szukał certyfikatów, jeżeli
+użyta została opcja I<verifyChain> lub I<verifyPeer>.  Pliki z certyfikatami
+muszą posiadać specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu.
 
 Funkcja skrótu została zmieniona w B<OpenSSL 1.0.0>.
@@ -426,7 +426,7 @@ względem tego katalogu.
 plik Centrum Certyfikacji
 
 Opcja pozwala określić położenie pliku zawierającego certyfikaty używane
-przez opcję I<verify>.
+przez opcję I<verifyChain> lub I<verifyPeer>.
 
 =item B<cert> = PLIK_PEM
 
@@ -515,10 +515,9 @@ ruchu pomiędzy wiele serwerów.
 
 katalog List Odwołanych Certyfikatów (CRL)
 
-Opcja określa katalog, w którym B<stunnel> będzie szukał list CRL,
-jeżeli użyta została opcja I<verify>.  Pliki z listami CRL muszą
-posiadać specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skrótem
-listy CRL.
+Opcja określa katalog, w którym B<stunnel> będzie szukał list CRL używanych
+przez opcje I<verifyChain> i I<verifyPeer>.  Pliki z listami CRL muszą posiadać
+specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skrótem listy CRL.
 
 Funkcja skrótu została zmieniona B<OpenSSL 1.0.0>.
 Należy wykonać c_rehash przy zmianie B<OpenSSL 0.x.x> na B<1.x.x>.
@@ -531,7 +530,7 @@ względem tego katalogu.
 plik List Odwołanych Certyfikatów (CRL)
 
 Opcja pozwala określić położenie pliku zawierającego listy CRL używane
-przez opcję I<verify>.
+przez opcje I<verifyChain> i I<verifyPeer>.
 
 =item B<curve> = NID
 
@@ -931,6 +930,15 @@ połącz ponownie sekcję connect+exec po rozłączeniu
 
 domyślnie: no
 
+=item B<requireCert> = yes | no
+
+wymagaj certyfikatu klienta dla I<verifyChain> lub I<verifyPeer>
+
+Przy opcji I<requireCert> ustawionej na I<no>, B<stunnel> akceptuje
+połączenia klientów, które nie wysłały certyfikatu.
+
+domyślnie: yes
+
 =item B<setgid> = IDENTYFIKATOR_GRUPY (tylko Unix)
 
 identyfikator grupy Unix
@@ -1112,6 +1120,9 @@ Opcja została przemianowana na I<none>.
 
 weryfikuj certyfikat drugiej strony połączenia
 
+Opcja ta jest przestarzała i należy ją zastąpić przez opcje
+I<verifyChain> i I<verifyPeer>.
+
 =over 4
 
 =item I<poziom 0>
@@ -1139,6 +1150,27 @@ weryfikuj z certyfikatem drugiej strony ignorując łańcuch CA
 nie weryfikuj
 
 =back
+
+=item B<verifyChain> = yes | no
+
+weryfikuj łańcuch certyfikatów drugiej strony
+
+Do weryfikacji certyfikatu serwera kluczowe jest, aby wymagać również
+konkretnego certyfikatu przy pomocy I<checkHost> lub I<verifyPeer>.
+
+Samopodpisany certyfikat głównego CA należy umieścić  albo w pliku
+podanym w opcji I<CAfile>, albo w katalogu podanym w opcji I<CApath>.
+
+domyślnie: no
+
+=item B<verifyPeer> = yes | no
+
+weryfikuj certyfikat drugiej strony
+
+Certyfikat drugiej strony należy umieścić  albo w pliku podanym w opcji
+I<CAfile>, albo w katalogu podanym w opcji I<CApath>.
+
+domyślnie: no
 
 =back
 

@@ -402,9 +402,9 @@ To listen on all IPv6 addresses use:
 Certificate Authority directory
 
 This is the directory in which B<stunnel> will look for certificates when using
-the I<verify> option.  Note that the certificates in this directory should be named
-XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the
-cert.
+the I<verifyChain> or I<verifyPeer> options.  Note that the certificates in
+this directory should be named XXXXXXXX.0 where XXXXXXXX is the hash value of
+the DER encoded subject of the cert.
 
 The hash algorithm has been changed in B<OpenSSL 1.0.0>.  It is required to
 c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
@@ -415,7 +415,8 @@ I<CApath> path is relative to the I<chroot> directory if specified.
 
 Certificate Authority file
 
-This file contains multiple CA certificates, used with the I<verify> option.
+This file contains multiple CA certificates, to be used with the I<verifyChain>
+and I<verifyPeer> options.
 
 =item B<cert> = PEM_FILE
 
@@ -504,9 +505,9 @@ round-robin algorithm.
 
 Certificate Revocation Lists directory
 
-This is the directory in which B<stunnel> will look for CRLs when
-using the I<verify> option. Note that the CRLs in this directory should
-be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.
+This is the directory in which B<stunnel> will look for CRLs when using the
+I<verifyChain> and I<verifyPeer> options. Note that the CRLs in this directory
+should be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.
 
 The hash algorithm has been changed in B<OpenSSL 1.0.0>.  It is required to
 c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
@@ -517,7 +518,8 @@ I<CRLpath> path is relative to the I<chroot> directory if specified.
 
 Certificate Revocation Lists file
 
-This file contains multiple CRLs, used with the I<verify> option.
+This file contains multiple CRLs, used with the I<verifyChain> and
+I<verifyPeer> options.
 
 =item B<curve> = NID
 
@@ -912,6 +914,15 @@ reconnect a connect+exec section after it was disconnected
 
 default: no
 
+=item B<requireCert> = yes | no
+
+require a client certificate for I<verifyChain> or I<verifyPeer>
+
+With I<requireCert> set to I<no>, the B<stunnel> server accepts client
+connections that did not present a certificate.
+
+default: yes
+
 =item B<setgid> = GROUP (Unix only)
 
 Unix group id
@@ -1090,10 +1101,12 @@ This option has been renamed to I<none>.
 
 =back
 
-
 =item B<verify> = LEVEL
 
 verify the peer certificate
+
+This option is obsolete and should be replaced with the I<verifyChain>
+and I<verifyPeer> options.
 
 =over 4
 
@@ -1111,11 +1124,11 @@ Verify the peer certificate.
 
 =item level 3
 
-Verify the peer with locally installed certificate.
+Verify the peer against a locally installed certificate.
 
 =item level 4
 
-Ignore the CA chain and only verify the peer certificate.
+Ignore the chain and only verify the peer certificate.
 
 =item default
 
@@ -1123,11 +1136,26 @@ No verify.
 
 =back
 
-It is important to understand that this option was solely designed for access
-control and not for authorization.  Specifically for level 2 every non-revoked
-certificate is accepted regardless of its Common Name.  For this reason a
-dedicated CA should be used with level 2, and not a generic CA commonly used
-for webservers.  Level 3 is preferred for point-to-point connections.
+=item B<verifyChain> = yes | no
+
+verify the peer certificate chain starting from the root CA
+
+For server certificate verification it is essential to also require a specific
+certificate with I<checkHost> or I<verifyPeer>.
+
+The self-signed root CA certificate needs to be stored either in the file
+specified with I<CAfile>, or in the directory specified with I<CApath>.
+
+default: no
+
+=item B<verifyPeer> = yes | no
+
+verify the peer certificate
+
+The peer certificate needs to be stored either in the file
+specified with I<CAfile>, or in the directory specified with I<CApath>.
+
+default: no
 
 =back
 
@@ -1240,7 +1268,7 @@ To setup SOCKS VPN configure the following client service:
     client = yes
     accept = 127.0.0.1:1080
     connect = vpn_server:9080
-    verify = 4
+    verifyPeer = yes
     CAfile = stunnel.pem
 
 The corresponding configuration on the vpn_server host:

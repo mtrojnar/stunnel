@@ -462,7 +462,6 @@ extern char *sys_errlist[];
 
 #include <openssl/lhash.h>
 #include <openssl/ssl.h>
-#include <openssl/ssl23.h>
 #include <openssl/ui.h>
 #include <openssl/err.h>
 #include <openssl/crypto.h> /* for CRYPTO_* and SSLeay_version */

@@ -1,5 +1,14 @@
 stunnel change log
 
+Version 5.34, 2016.07.05, urgency: HIGH
+* Security bugfixes
+  - Fixed malfunctioning "verify = 4".
+* New features
+  - Bind sockets with SO_EXCLUSIVEADDRUSE on WIN32.
+  - Added three new service-level options: requireCert, verifyChain,
+    and verifyPeer for fine-grained certificate verification control.
+  - Improved compatibility with the current OpenSSL 1.1.0-dev tree.
+
 Version 5.33, 2016.06.23, urgency: HIGH
 * New features
   - Improved memory leak detection performance and accuracy.

@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2016.05.03" "5.32" "stunnel TLS Proxy"
+.TH stunnel 8 "2016.07.05" "5.34" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -392,9 +392,9 @@ To listen on all IPv6 addresses use:
 Certificate Authority directory
 .Sp
 This is the directory in which \fBstunnel\fR will look for certificates when using
-the \fIverify\fR option.  Note that the certificates in this directory should be named
-\&\s-1XXXXXXXX.0\s0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1DER\s0 encoded subject of the
-cert.
+the \fIverifyChain\fR or \fIverifyPeer\fR options.  Note that the certificates in
+this directory should be named \s-1XXXXXXXX.0\s0 where \s-1XXXXXXXX\s0 is the hash value of
+the \s-1DER\s0 encoded subject of the cert.
 .Sp
 The hash algorithm has been changed in \fBOpenSSL 1.0.0\fR.  It is required to
 c_rehash the directory on upgrade from \fBOpenSSL 0.x.x\fR to \fBOpenSSL 1.x.x\fR.
@@ -404,7 +404,8 @@ c_rehash the directory on upgrade from \fBOpenSSL 0.x.x\fR to \fBOpenSSL 1.x.x\f
 .IX Item "CAfile = CERT_FILE"
 Certificate Authority file
 .Sp
-This file contains multiple \s-1CA\s0 certificates, used with the \fIverify\fR option.
+This file contains multiple \s-1CA\s0 certificates, to be used with the \fIverifyChain\fR
+and \fIverifyPeer\fR options.
 .IP "\fBcert\fR = \s-1PEM_FILE\s0" 4
 .IX Item "cert = PEM_FILE"
 certificate chain \s-1PEM\s0 file name
@@ -484,9 +485,9 @@ round-robin algorithm.
 .IX Item "CRLpath = DIRECTORY"
 Certificate Revocation Lists directory
 .Sp
-This is the directory in which \fBstunnel\fR will look for CRLs when
-using the \fIverify\fR option. Note that the CRLs in this directory should
-be named \s-1XXXXXXXX\s0.r0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1CRL.\s0
+This is the directory in which \fBstunnel\fR will look for CRLs when using the
+\&\fIverifyChain\fR and \fIverifyPeer\fR options. Note that the CRLs in this directory
+should be named \s-1XXXXXXXX\s0.r0 where \s-1XXXXXXXX\s0 is the hash value of the \s-1CRL.\s0
 .Sp
 The hash algorithm has been changed in \fBOpenSSL 1.0.0\fR.  It is required to
 c_rehash the directory on upgrade from \fBOpenSSL 0.x.x\fR to \fBOpenSSL 1.x.x\fR.
@@ -496,7 +497,8 @@ c_rehash the directory on upgrade from \fBOpenSSL 0.x.x\fR to \fBOpenSSL 1.x.x\f
 .IX Item "CRLfile = CERT_FILE"
 Certificate Revocation Lists file
 .Sp
-This file contains multiple CRLs, used with the \fIverify\fR option.
+This file contains multiple CRLs, used with the \fIverifyChain\fR and
+\&\fIverifyPeer\fR options.
 .IP "\fBcurve\fR = \s-1NID\s0" 4
 .IX Item "curve = NID"
 specify \s-1ECDH\s0 curve name
@@ -857,6 +859,14 @@ default: yes
 reconnect a connect+exec section after it was disconnected
 .Sp
 default: no
+.IP "\fBrequireCert\fR = yes | no" 4
+.IX Item "requireCert = yes | no"
+require a client certificate for \fIverifyChain\fR or \fIverifyPeer\fR
+.Sp
+With \fIrequireCert\fR set to \fIno\fR, the \fBstunnel\fR server accepts client
+connections that did not present a certificate.
+.Sp
+default: yes
 .IP "\fBsetgid\fR = \s-1GROUP \s0(Unix only)" 4
 .IX Item "setgid = GROUP (Unix only)"
 Unix group id
@@ -1022,6 +1032,9 @@ This option has been renamed to \fInone\fR.
 .IP "\fBverify\fR = \s-1LEVEL\s0" 4
 .IX Item "verify = LEVEL"
 verify the peer certificate
+.Sp
+This option is obsolete and should be replaced with the \fIverifyChain\fR
+and \fIverifyPeer\fR options.
 .RS 4
 .IP "level 0" 4
 .IX Item "level 0"
@@ -1034,22 +1047,35 @@ Verify the peer certificate if present.
 Verify the peer certificate.
 .IP "level 3" 4
 .IX Item "level 3"
-Verify the peer with locally installed certificate.
+Verify the peer against a locally installed certificate.
 .IP "level 4" 4
 .IX Item "level 4"
-Ignore the \s-1CA\s0 chain and only verify the peer certificate.
+Ignore the chain and only verify the peer certificate.
 .IP "default" 4
 .IX Item "default"
 No verify.
 .RE
 .RS 4
-.Sp
-It is important to understand that this option was solely designed for access
-control and not for authorization.  Specifically for level 2 every non-revoked
-certificate is accepted regardless of its Common Name.  For this reason a
-dedicated \s-1CA\s0 should be used with level 2, and not a generic \s-1CA\s0 commonly used
-for webservers.  Level 3 is preferred for point-to-point connections.
 .RE
+.IP "\fBverifyChain\fR = yes | no" 4
+.IX Item "verifyChain = yes | no"
+verify the peer certificate chain starting from the root \s-1CA\s0
+.Sp
+For server certificate verification it is essential to also require a specific
+certificate with \fIcheckHost\fR or \fIverifyPeer\fR.
+.Sp
+The self-signed root \s-1CA\s0 certificate needs to be stored either in the file
+specified with \fICAfile\fR, or in the directory specified with \fICApath\fR.
+.Sp
+default: no
+.IP "\fBverifyPeer\fR = yes | no" 4
+.IX Item "verifyPeer = yes | no"
+verify the peer certificate
+.Sp
+The peer certificate needs to be stored either in the file
+specified with \fICAfile\fR, or in the directory specified with \fICApath\fR.
+.Sp
+default: no
 .SH "RETURN VALUE"
 .IX Header "RETURN VALUE"
 \&\fBstunnel\fR returns zero on success, non-zero on error.
@@ -1148,7 +1174,7 @@ To setup \s-1SOCKS VPN\s0 configure the following client service:
 \&    client = yes
 \&    accept = 127.0.0.1:1080
 \&    connect = vpn_server:9080
-\&    verify = 4
+\&    verifyPeer = yes
 \&    CAfile = stunnel.pem
 .Ve
 .PP

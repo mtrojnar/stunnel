@@ -2302,7 +2302,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 section->connect_addr.names=NULL;
                 section->option.delayed_lookup=1;
             }
-            if(section->verify_level<1)
+            if(!section->option.verify_chain && !section->option.verify_peer)
                 return "\"verify\" needs to be 1 or higher for \"redirect\" to work";
         }
         break;
@@ -2341,6 +2341,35 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no support renegotiation",
               "renegotiation");
+        break;
+    }
+
+    /* requireCert */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->option.require_cert=1;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "requireCert"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.require_cert=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.require_cert=0;
+        else
+            return "The argument needs to be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_END:
+        if(section->option.require_cert)
+            section->option.verify_enable=1;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = yes|no require client certificate",
+            "requireCert");
         break;
     }
 
@@ -2856,22 +2885,25 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* verify */
     switch(cmd) {
     case CMD_BEGIN:
-        section->verify_level=-1; /* do not even request a certificate */
+        section->option.verify_enable=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "verify"))
             break;
         {
             char *tmp_str;
-            section->verify_level=(int)strtol(arg, &tmp_str, 10);
-            if(tmp_str==arg || *tmp_str) /* not a number */
+            int tmp_int=(int)strtol(arg, &tmp_str, 10);
+            if(tmp_str==arg || *tmp_str || tmp_int<0 || tmp_int>4)
                 return "Bad verify level";
+            section->option.verify_enable=1;
+            section->option.require_cert=(tmp_int>=2);
+            section->option.verify_chain=(tmp_int>=1 && tmp_int<=3);
+            section->option.verify_peer=(tmp_int>=3);
         }
-        if(section->verify_level<0 || section->verify_level>4)
-            return "Bad verify level";
         return NULL; /* OK */
     case CMD_END:
-        if(section->verify_level>0 && !section->ca_file && !section->ca_dir)
+        if((section->option.verify_chain || section->option.verify_peer) &&
+                !section->ca_file && !section->ca_dir)
             return "Either \"CAfile\" or \"CApath\" has to be configured";
         break;
     case CMD_FREE:
@@ -2892,6 +2924,64 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             "%25slevel 3 - verify peer with locally installed cert", "");
         s_log(LOG_NOTICE,
             "%25slevel 4 - ignore CA chain and only verify peer cert", "");
+        break;
+    }
+
+    /* verifyChain */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->option.verify_chain=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "verifyChain"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.verify_chain=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.verify_chain=0;
+        else
+            return "The argument needs to be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_END:
+        if(section->option.verify_chain)
+            section->option.verify_enable=1;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = yes|no verify certificate chain",
+            "verifyChain");
+        break;
+    }
+
+    /* verifyPeer */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->option.verify_peer=0;
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "verifyPeer"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.verify_peer=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.verify_peer=0;
+        else
+            return "The argument needs to be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_END:
+        if(section->option.verify_peer)
+            section->option.verify_enable=1;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = yes|no verify peer certificate",
+            "verifyPeer");
         break;
     }
 
@@ -3200,7 +3290,12 @@ SOCK_OPT sock_opts[] = {
 #ifdef SO_SNDTIMEO
     {"SO_SNDTIMEO",     SOL_SOCKET,     SO_SNDTIMEO,     TYPE_TIMEVAL, {NULL, NULL, NULL}},
 #endif
+#ifdef USE_WIN32
+    {"SO_EXCLUSIVEADDRUSE", SOL_SOCKET, SO_EXCLUSIVEADDRUSE, TYPE_FLAG, {DEF_ON, NULL, NULL}},
+    {"SO_REUSEADDR",    SOL_SOCKET,     SO_REUSEADDR,    TYPE_FLAG,    {NULL, NULL, NULL}},
+#else
     {"SO_REUSEADDR",    SOL_SOCKET,     SO_REUSEADDR,    TYPE_FLAG,    {DEF_ON, NULL, NULL}},
+#endif
 #ifdef SO_BINDTODEVICE
     {"SO_BINDTODEVICE", SOL_SOCKET,     SO_BINDTODEVICE, TYPE_STRING,  {NULL, NULL, NULL}},
 #endif
@@ -3250,9 +3345,9 @@ NOEXPORT int print_socket_options(void) {
     s_log(LOG_NOTICE, " ");
     s_log(LOG_NOTICE, "Socket option defaults:");
     s_log(LOG_NOTICE,
-        "    Option Name     |  Accept  |   Local  |  Remote  |OS default");
+        "    Option Name         |  Accept  |   Local  |  Remote  |OS default");
     s_log(LOG_NOTICE,
-        "    ----------------+----------+----------+----------+----------");
+        "    --------------------+----------+----------+----------+----------");
     for(ptr=sock_opts; ptr->opt_str; ++ptr) {
         /* get OS default value */
         optlen=sizeof val;
@@ -3276,7 +3371,7 @@ NOEXPORT int print_socket_options(void) {
         tl=print_option(ptr->opt_type, ptr->opt_val[1]);
         tr=print_option(ptr->opt_type, ptr->opt_val[2]);
         /* print collected data and fee the memory */
-        s_log(LOG_NOTICE, "    %-16s|%10s|%10s|%10s|%10s",
+        s_log(LOG_NOTICE, "    %-20s|%10s|%10s|%10s|%10s",
             ptr->opt_str, ta, tl, tr, td);
         str_free(ta); str_free(tl); str_free(tr); str_free(td);
     }

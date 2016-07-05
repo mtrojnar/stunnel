@@ -468,7 +468,7 @@
 
 <p>Certificate Authority directory</p>
 
-<p>This is the directory in which <b>stunnel</b> will look for certificates when using the <i>verify</i> option. Note that the certificates in this directory should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the cert.</p>
+<p>This is the directory in which <b>stunnel</b> will look for certificates when using the <i>verifyChain</i> or <i>verifyPeer</i> options. Note that the certificates in this directory should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the cert.</p>
 
 <p>The hash algorithm has been changed in <b>OpenSSL 1.0.0</b>. It is required to c_rehash the directory on upgrade from <b>OpenSSL 0.x.x</b> to <b>OpenSSL 1.x.x</b>.</p>
 
@@ -480,7 +480,7 @@
 
 <p>Certificate Authority file</p>
 
-<p>This file contains multiple CA certificates, used with the <i>verify</i> option.</p>
+<p>This file contains multiple CA certificates, to be used with the <i>verifyChain</i> and <i>verifyPeer</i> options.</p>
 
 </dd>
 <dt id="cert-PEM_FILE"><b>cert</b> = PEM_FILE</dt>
@@ -570,7 +570,7 @@
 
 <p>Certificate Revocation Lists directory</p>
 
-<p>This is the directory in which <b>stunnel</b> will look for CRLs when using the <i>verify</i> option. Note that the CRLs in this directory should be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.</p>
+<p>This is the directory in which <b>stunnel</b> will look for CRLs when using the <i>verifyChain</i> and <i>verifyPeer</i> options. Note that the CRLs in this directory should be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.</p>
 
 <p>The hash algorithm has been changed in <b>OpenSSL 1.0.0</b>. It is required to c_rehash the directory on upgrade from <b>OpenSSL 0.x.x</b> to <b>OpenSSL 1.x.x</b>.</p>
 
@@ -582,7 +582,7 @@
 
 <p>Certificate Revocation Lists file</p>
 
-<p>This file contains multiple CRLs, used with the <i>verify</i> option.</p>
+<p>This file contains multiple CRLs, used with the <i>verifyChain</i> and <i>verifyPeer</i> options.</p>
 
 </dd>
 <dt id="curve-NID"><b>curve</b> = NID</dt>
@@ -1009,6 +1009,16 @@
 <p>default: no</p>
 
 </dd>
+<dt id="requireCert-yes-no"><b>requireCert</b> = yes | no</dt>
+<dd>
+
+<p>require a client certificate for <i>verifyChain</i> or <i>verifyPeer</i></p>
+
+<p>With <i>requireCert</i> set to <i>no</i>, the <b>stunnel</b> server accepts client connections that did not present a certificate.</p>
+
+<p>default: yes</p>
+
+</dd>
 <dt id="setgid-GROUP-Unix-only"><b>setgid</b> = GROUP (Unix only)</dt>
 <dd>
 
@@ -1221,6 +1231,8 @@
 
 <p>verify the peer certificate</p>
 
+<p>This option is obsolete and should be replaced with the <i>verifyChain</i> and <i>verifyPeer</i> options.</p>
+
 <dl>
 
 <dt id="level-0">level 0</dt>
@@ -1244,13 +1256,13 @@
 <dt id="level-3">level 3</dt>
 <dd>
 
-<p>Verify the peer with locally installed certificate.</p>
+<p>Verify the peer against a locally installed certificate.</p>
 
 </dd>
 <dt id="level-4">level 4</dt>
 <dd>
 
-<p>Ignore the CA chain and only verify the peer certificate.</p>
+<p>Ignore the chain and only verify the peer certificate.</p>
 
 </dd>
 <dt id="default">default</dt>
@@ -1261,7 +1273,27 @@
 </dd>
 </dl>
 
-<p>It is important to understand that this option was solely designed for access control and not for authorization. Specifically for level 2 every non-revoked certificate is accepted regardless of its Common Name. For this reason a dedicated CA should be used with level 2, and not a generic CA commonly used for webservers. Level 3 is preferred for point-to-point connections.</p>
+</dd>
+<dt id="verifyChain-yes-no"><b>verifyChain</b> = yes | no</dt>
+<dd>
+
+<p>verify the peer certificate chain starting from the root CA</p>
+
+<p>For server certificate verification it is essential to also require a specific certificate with <i>checkHost</i> or <i>verifyPeer</i>.</p>
+
+<p>The self-signed root CA certificate needs to be stored either in the file specified with <i>CAfile</i>, or in the directory specified with <i>CApath</i>.</p>
+
+<p>default: no</p>
+
+</dd>
+<dt id="verifyPeer-yes-no"><b>verifyPeer</b> = yes | no</dt>
+<dd>
+
+<p>verify the peer certificate</p>
+
+<p>The peer certificate needs to be stored either in the file specified with <i>CAfile</i>, or in the directory specified with <i>CApath</i>.</p>
+
+<p>default: no</p>
 
 </dd>
 </dl>
@@ -1364,7 +1396,7 @@
     client = yes
     accept = 127.0.0.1:1080
     connect = vpn_server:9080
-    verify = 4
+    verifyPeer = yes
     CAfile = stunnel.pem</code></pre>
 
 <p>The corresponding configuration on the vpn_server host:</p>

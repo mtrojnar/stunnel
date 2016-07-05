@@ -1,5 +1,5 @@
 Name:           stunnel
-Version:        5.33
+Version:        5.34
 Release:        1%{?dist}
 Summary:        An SSL-encrypting socket wrapper
 Group:          Applications/Internet

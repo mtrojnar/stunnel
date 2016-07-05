@@ -470,7 +470,7 @@
 
 <p>katalog Centrum Certyfikacji</p>
 
-<p>Opcja okre&#x15B;la katalog, w kt&oacute;rym <b>stunnel</b> b&#x119;dzie szuka&#x142; certyfikat&oacute;w, je&#x17C;eli u&#x17C;yta zosta&#x142;a opcja <i>verify</i>. Pliki z certyfikatami musz&#x105; posiada&#x107; specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skr&oacute;tem kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu.</p>
+<p>Opcja okre&#x15B;la katalog, w kt&oacute;rym <b>stunnel</b> b&#x119;dzie szuka&#x142; certyfikat&oacute;w, je&#x17C;eli u&#x17C;yta zosta&#x142;a opcja <i>verifyChain</i> lub <i>verifyPeer</i>. Pliki z certyfikatami musz&#x105; posiada&#x107; specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skr&oacute;tem kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu.</p>
 
 <p>Funkcja skr&oacute;tu zosta&#x142;a zmieniona w <b>OpenSSL 1.0.0</b>. Nale&#x17C;y wykona&#x107; c_rehash przy zmianie <b>OpenSSL 0.x.x</b> na <b>1.x.x</b>.</p>
 
@@ -482,7 +482,7 @@
 
 <p>plik Centrum Certyfikacji</p>
 
-<p>Opcja pozwala okre&#x15B;li&#x107; po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez opcj&#x119; <i>verify</i>.</p>
+<p>Opcja pozwala okre&#x15B;li&#x107; po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez opcj&#x119; <i>verifyChain</i> lub <i>verifyPeer</i>.</p>
 
 </dd>
 <dt id="cert-PLIK_PEM"><b>cert</b> = PLIK_PEM</dt>
@@ -568,7 +568,7 @@
 
 <p>katalog List Odwo&#x142;anych Certyfikat&oacute;w (CRL)</p>
 
-<p>Opcja okre&#x15B;la katalog, w kt&oacute;rym <b>stunnel</b> b&#x119;dzie szuka&#x142; list CRL, je&#x17C;eli u&#x17C;yta zosta&#x142;a opcja <i>verify</i>. Pliki z listami CRL musz&#x105; posiada&#x107; specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skr&oacute;tem listy CRL.</p>
+<p>Opcja okre&#x15B;la katalog, w kt&oacute;rym <b>stunnel</b> b&#x119;dzie szuka&#x142; list CRL u&#x17C;ywanych przez opcje <i>verifyChain</i> i <i>verifyPeer</i>. Pliki z listami CRL musz&#x105; posiada&#x107; specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skr&oacute;tem listy CRL.</p>
 
 <p>Funkcja skr&oacute;tu zosta&#x142;a zmieniona <b>OpenSSL 1.0.0</b>. Nale&#x17C;y wykona&#x107; c_rehash przy zmianie <b>OpenSSL 0.x.x</b> na <b>1.x.x</b>.</p>
 
@@ -580,7 +580,7 @@
 
 <p>plik List Odwo&#x142;anych Certyfikat&oacute;w (CRL)</p>
 
-<p>Opcja pozwala okre&#x15B;li&#x107; po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego listy CRL u&#x17C;ywane przez opcj&#x119; <i>verify</i>.</p>
+<p>Opcja pozwala okre&#x15B;li&#x107; po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego listy CRL u&#x17C;ywane przez opcje <i>verifyChain</i> i <i>verifyPeer</i>.</p>
 
 </dd>
 <dt id="curve-NID"><b>curve</b> = NID</dt>
@@ -1009,6 +1009,16 @@
 <p>domy&#x15B;lnie: no</p>
 
 </dd>
+<dt id="requireCert-yes-no"><b>requireCert</b> = yes | no</dt>
+<dd>
+
+<p>wymagaj certyfikatu klienta dla <i>verifyChain</i> lub <i>verifyPeer</i></p>
+
+<p>Przy opcji <i>requireCert</i> ustawionej na <i>no</i>, <b>stunnel</b> akceptuje po&#x142;&#x105;czenia klient&oacute;w, kt&oacute;re nie wys&#x142;a&#x142;y certyfikatu.</p>
+
+<p>domy&#x15B;lnie: yes</p>
+
+</dd>
 <dt id="setgid-IDENTYFIKATOR_GRUPY-tylko-Unix"><b>setgid</b> = IDENTYFIKATOR_GRUPY (tylko Unix)</dt>
 <dd>
 
@@ -1219,6 +1229,8 @@
 
 <p>weryfikuj certyfikat drugiej strony po&#x142;&#x105;czenia</p>
 
+<p>Opcja ta jest przestarza&#x142;a i nale&#x17C;y j&#x105; zast&#x105;pi&#x107; przez opcje <i>verifyChain</i> i <i>verifyPeer</i>.</p>
+
 <dl>
 
 <dt id="poziom-0"><i>poziom 0</i></dt>
@@ -1258,6 +1270,28 @@
 
 </dd>
 </dl>
+
+</dd>
+<dt id="verifyChain-yes-no"><b>verifyChain</b> = yes | no</dt>
+<dd>
+
+<p>weryfikuj &#x142;a&#x144;cuch certyfikat&oacute;w drugiej strony</p>
+
+<p>Do weryfikacji certyfikatu serwera kluczowe jest, aby wymaga&#x107; r&oacute;wnie&#x17C; konkretnego certyfikatu przy pomocy <i>checkHost</i> lub <i>verifyPeer</i>.</p>
+
+<p>Samopodpisany certyfikat g&#x142;&oacute;wnego CA nale&#x17C;y umie&#x15B;ci&#x107; albo w pliku podanym w opcji <i>CAfile</i>, albo w katalogu podanym w opcji <i>CApath</i>.</p>
+
+<p>domy&#x15B;lnie: no</p>
+
+</dd>
+<dt id="verifyPeer-yes-no"><b>verifyPeer</b> = yes | no</dt>
+<dd>
+
+<p>weryfikuj certyfikat drugiej strony</p>
+
+<p>Certyfikat drugiej strony nale&#x17C;y umie&#x15B;ci&#x107; albo w pliku podanym w opcji <i>CAfile</i>, albo w katalogu podanym w opcji <i>CApath</i>.</p>
+
+<p>domy&#x15B;lnie: no</p>
 
 </dd>
 </dl>

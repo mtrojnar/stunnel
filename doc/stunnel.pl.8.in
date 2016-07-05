@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2016.05.03" "5.32" "stunnel TLS Proxy"
+.TH stunnel 8 "2016.07.05" "5.34" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -402,9 +402,9 @@ Aby nasłuchiwać na wszystkich adresach IPv6 należy użyć:
 .IX Item "CApath = KATALOG_CA"
 katalog Centrum Certyfikacji
 .Sp
-Opcja określa katalog, w którym \fBstunnel\fR będzie szukał certyfikatów,
-jeżeli użyta została opcja \fIverify\fR.  Pliki z certyfikatami muszą
-posiadać specjalne nazwy \s-1XXXXXXXX.0,\s0 gdzie \s-1XXXXXXXX\s0 jest skrótem
+Opcja określa katalog, w którym \fBstunnel\fR będzie szukał certyfikatów, jeżeli
+użyta została opcja \fIverifyChain\fR lub \fIverifyPeer\fR.  Pliki z certyfikatami
+muszą posiadać specjalne nazwy \s-1XXXXXXXX.0,\s0 gdzie \s-1XXXXXXXX\s0 jest skrótem
 kryptograficznym reprezentacji \s-1DER\s0 nazwy podmiotu certyfikatu.
 .Sp
 Funkcja skrótu została zmieniona w \fBOpenSSL 1.0.0\fR.
@@ -417,7 +417,7 @@ względem tego katalogu.
 plik Centrum Certyfikacji
 .Sp
 Opcja pozwala określić położenie pliku zawierającego certyfikaty używane
-przez opcję \fIverify\fR.
+przez opcję \fIverifyChain\fR lub \fIverifyPeer\fR.
 .IP "\fBcert\fR = \s-1PLIK_PEM\s0" 4
 .IX Item "cert = PLIK_PEM"
 plik z łańcuchem certyfikatów
@@ -497,10 +497,9 @@ ruchu pomiędzy wiele serwerów.
 .IX Item "CRLpath = KATALOG_CRL"
 katalog List Odwołanych Certyfikatów (\s-1CRL\s0)
 .Sp
-Opcja określa katalog, w którym \fBstunnel\fR będzie szukał list \s-1CRL,\s0
-jeżeli użyta została opcja \fIverify\fR.  Pliki z listami \s-1CRL\s0 muszą
-posiadać specjalne nazwy \s-1XXXXXXXX\s0.r0, gdzie \s-1XXXXXXXX\s0 jest skrótem
-listy \s-1CRL.\s0
+Opcja określa katalog, w którym \fBstunnel\fR będzie szukał list \s-1CRL\s0 używanych
+przez opcje \fIverifyChain\fR i \fIverifyPeer\fR.  Pliki z listami \s-1CRL\s0 muszą posiadać
+specjalne nazwy \s-1XXXXXXXX\s0.r0, gdzie \s-1XXXXXXXX\s0 jest skrótem listy \s-1CRL.\s0
 .Sp
 Funkcja skrótu została zmieniona \fBOpenSSL 1.0.0\fR.
 Należy wykonać c_rehash przy zmianie \fBOpenSSL 0.x.x\fR na \fB1.x.x\fR.
@@ -512,7 +511,7 @@ względem tego katalogu.
 plik List Odwołanych Certyfikatów (\s-1CRL\s0)
 .Sp
 Opcja pozwala określić położenie pliku zawierającego listy \s-1CRL\s0 używane
-przez opcję \fIverify\fR.
+przez opcje \fIverifyChain\fR i \fIverifyPeer\fR.
 .IP "\fBcurve\fR = \s-1NID\s0" 4
 .IX Item "curve = NID"
 krzywa dla \s-1ECDH\s0
@@ -878,6 +877,14 @@ domyślnie: yes
 połącz ponownie sekcję connect+exec po rozłączeniu
 .Sp
 domyślnie: no
+.IP "\fBrequireCert\fR = yes | no" 4
+.IX Item "requireCert = yes | no"
+wymagaj certyfikatu klienta dla \fIverifyChain\fR lub \fIverifyPeer\fR
+.Sp
+Przy opcji \fIrequireCert\fR ustawionej na \fIno\fR, \fBstunnel\fR akceptuje
+połączenia klientów, które nie wysłały certyfikatu.
+.Sp
+domyślnie: yes
 .IP "\fBsetgid\fR = \s-1IDENTYFIKATOR_GRUPY \s0(tylko Unix)" 4
 .IX Item "setgid = IDENTYFIKATOR_GRUPY (tylko Unix)"
 identyfikator grupy Unix
@@ -1042,6 +1049,9 @@ Opcja została przemianowana na \fInone\fR.
 .IP "\fBverify\fR = \s-1POZIOM\s0" 4
 .IX Item "verify = POZIOM"
 weryfikuj certyfikat drugiej strony połączenia
+.Sp
+Opcja ta jest przestarzała i należy ją zastąpić przez opcje
+\&\fIverifyChain\fR i \fIverifyPeer\fR.
 .RS 4
 .IP "\fIpoziom 0\fR" 4
 .IX Item "poziom 0"
@@ -1064,6 +1074,25 @@ nie weryfikuj
 .RE
 .RS 4
 .RE
+.IP "\fBverifyChain\fR = yes | no" 4
+.IX Item "verifyChain = yes | no"
+weryfikuj łańcuch certyfikatów drugiej strony
+.Sp
+Do weryfikacji certyfikatu serwera kluczowe jest, aby wymagać również
+konkretnego certyfikatu przy pomocy \fIcheckHost\fR lub \fIverifyPeer\fR.
+.Sp
+Samopodpisany certyfikat głównego \s-1CA\s0 należy umieścić  albo w pliku
+podanym w opcji \fICAfile\fR, albo w katalogu podanym w opcji \fICApath\fR.
+.Sp
+domyślnie: no
+.IP "\fBverifyPeer\fR = yes | no" 4
+.IX Item "verifyPeer = yes | no"
+weryfikuj certyfikat drugiej strony
+.Sp
+Certyfikat drugiej strony należy umieścić  albo w pliku podanym w opcji
+\&\fICAfile\fR, albo w katalogu podanym w opcji \fICApath\fR.
+.Sp
+domyślnie: no
 .SH "ZWRACANA WARTOŚĆ"
 .IX Header "ZWRACANA WARTOŚĆ"
 \&\fBstunnel\fR zwraca zero w przypadku sukcesu, lub wartość niezerową

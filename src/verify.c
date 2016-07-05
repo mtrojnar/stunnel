@@ -90,10 +90,11 @@ int verify_init(SERVICE_OPTIONS *section) {
             return 1; /* FAILED */
 
     /* verify callback setup */
-    if(section->verify_level>=0)
+    if(section->option.verify_enable) {
         verify_mode|=SSL_VERIFY_PEER;
-    if(section->verify_level>=2 && !section->redirect_addr.names)
-        verify_mode|=SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+        if(section->option.require_cert && !section->redirect_addr.names)
+            verify_mode|=SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+    }
     SSL_CTX_set_verify(section->ctx, verify_mode, verify_callback);
     auth_warnings(section);
 
@@ -174,27 +175,27 @@ NOEXPORT void auth_warnings(SERVICE_OPTIONS *section) {
        certificates signed by a specified certificate authority */
     if(!section->option.client)
         return;
-    if(section->verify_level<2) {
+    if(section->option.verify_peer) /* verify_peer does not depend on PKI */
+        return;
+    if(section->option.verify_chain) {
+#if OPENSSL_VERSION_NUMBER>=0x10002000L
+        if(section->check_email || section->check_host || section->check_ip)
+            return;
+#endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
         s_log(LOG_WARNING,
-            "Service [%s] needs authentication to prevent MITM attacks",
+            "Service [%s] uses \"verify = 2\" without subject checks",
             section->servname);
+#if OPENSSL_VERSION_NUMBER<0x10002000L
+        s_log(LOG_WARNING,
+            "Rebuild your stunnel against OpenSSL version 1.0.2 or higher");
+#endif /* OPENSSL_VERSION_NUMBER<0x10002000L */
+        s_log(LOG_WARNING,
+            "Use \"checkHost\" or \"checkIP\" to restrict trusted certificates");
         return;
     }
-    if(section->verify_level>=3) /* levels>=3 don't rely on PKI */
-        return;
-#if OPENSSL_VERSION_NUMBER>=0x10002000L
-    if(section->check_email || section->check_host || section->check_ip)
-        return;
-#endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
     s_log(LOG_WARNING,
-        "Service [%s] uses \"verify = 2\" without subject checks",
+        "Service [%s] needs authentication to prevent MITM attacks",
         section->servname);
-#if OPENSSL_VERSION_NUMBER<0x10002000L
-    s_log(LOG_WARNING,
-        "Rebuild your stunnel against OpenSSL version 1.0.2 or higher");
-#endif /* OPENSSL_VERSION_NUMBER<0x10002000L */
-    s_log(LOG_WARNING,
-        "Use \"checkHost\" or \"checkIP\" to restrict trusted certificates");
 }
 
 /**************************************** verify callback */
@@ -209,7 +210,7 @@ NOEXPORT int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         SSL_get_ex_data_X509_STORE_CTX_idx());
     c=SSL_get_ex_data(ssl, index_cli);
 
-    if(c->opt->verify_level<1) {
+    if(!c->opt->option.verify_chain && !c->opt->option.verify_peer) {
         s_log(LOG_INFO, "Certificate verification disabled");
         return 1; /* accept */
     }
@@ -265,15 +266,14 @@ NOEXPORT int cert_check(CLI *c, X509_STORE_CTX *callback_ctx,
     if(preverify_ok) {
         s_log(LOG_DEBUG, "CERT: Pre-verification succeeded");
     } else { /* remote site sent an invalid certificate */
-        if(c->opt->verify_level>=4 && depth>0) {
-            s_log(LOG_INFO, "CERT: Invalid CA certificate ignored");
-            return 1; /* accept */
+        if(c->opt->option.verify_chain || depth==0) {
+            s_log(LOG_WARNING, "CERT: Pre-verification error: %s",
+                X509_verify_cert_error_string(
+                    X509_STORE_CTX_get_error(callback_ctx)));
+            /* retain the STORE_CTX error produced by pre-verification */
+            return 0; /* reject */
         }
-        s_log(LOG_WARNING, "CERT: Pre-verification error: %s",
-            X509_verify_cert_error_string(
-                X509_STORE_CTX_get_error(callback_ctx)));
-        /* retain the STORE_CTX error produced by pre-verification */
-        return 0; /* reject */
+        s_log(LOG_INFO, "CERT: Invalid CA certificate ignored");
     }
 
     if(depth==0) { /* additional peer certificate checks */
@@ -281,7 +281,7 @@ NOEXPORT int cert_check(CLI *c, X509_STORE_CTX *callback_ctx,
         if(!cert_check_subject(c, callback_ctx))
             return 0; /* reject */
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
-        if(c->opt->verify_level>=3 && !cert_check_local(callback_ctx))
+        if(c->opt->option.verify_peer && !cert_check_local(callback_ctx))
             return 0; /* reject */
     }
 

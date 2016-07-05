@@ -202,7 +202,6 @@ typedef struct service_options_struct {
     char *ca_file;                       /* file containing bunches of certs */
     char *crl_dir;                              /* directory for hashed CRLs */
     char *crl_file;                       /* file containing bunches of CRLs */
-    int verify_level;
 #ifndef OPENSSL_NO_OCSP
     char *ocsp_url;
     unsigned long ocsp_flags;
@@ -274,6 +273,10 @@ typedef struct service_options_struct {
 
         /* on/off switches */
     struct {
+        unsigned verify_enable:1;       /* enable certificate verification */
+        unsigned verify_chain:1;        /* verify certificate chain */
+        unsigned verify_peer:1;         /* verify peer certificate */
+        unsigned require_cert:1;        /* require a client certificate */
         unsigned accept:1;              /* endpoint: accept */
         unsigned client:1;
         unsigned delayed_lookup:1;
