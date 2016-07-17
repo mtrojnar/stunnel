@@ -1016,7 +1016,9 @@
 
 <p>With <i>requireCert</i> set to <i>no</i>, the <b>stunnel</b> server accepts client connections that did not present a certificate.</p>
 
-<p>default: yes</p>
+<p>Both <i>verifyChain = yes</i> and <i>verifyPeer = yes</i> imply <i>requireCert = yes</i>.</p>
+
+<p>default: no</p>
 
 </dd>
 <dt id="setgid-GROUP-Unix-only"><b>setgid</b> = GROUP (Unix only)</dt>

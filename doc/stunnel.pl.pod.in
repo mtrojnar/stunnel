@@ -937,7 +937,10 @@ wymagaj certyfikatu klienta dla I<verifyChain> lub I<verifyPeer>
 Przy opcji I<requireCert> ustawionej na I<no>, B<stunnel> akceptuje
 połączenia klientów, które nie wysłały certyfikatu.
 
-domyślnie: yes
+Zarówno I<verifyChain = yes> jak i I<verifyPeer = yes>
+automatycznie ustawiają I<requireCert> na I<yes>.
+
+domyślnie: no
 
 =item B<setgid> = IDENTYFIKATOR_GRUPY (tylko Unix)
 

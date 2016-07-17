@@ -485,7 +485,7 @@ void s_poll_dump(s_poll_set *fds, int level) {
 
 int set_socket_options(SOCKET s, int type) {
     SOCK_OPT *ptr;
-    extern SOCK_OPT sock_opts[];
+    extern SOCK_OPT *sock_opts;
     static char *type_str[3]={"accept", "local", "remote"};
     socklen_t opt_size;
     int retval=0; /* no error found */
@@ -518,12 +518,10 @@ int set_socket_options(SOCKET s, int type) {
                 retval=-1; /* failed to set this option */
             }
         }
-#ifdef DEBUG_FD_ALLOC
         else {
             s_log(LOG_DEBUG, "Option %s set on %s socket",
                 ptr->opt_str, type_str[type]);
         }
-#endif /* DEBUG_FD_ALLOC */
     }
     return retval; /* returns 0 when all options succeeded */
 }

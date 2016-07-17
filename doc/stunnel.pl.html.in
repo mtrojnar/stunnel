@@ -1016,7 +1016,9 @@
 
 <p>Przy opcji <i>requireCert</i> ustawionej na <i>no</i>, <b>stunnel</b> akceptuje po&#x142;&#x105;czenia klient&oacute;w, kt&oacute;re nie wys&#x142;a&#x142;y certyfikatu.</p>
 
-<p>domy&#x15B;lnie: yes</p>
+<p>Zar&oacute;wno <i>verifyChain = yes</i> jak i <i>verifyPeer = yes</i> automatycznie ustawiaj&#x105; <i>requireCert</i> na <i>yes</i>.</p>
+
+<p>domy&#x15B;lnie: no</p>
 
 </dd>
 <dt id="setgid-IDENTYFIKATOR_GRUPY-tylko-Unix"><b>setgid</b> = IDENTYFIKATOR_GRUPY (tylko Unix)</dt>

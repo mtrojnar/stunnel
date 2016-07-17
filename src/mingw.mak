@@ -102,8 +102,8 @@ RFLAGS=-v --use-temp-file $(DEFINES)
 RFLAGS2=-v $(DEFINES)
 LDFLAGS=-s
 
-LIBS=$(SSLLIBS) -lws2_32 -lpsapi -lgdi32 -lcrypt32
-TLIBS=$(SSLLIBS) -lws2_32 -lpsapi -lcrypt32
+LIBS=$(SSLLIBS) -lws2_32 -lpsapi -lgdi32 -lcrypt32 -lkernel32
+TLIBS=$(SSLLIBS) -lws2_32 -lpsapi -lcrypt32 -lkernel32
 # IMPORTANT pdelaage : restore this if you need (but I do not see why) -lzdll
 
 $(OBJ)/%.o: $(SRC)/%.c

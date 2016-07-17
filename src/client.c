@@ -407,6 +407,11 @@ NOEXPORT void ssl_start(CLI *c) {
         SSL_set_accept_state(c->ssl);
     }
 
+    if(c->opt->option.require_cert)
+        s_log(LOG_INFO, "Peer certificate required");
+    else
+        s_log(LOG_INFO, "Peer certificate not required");
+
     unsafe_openssl=OpenSSL_version_num()<0x0090810fL ||
         (OpenSSL_version_num()>=0x10000000L &&
         OpenSSL_version_num()<0x1000002fL);

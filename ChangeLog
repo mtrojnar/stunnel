@@ -1,5 +1,11 @@
 stunnel change log
 
+Version 5.35, 2016.07.18, urgency: HIGH
+* Bugfixes
+  - Fixed incorrectly enforced client certificate requests.
+  - Only default to SO_EXCLUSIVEADDRUSE on Vista and later.
+  - Fixed thread safety of the configuration file reopening.
+
 Version 5.34, 2016.07.05, urgency: HIGH
 * Security bugfixes
   - Fixed malfunctioning "verify = 4".

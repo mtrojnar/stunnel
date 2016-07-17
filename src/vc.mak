@@ -50,7 +50,7 @@ UNICODEFLAGS=/DUNICODE /D_UNICODE
 CFLAGS=/MD /W3 /O2 /nologo /I"$(INCDIR)" $(UNICODEFLAGS)
 LDFLAGS=/NOLOGO /DEBUG
 
-SHAREDLIBS=ws2_32.lib user32.lib shell32.lib
+SHAREDLIBS=ws2_32.lib user32.lib shell32.lib kernel32.lib
 GUILIBS=advapi32.lib comdlg32.lib crypt32.lib gdi32.lib psapi.lib
 CLILIBS=
 SSLLIBS=/LIBPATH:"$(LIBDIR)" libeay32.lib ssleay32.lib

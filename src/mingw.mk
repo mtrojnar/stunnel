@@ -19,7 +19,7 @@ win32_cflags += -Wall -Wextra -Wpedantic -Wformat=2 -Wconversion -Wno-long-long
 win32_cflags += -D_FORTIFY_SOURCE=2 -DUNICODE -D_UNICODE
 win32_ldflags = -mthreads -fstack-protector -s
 
-win32_common_libs = -lws2_32
+win32_common_libs = -lws2_32 -lkernel32
 win32_ssl_libs = -L$(win32_ssl_dir)/lib -lcrypto -lssl
 win32_gui_libs = $(win32_common_libs) -lgdi32 -lpsapi $(win32_ssl_libs)
 win32_cli_libs = $(win32_common_libs) $(win32_ssl_libs)

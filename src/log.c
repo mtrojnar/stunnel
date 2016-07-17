@@ -49,7 +49,7 @@ static struct LIST { /* single-linked list of log lines */
     int level;
     char *stamp, *id, *text;
 } *head=NULL, *tail=NULL;
-static LOG_MODE mode=LOG_MODE_NONE;
+static LOG_MODE log_mode=LOG_MODE_BUFFER;
 
 #if !defined(USE_WIN32) && !defined(__vms)
 
@@ -105,22 +105,26 @@ int log_open(void) {
 }
 
 void log_close(void) {
-    mode=LOG_MODE_NONE;
+    /* prevent changing the mode while logging */
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
+    log_mode=LOG_MODE_BUFFER;
     if(outfile) {
         file_close(outfile);
         outfile=NULL;
     }
+    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG_MODE]);
 }
 
 void log_flush(LOG_MODE new_mode) {
     struct LIST *tmp;
 
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
     /* prevent changing LOG_MODE_CONFIGURED to LOG_MODE_ERROR
      * once stderr file descriptor is closed */
-    if(mode!=LOG_MODE_CONFIGURED)
-        mode=new_mode;
-
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG]);
+    if(log_mode!=LOG_MODE_CONFIGURED)
+        log_mode=new_mode;
+    /* log_raw() will use the new value of log_mode */
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
     while(head) {
         log_raw(head->opt, head->level, head->stamp, head->id, head->text);
         str_free(head->stamp);
@@ -130,8 +134,9 @@ void log_flush(LOG_MODE new_mode) {
         head=head->next;
         str_free(tmp);
     }
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG]);
     head=tail=NULL;
+    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
+    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG_MODE]);
 }
 
 void s_log(int level, const char *format, ...) {
@@ -159,7 +164,7 @@ void s_log(int level, const char *format, ...) {
     }
 
     /* performance optimization: skip the trivial case early */
-    if(mode==LOG_MODE_CONFIGURED && level>tls_data->opt->log_level)
+    if(log_mode==LOG_MODE_CONFIGURED && level>tls_data->opt->log_level)
         return;
 
     libc_error=get_last_error();
@@ -183,8 +188,9 @@ void s_log(int level, const char *format, ...) {
     va_end(ap);
     safestring(text);
 
-    if(mode==LOG_MODE_NONE) { /* save the text to log it later */
-        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG]);
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LOG_MODE]);
+    if(log_mode==LOG_MODE_BUFFER) { /* save the text to log it later */
+        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
         tmp=str_alloc_detached(sizeof(struct LIST));
         tmp->next=NULL;
         tmp->opt=tls_data->opt;
@@ -200,13 +206,14 @@ void s_log(int level, const char *format, ...) {
         else
             head=tmp;
         tail=tmp;
-        CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG]);
+        CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
     } else { /* ready log the text directly */
         log_raw(tls_data->opt, level, stamp, id, text);
         str_free(stamp);
         str_free(id);
         str_free(text);
     }
+    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_LOG_MODE]);
 
     set_last_error(libc_error);
     set_last_socket_error(socket_error);
@@ -218,7 +225,7 @@ NOEXPORT void log_raw(const SERVICE_OPTIONS *opt,
     char *line;
 
     /* build the line and log it to syslog/file */
-    if(mode==LOG_MODE_CONFIGURED) { /* configured */
+    if(log_mode==LOG_MODE_CONFIGURED) { /* configured */
         line=str_printf("%s %s: %s", stamp, id, text);
         if(level<=opt->log_level) {
 #if !defined(USE_WIN32) && !defined(__vms)
@@ -228,7 +235,7 @@ NOEXPORT void log_raw(const SERVICE_OPTIONS *opt,
             if(outfile)
                 file_putline(outfile, line); /* send log to file */
         }
-    } else if(mode==LOG_MODE_ERROR) {
+    } else if(log_mode==LOG_MODE_ERROR) {
         if(level>=0 && level<=7) /* just in case */
             line=str_printf("[%c] %s", "***!:.  "[level], text);
         else
@@ -237,8 +244,8 @@ NOEXPORT void log_raw(const SERVICE_OPTIONS *opt,
         line=str_dup(text); /* don't log the time stamp in error mode */
 
     /* log the line to the UI (GUI, stderr, etc.) */
-    if(mode==LOG_MODE_ERROR ||
-            (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
+    if(log_mode==LOG_MODE_ERROR ||
+            (log_mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
 #if defined(USE_WIN32) || defined(USE_JNI)
             level<=opt->log_level
 #else
@@ -324,7 +331,7 @@ void fatal_debug(char *txt, const char *file, int line) {
     }
 
 #ifndef USE_WIN32
-    if(mode!=LOG_MODE_CONFIGURED || global_options.option.log_stderr) {
+    if(log_mode!=LOG_MODE_CONFIGURED || global_options.option.log_stderr) {
         fputs(msg, stderr);
         fflush(stderr);
     }

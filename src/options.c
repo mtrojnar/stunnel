@@ -175,6 +175,7 @@ static const SSL_OPTION ssl_opts[] = {
 NOEXPORT long unsigned parse_ssl_option(char *);
 NOEXPORT void print_ssl_options(void);
 
+NOEXPORT void init_socket_options(void);
 NOEXPORT int print_socket_options(void);
 NOEXPORT char *print_option(int, OPT_UNION *);
 NOEXPORT int parse_socket_option(char *);
@@ -1062,6 +1063,7 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* socket */
     switch(cmd) {
     case CMD_BEGIN:
+        init_socket_options();
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "socket"))
@@ -2347,21 +2349,21 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* requireCert */
     switch(cmd) {
     case CMD_BEGIN:
-        section->option.require_cert=1;
+        section->option.require_cert=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "requireCert"))
             break;
-        if(!strcasecmp(arg, "yes"))
+        if(!strcasecmp(arg, "yes")) {
+            section->option.request_cert=1;
             section->option.require_cert=1;
-        else if(!strcasecmp(arg, "no"))
+        } else if(!strcasecmp(arg, "no")) {
             section->option.require_cert=0;
-        else
+        } else {
             return "The argument needs to be either 'yes' or 'no'";
+        }
         return NULL; /* OK */
     case CMD_END:
-        if(section->option.require_cert)
-            section->option.verify_enable=1;
         break;
     case CMD_FREE:
         break;
@@ -2885,7 +2887,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* verify */
     switch(cmd) {
     case CMD_BEGIN:
-        section->option.verify_enable=0;
+        section->option.request_cert=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "verify"))
@@ -2895,7 +2897,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             int tmp_int=(int)strtol(arg, &tmp_str, 10);
             if(tmp_str==arg || *tmp_str || tmp_int<0 || tmp_int>4)
                 return "Bad verify level";
-            section->option.verify_enable=1;
+            section->option.request_cert=1;
             section->option.require_cert=(tmp_int>=2);
             section->option.verify_chain=(tmp_int>=1 && tmp_int<=3);
             section->option.verify_peer=(tmp_int>=3);
@@ -2935,16 +2937,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "verifyChain"))
             break;
-        if(!strcasecmp(arg, "yes"))
+        if(!strcasecmp(arg, "yes")) {
+            section->option.request_cert=1;
+            section->option.require_cert=1;
             section->option.verify_chain=1;
-        else if(!strcasecmp(arg, "no"))
+        } else if(!strcasecmp(arg, "no")) {
             section->option.verify_chain=0;
-        else
+        } else {
             return "The argument needs to be either 'yes' or 'no'";
+        }
         return NULL; /* OK */
     case CMD_END:
-        if(section->option.verify_chain)
-            section->option.verify_enable=1;
         break;
     case CMD_FREE:
         break;
@@ -2964,16 +2967,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "verifyPeer"))
             break;
-        if(!strcasecmp(arg, "yes"))
+        if(!strcasecmp(arg, "yes")) {
+            section->option.request_cert=1;
+            section->option.require_cert=1;
             section->option.verify_peer=1;
-        else if(!strcasecmp(arg, "no"))
+        } else if(!strcasecmp(arg, "no")) {
             section->option.verify_peer=0;
-        else
+        } else {
             return "The argument needs to be either 'yes' or 'no'";
+        }
         return NULL; /* OK */
     case CMD_END:
-        if(section->option.verify_peer)
-            section->option.verify_enable=1;
         break;
     case CMD_FREE:
         break;
@@ -3270,7 +3274,7 @@ NOEXPORT void psk_free(PSK_KEYS *head) {
 static int on=1;
 #define DEF_ON ((void *)&on)
 
-SOCK_OPT sock_opts[] = {
+SOCK_OPT *sock_opts=NULL, sock_opts_def[]= {
     {"SO_DEBUG",        SOL_SOCKET,     SO_DEBUG,        TYPE_FLAG,    {NULL, NULL, NULL}},
     {"SO_DONTROUTE",    SOL_SOCKET,     SO_DONTROUTE,    TYPE_FLAG,    {NULL, NULL, NULL}},
     {"SO_KEEPALIVE",    SOL_SOCKET,     SO_KEEPALIVE,    TYPE_FLAG,    {NULL, NULL, NULL}},
@@ -3333,6 +3337,27 @@ SOCK_OPT sock_opts[] = {
     {NULL,              0,              0,               TYPE_NONE,    {NULL, NULL, NULL}}
 };
 
+NOEXPORT void init_socket_options(void) {
+#ifdef USE_WIN32
+    DWORD version;
+    int major, minor;
+    SOCK_OPT *ptr;
+
+    version=GetVersion();
+    major=LOBYTE(LOWORD(version));
+    minor=HIBYTE(LOWORD(version));
+    s_log(LOG_DEBUG, "Running on Windows %d.%d", major, minor);
+
+    for(ptr=sock_opts_def; ptr->opt_str; ++ptr)
+        if(ptr->opt_level==SOL_SOCKET && ptr->opt_name==SO_EXCLUSIVEADDRUSE)
+            ptr->opt_val[0]=major>5 ? DEF_ON : NULL; /* Vista or later */
+#endif
+
+    if(!sock_opts)
+        sock_opts=str_alloc_detached(sizeof sock_opts_def);
+    memcpy(sock_opts, sock_opts_def, sizeof sock_opts_def);
+}
+
 NOEXPORT int print_socket_options(void) {
     SOCKET fd;
     socklen_t optlen;
@@ -3341,6 +3366,7 @@ NOEXPORT int print_socket_options(void) {
     char *ta, *tl, *tr, *td;
 
     fd=socket(AF_INET, SOCK_STREAM, 0);
+    init_socket_options();
 
     s_log(LOG_NOTICE, " ");
     s_log(LOG_NOTICE, "Socket option defaults:");

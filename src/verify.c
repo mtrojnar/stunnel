@@ -90,7 +90,7 @@ int verify_init(SERVICE_OPTIONS *section) {
             return 1; /* FAILED */
 
     /* verify callback setup */
-    if(section->option.verify_enable) {
+    if(section->option.request_cert) {
         verify_mode|=SSL_VERIFY_PEER;
         if(section->option.require_cert && !section->redirect_addr.names)
             verify_mode|=SSL_VERIFY_FAIL_IF_NO_PEER_CERT;

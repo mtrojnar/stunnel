@@ -921,7 +921,9 @@ require a client certificate for I<verifyChain> or I<verifyPeer>
 With I<requireCert> set to I<no>, the B<stunnel> server accepts client
 connections that did not present a certificate.
 
-default: yes
+Both I<verifyChain = yes> and I<verifyPeer = yes> imply I<requireCert = yes>.
+
+default: no
 
 =item B<setgid> = GROUP (Unix only)
 

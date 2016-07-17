@@ -64,7 +64,7 @@ typedef enum {
 } ICON_TYPE;
 
 typedef enum {
-    LOG_MODE_NONE,
+    LOG_MODE_BUFFER,
     LOG_MODE_ERROR,
     LOG_MODE_INFO,
     LOG_MODE_CONFIGURED
@@ -273,10 +273,10 @@ typedef struct service_options_struct {
 
         /* on/off switches */
     struct {
-        unsigned verify_enable:1;       /* enable certificate verification */
+        unsigned request_cert:1;        /* request a peer certificate */
+        unsigned require_cert:1;        /* require a client certificate */
         unsigned verify_chain:1;        /* verify certificate chain */
         unsigned verify_peer:1;         /* verify peer certificate */
-        unsigned require_cert:1;        /* require a client certificate */
         unsigned accept:1;              /* endpoint: accept */
         unsigned client:1;
         unsigned delayed_lookup:1;
@@ -643,7 +643,7 @@ typedef enum {
 #ifndef USE_WIN32
     LOCK_LIBWRAP,                           /* libwrap.c */
 #endif
-    LOCK_LOG,                               /* log.c */
+    LOCK_LOG_BUFFER, LOCK_LOG_MODE,         /* log.c */
     LOCK_LEAK_HASH, LOCK_LEAK_RESULTS,      /* str.c */
 #ifndef OPENSSL_NO_DH
     LOCK_DH,                                /* ctx.c */
