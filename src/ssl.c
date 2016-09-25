@@ -50,8 +50,13 @@ NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
 int index_cli, index_opt, index_redirect, index_addr;
 
 int ssl_init(void) { /* init SSL before parsing configuration file */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS |
+        OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+#else
     SSL_load_error_strings();
     SSL_library_init();
+#endif
     index_cli=SSL_get_ex_new_index(0, "cli index",
         NULL, NULL, NULL);
     index_opt=SSL_CTX_get_ex_new_index(0, "opt index",
@@ -113,7 +118,11 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global SSL settings */
     if(FIPS_mode()!=global->option.fips) {
         RAND_set_rand_method(NULL); /* reset RAND methods */
         if(!FIPS_mode_set(global->option.fips)) {
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+            OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+#else
             ERR_load_crypto_strings();
+#endif
             sslerror("FIPS_mode_set");
             return 1;
         }
@@ -156,12 +165,7 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
         /* only allow DEFLATE with OpenSSL 0.9.8 or later
          * with OpenSSL #1468 zlib memory leak fixed */
         while(sk_SSL_COMP_num(methods))
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
-            /* FIXME: remove when sk_SSL_COMP_pop() works again */
-            OPENSSL_free(sk_pop((void *)methods));
-#else
             OPENSSL_free(sk_SSL_COMP_pop(methods));
-#endif
     }
 
     if(global->compression==COMP_NONE) {

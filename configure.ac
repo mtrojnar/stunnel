@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.35])
+AC_INIT([stunnel],[5.36])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -204,10 +204,9 @@ AC_SEARCH_LIBS([gethostbyname], [nsl])
 AC_SEARCH_LIBS([yp_get_default_domain], [nsl])
 AC_SEARCH_LIBS([socket], [socket])
 AC_SEARCH_LIBS([openpty], [util])
-# Checks for dynamic loader and zlib needed by OpenSSL
+# Checks for dynamic loader needed by OpenSSL
 AC_SEARCH_LIBS([dlopen], [dl])
 AC_SEARCH_LIBS([shl_load], [dld])
-AC_SEARCH_LIBS([inflateEnd], [z])
 
 # Add BeOS libraries
 if test "x$host_os" = "xbeos"; then

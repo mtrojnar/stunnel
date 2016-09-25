@@ -1,5 +1,13 @@
 stunnel change log
 
+Version 5.36, 2016.09.22, urgency: HIGH
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.2i.
+    https://www.openssl.org/news/secadv_20160922.txt
+* New features
+  - Added support for OpenSSL 1.1.0 built with "no-deprecated".
+  - Removed direct zlib dependency.
+
 Version 5.35, 2016.07.18, urgency: HIGH
 * Bugfixes
   - Fixed incorrectly enforced client certificate requests.

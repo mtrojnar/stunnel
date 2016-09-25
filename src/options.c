@@ -2636,6 +2636,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             section->client_method=(SSL_METHOD *)SSLv23_client_method();
             section->server_method=(SSL_METHOD *)SSLv23_server_method();
 #endif
+#if OPENSSL_API_COMPAT<0x10100000L
         } else if(!strcasecmp(arg, "SSLv2")) {
 #ifndef OPENSSL_NO_SSL2
             section->client_method=(SSL_METHOD *)SSLv2_client_method();
@@ -2671,6 +2672,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #else /* defined(OPENSSL_NO_TLS1_2) */
             return "TLSv1.2 not supported";
 #endif /* !defined(OPENSSL_NO_TLS1_2) */
+#endif /* OPENSSL_API_COMPAT<0x10100000L */
         } else
             return "Incorrect version of SSL protocol";
         return NULL; /* OK */
@@ -2697,10 +2699,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = all|SSLv2|SSLv3|TLSv1"
+        s_log(LOG_NOTICE, "%-22s = all"
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+            "|SSLv2|SSLv3|TLSv1"
 #if OPENSSL_VERSION_NUMBER>=0x10001000L
             "|TLSv1.1|TLSv1.2"
-#endif
+#endif /* OPENSSL_VERSION_NUMBER>=0x10001000L */
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
             " SSL method", "sslVersion");
         break;
     }

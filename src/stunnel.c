@@ -123,6 +123,9 @@ void main_init() { /* one-time initialization */
         fatal("Signal pipe initialization failed: "
             "check your personal firewall");
     stunnel_info(LOG_NOTICE);
+    if(systemd_fds>0)
+        s_log(LOG_INFO, "Systemd socket activation: %d descriptors received",
+            systemd_fds);
 }
 
 /* return values:
