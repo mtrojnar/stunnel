@@ -738,12 +738,12 @@
 <p>Domy&#x15B;lnie u&#x17C;ywane jest IP najbardziej zewn&#x119;trznego interfejsu w stron&#x119; serwera, do kt&oacute;rego nawi&#x105;zywane jest po&#x142;&#x105;czenie.</p>
 
 </dd>
-<dt id="sni-USUGA:WZORZEC_NAZWY_SERWERA-tryb-serwera"><b>sni</b> = US&#x141;UGA:WZORZEC_NAZWY_SERWERA (tryb serwera)</dt>
+<dt id="sni-NAZWA_USUGI:WZORZEC_NAZWY_SERWERA-tryb-serwera"><b>sni</b> = NAZWA_US&#x141;UGI:WZORZEC_NAZWY_SERWERA (tryb serwera)</dt>
 <dd>
 
 <p>U&#x17C;yj us&#x142;ugi jako podrz&#x119;dnej (virtualnego serwera) dla rozszerzenia TLS Server Name Indication (RFC 3546).</p>
 
-<p><i>nazwa_us&#x142;ugi</i> wskazuje us&#x142;ug&#x119; nadrz&#x119;dn&#x105;, kt&oacute;ra odbiera po&#x142;&#x105;czenia od klient&oacute;w przy pomocy opcji <i>accept</i>. <i>wzorzec_nazwy_serwera</i> wskazuje nazw&#x119; serwera wirtualnego. Wzorzec mo&#x17C;e zaczyna&#x107; si&#x119; znakiem &#39;*&#39;, np. &#39;*.example.com&quot;. Z pojedy&#x144;cz&#x105; us&#x142;ug&#x105; nadrz&#x119;dn&#x105; powi&#x105;zane jest zwykle wiele us&#x142;ug podrz&#x119;dnych. Opcja <i>sni</i> mo&#x17C;e by&#x107; rownie&#x17C; u&#x17C;yta wielokrotnie w ramach jednej us&#x142;ugi podrz&#x119;dnej.</p>
+<p><i>NAZWA_US&#x141;UGI</i> wskazuje us&#x142;ug&#x119; nadrz&#x119;dn&#x105;, kt&oacute;ra odbiera po&#x142;&#x105;czenia od klient&oacute;w przy pomocy opcji <i>accept</i>. <i>WZORZEC_NAZWY_SERWERA</i> wskazuje nazw&#x119; serwera wirtualnego. Wzorzec mo&#x17C;e zaczyna&#x107; si&#x119; znakiem &#39;*&#39;, np. &#39;*.example.com&quot;. Z pojedy&#x144;cz&#x105; us&#x142;ug&#x105; nadrz&#x119;dn&#x105; powi&#x105;zane jest zwykle wiele us&#x142;ug podrz&#x119;dnych. Opcja <i>sni</i> mo&#x17C;e by&#x107; rownie&#x17C; u&#x17C;yta wielokrotnie w ramach jednej us&#x142;ugi podrz&#x119;dnej.</p>
 
 <p>Zar&oacute;wno us&#x142;uga nadrz&#x119;dna jak i podrz&#x119;dna nie mo&#x17C;e by&#x107; skonfigurowana w trybie klienckim.</p>
 
@@ -754,7 +754,7 @@
 <p>Opcja <i>sni</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.0.0</b>.</p>
 
 </dd>
-<dt id="sni-HOST-tryb-klienta"><b>sni</b> = HOST (tryb klienta)</dt>
+<dt id="sni-NAZWA_SERWERA-tryb-klienta"><b>sni</b> = NAZWA_SERWERA (tryb klienta)</dt>
 <dd>
 
 <p>U&#x17C;yj parametru jako warto&#x15B;ci rozszerzenia TLS Server Name Indication (RFC 3546).</p>

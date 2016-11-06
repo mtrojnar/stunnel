@@ -399,8 +399,10 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
     int new_entry, allocations;
     long limit;
 
+#ifndef USE_FORK
     if(!stunnel_locks[STUNNEL_LOCKS-1]) /* threads not initialized */
         return;
+#endif
     if(!number_of_sections) /* configuration file not initialized */
         return;
 

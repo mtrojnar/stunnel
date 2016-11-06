@@ -263,7 +263,7 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
             return SSL_TLSEXT_ERR_OK;
         }
     s_log(LOG_ERR, "SNI: no pattern matched servername: %s", servername);
-    return SSL_TLSEXT_ERR_ALERT_FATAL;
+    return SSL_TLSEXT_ERR_OK;
 }
 /* TLSEXT callback return codes:
  *  - SSL_TLSEXT_ERR_OK

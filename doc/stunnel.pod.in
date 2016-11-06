@@ -657,35 +657,39 @@ default: no (since version 5.00)
 By default, the IP address of the outgoing interface is used as the source for
 remote connections.  Use this option to bind a static local IP address instead.
 
-=item B<sni> = SERVICE:SERVER_PATTERN (server mode)
+=item B<sni> = SERVICE_NAME:SERVER_NAME_PATTERN (server mode)
 
 Use the service as a slave service (a name-based virtual server) for Server
 Name Indication TLS extension (RFC 3546).
 
-I<service_name> specifies the master service that accepts client connections
-with the I<accept> option.  I<server_name_pattern> specifies the host name to be
-redirected.  The pattern may start with the '*' character, e.g. '*.example.com'.
-Multiple slave services are normally specified for a single master service.
-The I<sni> option can also be specified more than once within a single slave
-service.
+I<SERVICE_NAME> specifies the master service that accepts client connections
+with the I<accept> option.  I<SERVER_NAME_PATTERN> specifies the host name to
+be redirected.  The pattern may start with the '*' character, e.g.
+'*.example.com'.  Multiple slave services are normally specified for a single
+master service.  The I<sni> option can also be specified more than once within
+a single slave service.
 
 This service, as well as the master service, may not be configured in client
 mode.
 
-The I<connect> option of the slave service is ignored when the I<protocol> option is
-specified, as I<protocol> connects to the remote host before TLS handshake.
+The I<connect> option of the slave service is ignored when the I<protocol>
+option is specified, as I<protocol> connects to the remote host before TLS
+handshake.
 
-Libwrap checks (Unix only) are performed twice: with the master service name after
-TCP connection is accepted, and with the slave service name during the TLS handshake.
+Libwrap checks (Unix only) are performed twice: with the master service name
+after TCP connection is accepted, and with the slave service name during the
+TLS handshake.
 
-The I<sni> option is only available when compiled with B<OpenSSL 1.0.0> and later.
+The I<sni> option is only available when compiled with B<OpenSSL 1.0.0> and
+later.
 
-=item B<sni> = SERVER (client mode)
+=item B<sni> = SERVER_NAME (client mode)
 
 Use the parameter as the value of TLS Server Name Indication (RFC 3546)
 extension.
 
-The I<sni> option is only available when compiled with B<OpenSSL 1.0.0> and later.
+The I<sni> option is only available when compiled with B<OpenSSL 1.0.0> and
+later.
 
 =item B<OCSP> = URL
 

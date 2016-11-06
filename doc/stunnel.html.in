@@ -738,12 +738,12 @@
 <p>By default, the IP address of the outgoing interface is used as the source for remote connections. Use this option to bind a static local IP address instead.</p>
 
 </dd>
-<dt id="sni-SERVICE:SERVER_PATTERN-server-mode"><b>sni</b> = SERVICE:SERVER_PATTERN (server mode)</dt>
+<dt id="sni-SERVICE_NAME:SERVER_NAME_PATTERN-server-mode"><b>sni</b> = SERVICE_NAME:SERVER_NAME_PATTERN (server mode)</dt>
 <dd>
 
 <p>Use the service as a slave service (a name-based virtual server) for Server Name Indication TLS extension (RFC 3546).</p>
 
-<p><i>service_name</i> specifies the master service that accepts client connections with the <i>accept</i> option. <i>server_name_pattern</i> specifies the host name to be redirected. The pattern may start with the &#39;*&#39; character, e.g. &#39;*.example.com&#39;. Multiple slave services are normally specified for a single master service. The <i>sni</i> option can also be specified more than once within a single slave service.</p>
+<p><i>SERVICE_NAME</i> specifies the master service that accepts client connections with the <i>accept</i> option. <i>SERVER_NAME_PATTERN</i> specifies the host name to be redirected. The pattern may start with the &#39;*&#39; character, e.g. &#39;*.example.com&#39;. Multiple slave services are normally specified for a single master service. The <i>sni</i> option can also be specified more than once within a single slave service.</p>
 
 <p>This service, as well as the master service, may not be configured in client mode.</p>
 
@@ -754,7 +754,7 @@
 <p>The <i>sni</i> option is only available when compiled with <b>OpenSSL 1.0.0</b> and later.</p>
 
 </dd>
-<dt id="sni-SERVER-client-mode"><b>sni</b> = SERVER (client mode)</dt>
+<dt id="sni-SERVER_NAME-client-mode"><b>sni</b> = SERVER_NAME (client mode)</dt>
 <dd>
 
 <p>Use the parameter as the value of TLS Server Name Indication (RFC 3546) extension.</p>

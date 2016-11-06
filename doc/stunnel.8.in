@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2016.07.06" "5.35" "stunnel TLS Proxy"
+.TH stunnel 8 "2016.11.03" "5.37" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -625,34 +625,38 @@ default: no (since version 5.00)
 .IX Item "local = HOST"
 By default, the \s-1IP\s0 address of the outgoing interface is used as the source for
 remote connections.  Use this option to bind a static local \s-1IP\s0 address instead.
-.IP "\fBsni\fR = \s-1SERVICE:SERVER_PATTERN \s0(server mode)" 4
-.IX Item "sni = SERVICE:SERVER_PATTERN (server mode)"
+.IP "\fBsni\fR = \s-1SERVICE_NAME:SERVER_NAME_PATTERN \s0(server mode)" 4
+.IX Item "sni = SERVICE_NAME:SERVER_NAME_PATTERN (server mode)"
 Use the service as a slave service (a name-based virtual server) for Server
 Name Indication \s-1TLS\s0 extension (\s-1RFC 3546\s0).
 .Sp
-\&\fIservice_name\fR specifies the master service that accepts client connections
-with the \fIaccept\fR option.  \fIserver_name_pattern\fR specifies the host name to be
-redirected.  The pattern may start with the '*' character, e.g. '*.example.com'.
-Multiple slave services are normally specified for a single master service.
-The \fIsni\fR option can also be specified more than once within a single slave
-service.
+\&\fI\s-1SERVICE_NAME\s0\fR specifies the master service that accepts client connections
+with the \fIaccept\fR option.  \fI\s-1SERVER_NAME_PATTERN\s0\fR specifies the host name to
+be redirected.  The pattern may start with the '*' character, e.g.
+\&'*.example.com'.  Multiple slave services are normally specified for a single
+master service.  The \fIsni\fR option can also be specified more than once within
+a single slave service.
 .Sp
 This service, as well as the master service, may not be configured in client
 mode.
 .Sp
-The \fIconnect\fR option of the slave service is ignored when the \fIprotocol\fR option is
-specified, as \fIprotocol\fR connects to the remote host before \s-1TLS\s0 handshake.
+The \fIconnect\fR option of the slave service is ignored when the \fIprotocol\fR
+option is specified, as \fIprotocol\fR connects to the remote host before \s-1TLS\s0
+handshake.
 .Sp
-Libwrap checks (Unix only) are performed twice: with the master service name after
-\&\s-1TCP\s0 connection is accepted, and with the slave service name during the \s-1TLS\s0 handshake.
+Libwrap checks (Unix only) are performed twice: with the master service name
+after \s-1TCP\s0 connection is accepted, and with the slave service name during the
+\&\s-1TLS\s0 handshake.
 .Sp
-The \fIsni\fR option is only available when compiled with \fBOpenSSL 1.0.0\fR and later.
-.IP "\fBsni\fR = \s-1SERVER \s0(client mode)" 4
-.IX Item "sni = SERVER (client mode)"
+The \fIsni\fR option is only available when compiled with \fBOpenSSL 1.0.0\fR and
+later.
+.IP "\fBsni\fR = \s-1SERVER_NAME \s0(client mode)" 4
+.IX Item "sni = SERVER_NAME (client mode)"
 Use the parameter as the value of \s-1TLS\s0 Server Name Indication (\s-1RFC 3546\s0)
 extension.
 .Sp
-The \fIsni\fR option is only available when compiled with \fBOpenSSL 1.0.0\fR and later.
+The \fIsni\fR option is only available when compiled with \fBOpenSSL 1.0.0\fR and
+later.
 .IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
 .IX Item "OCSP = URL"
 select \s-1OCSP\s0 responder for certificate verification

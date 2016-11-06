@@ -1,5 +1,12 @@
 stunnel change log
 
+Version 5.37, 2016.11.06, urgency: MEDIUM
+* Bugfixes
+  - OpenSSL DLLs updated to version 1.0.2j (stops crashes).
+  - The default SNI target (not handled by any slave service)
+    is handled by the master service rather than rejected.
+  - Removed thread synchronization in the FORK threading model.
+
 Version 5.36, 2016.09.22, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2i.

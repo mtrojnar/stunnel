@@ -636,6 +636,16 @@ int getnameinfo(const struct sockaddr *, socklen_t,
 
 /**************************************** prototypes for sthreads.c */
 
+#ifdef USE_FORK
+
+#define CRYPTO_THREAD_read_lock(type) {}
+#define CRYPTO_THREAD_read_unlock(type) {}
+#define CRYPTO_THREAD_write_lock(type) {}
+#define CRYPTO_THREAD_write_unlock(type) {}
+#define CRYPTO_atomic_add(addr,amount,result,type) (*addr+=amount)
+
+#else /* USE_FORK */
+
 typedef enum {
     LOCK_SESSION, LOCK_ADDR,
     LOCK_CLIENTS, LOCK_SSL,                 /* client.c */
@@ -672,6 +682,8 @@ extern STUNNEL_RWLOCK stunnel_locks[STUNNEL_LOCKS];
 #define CRYPTO_atomic_add(addr,amount,result,type) \
     *result = type ? CRYPTO_add(addr,amount,type) : (*addr+=amount)
 #endif
+
+#endif /* USE_FORK */
 
 int sthreads_init(void);
 unsigned long stunnel_process_id(void);

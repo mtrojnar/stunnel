@@ -676,15 +676,15 @@ IP źródła do nawiązywania zdalnych połączeń
 Domyślnie używane jest IP najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.
 
-=item B<sni> = USŁUGA:WZORZEC_NAZWY_SERWERA (tryb serwera)
+=item B<sni> = NAZWA_USŁUGI:WZORZEC_NAZWY_SERWERA (tryb serwera)
 
 Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia TLS Server
 Name Indication (RFC 3546).
 
-I<nazwa_usługi> wskazuje usługę nadrzędną, która odbiera połączenia od klientów
-przy pomocy opcji I<accept>.  I<wzorzec_nazwy_serwera> wskazuje nazwę serwera
-wirtualnego.  Wzorzec może zaczynać się znakiem '*', np. '*.example.com".
-Z pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług podrzędnych.
+I<NAZWA_USŁUGI> wskazuje usługę nadrzędną, która odbiera połączenia od klientów
+przy pomocy opcji I<accept>.  I<WZORZEC_NAZWY_SERWERA> wskazuje nazwę serwera
+wirtualnego.  Wzorzec może zaczynać się znakiem '*', np. '*.example.com".  Z
+pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług podrzędnych.
 Opcja I<sni> może być rownież użyta wielokrotnie w ramach jednej usługi
 podrzędnej.
 
@@ -701,7 +701,7 @@ usługi podrzędnej podczas negocjacji TLS.
 
 Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
-=item B<sni> = HOST (tryb klienta)
+=item B<sni> = NAZWA_SERWERA (tryb klienta)
 
 Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
 (RFC 3546).

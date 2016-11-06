@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2016.07.06" "5.35" "stunnel TLS Proxy"
+.TH stunnel 8 "2016.11.03" "5.37" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -646,15 +646,15 @@ domyślnie: no (od wersji 5.00)
 .Sp
 Domyślnie używane jest \s-1IP\s0 najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.
-.IP "\fBsni\fR = USŁUGA:WZORZEC_NAZWY_SERWERA (tryb serwera)" 4
-.IX Item "sni = USŁUGA:WZORZEC_NAZWY_SERWERA (tryb serwera)"
+.IP "\fBsni\fR = NAZWA_USŁUGI:WZORZEC_NAZWY_SERWERA (tryb serwera)" 4
+.IX Item "sni = NAZWA_USŁUGI:WZORZEC_NAZWY_SERWERA (tryb serwera)"
 Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia \s-1TLS\s0 Server
 Name Indication (\s-1RFC 3546\s0).
 .Sp
-\&\fInazwa_usługi\fR wskazuje usługę nadrzędną, która odbiera połączenia od klientów
-przy pomocy opcji \fIaccept\fR.  \fIwzorzec_nazwy_serwera\fR wskazuje nazwę serwera
-wirtualnego.  Wzorzec może zaczynać się znakiem '*', np. '*.example.com".
-Z pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług podrzędnych.
+\&\fINAZWA_USŁUGI\fR wskazuje usługę nadrzędną, która odbiera połączenia od klientów
+przy pomocy opcji \fIaccept\fR.  \fI\s-1WZORZEC_NAZWY_SERWERA\s0\fR wskazuje nazwę serwera
+wirtualnego.  Wzorzec może zaczynać się znakiem '*', np. '*.example.com".  Z
+pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług podrzędnych.
 Opcja \fIsni\fR może być rownież użyta wielokrotnie w ramach jednej usługi
 podrzędnej.
 .Sp
@@ -670,8 +670,8 @@ najpierw dla usługi nadrzędnej po odebraniu połączenia \s-1TCP,\s0 a następ
 usługi podrzędnej podczas negocjacji \s-1TLS.\s0
 .Sp
 Opcja \fIsni\fR jest dostępna począwszy od \fBOpenSSL 1.0.0\fR.
-.IP "\fBsni\fR = \s-1HOST \s0(tryb klienta)" 4
-.IX Item "sni = HOST (tryb klienta)"
+.IP "\fBsni\fR = \s-1NAZWA_SERWERA \s0(tryb klienta)" 4
+.IX Item "sni = NAZWA_SERWERA (tryb klienta)"
 Użyj parametru jako wartości rozszerzenia \s-1TLS\s0 Server Name Indication
 (\s-1RFC 3546\s0).
 .Sp
