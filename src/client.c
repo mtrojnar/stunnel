@@ -53,6 +53,7 @@ NOEXPORT void client_run(CLI *);
 NOEXPORT void local_start(CLI *);
 NOEXPORT void remote_start(CLI *);
 NOEXPORT void ssl_start(CLI *);
+NOEXPORT void cache_session(CLI *, SSL_SESSION *);
 NOEXPORT void new_chain(CLI *);
 NOEXPORT void transfer(CLI *);
 NOEXPORT int parse_socket_error(CLI *, const char *);
@@ -65,10 +66,10 @@ NOEXPORT char **env_alloc(CLI *);
 NOEXPORT void env_free(char **);
 #endif
 NOEXPORT SOCKET connect_remote(CLI *);
-NOEXPORT void connect_cache(SSL_SESSION *, SOCKADDR_UNION *);
-NOEXPORT unsigned connect_index(CLI *);
-NOEXPORT void setup_connect_addr(CLI *);
-NOEXPORT void local_bind(CLI *c);
+NOEXPORT void idx_cache_set(SSL_SESSION *, SOCKADDR_UNION *);
+NOEXPORT unsigned idx_cache_get(CLI *);
+NOEXPORT void connect_setup(CLI *);
+NOEXPORT int connect_init(CLI *c, int);
 NOEXPORT void print_bound_address(CLI *);
 NOEXPORT void reset(SOCKET, char *);
 
@@ -372,7 +373,6 @@ NOEXPORT void remote_start(CLI *c) {
 
 NOEXPORT void ssl_start(CLI *c) {
     int i, err;
-    SSL_SESSION *old_session;
     int unsafe_openssl;
     X509 *peer_cert;
 
@@ -384,7 +384,7 @@ NOEXPORT void ssl_start(CLI *c) {
     SSL_set_ex_data(c->ssl, index_cli, c); /* for callbacks */
     if(c->opt->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
-        if(c->opt->sni) {
+        if(c->opt->sni && *c->opt->sni) {
             s_log(LOG_INFO, "SNI: sending servername: %s", c->opt->sni);
             if(!SSL_set_tlsext_host_name(c->ssl, c->opt->sni)) {
                 sslerror("SSL_set_tlsext_host_name");
@@ -495,18 +495,23 @@ NOEXPORT void ssl_start(CLI *c) {
             c->redirect=REDIRECT_ON;
         SSL_SESSION_set_ex_data(SSL_get_session(c->ssl),
             index_redirect, (void *)c->redirect);
-        if(c->opt->option.client) {
-            CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
-            old_session=c->opt->session;
-            c->opt->session=SSL_get1_session(c->ssl); /* store it */
-            CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_SESSION]);
-            if(old_session)
-                SSL_SESSION_free(old_session); /* release the old one */
-        } else { /* SSL server */
+        if(c->opt->option.client)
+            cache_session(c, SSL_get1_session(c->ssl));
+        else /* SSL server */
             SSL_CTX_add_session(c->opt->ctx, SSL_get_session(c->ssl));
-        }
         print_cipher(c);
     }
+}
+
+NOEXPORT void cache_session(CLI *c, SSL_SESSION *new_session) {
+    SSL_SESSION *old_session;
+
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
+    old_session=c->opt->session;
+    c->opt->session=new_session;
+    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_SESSION]);
+    if(old_session)
+        SSL_SESSION_free(old_session);
 }
 
 NOEXPORT void new_chain(CLI *c) {
@@ -1329,7 +1334,7 @@ NOEXPORT SOCKET connect_remote(CLI *c) {
     SOCKET fd;
     unsigned ind_start, ind_try, ind_cur;
 
-    setup_connect_addr(c);
+    connect_setup(c);
     switch(c->connect_addr.num) {
     case 0:
         s_log(LOG_ERR, "No remote host resolved");
@@ -1338,38 +1343,34 @@ NOEXPORT SOCKET connect_remote(CLI *c) {
         ind_start=0;
         break;
     default:
-        ind_start=connect_index(c);
+        ind_start=idx_cache_get(c);
     }
 
     /* try to connect each host from the list */
     for(ind_try=0; ind_try<c->connect_addr.num; ind_try++) {
         ind_cur=(ind_start+ind_try)%c->connect_addr.num;
-        c->fd=s_socket(c->connect_addr.addr[ind_cur].sa.sa_family,
-            SOCK_STREAM, 0, 1, "remote socket");
-        if(c->fd==INVALID_SOCKET)
-            longjmp(c->err, 1);
-
-        local_bind(c); /* explicit local bind or transparent proxy */
-
-        if(s_connect(c, &c->connect_addr.addr[ind_cur],
-                addr_len(&c->connect_addr.addr[ind_cur]))) {
+        if(!connect_init(c, c->connect_addr.addr[ind_cur].sa.sa_family) &&
+                !s_connect(c, &c->connect_addr.addr[ind_cur],
+                    addr_len(&c->connect_addr.addr[ind_cur]))) {
+            if(c->ssl)
+                idx_cache_set(SSL_get_session(c->ssl),
+                    &c->connect_addr.addr[ind_cur]);
+            print_bound_address(c);
+            fd=c->fd;
+            c->fd=INVALID_SOCKET;
+            return fd; /* success! */
+        }
+        if(c->fd!=INVALID_SOCKET) {
             closesocket(c->fd);
             c->fd=INVALID_SOCKET;
-            continue; /* next IP */
         }
-        if(c->ssl)
-            connect_cache(SSL_get_session(c->ssl),
-                &c->connect_addr.addr[ind_cur]);
-        print_bound_address(c);
-        fd=c->fd;
-        c->fd=INVALID_SOCKET;
-        return fd; /* success! */
     }
+    s_log(LOG_ERR, "No more addresses to connect");
     longjmp(c->err, 1);
     return INVALID_SOCKET; /* some C compilers require a return value */
 }
 
-NOEXPORT void connect_cache(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
+NOEXPORT void idx_cache_set(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
     SOCKADDR_UNION *old_addr, *new_addr;
     socklen_t len;
     char *addr_txt;
@@ -1390,7 +1391,7 @@ NOEXPORT void connect_cache(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
     str_free(old_addr); /* NULL pointers are ignored */
 }
 
-NOEXPORT unsigned connect_index(CLI *c) {
+NOEXPORT unsigned idx_cache_get(CLI *c) {
     unsigned i;
     SOCKADDR_UNION addr, *ptr;
     socklen_t len;
@@ -1435,7 +1436,7 @@ NOEXPORT unsigned connect_index(CLI *c) {
     return i;
 }
 
-NOEXPORT void setup_connect_addr(CLI *c) {
+NOEXPORT void connect_setup(CLI *c) {
     /* process "redirect" first */
     if(c->redirect==REDIRECT_ON) {
         s_log(LOG_NOTICE, "Redirecting connection");
@@ -1463,19 +1464,45 @@ NOEXPORT void setup_connect_addr(CLI *c) {
     addrlist_dup(&c->connect_addr, &c->opt->connect_addr);
 }
 
-NOEXPORT void local_bind(CLI *c) {
-#if defined(__linux__) || (defined(IP_BINDANY) && defined(IPV6_BINDANY))
-    int on;
+NOEXPORT int connect_init(CLI *c, int domain) {
+    SOCKADDR_UNION bind_addr;
 
-    on=1;
+    if(c->bind_addr) {
+        /* setup bind_addr based on c->bind_addr */
+#ifdef USE_IPv6
+        if(c->bind_addr->sa.sa_family==AF_INET && domain==AF_INET6) {
+            /* convert the binding address from IPv4 to IPv6 */
+            memset(&bind_addr, 0, sizeof bind_addr);
+            bind_addr.in6.sin6_family=AF_INET6;
+            bind_addr.in6.sin6_port=c->bind_addr->in.sin_port;
+            /* address format example: ::ffff:192.0.2.128 */
+            memset((char *)&bind_addr.in6.sin6_addr+10, 0xff, 2);
+            memcpy((char *)&bind_addr.in6.sin6_addr+12,
+                &c->bind_addr->in.sin_addr, 4);
+        } else /* just make a local copy */
 #endif
+            memcpy(&bind_addr, c->bind_addr, (size_t)addr_len(c->bind_addr));
+        /* perform the initial sanity checks before creating a socket */
+        if(bind_addr.sa.sa_family!=domain) {
+            s_log(LOG_DEBUG, "Cannot assign an AF=%d address an AF=%d socket",
+                bind_addr.sa.sa_family, domain);
+            return 1; /* failure */
+        }
+    }
+
+    /* create a new socket */
+    c->fd=s_socket(domain, SOCK_STREAM, 0, 1, "remote socket");
+    if(c->fd==INVALID_SOCKET)
+        return 1; /* failure */
     if(!c->bind_addr)
-        return;
-#if defined(USE_WIN32)
-    /* do nothing */
-#elif defined(__linux__)
-    /* non-local bind on Linux */
+        return 0; /* success */
+
+    /* enable non-local bind if needed (and supported) */
+#ifndef USE_WIN32
     if(c->opt->option.transparent_src) {
+#if defined(__linux__)
+        /* non-local bind on Linux */
+        int on=1;
         if(setsockopt(c->fd, SOL_IP, IP_TRANSPARENT, &on, sizeof on)) {
             sockerror("setsockopt IP_TRANSPARENT");
             if(setsockopt(c->fd, SOL_IP, IP_FREEBIND, &on, sizeof on))
@@ -1486,51 +1513,51 @@ NOEXPORT void local_bind(CLI *c) {
             s_log(LOG_INFO, "IP_TRANSPARENT socket option set");
         /* ignore the error to retain Linux 2.2 compatibility */
         /* the error will be handled by bind(), anyway */
-    }
 #elif defined(IP_BINDANY) && defined(IPV6_BINDANY)
-    /* non-local bind on FreeBSD */
-    if(c->opt->option.transparent_src) {
-        if(c->bind_addr->sa.sa_family==AF_INET) { /* IPv4 */
+        /* non-local bind on FreeBSD */
+        int on=1;
+        if(domain==AF_INET) { /* IPv4 */
             if(setsockopt(c->fd, IPPROTO_IP, IP_BINDANY, &on, sizeof on)) {
                 sockerror("setsockopt IP_BINDANY");
-                longjmp(c->err, 1);
+                return 1; /* failure */
             }
         } else { /* IPv6 */
             if(setsockopt(c->fd, IPPROTO_IPV6, IPV6_BINDANY, &on, sizeof on)) {
                 sockerror("setsockopt IPV6_BINDANY");
-                longjmp(c->err, 1);
+                return 1; /* failure */
             }
         }
-    }
 #else
-    /* unsupported platform */
-    /* FIXME: move this check to options.c */
-    if(c->opt->option.transparent_src) {
+        /* unsupported platform */
+        /* FIXME: move this check to options.c */
         s_log(LOG_ERR, "Transparent proxy in remote mode is not supported"
             " on this platform");
         longjmp(c->err, 1);
-    }
 #endif
+    }
+#endif /* !defined(USE_WIN32) */
 
-    if(ntohs(c->bind_addr->in.sin_port)>=1024) { /* security check */
+    /* explicit local bind or transparent proxy */
+    /* there is no need for a separate IPv6 logic here,
+     * as port number is at the same offset in both structures */
+    if(ntohs(bind_addr.in.sin_port)>=1024) { /* security check */
         /* this is currently only possible with transparent_src */
-        if(!bind(c->fd, &c->bind_addr->sa, addr_len(c->bind_addr))) {
-            s_log(LOG_INFO, "local_bind succeeded on the original port");
-            return; /* success */
+        if(!bind(c->fd, &bind_addr.sa, addr_len(&bind_addr))) {
+            s_log(LOG_INFO, "bind succeeded on the original port");
+            return 0; /* success */
         }
         if(get_last_socket_error()!=S_EADDRINUSE) {
-            sockerror("local_bind (original port)");
-            longjmp(c->err, 1);
+            sockerror("bind (original port)");
+            return 1; /* failure */
         }
     }
-
-    c->bind_addr->in.sin_port=htons(0); /* retry with ephemeral port */
-    if(!bind(c->fd, &c->bind_addr->sa, addr_len(c->bind_addr))) {
-        s_log(LOG_INFO, "local_bind succeeded on an ephemeral port");
-        return; /* success */
+    bind_addr.in.sin_port=htons(0); /* retry with ephemeral port */
+    if(!bind(c->fd, &bind_addr.sa, addr_len(&bind_addr))) {
+        s_log(LOG_INFO, "bind succeeded on an ephemeral port");
+        return 0; /* success */
     }
-    sockerror("local_bind (ephemeral port)");
-    longjmp(c->err, 1);
+    sockerror("bind (ephemeral port)");
+    return 1; /* failure */
 }
 
 NOEXPORT void print_bound_address(CLI *c) {

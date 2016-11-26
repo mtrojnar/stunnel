@@ -161,9 +161,9 @@ int main_configure(char *arg1, char *arg2) {
     if(drop_privileges(1))
         return 1;
 
-    /* log_open() must be be called after drop_privileges()
+    /* log_open() must be called after drop_privileges()
      * or logfile rotation won't be possible */
-    /* log_open() must be be called before daemonize()
+    /* log_open() must be called before daemonize()
      * since daemonize() invalidates stderr */
     if(log_open())
         return 1;

@@ -1,5 +1,15 @@
 stunnel change log
 
+Version 5.38, 2016.11.26, urgency: MEDIUM
+* New features
+  - "sni=" can be used to prevent sending the SNI extension.
+  - The AI_ADDRCONFIG resolver flag is used when available.
+  - Merged Debian 06-lfs.patch (thx Peter Pentchev).
+* Bugfixes
+  - Fixed a memory allocation bug causing crashes with OpenSSL 1.1.0.
+  - Fixed error handling for mixed IPv4/IPv6 destinations.
+  - Merged Debian 08-typos.patch (thx Peter Pentchev).
+
 Version 5.37, 2016.11.06, urgency: MEDIUM
 * Bugfixes
   - OpenSSL DLLs updated to version 1.0.2j (stops crashes).

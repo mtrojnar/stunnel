@@ -54,10 +54,10 @@ void tls_init() {
     ui_tls=tls_alloc(NULL, NULL, "ui");
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     CRYPTO_set_mem_functions(str_alloc_detached_debug,
-        str_realloc_debug, str_free_debug);
+        str_realloc_detached_debug, str_free_debug);
 #else
     CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
-        str_realloc_debug, free_function);
+        str_realloc_detached_debug, free_function);
 #endif
 }
 

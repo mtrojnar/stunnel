@@ -174,7 +174,7 @@ NOEXPORT void addrlist2addr(SOCKADDR_UNION *addr, SOCKADDR_LIST *addr_list) {
         }
     }
 #endif
-    /* copy the first address resolved (curently AF_UNIX) */
+    /* copy the first address resolved (currently AF_UNIX) */
     memcpy(addr, &addr_list->addr[0], sizeof(SOCKADDR_UNION));
 }
 
@@ -235,6 +235,9 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         hints.ai_family=AF_INET; /* first try IPv4 for passive requests */
         hints.ai_flags|=AI_PASSIVE;
     }
+#ifdef AI_ADDRCONFIG
+    hints.ai_flags|=AI_ADDRCONFIG;
+#endif
     for(;;) {
         err=getaddrinfo(host_name, port_name, &hints, &res);
         if(!err)

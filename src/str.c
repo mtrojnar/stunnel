@@ -90,6 +90,8 @@ NOEXPORT int leak_result_num=0;
 NOEXPORT LPTSTR str_vtprintf(LPCTSTR, va_list);
 #endif /* USE_WIN32 */
 
+NOEXPORT void *str_realloc_internal_debug(void *, size_t, const char *, int);
+
 NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
 NOEXPORT void str_leak_debug(const ALLOC_LIST *, int);
 
@@ -288,10 +290,22 @@ void *str_alloc_detached_debug(size_t size, const char *file, int line) {
 }
 
 void *str_realloc_debug(void *ptr, size_t size, const char *file, int line) {
+    if(ptr)
+        return str_realloc_internal_debug(ptr, size, file, line);
+    else
+        return str_alloc_debug(size, file, line);
+}
+
+void *str_realloc_detached_debug(void *ptr, size_t size, const char *file, int line) {
+    if(ptr)
+        return str_realloc_internal_debug(ptr, size, file, line);
+    else
+        return str_alloc_detached_debug(size, file, line);
+}
+
+NOEXPORT void *str_realloc_internal_debug(void *ptr, size_t size, const char *file, int line) {
     ALLOC_LIST *prev_alloc_list, *alloc_list;
 
-    if(!ptr)
-        return str_alloc_debug(size, file, line);
     prev_alloc_list=get_alloc_list_ptr(ptr, file, line);
     str_leak_debug(prev_alloc_list, -1);
     if(prev_alloc_list->size>size) /* shrinking the allocation */
@@ -487,7 +501,7 @@ NOEXPORT long leak_threshold() {
 /**************************************** memcmp() replacement */
 
 /* a version of memcmp() with execution time not dependent on data values */
-/* it does *not* allow to test whether s1 is greater or lesser than s2  */
+/* it does *not* allow testing whether s1 is greater or lesser than s2  */
 int safe_memcmp(const void *s1, const void *s2, size_t n) {
     uint8_t *p1=(uint8_t *)s1, *p2=(uint8_t *)s2;
     int r=0;

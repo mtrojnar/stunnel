@@ -676,38 +676,6 @@ IP źródła do nawiązywania zdalnych połączeń
 Domyślnie używane jest IP najbardziej zewnętrznego interfejsu w stronę
 serwera, do którego nawiązywane jest połączenie.
 
-=item B<sni> = NAZWA_USŁUGI:WZORZEC_NAZWY_SERWERA (tryb serwera)
-
-Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia TLS Server
-Name Indication (RFC 3546).
-
-I<NAZWA_USŁUGI> wskazuje usługę nadrzędną, która odbiera połączenia od klientów
-przy pomocy opcji I<accept>.  I<WZORZEC_NAZWY_SERWERA> wskazuje nazwę serwera
-wirtualnego.  Wzorzec może zaczynać się znakiem '*', np. '*.example.com".  Z
-pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług podrzędnych.
-Opcja I<sni> może być rownież użyta wielokrotnie w ramach jednej usługi
-podrzędnej.
-
-Zarówno usługa nadrzędna jak i podrzędna nie może być skonfigurowana w trybie
-klienckim.
-
-Opcja I<connect> usługi podrzędnej jest ignorowana w połączeniu z opcją
-I<protocol>, gdyż połączenie do zdalnego serwera jest w tym wypadku nawiązywane
-przed negocjacją TLS.
-
-Uwierzytelnienie przy pomocy biblioteki libwrap jest realizowane dwukrotnie:
-najpierw dla usługi nadrzędnej po odebraniu połączenia TCP, a następnie dla
-usługi podrzędnej podczas negocjacji TLS.
-
-Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
-
-=item B<sni> = NAZWA_SERWERA (tryb klienta)
-
-Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
-(RFC 3546).
-
-Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
-
 =item B<OCSP> = URL
 
 responder OCSP do weryfikacji certyfikatów
@@ -979,6 +947,40 @@ pamięci podręcznej.
 =item B<sessiond> = HOST:PORT
 
 adres sessiond - servera cache sesji SSL
+
+=item B<sni> = NAZWA_USŁUGI:WZORZEC_NAZWY_SERWERA (tryb serwera)
+
+Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia TLS Server
+Name Indication (RFC 3546).
+
+I<NAZWA_USŁUGI> wskazuje usługę nadrzędną, która odbiera połączenia od klientów
+przy pomocy opcji I<accept>.  I<WZORZEC_NAZWY_SERWERA> wskazuje nazwę serwera
+wirtualnego.  Wzorzec może zaczynać się znakiem '*', np. '*.example.com".  Z
+pojedyńczą usługą nadrzędną powiązane jest zwykle wiele usług podrzędnych.
+Opcja I<sni> może być rownież użyta wielokrotnie w ramach jednej usługi
+podrzędnej.
+
+Zarówno usługa nadrzędna jak i podrzędna nie może być skonfigurowana w trybie
+klienckim.
+
+Opcja I<connect> usługi podrzędnej jest ignorowana w połączeniu z opcją
+I<protocol>, gdyż połączenie do zdalnego serwera jest w tym wypadku nawiązywane
+przed negocjacją TLS.
+
+Uwierzytelnienie przy pomocy biblioteki libwrap jest realizowane dwukrotnie:
+najpierw dla usługi nadrzędnej po odebraniu połączenia TCP, a następnie dla
+usługi podrzędnej podczas negocjacji TLS.
+
+Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
+
+=item B<sni> = NAZWA_SERWERA (tryb klienta)
+
+Użyj parametru jako wartości rozszerzenia TLS Server Name Indication
+(RFC 3546).
+
+Pusta wartość parametru NAZWA_SERWERA wyłącza wysyłanie rozszerzenia SNI.
+
+Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
 =item B<sslVersion> = WERSJA_SSL
 
@@ -1302,6 +1304,28 @@ Odpowiadająca jej konfiguracja serwera vpn_server:
 Do przetestowania konfiguracji można wydać na maszynie klienckiej komendę:
 
     curl --socks4a localhost http://www.example.com/
+
+Przykładowa konfiguracja serwera SNI:
+
+    [virtual]
+    ; usługa nadrzędna
+    accept = 443
+    cert =  default.pem
+    connect = default.internal.mydomain.com:8080
+
+    [sni1]
+    ; usługa podrzędna 1
+    sni = virtual:server1.mydomain.com
+    cert = server1.pem
+    connect = server1.internal.mydomain.com:8081
+
+    [sni2]
+    ; usługa podrzędna 2
+    sni = virtual:server2.mydomain.com
+    cert = server2.pem 
+    connect = server2.internal.mydomain.com:8082
+    verifyPeer = yes
+    CAfile = server2-allowed-clients.pem
 
 =head1 NOTKI
 

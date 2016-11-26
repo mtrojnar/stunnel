@@ -16,7 +16,7 @@
 # Short-Description: Start or stop stunnel 4.x (SSL tunnel for network daemons)
 # Description:       Starts or stops all configured SSL network tunnels. Each *.conf file in
 #                    /etc/stunnel/ will spawn a separate stunnel process. The list of files
-#                    can be overriden in /etc/sysconfig/stunnel, and that same file can be used
+#                    can be overridden in /etc/sysconfig/stunnel, and that same file can be used
 #                    to completely disable *all* tunnels.
 ### END INIT INFO
 

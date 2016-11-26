@@ -65,7 +65,7 @@ void s_poll_free(s_poll_set *fds) {
 
 void s_poll_init(s_poll_set *fds) {
     fds->nfds=0;
-    fds->allocated=4; /* prealloc 4 file desciptors */
+    fds->allocated=4; /* prealloc 4 file descriptors */
     s_poll_realloc(fds);
 }
 
@@ -360,7 +360,7 @@ void s_poll_free(s_poll_set *fds) {
 
 void s_poll_init(s_poll_set *fds) {
 #ifdef USE_WIN32
-    fds->allocated=4; /* prealloc 4 file desciptors */
+    fds->allocated=4; /* prealloc 4 file descriptors */
 #endif
     s_poll_realloc(fds);
     FD_ZERO(fds->irfds);

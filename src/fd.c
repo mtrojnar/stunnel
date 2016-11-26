@@ -84,7 +84,7 @@ void get_limits(void) { /* set max_fds and max_clients */
         max_fds=FD_SETSIZE; /* start with select() limit */
 #endif /* select() on Unix */
 
-    /* stunnel needs at least 16 file desriptors */
+    /* stunnel needs at least 16 file descriptors */
     if(max_fds && max_fds<16)
         max_fds=16;
 

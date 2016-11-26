@@ -137,7 +137,7 @@ typedef struct {
     char *output_file;
     FILE_MODE log_file_mode;
 
-        /* user interface configuraion */
+        /* user interface configuration */
 #ifdef ICON_IMAGE
     ICON_IMAGE icon[ICON_NONE];                  /* user-specified GUI icons */
 #endif
@@ -364,7 +364,7 @@ typedef struct disk_file {
 #else
     int fd;
 #endif
-    /* the inteface is prepared to easily implement buffering if needed */
+    /* the interface is prepared to easily implement buffering if needed */
 } DISK_FILE;
 
     /* definitions for client.c */
@@ -382,7 +382,7 @@ typedef enum {
 
 typedef struct {
     jmp_buf err; /* 64-bit platforms require jmp_buf to be 16-byte aligned */
-    SSL *ssl; /* SSL connnection */
+    SSL *ssl; /* SSL connection */
     SERVICE_OPTIONS *opt;
     TLS_DATA *tls;
 
@@ -776,6 +776,7 @@ void *str_alloc_debug(size_t, const char *, int);
 #define str_alloc(a) str_alloc_debug((a), __FILE__, __LINE__)
 void *str_alloc_detached_debug(size_t, const char *, int);
 #define str_alloc_detached(a) str_alloc_detached_debug((a), __FILE__, __LINE__)
+void *str_realloc_detached_debug(void *, size_t, const char *, int);
 void *str_realloc_debug(void *, size_t, const char *, int);
 #define str_realloc(a, b) str_realloc_debug((a), (b), __FILE__, __LINE__)
 void str_detach_debug(void *, const char *, int);

@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.37])
+AC_INIT([stunnel],[5.38])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -174,6 +174,8 @@ fi
 AC_MSG_CHECKING([for default group])
 AC_MSG_RESULT([$DEFAULT_GROUP])
 AC_SUBST([DEFAULT_GROUP])
+
+AC_SYS_LARGEFILE
 
 AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_DIRENT

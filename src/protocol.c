@@ -1042,7 +1042,7 @@ NOEXPORT char *imap_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         } else if(is_prefix(tail, "CAPABILITY")) {
             fd_putline(c, c->remote_fd.fd, line); /* send it to server */
             str_free(line);
-            line=fd_getline(c, c->remote_fd.fd); /* get the capabilites */
+            line=fd_getline(c, c->remote_fd.fd); /* get the capabilities */
             if(*line=='*') {
                 /*
                  * append STARTTLS
