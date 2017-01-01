@@ -122,7 +122,7 @@ char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 
 /**************************************** socks */
 
-/* SOCKS over SSL (SOCKS protocol itself is also encrypted) */
+/* SOCKS over TLS (SOCKS protocol itself is also encrypted) */
 
 typedef union {
     struct {
@@ -551,7 +551,7 @@ NOEXPORT int validate(CLI *c) {
 
 /*
  * PROXY protocol: http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
- * this is a protocol client support for stunnel acting as an SSL server
+ * this is a protocol client support for stunnel acting as an TLS server
  * I don't think anything else is useful, but feel free to discuss on the
  * stunnel-users mailing list if you disagree
  */
@@ -631,8 +631,8 @@ NOEXPORT char *cifs_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         s_log(LOG_ERR, "Unexpected NetBIOS response size");
         longjmp(c->err, 1);
     }
-    if(buffer[4]!=0x8e) { /* use SSL */
-        s_log(LOG_ERR, "Remote server does not require SSL");
+    if(buffer[4]!=0x8e) { /* use TLS */
+        s_log(LOG_ERR, "Remote server does not require TLS");
         longjmp(c->err, 1);
     }
     return NULL;
@@ -676,9 +676,9 @@ NOEXPORT char *pgsql_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         return NULL;
     s_write(c, c->remote_fd.fd, ssl_request, sizeof ssl_request);
     s_read(c, c->remote_fd.fd, buffer, 1);
-    /* S - accepted, N - rejected, non-SSL preferred */
+    /* S - accepted, N - rejected, non-TLS preferred */
     if(buffer[0]!='S') {
-        s_log(LOG_ERR, "PostgreSQL server rejected SSL");
+        s_log(LOG_ERR, "PostgreSQL server rejected TLS");
         longjmp(c->err, 1);
     }
     return NULL;
@@ -693,7 +693,7 @@ NOEXPORT char *pgsql_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     memset(buffer, 0, sizeof buffer);
     s_read(c, c->local_rfd.fd, buffer, sizeof buffer);
     if(safe_memcmp(buffer, ssl_request, sizeof ssl_request)) {
-        s_log(LOG_ERR, "PostgreSQL client did not request SSL, rejecting");
+        s_log(LOG_ERR, "PostgreSQL client did not request TLS, rejecting");
         /* no way to send error on startup, so just drop the client */
         longjmp(c->err, 1);
     }

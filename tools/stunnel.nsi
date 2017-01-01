@@ -1,4 +1,4 @@
-# NSIS stunnel installer by Michal Trojnara 1998-2015
+# NSIS stunnel installer by Michal Trojnara 1998-2016
 
 !define /ifndef VERSION testing
 !define /ifndef ARCH win32
@@ -10,7 +10,7 @@
 
 SetCompressor /SOLID LZMA
 Name "stunnel ${VERSION}"
-OutFile "stunnel-${VERSION}-installer.exe"
+OutFile "stunnel-${VERSION}-${ARCH}-installer.exe"
 BrandingText "Author: Michal Trojnara"
 
 # MultiUser
@@ -48,6 +48,8 @@ BrandingText "Author: Michal Trojnara"
 !define /ifndef OPENSSL_ENGINES_DIR ${OPENSSL_DIR}\lib\engines
 !define /ifndef ZLIB_DIR ${BIN_DIR}\zlib
 !define /ifndef REDIST_DIR ${BIN_DIR}\redist
+
+!define /ifndef LIBP11_DIR ${ROOT_DIR}\src\libp11-0.4.3\src
 
 !define MUI_ICON ${STUNNEL_SRC_DIR}\stunnel.ico
 
@@ -183,6 +185,8 @@ no_service_restart:
   Delete "$INSTDIR\engines\padlock.pdb"
   Delete "$INSTDIR\engines\ubsec.dll"
   Delete "$INSTDIR\engines\ubsec.pdb"
+  Delete "$INSTDIR\engines\pkcs11.dll"
+  Delete "$INSTDIR\engines\pkcs11.pdb"
   RMDir "$INSTDIR\engines"
 
   Delete "$INSTDIR\doc\*.html"
@@ -302,10 +306,14 @@ Section "Core Files" sectionCORE
   File "${STUNNEL_BIN_DIR}\stunnel.exe"
   File "${OPENSSL_BIN_DIR}\libeay32.dll"
   File "${OPENSSL_BIN_DIR}\ssleay32.dll"
+  !if ${ARCH} == win32
   File "${ZLIB_DIR}\zlib1.dll"
   File "${REDIST_DIR}\msvcr90.dll"
   File "${REDIST_DIR}\Microsoft.VC90.CRT.Manifest"
   # MINGW builds requires libssp-0.dll instead of msvcr90.dll
+  !else
+  File "${REDIST_DIR}\vcruntime140.dll"
+  !endif
 
   # write new engine libraries
   SetOutPath "$INSTDIR\engines"
@@ -315,6 +323,7 @@ Section "Core Files" sectionCORE
   File "${OPENSSL_ENGINES_DIR}\gost.dll"
   File "${OPENSSL_ENGINES_DIR}\padlock.dll"
   File "${OPENSSL_ENGINES_DIR}\ubsec.dll"
+  File "${LIBP11_DIR}\pkcs11.dll"
 
   # write new documentation
   SetOutPath "$INSTDIR\doc"
@@ -460,7 +469,9 @@ Section /o "Debugging Symbols" sectionDEBUG
   File "${STUNNEL_BIN_DIR}\stunnel.pdb"
   File "${OPENSSL_BIN_DIR}\libeay32.pdb"
   File "${OPENSSL_BIN_DIR}\ssleay32.pdb"
+  !if ${ARCH} == win32
   File "${ZLIB_DIR}\zlib1.pdb"
+  !endif
 
   # optional tstunnel.exe
   SectionGetFlags ${sectionTSTUNNEL} $0
@@ -484,6 +495,7 @@ no_openssl_pdb:
   File "${OPENSSL_ENGINES_DIR}\gost.pdb"
   File "${OPENSSL_ENGINES_DIR}\padlock.pdb"
   File "${OPENSSL_ENGINES_DIR}\ubsec.pdb"
+  # File "${LIBP11_DIR}\pkcs11.pdb"
   SetOutPath "$INSTDIR"
 SectionEnd
 

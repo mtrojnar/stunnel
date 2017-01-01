@@ -1,7 +1,7 @@
 Name:           stunnel
-Version:        5.38
+Version:        5.39
 Release:        1%{?dist}
-Summary:        An SSL-encrypting socket wrapper
+Summary:        An TLS-encrypting socket wrapper
 Group:          Applications/Internet
 License:        GPLv2
 URL:            http://www.stunnel.org/
@@ -17,9 +17,8 @@ Requires(preun): chkconfig
 Requires(postun): initscripts
 
 %description
-Stunnel is a socket wrapper which can provide SSL (Secure Sockets
-Layer) support to ordinary applications. For example, it can be used
-in conjunction with imapd to create an SSL secure IMAP server.
+Stunnel is a socket wrapper which can provide TLS (Transport Layer Security) support to ordinary applications. For example, it can be used
+in conjunction with imapd to create an TLS secure IMAP server.
 
 %prep
 %setup -q

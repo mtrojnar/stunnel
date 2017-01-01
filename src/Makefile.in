@@ -377,7 +377,7 @@ CLEANFILES = stunnel3
 stunnel_CPPFLAGS = -I/usr/kerberos/include -I$(SSLDIR)/include \
 	-DLIBDIR='"$(pkglibdir)"' -DCONFDIR='"$(sysconfdir)/stunnel"'
 
-# SSL library
+# TLS library
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 
 # stunnel3 script

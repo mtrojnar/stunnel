@@ -1,5 +1,20 @@
 stunnel change log
 
+Version 5.39, 2017.01.01, urgency: LOW
+* New features
+  - PKCS#11 engine (pkcs11.dll) added to the Win32 build.
+  - Per-destination TLS session cache added for the client mode.
+  - The new "logId" parameter "process" added to log PID values.
+  - Added support for the new SSL_set_options() values.
+  - Updated the manual page.
+  - Obsolete references to "SSL" replaced with "TLS".
+* Bugfixes
+  - Fixed "logId" parameter to also work in inetd mode.
+  - "delay = yes" properly enforces "failover = prio".
+  - Fixed fd_set allocation size on Win64.
+  - Fixed reloading invalid configuration file on Win32.
+  - Fixed resolving addresses with unconfigured network interfaces.
+
 Version 5.38, 2016.11.26, urgency: MEDIUM
 * New features
   - "sni=" can be used to prevent sending the SNI extension.

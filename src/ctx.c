@@ -114,8 +114,8 @@ typedef long unsigned SSL_OPTIONS_TYPE;
 typedef long SSL_OPTIONS_TYPE;
 #endif
 
-int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
-    /* create SSL context */
+int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
+    /* create TLS context */
     if(section->option.client)
         section->ctx=SSL_CTX_new(section->client_method);
     else /* server mode */
@@ -194,11 +194,11 @@ int context_init(SERVICE_OPTIONS *section) { /* init SSL context */
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
     SSL_CTX_clear_options(section->ctx,
         (SSL_OPTIONS_TYPE)(section->ssl_options_clear));
-    s_log(LOG_DEBUG, "SSL options: 0x%08lX (+0x%08lX, -0x%08lX)",
+    s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX, -0x%08lX)",
         SSL_CTX_get_options(section->ctx),
         section->ssl_options_set, section->ssl_options_clear);
 #else /* OpenSSL older than 0.9.8m */
-    s_log(LOG_DEBUG, "SSL options: 0x%08lX (+0x%08lX)",
+    s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX)",
         SSL_CTX_get_options(section->ctx),
         section->ssl_options_set);
 #endif /* OpenSSL 0.9.8m or later */
@@ -1116,12 +1116,12 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
     if(where & SSL_CB_LOOP) {
         state_string=SSL_state_string_long(ssl);
         if(strcmp(state_string, "unknown state"))
-            s_log(LOG_DEBUG, "SSL state (%s): %s",
+            s_log(LOG_DEBUG, "TLS state (%s): %s",
                 where & SSL_ST_CONNECT ? "connect" :
                 where & SSL_ST_ACCEPT ? "accept" :
                 "undefined", state_string);
     } else if(where & SSL_CB_ALERT) {
-        s_log(LOG_DEBUG, "SSL alert (%s): %s: %s",
+        s_log(LOG_DEBUG, "TLS alert (%s): %s: %s",
             where & SSL_CB_READ ? "read" : "write",
             SSL_alert_type_string_long(ret),
             SSL_alert_desc_string_long(ret));
@@ -1161,7 +1161,7 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
     }
 }
 
-/**************************************** SSL error reporting */
+/**************************************** TLS error reporting */
 
 void sslerror(char *txt) { /* OpenSSL error handler */
     unsigned long err;

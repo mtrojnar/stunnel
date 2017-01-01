@@ -587,7 +587,7 @@ NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *c,
         goto cleanup;
     }
     if(ssl) {
-        s_log(LOG_ERR, "OCSP: SSL not supported for OCSP"
+        s_log(LOG_ERR, "OCSP: TLS not supported for OCSP"
             " - an additional stunnel service needs to be defined");
         goto cleanup;
     }

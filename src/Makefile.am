@@ -45,7 +45,7 @@ stunnel_CPPFLAGS += -I$(SSLDIR)/include
 stunnel_CPPFLAGS += -DLIBDIR='"$(pkglibdir)"'
 stunnel_CPPFLAGS += -DCONFDIR='"$(sysconfdir)/stunnel"'
 
-# SSL library
+# TLS library
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 
 # stunnel3 script

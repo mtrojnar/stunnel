@@ -24,13 +24,13 @@ B<stunnel> [ [ S<-install> | S<-uninstall> | S<-start> | S<-stop> |
 
 =head1 DESCRIPTION
 
-The B<stunnel> program is designed to work as I<SSL> encryption wrapper 
+The B<stunnel> program is designed to work as I<TLS> encryption wrapper 
 between remote clients and local (I<inetd>-startable) or remote
-servers. The concept is that having non-SSL aware daemons running on
+servers. The concept is that having non-TLS aware daemons running on
 your system you can easily set them up to communicate with clients over
-secure SSL channels.
+secure I<TLS> channels.
 
-B<stunnel> can be used to add SSL functionality to commonly used I<Inetd>
+B<stunnel> can be used to add I<TLS> functionality to commonly used I<Inetd>
 daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like
 NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without
 changes to the source code.
@@ -65,7 +65,7 @@ Print default socket options
 
 =item B<-options>
 
-Print supported SSL options
+Print supported TLS options
 
 =item B<-install> (Windows NT and later only)
 
@@ -180,10 +180,7 @@ select data compression algorithm
 
 default: no compression
 
-deflate is the standard compression method as described in RFC 1951.
-
-zlib compression of B<OpenSSL 0.9.8> or above is not backward compatible with
-B<OpenSSL 0.9.7>.
+Deflate is the standard compression method as described in RFC 1951.
 
 =item B<debug> = [FACILITY.]LEVEL
 
@@ -205,7 +202,7 @@ Case is ignored for both facilities and levels.
 path to Entropy Gathering Daemon socket
 
 Entropy Gathering Daemon socket to use to feed the B<OpenSSL> random number
-generator.  (Available only if compiled with B<OpenSSL 0.9.5a> or higher)
+generator.
 
 =item B<engine> = auto | ENGINE_ID
 
@@ -244,7 +241,7 @@ DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.
 
 =item B<fips> = yes | no
 
-Enable or disable FIPS 140-2 mode.
+enable or disable FIPS 140-2 mode.
 
 This option allows you to disable entering FIPS mode if B<stunnel> was compiled
 with FIPS 140-2 support.
@@ -311,16 +308,11 @@ I<pid> path is relative to the I<chroot> directory if specified.
 
 bytes to read from random seed files
 
-Number of bytes of data read from random seed files.  With SSL versions less
-than B<0.9.5a>, also determines how many bytes of data are considered
-sufficient to seed the PRNG.  More recent B<OpenSSL> versions have a builtin
-function to determine when sufficient randomness is available.
-
 =item B<RNDfile> = FILE
 
 path to file with random seed data
 
-The SSL library will use data from this file first to seed the random
+The OpenSSL library will use data from this file first to seed the random
 number generator.
 
 =item B<RNDoverwrite> = yes | no
@@ -465,14 +457,14 @@ This option requires OpenSSL 1.0.2 or later.
 
 =item B<ciphers> = CIPHER_LIST
 
-Select permitted SSL ciphers
+Select permitted TLS ciphers
 
-A colon-delimited list of the ciphers to allow in the SSL connection,
+A colon-delimited list of the ciphers to allow in the TLS connection,
 for example DES-CBC3-SHA:IDEA-CBC-MD5.
 
 =item B<client> = yes | no
 
-client mode (remote service uses SSL)
+client mode (remote service uses TLS)
 
 default: no (server mode)
 
@@ -558,6 +550,10 @@ The operating system thread identifier is neither unique (even within a single
 instance of B<stunnel>) nor short.  It is most useful for debugging software
 or configuration issues.
 
+=item I<process>
+
+The operating system process identifier (PID) may be useful in the inetd mode.
+
 =back
 
 default: sequential
@@ -616,8 +612,17 @@ Arguments are separated with an arbitrary amount of whitespace.
 
 Failover strategy for multiple "connect" targets.
 
-    rr (round robin) - fair load distribution
-    prio (priority) - use the order specified in config file
+=over 4
+
+=item I<rr>
+
+round robin - fair load distribution
+
+=item I<prio>
+
+priority - use the order specified in config file
+
+=back
 
 default: rr
 
@@ -699,7 +704,7 @@ to build it.
 Several I<option> lines can be used to specify multiple options.
 An option name can be prepended with a dash ("-") to disable the option.
 
-For example, for compatibility with the erroneous Eudora SSL
+For example, for compatibility with the erroneous Eudora TLS
 implementation, the following option can be used:
 
     options = DONT_INSERT_EMPTY_FRAGMENTS
@@ -711,11 +716,11 @@ default:
 
 =item B<protocol> = PROTO
 
-application protocol to negotiate SSL
+application protocol to negotiate TLS
 
-This option enables initial, protocol-specific negotiation of the SSL/TLS
+This option enables initial, protocol-specific negotiation of the TLS
 encryption.
-The I<protocol> option should not be used with SSL encryption on a separate port.
+The I<protocol> option should not be used with TLS encryption on a separate port.
 
 Currently supported protocols:
 
@@ -763,7 +768,7 @@ Based on RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
 =item I<socks>
 
 SOCKS versions 4, 4a, and 5 are supported.  The SOCKS protocol itself
-is encapsulated within SSL/TLS encryption layer to protect the final
+is encapsulated within TLS encryption layer to protect the final
 destination address.
 
 F<http://www.openssh.com/txt/socks4.protocol>
@@ -801,7 +806,7 @@ Currently, this option is only supported in the client-side 'connect' protocol.
 
 destination address for the protocol negotiations
 
-I<protocolHost> specifies the final SSL server to be connected to by the proxy,
+I<protocolHost> specifies the final TLS server to be connected to by the proxy,
 and not the proxy server directly connected by B<stunnel>.
 The proxy server should be specified with the 'connect' option.
 
@@ -848,16 +853,16 @@ allocate a pseudoterminal for 'exec' option
 
 =item B<redirect> = [HOST:]PORT
 
-redirect SSL client connections on certificate-based authentication failures
+redirect TLS client connections on certificate-based authentication failures
 
 This option only works in server mode.
 Some protocol negotiations are also incompatible with the I<redirect> option.
 
 =item B<renegotiation> = yes | no
 
-support SSL renegotiation
+support TLS renegotiation
 
-Applications of the SSL renegotiation include some authentication scenarios,
+Applications of the TLS renegotiation include some authentication scenarios,
 or re-keying long lasting connections.
 
 On the other hand this feature can facilitate a trivial CPU-exhaustion
@@ -865,7 +870,7 @@ DoS attack:
 
 F<http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html>
 
-Please note that disabling SSL renegotiation does not fully mitigate
+Please note that disabling TLS renegotiation does not fully mitigate
 this issue.
 
 default: yes (if supported by B<OpenSSL>)
@@ -925,11 +930,11 @@ for production use due to the risk of a memory exhaustion DoS attack.
 
 session cache timeout
 
-This is the number of seconds to keep cached SSL sessions.
+This is the number of seconds to keep cached TLS sessions.
 
 =item B<sessiond> = HOST:PORT
 
-address of sessiond SSL cache server
+address of sessiond TLS cache server
 
 =item B<sni> = SERVICE_NAME:SERVER_NAME_PATTERN (server mode)
 
@@ -969,7 +974,7 @@ later.
 
 =item B<sslVersion> = SSL_VERSION
 
-select the SSL protocol version
+select the TLS protocol version
 
 Supported values: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 
@@ -1015,7 +1020,7 @@ Disable transparent proxy support.  This is the default.
 =item I<source>
 
 Re-write the address to appear as if a wrapped daemon is connecting
-from the SSL client machine instead of the machine running B<stunnel>.
+from the TLS client machine instead of the machine running B<stunnel>.
 
 This option is currently available in:
 
@@ -1232,7 +1237,7 @@ The result of sending any other signals to the server is undefined.
 
 =head1 EXAMPLES
 
-In order to provide SSL encapsulation to your local I<imapd> service, use:
+In order to provide TLS encapsulation to your local I<imapd> service, use:
 
     [imapd]
     accept = 993
@@ -1245,7 +1250,7 @@ or in remote mode:
     accept = 993
     connect = 143
 
-In order to let your local e-mail client connect to an SSL-enabled I<imapd>
+In order to let your local e-mail client connect to an TLS-enabled I<imapd>
 service on another server, configure the e-mail client to connect to localhost
 on port 119 and use:
 
@@ -1319,7 +1324,7 @@ An example server mode SNI configuration:
 
 B<stunnel> cannot be used for the FTP daemon because of the nature
 of the FTP protocol which utilizes multiple ports for data transfers.
-There are available SSL-enabled versions of FTP and telnet daemons, however.
+There are available TLS-enabled versions of FTP and telnet daemons, however.
 
 
 =head2 INETD MODE
@@ -1347,7 +1352,7 @@ configurations.
 
 =head2 CERTIFICATES
 
-Each SSL-enabled daemon needs to present a valid X.509 certificate
+Each TLS-enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
 generate them with the free B<OpenSSL> package. You can find more
@@ -1371,7 +1376,7 @@ should be discarded. So the file should look like this:
 =head2 RANDOMNESS
 
 B<stunnel> needs to seed the PRNG (pseudo-random number generator) in
-order for SSL to use good randomness.  The following sources are loaded
+order for TLS to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:
 
 =over 4
@@ -1409,11 +1414,6 @@ The egd socket specified with '--with-egd-sock' at compile time.
 The /dev/urandom device.
 
 =back
-
-With recent (B<OpenSSL 0.9.5a> or later) version of SSL it will stop loading
-random data automatically when sufficient entropy has been gathered.  With
-previous versions it will continue to gather from all the above sources since
-no SSL function exists to tell when enough data is available.
 
 Note that on Windows machines that do not have console user interaction
 (mouse movements, creating windows, etc.) the screen contents are not

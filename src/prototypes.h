@@ -73,7 +73,8 @@ typedef enum {
 typedef enum {
     LOG_ID_SEQUENTIAL,
     LOG_ID_UNIQUE,
-    LOG_ID_THREAD
+    LOG_ID_THREAD,
+    LOG_ID_PROCESS
 } LOG_ID;
 
 typedef enum {
@@ -99,8 +100,10 @@ typedef struct name_list_struct {
 } NAME_LIST;
 
 typedef struct sockaddr_list {                          /* list of addresses */
-    SOCKADDR_UNION *addr;                           /* the list of addresses */
-    unsigned *rr_ptr, rr_val;             /* current address for round-robin */
+    struct sockaddr_list *parent;   /* used by copies to locate their parent */
+    SOCKADDR_UNION *addr;                     /* array of resolved addresses */
+    SSL_SESSION **session;                /* array of cached client sessions */
+    unsigned rr;                          /* current address for round-robin */
     unsigned num;                             /* how many addresses are used */
     int passive;                                         /* listening socket */
     NAME_LIST *names;                          /* a list of unresolved names */
@@ -113,7 +116,7 @@ typedef enum {
 #endif /* !defined(OPENSSL_NO_COMP) */
 
 typedef struct {
-        /* some data for SSL initialization in ssl.c */
+        /* some data for TLS initialization in ssl.c */
 #ifndef OPENSSL_NO_COMP
     COMP_TYPE compression;                               /* compression type */
 #endif /* !defined(OPENSSL_NO_COMP) */
@@ -179,7 +182,7 @@ typedef struct psk_table_struct {
 
 typedef struct service_options_struct {
     struct service_options_struct *next;   /* next node in the services list */
-    SSL_CTX *ctx;                                            /*  SSL context */
+    SSL_CTX *ctx;                                            /*  TLS context */
     char *servname;        /* service name for logging & permission checking */
 
         /* service-specific data for stunnel.c */
@@ -382,7 +385,7 @@ typedef enum {
 
 typedef struct {
     jmp_buf err; /* 64-bit platforms require jmp_buf to be 16-byte aligned */
-    SSL *ssl; /* SSL connection */
+    SSL *ssl; /* TLS connection */
     SERVICE_OPTIONS *opt;
     TLS_DATA *tls;
 
@@ -390,6 +393,7 @@ typedef struct {
     socklen_t peer_addr_len;
     SOCKADDR_UNION *bind_addr; /* address to bind() the socket */
     SOCKADDR_LIST connect_addr; /* either copied or resolved dynamically */
+    unsigned idx; /* actually connected address in connect_addr */
     FD local_rfd, local_wfd; /* read and write local descriptors */
     FD remote_fd; /* remote file descriptor */
         /* IP for explicit local bind or transparent proxy */
@@ -400,11 +404,11 @@ typedef struct {
 
     /* data for transfer() function */
     char sock_buff[BUFFSIZE]; /* socket read buffer */
-    char ssl_buff[BUFFSIZE]; /* SSL read buffer */
+    char ssl_buff[BUFFSIZE]; /* TLS read buffer */
     size_t sock_ptr, ssl_ptr; /* index of the first unused byte */
     FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
-    FD *ssl_rfd, *ssl_wfd; /* read and write SSL descriptors */
-    uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and SSL */
+    FD *ssl_rfd, *ssl_wfd; /* read and write TLS descriptors */
+    uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and TLS */
     s_poll_set *fds; /* file descriptors */
     uintptr_t redirect; /* redirect to another destination after failed auth */
 } CLI;

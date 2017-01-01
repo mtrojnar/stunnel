@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2016.11.26" "5.38" "stunnel TLS Proxy"
+.TH stunnel 8 "2016.12.13" "5.39" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -90,13 +90,13 @@ stunnel \- TLS offloading and load\-balancing proxy
     \-help | \-version | \-sockets | \-options
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
-The \fBstunnel\fR program is designed to work as \fI\s-1SSL\s0\fR encryption wrapper 
+The \fBstunnel\fR program is designed to work as \fI\s-1TLS\s0\fR encryption wrapper 
 between remote clients and local (\fIinetd\fR\-startable) or remote
-servers. The concept is that having non-SSL aware daemons running on
+servers. The concept is that having non-TLS aware daemons running on
 your system you can easily set them up to communicate with clients over
-secure \s-1SSL\s0 channels.
+secure \fI\s-1TLS\s0\fR channels.
 .PP
-\&\fBstunnel\fR can be used to add \s-1SSL\s0 functionality to commonly used \fIInetd\fR
+\&\fBstunnel\fR can be used to add \fI\s-1TLS\s0\fR functionality to commonly used \fIInetd\fR
 daemons like \s-1POP\-2, POP\-3,\s0 and \s-1IMAP\s0 servers, to standalone daemons like
 \&\s-1NNTP, SMTP\s0 and \s-1HTTP,\s0 and in tunneling \s-1PPP\s0 over network sockets without
 changes to the source code.
@@ -122,7 +122,7 @@ Print \fBstunnel\fR version and compile time defaults
 Print default socket options
 .IP "\fB\-options\fR" 4
 .IX Item "-options"
-Print supported \s-1SSL\s0 options
+Print supported \s-1TLS\s0 options
 .IP "\fB\-install\fR (Windows \s-1NT\s0 and later only)" 4
 .IX Item "-install (Windows NT and later only)"
 Install \s-1NT\s0 Service
@@ -193,10 +193,7 @@ select data compression algorithm
 .Sp
 default: no compression
 .Sp
-deflate is the standard compression method as described in \s-1RFC 1951.\s0
-.Sp
-zlib compression of \fBOpenSSL 0.9.8\fR or above is not backward compatible with
-\&\fBOpenSSL 0.9.7\fR.
+Deflate is the standard compression method as described in \s-1RFC 1951.\s0
 .IP "\fBdebug\fR = [\s-1FACILITY.\s0]LEVEL" 4
 .IX Item "debug = [FACILITY.]LEVEL"
 debugging level
@@ -216,7 +213,7 @@ Case is ignored for both facilities and levels.
 path to Entropy Gathering Daemon socket
 .Sp
 Entropy Gathering Daemon socket to use to feed the \fBOpenSSL\fR random number
-generator.  (Available only if compiled with \fBOpenSSL 0.9.5a\fR or higher)
+generator.
 .IP "\fBengine\fR = auto | \s-1ENGINE_ID\s0" 4
 .IX Item "engine = auto | ENGINE_ID"
 select hardware engine
@@ -253,7 +250,7 @@ The following tasks may be available, if supported by the engine: \s-1ALL, RSA,
 DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.\s0
 .IP "\fBfips\fR = yes | no" 4
 .IX Item "fips = yes | no"
-Enable or disable \s-1FIPS 140\-2\s0 mode.
+enable or disable \s-1FIPS 140\-2\s0 mode.
 .Sp
 This option allows you to disable entering \s-1FIPS\s0 mode if \fBstunnel\fR was compiled
 with \s-1FIPS 140\-2\s0 support.
@@ -311,16 +308,11 @@ If the argument is empty, then no pid file will be created.
 .IP "\fBRNDbytes\fR = \s-1BYTES\s0" 4
 .IX Item "RNDbytes = BYTES"
 bytes to read from random seed files
-.Sp
-Number of bytes of data read from random seed files.  With \s-1SSL\s0 versions less
-than \fB0.9.5a\fR, also determines how many bytes of data are considered
-sufficient to seed the \s-1PRNG. \s0 More recent \fBOpenSSL\fR versions have a builtin
-function to determine when sufficient randomness is available.
 .IP "\fBRNDfile\fR = \s-1FILE\s0" 4
 .IX Item "RNDfile = FILE"
 path to file with random seed data
 .Sp
-The \s-1SSL\s0 library will use data from this file first to seed the random
+The OpenSSL library will use data from this file first to seed the random
 number generator.
 .IP "\fBRNDoverwrite\fR = yes | no" 4
 .IX Item "RNDoverwrite = yes | no"
@@ -449,13 +441,13 @@ address of the peer certificate matches any of the \s-1IP\s0 addresses specified
 This option requires OpenSSL 1.0.2 or later.
 .IP "\fBciphers\fR = \s-1CIPHER_LIST\s0" 4
 .IX Item "ciphers = CIPHER_LIST"
-Select permitted \s-1SSL\s0 ciphers
+Select permitted \s-1TLS\s0 ciphers
 .Sp
-A colon-delimited list of the ciphers to allow in the \s-1SSL\s0 connection,
+A colon-delimited list of the ciphers to allow in the \s-1TLS\s0 connection,
 for example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5.\s0
 .IP "\fBclient\fR = yes | no" 4
 .IX Item "client = yes | no"
-client mode (remote service uses \s-1SSL\s0)
+client mode (remote service uses \s-1TLS\s0)
 .Sp
 default: no (server mode)
 .IP "\fBconfig\fR = COMMAND[:PARAMETER]" 4
@@ -532,6 +524,9 @@ number.  It is most useful for automated log analysis.
 The operating system thread identifier is neither unique (even within a single
 instance of \fBstunnel\fR) nor short.  It is most useful for debugging software
 or configuration issues.
+.IP "\fIprocess\fR" 4
+.IX Item "process"
+The operating system process identifier (\s-1PID\s0) may be useful in the inetd mode.
 .RE
 .RS 4
 .Sp
@@ -585,13 +580,18 @@ Arguments are separated with an arbitrary amount of whitespace.
 .IP "\fBfailover\fR = rr | prio" 4
 .IX Item "failover = rr | prio"
 Failover strategy for multiple \*(L"connect\*(R" targets.
-.Sp
-.Vb 2
-\&    rr (round robin) \- fair load distribution
-\&    prio (priority) \- use the order specified in config file
-.Ve
+.RS 4
+.IP "\fIrr\fR" 4
+.IX Item "rr"
+round robin \- fair load distribution
+.IP "\fIprio\fR" 4
+.IX Item "prio"
+priority \- use the order specified in config file
+.RE
+.RS 4
 .Sp
 default: rr
+.RE
 .IP "\fBident\fR = \s-1USERNAME\s0" 4
 .IX Item "ident = USERNAME"
 use \s-1IDENT \s0(\s-1RFC 1413\s0) username checking
@@ -663,7 +663,7 @@ to build it.
 Several \fIoption\fR lines can be used to specify multiple options.
 An option name can be prepended with a dash (\*(L"\-\*(R") to disable the option.
 .Sp
-For example, for compatibility with the erroneous Eudora \s-1SSL\s0
+For example, for compatibility with the erroneous Eudora \s-1TLS\s0
 implementation, the following option can be used:
 .Sp
 .Vb 1
@@ -678,11 +678,11 @@ default:
 .Ve
 .IP "\fBprotocol\fR = \s-1PROTO\s0" 4
 .IX Item "protocol = PROTO"
-application protocol to negotiate \s-1SSL\s0
+application protocol to negotiate \s-1TLS\s0
 .Sp
-This option enables initial, protocol-specific negotiation of the \s-1SSL/TLS\s0
+This option enables initial, protocol-specific negotiation of the \s-1TLS\s0
 encryption.
-The \fIprotocol\fR option should not be used with \s-1SSL\s0 encryption on a separate port.
+The \fIprotocol\fR option should not be used with \s-1TLS\s0 encryption on a separate port.
 .Sp
 Currently supported protocols:
 .RS 4
@@ -720,7 +720,7 @@ Based on \s-1RFC 2487 \- \s0\fI\s-1SMTP\s0 Service Extension for Secure \s-1SMTP
 .IP "\fIsocks\fR" 4
 .IX Item "socks"
 \&\s-1SOCKS\s0 versions 4, 4a, and 5 are supported.  The \s-1SOCKS\s0 protocol itself
-is encapsulated within \s-1SSL/TLS\s0 encryption layer to protect the final
+is encapsulated within \s-1TLS\s0 encryption layer to protect the final
 destination address.
 .Sp
 \&\fIhttp://www.openssh.com/txt/socks4.protocol\fR
@@ -756,7 +756,7 @@ Currently, this option is only supported in the client-side 'connect' protocol.
 .IX Item "protocolHost = HOST:PORT"
 destination address for the protocol negotiations
 .Sp
-\&\fIprotocolHost\fR specifies the final \s-1SSL\s0 server to be connected to by the proxy,
+\&\fIprotocolHost\fR specifies the final \s-1TLS\s0 server to be connected to by the proxy,
 and not the proxy server directly connected by \fBstunnel\fR.
 The proxy server should be specified with the 'connect' option.
 .Sp
@@ -799,15 +799,15 @@ The file should not be world-readable nor world-writable.
 allocate a pseudoterminal for 'exec' option
 .IP "\fBredirect\fR = [\s-1HOST:\s0]PORT" 4
 .IX Item "redirect = [HOST:]PORT"
-redirect \s-1SSL\s0 client connections on certificate-based authentication failures
+redirect \s-1TLS\s0 client connections on certificate-based authentication failures
 .Sp
 This option only works in server mode.
 Some protocol negotiations are also incompatible with the \fIredirect\fR option.
 .IP "\fBrenegotiation\fR = yes | no" 4
 .IX Item "renegotiation = yes | no"
-support \s-1SSL\s0 renegotiation
+support \s-1TLS\s0 renegotiation
 .Sp
-Applications of the \s-1SSL\s0 renegotiation include some authentication scenarios,
+Applications of the \s-1TLS\s0 renegotiation include some authentication scenarios,
 or re-keying long lasting connections.
 .Sp
 On the other hand this feature can facilitate a trivial CPU-exhaustion
@@ -815,7 +815,7 @@ DoS attack:
 .Sp
 \&\fIhttp://vincent.bernat.im/en/blog/2011\-ssl\-dos\-mitigation.html\fR
 .Sp
-Please note that disabling \s-1SSL\s0 renegotiation does not fully mitigate
+Please note that disabling \s-1TLS\s0 renegotiation does not fully mitigate
 this issue.
 .Sp
 default: yes (if supported by \fBOpenSSL\fR)
@@ -868,10 +868,10 @@ for production use due to the risk of a memory exhaustion DoS attack.
 .IX Item "sessionCacheTimeout = TIMEOUT"
 session cache timeout
 .Sp
-This is the number of seconds to keep cached \s-1SSL\s0 sessions.
+This is the number of seconds to keep cached \s-1TLS\s0 sessions.
 .IP "\fBsessiond\fR = \s-1HOST:PORT\s0" 4
 .IX Item "sessiond = HOST:PORT"
-address of sessiond \s-1SSL\s0 cache server
+address of sessiond \s-1TLS\s0 cache server
 .IP "\fBsni\fR = \s-1SERVICE_NAME:SERVER_NAME_PATTERN \s0(server mode)" 4
 .IX Item "sni = SERVICE_NAME:SERVER_NAME_PATTERN (server mode)"
 Use the service as a slave service (a name-based virtual server) for Server
@@ -908,7 +908,7 @@ The \fIsni\fR option is only available when compiled with \fBOpenSSL 1.0.0\fR an
 later.
 .IP "\fBsslVersion\fR = \s-1SSL_VERSION\s0" 4
 .IX Item "sslVersion = SSL_VERSION"
-select the \s-1SSL\s0 protocol version
+select the \s-1TLS\s0 protocol version
 .Sp
 Supported values: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 .Sp
@@ -945,7 +945,7 @@ Disable transparent proxy support.  This is the default.
 .IP "\fIsource\fR" 4
 .IX Item "source"
 Re-write the address to appear as if a wrapped daemon is connecting
-from the \s-1SSL\s0 client machine instead of the machine running \fBstunnel\fR.
+from the \s-1TLS\s0 client machine instead of the machine running \fBstunnel\fR.
 .Sp
 This option is currently available in:
 .RS 4
@@ -1127,7 +1127,7 @@ Shut \fBstunnel\fR down.
 The result of sending any other signals to the server is undefined.
 .SH "EXAMPLES"
 .IX Header "EXAMPLES"
-In order to provide \s-1SSL\s0 encapsulation to your local \fIimapd\fR service, use:
+In order to provide \s-1TLS\s0 encapsulation to your local \fIimapd\fR service, use:
 .PP
 .Vb 4
 \&    [imapd]
@@ -1144,7 +1144,7 @@ or in remote mode:
 \&    connect = 143
 .Ve
 .PP
-In order to let your local e\-mail client connect to an SSL-enabled \fIimapd\fR
+In order to let your local e\-mail client connect to an TLS-enabled \fIimapd\fR
 service on another server, configure the e\-mail client to connect to localhost
 on port 119 and use:
 .PP
@@ -1231,7 +1231,7 @@ An example server mode \s-1SNI\s0 configuration:
 .IX Subsection "RESTRICTIONS"
 \&\fBstunnel\fR cannot be used for the \s-1FTP\s0 daemon because of the nature
 of the \s-1FTP\s0 protocol which utilizes multiple ports for data transfers.
-There are available SSL-enabled versions of \s-1FTP\s0 and telnet daemons, however.
+There are available TLS-enabled versions of \s-1FTP\s0 and telnet daemons, however.
 .SS "\s-1INETD MODE\s0"
 .IX Subsection "INETD MODE"
 The most common use of \fBstunnel\fR is to listen on a network
@@ -1258,7 +1258,7 @@ will be present.  See the \fI\s-1EXAMPLES\s0\fR section for example
 configurations.
 .SS "\s-1CERTIFICATES\s0"
 .IX Subsection "CERTIFICATES"
-Each SSL-enabled daemon needs to present a valid X.509 certificate
+Each TLS-enabled daemon needs to present a valid X.509 certificate
 to the peer. It also needs a private key to decrypt the incoming
 data. The easiest way to obtain a certificate and a key is to 
 generate them with the free \fBOpenSSL\fR package. You can find more
@@ -1283,7 +1283,7 @@ should be discarded. So the file should look like this:
 .SS "\s-1RANDOMNESS\s0"
 .IX Subsection "RANDOMNESS"
 \&\fBstunnel\fR needs to seed the \s-1PRNG \s0(pseudo-random number generator) in
-order for \s-1SSL\s0 to use good randomness.  The following sources are loaded
+order for \s-1TLS\s0 to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:
 .IP "\(bu" 4
 The file specified with the \fIRNDfile\fR flag.
@@ -1301,11 +1301,6 @@ The egd socket specified with the \fI\s-1EGD\s0\fR flag.
 The egd socket specified with '\-\-with\-egd\-sock' at compile time.
 .IP "\(bu" 4
 The /dev/urandom device.
-.PP
-With recent (\fBOpenSSL 0.9.5a\fR or later) version of \s-1SSL\s0 it will stop loading
-random data automatically when sufficient entropy has been gathered.  With
-previous versions it will continue to gather from all the above sources since
-no \s-1SSL\s0 function exists to tell when enough data is available.
 .PP
 Note that on Windows machines that do not have console user interaction
 (mouse movements, creating windows, etc.) the screen contents are not

@@ -109,6 +109,7 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
 #endif
         daemon_loop();
     } else { /* inetd mode */
+        CLI *c;
 #if !defined(__vms) && !defined(USE_OS2)
         close(fd);
 #endif /* standard Unix */
@@ -118,7 +119,9 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
 #endif
         set_nonblock(0, 1); /* stdin */
         set_nonblock(1, 1); /* stdout */
-        client_main(alloc_client_session(&service_options, 0, 1));
+        c=alloc_client_session(&service_options, 0, 1);
+        tls_alloc(c, ui_tls, NULL);
+        client_main(c);
     }
     return 0;
 }

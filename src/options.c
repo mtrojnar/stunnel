@@ -169,6 +169,15 @@ static const SSL_OPTION ssl_opts[] = {
 #ifdef SSL_OP_NO_SSL_MASK
     {"NO_SSL_MASK", SSL_OP_NO_SSL_MASK},
 #endif
+#ifdef SSL_OP_NO_DTLS_MASK
+    {"NO_DTLS_MASK", SSL_OP_NO_DTLS_MASK},
+#endif
+#ifdef SSL_OP_NO_ENCRYPT_THEN_MAC
+    {"NO_ENCRYPT_THEN_MAC", SSL_OP_NO_ENCRYPT_THEN_MAC},
+#endif
+#ifdef SSL_OP_NO_TLSv1_3
+    {"NO_TLSv1_3", SSL_OP_NO_TLSv1_3},
+#endif
     {NULL, 0}
 };
 
@@ -1146,8 +1155,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     if(cmd==CMD_END) {
         /* FIPS needs to be initialized as early as possible */
-        if(ssl_configure(&new_global_options)) /* configure global SSL settings */
-            return "Failed to initialize SSL";
+        if(ssl_configure(&new_global_options)) /* configure global TLS settings */
+            return "Failed to initialize TLS";
     }
     return NULL; /* OK */
 }
@@ -1280,7 +1289,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             break;
 #endif /* !defined(OPENSSL_NO_ENGINE) */
         if(!section->option.client && !section->cert)
-            return "SSL server needs a certificate";
+            return "TLS server needs a certificate";
         break;
     case CMD_FREE:
         break;
@@ -1397,7 +1406,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #endif /* USE_FIPS */
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = list of permitted SSL ciphers", "ciphers");
+        s_log(LOG_NOTICE, "%-22s = list of permitted TLS ciphers", "ciphers");
         break;
     }
 
@@ -1423,7 +1432,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = yes|no client mode (remote service uses SSL)",
+        s_log(LOG_NOTICE, "%-22s = yes|no client mode (remote service uses TLS)",
             "client");
         break;
     }
@@ -1745,6 +1754,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "The argument needs to be either 'rr' or 'prio'";
         return NULL; /* OK */
     case CMD_END:
+        if(section->option.delayed_lookup)
+            section->failover=FAILOVER_PRIO;
         break;
     case CMD_FREE:
         break;
@@ -1866,6 +1877,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             section->log_id=LOG_ID_UNIQUE;
         else if(!strcasecmp(arg, "thread"))
             section->log_id=LOG_ID_THREAD;
+        else if(!strcasecmp(arg, "process"))
+            section->log_id=LOG_ID_PROCESS;
         else
             return "Invalid connection identifier type";
         return NULL; /* OK */
@@ -2004,7 +2017,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(*arg=='-') {
             long unsigned tmp=parse_ssl_option(arg+1);
             if(!tmp)
-                return "Illegal SSL option";
+                return "Illegal TLS option";
             section->ssl_options_clear|=tmp;
             return NULL; /* OK */
         }
@@ -2012,7 +2025,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         {
             long unsigned tmp=parse_ssl_option(arg);
             if(!tmp)
-                return "Illegal SSL option";
+                return "Illegal TLS option";
             section->ssl_options_set|=tmp;
         }
         return NULL; /* OK */
@@ -2025,7 +2038,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         s_log(LOG_NOTICE, "%-22s = %s", "options", "NO_SSLv3");
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = SSL option to set/reset", "options");
+        s_log(LOG_NOTICE, "%-22s = TLS option to set/reset", "options");
         break;
     }
 
@@ -2061,10 +2074,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = protocol to negotiate before SSL initialization",
+        s_log(LOG_NOTICE, "%-22s = protocol to negotiate before TLS initialization",
             "protocol");
         s_log(LOG_NOTICE, "%25scurrently supported: cifs, connect, imap,", "");
-        s_log(LOG_NOTICE, "%25s    nntp, pgsql, pop3, proxy, smtp", "");
+        s_log(LOG_NOTICE, "%25s    nntp, pgsql, pop3, proxy, smtp, socks", "");
         break;
     }
 
@@ -2674,7 +2687,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #endif /* !defined(OPENSSL_NO_TLS1_2) */
 #endif /* OPENSSL_API_COMPAT<0x10100000L */
         } else
-            return "Incorrect version of SSL protocol";
+            return "Incorrect version of TLS protocol";
         return NULL; /* OK */
     case CMD_END:
 #ifdef USE_FIPS
@@ -2706,7 +2719,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             "|TLSv1.1|TLSv1.2"
 #endif /* OPENSSL_VERSION_NUMBER>=0x10001000L */
 #endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
-            " SSL method", "sslVersion");
+            " TLS method", "sslVersion");
         break;
     }
 
@@ -3012,8 +3025,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             if(endpoints!=1)
                 return "Inetd mode must define one endpoint";
         }
-        if(context_init(section)) /* initialize SSL context */
-            return "Failed to initialize SSL context";
+        if(context_init(section)) /* initialize TLS context */
+            return "Failed to initialize TLS context";
     case CMD_FREE:
     case CMD_DEFAULT:
     case CMD_HELP:
@@ -3057,7 +3070,7 @@ NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
         tmpsrv->servername_list_tail->opt=section;
         tmpsrv->servername_list_tail->next=NULL;
         section->option.sni=1;
-        /* always negotiate a new session on renegotiation, as the SSL
+        /* always negotiate a new session on renegotiation, as the TLS
          * context settings (including access control) may be different */
         section->ssl_options_set|=
             SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
@@ -3167,7 +3180,7 @@ NOEXPORT char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
     return NULL; /* OK */
 }
 
-/**************************************** SSL options */
+/**************************************** TLS options */
 
 NOEXPORT long unsigned parse_ssl_option(char *arg) {
     SSL_OPTION *option;
@@ -3182,7 +3195,7 @@ NOEXPORT void print_ssl_options(void) {
     SSL_OPTION *option;
 
     s_log(LOG_NOTICE, " ");
-    s_log(LOG_NOTICE, "Supported SSL options:");
+    s_log(LOG_NOTICE, "Supported TLS options:");
     for(option=(SSL_OPTION *)ssl_opts; option->name; ++option)
         s_log(LOG_NOTICE, "options = %s", option->name);
 }
@@ -3678,7 +3691,7 @@ NOEXPORT void print_syntax(void) {
     s_log(LOG_NOTICE, "stunnel "
 #ifdef USE_WIN32
 #ifndef _WIN32_WCE
-        "[ [-install | -uninstall | -reload | -reopen] "
+        "[ [-install | -uninstall | -start | -stop | -reload | -reopen | -exit] "
 #endif
         "[-quiet] "
 #endif
@@ -3686,14 +3699,17 @@ NOEXPORT void print_syntax(void) {
 #ifndef USE_WIN32
         "-fd <n> "
 #endif
-        "| -help | -version | -sockets");
+        "| -help | -version | -sockets | -options");
     s_log(LOG_NOTICE, "    <filename>  - use specified config file");
 #ifdef USE_WIN32
 #ifndef _WIN32_WCE
     s_log(LOG_NOTICE, "    -install    - install NT service");
     s_log(LOG_NOTICE, "    -uninstall  - uninstall NT service");
+    s_log(LOG_NOTICE, "    -start      - start NT service");
+    s_log(LOG_NOTICE, "    -stop       - stop NT service");
     s_log(LOG_NOTICE, "    -reload     - reload configuration for NT service");
     s_log(LOG_NOTICE, "    -reopen     - reopen log file for NT service");
+    s_log(LOG_NOTICE, "    -exit       - exit an already started stunnel");
 #endif
     s_log(LOG_NOTICE, "    -quiet      - don't display message boxes");
 #else
@@ -3702,6 +3718,7 @@ NOEXPORT void print_syntax(void) {
     s_log(LOG_NOTICE, "    -help       - get config file help");
     s_log(LOG_NOTICE, "    -version    - display version and defaults");
     s_log(LOG_NOTICE, "    -sockets    - display default socket options");
+    s_log(LOG_NOTICE, "    -options    - display supported TLS options");
 }
 
 /**************************************** various supporting functions */

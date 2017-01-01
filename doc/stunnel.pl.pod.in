@@ -2,7 +2,7 @@
 
 =encoding utf8
 
-stunnel - uniwersalny tunel protokołu SSL
+stunnel - uniwersalny tunel protokołu TLS
 
 
 =head1 SKŁADNIA
@@ -24,14 +24,14 @@ B<stunnel> [ [ S<-install> | S<-uninstall> | S<-start> | S<-stop> |
 
 =head1 OPIS
 
-Program B<stunnel> został zaprojektowany do opakowywania w protokół I<SSL>
+Program B<stunnel> został zaprojektowany do opakowywania w protokół I<TLS>
 połączeń pomiędzy zdalnymi klientami a lokalnymi lub zdalnymi serwerami.
 Przez serwer lokalny rozumiana jest aplikacja przeznaczona do uruchamiania
 przy pomocy I<inetd>.
 Stunnel pozwala na proste zestawienie komunikacji serwerów nie posiadających
-funkcjonalności I<SSL> poprzez bezpieczne kanały I<SSL>.
+funkcjonalności I<TLS> poprzez bezpieczne kanały I<TLS>.
 
-B<stunnel> pozwala dodać funkcjonalność I<SSL> do powszechnie stosowanych
+B<stunnel> pozwala dodać funkcjonalność I<TLS> do powszechnie stosowanych
 demonów I<inetd>, np. I<pop3> lub I<imap>, do samodzielnych demonów,
 np. I<nntp>, I<smtp> lub I<http>, a nawet tunelować ppp poprzez gniazda sieciowe
 bez zmian w kodzie źródłowym.
@@ -63,7 +63,7 @@ drukuj domyślne opcje gniazd
 
 =item B<-options>
 
-drukuj wspierane opcje SSL
+drukuj wspierane opcje TLS
 
 =item B<-install> (tylko Windows NT lub nowszy)
 
@@ -182,9 +182,6 @@ domyślnie: bez kompresji
 
 Algorytm deflate jest standardową metodą kompresji zgodnie z RFC 1951.
 
-Kompresja zlib zaimplementowana w B<OpenSSL 0.9.8> i nowszych nie jest
-kompatybilna implementacją B<OpenSSL 0.9.7>.
-
 =item B<debug> = [PODSYSTEM].POZIOM
 
 szczegółowość logowania
@@ -207,7 +204,7 @@ Wielkość liter jest ignorowana zarówno dla poziomu jak podsystemu.
 
 Opcja pozwala określić ścieżkę do gniazda programu Entropy Gathering Daemon
 używanego do zainicjalizowania generatora ciągów pseudolosowych biblioteki
-B<OpenSSL>.  Opcja jest dostępna z biblioteką B<OpenSSL 0.9.5a> lub nowszą.
+B<OpenSSL>.
 
 =item B<engine> = auto | IDENTYFIKATOR_URZĄDZENIA
 
@@ -285,10 +282,9 @@ W systemie Windows ikonka to plik .ico zawierający obrazek 16x16 pikseli.
 
 =item B<log> = append | overwrite
 
-log file handling
+obsługa logów
 
-This option allows to choose whether the log file (specified with the I<output>
-option) is appended or overwritten when opened or re-opened.
+Ta opcja pozwala określić, czy nowe logi w pliku (określonym w opcji I<output>) będą dodawane czy nadpisywane.
 
 domyślnie: append
 
@@ -298,7 +294,7 @@ plik, do którego dopisane zostaną logi
 
 Użycie tej opcji powoduje dopisanie logów do podanego pliku.
 
-Do kierowaniakomunikatów na standardowe wyjście (na przykład po to, żeby
+Do kierowania komunikatów na standardowe wyjście (na przykład po to, żeby
 zalogować je programem splogger z pakietu daemontools) można podać jako
 parametr urządzenie /dev/stdout.
 
@@ -306,7 +302,7 @@ parametr urządzenie /dev/stdout.
 
 położenie pliku z numerem procesu
 
-Jeżeli argument jest pusty plik nie zostanie stworzony.
+Jeżeli argument jest pusty, plik nie zostanie stworzony.
 
 Jeżeli zdefiniowano katalog I<chroot>, to ścieżka do I<pid> jest określona
 względem tego katalogu.
@@ -314,11 +310,6 @@ względem tego katalogu.
 =item B<RNDbytes> = LICZBA_BAJTÓW
 
 liczba bajtów do zainicjowania generatora pseudolosowego
-
-W wersjach biblioteki B<OpenSSL> starszych niż B<0.9.5a> opcja ta określa
-również liczbę bajtów wystarczających do zainicjowania PRNG.
-Nowsze wersje biblioteki mają wbudowaną funkcję określającą, czy
-dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.
 
 =item B<RNDfile> = PLIK
 
@@ -475,14 +466,14 @@ Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 
 =item B<ciphers> = LISTA_SZYFRÓW
 
-lista dozwolonych szyfrów SSL
+lista dozwolonych szyfrów TLS
 
 Parametrem tej opcji jest lista szyfrów, które będą użyte przy
-otwieraniu nowych połączeń SSL, np.:  DES-CBC3-SHA:IDEA-CBC-MD5
+otwieraniu nowych połączeń TLS, np.:  DES-CBC3-SHA:IDEA-CBC-MD5
 
 =item B<client> = yes | no
 
-tryb kliencki (zdalna usługa używa SSL)
+tryb kliencki (zdalna usługa używa TLS)
 
 domyślnie: no (tryb serwerowy)
 
@@ -571,6 +562,10 @@ Identyfikator wątku systemu operacyjnego nie jest ani unikalny (nawet w obrębi
 pojedynczej instancji programu B<stunnel>), ani krótki.  Jest on szczególnie
 użyteczny przy diagnozowaniu problemów z oprogramowaniem lub konfiguracją.
 
+=item I<process>
+
+Identyfikator procesu (PID) może być użyteczny w trybie inetd.
+
 =back
 
 domyślnie: sequential
@@ -632,8 +627,17 @@ Argumenty są rozdzielone dowolną liczbą białych znaków.
 
 Strategia wybierania serwerów wyspecyfikowanych parametrami "connect".
 
-    rr (round robin) - sprawiedliwe rozłożenie obciążenia
-    prio (priority) - użyj kolejności opcji w pliku konfiguracyjnym
+=over 4
+
+=item I<rr>
+
+round robin - sprawiedliwe rozłożenie obciążenia
+
+=item I<prio>
+
+priority - użyj kolejności opcji w pliku konfiguracyjnym
+
+=back
 
 domyślnie: rr
 
@@ -691,7 +695,7 @@ responderów OCSP przesłanych w rozszerzeniach AIA (Authority Information Acces
 
 flaga respondera OCSP
 
-aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
+Aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
 
 Aby wyspecyfikować kilka flag należy użyć I<OCSPflag> wielokrotnie.
@@ -717,7 +721,7 @@ programu I<stunnel> i biblioteki I<OpenSSL>.
 Aby wyspecyfikować kilka opcji należy użyć I<options> wielokrotnie.
 Nazwa opcji może być poprzedzona myślnikiem ("-") celem wyłączenia opcji.
 
-Na przykład, dla zachowania kompatybilności z błędami implementacji SSL
+Na przykład, dla zachowania kompatybilności z błędami implementacji TLS
 w programie Eudora, można użyć opcji:
 
     options = DONT_INSERT_EMPTY_FRAGMENTS
@@ -729,11 +733,11 @@ domyślnie:
 
 =item B<protocol> = PROTOKÓŁ
 
-negocjuj SSL podanym protokołem aplikacyjnym
+negocjuj TLS podanym protokołem aplikacyjnym
 
-Opcja ta włącza wstępną negocjację szyfrowania SSL dla wybranego protokołu
+Opcja ta włącza wstępną negocjację szyfrowania TLS dla wybranego protokołu
 aplikacyjnego.
-Opcji I<protocol> nie należy używać z szyfrowaniem SSL na osobnym porcie.
+Opcji I<protocol> nie należy używać z szyfrowaniem TLS na osobnym porcie.
 
 Aktualnie wspierane protokoły:
 
@@ -741,7 +745,7 @@ Aktualnie wspierane protokoły:
 
 =item I<cifs>
 
-Unieudokumentowane rozszerzenie protokołu CIFS wspierane przez serwer Samba.
+Nieudokumentowane rozszerzenie protokołu CIFS wspierane przez serwer Samba.
 Wsparcie dla tego rozrzeczenia zostało zarzucone w wersji 3.0.0 serwera Samba.
 
 =item I<connect>
@@ -779,7 +783,7 @@ Negocjacja RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
 =item I<socks>
 
 Wspierany jest protokół SOCKS w wersjach 4, 4a i 5.
-Protokół SOCKS enkapsulowany jest w protokole SSL/TLS, więc adres serwera
+Protokół SOCKS enkapsulowany jest w protokole TLS, więc adres serwera
 docelowego nie jest widoczny dla napastnika przechwytującego ruch sieciowy.
 
 F<http://www.openssh.com/txt/socks4.protocol>
@@ -816,7 +820,7 @@ W obecnej wersji wybrana domena ma zastosowanie wyłącznie w protokole 'connect
 
 adres docelowy do negocjacji protokołu
 
-I<protocolHost> określa docelowy serwer SSL, do którego połączyć ma się proxy.
+I<protocolHost> określa docelowy serwer TLS, do którego połączyć ma się proxy.
 Nie jest to adres serwera proxy, do którego połączenie zestawia B<stunnel>.
 Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.
 
@@ -869,17 +873,16 @@ Część negocjacji protokołów jest niekompatybilna z opcją I<redirect>.
 
 =item B<renegotiation> = yes | no
 
-pozwalaj na renegocjację SSL
+pozwalaj na renegocjację TLS
 
-Wśród zastosowań renegocjacji SSL są niektóre scenariusze uwierzytelnienia,
-oraz renegocjacja kluczy dla długotrwałych połączeń.
+Zastosowania renegocjacji TLS zawierają niektóre scenariusze uwierzytelniania oraz renegocjację kluczy dla długotrwałych połączeń.
 
 Z drugiej strony własność na może ułatwić trywialny atak DoS poprzez
 wygenerowanie obciążenia procesora:
 
 http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html
 
-Warto zauważyć, że zablokowanie renegocjacji SSL nie zebezpiecza w pełni
+Warto zauważyć, że zablokowanie renegocjacji TLS nie zebezpiecza w pełni
 przed opisanym problemem.
 
 domyślnie: yes (o ile wspierane przez B<OpenSSL>)
@@ -928,7 +931,7 @@ Jako opcja usługi: właściciel gniazda Unix utworzonego przy pomocy opcji "acc
 
 =item B<sessionCacheSize> = LICZBA_POZYCJI_CACHE
 
-rozmiar pamięci podręcznej sesji SSL
+rozmiar pamięci podręcznej sesji TLS
 
 Parametr określa maksymalną liczbę pozycji wewnętrznej pamięci podręcznej
 sesji.
@@ -939,14 +942,14 @@ RAM.
 
 =item B<sessionCacheTimeout> = LICZBA_SEKUND
 
-przeterminowanie pamięci podręcznej sesji SSL
+przeterminowanie pamięci podręcznej sesji TLS
 
-Parametr określa czas w sekundach, po którym sesja SSL zostanie usunięta z
+Parametr określa czas w sekundach, po którym sesja TLS zostanie usunięta z
 pamięci podręcznej.
 
 =item B<sessiond> = HOST:PORT
 
-adres sessiond - servera cache sesji SSL
+adres sessiond - servera cache sesji TLS
 
 =item B<sni> = NAZWA_USŁUGI:WZORZEC_NAZWY_SERWERA (tryb serwera)
 
@@ -984,7 +987,7 @@ Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
 =item B<sslVersion> = WERSJA_SSL
 
-wersja protokołu SSL
+wersja protokołu TLS
 
 Wspierane opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 
@@ -1259,7 +1262,7 @@ albo w trybie zdalnym:
     connect = 143
 
 Aby umożliwić lokalnemu klientowi poczty elektronicznej korzystanie z serwera
-I<imapd> przez SSL należy skonfigurować pobieranie poczty z adresu localhost i
+I<imapd> przez TLS należy skonfigurować pobieranie poczty z adresu localhost i
 portu 119, oraz użyć następującej konfiguracji:
 
     [imap]
@@ -1335,7 +1338,7 @@ B<stunnel> nie może być używany do szyfrowania protokołu I<FTP>,
 ponieważ do przesyłania poszczególnych plików używa on dodatkowych
 połączeń otwieranych na portach o dynamicznie przydzielanych numerach.
 Istnieją jednak specjalne wersje klientów i serwerów FTP pozwalające
-na szyfrowanie przesyłanych danych przy pomocy protokołu I<SSL>.
+na szyfrowanie przesyłanych danych przy pomocy protokołu I<TLS>.
 
 =head2 TRYB INETD (tylko Unix)
 
@@ -1362,7 +1365,7 @@ I<PRZYKŁADY>.
 
 =head2 CERTYFIKATY
 
-Protokół SSL wymaga, aby każdy serwer przedstawiał się nawiązującemu
+Protokół TLS wymaga, aby każdy serwer przedstawiał się nawiązującemu
 połączenie klientowi prawidłowym certyfikatem X.509.
 Potwierdzenie tożsamości serwera polega na wykazaniu, że posiada on
 odpowiadający certyfikatowi klucz prywatny.
@@ -1390,7 +1393,7 @@ następującą postać:
 =head2 LOSOWOŚĆ
 
 B<stunnel> potrzebuje zainicjować PRNG (generator liczb pseudolosowych),
-gdyż protokół SSL wymaga do bezpieczeństwa kryptograficznego źródła
+gdyż protokół TLS wymaga do bezpieczeństwa kryptograficznego źródła
 dobrej losowości.  Następujące źródła są kolejno odczytywane aż do
 uzyskania  wystarczającej ilości entropii:
 
@@ -1432,12 +1435,6 @@ programu.
 Urządzenie /dev/urandom.
 
 =back
-
-Współczesne (B<0.9.5a> lub nowsze) wersje biblioteki B<OpenSSL> automatycznie
-zaprzestają ładowania kolejnych danych w momencie uzyskania wystarczającej
-ilości entropii.  Wcześniejsze wersje biblioteki wykorzystają wszystkie
-powyższe źródła, gdyż nie istnieje tam funkcja pozwalająca określić, czy
-uzyskano już wystarczająco dużo danych.
 
 Warto zwrócić uwagę, że na maszynach z systemem Windows, na których
 konsoli nie pracuje użytkownik, zawartość ekranu nie jest wystarczająco

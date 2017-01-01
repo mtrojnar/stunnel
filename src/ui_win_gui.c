@@ -55,7 +55,7 @@
 #define STUNNEL_PLATFORM "Win32"
 #endif
 #define SERVICE_NAME TEXT("stunnel")
-#define SERVICE_DISPLAY_NAME TEXT("Stunnel SSL wrapper")
+#define SERVICE_DISPLAY_NAME TEXT("Stunnel TLS wrapper")
 #endif
 
 /* mingw-Patches-1825044 is missing in Debian Squeeze */
@@ -899,7 +899,8 @@ NOEXPORT void daemon_thread(void *arg) {
     SetEvent(main_initialized); /* unlock the GUI thread */
     /* get a valid configuration */
     while(main_configure(cmdline.config_file, NULL)) {
-        cmdline.config_file=NULL; /* don't retry commandline switches */
+        if(cmdline.config_file && *cmdline.config_file=='-')
+            cmdline.config_file=NULL; /* don't retry commandline switches */
         unbind_ports(); /* in case initialization failed after bind_ports() */
         log_flush(LOG_MODE_ERROR); /* otherwise logs are buffered */
         PostMessage(hwnd, WM_INVALID_CONFIG, 0, 0); /* display error */

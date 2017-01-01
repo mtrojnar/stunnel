@@ -71,14 +71,14 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2016.11.26" "5.38" "stunnel TLS Proxy"
+.TH stunnel 8 "2016.12.13" "5.39" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .SH "NAZWA"
 .IX Header "NAZWA"
-stunnel \- uniwersalny tunel protokołu \s-1SSL\s0
+stunnel \- uniwersalny tunel protokołu \s-1TLS\s0
 .SH "SKŁADNIA"
 .IX Header "SKŁADNIA"
 .IP "\fBUnix:\fR" 4
@@ -91,14 +91,14 @@ stunnel \- uniwersalny tunel protokołu \s-1SSL\s0
     \-help | \-version | \-sockets | \-options
 .SH "OPIS"
 .IX Header "OPIS"
-Program \fBstunnel\fR został zaprojektowany do opakowywania w protokół \fI\s-1SSL\s0\fR
+Program \fBstunnel\fR został zaprojektowany do opakowywania w protokół \fI\s-1TLS\s0\fR
 połączeń pomiędzy zdalnymi klientami a lokalnymi lub zdalnymi serwerami.
 Przez serwer lokalny rozumiana jest aplikacja przeznaczona do uruchamiania
 przy pomocy \fIinetd\fR.
 Stunnel pozwala na proste zestawienie komunikacji serwerów nie posiadających
-funkcjonalności \fI\s-1SSL\s0\fR poprzez bezpieczne kanały \fI\s-1SSL\s0\fR.
+funkcjonalności \fI\s-1TLS\s0\fR poprzez bezpieczne kanały \fI\s-1TLS\s0\fR.
 .PP
-\&\fBstunnel\fR pozwala dodać funkcjonalność \fI\s-1SSL\s0\fR do powszechnie stosowanych
+\&\fBstunnel\fR pozwala dodać funkcjonalność \fI\s-1TLS\s0\fR do powszechnie stosowanych
 demonów \fIinetd\fR, np. \fIpop3\fR lub \fIimap\fR, do samodzielnych demonów,
 np. \fInntp\fR, \fIsmtp\fR lub \fIhttp\fR, a nawet tunelować ppp poprzez gniazda sieciowe
 bez zmian w kodzie źródłowym.
@@ -121,7 +121,7 @@ drukuj wersję programu i domyślne wartości parametrów
 drukuj domyślne opcje gniazd
 .IP "\fB\-options\fR" 4
 .IX Item "-options"
-drukuj wspierane opcje \s-1SSL\s0
+drukuj wspierane opcje \s-1TLS\s0
 .IP "\fB\-install\fR (tylko Windows \s-1NT\s0 lub nowszy)" 4
 .IX Item "-install (tylko Windows NT lub nowszy)"
 instaluj serwis \s-1NT\s0
@@ -195,9 +195,6 @@ wybór algorytmu kompresji przesyłanych danych
 domyślnie: bez kompresji
 .Sp
 Algorytm deflate jest standardową metodą kompresji zgodnie z \s-1RFC 1951.\s0
-.Sp
-Kompresja zlib zaimplementowana w \fBOpenSSL 0.9.8\fR i nowszych nie jest
-kompatybilna implementacją \fBOpenSSL 0.9.7\fR.
 .IP "\fBdebug\fR = [\s-1PODSYSTEM\s0].POZIOM" 4
 .IX Item "debug = [PODSYSTEM].POZIOM"
 szczegółowość logowania
@@ -219,7 +216,7 @@ Wielkość liter jest ignorowana zarówno dla poziomu jak podsystemu.
 .Sp
 Opcja pozwala określić ścieżkę do gniazda programu Entropy Gathering Daemon
 używanego do zainicjalizowania generatora ciągów pseudolosowych biblioteki
-\&\fBOpenSSL\fR.  Opcja jest dostępna z biblioteką \fBOpenSSL 0.9.5a\fR lub nowszą.
+\&\fBOpenSSL\fR.
 .IP "\fBengine\fR = auto | IDENTYFIKATOR_URZĄDZENIA" 4
 .IX Item "engine = auto | IDENTYFIKATOR_URZĄDZENIA"
 wybór sprzętowego urządzenia kryptograficznego
@@ -290,10 +287,9 @@ ikonka wyświetlana przy braku aktywnych połączeń do usługi
 W systemie Windows ikonka to plik .ico zawierający obrazek 16x16 pikseli.
 .IP "\fBlog\fR = append | overwrite" 4
 .IX Item "log = append | overwrite"
-log file handling
+obsługa logów
 .Sp
-This option allows to choose whether the log file (specified with the \fIoutput\fR
-option) is appended or overwritten when opened or re-opened.
+Ta opcja pozwala określić, czy nowe logi w pliku (określonym w opcji \fIoutput\fR) będą dodawane czy nadpisywane.
 .Sp
 domyślnie: append
 .IP "\fBoutput\fR = \s-1PLIK\s0" 4
@@ -302,25 +298,20 @@ plik, do którego dopisane zostaną logi
 .Sp
 Użycie tej opcji powoduje dopisanie logów do podanego pliku.
 .Sp
-Do kierowaniakomunikatów na standardowe wyjście (na przykład po to, żeby
+Do kierowania komunikatów na standardowe wyjście (na przykład po to, żeby
 zalogować je programem splogger z pakietu daemontools) można podać jako
 parametr urządzenie /dev/stdout.
 .IP "\fBpid\fR = \s-1PLIK \s0(tylko Unix)" 4
 .IX Item "pid = PLIK (tylko Unix)"
 położenie pliku z numerem procesu
 .Sp
-Jeżeli argument jest pusty plik nie zostanie stworzony.
+Jeżeli argument jest pusty, plik nie zostanie stworzony.
 .Sp
 Jeżeli zdefiniowano katalog \fIchroot\fR, to ścieżka do \fIpid\fR jest określona
 względem tego katalogu.
 .IP "\fBRNDbytes\fR = LICZBA_BAJTÓW" 4
 .IX Item "RNDbytes = LICZBA_BAJTÓW"
 liczba bajtów do zainicjowania generatora pseudolosowego
-.Sp
-W wersjach biblioteki \fBOpenSSL\fR starszych niż \fB0.9.5a\fR opcja ta określa
-również liczbę bajtów wystarczających do zainicjowania \s-1PRNG.\s0
-Nowsze wersje biblioteki mają wbudowaną funkcję określającą, czy
-dostarczona ilość losowości jest wystarczająca do zainicjowania generatora.
 .IP "\fBRNDfile\fR = \s-1PLIK\s0" 4
 .IX Item "RNDfile = PLIK"
 ścieżka do pliku zawierającego losowe dane
@@ -461,13 +452,13 @@ pomocy \fBcheckIP\fR.
 Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 .IP "\fBciphers\fR = LISTA_SZYFRÓW" 4
 .IX Item "ciphers = LISTA_SZYFRÓW"
-lista dozwolonych szyfrów \s-1SSL\s0
+lista dozwolonych szyfrów \s-1TLS\s0
 .Sp
 Parametrem tej opcji jest lista szyfrów, które będą użyte przy
-otwieraniu nowych połączeń \s-1SSL,\s0 np.:  \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
+otwieraniu nowych połączeń \s-1TLS,\s0 np.:  \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
 .IP "\fBclient\fR = yes | no" 4
 .IX Item "client = yes | no"
-tryb kliencki (zdalna usługa używa \s-1SSL\s0)
+tryb kliencki (zdalna usługa używa \s-1TLS\s0)
 .Sp
 domyślnie: no (tryb serwerowy)
 .IP "\fBconfig\fR = KOMENDA[:PARAMETR]" 4
@@ -547,6 +538,9 @@ analizie logów.
 Identyfikator wątku systemu operacyjnego nie jest ani unikalny (nawet w obrębie
 pojedynczej instancji programu \fBstunnel\fR), ani krótki.  Jest on szczególnie
 użyteczny przy diagnozowaniu problemów z oprogramowaniem lub konfiguracją.
+.IP "\fIprocess\fR" 4
+.IX Item "process"
+Identyfikator procesu (\s-1PID\s0) może być użyteczny w trybie inetd.
 .RE
 .RS 4
 .Sp
@@ -603,13 +597,18 @@ Argumenty są rozdzielone dowolną liczbą białych znaków.
 .IP "\fBfailover\fR = rr | prio" 4
 .IX Item "failover = rr | prio"
 Strategia wybierania serwerów wyspecyfikowanych parametrami \*(L"connect\*(R".
-.Sp
-.Vb 2
-\&    rr (round robin) \- sprawiedliwe rozłożenie obciążenia
-\&    prio (priority) \- użyj kolejności opcji w pliku konfiguracyjnym
-.Ve
+.RS 4
+.IP "\fIrr\fR" 4
+.IX Item "rr"
+round robin \- sprawiedliwe rozłożenie obciążenia
+.IP "\fIprio\fR" 4
+.IX Item "prio"
+priority \- użyj kolejności opcji w pliku konfiguracyjnym
+.RE
+.RS 4
 .Sp
 domyślnie: rr
+.RE
 .IP "\fBident\fR = NAZWA_UŻYTKOWNIKA" 4
 .IX Item "ident = NAZWA_UŻYTKOWNIKA"
 weryfikuj nazwę zdalnego użytkownika korzystając z protokołu \s-1IDENT \s0(\s-1RFC 1413\s0)
@@ -659,7 +658,7 @@ responderów \s-1OCSP\s0 przesłanych w rozszerzeniach \s-1AIA \s0(Authority Inf
 .IX Item "OCSPflag = FLAGA_OCSP"
 flaga respondera \s-1OCSP\s0
 .Sp
-aktualnie wspierane flagi: \s-1NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
+Aktualnie wspierane flagi: \s-1NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME\s0
 .Sp
 Aby wyspecyfikować kilka flag należy użyć \fIOCSPflag\fR wielokrotnie.
@@ -683,7 +682,7 @@ programu \fIstunnel\fR i biblioteki \fIOpenSSL\fR.
 Aby wyspecyfikować kilka opcji należy użyć \fIoptions\fR wielokrotnie.
 Nazwa opcji może być poprzedzona myślnikiem (\*(L"\-\*(R") celem wyłączenia opcji.
 .Sp
-Na przykład, dla zachowania kompatybilności z błędami implementacji \s-1SSL\s0
+Na przykład, dla zachowania kompatybilności z błędami implementacji \s-1TLS\s0
 w programie Eudora, można użyć opcji:
 .Sp
 .Vb 1
@@ -698,17 +697,17 @@ domyślnie:
 .Ve
 .IP "\fBprotocol\fR = PROTOKÓŁ" 4
 .IX Item "protocol = PROTOKÓŁ"
-negocjuj \s-1SSL\s0 podanym protokołem aplikacyjnym
+negocjuj \s-1TLS\s0 podanym protokołem aplikacyjnym
 .Sp
-Opcja ta włącza wstępną negocjację szyfrowania \s-1SSL\s0 dla wybranego protokołu
+Opcja ta włącza wstępną negocjację szyfrowania \s-1TLS\s0 dla wybranego protokołu
 aplikacyjnego.
-Opcji \fIprotocol\fR nie należy używać z szyfrowaniem \s-1SSL\s0 na osobnym porcie.
+Opcji \fIprotocol\fR nie należy używać z szyfrowaniem \s-1TLS\s0 na osobnym porcie.
 .Sp
 Aktualnie wspierane protokoły:
 .RS 4
 .IP "\fIcifs\fR" 4
 .IX Item "cifs"
-Unieudokumentowane rozszerzenie protokołu \s-1CIFS\s0 wspierane przez serwer Samba.
+Nieudokumentowane rozszerzenie protokołu \s-1CIFS\s0 wspierane przez serwer Samba.
 Wsparcie dla tego rozrzeczenia zostało zarzucone w wersji 3.0.0 serwera Samba.
 .IP "\fIconnect\fR" 4
 .IX Item "connect"
@@ -738,7 +737,7 @@ Negocjacja \s-1RFC 2487 \- \s0\fI\s-1SMTP\s0 Service Extension for Secure \s-1SM
 .IP "\fIsocks\fR" 4
 .IX Item "socks"
 Wspierany jest protokół \s-1SOCKS\s0 w wersjach 4, 4a i 5.
-Protokół \s-1SOCKS\s0 enkapsulowany jest w protokole \s-1SSL/TLS,\s0 więc adres serwera
+Protokół \s-1SOCKS\s0 enkapsulowany jest w protokole \s-1TLS,\s0 więc adres serwera
 docelowego nie jest widoczny dla napastnika przechwytującego ruch sieciowy.
 .Sp
 \&\fIhttp://www.openssh.com/txt/socks4.protocol\fR
@@ -773,7 +772,7 @@ W obecnej wersji wybrana domena ma zastosowanie wyłącznie w protokole 'connect
 .IX Item "protocolHost = HOST:PORT"
 adres docelowy do negocjacji protokołu
 .Sp
-\&\fIprotocolHost\fR określa docelowy serwer \s-1SSL,\s0 do którego połączyć ma się proxy.
+\&\fIprotocolHost\fR określa docelowy serwer \s-1TLS,\s0 do którego połączyć ma się proxy.
 Nie jest to adres serwera proxy, do którego połączenie zestawia \fBstunnel\fR.
 Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.
 .Sp
@@ -821,17 +820,16 @@ Opcja działa wyłącznie w trybie serwera.
 Część negocjacji protokołów jest niekompatybilna z opcją \fIredirect\fR.
 .IP "\fBrenegotiation\fR = yes | no" 4
 .IX Item "renegotiation = yes | no"
-pozwalaj na renegocjację \s-1SSL\s0
+pozwalaj na renegocjację \s-1TLS\s0
 .Sp
-Wśród zastosowań renegocjacji \s-1SSL\s0 są niektóre scenariusze uwierzytelnienia,
-oraz renegocjacja kluczy dla długotrwałych połączeń.
+Zastosowania renegocjacji \s-1TLS\s0 zawierają niektóre scenariusze uwierzytelniania oraz renegocjację kluczy dla długotrwałych połączeń.
 .Sp
 Z drugiej strony własność na może ułatwić trywialny atak DoS poprzez
 wygenerowanie obciążenia procesora:
 .Sp
 http://vincent.bernat.im/en/blog/2011\-ssl\-dos\-mitigation.html
 .Sp
-Warto zauważyć, że zablokowanie renegocjacji \s-1SSL\s0 nie zebezpiecza w pełni
+Warto zauważyć, że zablokowanie renegocjacji \s-1TLS\s0 nie zebezpiecza w pełni
 przed opisanym problemem.
 .Sp
 domyślnie: yes (o ile wspierane przez \fBOpenSSL\fR)
@@ -874,7 +872,7 @@ Jako opcja globalna: użytkownik, z którego prawami pracował będzie \fBstunne
 Jako opcja usługi: właściciel gniazda Unix utworzonego przy pomocy opcji \*(L"accept\*(R".
 .IP "\fBsessionCacheSize\fR = \s-1LICZBA_POZYCJI_CACHE\s0" 4
 .IX Item "sessionCacheSize = LICZBA_POZYCJI_CACHE"
-rozmiar pamięci podręcznej sesji \s-1SSL\s0
+rozmiar pamięci podręcznej sesji \s-1TLS\s0
 .Sp
 Parametr określa maksymalną liczbę pozycji wewnętrznej pamięci podręcznej
 sesji.
@@ -884,13 +882,13 @@ systemów produkcyjnych z uwagi na ryzyko ataku DoS przez wyczerpanie pamięci
 \&\s-1RAM.\s0
 .IP "\fBsessionCacheTimeout\fR = \s-1LICZBA_SEKUND\s0" 4
 .IX Item "sessionCacheTimeout = LICZBA_SEKUND"
-przeterminowanie pamięci podręcznej sesji \s-1SSL\s0
+przeterminowanie pamięci podręcznej sesji \s-1TLS\s0
 .Sp
-Parametr określa czas w sekundach, po którym sesja \s-1SSL\s0 zostanie usunięta z
+Parametr określa czas w sekundach, po którym sesja \s-1TLS\s0 zostanie usunięta z
 pamięci podręcznej.
 .IP "\fBsessiond\fR = \s-1HOST:PORT\s0" 4
 .IX Item "sessiond = HOST:PORT"
-adres sessiond \- servera cache sesji \s-1SSL\s0
+adres sessiond \- servera cache sesji \s-1TLS\s0
 .IP "\fBsni\fR = NAZWA_USŁUGI:WZORZEC_NAZWY_SERWERA (tryb serwera)" 4
 .IX Item "sni = NAZWA_USŁUGI:WZORZEC_NAZWY_SERWERA (tryb serwera)"
 Użyj usługi jako podrzędnej (virtualnego serwera) dla rozszerzenia \s-1TLS\s0 Server
@@ -925,7 +923,7 @@ Pusta wartość parametru \s-1NAZWA_SERWERA\s0 wyłącza wysyłanie rozszerzenia
 Opcja \fIsni\fR jest dostępna począwszy od \fBOpenSSL 1.0.0\fR.
 .IP "\fBsslVersion\fR = \s-1WERSJA_SSL\s0" 4
 .IX Item "sslVersion = WERSJA_SSL"
-wersja protokołu \s-1SSL\s0
+wersja protokołu \s-1TLS\s0
 .Sp
 Wspierane opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 .Sp
@@ -1160,7 +1158,7 @@ albo w trybie zdalnym:
 .Ve
 .PP
 Aby umożliwić lokalnemu klientowi poczty elektronicznej korzystanie z serwera
-\&\fIimapd\fR przez \s-1SSL\s0 należy skonfigurować pobieranie poczty z adresu localhost i
+\&\fIimapd\fR przez \s-1TLS\s0 należy skonfigurować pobieranie poczty z adresu localhost i
 portu 119, oraz użyć następującej konfiguracji:
 .PP
 .Vb 4
@@ -1249,7 +1247,7 @@ Przykładowa konfiguracja serwera \s-1SNI:\s0
 ponieważ do przesyłania poszczególnych plików używa on dodatkowych
 połączeń otwieranych na portach o dynamicznie przydzielanych numerach.
 Istnieją jednak specjalne wersje klientów i serwerów \s-1FTP\s0 pozwalające
-na szyfrowanie przesyłanych danych przy pomocy protokołu \fI\s-1SSL\s0\fR.
+na szyfrowanie przesyłanych danych przy pomocy protokołu \fI\s-1TLS\s0\fR.
 .SS "\s-1TRYB INETD \s0(tylko Unix)"
 .IX Subsection "TRYB INETD (tylko Unix)"
 W większości zastosowań \fBstunnel\fR samodzielnie nasłuchuje na porcie
@@ -1276,7 +1274,7 @@ globalnymi.  Przykład takiej konfiguracji znajduje się w sekcji
 \&\fIPRZYKŁADY\fR.
 .SS "\s-1CERTYFIKATY\s0"
 .IX Subsection "CERTYFIKATY"
-Protokół \s-1SSL\s0 wymaga, aby każdy serwer przedstawiał się nawiązującemu
+Protokół \s-1TLS\s0 wymaga, aby każdy serwer przedstawiał się nawiązującemu
 połączenie klientowi prawidłowym certyfikatem X.509.
 Potwierdzenie tożsamości serwera polega na wykazaniu, że posiada on
 odpowiadający certyfikatowi klucz prywatny.
@@ -1305,7 +1303,7 @@ następującą postać:
 .SS "LOSOWOŚĆ"
 .IX Subsection "LOSOWOŚĆ"
 \&\fBstunnel\fR potrzebuje zainicjować \s-1PRNG \s0(generator liczb pseudolosowych),
-gdyż protokół \s-1SSL\s0 wymaga do bezpieczeństwa kryptograficznego źródła
+gdyż protokół \s-1TLS\s0 wymaga do bezpieczeństwa kryptograficznego źródła
 dobrej losowości.  Następujące źródła są kolejno odczytywane aż do
 uzyskania  wystarczającej ilości entropii:
 .IP "\(bu" 4
@@ -1327,12 +1325,6 @@ Gniazdo egd podane w opcji '\-\-with\-egd\-socket' w czasie konfiguracji
 programu.
 .IP "\(bu" 4
 Urządzenie /dev/urandom.
-.PP
-Współczesne (\fB0.9.5a\fR lub nowsze) wersje biblioteki \fBOpenSSL\fR automatycznie
-zaprzestają ładowania kolejnych danych w momencie uzyskania wystarczającej
-ilości entropii.  Wcześniejsze wersje biblioteki wykorzystają wszystkie
-powyższe źródła, gdyż nie istnieje tam funkcja pozwalająca określić, czy
-uzyskano już wystarczająco dużo danych.
 .PP
 Warto zwrócić uwagę, że na maszynach z systemem Windows, na których
 konsoli nie pracuje użytkownik, zawartość ekranu nie jest wystarczająco

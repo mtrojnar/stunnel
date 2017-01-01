@@ -53,7 +53,8 @@ NOEXPORT void client_run(CLI *);
 NOEXPORT void local_start(CLI *);
 NOEXPORT void remote_start(CLI *);
 NOEXPORT void ssl_start(CLI *);
-NOEXPORT void cache_session(CLI *, SSL_SESSION *);
+NOEXPORT void session_cache_save(CLI *);
+NOEXPORT void session_cache_retrieve(CLI *);
 NOEXPORT void new_chain(CLI *);
 NOEXPORT void transfer(CLI *);
 NOEXPORT int parse_socket_error(CLI *, const char *);
@@ -66,8 +67,8 @@ NOEXPORT char **env_alloc(CLI *);
 NOEXPORT void env_free(char **);
 #endif
 NOEXPORT SOCKET connect_remote(CLI *);
-NOEXPORT void idx_cache_set(SSL_SESSION *, SOCKADDR_UNION *);
-NOEXPORT unsigned idx_cache_get(CLI *);
+NOEXPORT void idx_cache_save(SSL_SESSION *, SOCKADDR_UNION *);
+NOEXPORT unsigned idx_cache_retrieve(CLI *);
 NOEXPORT void connect_setup(CLI *);
 NOEXPORT int connect_init(CLI *c, int);
 NOEXPORT void print_bound_address(CLI *);
@@ -180,7 +181,7 @@ NOEXPORT void client_run(CLI *c) {
         client_try(c);
     rst=err==1 && c->opt->option.reset;
     s_log(LOG_NOTICE,
-        "Connection %s: %llu byte(s) sent to SSL, %llu byte(s) sent to socket",
+        "Connection %s: %llu byte(s) sent to TLS, %llu byte(s) sent to socket",
         rst ? "reset" : "closed",
         (unsigned long long)c->ssl_bytes, (unsigned long long)c->sock_bytes);
 
@@ -189,8 +190,8 @@ NOEXPORT void client_run(CLI *c) {
         closesocket(c->fd);
     c->fd=INVALID_SOCKET;
 
-        /* cleanup the SSL context */
-    if(c->ssl) { /* SSL initialized */
+        /* cleanup the TLS context */
+    if(c->ssl) { /* TLS initialized */
         SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         SSL_free(c->ssl);
         c->ssl=NULL;
@@ -253,6 +254,7 @@ NOEXPORT void client_run(CLI *c) {
 
         /* free the client context */
     str_free(c->connect_addr.addr);
+    /* we currently don't make a local copy of c->connect_addr.session */
     s_poll_free(c->fds);
     c->fds=NULL;
 }
@@ -392,18 +394,14 @@ NOEXPORT void ssl_start(CLI *c) {
             }
         }
 #endif
-        if(c->opt->session) {
-            CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
-            SSL_set_session(c->ssl, c->opt->session);
-            CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_SESSION]);
-        }
+        session_cache_retrieve(c);
         SSL_set_fd(c->ssl, (int)c->remote_fd.fd);
         SSL_set_connect_state(c->ssl);
-    } else { /* SSL server */
+    } else { /* TLS server */
         if(c->local_rfd.fd==c->local_wfd.fd)
             SSL_set_fd(c->ssl, (int)c->local_rfd.fd);
         else {
-           /* does it make sense to have SSL on STDIN/STDOUT? */
+           /* does it make sense to have TLS on STDIN/STDOUT? */
             SSL_set_rfd(c->ssl, (int)c->local_rfd.fd);
             SSL_set_wfd(c->ssl, (int)c->local_wfd.fd);
         }
@@ -475,7 +473,7 @@ NOEXPORT void ssl_start(CLI *c) {
             sslerror("SSL_accept");
         longjmp(c->err, 1);
     }
-    s_log(LOG_INFO, "SSL %s: %s",
+    s_log(LOG_INFO, "TLS %s: %s",
         c->opt->option.client ? "connected" : "accepted",
         SSL_session_reused(c->ssl) ?
             "previous session reused" : "new session negotiated");
@@ -496,22 +494,41 @@ NOEXPORT void ssl_start(CLI *c) {
         SSL_SESSION_set_ex_data(SSL_get_session(c->ssl),
             index_redirect, (void *)c->redirect);
         if(c->opt->option.client)
-            cache_session(c, SSL_get1_session(c->ssl));
-        else /* SSL server */
+            session_cache_save(c);
+        else /* TLS server */
             SSL_CTX_add_session(c->opt->ctx, SSL_get_session(c->ssl));
         print_cipher(c);
     }
 }
 
-NOEXPORT void cache_session(CLI *c, SSL_SESSION *new_session) {
-    SSL_SESSION *old_session;
+/* cache client sessions */
+NOEXPORT void session_cache_save(CLI *c) {
+    SSL_SESSION *old1, *old2;
 
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
-    old_session=c->opt->session;
-    c->opt->session=new_session;
+    /* per-destination client cache */
+    /* "parent->" part is added for future use (not currently needed) */
+    old1=c->connect_addr.parent->session[c->idx];
+    c->connect_addr.parent->session[c->idx]=SSL_get1_session(c->ssl);
+    /* per-section client cache (for delayed resolver) */
+    old2=c->opt->session;
+    c->opt->session=SSL_get1_session(c->ssl);
     CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_SESSION]);
-    if(old_session)
-        SSL_SESSION_free(old_session);
+    if(old1)
+        SSL_SESSION_free(old1);
+    if(old2)
+        SSL_SESSION_free(old2);
+}
+
+NOEXPORT void session_cache_retrieve(CLI *c) {
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SESSION]);
+    /* try per-destination cache first */
+    /* "parent->" part is added for future use (not currently needed) */
+    if(c->connect_addr.parent->session[c->idx])
+        SSL_set_session(c->ssl, c->connect_addr.parent->session[c->idx]);
+    else if(c->opt->session)
+        SSL_set_session(c->ssl, c->opt->session);
+    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_SESSION]);
 }
 
 NOEXPORT void new_chain(CLI *c) {
@@ -567,7 +584,7 @@ NOEXPORT void transfer(CLI *c) {
     int err;
     /* logical channels (not file descriptors!) open for read or write */
     int sock_open_rd=1, sock_open_wr=1;
-    /* awaited conditions on SSL file descriptors */
+    /* awaited conditions on TLS file descriptors */
     int shutdown_wants_read=0, shutdown_wants_write=0;
     int read_wants_read=0, read_wants_write=0;
     int write_wants_read=0, write_wants_write=0;
@@ -596,7 +613,7 @@ NOEXPORT void transfer(CLI *c) {
             s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
         if(sock_open_wr) /* only poll if the write file descriptor is open */
             s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr>0);
-        /* poll SSL file descriptors unless SSL shutdown was completed */
+        /* poll TLS file descriptors unless TLS shutdown was completed */
         if(SSL_get_shutdown(c->ssl)!=
                 (SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN)) {
             s_poll_add(c->fds, c->ssl_rfd->fd,
@@ -610,7 +627,7 @@ NOEXPORT void transfer(CLI *c) {
             (sock_open_rd && /* both peers open */
                 !(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)) ||
             c->ssl_ptr /* data buffered to write to socket */ ||
-            c->sock_ptr /* data buffered to write to SSL */ ?
+            c->sock_ptr /* data buffered to write to TLS */ ?
             c->opt->timeout_idle : c->opt->timeout_close, 0);
         switch(err) {
         case -1:
@@ -664,21 +681,21 @@ NOEXPORT void transfer(CLI *c) {
                     s_poll_err(c->fds, c->ssl_rfd->fd)) {
                 err=get_socket_error(c->ssl_rfd->fd);
                 if(err)
-                    s_log(LOG_ERR, "ssl fd: %s (%d)",
+                    s_log(LOG_ERR, "TLS fd: %s (%d)",
                         s_strerror(err), err);
             }
         } else {
             if(ssl_can_rd && s_poll_err(c->fds, c->ssl_rfd->fd)) {
                 err=get_socket_error(c->ssl_rfd->fd);
                 if(err)
-                    s_log(LOG_ERR, "ssl rfd: %s (%d)",
+                    s_log(LOG_ERR, "TLS rfd: %s (%d)",
                         s_strerror(err), err);
             }
             if(c->ssl_rfd->fd!=c->ssl_wfd->fd &&
                     ssl_can_wr && s_poll_err(c->fds, c->ssl_wfd->fd)) {
                 err=get_socket_error(c->ssl_wfd->fd);
                 if(err)
-                    s_log(LOG_ERR, "ssl wfd: %s (%d)",
+                    s_log(LOG_ERR, "TLS wfd: %s (%d)",
                         s_strerror(err), err);
             }
         }
@@ -699,11 +716,11 @@ NOEXPORT void transfer(CLI *c) {
                     s_poll_hup(c->fds, c->ssl_wfd->fd)) {
                 if(c->sock_ptr) {
                     s_log(LOG_ERR,
-                        "SSL socket closed (HUP) with %ld unsent byte(s)",
+                        "TLS socket closed (HUP) with %ld unsent byte(s)",
                         (long)c->sock_ptr);
                     longjmp(c->err, 1); /* reset the sockets */
                 }
-                s_log(LOG_INFO, "SSL socket closed (HUP)");
+                s_log(LOG_INFO, "TLS socket closed (HUP)");
                 SSL_set_shutdown(c->ssl,
                     SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
             }
@@ -714,7 +731,7 @@ NOEXPORT void transfer(CLI *c) {
             longjmp(c->err, 1);
         }
 
-        /****************************** send SSL close_notify alert */
+        /****************************** send TLS close_notify alert */
         if(shutdown_wants_read || shutdown_wants_write) {
             num=SSL_shutdown(c->ssl); /* send close_notify alert */
             if(num<0) /* -1 - not completed */
@@ -742,7 +759,7 @@ NOEXPORT void transfer(CLI *c) {
                 shutdown_wants_read=1;
                 shutdown_wants_write=0;
                 break;
-            case SSL_ERROR_SSL: /* SSL error */
+            case SSL_ERROR_SSL: /* TLS error */
                 sslerror("SSL_shutdown");
                 longjmp(c->err, 1);
             default:
@@ -799,7 +816,7 @@ NOEXPORT void transfer(CLI *c) {
         write_wants_write|=!(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN)
             && c->sock_ptr && !write_wants_read;
 
-        /****************************** write to SSL */
+        /****************************** write to TLS */
         if((write_wants_read && ssl_can_rd) ||
                 (write_wants_write && ssl_can_wr)) {
             write_wants_read=0;
@@ -834,18 +851,18 @@ NOEXPORT void transfer(CLI *c) {
                 if(num && parse_socket_error(c, "SSL_write"))
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
-                 * SSL socket closed without close_notify alert */
+                 * TLS socket closed without close_notify alert */
                 if(c->sock_ptr) { /* TODO: what about buffered data? */
                     s_log(LOG_ERR,
-                        "SSL socket closed (SSL_write) with %ld unsent byte(s)",
+                        "TLS socket closed (SSL_write) with %ld unsent byte(s)",
                         (long)c->sock_ptr);
                     longjmp(c->err, 1); /* reset the sockets */
                 }
-                s_log(LOG_INFO, "SSL socket closed (SSL_write)");
+                s_log(LOG_INFO, "TLS socket closed (SSL_write)");
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify alert received */
-                s_log(LOG_INFO, "SSL closed (SSL_write)");
+                s_log(LOG_INFO, "TLS closed (SSL_write)");
                 if(SSL_version(c->ssl)==SSL2_VERSION)
                     SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
@@ -858,7 +875,7 @@ NOEXPORT void transfer(CLI *c) {
             }
         }
 
-        /****************************** read from SSL */
+        /****************************** read from TLS */
         if((read_wants_read && (ssl_can_rd || SSL_pending(c->ssl))) ||
                 /* it may be possible to read some pending data after
                  * writesocket() above made some room in c->ssl_buff */
@@ -893,19 +910,19 @@ NOEXPORT void transfer(CLI *c) {
                 if(num && parse_socket_error(c, "SSL_read"))
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
-                 * SSL socket closed without close_notify alert */
+                 * TLS socket closed without close_notify alert */
                 if(c->sock_ptr || write_wants_write) {
                     s_log(LOG_ERR,
-                        "SSL socket closed (SSL_read) with %ld unsent byte(s)",
+                        "TLS socket closed (SSL_read) with %ld unsent byte(s)",
                         (long)c->sock_ptr);
                     longjmp(c->err, 1); /* reset the sockets */
                 }
-                s_log(LOG_INFO, "SSL socket closed (SSL_read)");
+                s_log(LOG_INFO, "TLS socket closed (SSL_read)");
                 SSL_set_shutdown(c->ssl,
                     SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_ZERO_RETURN: /* close_notify alert received */
-                s_log(LOG_INFO, "SSL closed (SSL_read)");
+                s_log(LOG_INFO, "TLS closed (SSL_read)");
                 if(SSL_version(c->ssl)==SSL2_VERSION)
                     SSL_set_shutdown(c->ssl,
                         SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
@@ -942,8 +959,8 @@ NOEXPORT void transfer(CLI *c) {
                 s_poll_rdhup(c->fds, c->ssl_rfd->fd) &&
                 (ioctlsocket(c->ssl_rfd->fd, FIONREAD, &bytes) || !bytes)) {
             /* hangup -> buggy (e.g. Microsoft) peer:
-             * SSL socket closed without close_notify alert */
-            s_log(LOG_INFO, "SSL socket closed (read hangup)");
+             * TLS socket closed without close_notify alert */
+            s_log(LOG_INFO, "TLS socket closed (read hangup)");
             SSL_set_shutdown(c->ssl,
                 SSL_get_shutdown(c->ssl)|SSL_RECEIVED_SHUTDOWN);
         }
@@ -951,11 +968,11 @@ NOEXPORT void transfer(CLI *c) {
                 s_poll_hup(c->fds, c->ssl_wfd->fd)) {
             if(c->sock_ptr || write_wants_write) {
                 s_log(LOG_ERR,
-                    "SSL socket closed (write hangup) with %ld unsent byte(s)",
+                    "TLS socket closed (write hangup) with %ld unsent byte(s)",
                     (long)c->sock_ptr);
                 longjmp(c->err, 1); /* reset the sockets */
             }
-            s_log(LOG_INFO, "SSL socket closed (write hangup)");
+            s_log(LOG_INFO, "TLS socket closed (write hangup)");
             SSL_set_shutdown(c->ssl,
                 SSL_get_shutdown(c->ssl)|SSL_SENT_SHUTDOWN);
         }
@@ -1016,7 +1033,7 @@ NOEXPORT void transfer(CLI *c) {
                 shutdown_wants_read ? "Y" : "n",
                 shutdown_wants_write ? "Y" : "n");
             s_log(LOG_ERR, "socket input buffer: %ld byte(s), "
-                "ssl input buffer: %ld byte(s)",
+                "TLS input buffer: %ld byte(s)",
                 (long)c->sock_ptr, (long)c->ssl_ptr);
             longjmp(c->err, 1);
         }
@@ -1332,7 +1349,7 @@ void env_free(char **env) {
 /* connect remote host */
 NOEXPORT SOCKET connect_remote(CLI *c) {
     SOCKET fd;
-    unsigned ind_start, ind_try, ind_cur;
+    unsigned idx_start, idx_try;
 
     connect_setup(c);
     switch(c->connect_addr.num) {
@@ -1340,21 +1357,21 @@ NOEXPORT SOCKET connect_remote(CLI *c) {
         s_log(LOG_ERR, "No remote host resolved");
         longjmp(c->err, 1);
     case 1:
-        ind_start=0;
+        idx_start=0;
         break;
     default:
-        ind_start=idx_cache_get(c);
+        idx_start=idx_cache_retrieve(c);
     }
 
     /* try to connect each host from the list */
-    for(ind_try=0; ind_try<c->connect_addr.num; ind_try++) {
-        ind_cur=(ind_start+ind_try)%c->connect_addr.num;
-        if(!connect_init(c, c->connect_addr.addr[ind_cur].sa.sa_family) &&
-                !s_connect(c, &c->connect_addr.addr[ind_cur],
-                    addr_len(&c->connect_addr.addr[ind_cur]))) {
+    for(idx_try=0; idx_try<c->connect_addr.num; idx_try++) {
+        c->idx=(idx_start+idx_try)%c->connect_addr.num;
+        if(!connect_init(c, c->connect_addr.addr[c->idx].sa.sa_family) &&
+                !s_connect(c, &c->connect_addr.addr[c->idx],
+                    addr_len(&c->connect_addr.addr[c->idx]))) {
             if(c->ssl)
-                idx_cache_set(SSL_get_session(c->ssl),
-                    &c->connect_addr.addr[ind_cur]);
+                idx_cache_save(SSL_get_session(c->ssl),
+                    &c->connect_addr.addr[c->idx]);
             print_bound_address(c);
             fd=c->fd;
             c->fd=INVALID_SOCKET;
@@ -1370,7 +1387,7 @@ NOEXPORT SOCKET connect_remote(CLI *c) {
     return INVALID_SOCKET; /* some C compilers require a return value */
 }
 
-NOEXPORT void idx_cache_set(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
+NOEXPORT void idx_cache_save(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
     SOCKADDR_UNION *old_addr, *new_addr;
     socklen_t len;
     char *addr_txt;
@@ -1391,7 +1408,7 @@ NOEXPORT void idx_cache_set(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
     str_free(old_addr); /* NULL pointers are ignored */
 }
 
-NOEXPORT unsigned idx_cache_get(CLI *c) {
+NOEXPORT unsigned idx_cache_retrieve(CLI *c) {
     unsigned i;
     SOCKADDR_UNION addr, *ptr;
     socklen_t len;
@@ -1426,8 +1443,8 @@ NOEXPORT unsigned idx_cache_get(CLI *c) {
 
     if(c->opt->failover==FAILOVER_RR) {
         /* the race condition here can be safely ignored */
-        i=*c->connect_addr.rr_ptr;
-        *c->connect_addr.rr_ptr=(i+1)%c->connect_addr.num;
+        i=c->connect_addr.parent->rr;
+        c->connect_addr.parent->rr=(i+1)%c->connect_addr.num;
         s_log(LOG_INFO, "failover: round-robin, starting at entry #%d", i);
     } else {
         i=0;
@@ -1469,6 +1486,8 @@ NOEXPORT int connect_init(CLI *c, int domain) {
 
     if(c->bind_addr) {
         /* setup bind_addr based on c->bind_addr */
+#if 0
+        /* IPv6 addresses converted from IPv4 cause timeouts */
 #ifdef USE_IPv6
         if(c->bind_addr->sa.sa_family==AF_INET && domain==AF_INET6) {
             /* convert the binding address from IPv4 to IPv6 */
@@ -1480,6 +1499,7 @@ NOEXPORT int connect_init(CLI *c, int domain) {
             memcpy((char *)&bind_addr.in6.sin6_addr+12,
                 &c->bind_addr->in.sin_addr, 4);
         } else /* just make a local copy */
+#endif
 #endif
             memcpy(&bind_addr, c->bind_addr, (size_t)addr_len(c->bind_addr));
         /* perform the initial sanity checks before creating a socket */

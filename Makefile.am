@@ -22,7 +22,7 @@ distcleancheck_listfiles = find -type f -exec sh -c 'test -f $(srcdir)/{} || ech
 
 distclean-local:
 	rm -rf autom4te.cache
-#	rm -f $(distdir)-installer.exe
+#	rm -f $(distdir)-win32-installer.exe
 
 #dist-hook:
 #	makensis -NOCD -DVERSION=${VERSION} \
@@ -31,10 +31,10 @@ distclean-local:
 #		$(srcdir)/tools/stunnel.nsi
 
 sign: dist
-	cp -f $(distdir).tar.gz $(distdir)-installer.exe $(distdir)-android.zip ../dist
-	gpg-agent --daemon /bin/sh -c "cd ../dist; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir).tar.gz; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir)-installer.exe; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir)-android.zip"
+	cp -f $(distdir).tar.gz $(distdir)-win32-installer.exe $(distdir)-android.zip ../dist
+	gpg-agent --daemon /bin/sh -c "cd ../dist; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir).tar.gz; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir)-win32-installer.exe; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir)-android.zip"
 	sha256sum $(distdir).tar.gz >../dist/$(distdir).tar.gz.sha256
-	sha256sum $(distdir)-installer.exe >../dist/$(distdir)-installer.exe.sha256
+	sha256sum $(distdir)-win32-installer.exe >../dist/$(distdir)-win32-installer.exe.sha256
 	sha256sum $(distdir)-android.zip >../dist/$(distdir)-android.zip.sha256
 	cat ../dist/$(distdir)*.sha256 | tac
 

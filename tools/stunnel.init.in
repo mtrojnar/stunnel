@@ -7,8 +7,8 @@
 # Should-Stop:       $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Start or stop stunnel 4.x (SSL tunnel for network daemons)
-# Description:       Starts or stops all configured SSL network tunnels. Each *.conf file in
+# Short-Description: Start or stop stunnel 4.x (TLS tunnel for network daemons)
+# Description:       Starts or stops all configured TLS network tunnels. Each *.conf file in
 #                    @sysconfdir@/stunnel/ will spawn a separate stunnel process. The list of files
 #                    can be overridden in @sysconfdir@/default/stunnel, and that same file can be used
 #                    to completely disable *all* tunnels.
@@ -24,7 +24,7 @@
 DEFAULTPIDFILE="/var/run/stunnel.pid"
 DAEMON=@bindir@/stunnel
 NAME=stunnel
-DESC="SSL tunnels"
+DESC="TLS tunnels"
 OPTIONS=""
 ENABLED=0
 

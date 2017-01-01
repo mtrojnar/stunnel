@@ -239,7 +239,7 @@
 /* Random file path */
 #undef RANDOM_FILE
 
-/* SSL directory */
+/* TLS directory */
 #undef SSLDIR
 
 /* Define to 1 if you have the ANSI C header files. */

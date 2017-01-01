@@ -69,9 +69,9 @@
 
 <a href="#_podtop_"><h1 id="DESCRIPTION">DESCRIPTION</h1></a>
 
-<p>The <b>stunnel</b> program is designed to work as <i>SSL</i> encryption wrapper between remote clients and local (<i>inetd</i>-startable) or remote servers. The concept is that having non-SSL aware daemons running on your system you can easily set them up to communicate with clients over secure SSL channels.</p>
+<p>The <b>stunnel</b> program is designed to work as <i>TLS</i> encryption wrapper between remote clients and local (<i>inetd</i>-startable) or remote servers. The concept is that having non-TLS aware daemons running on your system you can easily set them up to communicate with clients over secure <i>TLS</i> channels.</p>
 
-<p><b>stunnel</b> can be used to add SSL functionality to commonly used <i>Inetd</i> daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without changes to the source code.</p>
+<p><b>stunnel</b> can be used to add <i>TLS</i> functionality to commonly used <i>Inetd</i> daemons like POP-2, POP-3, and IMAP servers, to standalone daemons like NNTP, SMTP and HTTP, and in tunneling PPP over network sockets without changes to the source code.</p>
 
 <p>This product includes cryptographic software written by Eric Young (eay@cryptsoft.com)</p>
 
@@ -112,7 +112,7 @@
 <dt id="options"><b>-options</b></dt>
 <dd>
 
-<p>Print supported SSL options</p>
+<p>Print supported TLS options</p>
 
 </dd>
 <dt id="install-Windows-NT-and-later-only"><b>-install</b> (Windows NT and later only)</dt>
@@ -234,9 +234,7 @@
 
 <p>default: no compression</p>
 
-<p>deflate is the standard compression method as described in RFC 1951.</p>
-
-<p>zlib compression of <b>OpenSSL 0.9.8</b> or above is not backward compatible with <b>OpenSSL 0.9.7</b>.</p>
+<p>Deflate is the standard compression method as described in RFC 1951.</p>
 
 </dd>
 <dt id="debug-FACILITY.-LEVEL"><b>debug</b> = [FACILITY.]LEVEL</dt>
@@ -256,7 +254,7 @@
 
 <p>path to Entropy Gathering Daemon socket</p>
 
-<p>Entropy Gathering Daemon socket to use to feed the <b>OpenSSL</b> random number generator. (Available only if compiled with <b>OpenSSL 0.9.5a</b> or higher)</p>
+<p>Entropy Gathering Daemon socket to use to feed the <b>OpenSSL</b> random number generator.</p>
 
 </dd>
 <dt id="engine-auto-ENGINE_ID"><b>engine</b> = auto | ENGINE_ID</dt>
@@ -300,7 +298,7 @@
 <dt id="fips-yes-no"><b>fips</b> = yes | no</dt>
 <dd>
 
-<p>Enable or disable FIPS 140-2 mode.</p>
+<p>enable or disable FIPS 140-2 mode.</p>
 
 <p>This option allows you to disable entering FIPS mode if <b>stunnel</b> was compiled with FIPS 140-2 support.</p>
 
@@ -376,15 +374,13 @@
 
 <p>bytes to read from random seed files</p>
 
-<p>Number of bytes of data read from random seed files. With SSL versions less than <b>0.9.5a</b>, also determines how many bytes of data are considered sufficient to seed the PRNG. More recent <b>OpenSSL</b> versions have a builtin function to determine when sufficient randomness is available.</p>
-
 </dd>
 <dt id="RNDfile-FILE"><b>RNDfile</b> = FILE</dt>
 <dd>
 
 <p>path to file with random seed data</p>
 
-<p>The SSL library will use data from this file first to seed the random number generator.</p>
+<p>The OpenSSL library will use data from this file first to seed the random number generator.</p>
 
 </dd>
 <dt id="RNDoverwrite-yes-no"><b>RNDoverwrite</b> = yes | no</dt>
@@ -528,15 +524,15 @@
 <dt id="ciphers-CIPHER_LIST"><b>ciphers</b> = CIPHER_LIST</dt>
 <dd>
 
-<p>Select permitted SSL ciphers</p>
+<p>Select permitted TLS ciphers</p>
 
-<p>A colon-delimited list of the ciphers to allow in the SSL connection, for example DES-CBC3-SHA:IDEA-CBC-MD5.</p>
+<p>A colon-delimited list of the ciphers to allow in the TLS connection, for example DES-CBC3-SHA:IDEA-CBC-MD5.</p>
 
 </dd>
 <dt id="client-yes-no"><b>client</b> = yes | no</dt>
 <dd>
 
-<p>client mode (remote service uses SSL)</p>
+<p>client mode (remote service uses TLS)</p>
 
 <p>default: no (server mode)</p>
 
@@ -626,6 +622,12 @@
 <p>The operating system thread identifier is neither unique (even within a single instance of <b>stunnel</b>) nor short. It is most useful for debugging software or configuration issues.</p>
 
 </dd>
+<dt id="process"><i>process</i></dt>
+<dd>
+
+<p>The operating system process identifier (PID) may be useful in the inetd mode.</p>
+
+</dd>
 </dl>
 
 <p>default: sequential</p>
@@ -690,8 +692,21 @@
 
 <p>Failover strategy for multiple &quot;connect&quot; targets.</p>
 
-<pre><code>    rr (round robin) - fair load distribution
-    prio (priority) - use the order specified in config file</code></pre>
+<dl>
+
+<dt id="rr"><i>rr</i></dt>
+<dd>
+
+<p>round robin - fair load distribution</p>
+
+</dd>
+<dt id="prio"><i>prio</i></dt>
+<dd>
+
+<p>priority - use the order specified in config file</p>
+
+</dd>
+</dl>
 
 <p>default: rr</p>
 
@@ -779,7 +794,7 @@
 
 <p>Several <i>option</i> lines can be used to specify multiple options. An option name can be prepended with a dash (&quot;-&quot;) to disable the option.</p>
 
-<p>For example, for compatibility with the erroneous Eudora SSL implementation, the following option can be used:</p>
+<p>For example, for compatibility with the erroneous Eudora TLS implementation, the following option can be used:</p>
 
 <pre><code>    options = DONT_INSERT_EMPTY_FRAGMENTS</code></pre>
 
@@ -792,9 +807,9 @@
 <dt id="protocol-PROTO"><b>protocol</b> = PROTO</dt>
 <dd>
 
-<p>application protocol to negotiate SSL</p>
+<p>application protocol to negotiate TLS</p>
 
-<p>This option enables initial, protocol-specific negotiation of the SSL/TLS encryption. The <i>protocol</i> option should not be used with SSL encryption on a separate port.</p>
+<p>This option enables initial, protocol-specific negotiation of the TLS encryption. The <i>protocol</i> option should not be used with TLS encryption on a separate port.</p>
 
 <p>Currently supported protocols:</p>
 
@@ -855,7 +870,7 @@
 <dt id="socks"><i>socks</i></dt>
 <dd>
 
-<p>SOCKS versions 4, 4a, and 5 are supported. The SOCKS protocol itself is encapsulated within SSL/TLS encryption layer to protect the final destination address.</p>
+<p>SOCKS versions 4, 4a, and 5 are supported. The SOCKS protocol itself is encapsulated within TLS encryption layer to protect the final destination address.</p>
 
 <p><i>http://www.openssh.com/txt/socks4.protocol</i></p>
 
@@ -894,7 +909,7 @@
 
 <p>destination address for the protocol negotiations</p>
 
-<p><i>protocolHost</i> specifies the final SSL server to be connected to by the proxy, and not the proxy server directly connected by <b>stunnel</b>. The proxy server should be specified with the &#39;connect&#39; option.</p>
+<p><i>protocolHost</i> specifies the final TLS server to be connected to by the proxy, and not the proxy server directly connected by <b>stunnel</b>. The proxy server should be specified with the &#39;connect&#39; option.</p>
 
 <p>Currently the protocol destination address only applies to the &#39;connect&#39; protocol.</p>
 
@@ -946,7 +961,7 @@
 <dt id="redirect-HOST:-PORT"><b>redirect</b> = [HOST:]PORT</dt>
 <dd>
 
-<p>redirect SSL client connections on certificate-based authentication failures</p>
+<p>redirect TLS client connections on certificate-based authentication failures</p>
 
 <p>This option only works in server mode. Some protocol negotiations are also incompatible with the <i>redirect</i> option.</p>
 
@@ -954,15 +969,15 @@
 <dt id="renegotiation-yes-no"><b>renegotiation</b> = yes | no</dt>
 <dd>
 
-<p>support SSL renegotiation</p>
+<p>support TLS renegotiation</p>
 
-<p>Applications of the SSL renegotiation include some authentication scenarios, or re-keying long lasting connections.</p>
+<p>Applications of the TLS renegotiation include some authentication scenarios, or re-keying long lasting connections.</p>
 
 <p>On the other hand this feature can facilitate a trivial CPU-exhaustion DoS attack:</p>
 
 <p><i>http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html</i></p>
 
-<p>Please note that disabling SSL renegotiation does not fully mitigate this issue.</p>
+<p>Please note that disabling TLS renegotiation does not fully mitigate this issue.</p>
 
 <p>default: yes (if supported by <b>OpenSSL</b>)</p>
 
@@ -1032,13 +1047,13 @@
 
 <p>session cache timeout</p>
 
-<p>This is the number of seconds to keep cached SSL sessions.</p>
+<p>This is the number of seconds to keep cached TLS sessions.</p>
 
 </dd>
 <dt id="sessiond-HOST:PORT"><b>sessiond</b> = HOST:PORT</dt>
 <dd>
 
-<p>address of sessiond SSL cache server</p>
+<p>address of sessiond TLS cache server</p>
 
 </dd>
 <dt id="sni-SERVICE_NAME:SERVER_NAME_PATTERN-server-mode"><b>sni</b> = SERVICE_NAME:SERVER_NAME_PATTERN (server mode)</dt>
@@ -1070,7 +1085,7 @@
 <dt id="sslVersion-SSL_VERSION"><b>sslVersion</b> = SSL_VERSION</dt>
 <dd>
 
-<p>select the SSL protocol version</p>
+<p>select the TLS protocol version</p>
 
 <p>Supported values: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
 
@@ -1127,7 +1142,7 @@
 <dt id="source"><i>source</i></dt>
 <dd>
 
-<p>Re-write the address to appear as if a wrapped daemon is connecting from the SSL client machine instead of the machine running <b>stunnel</b>.</p>
+<p>Re-write the address to appear as if a wrapped daemon is connecting from the TLS client machine instead of the machine running <b>stunnel</b>.</p>
 
 <p>This option is currently available in:</p>
 
@@ -1361,7 +1376,7 @@
 
 <a href="#_podtop_"><h1 id="EXAMPLES">EXAMPLES</h1></a>
 
-<p>In order to provide SSL encapsulation to your local <i>imapd</i> service, use:</p>
+<p>In order to provide TLS encapsulation to your local <i>imapd</i> service, use:</p>
 
 <pre><code>    [imapd]
     accept = 993
@@ -1374,7 +1389,7 @@
     accept = 993
     connect = 143</code></pre>
 
-<p>In order to let your local e-mail client connect to an SSL-enabled <i>imapd</i> service on another server, configure the e-mail client to connect to localhost on port 119 and use:</p>
+<p>In order to let your local e-mail client connect to an TLS-enabled <i>imapd</i> service on another server, configure the e-mail client to connect to localhost on port 119 and use:</p>
 
 <pre><code>    [imap]
     client = yes
@@ -1441,7 +1456,7 @@
 
 <h2 id="RESTRICTIONS">RESTRICTIONS</h2>
 
-<p><b>stunnel</b> cannot be used for the FTP daemon because of the nature of the FTP protocol which utilizes multiple ports for data transfers. There are available SSL-enabled versions of FTP and telnet daemons, however.</p>
+<p><b>stunnel</b> cannot be used for the FTP daemon because of the nature of the FTP protocol which utilizes multiple ports for data transfers. There are available TLS-enabled versions of FTP and telnet daemons, however.</p>
 
 <h2 id="INETD-MODE">INETD MODE</h2>
 
@@ -1455,7 +1470,7 @@
 
 <h2 id="CERTIFICATES">CERTIFICATES</h2>
 
-<p>Each SSL-enabled daemon needs to present a valid X.509 certificate to the peer. It also needs a private key to decrypt the incoming data. The easiest way to obtain a certificate and a key is to generate them with the free <b>OpenSSL</b> package. You can find more information on certificates generation on pages listed below.</p>
+<p>Each TLS-enabled daemon needs to present a valid X.509 certificate to the peer. It also needs a private key to decrypt the incoming data. The easiest way to obtain a certificate and a key is to generate them with the free <b>OpenSSL</b> package. You can find more information on certificates generation on pages listed below.</p>
 
 <p>The order of contents of the <i>.pem</i> file is important. It should contain the unencrypted private key first, then a signed certificate (not certificate request). There should also be empty lines after the certificate and the private key. Any plaintext certificate information appended on the top of generated certificate should be discarded. So the file should look like this:</p>
 
@@ -1470,7 +1485,7 @@
 
 <h2 id="RANDOMNESS">RANDOMNESS</h2>
 
-<p><b>stunnel</b> needs to seed the PRNG (pseudo-random number generator) in order for SSL to use good randomness. The following sources are loaded in order until sufficient random data has been gathered:</p>
+<p><b>stunnel</b> needs to seed the PRNG (pseudo-random number generator) in order for TLS to use good randomness. The following sources are loaded in order until sufficient random data has been gathered:</p>
 
 <ul>
 
@@ -1499,8 +1514,6 @@
 
 </li>
 </ul>
-
-<p>With recent (<b>OpenSSL 0.9.5a</b> or later) version of SSL it will stop loading random data automatically when sufficient entropy has been gathered. With previous versions it will continue to gather from all the above sources since no SSL function exists to tell when enough data is available.</p>
 
 <p>Note that on Windows machines that do not have console user interaction (mouse movements, creating windows, etc.) the screen contents are not variable enough to be sufficient, and you should provide a random file for use with the <i>RNDfile</i> flag.</p>
 

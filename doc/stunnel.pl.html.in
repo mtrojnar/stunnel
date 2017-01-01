@@ -47,7 +47,7 @@
 
 <a href="#_podtop_"><h1 id="NAZWA">NAZWA</h1></a>
 
-<p>stunnel - uniwersalny tunel protoko&#x142;u SSL</p>
+<p>stunnel - uniwersalny tunel protoko&#x142;u TLS</p>
 
 <a href="#_podtop_"><h1 id="SKADNIA">SK&#x141;ADNIA</h1></a>
 
@@ -69,9 +69,9 @@
 
 <a href="#_podtop_"><h1 id="OPIS">OPIS</h1></a>
 
-<p>Program <b>stunnel</b> zosta&#x142; zaprojektowany do opakowywania w protok&oacute;&#x142; <i>SSL</i> po&#x142;&#x105;cze&#x144; pomi&#x119;dzy zdalnymi klientami a lokalnymi lub zdalnymi serwerami. Przez serwer lokalny rozumiana jest aplikacja przeznaczona do uruchamiania przy pomocy <i>inetd</i>. Stunnel pozwala na proste zestawienie komunikacji serwer&oacute;w nie posiadaj&#x105;cych funkcjonalno&#x15B;ci <i>SSL</i> poprzez bezpieczne kana&#x142;y <i>SSL</i>.</p>
+<p>Program <b>stunnel</b> zosta&#x142; zaprojektowany do opakowywania w protok&oacute;&#x142; <i>TLS</i> po&#x142;&#x105;cze&#x144; pomi&#x119;dzy zdalnymi klientami a lokalnymi lub zdalnymi serwerami. Przez serwer lokalny rozumiana jest aplikacja przeznaczona do uruchamiania przy pomocy <i>inetd</i>. Stunnel pozwala na proste zestawienie komunikacji serwer&oacute;w nie posiadaj&#x105;cych funkcjonalno&#x15B;ci <i>TLS</i> poprzez bezpieczne kana&#x142;y <i>TLS</i>.</p>
 
-<p><b>stunnel</b> pozwala doda&#x107; funkcjonalno&#x15B;&#x107; <i>SSL</i> do powszechnie stosowanych demon&oacute;w <i>inetd</i>, np. <i>pop3</i> lub <i>imap</i>, do samodzielnych demon&oacute;w, np. <i>nntp</i>, <i>smtp</i> lub <i>http</i>, a nawet tunelowa&#x107; ppp poprzez gniazda sieciowe bez zmian w kodzie &#x17A;r&oacute;d&#x142;owym.</p>
+<p><b>stunnel</b> pozwala doda&#x107; funkcjonalno&#x15B;&#x107; <i>TLS</i> do powszechnie stosowanych demon&oacute;w <i>inetd</i>, np. <i>pop3</i> lub <i>imap</i>, do samodzielnych demon&oacute;w, np. <i>nntp</i>, <i>smtp</i> lub <i>http</i>, a nawet tunelowa&#x107; ppp poprzez gniazda sieciowe bez zmian w kodzie &#x17A;r&oacute;d&#x142;owym.</p>
 
 <a href="#_podtop_"><h1 id="OPCJE">OPCJE</h1></a>
 
@@ -110,7 +110,7 @@
 <dt id="options"><b>-options</b></dt>
 <dd>
 
-<p>drukuj wspierane opcje SSL</p>
+<p>drukuj wspierane opcje TLS</p>
 
 </dd>
 <dt id="install-tylko-Windows-NT-lub-nowszy"><b>-install</b> (tylko Windows NT lub nowszy)</dt>
@@ -234,8 +234,6 @@
 
 <p>Algorytm deflate jest standardow&#x105; metod&#x105; kompresji zgodnie z RFC 1951.</p>
 
-<p>Kompresja zlib zaimplementowana w <b>OpenSSL 0.9.8</b> i nowszych nie jest kompatybilna implementacj&#x105; <b>OpenSSL 0.9.7</b>.</p>
-
 </dd>
 <dt id="debug-PODSYSTEM-.POZIOM"><b>debug</b> = [PODSYSTEM].POZIOM</dt>
 <dd>
@@ -254,7 +252,7 @@
 
 <p>&#x15B;cie&#x17C;ka do gniazda programu Entropy Gathering Daemon</p>
 
-<p>Opcja pozwala okre&#x15B;li&#x107; &#x15B;cie&#x17C;k&#x119; do gniazda programu Entropy Gathering Daemon u&#x17C;ywanego do zainicjalizowania generatora ci&#x105;g&oacute;w pseudolosowych biblioteki <b>OpenSSL</b>. Opcja jest dost&#x119;pna z bibliotek&#x105; <b>OpenSSL 0.9.5a</b> lub nowsz&#x105;.</p>
+<p>Opcja pozwala okre&#x15B;li&#x107; &#x15B;cie&#x17C;k&#x119; do gniazda programu Entropy Gathering Daemon u&#x17C;ywanego do zainicjalizowania generatora ci&#x105;g&oacute;w pseudolosowych biblioteki <b>OpenSSL</b>.</p>
 
 </dd>
 <dt id="engine-auto-IDENTYFIKATOR_URZDZENIA"><b>engine</b> = auto | IDENTYFIKATOR_URZ&#x104;DZENIA</dt>
@@ -342,9 +340,9 @@
 <dt id="log-append-overwrite"><b>log</b> = append | overwrite</dt>
 <dd>
 
-<p>log file handling</p>
+<p>obs&#x142;uga log&oacute;w</p>
 
-<p>This option allows to choose whether the log file (specified with the <i>output</i> option) is appended or overwritten when opened or re-opened.</p>
+<p>Ta opcja pozwala okre&#x15B;li&#x107;, czy nowe logi w pliku (okre&#x15B;lonym w opcji <i>output</i>) b&#x119;d&#x105; dodawane czy nadpisywane.</p>
 
 <p>domy&#x15B;lnie: append</p>
 
@@ -356,7 +354,7 @@
 
 <p>U&#x17C;ycie tej opcji powoduje dopisanie log&oacute;w do podanego pliku.</p>
 
-<p>Do kierowaniakomunikat&oacute;w na standardowe wyj&#x15B;cie (na przyk&#x142;ad po to, &#x17C;eby zalogowa&#x107; je programem splogger z pakietu daemontools) mo&#x17C;na poda&#x107; jako parametr urz&#x105;dzenie /dev/stdout.</p>
+<p>Do kierowania komunikat&oacute;w na standardowe wyj&#x15B;cie (na przyk&#x142;ad po to, &#x17C;eby zalogowa&#x107; je programem splogger z pakietu daemontools) mo&#x17C;na poda&#x107; jako parametr urz&#x105;dzenie /dev/stdout.</p>
 
 </dd>
 <dt id="pid-PLIK-tylko-Unix"><b>pid</b> = PLIK (tylko Unix)</dt>
@@ -364,7 +362,7 @@
 
 <p>po&#x142;o&#x17C;enie pliku z numerem procesu</p>
 
-<p>Je&#x17C;eli argument jest pusty plik nie zostanie stworzony.</p>
+<p>Je&#x17C;eli argument jest pusty, plik nie zostanie stworzony.</p>
 
 <p>Je&#x17C;eli zdefiniowano katalog <i>chroot</i>, to &#x15B;cie&#x17C;ka do <i>pid</i> jest okre&#x15B;lona wzgl&#x119;dem tego katalogu.</p>
 
@@ -373,8 +371,6 @@
 <dd>
 
 <p>liczba bajt&oacute;w do zainicjowania generatora pseudolosowego</p>
-
-<p>W wersjach biblioteki <b>OpenSSL</b> starszych ni&#x17C; <b>0.9.5a</b> opcja ta okre&#x15B;la r&oacute;wnie&#x17C; liczb&#x119; bajt&oacute;w wystarczaj&#x105;cych do zainicjowania PRNG. Nowsze wersje biblioteki maj&#x105; wbudowan&#x105; funkcj&#x119; okre&#x15B;laj&#x105;c&#x105;, czy dostarczona ilo&#x15B;&#x107; losowo&#x15B;ci jest wystarczaj&#x105;ca do zainicjowania generatora.</p>
 
 </dd>
 <dt id="RNDfile-PLIK"><b>RNDfile</b> = PLIK</dt>
@@ -528,15 +524,15 @@
 <dt id="ciphers-LISTA_SZYFRW"><b>ciphers</b> = LISTA_SZYFR&Oacute;W</dt>
 <dd>
 
-<p>lista dozwolonych szyfr&oacute;w SSL</p>
+<p>lista dozwolonych szyfr&oacute;w TLS</p>
 
-<p>Parametrem tej opcji jest lista szyfr&oacute;w, kt&oacute;re b&#x119;d&#x105; u&#x17C;yte przy otwieraniu nowych po&#x142;&#x105;cze&#x144; SSL, np.: DES-CBC3-SHA:IDEA-CBC-MD5</p>
+<p>Parametrem tej opcji jest lista szyfr&oacute;w, kt&oacute;re b&#x119;d&#x105; u&#x17C;yte przy otwieraniu nowych po&#x142;&#x105;cze&#x144; TLS, np.: DES-CBC3-SHA:IDEA-CBC-MD5</p>
 
 </dd>
 <dt id="client-yes-no"><b>client</b> = yes | no</dt>
 <dd>
 
-<p>tryb kliencki (zdalna us&#x142;uga u&#x17C;ywa SSL)</p>
+<p>tryb kliencki (zdalna us&#x142;uga u&#x17C;ywa TLS)</p>
 
 <p>domy&#x15B;lnie: no (tryb serwerowy)</p>
 
@@ -624,6 +620,12 @@
 <p>Identyfikator w&#x105;tku systemu operacyjnego nie jest ani unikalny (nawet w obr&#x119;bie pojedynczej instancji programu <b>stunnel</b>), ani kr&oacute;tki. Jest on szczeg&oacute;lnie u&#x17C;yteczny przy diagnozowaniu problem&oacute;w z oprogramowaniem lub konfiguracj&#x105;.</p>
 
 </dd>
+<dt id="process"><i>process</i></dt>
+<dd>
+
+<p>Identyfikator procesu (PID) mo&#x17C;e by&#x107; u&#x17C;yteczny w trybie inetd.</p>
+
+</dd>
 </dl>
 
 <p>domy&#x15B;lnie: sequential</p>
@@ -688,8 +690,21 @@
 
 <p>Strategia wybierania serwer&oacute;w wyspecyfikowanych parametrami &quot;connect&quot;.</p>
 
-<pre><code>    rr (round robin) - sprawiedliwe roz&#x142;o&#x17C;enie obci&#x105;&#x17C;enia
-    prio (priority) - u&#x17C;yj kolejno&#x15B;ci opcji w pliku konfiguracyjnym</code></pre>
+<dl>
+
+<dt id="rr"><i>rr</i></dt>
+<dd>
+
+<p>round robin - sprawiedliwe roz&#x142;o&#x17C;enie obci&#x105;&#x17C;enia</p>
+
+</dd>
+<dt id="prio"><i>prio</i></dt>
+<dd>
+
+<p>priority - u&#x17C;yj kolejno&#x15B;ci opcji w pliku konfiguracyjnym</p>
+
+</dd>
+</dl>
 
 <p>domy&#x15B;lnie: rr</p>
 
@@ -757,7 +772,7 @@
 
 <p>flaga respondera OCSP</p>
 
-<p>aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY, NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
+<p>Aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY, NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
 
 <p>Aby wyspecyfikowa&#x107; kilka flag nale&#x17C;y u&#x17C;y&#x107; <i>OCSPflag</i> wielokrotnie.</p>
 
@@ -779,7 +794,7 @@
 
 <p>Aby wyspecyfikowa&#x107; kilka opcji nale&#x17C;y u&#x17C;y&#x107; <i>options</i> wielokrotnie. Nazwa opcji mo&#x17C;e by&#x107; poprzedzona my&#x15B;lnikiem (&quot;-&quot;) celem wy&#x142;&#x105;czenia opcji.</p>
 
-<p>Na przyk&#x142;ad, dla zachowania kompatybilno&#x15B;ci z b&#x142;&#x119;dami implementacji SSL w programie Eudora, mo&#x17C;na u&#x17C;y&#x107; opcji:</p>
+<p>Na przyk&#x142;ad, dla zachowania kompatybilno&#x15B;ci z b&#x142;&#x119;dami implementacji TLS w programie Eudora, mo&#x17C;na u&#x17C;y&#x107; opcji:</p>
 
 <pre><code>    options = DONT_INSERT_EMPTY_FRAGMENTS</code></pre>
 
@@ -792,9 +807,9 @@
 <dt id="protocol-PROTOK"><b>protocol</b> = PROTOK&Oacute;&#x141;</dt>
 <dd>
 
-<p>negocjuj SSL podanym protoko&#x142;em aplikacyjnym</p>
+<p>negocjuj TLS podanym protoko&#x142;em aplikacyjnym</p>
 
-<p>Opcja ta w&#x142;&#x105;cza wst&#x119;pn&#x105; negocjacj&#x119; szyfrowania SSL dla wybranego protoko&#x142;u aplikacyjnego. Opcji <i>protocol</i> nie nale&#x17C;y u&#x17C;ywa&#x107; z szyfrowaniem SSL na osobnym porcie.</p>
+<p>Opcja ta w&#x142;&#x105;cza wst&#x119;pn&#x105; negocjacj&#x119; szyfrowania TLS dla wybranego protoko&#x142;u aplikacyjnego. Opcji <i>protocol</i> nie nale&#x17C;y u&#x17C;ywa&#x107; z szyfrowaniem TLS na osobnym porcie.</p>
 
 <p>Aktualnie wspierane protoko&#x142;y:</p>
 
@@ -803,7 +818,7 @@
 <dt id="cifs"><i>cifs</i></dt>
 <dd>
 
-<p>Unieudokumentowane rozszerzenie protoko&#x142;u CIFS wspierane przez serwer Samba. Wsparcie dla tego rozrzeczenia zosta&#x142;o zarzucone w wersji 3.0.0 serwera Samba.</p>
+<p>Nieudokumentowane rozszerzenie protoko&#x142;u CIFS wspierane przez serwer Samba. Wsparcie dla tego rozrzeczenia zosta&#x142;o zarzucone w wersji 3.0.0 serwera Samba.</p>
 
 </dd>
 <dt id="connect"><i>connect</i></dt>
@@ -855,7 +870,7 @@
 <dt id="socks"><i>socks</i></dt>
 <dd>
 
-<p>Wspierany jest protok&oacute;&#x142; SOCKS w wersjach 4, 4a i 5. Protok&oacute;&#x142; SOCKS enkapsulowany jest w protokole SSL/TLS, wi&#x119;c adres serwera docelowego nie jest widoczny dla napastnika przechwytuj&#x105;cego ruch sieciowy.</p>
+<p>Wspierany jest protok&oacute;&#x142; SOCKS w wersjach 4, 4a i 5. Protok&oacute;&#x142; SOCKS enkapsulowany jest w protokole TLS, wi&#x119;c adres serwera docelowego nie jest widoczny dla napastnika przechwytuj&#x105;cego ruch sieciowy.</p>
 
 <p><i>http://www.openssh.com/txt/socks4.protocol</i></p>
 
@@ -894,7 +909,7 @@
 
 <p>adres docelowy do negocjacji protoko&#x142;u</p>
 
-<p><i>protocolHost</i> okre&#x15B;la docelowy serwer SSL, do kt&oacute;rego po&#x142;&#x105;czy&#x107; ma si&#x119; proxy. Nie jest to adres serwera proxy, do kt&oacute;rego po&#x142;&#x105;czenie zestawia <b>stunnel</b>. Adres serwera proxy powinien by&#x107; okre&#x15B;lony przy pomocy opcji &#39;connect&#39;.</p>
+<p><i>protocolHost</i> okre&#x15B;la docelowy serwer TLS, do kt&oacute;rego po&#x142;&#x105;czy&#x107; ma si&#x119; proxy. Nie jest to adres serwera proxy, do kt&oacute;rego po&#x142;&#x105;czenie zestawia <b>stunnel</b>. Adres serwera proxy powinien by&#x107; okre&#x15B;lony przy pomocy opcji &#39;connect&#39;.</p>
 
 <p>W obecnej wersji adres docelowy protoko&#x142;u ma zastosowanie wy&#x142;&#x105;cznie w protokole &#39;connect&#39;.</p>
 
@@ -954,15 +969,15 @@
 <dt id="renegotiation-yes-no"><b>renegotiation</b> = yes | no</dt>
 <dd>
 
-<p>pozwalaj na renegocjacj&#x119; SSL</p>
+<p>pozwalaj na renegocjacj&#x119; TLS</p>
 
-<p>W&#x15B;r&oacute;d zastosowa&#x144; renegocjacji SSL s&#x105; niekt&oacute;re scenariusze uwierzytelnienia, oraz renegocjacja kluczy dla d&#x142;ugotrwa&#x142;ych po&#x142;&#x105;cze&#x144;.</p>
+<p>Zastosowania renegocjacji TLS zawieraj&#x105; niekt&oacute;re scenariusze uwierzytelniania oraz renegocjacj&#x119; kluczy dla d&#x142;ugotrwa&#x142;ych po&#x142;&#x105;cze&#x144;.</p>
 
 <p>Z drugiej strony w&#x142;asno&#x15B;&#x107; na mo&#x17C;e u&#x142;atwi&#x107; trywialny atak DoS poprzez wygenerowanie obci&#x105;&#x17C;enia procesora:</p>
 
 <p>http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html</p>
 
-<p>Warto zauwa&#x17C;y&#x107;, &#x17C;e zablokowanie renegocjacji SSL nie zebezpiecza w pe&#x142;ni przed opisanym problemem.</p>
+<p>Warto zauwa&#x17C;y&#x107;, &#x17C;e zablokowanie renegocjacji TLS nie zebezpiecza w pe&#x142;ni przed opisanym problemem.</p>
 
 <p>domy&#x15B;lnie: yes (o ile wspierane przez <b>OpenSSL</b>)</p>
 
@@ -1020,7 +1035,7 @@
 <dt id="sessionCacheSize-LICZBA_POZYCJI_CACHE"><b>sessionCacheSize</b> = LICZBA_POZYCJI_CACHE</dt>
 <dd>
 
-<p>rozmiar pami&#x119;ci podr&#x119;cznej sesji SSL</p>
+<p>rozmiar pami&#x119;ci podr&#x119;cznej sesji TLS</p>
 
 <p>Parametr okre&#x15B;la maksymaln&#x105; liczb&#x119; pozycji wewn&#x119;trznej pami&#x119;ci podr&#x119;cznej sesji.</p>
 
@@ -1030,15 +1045,15 @@
 <dt id="sessionCacheTimeout-LICZBA_SEKUND"><b>sessionCacheTimeout</b> = LICZBA_SEKUND</dt>
 <dd>
 
-<p>przeterminowanie pami&#x119;ci podr&#x119;cznej sesji SSL</p>
+<p>przeterminowanie pami&#x119;ci podr&#x119;cznej sesji TLS</p>
 
-<p>Parametr okre&#x15B;la czas w sekundach, po kt&oacute;rym sesja SSL zostanie usuni&#x119;ta z pami&#x119;ci podr&#x119;cznej.</p>
+<p>Parametr okre&#x15B;la czas w sekundach, po kt&oacute;rym sesja TLS zostanie usuni&#x119;ta z pami&#x119;ci podr&#x119;cznej.</p>
 
 </dd>
 <dt id="sessiond-HOST:PORT"><b>sessiond</b> = HOST:PORT</dt>
 <dd>
 
-<p>adres sessiond - servera cache sesji SSL</p>
+<p>adres sessiond - servera cache sesji TLS</p>
 
 </dd>
 <dt id="sni-NAZWA_USUGI:WZORZEC_NAZWY_SERWERA-tryb-serwera"><b>sni</b> = NAZWA_US&#x141;UGI:WZORZEC_NAZWY_SERWERA (tryb serwera)</dt>
@@ -1070,7 +1085,7 @@
 <dt id="sslVersion-WERSJA_SSL"><b>sslVersion</b> = WERSJA_SSL</dt>
 <dd>
 
-<p>wersja protoko&#x142;u SSL</p>
+<p>wersja protoko&#x142;u TLS</p>
 
 <p>Wspierane opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
 
@@ -1372,7 +1387,7 @@
     accept = 993
     connect = 143</code></pre>
 
-<p>Aby umo&#x17C;liwi&#x107; lokalnemu klientowi poczty elektronicznej korzystanie z serwera <i>imapd</i> przez SSL nale&#x17C;y skonfigurowa&#x107; pobieranie poczty z adresu localhost i portu 119, oraz u&#x17C;y&#x107; nast&#x119;puj&#x105;cej konfiguracji:</p>
+<p>Aby umo&#x17C;liwi&#x107; lokalnemu klientowi poczty elektronicznej korzystanie z serwera <i>imapd</i> przez TLS nale&#x17C;y skonfigurowa&#x107; pobieranie poczty z adresu localhost i portu 119, oraz u&#x17C;y&#x107; nast&#x119;puj&#x105;cej konfiguracji:</p>
 
 <pre><code>    [imap]
     client = yes
@@ -1439,7 +1454,7 @@
 
 <h2 id="OGRANICZENIA">OGRANICZENIA</h2>
 
-<p><b>stunnel</b> nie mo&#x17C;e by&#x107; u&#x17C;ywany do szyfrowania protoko&#x142;u <i>FTP</i>, poniewa&#x17C; do przesy&#x142;ania poszczeg&oacute;lnych plik&oacute;w u&#x17C;ywa on dodatkowych po&#x142;&#x105;cze&#x144; otwieranych na portach o dynamicznie przydzielanych numerach. Istniej&#x105; jednak specjalne wersje klient&oacute;w i serwer&oacute;w FTP pozwalaj&#x105;ce na szyfrowanie przesy&#x142;anych danych przy pomocy protoko&#x142;u <i>SSL</i>.</p>
+<p><b>stunnel</b> nie mo&#x17C;e by&#x107; u&#x17C;ywany do szyfrowania protoko&#x142;u <i>FTP</i>, poniewa&#x17C; do przesy&#x142;ania poszczeg&oacute;lnych plik&oacute;w u&#x17C;ywa on dodatkowych po&#x142;&#x105;cze&#x144; otwieranych na portach o dynamicznie przydzielanych numerach. Istniej&#x105; jednak specjalne wersje klient&oacute;w i serwer&oacute;w FTP pozwalaj&#x105;ce na szyfrowanie przesy&#x142;anych danych przy pomocy protoko&#x142;u <i>TLS</i>.</p>
 
 <h2 id="TRYB-INETD-tylko-Unix">TRYB INETD (tylko Unix)</h2>
 
@@ -1454,7 +1469,7 @@
 
 <h2 id="CERTYFIKATY">CERTYFIKATY</h2>
 
-<p>Protok&oacute;&#x142; SSL wymaga, aby ka&#x17C;dy serwer przedstawia&#x142; si&#x119; nawi&#x105;zuj&#x105;cemu po&#x142;&#x105;czenie klientowi prawid&#x142;owym certyfikatem X.509. Potwierdzenie to&#x17C;samo&#x15B;ci serwera polega na wykazaniu, &#x17C;e posiada on odpowiadaj&#x105;cy certyfikatowi klucz prywatny. Najprostsz&#x105; metod&#x105; uzyskania certyfikatu jest wygenerowanie go przy pomocy wolnego pakietu <b>OpenSSL</b>. Wi&#x119;cej informacji na temat generowania certyfikat&oacute;w mo&#x17C;na znale&#x17A;&#x107; na umieszczonych poni&#x17C;ej stronach.</p>
+<p>Protok&oacute;&#x142; TLS wymaga, aby ka&#x17C;dy serwer przedstawia&#x142; si&#x119; nawi&#x105;zuj&#x105;cemu po&#x142;&#x105;czenie klientowi prawid&#x142;owym certyfikatem X.509. Potwierdzenie to&#x17C;samo&#x15B;ci serwera polega na wykazaniu, &#x17C;e posiada on odpowiadaj&#x105;cy certyfikatowi klucz prywatny. Najprostsz&#x105; metod&#x105; uzyskania certyfikatu jest wygenerowanie go przy pomocy wolnego pakietu <b>OpenSSL</b>. Wi&#x119;cej informacji na temat generowania certyfikat&oacute;w mo&#x17C;na znale&#x17A;&#x107; na umieszczonych poni&#x17C;ej stronach.</p>
 
 <p>Istotn&#x105; kwesti&#x105; jest kolejno&#x15B;&#x107; zawarto&#x15B;ci pliku <i>.pem</i>. W pierwszej kolejno&#x15B;ci powinien on zawiera&#x107; klucz prywatny, a dopiero za nim podpisany certyfikat (nie &#x17C;&#x105;danie certyfikatu). Po certyfikacie i kluczu prywatnym powinny znajdowa&#x107; si&#x119; puste linie. Je&#x17C;eli przed certyfikatem znajduj&#x105; si&#x119; dodatkowe informacje tekstowe, to powinny one zosta&#x107; usuni&#x119;te. Otrzymany plik powinien mie&#x107; nast&#x119;puj&#x105;c&#x105; posta&#x107;:</p>
 
@@ -1469,7 +1484,7 @@
 
 <h2 id="LOSOWO">LOSOWO&#x15A;&#x106;</h2>
 
-<p><b>stunnel</b> potrzebuje zainicjowa&#x107; PRNG (generator liczb pseudolosowych), gdy&#x17C; protok&oacute;&#x142; SSL wymaga do bezpiecze&#x144;stwa kryptograficznego &#x17A;r&oacute;d&#x142;a dobrej losowo&#x15B;ci. Nast&#x119;puj&#x105;ce &#x17A;r&oacute;d&#x142;a s&#x105; kolejno odczytywane a&#x17C; do uzyskania wystarczaj&#x105;cej ilo&#x15B;ci entropii:</p>
+<p><b>stunnel</b> potrzebuje zainicjowa&#x107; PRNG (generator liczb pseudolosowych), gdy&#x17C; protok&oacute;&#x142; TLS wymaga do bezpiecze&#x144;stwa kryptograficznego &#x17A;r&oacute;d&#x142;a dobrej losowo&#x15B;ci. Nast&#x119;puj&#x105;ce &#x17A;r&oacute;d&#x142;a s&#x105; kolejno odczytywane a&#x17C; do uzyskania wystarczaj&#x105;cej ilo&#x15B;ci entropii:</p>
 
 <ul>
 
@@ -1498,8 +1513,6 @@
 
 </li>
 </ul>
-
-<p>Wsp&oacute;&#x142;czesne (<b>0.9.5a</b> lub nowsze) wersje biblioteki <b>OpenSSL</b> automatycznie zaprzestaj&#x105; &#x142;adowania kolejnych danych w momencie uzyskania wystarczaj&#x105;cej ilo&#x15B;ci entropii. Wcze&#x15B;niejsze wersje biblioteki wykorzystaj&#x105; wszystkie powy&#x17C;sze &#x17A;r&oacute;d&#x142;a, gdy&#x17C; nie istnieje tam funkcja pozwalaj&#x105;ca okre&#x15B;li&#x107;, czy uzyskano ju&#x17C; wystarczaj&#x105;co du&#x17C;o danych.</p>
 
 <p>Warto zwr&oacute;ci&#x107; uwag&#x119;, &#x17C;e na maszynach z systemem Windows, na kt&oacute;rych konsoli nie pracuje u&#x17C;ytkownik, zawarto&#x15B;&#x107; ekranu nie jest wystarczaj&#x105;co zmienna, aby zainicjowa&#x107; PRNG. W takim przypadku do zainicjowania generatora nale&#x17C;y u&#x17C;y&#x107; opcji <i>RNDfile</i>.</p>
 

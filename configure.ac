@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.38])
+AC_INIT([stunnel],[5.39])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -395,7 +395,7 @@ AC_ARG_ENABLE(libwrap,
     ]
 )
 
-AC_MSG_NOTICE([**************************************** SSL])
+AC_MSG_NOTICE([**************************************** TLS])
 
 AC_MSG_CHECKING([for compiler sysroot])
 if test "x$GCC" = "xyes"; then
@@ -428,22 +428,22 @@ find_ssl_dir() { :
 }
 
 SSLDIR=""
-AC_MSG_CHECKING([for SSL directory])
+AC_MSG_CHECKING([for TLS directory])
 AC_ARG_WITH(ssl,
-[  --with-ssl=DIR          location of installed SSL libraries/include files],
+[  --with-ssl=DIR          location of installed TLS libraries/include files],
     [check_ssl_dir "$withval"],
     [find_ssl_dir]
 )
 if test -z "$SSLDIR"; then
 AC_MSG_RESULT([not found])
 AC_MSG_ERROR([
-Could not find your SSL library installation dir
+Could not find your TLS library installation dir
 Use --with-ssl option to fix this problem
 ]) 
 fi
 AC_MSG_RESULT([$SSLDIR])
 AC_SUBST([SSLDIR])
-AC_DEFINE_UNQUOTED([SSLDIR], ["$SSLDIR"], [SSL directory])
+AC_DEFINE_UNQUOTED([SSLDIR], ["$SSLDIR"], [TLS directory])
 
 valid_CPPFLAGS="$CPPFLAGS"; CPPFLAGS="$CPPFLAGS -I$SSLDIR/include"
 valid_LIBS="$LIBS"; LIBS="$LIBS -L$SSLDIR/lib64 -L$SSLDIR/lib -lssl -lcrypto"

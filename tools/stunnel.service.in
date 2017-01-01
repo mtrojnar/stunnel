@@ -1,5 +1,5 @@
 [Unit]
-Description=SSL tunnel for network daemons
+Description=TLS tunnel for network daemons
 After=syslog.target
 
 [Service]

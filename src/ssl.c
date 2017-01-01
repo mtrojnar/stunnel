@@ -49,7 +49,7 @@ NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
 
 int index_cli, index_opt, index_redirect, index_addr;
 
-int ssl_init(void) { /* init SSL before parsing configuration file */
+int ssl_init(void) { /* init TLS before parsing configuration file */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS |
         OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
@@ -113,7 +113,7 @@ NOEXPORT void cb_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
     str_free(ptr);
 }
 
-int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global SSL settings */
+int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
 #ifdef USE_FIPS
     if(FIPS_mode()!=global->option.fips) {
         RAND_set_rand_method(NULL); /* reset RAND methods */

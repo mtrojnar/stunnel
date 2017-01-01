@@ -422,7 +422,7 @@ int s_poll_err(s_poll_set *fds, SOCKET fd) {
 }
 
 #ifdef USE_WIN32
-#define FD_SIZE(fds) (sizeof(u_int)+(fds)->allocated*sizeof(SOCKET))
+#define FD_SIZE(fds) (8+(fds)->allocated*sizeof(SOCKET))
 #else
 #define FD_SIZE(fds) (sizeof(fd_set))
 #endif

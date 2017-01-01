@@ -107,9 +107,9 @@ void main_init() { /* one-time initialization */
 #endif
     /* basic initialization contains essential functions required for logging
      * subsystem to function properly, thus all errors here are fatal */
-    if(ssl_init()) /* initialize SSL library */
-        fatal("SSL initialization failed");
-    if(sthreads_init()) /* initialize critical sections & SSL callbacks */
+    if(ssl_init()) /* initialize TLS library */
+        fatal("TLS initialization failed");
+    if(sthreads_init()) /* initialize critical sections & TLS callbacks */
         fatal("Threads initialization failed");
     if(cron_init()) /* initialize periodic events */
         fatal("Cron initialization failed");

@@ -295,6 +295,8 @@ char *log_id(CLI *c) {
         if(!tid) /* currently USE_FORK */
             tid=stunnel_process_id();
         return str_printf("%lu", tid);
+    case LOG_ID_PROCESS:
+        return str_printf("%lu", stunnel_process_id());
     }
     return str_dup("error");
 }
