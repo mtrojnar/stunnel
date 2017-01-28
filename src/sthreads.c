@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -512,12 +512,12 @@ void stack_info(int init) { /* 1-initialize, 0-display */
         for(i=0; i<VERIFY_AREA; i++)
             table[i]=TEST_VALUE;
     } else {
-        /* the stack is growing down */
+        /* the stack grows down */
         for(i=0; i<VERIFY_AREA; i++)
             if(table[i]!=TEST_VALUE)
                 break;
         num=i;
-        /* the stack is growing up */
+        /* the stack grows up */
         for(i=0; i<VERIFY_AREA; i++)
             if(table[VERIFY_AREA-i-1]!=TEST_VALUE)
                 break;

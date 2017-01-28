@@ -17,7 +17,7 @@ A sponsor could allocate my time to get them faster.
   - Deallocate SERVICE_OPTIONS structure when the configuration file
     is reloaded *and* old connections are closed.
 * Command-line server control interface on both Unix and Windows.
-* Separate GUI process running as current user on Windows.
+* Separate GUI process running as the current user on Windows.
 * An Android GUI.
 * OCSP stapling (tlsext_status).
 * Extend session tickets and/or sessiond to also serialize application

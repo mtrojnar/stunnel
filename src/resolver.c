@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -402,7 +402,7 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
     char *tmpstr;
 
     if(!node)
-        node=hints->ai_flags&AI_PASSIVE ? DEFAULT_ANY : DEFAULT_LOOPBACK;
+        node=(hints->ai_flags & AI_PASSIVE) ? DEFAULT_ANY : DEFAULT_LOOPBACK;
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
     if(s_getaddrinfo)
         return s_getaddrinfo(node, service, hints, res);

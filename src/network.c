@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -224,13 +224,13 @@ NOEXPORT void scan_waiting_queue(void) {
 #ifdef DEBUG_UCONTEXT
             s_log(LOG_DEBUG, "CONTEXT %ld, FD=%d,%s%s ->%s%s%s%s%s",
                 context->id, ufds[nfds].fd,
-                ufds[nfds].events & POLLIN ? " IN" : "",
-                ufds[nfds].events & POLLOUT ? " OUT" : "",
-                ufds[nfds].revents & POLLIN ? " IN" : "",
-                ufds[nfds].revents & POLLOUT ? " OUT" : "",
-                ufds[nfds].revents & POLLERR ? " ERR" : "",
-                ufds[nfds].revents & POLLHUP ? " HUP" : "",
-                ufds[nfds].revents & POLLNVAL ? " NVAL" : "");
+                (ufds[nfds].events & POLLIN) ? " IN" : "",
+                (ufds[nfds].events & POLLOUT) ? " OUT" : "",
+                (ufds[nfds].revents & POLLIN) ? " IN" : "",
+                (ufds[nfds].revents & POLLOUT) ? " OUT" : "",
+                (ufds[nfds].revents & POLLERR) ? " ERR" : "",
+                (ufds[nfds].revents & POLLHUP) ? " HUP" : "",
+                (ufds[nfds].revents & POLLNVAL) ? " NVAL" : "");
 #endif
             if(ufds[nfds].revents)
                 context->ready++;

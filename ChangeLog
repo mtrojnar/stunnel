@@ -1,5 +1,18 @@
 stunnel change log
 
+Version 5.40, 2017.01.28, urgency: HIGH
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.2k.
+    https://www.openssl.org/news/secadv/20170126.txt
+* New features
+  - DH ciphersuites are now disabled by default.
+  - The daily server DH parameter regeneration is only performed if
+    DH ciphersuites are enabled in the configuration file.
+  - "checkHost" and "checkEmail" were modified to require either
+    "verifyChain" or "verifyPeer" (thx to Małorzata Olszówka).
+* Bugfixes
+  - Fixed setting default ciphers.
+
 Version 5.39, 2017.01.01, urgency: LOW
 * New features
   - PKCS#11 engine (pkcs11.dll) added to the Win32 build.
@@ -19,11 +32,11 @@ Version 5.38, 2016.11.26, urgency: MEDIUM
 * New features
   - "sni=" can be used to prevent sending the SNI extension.
   - The AI_ADDRCONFIG resolver flag is used when available.
-  - Merged Debian 06-lfs.patch (thx Peter Pentchev).
+  - Merged Debian 06-lfs.patch (thx to Peter Pentchev).
 * Bugfixes
   - Fixed a memory allocation bug causing crashes with OpenSSL 1.1.0.
   - Fixed error handling for mixed IPv4/IPv6 destinations.
-  - Merged Debian 08-typos.patch (thx Peter Pentchev).
+  - Merged Debian 08-typos.patch (thx to Peter Pentchev).
 
 Version 5.37, 2016.11.06, urgency: MEDIUM
 * Bugfixes

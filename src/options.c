@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -224,7 +224,7 @@ static char *option_not_found=
     "Specified option name is not valid here";
 
 static char *stunnel_cipher_list=
-    "HIGH:+3DES:+DH:!aNULL:!SSLv2";
+    "HIGH:!DH:!aNULL:!SSLv2";
 
 /**************************************** parse commandline parameters */
 
@@ -621,34 +621,6 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         break;
     }
 #endif /* !defined(OPENSSL_NO_COMP) */
-
-    /* debug */
-    switch(cmd) {
-    case CMD_BEGIN:
-        new_service_options.log_level=LOG_NOTICE;
-#if !defined (USE_WIN32) && !defined (__vms)
-        new_global_options.log_facility=LOG_DAEMON;
-#endif
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "debug"))
-            break;
-        return parse_debug_level(arg, &new_service_options);
-    case CMD_END:
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-#if !defined (USE_WIN32) && !defined (__vms)
-        s_log(LOG_NOTICE, "%-22s = %s", "debug", "daemon.notice");
-#else
-        s_log(LOG_NOTICE, "%-22s = %s", "debug", "notice");
-#endif
-        break;
-    case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = [facility].level (e.g. daemon.info)", "debug");
-        break;
-    }
 
     /* EGD */
     switch(cmd) {
@@ -1313,6 +1285,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         name_list_append(&section->check_email, arg);
         return NULL; /* OK */
     case CMD_END:
+	if(section->check_email && !section->option.verify_chain && !section->option.verify_peer)
+            return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
         break;
     case CMD_FREE:
         break;
@@ -1335,6 +1309,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         name_list_append(&section->check_host, arg);
         return NULL; /* OK */
     case CMD_END:
+        if(section->check_host  && !section->option.verify_chain && !section->option.verify_peer)
+            return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
         break;
     case CMD_FREE:
         break;
@@ -1381,17 +1357,16 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->cipher_list=str_dup(arg);
         return NULL; /* OK */
     case CMD_END:
+        if(!section->cipher_list) {
+            /* this is only executed for global options,
+             * because section->cipher_list is no longer NULL */
 #ifdef USE_FIPS
-        if(new_global_options.option.fips) {
-            if(!new_service_options.cipher_list)
-                new_service_options.cipher_list="FIPS";
-        } else
+            if(new_global_options.option.fips)
+                section->cipher_list="FIPS";
+            else
 #endif /* USE_FIPS */
-        {
-            if(!new_service_options.cipher_list)
-                new_service_options.cipher_list=stunnel_cipher_list;
+                section->cipher_list=stunnel_cipher_list;
         }
-
         break;
     case CMD_FREE:
         break;
@@ -1577,7 +1552,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* debug */
     switch(cmd) {
     case CMD_BEGIN:
-        new_service_options.log_level=LOG_NOTICE;
+        section->log_level=LOG_NOTICE;
+#if !defined (USE_WIN32) && !defined (__vms)
+        new_global_options.log_facility=LOG_DAEMON;
+#endif
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "debug"))
@@ -1588,10 +1566,18 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
+#if !defined (USE_WIN32) && !defined (__vms)
+        s_log(LOG_NOTICE, "%-22s = %s", "debug", "daemon.notice");
+#else
         s_log(LOG_NOTICE, "%-22s = %s", "debug", "notice");
+#endif
         break;
     case CMD_HELP:
+#if !defined (USE_WIN32) && !defined (__vms)
+        s_log(LOG_NOTICE, "%-22s = [facility].level (e.g. daemon.info)", "debug");
+#else
         s_log(LOG_NOTICE, "%-22s = level (e.g. info)", "debug");
+#endif
         break;
     }
 

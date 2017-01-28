@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -1378,11 +1378,12 @@ NOEXPORT char *ntlm3(char *domain,
     return base64(1, (char *)phase3, (int)end_off); /* encode */
 }
 
-NOEXPORT void crypt_DES(DES_cblock dst, const_DES_cblock src, DES_cblock hash) {
+NOEXPORT void crypt_DES(DES_cblock dst, const_DES_cblock src,
+        unsigned char hash[7]) {
     DES_cblock key;
     DES_key_schedule sched;
 
-    /* convert key from 56 to 64 bits */
+    /* convert 56-bit hash to 64-bit DES key */
     key[0]=hash[0];
     key[1]=(unsigned char)(((hash[0]&1)<<7)|(hash[1]>>1));
     key[2]=(unsigned char)(((hash[1]&3)<<6)|(hash[2]>>2));

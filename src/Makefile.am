@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 2015-2016
+# by Michal Trojnara 2015-2017
 
 ###############################################################################
 # File lists                                                                  #

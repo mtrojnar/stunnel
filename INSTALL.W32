@@ -1,31 +1,20 @@
 stunnel Windows install notes
 
 
-Building stunnel from source (optional):
+Cross-compiling stunnel from source with MinGW (optional):
 
- 1) Install mingw32 cross-compiler o a Unix/Linux machine.
-    In Debian all you need is:
-      apt-get install gcc-mingw-w64-i686
-    Native compilation on a Windows machine is possible, but not supported.
+ 1) Install the mingw32 cross-compiler on a Unix/Linux machine.
+    On Debian (and derivatives, including Ubuntu):
+      sudo apt-get install gcc-mingw-w64-i686
+    On Arch Linux:
+      sudo pacman -S mingw-w64-gcc
 
- 2) Download the recent zlib from http://www.zlib.net/
-    Update the following definitions in win32/Makefile.gcc file:
-      SHARED_MODE=1
-      PREFIX = i686-w64-mingw32-
-    then build zlib with:
-      make -f win32/Makefile.gcc
-    and install it in mingw32 tree:
-      sudo BINARY_PATH=~/ \
-        INCLUDE_PATH=/usr/i686-w64-mingw32/include/ \
-        LIBRARY_PATH=/usr/i686-w64-mingw32/lib/ \
-        make -f win32/Makefile.gcc install
-
- 3) Download the recent OpenSSL in unpack it to /usr/src/ directory.
-      cd /usr/src
+ 2) Download the recent OpenSSL and unpack it:
       tar zvxf ~/openssl-(version).tar.gz
       mv openssl-(version) openssl-(version)-i686
+      cd openssl-(version)-i686/
 
- 4) Build OpenSSL.
+ 3) Build OpenSSL.
     For 32-bit Windows:
       ./Configure \
         --cross-compile-prefix=i686-w64-mingw32- \
@@ -41,23 +30,37 @@ Building stunnel from source (optional):
       sudo make install
       sudo cp ms/applink.c /opt/openssl-mingw64/include/openssl/
 
- 5) Download and unpack stunnel-(version).tar.gz.
+ 4) Download and unpack stunnel-(version).tar.gz.
 
- 6) Configure stunnel.
+ 5) Configure stunnel:
       cd stunnel-(version)
-      ./configure --with-ssl=/path/to/openssl-(version)
+      ./configure
 
- 7) Build windows executable.
+ 6) Build Windows 32-bit and/or 64-bit executables:
       cd src
       make mingw
       make mingw64
 
+
+Building stunnel from source with MinGW (optional):
+
+ Building on a Windows machine is possible, but not currently supported.
+
+
+Building stunnel from source with Visual Studio (optional):
+
+ TODO
+
+
 Installing stunnel:
 
- 1) run installer to install precompiled binaries or copy stunnel.exe and
-    OpenSSL DLLs into a directory
+ 1) Run installer to install the precompiled binaries, or
+    copy the stunnel.exe or tstunnel.exe executable located in the
+      /stunnel-(version)/bin/mingw/ directory into the destination
+      directory on a Windows machine, and
+    copy OpenSSL DLLs: libeay32.dll, libssp-0.dll and ssleay32.dll
+      into the same directory, if necessary.
 
- 2) read the manual (stunnel.html)
+ 2) Read the manual (stunnel.html).
 
- 3) create/edit stunnel.conf configuration file
-
+ 3) Create/edit the stunnel.conf configuration file.

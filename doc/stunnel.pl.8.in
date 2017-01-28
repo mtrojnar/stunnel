@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2016.12.13" "5.39" "stunnel TLS Proxy"
+.TH stunnel 8 "2017.01.19" "5.40" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -223,26 +223,11 @@ wybór sprzętowego urządzenia kryptograficznego
 .Sp
 domyślnie: bez wykorzystania urządzeń kryptograficznych
 .Sp
-Przykładowa konfiguracja umożliwiająca użycie certyfikatu i klucza prywatnego z
-urządzenia zgodnego z OpenSC:
-.Sp
-.Vb 5
-\&    engine = dynamic
-\&    engineCtrl = SO_PATH:/usr/local/lib/engines/libpkcs11.so
-\&    engineCtrl = LOAD
-\&    engineCtrl = MODULE_PATH:opensc\-pkcs11.so
-\&    engineCtrl = PIN:123456
-\&
-\&    [service]
-\&    engineId = pkcs11
-\&    cert = id_45
-.Ve
+Sekcja PRZYKŁADY zawiera przykładowe konfiguracje wykorzystujące
+urządzenia kryptograficzne.
 .IP "\fBengineCtrl\fR = KOMENDA[:PARAMETR]" 4
 .IX Item "engineCtrl = KOMENDA[:PARAMETR]"
 konfiguracja urządzenia kryptograficznego
-.Sp
-Specjalna komenda \*(L"\s-1LOAD\*(R"\s0 pozwala na załadowanie modułu urządzenia
-kryptograficznego.
 .IP "\fBengineDefault\fR = LISTA_ZADAŃ" 4
 .IX Item "engineDefault = LISTA_ZADAŃ"
 lista zadań OpenSSL oddelegowanych do bieżącego urządzenia
@@ -526,7 +511,7 @@ Aktualnie wspierane typy:
 .IP "\fIsequential\fR" 4
 .IX Item "sequential"
 Kolejny numer połączenia jest unikalny jedynie w obrębie pojedynczej instancji
-programu \fBstunnel\fR, ale bardzo krótki.  Jest on szczególnie użytczny przy
+programu \fBstunnel\fR, ale bardzo krótki.  Jest on szczególnie użyteczny przy
 ręcznej analizie logów.
 .IP "\fIunique\fR" 4
 .IX Item "unique"
@@ -1234,10 +1219,59 @@ Przykładowa konfiguracja serwera \s-1SNI:\s0
 \&    [sni2]
 \&    ; usługa podrzędna 2
 \&    sni = virtual:server2.mydomain.com
-\&    cert = server2.pem 
+\&    cert = server2.pem
 \&    connect = server2.internal.mydomain.com:8082
 \&    verifyPeer = yes
 \&    CAfile = server2\-allowed\-clients.pem
+.Ve
+.PP
+Przykładowa konfiguracja umożliwiająca uwierzytelnienie z użyciem klucza prywatnego
+przechowywanego w Windows Certificate Store (tylko Windows).
+W przypadku użycia silnika \s-1CAPI,\s0 nie należy ustawiać opcji cert, gdyż klucz klienta
+zostanie automatycznie pobrany z Certificate Store na podstawie zaufanych certyfikatów
+\&\s-1CA\s0 przedstawionych przez serwer.
+.PP
+.Vb 1
+\&    engine = capi
+\&
+\&    [service]
+\&    engineId = capi
+\&    client = yes
+\&    accept = 127.0.0.1:8080
+\&    connect = example.com:8443
+.Ve
+.PP
+Przykładowa konfiguracja umożliwiająca użycie certyfikatu i klucza prywatnego z
+urządzenia zgodnego z pkcs11:
+.PP
+.Vb 3
+\&    engine = pkcs11
+\&    engineCtrl = MODULE_PATH:opensc\-pkcs11.so
+\&    engineCtrl = PIN:123456
+\&
+\&    [service]
+\&    engineId = pkcs11
+\&    client = yes
+\&    accept = 127.0.0.1:8080
+\&    connect = example.com:843
+\&    cert = pkcs11:token=MyToken;object=MyCert
+\&    key = pkcs11:token=MyToken;object=MyKey
+.Ve
+.PP
+Przykładowa konfiguracja umożliwiająca użycie certyfikatu i klucza prywatnego
+umieszczonego na tokenie SoftHSM
+.PP
+.Vb 3
+\&    engine = pkcs11
+\&    engineCtrl = MODULE_PATH:softhsm2.dll
+\&    engineCtrl = PIN:12345
+\&
+\&    [service]
+\&    engineId = pkcs11
+\&    client = yes
+\&    accept = 127.0.0.1:8080
+\&    connect = example.com:843
+\&    cert = pkcs11:token=MyToken;object=KeyCert
 .Ve
 .SH "NOTKI"
 .IX Header "NOTKI"

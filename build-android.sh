@@ -1,6 +1,6 @@
 #!/bin/sh
 set -ev
-VERSION=5.39
+VERSION=5.40
 DST=stunnel-$VERSION-android
 
 # to build OpenSSL:

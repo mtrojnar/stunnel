@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -126,37 +126,45 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     }
     SSL_CTX_set_ex_data(section->ctx, index_opt, section); /* for callbacks */
 
-    /* load certificate and private key to be verified by the peer server */
-#if !defined(OPENSSL_NO_ENGINE) && OPENSSL_VERSION_NUMBER>=0x0090809fL
-    /* SSL_CTX_set_client_cert_engine() was introduced in OpenSSL 0.9.8i */
-    if(section->option.client && section->engine) {
-        if(SSL_CTX_set_client_cert_engine(section->ctx, section->engine))
-            s_log(LOG_INFO, "Client certificate engine (%s) enabled",
-                ENGINE_get_id(section->engine));
-        else /* no client certificate functionality in this engine */
-            sslerror("SSL_CTX_set_client_cert_engine"); /* ignore error */
+    /* ciphers */
+    if(section->cipher_list) {
+        s_log(LOG_DEBUG, "Ciphers: %s", section->cipher_list);
+        if(!SSL_CTX_set_cipher_list(section->ctx, section->cipher_list)) {
+            sslerror("SSL_CTX_set_cipher_list");
+            return 1; /* FAILED */
+        }
     }
+
+    /* options */
+    SSL_CTX_set_options(section->ctx,
+        (SSL_OPTIONS_TYPE)(section->ssl_options_set));
+#if OPENSSL_VERSION_NUMBER>=0x009080dfL
+    SSL_CTX_clear_options(section->ctx,
+        (SSL_OPTIONS_TYPE)(section->ssl_options_clear));
+    s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX, -0x%08lX)",
+        SSL_CTX_get_options(section->ctx),
+        section->ssl_options_set, section->ssl_options_clear);
+#else /* OpenSSL older than 0.9.8m */
+    s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX)",
+        SSL_CTX_get_options(section->ctx),
+        section->ssl_options_set);
+#endif /* OpenSSL 0.9.8m or later */
+
+    /* initialize OpenSSL CONF options */
+    if(conf_init(section))
+        return 1; /* FAILED */
+
+    /* mode */
+#ifdef SSL_MODE_RELEASE_BUFFERS
+    SSL_CTX_set_mode(section->ctx,
+        SSL_MODE_ENABLE_PARTIAL_WRITE |
+        SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER |
+        SSL_MODE_RELEASE_BUFFERS);
+#else
+    SSL_CTX_set_mode(section->ctx,
+        SSL_MODE_ENABLE_PARTIAL_WRITE |
+        SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 #endif
-    if(auth_init(section))
-        return 1; /* FAILED */
-
-    /* initialize verification of the peer server certificate */
-    if(verify_init(section))
-        return 1; /* FAILED */
-
-    /* initialize DH/ECDH server mode */
-    if(!section->option.client) {
-#ifndef OPENSSL_NO_TLSEXT
-        SSL_CTX_set_tlsext_servername_arg(section->ctx, section);
-        SSL_CTX_set_tlsext_servername_callback(section->ctx, servername_cb);
-#endif /* OPENSSL_NO_TLSEXT */
-#ifndef OPENSSL_NO_DH
-        dh_init(section); /* ignore the result (errors are not critical) */
-#endif /* OPENSSL_NO_DH */
-#ifndef OPENSSL_NO_ECDH
-        ecdh_init(section); /* ignore the result (errors are not critical) */
-#endif /* OPENSSL_NO_ECDH */
-    }
 
     /* setup session cache */
     if(!section->option.client) {
@@ -183,40 +191,28 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     /* set info callback */
     SSL_CTX_set_info_callback(section->ctx, info_callback);
 
-    /* ciphers, options, mode */
-    if(section->cipher_list)
-        if(!SSL_CTX_set_cipher_list(section->ctx, section->cipher_list)) {
-            sslerror("SSL_CTX_set_cipher_list");
-            return 1; /* FAILED */
-        }
-    SSL_CTX_set_options(section->ctx,
-        (SSL_OPTIONS_TYPE)(section->ssl_options_set));
-#if OPENSSL_VERSION_NUMBER>=0x009080dfL
-    SSL_CTX_clear_options(section->ctx,
-        (SSL_OPTIONS_TYPE)(section->ssl_options_clear));
-    s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX, -0x%08lX)",
-        SSL_CTX_get_options(section->ctx),
-        section->ssl_options_set, section->ssl_options_clear);
-#else /* OpenSSL older than 0.9.8m */
-    s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX)",
-        SSL_CTX_get_options(section->ctx),
-        section->ssl_options_set);
-#endif /* OpenSSL 0.9.8m or later */
-
-    /* initialize OpenSSL CONF options */
-    if(conf_init(section))
+    /* load certificate and private key to be verified by the peer server */
+    if(auth_init(section))
         return 1; /* FAILED */
 
-#ifdef SSL_MODE_RELEASE_BUFFERS
-    SSL_CTX_set_mode(section->ctx,
-        SSL_MODE_ENABLE_PARTIAL_WRITE |
-        SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER |
-        SSL_MODE_RELEASE_BUFFERS);
-#else
-    SSL_CTX_set_mode(section->ctx,
-        SSL_MODE_ENABLE_PARTIAL_WRITE |
-        SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
-#endif
+    /* initialize verification of the peer server certificate */
+    if(verify_init(section))
+        return 1; /* FAILED */
+
+    /* initialize the DH/ECDH key agreement in the server mode */
+    if(!section->option.client) {
+#ifndef OPENSSL_NO_TLSEXT
+        SSL_CTX_set_tlsext_servername_arg(section->ctx, section);
+        SSL_CTX_set_tlsext_servername_callback(section->ctx, servername_cb);
+#endif /* OPENSSL_NO_TLSEXT */
+#ifndef OPENSSL_NO_DH
+        dh_init(section); /* ignore the result (errors are not critical) */
+#endif /* OPENSSL_NO_DH */
+#ifndef OPENSSL_NO_ECDH
+        ecdh_init(section); /* ignore the result (errors are not critical) */
+#endif /* OPENSSL_NO_ECDH */
+    }
+
     return 0; /* OK */
 }
 
@@ -291,8 +287,36 @@ NOEXPORT int matches_wildcard(char *servername, char *pattern) {
 
 #ifndef OPENSSL_NO_DH
 
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+NOEXPORT STACK_OF(SSL_CIPHER) *SSL_CTX_get_ciphers(const SSL_CTX *ctx) {
+    return ctx->cipher_list;
+}
+#endif
+
 NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
     DH *dh=NULL;
+    int i, n;
+    char description[128];
+    STACK_OF(SSL_CIPHER) *ciphers;
+
+    /* check if DH is actually enabled for this section */
+    section->option.dh_needed=0;
+    ciphers=SSL_CTX_get_ciphers(section->ctx);
+    if(!ciphers)
+        return 1; /* ERROR (unlikely) */
+    n=sk_SSL_CIPHER_num(ciphers);
+    for(i=0; i<n; ++i) {
+        *description='\0';
+        SSL_CIPHER_description(sk_SSL_CIPHER_value(ciphers, i),
+            description, sizeof description);
+        /* s_log(LOG_INFO, "Ciphersuite: %s", description); */
+        if(strstr(description, " Kx=DH")) {
+            section->option.dh_needed=1; /* update this context */
+            break;
+        }
+    }
+    if(!section->option.dh_needed) /* no DH ciphers found */
+        return 0; /* OK */
 
     s_log(LOG_DEBUG, "DH initialization");
 #ifndef OPENSSL_NO_ENGINE
@@ -434,6 +458,7 @@ NOEXPORT int conf_init(SERVICE_OPTIONS *section) {
 NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
     int cert_needed=1, key_needed=1;
 
+    /* initialize PSK */
 #ifndef OPENSSL_NO_PSK
     if(section->psk_keys) {
         if(section->option.client)
@@ -442,6 +467,22 @@ NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
             SSL_CTX_set_psk_server_callback(section->ctx, psk_server_callback);
     }
 #endif /* !defined(OPENSSL_NO_PSK) */
+
+    /* initialize the client cert engine */
+#if !defined(OPENSSL_NO_ENGINE) && OPENSSL_VERSION_NUMBER>=0x0090809fL
+    /* SSL_CTX_set_client_cert_engine() was introduced in OpenSSL 0.9.8i */
+    if(section->option.client && section->engine) {
+        if(SSL_CTX_set_client_cert_engine(section->ctx, section->engine)) {
+            s_log(LOG_INFO, "Client certificate engine (%s) enabled",
+                ENGINE_get_id(section->engine));
+        } else { /* no client certificate functionality in this engine */
+            while(ERR_get_error())
+                ; /* OpenSSL error queue cleanup */
+            s_log(LOG_INFO, "Client certificate engine (%s) not supported",
+                ENGINE_get_id(section->engine));
+        }
+    }
+#endif
 
     /* load the certificate and private key */
     if(!section->cert || !section->key) {
@@ -899,7 +940,7 @@ NOEXPORT void cache_new(SSL *ssl, SSL_SESSION *sess) {
 
 NOEXPORT SSL_SESSION *cache_get(SSL *ssl,
         const unsigned char *key, int key_len) {
-    unsigned char *val, *val_tmp=NULL;
+    unsigned char *val=NULL, *val_tmp=NULL;
     ssize_t val_len=0;
     SSL_SESSION *sess;
 
@@ -985,7 +1026,8 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     packet->type=type;
     packet->timeout=htons((u_short)(timeout<64800?timeout:64800));/* 18 hours */
     memcpy(packet->key, key, key_len);
-    memcpy(packet->val, val, val_len);
+    if(val && val_len) /* only check it to make code analysis tools happy */
+        memcpy(packet->val, val, val_len);
 
     /* create the socket */
     s=s_socket(AF_INET, SOCK_DGRAM, 0, 0, "cache_transfer: socket");
@@ -1117,12 +1159,12 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
         state_string=SSL_state_string_long(ssl);
         if(strcmp(state_string, "unknown state"))
             s_log(LOG_DEBUG, "TLS state (%s): %s",
-                where & SSL_ST_CONNECT ? "connect" :
-                where & SSL_ST_ACCEPT ? "accept" :
+                (where & SSL_ST_CONNECT) ? "connect" :
+                (where & SSL_ST_ACCEPT) ? "accept" :
                 "undefined", state_string);
     } else if(where & SSL_CB_ALERT) {
         s_log(LOG_DEBUG, "TLS alert (%s): %s: %s",
-            where & SSL_CB_READ ? "read" : "write",
+            (where & SSL_CB_READ) ? "read" : "write",
             SSL_alert_type_string_long(ret),
             SSL_alert_desc_string_long(ret));
     } else if(where==SSL_CB_HANDSHAKE_DONE) {

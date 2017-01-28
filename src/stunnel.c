@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2016 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -213,6 +213,9 @@ void main_cleanup() {
     str_stats(); /* main thread allocation tracking */
 #endif
     log_flush(LOG_MODE_ERROR);
+#if !defined(USE_WIN32) && !defined(__vms)
+    syslog_close();
+#endif /* !defined(USE_WIN32) && !defined(__vms) */
 }
 
 /**************************************** Unix-specific initialization */
@@ -252,7 +255,6 @@ NOEXPORT void client_status(void) { /* dead children detected */
 
 void child_status(void) { /* dead libwrap or 'exec' process detected */
     int pid, status;
-    char *sig_name;
 
 #ifdef HAVE_WAIT_FOR_PID
     while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
@@ -261,7 +263,7 @@ void child_status(void) { /* dead libwrap or 'exec' process detected */
 #endif
 #ifdef WIFSIGNALED
         if(WIFSIGNALED(status)) {
-            sig_name=signal_name(WTERMSIG(status));
+            char *sig_name=signal_name(WTERMSIG(status));
             s_log(LOG_INFO, "Child process %d terminated on %s",
                 pid, sig_name);
             str_free(sig_name);

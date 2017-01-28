@@ -1,4 +1,4 @@
-﻿; Sample stunnel configuration file for Unix by Michal Trojnara 2002-2015
+﻿; Sample stunnel configuration file for Unix by Michal Trojnara 2002-2017
 ; Some options used here may be inadequate for your particular configuration
 ; This sample file does *not* represent stunnel.conf defaults
 ; Please consult the manual for detailed description of available options
@@ -21,6 +21,15 @@
 
 ; Enable FIPS 140-2 mode if needed for compliance
 ;fips = yes
+
+; The pkcs11 engine allows for authentication with cryptographic
+; keys isolated in a hardware or software token
+; MODULE_PATH specifies the path to the pkcs11 module shared library,
+; e.g. softhsm2.dll or opensc-pkcs11.so
+; Each section using this feature also needs the "engineId = pkcs11" option
+;engine = pkcs11
+;engineCtrl = MODULE_PATH:/usr/lib/softhsm/libsofthsm2.so
+;engineCtrl = PIN:1234
 
 ; **************************************************************************
 ; * Service defaults may also be specified in individual service sections  *
@@ -76,6 +85,16 @@ verifyChain = yes
 CApath = /etc/ssl/certs
 checkHost = smtp.gmail.com
 OCSPaia = yes
+
+; Encrypted HTTP proxy authenticated with a client certificate
+; located in a cryptographic token
+;[example-pkcs11]
+;client = yes
+;accept = 127.0.0.1:8080
+;connect = example.com:8443
+;engineId = pkcs11
+;cert = pkcs11:token=MyToken;object=MyCert
+;key = pkcs11:token=MyToken;object=MyKey
 
 ; ***************************************** Example TLS server mode services
 
