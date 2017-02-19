@@ -255,9 +255,8 @@ void ui_new_log(const char *line) {
 
 /**************************************** ctx callbacks */
 
-int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
-    (void)userdata; /* squash the unused parameter warning */
-    return PEM_def_callback(buf, size, rwflag, NULL);
+int ui_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
+    return PEM_def_callback(buf, size, rwflag, userdata);
 }
 
 #ifndef OPENSSL_NO_ENGINE

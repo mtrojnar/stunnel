@@ -137,13 +137,13 @@ static HANDLE main_initialized=NULL; /* global initialization performed */
 static HANDLE config_ready=NULL; /* reload without a valid configuration */
 static LONG new_logs=0;
 
-static UI_DATA *ui_data=NULL;
-
 static struct {
     char *config_file;
     unsigned service:1, install:1, uninstall:1, start:1, stop:1,
         quiet:1, exit:1, reload:1, reopen:1;
 } cmdline;
+
+static char ui_pass[PEM_BUFSIZE];
 
 /**************************************** initialization */
 
@@ -693,11 +693,13 @@ NOEXPORT LRESULT CALLBACK pass_proc(HWND dialog_handle, UINT message,
         /* set the default push button to "Cancel" */
         SendMessage(dialog_handle, DM_SETDEFID, (WPARAM)IDCANCEL, (LPARAM)0);
 
-        key_file_name=str2tstr(ui_data->section->key);
-        titlebar=str_tprintf(TEXT("Private key: %s"), key_file_name);
-        str_free(key_file_name);
-        SetWindowText(dialog_handle, titlebar);
-        str_free(titlebar);
+        if(current_section) { /* should always be set */
+            key_file_name=str2tstr(current_section->key);
+            titlebar=str_tprintf(TEXT("Private key: %s"), key_file_name);
+            str_free(key_file_name);
+            SetWindowText(dialog_handle, titlebar);
+            str_free(titlebar);
+        }
         return TRUE;
 
     case WM_COMMAND:
@@ -722,9 +724,9 @@ NOEXPORT LRESULT CALLBACK pass_proc(HWND dialog_handle, UINT message,
                 (WPARAM)0 /* line 0 */, (LPARAM)pass_dialog.txt);
             pass_dialog.txt[pass_len]='\0'; /* null-terminate the string */
 
-            /* convert input passphrase to UTF-8 string (as ui_data->pass) */
+            /* convert input passphrase to UTF-8 string (as ui_pass) */
             pass_txt=tstr2str(pass_dialog.txt);
-            strcpy(ui_data->pass, pass_txt);
+            strcpy(ui_pass, pass_txt);
             str_free(pass_txt);
 
             EndDialog(dialog_handle, TRUE);
@@ -741,17 +743,21 @@ NOEXPORT LRESULT CALLBACK pass_proc(HWND dialog_handle, UINT message,
     UNREFERENCED_PARAMETER(lParam);
 }
 
-int passwd_cb(char *buf, int size, int rwflag, void *userdata) {
-    (void)rwflag; /* squash the unused parameter warning */
+int ui_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
+    int len;
 
-    ui_data=userdata;
-    if(size<0) /* just in case */
-        return 0;
+    (void)rwflag; /* squash the unused parameter warning */
+    (void)userdata; /* squash the unused parameter warning */
     if(!DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc))
-        return 0; /* error */
-    strncpy(buf, ui_data->pass, (size_t)size);
-    buf[size-1]='\0';
-    return (int)strlen(buf);
+        return 0; /* dialog cancelled or failed */
+    len=(int)strlen(ui_pass);
+    if(len<0 || size<0) /* the API uses signed integers */
+        return 0;
+    if(len>size) /* truncate the returned data if needed */
+        len=size;
+    memcpy(buf, ui_pass, (size_t)len);
+    memset(ui_pass, 0, sizeof ui_pass);
+    return len;
 }
 
 #ifndef OPENSSL_NO_ENGINE
@@ -770,14 +776,10 @@ UI_METHOD *UI_stunnel() {
 }
 
 NOEXPORT int pin_cb(UI *ui, UI_STRING *uis) {
-    ui_data=UI_get0_user_data(ui); /* was: ui_data=UI_get_app_data(ui); */
-    if(!ui_data) {
-        s_log(LOG_ERR, "INTERNAL ERROR: user data data pointer");
-        return 0;
-    }
     if(!DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc))
-        return 0; /* error */
-    UI_set_result(ui, uis, ui_data->pass);
+        return 0; /* dialog cancelled or failed */
+    UI_set_result(ui, uis, ui_pass);
+    memset(ui_pass, 0, sizeof ui_pass);
     return 1;
 }
 #endif

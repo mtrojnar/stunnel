@@ -1,5 +1,10 @@
 stunnel change log
 
+Version 5.41, unreleased, urgency: LOW
+* New features
+  - PKCS#11 engine DLL updated to version 4.4.
+  - Default engine UI set with ENGINE_CTRL_SET_USER_INTERFACE.
+
 Version 5.40, 2017.01.28, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2k.

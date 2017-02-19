@@ -49,7 +49,7 @@ BrandingText "Author: Michal Trojnara"
 !define /ifndef ZLIB_DIR ${BIN_DIR}\zlib
 !define /ifndef REDIST_DIR ${BIN_DIR}\redist
 
-!define /ifndef LIBP11_DIR ${ROOT_DIR}\src\libp11-0.4.3\src
+!define /ifndef LIBP11_DIR ${ROOT_DIR}\src\libp11-0.4.4\src
 
 !define MUI_ICON ${STUNNEL_SRC_DIR}\stunnel.ico
 

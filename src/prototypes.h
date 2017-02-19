@@ -498,10 +498,7 @@ int ssl_configure(GLOBAL_OPTIONS *);
 
 /**************************************** prototypes for ctx.c */
 
-typedef struct {
-    SERVICE_OPTIONS *section;
-    char pass[PEM_BUFSIZE];
-} UI_DATA;
+extern SERVICE_OPTIONS *current_section;
 
 #ifndef OPENSSL_NO_DH
 extern DH *dh_params;
@@ -802,7 +799,7 @@ void ui_new_log(const char *);
 void message_box(LPCTSTR, const UINT);
 #endif /* USE_WIN32 */
 
-int passwd_cb(char *, int, int, void *);
+int ui_passwd_cb(char *, int, int, void *);
 #ifndef OPENSSL_NO_ENGINE
 UI_METHOD *UI_stunnel(void);
 #endif /* !defined(OPENSSL_NO_ENGINE) */

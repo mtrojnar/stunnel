@@ -3594,6 +3594,15 @@ NOEXPORT char *engine_open(const char *name) {
         return "Failed to open the engine";
     }
     engine_initialized=0;
+    if(ENGINE_ctrl(engines[current_engine], ENGINE_CTRL_SET_USER_INTERFACE,
+            0, UI_stunnel(), NULL)) {
+        s_log(LOG_NOTICE, "UI set for engine #%d (%s)",
+            current_engine+1, ENGINE_get_id(engines[current_engine]));
+    } else {
+        ERR_clear_error();
+        s_log(LOG_INFO, "UI not supported by engine #%d (%s)",
+            current_engine+1, ENGINE_get_id(engines[current_engine]));
+    }
     return NULL; /* OK */
 }
 
