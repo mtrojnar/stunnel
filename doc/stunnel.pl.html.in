@@ -469,12 +469,14 @@
 <p>Opcja pozwala okre&#x15B;li&#x107; po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez opcj&#x119; <i>verifyChain</i> lub <i>verifyPeer</i>.</p>
 
 </dd>
-<dt id="cert-PLIK_PEM"><b>cert</b> = PLIK_PEM</dt>
+<dt id="cert-PLIK_CERT"><b>cert</b> = PLIK_CERT</dt>
 <dd>
 
 <p>plik z &#x142;a&#x144;cuchem certyfikat&oacute;w</p>
 
-<p>Opcja okre&#x15B;la po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez program <b>stunnel</b> do uwierzytelnienia si&#x119; przed drug&#x105; stron&#x105; po&#x142;&#x105;czenia. Certyfikat jest konieczny, aby u&#x17C;ywa&#x107; programu w trybie serwera. W trybie klienta certyfikat jest opcjonalny.</p>
+<p>Opcja okre&#x15B;la po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez program <b>stunnel</b> do uwierzytelnienia si&#x119; przed drug&#x105; stron&#x105; po&#x142;&#x105;czenia. Plik powinien zawiera&#x107; kompletny &#x142;a&#x144;cuch certyfikat&oacute;w pocz&#x105;wszy od certyfikatu klienta/serwera, a sko&#x144;czywszy na samopodpisanym certyfikacie g&#x142;&oacute;wnego CA. Obs&#x142;ugiwane s&#x105; pliki w formacie PEM lub P12.</p>
+
+<p>Certyfikat jest konieczny, aby u&#x17C;ywa&#x107; programu w trybie serwera. W trybie klienta certyfikat jest opcjonalny.</p>
 
 <p>Je&#x17C;eli u&#x17C;ywane jest sprz&#x119;towe urz&#x105;dzenie kryptograficzne, to opcja <b>cert</b> pozwala wybra&#x107; identyfikator u&#x17C;ywanego certyfikatu.</p>
 
@@ -1284,7 +1286,7 @@
 
 <p>weryfikuj &#x142;a&#x144;cuch certyfikat&oacute;w drugiej strony</p>
 
-<p>Do weryfikacji certyfikatu serwera kluczowe jest, aby wymaga&#x107; r&oacute;wnie&#x17C; konkretnego certyfikatu przy pomocy <i>checkHost</i> lub <i>verifyPeer</i>.</p>
+<p>Do weryfikacji certyfikatu serwera kluczowe jest, aby wymaga&#x107; r&oacute;wnie&#x17C; konkretnego certyfikatu przy pomocy <i>checkHost</i> lub <i>checkIP</i>.</p>
 
 <p>Samopodpisany certyfikat g&#x142;&oacute;wnego CA nale&#x17C;y umie&#x15B;ci&#x107; albo w pliku podanym w opcji <i>CAfile</i>, albo w katalogu podanym w opcji <i>CApath</i>.</p>
 
@@ -1401,7 +1403,7 @@
     client = yes
     accept = 127.0.0.1:1080
     connect = vpn_server:9080
-    verify = 4
+    verifyPeer = yes
     CAfile = stunnel.pem</code></pre>
 
 <p>Odpowiadaj&#x105;ca jej konfiguracja serwera vpn_server:</p>

@@ -4,6 +4,13 @@ Version 5.41, unreleased, urgency: LOW
 * New features
   - PKCS#11 engine DLL updated to version 4.4.
   - Default engine UI set with ENGINE_CTRL_SET_USER_INTERFACE.
+  - Key file name added into the passphrase prompt on console.
+  - Performance optimization in memory leak detection.
+* Bugfixes
+  - Adopted the implicit session free introduced in OpenSSL 1.1.0.
+    This resulted in crashes caused by double free.
+  - Fixed "verifyPeer = yes" with "verifyChain = no" (default)
+    and the peer only returning a single certificate.
 
 Version 5.40, 2017.01.28, urgency: HIGH
 * Security bugfixes

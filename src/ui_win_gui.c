@@ -995,7 +995,7 @@ NOEXPORT void update_peer_menu(void) {
             TEXT("Peer certificate chain has been saved.\n")
             TEXT("Add the following lines to section [%s]:\n")
             TEXT("\tCAfile = peer-%s.pem\n")
-            TEXT("\tverify = 3\n")
+            TEXT("\tverifyPeer = yes\n")
             TEXT("to enable cryptographic authentication.\n")
             TEXT("Then reload stunnel configuration file."),
             servname, servname);

@@ -46,10 +46,6 @@ typedef struct tls_data_struct TLS_DATA;
 
 /**************************************** data structures */
 
-/* non-zero constants for the "redirect" option */
-#define REDIRECT_ON         1
-#define REDIRECT_OFF        2
-
 #if defined (USE_WIN32)
 #define ICON_IMAGE HICON
 #elif defined(__APPLE__)
@@ -410,7 +406,6 @@ typedef struct {
     FD *ssl_rfd, *ssl_wfd; /* read and write TLS descriptors */
     uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and TLS */
     s_poll_set *fds; /* file descriptors */
-    uintptr_t redirect; /* redirect to another destination after failed auth */
 } CLI;
 
 /**************************************** prototypes for stunnel.c */
@@ -491,7 +486,8 @@ int cron_init(void);
 
 /**************************************** prototypes for ssl.c */
 
-extern int index_cli, index_opt, index_redirect, index_addr;
+extern int index_ssl_cli, index_ssl_ctx_opt;
+extern int index_session_authenticated, index_session_connect_address;
 
 int ssl_init(void);
 int ssl_configure(GLOBAL_OPTIONS *);

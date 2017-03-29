@@ -87,6 +87,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
 #endif
 NOEXPORT int cache_passwd_get_cb(char *, int, int, void *);
 NOEXPORT int cache_passwd_set_cb(char *, int, int, void *);
+NOEXPORT void set_prompt(const char *);
 NOEXPORT int ui_retry();
 
 /* session callbacks */
@@ -131,7 +132,11 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
         sslerror("SSL_CTX_new");
         return 1; /* FAILED */
     }
-    SSL_CTX_set_ex_data(section->ctx, index_opt, section); /* for callbacks */
+    /* for callbacks */
+    if(!SSL_CTX_set_ex_data(section->ctx, index_ssl_ctx_opt, section)) {
+        sslerror("SSL_CTX_set_ex_data");
+        return 1; /* FAILED */
+    }
     current_section=section; /* setup current section for callbacks */
 
     /* ciphers */
@@ -185,11 +190,6 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
             return 1; /* FAILED */
         }
     }
-#ifdef SSL_SESS_CACHE_NO_INTERNAL_STORE
-    /* the default cache mode is just SSL_SESS_CACHE_SERVER */
-    SSL_CTX_set_session_cache_mode(section->ctx,
-        SSL_SESS_CACHE_SERVER|SSL_SESS_CACHE_NO_INTERNAL_STORE);
-#endif
     SSL_CTX_sess_set_cache_size(section->ctx, section->session_size);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
     SSL_CTX_sess_set_new_cb(section->ctx, sess_new_cb);
@@ -252,7 +252,7 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
     for(list=section->servername_list_head; list; list=list->next)
         if(matches_wildcard((char *)servername, list->servername)) {
             s_log(LOG_DEBUG, "SNI: matched pattern: %s", list->servername);
-            c=SSL_get_ex_data(ssl, index_cli);
+            c=SSL_get_ex_data(ssl, index_ssl_cli);
             c->opt=list->opt;
             SSL_set_SSL_CTX(ssl, c->opt->ctx);
             SSL_set_verify(ssl, SSL_CTX_get_verify_mode(c->opt->ctx),
@@ -532,7 +532,7 @@ NOEXPORT unsigned psk_client_callback(SSL *ssl, const char *hint,
     size_t identity_len;
 
     (void)hint; /* squash the unused parameter warning */
-    c=SSL_get_ex_data(ssl, index_cli);
+    c=SSL_get_ex_data(ssl, index_ssl_cli);
     if(!c->opt->psk_selected) {
         s_log(LOG_ERR, "INTERNAL ERROR: No PSK identity selected");
         return 0;
@@ -563,7 +563,7 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     PSK_KEYS *found;
     size_t len;
 
-    c=SSL_get_ex_data(ssl, index_cli);
+    c=SSL_get_ex_data(ssl, index_ssl_cli);
     found=psk_find(&c->opt->psk_sorted, identity);
     if(found) {
         len=found->key_len;
@@ -637,6 +637,7 @@ NOEXPORT int pkcs12_extension(const char *filename) {
 }
 
 NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section) {
+    size_t len;
     int i, success;
     BIO *bio=NULL;
     PKCS12 *p12=NULL;
@@ -664,7 +665,11 @@ NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section) {
     BIO_free(bio);
 
     /* try the cached value first */
-    cache_passwd_get_cb(pass, sizeof pass, 0, NULL);
+    set_prompt(section->cert);
+    len=(size_t)cache_passwd_get_cb(pass, sizeof pass, 0, NULL);
+    if(len>=sizeof pass)
+        len=sizeof pass-1;
+    pass[len]='\0'; /* null-terminate */
     success=PKCS12_parse(p12, pass, &pkey, &cert, &ca);
 
     /* invoke the UI */
@@ -678,7 +683,10 @@ NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section) {
             s_log(LOG_ERR, "Wrong passphrase: retrying");
         }
         /* invoke the UI on subsequent calls */
-        cache_passwd_set_cb(pass, sizeof pass, 0, NULL);
+        len=(size_t)cache_passwd_set_cb(pass, sizeof pass, 0, NULL);
+        if(len>=sizeof pass)
+            len=sizeof pass-1;
+        pass[len]='\0'; /* null-terminate */
         success=PKCS12_parse(p12, pass, &pkey, &cert, &ca);
     }
     if(!success) {
@@ -720,6 +728,7 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
         return 1; /* FAILED */
 
     /* try the cached value first */
+    set_prompt(section->key);
     SSL_CTX_set_default_passwd_cb(section->ctx, cache_passwd_get_cb);
     success=SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
         SSL_FILETYPE_PEM);
@@ -829,6 +838,14 @@ NOEXPORT int cache_passwd_set_cb(char *buf, int size,
     return cache_passwd_get_cb(buf, size, rwflag, userdata);
 }
 
+NOEXPORT void set_prompt(const char *name) {
+    char *prompt;
+
+    prompt=str_printf("Enter %s pass phrase:", name);
+    EVP_set_pw_prompt(prompt);
+    str_free(prompt);
+}
+
 NOEXPORT int ui_retry() {
     unsigned long err=ERR_peek_error();
 
@@ -883,10 +900,10 @@ NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
     CLI *c;
 
     s_log(LOG_DEBUG, "New session callback");
-    c=SSL_get_ex_data(ssl, index_cli);
+    c=SSL_get_ex_data(ssl, index_ssl_cli);
     if(c->opt->option.sessiond)
         cache_new(ssl, sess);
-    return 1; /* leave the session in local cache for reuse */
+    return 0; /* the OpenSSL's manual is really bad -> use the source here */
 }
 
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
@@ -898,7 +915,7 @@ NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
 
     s_log(LOG_DEBUG, "Get session callback");
     *do_copy=0; /* allow the session to be freed automatically */
-    c=SSL_get_ex_data(ssl, index_cli);
+    c=SSL_get_ex_data(ssl, index_ssl_cli);
     if(c->opt->option.sessiond)
         return cache_get(ssl, key, key_len);
     return NULL; /* no session to resume */
@@ -908,10 +925,9 @@ NOEXPORT void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
     SERVICE_OPTIONS *opt;
 
     s_log(LOG_DEBUG, "Remove session callback");
-    opt=SSL_CTX_get_ex_data(ctx, index_opt);
+    opt=SSL_CTX_get_ex_data(ctx, index_ssl_ctx_opt);
     if(opt->option.sessiond)
         cache_remove(ctx, sess);
-    SSL_SESSION_free(sess);
 }
 
 /**************************************** sessiond functionality */
@@ -1043,7 +1059,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     }
 
     /* retrieve pointer to the section structure of this ctx */
-    section=SSL_CTX_get_ex_data(ctx, index_opt);
+    section=SSL_CTX_get_ex_data(ctx, index_ssl_ctx_opt);
     if(sendto(s, (void *)packet,
 #ifdef USE_WIN32
             (int)
@@ -1113,7 +1129,7 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
     SSL_CTX *ctx;
     const char *state_string;
 
-    c=SSL_get_ex_data((SSL *)ssl, index_cli);
+    c=SSL_get_ex_data((SSL *)ssl, index_ssl_cli);
     if(c) {
         int state=SSL_get_state((SSL *)ssl);
 
@@ -1145,8 +1161,7 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
         } else if((where&SSL_CB_ACCEPT_LOOP)
                 && c->reneg_state==RENEG_ESTABLISHED) {
 #ifndef SSL3_ST_SR_CLNT_HELLO_A
-            if(state==TLS_ST_SR_CLNT_HELLO
-                    || state==TLS_ST_SR_CLNT_HELLO) {
+            if(state==TLS_ST_SR_CLNT_HELLO) {
 #else
             if(state==SSL3_ST_SR_CLNT_HELLO_A
                     || state==SSL23_ST_SR_CLNT_HELLO_A) {

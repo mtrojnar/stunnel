@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2017.02.02" "5.41" "stunnel TLS Proxy"
+.TH stunnel 8 "2017.02.23" "5.41" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -394,12 +394,16 @@ plik Centrum Certyfikacji
 .Sp
 Opcja pozwala określić położenie pliku zawierającego certyfikaty używane
 przez opcję \fIverifyChain\fR lub \fIverifyPeer\fR.
-.IP "\fBcert\fR = \s-1PLIK_PEM\s0" 4
-.IX Item "cert = PLIK_PEM"
+.IP "\fBcert\fR = \s-1PLIK_CERT\s0" 4
+.IX Item "cert = PLIK_CERT"
 plik z łańcuchem certyfikatów
 .Sp
 Opcja określa położenie pliku zawierającego certyfikaty używane przez
 program \fBstunnel\fR do uwierzytelnienia się przed drugą stroną połączenia.
+Plik powinien zawierać kompletny łańcuch certyfikatów począwszy od certyfikatu
+klienta/serwera, a skończywszy na samopodpisanym certyfikacie głównego \s-1CA.\s0
+Obsługiwane są pliki w formacie \s-1PEM\s0 lub P12.
+.Sp
 Certyfikat jest konieczny, aby używać programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
 .Sp
@@ -1067,7 +1071,7 @@ nie weryfikuj
 weryfikuj łańcuch certyfikatów drugiej strony
 .Sp
 Do weryfikacji certyfikatu serwera kluczowe jest, aby wymagać również
-konkretnego certyfikatu przy pomocy \fIcheckHost\fR lub \fIverifyPeer\fR.
+konkretnego certyfikatu przy pomocy \fIcheckHost\fR lub \fIcheckIP\fR.
 .Sp
 Samopodpisany certyfikat głównego \s-1CA\s0 należy umieścić  albo w pliku
 podanym w opcji \fICAfile\fR, albo w katalogu podanym w opcji \fICApath\fR.
@@ -1181,7 +1185,7 @@ Aby skonfigurować \s-1VPN\s0 można użyć następującej konfiguracji klienta:
 \&    client = yes
 \&    accept = 127.0.0.1:1080
 \&    connect = vpn_server:9080
-\&    verify = 4
+\&    verifyPeer = yes
 \&    CAfile = stunnel.pem
 .Ve
 .PP

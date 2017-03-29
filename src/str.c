@@ -84,7 +84,7 @@ typedef struct {
 } LEAK_ENTRY;
 NOEXPORT LEAK_ENTRY leak_hash_table[LEAK_TABLE_SIZE],
     *leak_results[LEAK_TABLE_SIZE];
-NOEXPORT int leak_result_num=0;
+NOEXPORT volatile int leak_result_num=0;
 
 #ifdef USE_WIN32
 NOEXPORT LPTSTR str_vtprintf(LPCTSTR, va_list);
@@ -411,7 +411,6 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
     static size_t entries=0;
     LEAK_ENTRY *entry;
     int new_entry, allocations;
-    long limit;
 
 #ifndef USE_FORK
     if(!stunnel_locks[STUNNEL_LOCKS-1]) /* threads not initialized */
@@ -448,17 +447,25 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
     allocations=(entry->num+=change); /* we just need an estimate... */
 #endif
 
-    limit=leak_threshold();
-
-    if(allocations>limit) {
-        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LEAK_RESULTS]);
-        if(allocations>entry->max) {
-            if(entry->max==0) /* discovered for the first time */
-                leak_results[leak_result_num++]=entry;
-            entry->max=allocations;
-        }
-        CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LEAK_RESULTS]);
+    if(allocations<=leak_threshold()) /* leak not detected */
+        return;
+    if(allocations<=entry->max) /* not the biggest leak for this entry */
+        return;
+    if(entry->max) { /* not the first time we found a leak for this entry */
+        entry->max=allocations; /* just update the value */
+        return;
     }
+    /* we *may* need to allocate a new leak_results entry */
+    /* locking is slow, so we try to avoid it if possible */
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LEAK_RESULTS]);
+    if(entry->max==0) { /* the table may have changed */
+        leak_results[leak_result_num]=entry;
+        entry->max=allocations;
+        ++leak_result_num; /* at the end to avoid a lock in leak_report() */
+    } else { /* gracefully handle the race condition */
+        entry->max=allocations;
+    }
+    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LEAK_RESULTS]);
 }
 
 /* O(1) hash table lookup */
@@ -478,14 +485,12 @@ NOEXPORT void leak_report() {
     long limit;
 
     limit=leak_threshold();
-
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LEAK_RESULTS]);
     for(i=0; i<leak_result_num; ++i)
-        if(leak_results[i]->max>limit) /* the limit could have changed */
+        if(leak_results[i] /* an officious compiler could reorder code */ &&
+                leak_results[i]->max>limit /* the limit could have changed */)
             s_log(LOG_WARNING, "Possible memory leak at %s:%d: %d allocations",
                 leak_results[i]->alloc_file, leak_results[i]->alloc_line,
                 leak_results[i]->max);
-    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_LEAK_RESULTS]);
 }
 
 NOEXPORT long leak_threshold() {

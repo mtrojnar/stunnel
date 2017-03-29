@@ -406,12 +406,16 @@ plik Centrum Certyfikacji
 Opcja pozwala określić położenie pliku zawierającego certyfikaty używane
 przez opcję I<verifyChain> lub I<verifyPeer>.
 
-=item B<cert> = PLIK_PEM
+=item B<cert> = PLIK_CERT
 
 plik z łańcuchem certyfikatów
 
 Opcja określa położenie pliku zawierającego certyfikaty używane przez
 program B<stunnel> do uwierzytelnienia się przed drugą stroną połączenia.
+Plik powinien zawierać kompletny łańcuch certyfikatów począwszy od certyfikatu
+klienta/serwera, a skończywszy na samopodpisanym certyfikacie głównego CA.
+Obsługiwane są pliki w formacie PEM lub P12.
+
 Certyfikat jest konieczny, aby używać programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
 
@@ -1151,7 +1155,7 @@ nie weryfikuj
 weryfikuj łańcuch certyfikatów drugiej strony
 
 Do weryfikacji certyfikatu serwera kluczowe jest, aby wymagać również
-konkretnego certyfikatu przy pomocy I<checkHost> lub I<verifyPeer>.
+konkretnego certyfikatu przy pomocy I<checkHost> lub I<checkIP>.
 
 Samopodpisany certyfikat głównego CA należy umieścić  albo w pliku
 podanym w opcji I<CAfile>, albo w katalogu podanym w opcji I<CApath>.
@@ -1280,7 +1284,7 @@ Aby skonfigurować VPN można użyć następującej konfiguracji klienta:
     client = yes
     accept = 127.0.0.1:1080
     connect = vpn_server:9080
-    verify = 4
+    verifyPeer = yes
     CAfile = stunnel.pem
 
 Odpowiadająca jej konfiguracja serwera vpn_server:

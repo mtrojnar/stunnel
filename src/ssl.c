@@ -47,7 +47,8 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *);
 NOEXPORT int prng_init(GLOBAL_OPTIONS *);
 NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
 
-int index_cli, index_opt, index_redirect, index_addr;
+int index_ssl_cli, index_ssl_ctx_opt;
+int index_session_authenticated, index_session_connect_address;
 
 int ssl_init(void) { /* init TLS before parsing configuration file */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
@@ -57,15 +58,17 @@ int ssl_init(void) { /* init TLS before parsing configuration file */
     SSL_load_error_strings();
     SSL_library_init();
 #endif
-    index_cli=SSL_get_ex_new_index(0, "cli index",
-        NULL, NULL, NULL);
-    index_opt=SSL_CTX_get_ex_new_index(0, "opt index",
-        NULL, NULL, NULL);
-    index_redirect=SSL_SESSION_get_ex_new_index(0, "redirect index",
-        NULL, NULL, NULL);
-    index_addr=SSL_SESSION_get_ex_new_index(0, "addr index",
-        NULL, NULL, cb_free);
-    if(index_cli<0 || index_opt<0 || index_redirect<0 || index_addr<0) {
+    index_ssl_cli=SSL_get_ex_new_index(0,
+        "CLI pointer", NULL, NULL, NULL);
+    index_ssl_ctx_opt=SSL_CTX_get_ex_new_index(0,
+        "SERVICE_OPTIONS pointer", NULL, NULL, NULL);
+    index_session_authenticated=SSL_SESSION_get_ex_new_index(0,
+        "session authenticated", NULL, NULL, NULL);
+    index_session_connect_address=SSL_SESSION_get_ex_new_index(0,
+        "session connect address", NULL, NULL, cb_free);
+    if(index_ssl_cli<0 || index_ssl_ctx_opt<0 ||
+            index_session_authenticated<0 ||
+            index_session_connect_address<0) {
         s_log(LOG_ERR, "Application specific data initialization failed");
         return 1;
     }

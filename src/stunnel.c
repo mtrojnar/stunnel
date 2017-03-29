@@ -225,7 +225,6 @@ void main_cleanup() {
 #ifdef USE_FORK
 NOEXPORT void client_status(void) { /* dead children detected */
     int pid, status;
-    char *sig_name;
 
 #ifdef HAVE_WAIT_FOR_PID
     while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
@@ -234,7 +233,7 @@ NOEXPORT void client_status(void) { /* dead children detected */
 #endif
 #ifdef WIFSIGNALED
         if(WIFSIGNALED(status)) {
-            sig_name=signal_name(WTERMSIG(status));
+            char *sig_name=signal_name(WTERMSIG(status));
             s_log(LOG_DEBUG, "Process %d terminated on %s",
                 pid, sig_name);
             str_free(sig_name);

@@ -83,7 +83,6 @@ CLI *alloc_client_session(SERVICE_OPTIONS *opt, SOCKET rfd, SOCKET wfd) {
     c->opt=opt;
     c->local_rfd.fd=rfd;
     c->local_wfd.fd=wfd;
-    c->redirect=REDIRECT_OFF;
     c->seq=seq++;
     return c;
 }
@@ -376,14 +375,17 @@ NOEXPORT void remote_start(CLI *c) {
 NOEXPORT void ssl_start(CLI *c) {
     int i, err;
     int unsafe_openssl;
-    X509 *peer_cert;
 
     c->ssl=SSL_new(c->opt->ctx);
     if(!c->ssl) {
         sslerror("SSL_new");
         longjmp(c->err, 1);
     }
-    SSL_set_ex_data(c->ssl, index_cli, c); /* for callbacks */
+    /* for callbacks */
+    if(!SSL_set_ex_data(c->ssl, index_ssl_cli, c)) {
+        sslerror("SSL_set_ex_data");
+        longjmp(c->err, 1);
+    }
     if(c->opt->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
         if(c->opt->sni && *c->opt->sni) {
@@ -477,26 +479,10 @@ NOEXPORT void ssl_start(CLI *c) {
         c->opt->option.client ? "connected" : "accepted",
         SSL_session_reused(c->ssl) ?
             "previous session reused" : "new session negotiated");
-    if(SSL_session_reused(c->ssl)) {
-        c->redirect=(uintptr_t)SSL_SESSION_get_ex_data(SSL_get_session(c->ssl),
-            index_redirect);
-        if(c->opt->redirect_addr.names && !c->redirect) {
-            s_log(LOG_ERR, "No application data found in the reused session");
-            longjmp(c->err, 1);
-        }
-    } else { /* a new session was negotiated */
+    if(!SSL_session_reused(c->ssl)) { /* a new session was negotiated */
         new_chain(c);
-        peer_cert=SSL_get_peer_certificate(c->ssl);
-        if(peer_cert) /* c->redirect was set by the callback */
-            X509_free(peer_cert);
-        else if(c->opt->redirect_addr.names) /* no peer certificate verified */
-            c->redirect=REDIRECT_ON;
-        SSL_SESSION_set_ex_data(SSL_get_session(c->ssl),
-            index_redirect, (void *)c->redirect);
         if(c->opt->option.client)
             session_cache_save(c);
-        else /* TLS server */
-            SSL_CTX_add_session(c->opt->ctx, SSL_get_session(c->ssl));
         print_cipher(c);
     }
 }
@@ -1402,8 +1388,9 @@ NOEXPORT void idx_cache_save(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
     str_free(addr_txt);
 
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_ADDR]);
-    old_addr=SSL_SESSION_get_ex_data(sess, index_addr);
-    SSL_SESSION_set_ex_data(sess, index_addr, new_addr);
+    old_addr=SSL_SESSION_get_ex_data(sess, index_session_connect_address);
+    /* we can safely ignore the SSL_SESSION_set_ex_data() failure */
+    SSL_SESSION_set_ex_data(sess, index_session_connect_address, new_addr);
     CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_ADDR]);
     str_free(old_addr); /* NULL pointers are ignored */
 }
@@ -1416,7 +1403,8 @@ NOEXPORT unsigned idx_cache_retrieve(CLI *c) {
 
     if(c->ssl && SSL_session_reused(c->ssl)) {
         CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_ADDR]);
-        ptr=SSL_SESSION_get_ex_data(SSL_get_session(c->ssl), index_addr);
+        ptr=SSL_SESSION_get_ex_data(SSL_get_session(c->ssl),
+            index_session_connect_address);
         if(ptr) {
             len=addr_len(ptr);
             memcpy(&addr, ptr, (size_t)len);
@@ -1455,7 +1443,9 @@ NOEXPORT unsigned idx_cache_retrieve(CLI *c) {
 
 NOEXPORT void connect_setup(CLI *c) {
     /* process "redirect" first */
-    if(c->redirect==REDIRECT_ON) {
+    if(c->opt->redirect_addr.names &&
+            (!c->ssl || !SSL_SESSION_get_ex_data(SSL_get_session(c->ssl),
+                index_session_authenticated))) {
         s_log(LOG_NOTICE, "Redirecting connection");
         /* c->connect_addr.addr may be allocated in protocol negotiations */
         str_free(c->connect_addr.addr);

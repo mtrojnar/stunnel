@@ -183,7 +183,7 @@ NOEXPORT void auth_warnings(SERVICE_OPTIONS *section) {
             return;
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
         s_log(LOG_WARNING,
-            "Service [%s] uses \"verify = 2\" without subject checks",
+            "Service [%s] uses \"verifyChain\" without subject checks",
             section->servname);
 #if OPENSSL_VERSION_NUMBER<0x10002000L
         s_log(LOG_WARNING,
@@ -208,20 +208,24 @@ NOEXPORT int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
     /* retrieve application specific data */
     ssl=X509_STORE_CTX_get_ex_data(callback_ctx,
         SSL_get_ex_data_X509_STORE_CTX_idx());
-    c=SSL_get_ex_data(ssl, index_cli);
+    c=SSL_get_ex_data(ssl, index_ssl_cli);
 
     if(!c->opt->option.verify_chain && !c->opt->option.verify_peer) {
         s_log(LOG_INFO, "Certificate verification disabled");
         return 1; /* accept */
     }
-    if(verify_checks(c, preverify_ok, callback_ctx))
-        return 1; /* accept */
-    if(c->opt->option.client || c->opt->protocol)
-        return 0; /* reject */
-    if(c->opt->redirect_addr.names) {
-        c->redirect=REDIRECT_ON;
+    if(verify_checks(c, preverify_ok, callback_ctx)) {
+        if(!SSL_SESSION_set_ex_data(SSL_get_session(ssl),
+                index_session_authenticated, (void *)(-1))) {
+            sslerror("SSL_SESSION_set_ex_data");
+            return 0; /* reject */
+        }
         return 1; /* accept */
     }
+    if(c->opt->option.client || c->opt->protocol)
+        return 0; /* reject */
+    if(c->opt->redirect_addr.names)
+        return 1; /* accept */
     return 0; /* reject */
 }
 
@@ -261,19 +265,22 @@ NOEXPORT int verify_checks(CLI *c,
 
 NOEXPORT int cert_check(CLI *c, X509_STORE_CTX *callback_ctx,
         int preverify_ok) {
+    int err=X509_STORE_CTX_get_error(callback_ctx);
     int depth=X509_STORE_CTX_get_error_depth(callback_ctx);
 
     if(preverify_ok) {
         s_log(LOG_DEBUG, "CERT: Pre-verification succeeded");
     } else { /* remote site sent an invalid certificate */
-        if(c->opt->option.verify_chain || depth==0) {
+        if(c->opt->option.verify_chain || (depth==0 &&
+                err!=X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY &&
+                err!=X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE)) {
             s_log(LOG_WARNING, "CERT: Pre-verification error: %s",
-                X509_verify_cert_error_string(
-                    X509_STORE_CTX_get_error(callback_ctx)));
+                X509_verify_cert_error_string(err));
             /* retain the STORE_CTX error produced by pre-verification */
             return 0; /* reject */
         }
-        s_log(LOG_INFO, "CERT: Invalid CA certificate ignored");
+        s_log(LOG_INFO, "CERT: Pre-verification error ignored: %s",
+            X509_verify_cert_error_string(err));
     }
 
     if(depth==0) { /* additional peer certificate checks */
@@ -333,22 +340,18 @@ NOEXPORT int cert_check_subject(CLI *c, X509_STORE_CTX *callback_ctx) {
 }
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
 
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+/* modern implementation for OpenSSL version >= 1.0.0 */
+
 NOEXPORT int cert_check_local(X509_STORE_CTX *callback_ctx) {
     X509 *cert;
     X509_NAME *subject;
-#if OPENSSL_VERSION_NUMBER>=0x10000000L
     STACK_OF(X509) *sk;
     int i;
-#endif
-#if OPENSSL_VERSION_NUMBER<0x10100000L
-    X509_OBJECT obj;
-    int success;
-#endif
 
     cert=X509_STORE_CTX_get_current_cert(callback_ctx);
     subject=X509_get_subject_name(cert);
 
-#if OPENSSL_VERSION_NUMBER>=0x10000000L
 #if OPENSSL_VERSION_NUMBER<0x10100006L
 #define X509_STORE_CTX_get1_certs X509_STORE_get1_certs
 #endif
@@ -362,28 +365,43 @@ NOEXPORT int cert_check_local(X509_STORE_CTX *callback_ctx) {
             }
         sk_X509_pop_free(sk, X509_free);
     }
-#endif
 
-#if OPENSSL_VERSION_NUMBER<0x10100000L
+    s_log(LOG_WARNING, "CERT: Certificate not found in local repository");
+    X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REJECTED);
+    return 0; /* reject */
+}
+
+#else /* OPENSSL_VERSION_NUMBER<0x10000000L */
+/* legacy implementation for OpenSSL version < 1.0.0 */
+
+NOEXPORT int cert_check_local(X509_STORE_CTX *callback_ctx) {
+    X509 *cert;
+    X509_NAME *subject;
+    X509_OBJECT obj;
+    int success;
+
+    cert=X509_STORE_CTX_get_current_cert(callback_ctx);
+    subject=X509_get_subject_name(cert);
+
     /* pre-1.0.0 API only returns a single matching certificate */
-    /* we also invoke it for other OpenSSL versions before 1.1.0 */
     memset((char *)&obj, 0, sizeof obj);
     if(X509_STORE_get_by_subject(callback_ctx, X509_LU_X509,
             subject, &obj)<=0) {
-        s_log(LOG_WARNING,
-            "CERT: Certificate not found in local repository");
+        s_log(LOG_WARNING, "CERT: Certificate not found in local repository");
+        X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REJECTED);
         return 0; /* reject */
     }
     success=compare_pubkeys(cert, obj.data.x509);
     X509_OBJECT_free_contents(&obj);
     if(success)
         return 1; /* accept */
-#endif
 
     s_log(LOG_WARNING, "CERT: Public keys do not match");
     X509_STORE_CTX_set_error(callback_ctx, X509_V_ERR_CERT_REJECTED);
     return 0; /* reject */
 }
+
+#endif /* OPENSSL_VERSION_NUMBER>=0x10000000L */
 
 NOEXPORT int compare_pubkeys(X509 *c1, X509 *c2) {
     ASN1_BIT_STRING *k1=X509_get0_pubkey_bitstr(c1);

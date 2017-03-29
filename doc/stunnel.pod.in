@@ -390,21 +390,24 @@ c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
 
 I<CApath> path is relative to the I<chroot> directory if specified.
 
-=item B<CAfile> = CERT_FILE
+=item B<CAfile> = CA_FILE
 
 Certificate Authority file
 
 This file contains multiple CA certificates, to be used with the I<verifyChain>
 and I<verifyPeer> options.
 
-=item B<cert> = PEM_FILE
+=item B<cert> = CERT_FILE
 
-certificate chain PEM file name
+certificate chain file name
 
-The certificates must be in PEM format, and must be from the
-actual server/client certificate to the self-signed root CA certificate.
+The parameter specifies the file containing certificates used by B<stunnel>
+to authenticate itself against the remote client or server.
+The file should contain the whole certificate chain starting from the actual
+server/client certificate, and ending with the self-signed root CA certificate.
+The file must be either in PEM or P12 format.
 
-A certificate is required in server mode, and optional in client mode.
+A certificate chain is required in server mode, and optional in client mode.
 
 This parameter is also used as the certificate identifier when a hardware
 engine is enabled.
@@ -493,7 +496,7 @@ c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
 
 I<CRLpath> path is relative to the I<chroot> directory if specified.
 
-=item B<CRLfile> = CERT_FILE
+=item B<CRLfile> = CRL_FILE
 
 Certificate Revocation Lists file
 
@@ -1141,7 +1144,7 @@ No verify.
 verify the peer certificate chain starting from the root CA
 
 For server certificate verification it is essential to also require a specific
-certificate with I<checkHost> or I<verifyPeer>.
+certificate with I<checkHost> or I<checkIP>.
 
 The self-signed root CA certificate needs to be stored either in the file
 specified with I<CAfile>, or in the directory specified with I<CApath>.

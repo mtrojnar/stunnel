@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2017.02.02" "5.41" "stunnel TLS Proxy"
+.TH stunnel 8 "2017.02.23" "5.41" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -377,20 +377,23 @@ The hash algorithm has been changed in \fBOpenSSL 1.0.0\fR.  It is required to
 c_rehash the directory on upgrade from \fBOpenSSL 0.x.x\fR to \fBOpenSSL 1.x.x\fR.
 .Sp
 \&\fICApath\fR path is relative to the \fIchroot\fR directory if specified.
-.IP "\fBCAfile\fR = \s-1CERT_FILE\s0" 4
-.IX Item "CAfile = CERT_FILE"
+.IP "\fBCAfile\fR = \s-1CA_FILE\s0" 4
+.IX Item "CAfile = CA_FILE"
 Certificate Authority file
 .Sp
 This file contains multiple \s-1CA\s0 certificates, to be used with the \fIverifyChain\fR
 and \fIverifyPeer\fR options.
-.IP "\fBcert\fR = \s-1PEM_FILE\s0" 4
-.IX Item "cert = PEM_FILE"
-certificate chain \s-1PEM\s0 file name
+.IP "\fBcert\fR = \s-1CERT_FILE\s0" 4
+.IX Item "cert = CERT_FILE"
+certificate chain file name
 .Sp
-The certificates must be in \s-1PEM\s0 format, and must be from the
-actual server/client certificate to the self-signed root \s-1CA\s0 certificate.
+The parameter specifies the file containing certificates used by \fBstunnel\fR
+to authenticate itself against the remote client or server.
+The file should contain the whole certificate chain starting from the actual
+server/client certificate, and ending with the self-signed root \s-1CA\s0 certificate.
+The file must be either in \s-1PEM\s0 or P12 format.
 .Sp
-A certificate is required in server mode, and optional in client mode.
+A certificate chain is required in server mode, and optional in client mode.
 .Sp
 This parameter is also used as the certificate identifier when a hardware
 engine is enabled.
@@ -470,8 +473,8 @@ The hash algorithm has been changed in \fBOpenSSL 1.0.0\fR.  It is required to
 c_rehash the directory on upgrade from \fBOpenSSL 0.x.x\fR to \fBOpenSSL 1.x.x\fR.
 .Sp
 \&\fICRLpath\fR path is relative to the \fIchroot\fR directory if specified.
-.IP "\fBCRLfile\fR = \s-1CERT_FILE\s0" 4
-.IX Item "CRLfile = CERT_FILE"
+.IP "\fBCRLfile\fR = \s-1CRL_FILE\s0" 4
+.IX Item "CRLfile = CRL_FILE"
 Certificate Revocation Lists file
 .Sp
 This file contains multiple CRLs, used with the \fIverifyChain\fR and
@@ -1055,7 +1058,7 @@ No verify.
 verify the peer certificate chain starting from the root \s-1CA\s0
 .Sp
 For server certificate verification it is essential to also require a specific
-certificate with \fIcheckHost\fR or \fIverifyPeer\fR.
+certificate with \fIcheckHost\fR or \fIcheckIP\fR.
 .Sp
 The self-signed root \s-1CA\s0 certificate needs to be stored either in the file
 specified with \fICAfile\fR, or in the directory specified with \fICApath\fR.

@@ -459,7 +459,7 @@
 <p><i>CApath</i> path is relative to the <i>chroot</i> directory if specified.</p>
 
 </dd>
-<dt id="CAfile-CERT_FILE"><b>CAfile</b> = CERT_FILE</dt>
+<dt id="CAfile-CA_FILE"><b>CAfile</b> = CA_FILE</dt>
 <dd>
 
 <p>Certificate Authority file</p>
@@ -467,14 +467,14 @@
 <p>This file contains multiple CA certificates, to be used with the <i>verifyChain</i> and <i>verifyPeer</i> options.</p>
 
 </dd>
-<dt id="cert-PEM_FILE"><b>cert</b> = PEM_FILE</dt>
+<dt id="cert-CERT_FILE"><b>cert</b> = CERT_FILE</dt>
 <dd>
 
-<p>certificate chain PEM file name</p>
+<p>certificate chain file name</p>
 
-<p>The certificates must be in PEM format, and must be from the actual server/client certificate to the self-signed root CA certificate.</p>
+<p>The parameter specifies the file containing certificates used by <b>stunnel</b> to authenticate itself against the remote client or server. The file should contain the whole certificate chain starting from the actual server/client certificate, and ending with the self-signed root CA certificate. The file must be either in PEM or P12 format.</p>
 
-<p>A certificate is required in server mode, and optional in client mode.</p>
+<p>A certificate chain is required in server mode, and optional in client mode.</p>
 
 <p>This parameter is also used as the certificate identifier when a hardware engine is enabled.</p>
 
@@ -561,7 +561,7 @@
 <p><i>CRLpath</i> path is relative to the <i>chroot</i> directory if specified.</p>
 
 </dd>
-<dt id="CRLfile-CERT_FILE"><b>CRLfile</b> = CERT_FILE</dt>
+<dt id="CRLfile-CRL_FILE"><b>CRLfile</b> = CRL_FILE</dt>
 <dd>
 
 <p>Certificate Revocation Lists file</p>
@@ -1286,7 +1286,7 @@
 
 <p>verify the peer certificate chain starting from the root CA</p>
 
-<p>For server certificate verification it is essential to also require a specific certificate with <i>checkHost</i> or <i>verifyPeer</i>.</p>
+<p>For server certificate verification it is essential to also require a specific certificate with <i>checkHost</i> or <i>checkIP</i>.</p>
 
 <p>The self-signed root CA certificate needs to be stored either in the file specified with <i>CAfile</i>, or in the directory specified with <i>CApath</i>.</p>
 
