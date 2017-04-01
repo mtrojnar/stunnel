@@ -670,7 +670,7 @@ specify OCSP responder flag
 
 Several I<OCSPflag> can be used to specify multiple flags.
 
-currently supported flags: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
+currently supported flags: NOCERTS, NOINTERN, NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
 
 =item B<OCSPnonce> = yes | no

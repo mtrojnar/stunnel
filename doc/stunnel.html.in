@@ -762,7 +762,7 @@
 
 <p>Several <i>OCSPflag</i> can be used to specify multiple flags.</p>
 
-<p>currently supported flags: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY, NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
+<p>currently supported flags: NOCERTS, NOINTERN, NOSIGS, NOCHAIN, NOVERIFY, NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
 
 </dd>
 <dt id="OCSPnonce-yes-no"><b>OCSPnonce</b> = yes | no</dt>

@@ -686,7 +686,7 @@ responderów OCSP przesłanych w rozszerzeniach AIA (Authority Information Acces
 
 flaga respondera OCSP
 
-Aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY,
+Aktualnie wspierane flagi: NOCERTS, NOINTERN, NOSIGS, NOCHAIN, NOVERIFY,
 NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME
 
 Aby wyspecyfikować kilka flag należy użyć I<OCSPflag> wielokrotnie.

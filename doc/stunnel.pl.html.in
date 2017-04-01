@@ -762,7 +762,7 @@
 
 <p>flaga respondera OCSP</p>
 
-<p>Aktualnie wspierane flagi: NOCERTS, NOINTERN NOSIGS, NOCHAIN, NOVERIFY, NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
+<p>Aktualnie wspierane flagi: NOCERTS, NOINTERN, NOSIGS, NOCHAIN, NOVERIFY, NOEXPLICIT, NOCASIGN, NODELEGATED, NOCHECKS, TRUSTOTHER, RESPID_KEY, NOTIME</p>
 
 <p>Aby wyspecyfikowa&#x107; kilka flag nale&#x17C;y u&#x17C;y&#x107; <i>OCSPflag</i> wielokrotnie.</p>
 

@@ -2304,7 +2304,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 section->option.delayed_lookup=1;
             }
             if(!section->option.verify_chain && !section->option.verify_peer)
-                return "\"verify\" needs to be 1 or higher for \"redirect\" to work";
+                return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled for \"redirect\" to work";
         }
         break;
     case CMD_FREE:
