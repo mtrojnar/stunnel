@@ -19,6 +19,7 @@ env:
 addons:
   apt:
     packages:
+    - autoconf-archive
     - libssl-dev
     - libwrap0-dev
 

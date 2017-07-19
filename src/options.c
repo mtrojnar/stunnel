@@ -3655,6 +3655,7 @@ NOEXPORT char *engine_init(void) {
         return "Selecting default engine failed";
     }
 #endif
+    OpenSSL_add_all_algorithms(); /* engines can add new algorithms */
     s_log(LOG_INFO, "Engine #%d (%s) initialized",
         current_engine+1, ENGINE_get_id(engines[current_engine]));
     engine_initialized=1;
