@@ -43,7 +43,7 @@
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-pedantic"
+#pragma GCC diagnostic ignored "-Wpedantic"
 #endif /* __GNUC__ */
 
 #include <openssl/applink.c>
@@ -111,8 +111,6 @@ void main_init() { /* one-time initialization */
         fatal("TLS initialization failed");
     if(sthreads_init()) /* initialize critical sections & TLS callbacks */
         fatal("Threads initialization failed");
-    if(cron_init()) /* initialize periodic events */
-        fatal("Cron initialization failed");
     options_defaults();
     options_apply();
 #ifndef USE_FORK
@@ -284,6 +282,8 @@ void child_status(void) { /* dead libwrap or 'exec' process detected */
 /**************************************** main loop accepting connections */
 
 void daemon_loop(void) {
+    if(cron_init()) /* initialize periodic events */
+        fatal("Cron initialization failed");
     while(1) {
         int temporary_lack_of_resources=0;
         int num=s_poll_wait(fds, -1, -1);

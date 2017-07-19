@@ -43,13 +43,252 @@
 #include "common.h"
 #include "prototypes.h"
 
-#ifndef USE_FORK
-STUNNEL_RWLOCK stunnel_locks[STUNNEL_LOCKS];
+/**************************************** thread ID callbacks */
+
+#ifdef USE_UCONTEXT
+
+unsigned long stunnel_process_id(void) {
+    return (unsigned long)getpid();
+}
+
+unsigned long stunnel_thread_id(void) {
+    return ready_head ? ready_head->id : 0;
+}
+
+#endif /* USE_UCONTEXT */
+
+#ifdef USE_FORK
+
+unsigned long stunnel_process_id(void) {
+    return (unsigned long)getpid();
+}
+
+unsigned long stunnel_thread_id(void) {
+    return 0L;
+}
+
+#endif /* USE_FORK */
+
+#ifdef USE_PTHREAD
+
+unsigned long stunnel_process_id(void) {
+    return (unsigned long)getpid();
+}
+
+unsigned long stunnel_thread_id(void) {
+#if defined(SYS_gettid) && defined(__linux__)
+    return (unsigned long)syscall(SYS_gettid);
+#else
+    return (unsigned long)pthread_self();
 #endif
+}
+
+#endif /* USE_PTHREAD */
+
+#ifdef USE_WIN32
+
+unsigned long stunnel_process_id(void) {
+    return GetCurrentProcessId() & 0x00ffffff;
+}
+
+unsigned long stunnel_thread_id(void) {
+    return GetCurrentThreadId() & 0x00ffffff;
+}
+
+#endif /* USE_WIN32 */
+
+#if OPENSSL_VERSION_NUMBER>=0x10000000L && OPENSSL_VERSION_NUMBER<0x10100004L
+NOEXPORT void threadid_func(CRYPTO_THREADID *tid) {
+    CRYPTO_THREADID_set_numeric(tid, stunnel_thread_id());
+}
+#endif
+
+void thread_id_init(void) {
+#if OPENSSL_VERSION_NUMBER>=0x10000000L && OPENSSL_VERSION_NUMBER<0x10100000L
+    CRYPTO_THREADID_set_callback(threadid_func);
+#endif
+#if OPENSSL_VERSION_NUMBER<0x10000000L || !defined(OPENSSL_NO_DEPRECATED)
+    CRYPTO_set_id_callback(stunnel_thread_id);
+#endif
+}
+
+/**************************************** locking */
+
+#ifdef USE_PTHREAD
+
+void stunnel_rwlock_init_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    pthread_rwlock_init(&lock->rwlock, NULL);
+    lock->init_file=file;
+    lock->init_line=line;
+}
+
+void stunnel_read_lock_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    pthread_rwlock_rdlock(&lock->rwlock);
+    lock->read_lock_file=file;
+    lock->read_lock_line=line;
+}
+
+void stunnel_write_lock_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    pthread_rwlock_wrlock(&lock->rwlock);
+    lock->write_lock_file=file;
+    lock->write_lock_line=line;
+}
+
+void stunnel_read_unlock_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    pthread_rwlock_unlock(&lock->rwlock);
+    lock->read_unlock_file=file;
+    lock->read_unlock_line=line;
+}
+
+void stunnel_write_unlock_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    pthread_rwlock_unlock(&lock->rwlock);
+    lock->write_unlock_file=file;
+    lock->write_unlock_line=line;
+}
+
+void stunnel_rwlock_destroy_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    pthread_rwlock_destroy(&lock->rwlock);
+    lock->destroy_file=file;
+    lock->destroy_line=line;
+    str_free(lock);
+}
+
+#endif /* USE_PTHREAD */
+
+#ifdef USE_WIN32
+
+/* Slim Reader/Writer (SRW) Lock would be better than CRITICAL_SECTION,
+ * but it is unsupported on Windows XP (and earlier versions of Windows):
+ * https://msdn.microsoft.com/en-us/library/windows/desktop/aa904937%28v=vs.85%29.aspx */
+
+void stunnel_rwlock_init_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    InitializeCriticalSection(&lock->critical_section);
+    lock->init_file=file;
+    lock->init_line=line;
+}
+
+void stunnel_read_lock_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    EnterCriticalSection(&lock->critical_section);
+    lock->read_lock_file=file;
+    lock->read_lock_line=line;
+}
+
+void stunnel_write_lock_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    EnterCriticalSection(&lock->critical_section);
+    lock->write_lock_file=file;
+    lock->write_lock_line=line;
+}
+
+void stunnel_read_unlock_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    LeaveCriticalSection(&lock->critical_section);
+    lock->read_unlock_file=file;
+    lock->read_unlock_line=line;
+}
+
+void stunnel_write_unlock_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    LeaveCriticalSection(&lock->critical_section);
+    lock->write_unlock_file=file;
+    lock->write_unlock_line=line;
+}
+
+void stunnel_rwlock_destroy_debug(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    DeleteCriticalSection(&lock->critical_section);
+    lock->destroy_file=file;
+    lock->destroy_line=line;
+    str_free(lock);
+}
+
+#endif /* USE_WIN32 */
+
+#if defined(USE_PTHREAD) || defined(USE_WIN32)
+
+struct CRYPTO_dynlock_value stunnel_locks[STUNNEL_LOCKS];
 
 #if OPENSSL_VERSION_NUMBER<0x10100004L
 #define CRYPTO_THREAD_lock_new() CRYPTO_get_new_dynlockid()
 #endif
+
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+
+static struct CRYPTO_dynlock_value *lock_cs;
+
+NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
+        int line) {
+    struct CRYPTO_dynlock_value *lock;
+
+    lock=str_alloc_detached(sizeof(struct CRYPTO_dynlock_value));
+    stunnel_rwlock_init_debug(lock, file, line);
+    return lock;
+}
+
+NOEXPORT void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    if(mode&CRYPTO_LOCK) {
+        /* either CRYPTO_READ or CRYPTO_WRITE (but not both) are needed */
+        if(!(mode&CRYPTO_READ)==!(mode&CRYPTO_WRITE))
+            fatal("Invalid locking mode");
+        if(mode&CRYPTO_WRITE)
+            stunnel_write_lock_debug(lock, file, line);
+        else
+            stunnel_read_lock_debug(lock, file, line);
+    } else
+        stunnel_write_unlock_debug(lock, file, line);
+}
+
+NOEXPORT void dyn_destroy_function(struct CRYPTO_dynlock_value *lock,
+        const char *file, int line) {
+    stunnel_rwlock_destroy_debug(lock, file, line);
+    str_free(lock);
+}
+
+NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
+    dyn_lock_function(mode, lock_cs+type, file, line);
+}
+
+#endif /* OPENSSL_VERSION_NUMBER<0x10100004L */
+
+void locking_init(void) {
+    size_t i;
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+    size_t num;
+#endif
+
+    /* initialize stunnel critical sections */
+    for(i=0; i<STUNNEL_LOCKS; i++) /* all the mutexes */
+        stunnel_rwlock_init(&stunnel_locks[i]);
+
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+    /* initialize the OpenSSL static locking */
+    num=(size_t)CRYPTO_num_locks();
+    lock_cs=str_alloc_detached(num*sizeof(struct CRYPTO_dynlock_value));
+    for(i=0; i<num; i++)
+        stunnel_rwlock_init(&lock_cs[i]);
+
+    /* initialize the OpenSSL static locking callbacks */
+    CRYPTO_set_locking_callback(locking_callback);
+
+    /* initialize the OpenSSL dynamic locking callbacks */
+    CRYPTO_set_dynlock_create_callback(dyn_create_function);
+    CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
+    CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+#endif
+}
+
+#endif /* defined(USE_PTHREAD) || defined(USE_WIN32) */
+
+/**************************************** creating a client */
 
 #if defined(USE_UCONTEXT) || defined(USE_FORK)
 /* no need for critical sections */
@@ -77,14 +316,6 @@ STUNNEL_RWLOCK stunnel_locks[STUNNEL_LOCKS];
 CONTEXT *ready_head=NULL, *ready_tail=NULL;         /* ready to execute */
 CONTEXT *waiting_head=NULL, *waiting_tail=NULL;     /* waiting on poll() */
 
-unsigned long stunnel_process_id(void) {
-    return (unsigned long)getpid();
-}
-
-unsigned long stunnel_thread_id(void) {
-    return ready_head ? ready_head->id : 0;
-}
-
 NOEXPORT CONTEXT *new_context(void) {
     static unsigned long next_id=1;
     CONTEXT *context;
@@ -107,6 +338,7 @@ NOEXPORT CONTEXT *new_context(void) {
 }
 
 int sthreads_init(void) {
+    thread_id_init();
     /* create the first (listening) context and put it in the running queue */
     if(!new_context()) {
         s_log(LOG_ERR, "Cannot create the listening context");
@@ -164,15 +396,8 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
 #ifdef USE_FORK
 
 int sthreads_init(void) {
+    thread_id_init();
     return 0;
-}
-
-unsigned long stunnel_process_id(void) {
-    return (unsigned long)getpid();
-}
-
-unsigned long stunnel_thread_id(void) {
-    return 0L;
 }
 
 NOEXPORT void null_handler(int sig) {
@@ -205,98 +430,9 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
 
 #ifdef USE_PTHREAD
 
-#if OPENSSL_VERSION_NUMBER<0x10100004L
-
-struct CRYPTO_dynlock_value {
-    pthread_rwlock_t rwlock;
-};
-static struct CRYPTO_dynlock_value *lock_cs;
-
-NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
-        int line) {
-    struct CRYPTO_dynlock_value *value;
-
-    (void)file; /* squash the unused parameter warning */
-    (void)line; /* squash the unused parameter warning */
-    value=str_alloc_detached(sizeof(struct CRYPTO_dynlock_value));
-    pthread_rwlock_init(&value->rwlock, NULL);
-    return value;
-}
-
-NOEXPORT void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
-        const char *file, int line) {
-    (void)file; /* squash the unused parameter warning */
-    (void)line; /* squash the unused parameter warning */
-    if(mode&CRYPTO_LOCK) {
-        /* either CRYPTO_READ or CRYPTO_WRITE (but not both) are needed */
-        if(!(mode&CRYPTO_READ)==!(mode&CRYPTO_WRITE))
-            fatal("Invalid locking mode");
-        if(mode&CRYPTO_WRITE)
-            pthread_rwlock_wrlock(&value->rwlock);
-        else
-            pthread_rwlock_rdlock(&value->rwlock);
-    } else
-        pthread_rwlock_unlock(&value->rwlock);
-}
-
-NOEXPORT void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
-        const char *file, int line) {
-    (void)file; /* squash the unused parameter warning */
-    (void)line; /* squash the unused parameter warning */
-    pthread_rwlock_destroy(&value->rwlock);
-    str_free(value);
-}
-
-NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
-    dyn_lock_function(mode, lock_cs+type, file, line);
-}
-
-#endif
-
-unsigned long stunnel_process_id(void) {
-    return (unsigned long)getpid();
-}
-
-unsigned long stunnel_thread_id(void) {
-#if defined(SYS_gettid) && defined(__linux__)
-    return (unsigned long)syscall(SYS_gettid);
-#else
-    return (unsigned long)pthread_self();
-#endif
-}
-
-#if OPENSSL_VERSION_NUMBER>=0x10000000L && OPENSSL_VERSION_NUMBER<0x10100004L
-NOEXPORT void threadid_func(CRYPTO_THREADID *tid) {
-    CRYPTO_THREADID_set_numeric(tid, stunnel_thread_id());
-}
-#endif
-
 int sthreads_init(void) {
-    int i;
-
-#if OPENSSL_VERSION_NUMBER<0x10100004L
-    /* initialize the OpenSSL dynamic locking */
-    CRYPTO_set_dynlock_create_callback(dyn_create_function);
-    CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
-    CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
-
-    /* initialize the OpenSSL static locking */
-    lock_cs=str_alloc_detached(
-        (size_t)CRYPTO_num_locks()*sizeof(struct CRYPTO_dynlock_value));
-    for(i=0; i<CRYPTO_num_locks(); i++)
-        pthread_rwlock_init(&lock_cs[i].rwlock, NULL);
-#if OPENSSL_VERSION_NUMBER>=0x10000000L
-    CRYPTO_THREADID_set_callback(threadid_func);
-#else
-    CRYPTO_set_id_callback(stunnel_thread_id);
-#endif
-    CRYPTO_set_locking_callback(locking_callback);
-#endif
-
-    /* initialize stunnel critical sections */
-    for(i=0; i<STUNNEL_LOCKS; i++)
-        stunnel_locks[i]=CRYPTO_THREAD_lock_new();
-
+    thread_id_init();
+    locking_init();
     return 0;
 }
 
@@ -343,83 +479,9 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
 
 #ifdef USE_WIN32
 
-/* Slim Reader/Writer (SRW) Lock would be better than CRITICAL_SECTION,
- * but it is unsupported on Windows XP (and earlier versions of Windows):
- * https://msdn.microsoft.com/en-us/library/windows/desktop/aa904937%28v=vs.85%29.aspx */
-
-#if OPENSSL_VERSION_NUMBER<0x10100004L
-
-struct CRYPTO_dynlock_value {
-    CRITICAL_SECTION mutex;
-};
-static struct CRYPTO_dynlock_value *lock_cs;
-
-NOEXPORT struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
-        int line) {
-    struct CRYPTO_dynlock_value *value;
-
-    (void)file; /* squash the unused parameter warning */
-    (void)line; /* squash the unused parameter warning */
-    value=str_alloc_detached(sizeof(struct CRYPTO_dynlock_value));
-    InitializeCriticalSection(&value->mutex);
-    return value;
-}
-
-NOEXPORT void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *value,
-        const char *file, int line) {
-    (void)file; /* squash the unused parameter warning */
-    (void)line; /* squash the unused parameter warning */
-    if(mode&CRYPTO_LOCK)
-        EnterCriticalSection(&value->mutex);
-    else
-        LeaveCriticalSection(&value->mutex);
-}
-
-NOEXPORT void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
-        const char *file, int line) {
-    (void)file; /* squash the unused parameter warning */
-    (void)line; /* squash the unused parameter warning */
-    DeleteCriticalSection(&value->mutex);
-    str_free(value);
-}
-
-NOEXPORT void locking_callback(int mode, int type, const char *file, int line) {
-    dyn_lock_function(mode, lock_cs+type, file, line);
-}
-
-#endif
-
-unsigned long stunnel_process_id(void) {
-    return GetCurrentProcessId() & 0x00ffffff;
-}
-
-unsigned long stunnel_thread_id(void) {
-    return GetCurrentThreadId() & 0x00ffffff;
-}
-
 int sthreads_init(void) {
-#ifndef USE_FORK
-    int i;
-
-#if OPENSSL_VERSION_NUMBER<0x10100004L
-    /* initialize the OpenSSL dynamic locking */
-    CRYPTO_set_dynlock_create_callback(dyn_create_function);
-    CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
-    CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
-
-    /* initialize the OpenSSL static locking */
-    lock_cs=str_alloc_detached(
-        (size_t)CRYPTO_num_locks()*sizeof(struct CRYPTO_dynlock_value));
-    for(i=0; i<CRYPTO_num_locks(); i++)
-        InitializeCriticalSection(&lock_cs[i].mutex);
-    CRYPTO_set_locking_callback(locking_callback);
-#endif
-
-    /* initialize stunnel critical sections */
-    for(i=0; i<STUNNEL_LOCKS; i++)
-        stunnel_locks[i]=CRYPTO_THREAD_lock_new();
-#endif /* USE_FORK */
-
+    thread_id_init();
+    locking_init();
     return 0;
 }
 

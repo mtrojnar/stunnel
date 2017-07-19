@@ -106,25 +106,25 @@ int log_open(void) {
 
 void log_close(void) {
     /* prevent changing the mode while logging */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
+    stunnel_write_lock(&stunnel_locks[LOCK_LOG_MODE]);
     log_mode=LOG_MODE_BUFFER;
     if(outfile) {
         file_close(outfile);
         outfile=NULL;
     }
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG_MODE]);
+    stunnel_write_unlock(&stunnel_locks[LOCK_LOG_MODE]);
 }
 
 void log_flush(LOG_MODE new_mode) {
     struct LIST *tmp;
 
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
+    stunnel_write_lock(&stunnel_locks[LOCK_LOG_MODE]);
     /* prevent changing LOG_MODE_CONFIGURED to LOG_MODE_ERROR
      * once stderr file descriptor is closed */
     if(log_mode!=LOG_MODE_CONFIGURED)
         log_mode=new_mode;
     /* log_raw() will use the new value of log_mode */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
+    stunnel_write_lock(&stunnel_locks[LOCK_LOG_BUFFER]);
     while(head) {
         log_raw(head->opt, head->level, head->stamp, head->id, head->text);
         str_free(head->stamp);
@@ -135,8 +135,8 @@ void log_flush(LOG_MODE new_mode) {
         str_free(tmp);
     }
     head=tail=NULL;
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG_MODE]);
+    stunnel_write_unlock(&stunnel_locks[LOCK_LOG_BUFFER]);
+    stunnel_write_unlock(&stunnel_locks[LOCK_LOG_MODE]);
 }
 
 void s_log(int level, const char *format, ...) {
@@ -188,9 +188,9 @@ void s_log(int level, const char *format, ...) {
     va_end(ap);
     safestring(text);
 
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LOG_MODE]);
+    stunnel_read_lock(&stunnel_locks[LOCK_LOG_MODE]);
     if(log_mode==LOG_MODE_BUFFER) { /* save the text to log it later */
-        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
+        stunnel_write_lock(&stunnel_locks[LOCK_LOG_BUFFER]);
         tmp=str_alloc_detached(sizeof(struct LIST));
         tmp->next=NULL;
         tmp->opt=tls_data->opt;
@@ -206,14 +206,14 @@ void s_log(int level, const char *format, ...) {
         else
             head=tmp;
         tail=tmp;
-        CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
+        stunnel_write_unlock(&stunnel_locks[LOCK_LOG_BUFFER]);
     } else { /* ready log the text directly */
         log_raw(tls_data->opt, level, stamp, id, text);
         str_free(stamp);
         str_free(id);
         str_free(text);
     }
-    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_LOG_MODE]);
+    stunnel_read_unlock(&stunnel_locks[LOCK_LOG_MODE]);
 
     set_last_error(libc_error);
     set_last_socket_error(socket_error);

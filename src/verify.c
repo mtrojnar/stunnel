@@ -273,7 +273,8 @@ NOEXPORT int cert_check(CLI *c, X509_STORE_CTX *callback_ctx,
     } else { /* remote site sent an invalid certificate */
         if(c->opt->option.verify_chain || (depth==0 &&
                 err!=X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY &&
-                err!=X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE)) {
+                err!=X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE &&
+                err!=X509_V_ERR_CERT_UNTRUSTED)) {
             s_log(LOG_WARNING, "CERT: Pre-verification error: %s",
                 X509_verify_cert_error_string(err));
             /* retain the STORE_CTX error produced by pre-verification */

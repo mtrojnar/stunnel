@@ -70,7 +70,8 @@ NOEXPORT SOCKET connect_remote(CLI *);
 NOEXPORT void idx_cache_save(SSL_SESSION *, SOCKADDR_UNION *);
 NOEXPORT unsigned idx_cache_retrieve(CLI *);
 NOEXPORT void connect_setup(CLI *);
-NOEXPORT int connect_init(CLI *c, int);
+NOEXPORT int connect_init(CLI *, int);
+NOEXPORT int redirect(CLI *);
 NOEXPORT void print_bound_address(CLI *);
 NOEXPORT void reset(SOCKET, char *);
 
@@ -152,9 +153,9 @@ NOEXPORT void client_run(CLI *c) {
 #endif
 
 #ifndef USE_FORK
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_CLIENTS]);
+    stunnel_write_lock(&stunnel_locks[LOCK_CLIENTS]);
     ui_clients(++num_clients);
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_CLIENTS]);
+    stunnel_write_unlock(&stunnel_locks[LOCK_CLIENTS]);
 #endif
 
         /* initialize the client context */
@@ -243,10 +244,10 @@ NOEXPORT void client_run(CLI *c) {
         child_status(); /* null SIGCHLD handler was used */
     s_log(LOG_DEBUG, "Service [%s] finished", c->opt->servname);
 #else
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_CLIENTS]);
+    stunnel_write_lock(&stunnel_locks[LOCK_CLIENTS]);
     ui_clients(--num_clients);
     num_clients_copy=num_clients; /* to move s_log() away from CRIT_CLIENTS */
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_CLIENTS]);
+    stunnel_write_unlock(&stunnel_locks[LOCK_CLIENTS]);
     s_log(LOG_DEBUG, "Service [%s] finished (%ld left)",
         c->opt->servname, num_clients_copy);
 #endif
@@ -353,7 +354,7 @@ NOEXPORT void remote_start(CLI *c) {
         c->bind_addr=NULL; /* don't bind */
 
     /* setup c->remote_fd, now */
-    if(c->opt->exec_name && !c->opt->connect_addr.names)
+    if(c->opt->exec_name && !c->opt->connect_addr.names && !redirect(c))
         c->remote_fd.fd=connect_local(c); /* not for exec+connect targets */
     else
         c->remote_fd.fd=connect_remote(c);
@@ -425,7 +426,7 @@ NOEXPORT void ssl_start(CLI *c) {
          * alternative solution is to disable internal session caching     *
          * NOTE: this critical section also covers callbacks (e.g. OCSP)   */
         if(unsafe_openssl)
-            CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SSL]);
+            stunnel_write_lock(&stunnel_locks[LOCK_SSL]);
 
         if(c->opt->option.client)
             i=SSL_connect(c->ssl);
@@ -433,7 +434,7 @@ NOEXPORT void ssl_start(CLI *c) {
             i=SSL_accept(c->ssl);
 
         if(unsafe_openssl)
-            CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_SSL]);
+            stunnel_write_unlock(&stunnel_locks[LOCK_SSL]);
 
         err=SSL_get_error(c->ssl, i);
         if(err==SSL_ERROR_NONE)
@@ -491,7 +492,7 @@ NOEXPORT void ssl_start(CLI *c) {
 NOEXPORT void session_cache_save(CLI *c) {
     SSL_SESSION *old1, *old2;
 
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
+    stunnel_write_lock(&stunnel_locks[LOCK_SESSION]);
     /* per-destination client cache */
     /* "parent->" part is added for future use (not currently needed) */
     old1=c->connect_addr.parent->session[c->idx];
@@ -499,7 +500,7 @@ NOEXPORT void session_cache_save(CLI *c) {
     /* per-section client cache (for delayed resolver) */
     old2=c->opt->session;
     c->opt->session=SSL_get1_session(c->ssl);
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_SESSION]);
+    stunnel_write_unlock(&stunnel_locks[LOCK_SESSION]);
     if(old1)
         SSL_SESSION_free(old1);
     if(old2)
@@ -507,14 +508,14 @@ NOEXPORT void session_cache_save(CLI *c) {
 }
 
 NOEXPORT void session_cache_retrieve(CLI *c) {
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SESSION]);
+    stunnel_read_lock(&stunnel_locks[LOCK_SESSION]);
     /* try per-destination cache first */
     /* "parent->" part is added for future use (not currently needed) */
     if(c->connect_addr.parent->session[c->idx])
         SSL_set_session(c->ssl, c->connect_addr.parent->session[c->idx]);
     else if(c->opt->session)
         SSL_set_session(c->ssl, c->opt->session);
-    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_SESSION]);
+    stunnel_read_unlock(&stunnel_locks[LOCK_SESSION]);
 }
 
 NOEXPORT void new_chain(CLI *c) {
@@ -1028,6 +1029,13 @@ NOEXPORT void transfer(CLI *c) {
         shutdown_wants_read || shutdown_wants_write);
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#if __GNUC__ >= 7
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
+#endif /* __GNUC__ */
+
     /* returns 0 on close and 1 on non-critical errors */
 NOEXPORT int parse_socket_error(CLI *c, const char *text) {
     switch(get_last_socket_error()) {
@@ -1059,6 +1067,7 @@ NOEXPORT int parse_socket_error(CLI *c, const char *text) {
             s_log(LOG_INFO, "%s: Socket is closed (exec)", text);
             return 0;
         }
+        /* fall through */
 #endif
     default:
         sockerror(text);
@@ -1066,6 +1075,10 @@ NOEXPORT int parse_socket_error(CLI *c, const char *text) {
         return -1; /* some C compilers require a return value */
     }
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 
 NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
     SSL_CIPHER *cipher;
@@ -1387,11 +1400,11 @@ NOEXPORT void idx_cache_save(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
     s_log(LOG_INFO, "persistence: %s cached", addr_txt);
     str_free(addr_txt);
 
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_ADDR]);
+    stunnel_write_lock(&stunnel_locks[LOCK_ADDR]);
     old_addr=SSL_SESSION_get_ex_data(sess, index_session_connect_address);
     /* we can safely ignore the SSL_SESSION_set_ex_data() failure */
     SSL_SESSION_set_ex_data(sess, index_session_connect_address, new_addr);
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_ADDR]);
+    stunnel_write_unlock(&stunnel_locks[LOCK_ADDR]);
     str_free(old_addr); /* NULL pointers are ignored */
 }
 
@@ -1402,13 +1415,13 @@ NOEXPORT unsigned idx_cache_retrieve(CLI *c) {
     char *addr_txt;
 
     if(c->ssl && SSL_session_reused(c->ssl)) {
-        CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_ADDR]);
+        stunnel_read_lock(&stunnel_locks[LOCK_ADDR]);
         ptr=SSL_SESSION_get_ex_data(SSL_get_session(c->ssl),
             index_session_connect_address);
         if(ptr) {
             len=addr_len(ptr);
             memcpy(&addr, ptr, (size_t)len);
-            CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_ADDR]);
+            stunnel_read_unlock(&stunnel_locks[LOCK_ADDR]);
             /* address was copied, ptr itself is no longer valid */
             for(i=0; i<c->connect_addr.num; ++i) {
                 if(addr_len(&c->connect_addr.addr[i])==len &&
@@ -1424,7 +1437,7 @@ NOEXPORT unsigned idx_cache_retrieve(CLI *c) {
             s_log(LOG_INFO, "persistence: %s not available", addr_txt);
             str_free(addr_txt);
         } else {
-            CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_ADDR]);
+            stunnel_read_unlock(&stunnel_locks[LOCK_ADDR]);
             s_log(LOG_NOTICE, "persistence: No cached address found");
         }
     }
@@ -1442,10 +1455,7 @@ NOEXPORT unsigned idx_cache_retrieve(CLI *c) {
 }
 
 NOEXPORT void connect_setup(CLI *c) {
-    /* process "redirect" first */
-    if(c->opt->redirect_addr.names &&
-            (!c->ssl || !SSL_SESSION_get_ex_data(SSL_get_session(c->ssl),
-                index_session_authenticated))) {
+    if(redirect(c)) { /* process "redirect" first */
         s_log(LOG_NOTICE, "Redirecting connection");
         /* c->connect_addr.addr may be allocated in protocol negotiations */
         str_free(c->connect_addr.addr);
@@ -1568,6 +1578,15 @@ NOEXPORT int connect_init(CLI *c, int domain) {
     }
     sockerror("bind (ephemeral port)");
     return 1; /* failure */
+}
+
+NOEXPORT int redirect(CLI *c) {
+    if(!c->opt->redirect_addr.names)
+        return 0; /* redirect not configured */
+    if(!c->ssl)
+        return 1; /* TLS not established -> always redirect */
+    return !SSL_SESSION_get_ex_data(SSL_get_session(c->ssl),
+        index_session_authenticated);
 }
 
 NOEXPORT void print_bound_address(CLI *c) {

@@ -337,9 +337,9 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
         DH_free(dh);
         return 0; /* OK */
     }
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_DH]);
+    stunnel_read_lock(&stunnel_locks[LOCK_DH]);
     SSL_CTX_set_tmp_dh(section->ctx, dh_params);
-    CRYPTO_THREAD_read_unlock(stunnel_locks[LOCK_DH]);
+    stunnel_read_unlock(&stunnel_locks[LOCK_DH]);
     dh_needed=1; /* generate temporary DH parameters in cron */
     section->option.dh_needed=1; /* update this context */
     s_log(LOG_INFO, "Using dynamic DH parameters");

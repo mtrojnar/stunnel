@@ -633,15 +633,20 @@ int getnameinfo(const struct sockaddr *, socklen_t,
 
 /**************************************** prototypes for sthreads.c */
 
-#ifdef USE_FORK
+#if defined(USE_PTHREAD) || defined(USE_WIN32)
 
-#define CRYPTO_THREAD_read_lock(type) {}
-#define CRYPTO_THREAD_read_unlock(type) {}
-#define CRYPTO_THREAD_write_lock(type) {}
-#define CRYPTO_THREAD_write_unlock(type) {}
-#define CRYPTO_atomic_add(addr,amount,result,type) (*addr+=amount)
-
-#else /* USE_FORK */
+struct CRYPTO_dynlock_value {
+#ifdef USE_PTHREAD
+    pthread_rwlock_t rwlock;
+#endif
+#ifdef USE_WIN32
+    CRITICAL_SECTION critical_section;
+#endif
+    const char *init_file, *read_lock_file, *write_lock_file,
+        *read_unlock_file, *write_unlock_file, *destroy_file;
+    int init_line, read_lock_line, write_lock_line,
+        read_unlock_line, write_unlock_line, destroy_line;
+};
 
 typedef enum {
     LOCK_SESSION, LOCK_ADDR,
@@ -657,30 +662,37 @@ typedef enum {
 #endif /* OPENSSL_NO_DH */
     STUNNEL_LOCKS                           /* number of locks */
 } LOCK_TYPE;
-#if OPENSSL_VERSION_NUMBER < 0x10100004L
-typedef int STUNNEL_RWLOCK;
-#else
-typedef CRYPTO_RWLOCK *STUNNEL_RWLOCK;
-#endif
-extern STUNNEL_RWLOCK stunnel_locks[STUNNEL_LOCKS];
-#if OPENSSL_VERSION_NUMBER>=0x10100004L
-#define CRYPTO_THREAD_read_unlock(type) CRYPTO_THREAD_unlock(type)
-#define CRYPTO_THREAD_write_unlock(type) CRYPTO_THREAD_unlock(type)
-#else
-/* Emulate the OpenSSL 1.1 locking API for older OpenSSL versions */
-#define CRYPTO_THREAD_read_lock(type) \
-    if(type) CRYPTO_lock(CRYPTO_LOCK|CRYPTO_READ,type,__FILE__,__LINE__)
-#define CRYPTO_THREAD_read_unlock(type) \
-    if(type) CRYPTO_lock(CRYPTO_UNLOCK|CRYPTO_READ,type,__FILE__,__LINE__)
-#define CRYPTO_THREAD_write_lock(type) \
-    if(type) CRYPTO_lock(CRYPTO_LOCK|CRYPTO_WRITE,type,__FILE__,__LINE__)
-#define CRYPTO_THREAD_write_unlock(type) \
-    if(type) CRYPTO_lock(CRYPTO_UNLOCK|CRYPTO_WRITE,type,__FILE__,__LINE__)
+extern struct CRYPTO_dynlock_value stunnel_locks[STUNNEL_LOCKS];
+
+void stunnel_rwlock_init_debug(struct CRYPTO_dynlock_value *, const char *, int);
+void stunnel_read_lock_debug(struct CRYPTO_dynlock_value *, const char *, int);
+void stunnel_write_lock_debug(struct CRYPTO_dynlock_value *, const char *, int);
+void stunnel_read_unlock_debug(struct CRYPTO_dynlock_value *, const char *, int);
+void stunnel_write_unlock_debug(struct CRYPTO_dynlock_value *, const char *, int);
+void stunnel_rwlock_destroy_debug(struct CRYPTO_dynlock_value *, const char *, int);
+
+#define stunnel_rwlock_init(x) stunnel_rwlock_init_debug((x),__FILE__,__LINE__)
+#define stunnel_read_lock(x) stunnel_read_lock_debug((x),__FILE__,__LINE__)
+#define stunnel_write_lock(x) stunnel_write_lock_debug((x),__FILE__,__LINE__)
+#define stunnel_read_unlock(x) stunnel_read_unlock_debug((x),__FILE__,__LINE__)
+#define stunnel_write_unlock(x) stunnel_write_unlock_debug((x),__FILE__,__LINE__)
+#define stunnel_rwlock_destroy(x) stunnel_rwlock_destroy_debug((x),__FILE__,__LINE__)
+
+#if OPENSSL_VERSION_NUMBER<0x10100004L
 #define CRYPTO_atomic_add(addr,amount,result,type) \
     *result = type ? CRYPTO_add(addr,amount,type) : (*addr+=amount)
 #endif
 
-#endif /* USE_FORK */
+#else /* defined(USE_PTHREAD) || defined(USE_WIN32) */
+
+#define stunnel_rwlock_init(x) {}
+#define stunnel_read_lock(x) {}
+#define stunnel_write_lock(x) {}
+#define stunnel_read_unlock(x) {}
+#define stunnel_write_unlock(x) {}
+#define stunnel_rwlock_destroy(x) {}
+
+#endif /* defined(USE_PTHREAD) || defined(USE_WIN32) */
 
 int sthreads_init(void);
 unsigned long stunnel_process_id(void);

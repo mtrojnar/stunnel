@@ -183,10 +183,10 @@ NOEXPORT void cron_dh_param(void) {
 #endif
 
     /* update global dh_params for future configuration reloads */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_DH]);
+    stunnel_write_lock(&stunnel_locks[LOCK_DH]);
     DH_free(dh_params);
     dh_params=dh;
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_DH]);
+    stunnel_write_unlock(&stunnel_locks[LOCK_DH]);
 
     /* set for all sections that require it */
     for(opt=service_options.next; opt; opt=opt->next)

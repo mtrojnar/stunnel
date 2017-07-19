@@ -1,5 +1,14 @@
 stunnel change log
 
+Version 5.42, 2017.07.16, urgency: HIGH
+* New features
+  - "redirect" also supports "exec" and not only "connect".
+  - PKCS#11 engine DLL updated to version 0.4.7.
+* Bugfixes
+  - Fixed premature cron thread initialization causing hangs.
+  - Fixed "verifyPeer = yes" on OpenSSL <= 1.0.1.
+  - Fixed pthreads support on OpenSolaris.
+
 Version 5.41, 2017.04.01, urgency: MEDIUM
 * New features
   - PKCS#11 engine DLL updated to version 0.4.5.

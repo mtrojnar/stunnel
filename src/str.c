@@ -412,10 +412,10 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
     LEAK_ENTRY *entry;
     int new_entry, allocations;
 
-#ifndef USE_FORK
-    if(!stunnel_locks[STUNNEL_LOCKS-1]) /* threads not initialized */
+#if defined(USE_PTHREAD) || defined(USE_WIN32)
+    if(!&stunnel_locks[STUNNEL_LOCKS-1]) /* threads not initialized */
         return;
-#endif
+#endif /* defined(USE_PTHREAD) || defined(USE_WIN32) */
     if(!number_of_sections) /* configuration file not initialized */
         return;
 
@@ -425,24 +425,24 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
         entry->alloc_file!=alloc_list->alloc_file;
 
     if(new_entry) { /* the file:line pair was encountered for the first time */
-        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LEAK_HASH]);
+        stunnel_write_lock(&stunnel_locks[LOCK_LEAK_HASH]);
         entry=leak_search(alloc_list); /* the list may have changed */
         if(entry->alloc_line==0) {
             if(entries>LEAK_TABLE_SIZE-100) { /* this should never happen */
-                CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LEAK_HASH]);
+                stunnel_write_unlock(&stunnel_locks[LOCK_LEAK_HASH]);
                 return;
             }
             entries++;
             entry->alloc_line=alloc_list->alloc_line;
             entry->alloc_file=alloc_list->alloc_file;
         }
-        CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LEAK_HASH]);
+        stunnel_write_unlock(&stunnel_locks[LOCK_LEAK_HASH]);
     }
 
 #ifdef PRECISE_LEAK_ALLOCATON_COUNTERS
     /* this is *really* slow in OpenSSL < 1.1.0 */
     CRYPTO_atomic_add(&entry->num, change, &allocations,
-        stunnel_locks[LOCK_LEAK_HASH]);
+        &stunnel_locks[LOCK_LEAK_HASH]);
 #else
     allocations=(entry->num+=change); /* we just need an estimate... */
 #endif
@@ -457,7 +457,7 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
     }
     /* we *may* need to allocate a new leak_results entry */
     /* locking is slow, so we try to avoid it if possible */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LEAK_RESULTS]);
+    stunnel_write_lock(&stunnel_locks[LOCK_LEAK_RESULTS]);
     if(entry->max==0) { /* the table may have changed */
         leak_results[leak_result_num]=entry;
         entry->max=allocations;
@@ -465,7 +465,7 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
     } else { /* gracefully handle the race condition */
         entry->max=allocations;
     }
-    CRYPTO_THREAD_write_unlock(stunnel_locks[LOCK_LEAK_RESULTS]);
+    stunnel_write_unlock(&stunnel_locks[LOCK_LEAK_RESULTS]);
 }
 
 /* O(1) hash table lookup */
