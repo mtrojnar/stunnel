@@ -23,6 +23,8 @@ addons:
     - libssl-dev
     - libwrap0-dev
 
-before_script: autoreconf -fvi && touch src/dhparam.c
+before_script:
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install autoconf-archive; fi
+  - autoreconf -fvi && touch src/dhparam.c
 
 script: ./configure $CONFIGURE_OPTIONS && make && make test
