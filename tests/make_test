@@ -1,0 +1,49 @@
+#!/bin/sh
+
+result=0
+count=0
+fail=0
+skip=0
+
+temp_path=$(realpath "$0")
+script_path=$(dirname "$temp_path")
+temp_path=$(pwd)
+result_path="${temp_path}/logs"
+
+if [ -n "$(command -v ncat)" ] || [ -n "$(command -v nc)" ]
+  then
+    rm -rf "${result_path}"
+    mkdir "${result_path}"
+    cd "${result_path}"
+    date > "results.log"
+    ../../src/stunnel -version 2>> "results.log"
+    printf "\n%s\n" "Testing..." >> "results.log" 
+    head -n5 "results.log"
+    for plik in ${script_path}/recipes/*
+      do
+        /bin/sh $plik
+        state=$?
+        if [ "$state" -eq 0 ]
+          then
+            count=$((count + 1))
+          elif [ "$state" -eq 125 ]
+            then
+              skip=$((skip + 1))
+          else # $state -eq 1
+            fail=$((fail + 1))
+            result=1
+          fi
+      done
+    if [ $count -eq 0 ]
+      then # no test was done
+        result=1
+      fi
+    printf "%s\n" "summary: success $count, skip $skip, fail $fail"
+    printf "%s\n" "summary: success $count, skip $skip, fail $fail" >> "results.log"
+    printf "%s\n" "./make_test finished"
+    cd ..
+    exit $result
+  else # ncat was not found
+    printf "%s\n" "./make_test error: ncat (nc) not found in \$PATH"
+    exit 125
+  fi

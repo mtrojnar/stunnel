@@ -2,7 +2,12 @@ stunnel change log
 
 Version 5.43, unreleased, urgency: LOW
 * New features
+  - Self-test framework (make check).
+  - OpenSSL 1.1.0 support for Travis CI.
 * Bugfixes
+  - Fixed a memory fault on Solaris.
+  - Fixed handling SSL_ERROR_ZERO_RETURN in SSL_shutdown().
+  - Minor fixes of the logging subsystem.
 
 Version 5.42, 2017.07.16, urgency: HIGH
 * New features

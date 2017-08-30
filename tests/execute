@@ -1,0 +1,3 @@
+#!/bin/sh
+
+printf "%-35s\t%s\n" "test $1" "success"

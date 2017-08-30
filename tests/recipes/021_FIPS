@@ -1,0 +1,35 @@
+#!/bin/sh
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  log = overwrite
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+  fips = yes
+
+  [https client]
+  client = yes
+  accept = 127.0.0.1:${http1}
+  connect = 127.0.0.1:${https}
+
+  [https server]
+  accept = 127.0.0.1:${https}
+  connect = 127.0.0.1:${http2}
+  cert = ${script_path}/certs/stunnel.pem
+EOT
+}
+
+check_ports "021_FIPS"
+if [ -n "$(grep "FIPS" results.log)" ] && [ -n "$(grep "\-fips" results.log)" ]
+  then
+    start 2> "error.log"
+    test_log_for "021_FIPS" "success" 2>> "stderr.log"
+    exit $?
+  else
+    screen_result "021_FIPS" "skipped"
+    file_result "021_FIPS" "error" "skipped"
+    exit 125
+  fi

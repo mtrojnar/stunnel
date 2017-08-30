@@ -3,7 +3,7 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = src doc tools
+SUBDIRS = src doc tools tests
 
 LIBTOOL_DEPS = @LIBTOOL_DEPS@
 libtool: $(LIBTOOL_DEPS)
@@ -41,9 +41,7 @@ sign: dist
 cert:
 	$(MAKE) -C tools cert
 
-test:
-	$(abs_builddir)/src/stunnel -version
-	@echo "No tests are currently implemented"
+test: check
 
 install-data-hook:
 	@echo "*********************************************************"

@@ -16351,7 +16351,7 @@ LIBS="$valid_LIBS"
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: **************************************** write the results" >&5
 $as_echo "$as_me: **************************************** write the results" >&6;}
-ac_config_files="$ac_config_files Makefile src/Makefile doc/Makefile tools/Makefile"
+ac_config_files="$ac_config_files Makefile src/Makefile doc/Makefile tools/Makefile tests/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -17372,6 +17372,7 @@ do
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "doc/Makefile") CONFIG_FILES="$CONFIG_FILES doc/Makefile" ;;
     "tools/Makefile") CONFIG_FILES="$CONFIG_FILES tools/Makefile" ;;
+    "tests/Makefile") CONFIG_FILES="$CONFIG_FILES tests/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

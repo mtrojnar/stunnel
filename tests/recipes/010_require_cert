@@ -1,0 +1,29 @@
+#!/bin/sh
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  log = overwrite
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  [https client]
+  client = yes
+  accept = 127.0.0.1:${http1}
+  connect = 127.0.0.1:${https}
+  cert = ${script_path}/certs/client_cert.pem
+
+  [https server]
+  accept = 127.0.0.1:${https}
+  connect = 127.0.0.1:${http2}
+  cert = ${script_path}/certs/server_cert.pem
+  requireCert = yes
+EOT
+}
+
+check_ports "010_require_cert"
+start 2> "error.log"
+test_log_for "010_require_cert" "success" 2>> "stderr.log"
+exit $?

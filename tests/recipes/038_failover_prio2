@@ -1,0 +1,33 @@
+#!/bin/sh
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  log = overwrite
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  [https client]
+  client = yes
+  failover = prio
+  accept = 127.0.0.1:${http1}
+  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https2}
+
+  ;[https server_1]
+  ;accept = 127.0.0.1:${https}
+  ;connect = 127.0.0.1:${http2}
+  ;cert = ${script_path}/certs/server_cert.pem
+
+  [https server_2]
+  accept = 127.0.0.1:${https2}
+  connect = 127.0.0.1:${http2}
+  cert = ${script_path}/certs/server_cert.pem
+EOT
+}
+
+check_ports "038_failover_prio2"
+test_log_for "038_failover_prio2" "prio" 2>> "stderr.log"
+exit $?

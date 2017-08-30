@@ -1,0 +1,28 @@
+#!/bin/sh
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  log = overwrite
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  [https client]
+  client = yes
+  accept = 127.0.0.1:${http1}
+  connect = 127.0.0.1:${https}
+
+  [https server]
+  accept = 127.0.0.1:${https}
+  exec = ${script_path}/execute
+  execArgs = execute 030_simple_execute
+  cert = ${script_path}/certs/server_cert.pem
+EOT
+}
+
+check_ports "030_simple_execute"
+start 2> "error.log"
+test_log_for "030_simple_execute" "execute" 2>> "stderr.log"
+exit $?

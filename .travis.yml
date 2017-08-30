@@ -22,6 +22,7 @@ addons:
     - autoconf-archive
     - libssl-dev
     - libwrap0-dev
+    - coreutils
 
 before_script:
   - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install autoconf-archive; fi

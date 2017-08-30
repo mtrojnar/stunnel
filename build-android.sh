@@ -4,7 +4,7 @@ VERSION=5.43
 DST=stunnel-$VERSION-android
 
 # to build OpenSSL:
-# ./Configure threads no-shared no-dso --cross-compile-prefix=arm-linux-androideabi- --openssldir=/opt/androideabi/sysroot linux-armv4
+# ./Configure threads no-shared no-dso --cross-compile-prefix=arm-linux-androideabi- --prefix=/opt/androideabi/sysroot linux-armv4
 # make install
 
 test -f Makefile && make distclean

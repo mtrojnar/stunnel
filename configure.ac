@@ -461,7 +461,7 @@ CPPFLAGS="$valid_CPPFLAGS"
 LIBS="$valid_LIBS"
 
 AC_MSG_NOTICE([**************************************** write the results])
-AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile tests/Makefile])
 AC_OUTPUT
 
 AC_MSG_NOTICE([**************************************** success])

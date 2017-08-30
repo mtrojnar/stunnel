@@ -1,0 +1,54 @@
+#!/bin/sh
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  log = overwrite
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  [https client]
+  client = yes
+  accept = 127.0.0.1:${http1}
+  connect = 127.0.0.1:${https}
+;correct certificate
+  cert = ${script_path}/certs/client_cert.pem
+
+  [client_2]
+  client = yes
+  accept = 127.0.0.1:${http2}
+  connect = 127.0.0.1:${https2}
+
+  [client_3]
+  client = yes
+  accept = 127.0.0.1:${http3}
+  connect = 127.0.0.1:${https3}
+
+  [https server]
+  accept = 127.0.0.1:${https}
+  connect = 127.0.0.1:${http2}
+  redirect = ${http3}
+  cert = ${script_path}/certs/server_cert.pem
+  verifyPeer = yes
+  CAfile = ${script_path}/certs/PeerCerts.pem
+
+  [server_2]
+  accept = 127.0.0.1:${https2}
+  cert = ${script_path}/certs/server_cert.pem
+  exec = ${script_path}/execute
+  execArgs = execute 032_no_redirect
+
+  [server_3]
+  accept = 127.0.0.1:${https3}
+  cert = ${script_path}/certs/server_cert.pem
+  exec = ${script_path}/execute
+  execArgs = execute 032_no_redirect_error
+EOT
+}
+
+check_ports "032_no_redirect"
+start 2> "error.log"
+test_log_for "032_no_redirect" "execute" 2>> "stderr.log"
+exit $?

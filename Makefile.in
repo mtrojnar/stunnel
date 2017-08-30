@@ -196,7 +196,8 @@ am__DIST_COMMON = $(srcdir)/Makefile.in $(top_srcdir)/auto/compile \
 	$(top_srcdir)/auto/install-sh $(top_srcdir)/auto/ltmain.sh \
 	$(top_srcdir)/auto/missing AUTHORS COPYING ChangeLog INSTALL \
 	NEWS README TODO auto/compile auto/config.guess \
-	auto/config.sub auto/install-sh auto/ltmain.sh auto/missing
+	auto/config.sub auto/depcomp auto/install-sh auto/ltmain.sh \
+	auto/missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -363,7 +364,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = src doc tools
+SUBDIRS = src doc tools tests
 EXTRA_DIST = PORTS BUGS COPYRIGHT.GPL CREDITS INSTALL.W32 INSTALL.WCE \
 	INSTALL.FIPS build-android.sh .travis.yml
 doc_DATA = INSTALL README TODO COPYING AUTHORS ChangeLog PORTS BUGS \
@@ -889,9 +890,7 @@ sign: dist
 cert:
 	$(MAKE) -C tools cert
 
-test:
-	$(abs_builddir)/src/stunnel -version
-	@echo "No tests are currently implemented"
+test: check
 
 install-data-hook:
 	@echo "*********************************************************"
