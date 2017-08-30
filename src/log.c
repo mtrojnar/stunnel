@@ -201,8 +201,6 @@ NOEXPORT void log_queue(SERVICE_OPTIONS *opt,
 }
 
 void log_flush(LOG_MODE new_mode) {
-    struct LIST *tmp;
-
     stunnel_write_lock(&stunnel_locks[LOCK_LOG_MODE]);
     /* prevent changing LOG_MODE_CONFIGURED to LOG_MODE_ERROR
      * once stderr file descriptor is closed */
@@ -211,9 +209,9 @@ void log_flush(LOG_MODE new_mode) {
     /* log_raw() will use the new value of log_mode */
     stunnel_write_lock(&stunnel_locks[LOCK_LOG_BUFFER]);
     while(head) {
-        log_raw(head->opt, head->level, head->stamp, head->id, head->text);
-        tmp=head;
+        struct LIST *tmp=head;
         head=head->next;
+        log_raw(tmp->opt, tmp->level, tmp->stamp, tmp->id, tmp->text);
         str_free(tmp);
     }
     head=tail=NULL;

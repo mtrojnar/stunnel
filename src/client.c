@@ -646,21 +646,18 @@ NOEXPORT void transfer(CLI *c) {
                     s_poll_err(c->fds, c->sock_rfd->fd)) {
                 err=get_socket_error(c->sock_rfd->fd);
                 if(err)
-                    s_log(LOG_ERR, "socket fd: %s (%d)",
-                        s_strerror(err), err);
+                    log_error(LOG_INFO, err, "socket fd");
             }
         } else {
             if(sock_can_rd && s_poll_err(c->fds, c->sock_rfd->fd)) {
                 err=get_socket_error(c->sock_rfd->fd);
                 if(err)
-                    s_log(LOG_ERR, "socket rfd: %s (%d)",
-                        s_strerror(err), err);
+                    log_error(LOG_INFO, err, "socket rfd");
             }
             if(sock_can_wr && s_poll_err(c->fds, c->sock_wfd->fd)) {
                 err=get_socket_error(c->sock_wfd->fd);
                 if(err)
-                    s_log(LOG_ERR, "socket wfd: %s (%d)",
-                        s_strerror(err), err);
+                    log_error(LOG_INFO, err, "socket wfd");
             }
         }
         if(c->ssl_rfd->fd==c->ssl_wfd->fd) {
@@ -668,22 +665,19 @@ NOEXPORT void transfer(CLI *c) {
                     s_poll_err(c->fds, c->ssl_rfd->fd)) {
                 err=get_socket_error(c->ssl_rfd->fd);
                 if(err)
-                    s_log(LOG_ERR, "TLS fd: %s (%d)",
-                        s_strerror(err), err);
+                    log_error(LOG_INFO, err, "TLS fd");
             }
         } else {
             if(ssl_can_rd && s_poll_err(c->fds, c->ssl_rfd->fd)) {
                 err=get_socket_error(c->ssl_rfd->fd);
                 if(err)
-                    s_log(LOG_ERR, "TLS rfd: %s (%d)",
-                        s_strerror(err), err);
+                    log_error(LOG_INFO, err, "TLS rfd");
             }
             if(c->ssl_rfd->fd!=c->ssl_wfd->fd &&
                     ssl_can_wr && s_poll_err(c->fds, c->ssl_wfd->fd)) {
                 err=get_socket_error(c->ssl_wfd->fd);
                 if(err)
-                    s_log(LOG_ERR, "TLS wfd: %s (%d)",
-                        s_strerror(err), err);
+                    log_error(LOG_INFO, err, "TLS wfd");
             }
         }
 
@@ -733,6 +727,10 @@ NOEXPORT void transfer(CLI *c) {
             case SSL_ERROR_SYSCALL: /* socket error */
                 if(parse_socket_error(c, "SSL_shutdown"))
                     break; /* a non-critical error: retry */
+                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                shutdown_wants_read=shutdown_wants_write=0;
+                break;
+            case SSL_ERROR_ZERO_RETURN: /* connection closed */
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 shutdown_wants_read=shutdown_wants_write=0;
                 break;

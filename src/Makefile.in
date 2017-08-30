@@ -989,9 +989,7 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
-@AUTHOR_TESTS_FALSE@check-local:
 check-am: all-am
-	$(MAKE) $(AM_MAKEFLAGS) check-local
 check: check-am
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) config.h
 installdirs:
@@ -1102,9 +1100,9 @@ ps-am:
 uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 	uninstall-pkglibLTLIBRARIES
 
-.MAKE: all check-am install-am install-strip
+.MAKE: all install-am install-strip
 
-.PHONY: CTAGS GTAGS TAGS all all-am check check-am check-local clean \
+.PHONY: CTAGS GTAGS TAGS all all-am check check-am clean \
 	clean-binPROGRAMS clean-generic clean-libtool clean-local \
 	clean-pkglibLTLIBRARIES cscopelist-am ctags ctags-am distclean \
 	distclean-compile distclean-generic distclean-hdr \
@@ -1143,7 +1141,7 @@ stunnel3: $(srcdir)/stunnel3.in
 ###############################################################################
 
 # Just check if the programs can be built, don't perform any actual tests
-@AUTHOR_TESTS_TRUE@check-local: mingw mingw64
+#check-local: mingw mingw64
 
 mingw:
 	$(MAKE) -f $(srcdir)/mingw.mk srcdir=$(srcdir) win32_targetcpu=i686 win32_mingw=mingw

@@ -801,7 +801,8 @@ void stunnel_info(int level) {
     if(strcmp(OPENSSL_VERSION_TEXT, OpenSSL_version(OPENSSL_VERSION))) {
         s_log(level, "Compiled with " OPENSSL_VERSION_TEXT);
         s_log(level, "Running  with %s", OpenSSL_version(OPENSSL_VERSION));
-        s_log(level, "Update OpenSSL shared libraries or rebuild stunnel");
+        if((OpenSSL_version_num()^OPENSSL_VERSION_NUMBER)&~0xfffu)
+            s_log(level, "Update OpenSSL shared libraries or rebuild stunnel");
     } else {
         s_log(level, "Compiled/running with " OPENSSL_VERSION_TEXT);
     }

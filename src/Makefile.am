@@ -66,7 +66,7 @@ libstunnel_la_LDFLAGS = -avoid-version
 
 if AUTHOR_TESTS
 # Just check if the programs can be built, don't perform any actual tests
-check-local: mingw mingw64
+#check-local: mingw mingw64
 endif
 
 mingw:
