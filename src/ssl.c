@@ -53,8 +53,9 @@ int index_session_authenticated, index_session_connect_address;
 int ssl_init(void) { /* init TLS before parsing configuration file */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS |
-        OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+        OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_LOAD_CONFIG, NULL);
 #else
+    OPENSSL_config( NULL );
     SSL_load_error_strings();
     SSL_library_init();
 #endif
