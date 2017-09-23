@@ -64,7 +64,9 @@ struct sockaddr_un {
 };
 #endif
 
-NOEXPORT int accept_connection(SERVICE_OPTIONS *);
+NOEXPORT int accept_connection(SERVICE_OPTIONS *, unsigned);
+NOEXPORT void unbind_port(SERVICE_OPTIONS *, unsigned);
+NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *, int, unsigned);
 #ifdef HAVE_CHROOT
 NOEXPORT int change_root(void);
 #endif
@@ -295,10 +297,13 @@ void daemon_loop(void) {
             if(s_poll_canread(fds, signal_pipe[0]))
                 if(signal_pipe_dispatch()) /* SIGNAL_TERMINATE or error */
                     break; /* terminate daemon_loop */
-            for(opt=service_options.next; opt; opt=opt->next)
-                if(opt->option.accept && s_poll_canread(fds, opt->fd))
-                    if(accept_connection(opt))
-                        temporary_lack_of_resources=1;
+            for(opt=service_options.next; opt; opt=opt->next) {
+                unsigned i;
+                for(i=0; i<opt->local_addr.num; ++i)
+                    if(s_poll_canread(fds, opt->local_addr.fd[i]))
+                        if(accept_connection(opt, i))
+                            temporary_lack_of_resources=1;
+            }
         } else {
             log_error(LOG_NOTICE, get_last_socket_error(),
                 "daemon_loop: s_poll_wait");
@@ -313,15 +318,15 @@ void daemon_loop(void) {
 }
 
     /* return 1 when a short delay is needed before another try */
-NOEXPORT int accept_connection(SERVICE_OPTIONS *opt) {
+NOEXPORT int accept_connection(SERVICE_OPTIONS *opt, unsigned i) {
     SOCKADDR_UNION addr;
     char *from_address;
-    SOCKET s;
+    SOCKET s, fd=opt->local_addr.fd[i];
     socklen_t addrlen;
 
     addrlen=sizeof addr;
     for(;;) {
-        s=s_accept(opt->fd, &addr.sa, &addrlen, 1, "local socket");
+        s=s_accept(fd, &addr.sa, &addrlen, 1, "local socket");
         if(s!=INVALID_SOCKET) /* success! */
             break;
         switch(get_last_socket_error()) {
@@ -356,8 +361,7 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt) {
         return 0;
     }
 #endif
-    if(create_client(opt->fd, s,
-            alloc_client_session(opt, s, s), client_thread)) {
+    if(create_client(fd, s, alloc_client_session(opt, s, s), client_thread)) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
         closesocket(s);
         return 0;
@@ -370,37 +374,17 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt) {
 /* clear fds, close old ports */
 void unbind_ports(void) {
     SERVICE_OPTIONS *opt;
-#ifdef HAVE_STRUCT_SOCKADDR_UN
-    struct stat sb; /* buffer for lstat() */
-#endif
 
     s_poll_init(fds);
     s_poll_add(fds, signal_pipe[0], 1, 0);
 
     for(opt=service_options.next; opt; opt=opt->next) {
-        s_log(LOG_DEBUG, "Closing service [%s]", opt->servname);
-        if(opt->option.accept && opt->fd!=INVALID_SOCKET) {
-            if(opt->fd<(SOCKET)listen_fds_start ||
-                    opt->fd>=(SOCKET)(listen_fds_start+systemd_fds))
-                closesocket(opt->fd);
-            s_log(LOG_DEBUG, "Service [%s] closed (FD=%ld)",
-                opt->servname, (long)opt->fd);
-            opt->fd=INVALID_SOCKET;
-#ifdef HAVE_STRUCT_SOCKADDR_UN
-            if(opt->local_addr.sa.sa_family==AF_UNIX) {
-                if(lstat(opt->local_addr.un.sun_path, &sb))
-                    sockerror(opt->local_addr.un.sun_path);
-                else if(!S_ISSOCK(sb.st_mode))
-                    s_log(LOG_ERR, "Not a socket: %s",
-                        opt->local_addr.un.sun_path);
-                else if(unlink(opt->local_addr.un.sun_path))
-                    sockerror(opt->local_addr.un.sun_path);
-                else
-                    s_log(LOG_DEBUG, "Socket removed: %s",
-                        opt->local_addr.un.sun_path);
-            }
-#endif
-        } else if(opt->exec_name && opt->connect_addr.names) {
+        unsigned i;
+        s_log(LOG_DEBUG, "Unbinding service [%s]", opt->servname);
+        for(i=0; i<opt->local_addr.num; ++i)
+            unbind_port(opt, i);
+        /* exec+connect service */
+        if(opt->exec_name && opt->connect_addr.names) {
             /* create exec+connect services             */
             /* FIXME: this is just a crude workaround   */
             /*        is it better to kill the service? */
@@ -416,14 +400,43 @@ void unbind_ports(void) {
     }
 }
 
-/* open new ports, update fds */
-int bind_ports(void) {
-    SERVICE_OPTIONS *opt;
-    char *local_address;
-    int listening_section;
+NOEXPORT void unbind_port(SERVICE_OPTIONS *opt, unsigned i) {
+    SOCKET fd=opt->local_addr.fd[i];
+    SOCKADDR_UNION *addr=opt->local_addr.addr+i;
 #ifdef HAVE_STRUCT_SOCKADDR_UN
     struct stat sb; /* buffer for lstat() */
 #endif
+
+    if(fd==INVALID_SOCKET)
+        return;
+    opt->local_addr.fd[i]=INVALID_SOCKET;
+
+    if(fd<(SOCKET)listen_fds_start ||
+            fd>=(SOCKET)(listen_fds_start+systemd_fds))
+        closesocket(fd);
+    s_log(LOG_DEBUG, "Service [%s] closed (FD=%ld)",
+        opt->servname, (long)fd);
+
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+    if(addr->sa.sa_family==AF_UNIX) {
+        if(lstat(addr->un.sun_path, &sb))
+            sockerror(addr->un.sun_path);
+        else if(!S_ISSOCK(sb.st_mode))
+            s_log(LOG_ERR, "Not a socket: %s",
+                addr->un.sun_path);
+        else if(unlink(addr->un.sun_path))
+            sockerror(addr->un.sun_path);
+        else
+            s_log(LOG_DEBUG, "Socket removed: %s",
+                addr->un.sun_path);
+    }
+#endif
+}
+
+/* open new ports, update fds */
+int bind_ports(void) {
+    SERVICE_OPTIONS *opt;
+    int listening_section;
 
 #ifdef USE_LIBWRAP
     /* execute after options_cmdline() to know service_options.next,
@@ -438,82 +451,28 @@ int bind_ports(void) {
 
     /* allow clean unbind_ports() even though
        bind_ports() was not fully performed */
-    for(opt=service_options.next; opt; opt=opt->next)
-        if(opt->option.accept)
-            opt->fd=INVALID_SOCKET;
+    for(opt=service_options.next; opt; opt=opt->next) {
+        unsigned i;
+        for(i=0; i<opt->local_addr.num; ++i)
+            opt->local_addr.fd[i]=INVALID_SOCKET;
+    }
 
     listening_section=0;
     for(opt=service_options.next; opt; opt=opt->next) {
-        if(opt->option.accept) {
-            if(listening_section<systemd_fds) {
-                opt->fd=(SOCKET)(listen_fds_start+listening_section);
-                s_log(LOG_DEBUG,
-                    "Listening file descriptor received from systemd (FD=%ld)",
-                    (long)opt->fd);
-            } else {
-                opt->fd=s_socket(opt->local_addr.sa.sa_family,
-                    SOCK_STREAM, 0, 1, "accept socket");
-                if(opt->fd==INVALID_SOCKET)
-                    return 1;
-                s_log(LOG_DEBUG, "Listening file descriptor created (FD=%ld)",
-                    (long)opt->fd);
-            }
-            if(set_socket_options(opt->fd, 0)<0) {
-                closesocket(opt->fd);
-                opt->fd=INVALID_SOCKET;
+        unsigned i;
+        s_log(LOG_DEBUG, "Binding service [%s]", opt->servname);
+        for(i=0; i<opt->local_addr.num; ++i) {
+            SOCKET fd;
+            fd=bind_port(opt, listening_section, i);
+            if(fd==INVALID_SOCKET)
                 return 1;
-            }
-            /* local socket can't be unnamed */
-            local_address=s_ntop(&opt->local_addr, addr_len(&opt->local_addr));
-            /* we don't bind or listen on a socket inherited from systemd */
-            if(listening_section>=systemd_fds) {
-                if(bind(opt->fd, &opt->local_addr.sa, addr_len(&opt->local_addr))) {
-                    sockerror("bind");
-                    s_log(LOG_ERR, "Error binding service [%s] to %s",
-                        opt->servname, local_address);
-                    closesocket(opt->fd);
-                    opt->fd=INVALID_SOCKET;
-                    str_free(local_address);
-                    return 1;
-                }
-                if(listen(opt->fd, SOMAXCONN)) {
-                    sockerror("listen");
-                    closesocket(opt->fd);
-                    opt->fd=INVALID_SOCKET;
-                    str_free(local_address);
-                    return 1;
-                }
-            }
-#ifdef HAVE_STRUCT_SOCKADDR_UN
-            /* chown the UNIX socket, errors are ignored */
-            if(opt->local_addr.sa.sa_family==AF_UNIX &&
-                    (opt->uid || opt->gid)) {
-                /* fchown() does *not* work on UNIX sockets */
-                if(!lchown(opt->local_addr.un.sun_path, opt->uid, opt->gid))
-                    s_log(LOG_DEBUG,
-                        "Socket chown succeeded: %s, UID=%u, GID=%u",
-                        opt->local_addr.un.sun_path,
-                        (unsigned)opt->uid, (unsigned)opt->gid);
-                else if(lstat(opt->local_addr.un.sun_path, &sb))
-                    sockerror(opt->local_addr.un.sun_path);
-                else if(sb.st_uid==opt->uid && sb.st_gid==opt->gid)
-                    s_log(LOG_DEBUG,
-                        "Socket chown unneeded: %s, UID=%u, GID=%u",
-                        opt->local_addr.un.sun_path,
-                        (unsigned)opt->uid, (unsigned)opt->gid);
-                else
-                    s_log(LOG_ERR, "Socket chown failed: %s, UID=%u, GID=%u",
-                        opt->local_addr.un.sun_path,
-                        (unsigned)opt->uid, (unsigned)opt->gid);
-            }
-#endif
-            s_poll_add(fds, opt->fd, 1, 0);
-            s_log(LOG_DEBUG, "Service [%s] (FD=%ld) bound to %s",
-                opt->servname, (long)opt->fd, local_address);
-            str_free(local_address);
+            s_poll_add(fds, fd, 1, 0);
+            opt->local_addr.fd[i]=fd;
+        }
+        if(opt->local_addr.num)
             ++listening_section;
-        } else if(opt->exec_name && opt->connect_addr.names) {
-            /* create exec+connect services */
+        /* create exec+connect services */
+        if(opt->exec_name && opt->connect_addr.names) {
             /* FIXME: needs to be delayed on reload with opt->option.retry set */
             create_client(INVALID_SOCKET, INVALID_SOCKET,
                 alloc_client_session(opt, INVALID_SOCKET, INVALID_SOCKET),
@@ -527,6 +486,82 @@ int bind_ports(void) {
         return 1;
     }
     return 0; /* OK */
+}
+
+NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned i) {
+    SOCKET fd;
+    SOCKADDR_UNION *addr=opt->local_addr.addr+i;
+    char *local_address;
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+    struct stat sb; /* buffer for lstat() */
+#endif
+
+    if(listening_section<systemd_fds) {
+        fd=(SOCKET)(listen_fds_start+listening_section);
+        s_log(LOG_DEBUG,
+            "Listening file descriptor received from systemd (FD=%ld)",
+            (long)fd);
+    } else {
+        fd=s_socket(addr->sa.sa_family, SOCK_STREAM, 0, 1, "accept socket");
+        if(fd==INVALID_SOCKET)
+            return INVALID_SOCKET;
+        s_log(LOG_DEBUG, "Listening file descriptor created (FD=%ld)",
+            (long)fd);
+    }
+
+    if(set_socket_options(fd, 0)<0) {
+        closesocket(fd);
+        return INVALID_SOCKET;
+    }
+
+    /* local socket can't be unnamed */
+    local_address=s_ntop(addr, addr_len(addr));
+    /* we don't bind or listen on a socket inherited from systemd */
+    if(listening_section>=systemd_fds) {
+        if(bind(fd, &addr->sa, addr_len(addr))) {
+            sockerror("bind");
+            s_log(LOG_ERR, "Error binding service [%s] to %s",
+                opt->servname, local_address);
+            str_free(local_address);
+            closesocket(fd);
+            return INVALID_SOCKET;
+        }
+        if(listen(fd, SOMAXCONN)) {
+            sockerror("listen");
+            str_free(local_address);
+            closesocket(fd);
+            return INVALID_SOCKET;
+        }
+    }
+
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+    /* chown the UNIX socket, errors are ignored */
+    if(addr->sa.sa_family==AF_UNIX &&
+            (opt->uid || opt->gid)) {
+        /* fchown() does *not* work on UNIX sockets */
+        if(!lchown(addr->un.sun_path, opt->uid, opt->gid))
+            s_log(LOG_DEBUG,
+                "Socket chown succeeded: %s, UID=%u, GID=%u",
+                addr->un.sun_path,
+                (unsigned)opt->uid, (unsigned)opt->gid);
+        else if(lstat(addr->un.sun_path, &sb))
+            sockerror(addr->un.sun_path);
+        else if(sb.st_uid==opt->uid && sb.st_gid==opt->gid)
+            s_log(LOG_DEBUG,
+                "Socket chown unneeded: %s, UID=%u, GID=%u",
+                addr->un.sun_path,
+                (unsigned)opt->uid, (unsigned)opt->gid);
+        else
+            s_log(LOG_ERR, "Socket chown failed: %s, UID=%u, GID=%u",
+                addr->un.sun_path,
+                (unsigned)opt->uid, (unsigned)opt->gid);
+    }
+#endif
+
+    s_log(LOG_DEBUG, "Service [%s] (FD=%ld) bound to %s",
+        opt->servname, (long)fd, local_address);
+    str_free(local_address);
+    return fd;
 }
 
 #ifdef HAVE_CHROOT

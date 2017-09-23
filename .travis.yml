@@ -25,7 +25,7 @@ addons:
     - coreutils
 
 before_script:
-  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install autoconf-archive coreutils; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install autoconf-archive; fi
   - autoreconf -fvi && touch src/dhparam.c
 
 script: ./configure $CONFIGURE_OPTIONS && make && make test

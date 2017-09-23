@@ -1151,21 +1151,20 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* accept */
     switch(cmd) {
     case CMD_BEGIN:
-        section->option.accept=0;
-        memset(&section->local_addr, 0, sizeof(SOCKADDR_UNION));
-        section->local_addr.in.sin_family=AF_INET;
-        section->fd=INVALID_SOCKET;
+        addrlist_clear(&section->local_addr, 0);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "accept"))
             break;
         section->option.accept=1;
-        if(!name2addr(&section->local_addr, arg, 1))
-            return "Failed to resolve accepting address";
+        name_list_append(&section->local_addr.names, arg);
         return NULL; /* OK */
     case CMD_END:
-        if(section->option.accept)
+        if(section->local_addr.names) {
+            if(!addrlist_resolve(&section->local_addr))
+                return "Cannot resolve accept target";
             ++endpoints;
+        }
         break;
     case CMD_FREE:
         break;
@@ -3655,7 +3654,14 @@ NOEXPORT char *engine_init(void) {
         return "Selecting default engine failed";
     }
 #endif
-    OpenSSL_add_all_algorithms(); /* engines can add new algorithms */
+    /* engines can add new algorithms */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS|
+        OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
+#else
+    OpenSSL_add_all_algorithms();
+#endif
+
     s_log(LOG_INFO, "Engine #%d (%s) initialized",
         current_engine+1, ENGINE_get_id(engines[current_engine]));
     engine_initialized=1;

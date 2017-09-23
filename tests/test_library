@@ -1,6 +1,6 @@
 # this file is a library sourced from recipes/*
 
-temp_path=$(realpath "$0")
+temp_path=$(readlink -f "$0" || realpath "$0" || grealpath "$0")
 temp_path=$(dirname "$temp_path")
 script_path=$(dirname "$temp_path")
 result_path=$(pwd)

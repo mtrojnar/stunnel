@@ -254,7 +254,8 @@ NOEXPORT void client_run(CLI *c) {
 
         /* free the client context */
     str_free(c->connect_addr.addr);
-    /* we currently don't make a local copy of c->connect_addr.session */
+    /* a client does not have its own local copy of
+       c->connect_addr.session and c->connect_addr.fd */
     s_poll_free(c->fds);
     c->fds=NULL;
 }
@@ -1107,6 +1108,7 @@ NOEXPORT void auth_user(CLI *c, char *accepted_address) {
 #endif
     SOCKADDR_UNION ident;     /* IDENT socket name */
     char *line, *type, *system, *user;
+    unsigned remote_port, local_port;
 
     if(!c->opt->username)
         return; /* -u option not specified */
@@ -1134,9 +1136,10 @@ NOEXPORT void auth_user(CLI *c, char *accepted_address) {
     if(s_connect(c, &ident, addr_len(&ident)))
         longjmp(c->err, 1);
     s_log(LOG_DEBUG, "IDENT server connected");
-    fd_printf(c, c->fd, "%u , %u",
-        ntohs(c->peer_addr.in.sin_port),
-        ntohs(c->opt->local_addr.in.sin_port));
+    remote_port=ntohs(c->peer_addr.in.sin_port);
+    local_port=c->opt->local_addr.addr ?
+        ntohs(c->opt->local_addr.addr[0].in.sin_port) : 0;
+    fd_printf(c, c->fd, "%u , %u", remote_port, local_port);
     line=fd_getline(c, c->fd);
     closesocket(c->fd);
     c->fd=INVALID_SOCKET; /* avoid double close on cleanup */

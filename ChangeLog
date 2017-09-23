@@ -2,8 +2,11 @@ stunnel change log
 
 Version 5.43, unreleased, urgency: LOW
 * New features
+  - Allow for multiple "accept" ports per section.
   - Self-test framework (make check).
+  - Added config load before OpenSSL init (thx to Dmitrii Pichulin).
   - OpenSSL 1.1.0 support for Travis CI.
+  - OpenSSL 1.1.1-dev compilation fixes.
 * Bugfixes
   - Fixed a memory fault on Solaris.
   - Fixed handling SSL_ERROR_ZERO_RETURN in SSL_shutdown().

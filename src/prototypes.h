@@ -98,6 +98,7 @@ typedef struct name_list_struct {
 typedef struct sockaddr_list {                          /* list of addresses */
     struct sockaddr_list *parent;   /* used by copies to locate their parent */
     SOCKADDR_UNION *addr;                     /* array of resolved addresses */
+    SOCKET *fd;                       /* array of accepting file descriptors */
     SSL_SESSION **session;                /* array of cached client sessions */
     unsigned rr;                          /* current address for round-robin */
     unsigned num;                             /* how many addresses are used */
@@ -238,7 +239,6 @@ typedef struct service_options_struct {
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
         /* service-specific data for client.c */
-    SOCKET fd;     /* file descriptor accepting connections for this service */
     SSL_SESSION *session;                           /* recently used session */
     char *exec_name;                          /* program name for local mode */
 #ifdef USE_WIN32
@@ -246,8 +246,8 @@ typedef struct service_options_struct {
 #else
     char **exec_args;                    /* program arguments for local mode */
 #endif
-    SOCKADDR_UNION local_addr, source_addr;
-    SOCKADDR_LIST connect_addr, redirect_addr;
+    SOCKADDR_UNION source_addr;
+    SOCKADDR_LIST local_addr, connect_addr, redirect_addr;
     int timeout_busy;                       /* maximum waiting for data time */
     int timeout_close;                          /* maximum close_notify time */
     int timeout_connect;                           /* maximum connect() time */
