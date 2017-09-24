@@ -5,10 +5,11 @@ count=0
 fail=0
 skip=0
 
-temp_path=$(realpath "$0")
-script_path=$(dirname "$temp_path")
-temp_path=$(pwd)
-result_path="${temp_path}/logs"
+result_path=$(pwd)
+cd $(dirname "$0")
+script_path=$(pwd)
+cd "${result_path}"
+result_path="${result_path}/logs"
 
 if [ -n "$(command -v ncat)" ] || [ -n "$(command -v nc)" ]
   then
