@@ -1,9 +1,9 @@
 # this file is a library sourced from recipes/*
 
-temp_path=$(readlink -f "$0" || realpath "$0" || grealpath "$0")
-temp_path=$(dirname "$temp_path")
-script_path=$(dirname "$temp_path")
 result_path=$(pwd)
+cd $(dirname "$0")/../
+script_path=$(pwd)
+cd "${result_path}"
 
 screen_result() {
   printf "%-35s\t%s\n" "test $1" "$2"
