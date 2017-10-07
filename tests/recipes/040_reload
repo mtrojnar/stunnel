@@ -1,0 +1,45 @@
+#!/bin/sh
+. $(dirname $0)/../test_library
+
+check_ports "040_reload"
+
+echo "
+  debug = debug
+  log = overwrite
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  [https client]
+  client = yes
+  accept = 127.0.0.1:${http3}
+  connect = 127.0.0.1:${https}
+
+  [https server]
+  accept = 127.0.0.1:${https}
+  connect = 127.0.0.1:${http2}
+  cert = ${script_path}/certs/server_cert.pem" > "stunnel.conf"
+
+../../src/stunnel stunnel.conf 2> "error.log"
+
+#  accept = 127.0.0.1:${http3} -> accept = 127.0.0.1:${http1}
+echo "
+  debug = debug
+  log = overwrite
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  [https client]
+  client = yes
+  accept = 127.0.0.1:${http1}
+  connect = 127.0.0.1:${https}
+
+  [https server]
+  accept = 127.0.0.1:${https}
+  connect = 127.0.0.1:${http2}
+  cert = ${script_path}/certs/server_cert.pem" > "stunnel.conf"
+
+reload_stunnel
+test_log_for "040_reload" "success" 2>> "stderr.log"
+exit $?

@@ -22,7 +22,7 @@ EOT
 }
 
 check_ports "020_IPv6"
-if [ -n "$(grep "IPv6" results.log)" ]
+if [ -n "$(grep "IPv6" results.log)" ] && [ -n "$(command -v ncat)" ] # nc does not support IPv6
   then
     start 2> "error.log"
     test_log_for "020_IPv6" "success" 2>> "stderr.log"
