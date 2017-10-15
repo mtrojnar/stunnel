@@ -25,7 +25,7 @@ addons:
     - nmap
 
 before_script:
-  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install autoconf-archive nmap; fi; true
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew update; brew install autoconf-archive nmap; fi; true
   - autoreconf -fvi && touch src/dhparam.c
 
 script:
