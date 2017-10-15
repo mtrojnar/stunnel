@@ -322,7 +322,7 @@ NOEXPORT void addrlist_reset(SOCKADDR_LIST *addr_list) {
     addr_list->addr=NULL;
     addr_list->fd=NULL;
     addr_list->session=NULL;
-    addr_list->rr=0; /* reset the round-robin counter */
+    addr_list->start=0;
     addr_list->parent=addr_list; /* allow a copy to locate its parent */
 }
 
@@ -346,16 +346,13 @@ unsigned addrlist_resolve(SOCKADDR_LIST *addr_list) {
     addrlist_reset(addr_list);
     for(host=addr_list->names; host; host=host->next)
         num+=name2addrlist(addr_list, host->name);
-    switch(num) {
-    case 0:
-    case 1:
-        addr_list->rr=0;
-        break;
-    default:
+    if(num<2) {
+        addr_list->start=0;
+    } else {
         /* randomize the initial value of round-robin counter */
         /* ignore the error value and the distribution bias */
         RAND_bytes((unsigned char *)&rnd, sizeof rnd);
-        addr_list->rr=rnd%num;
+        addr_list->start=rnd%num;
     }
     return num;
 }

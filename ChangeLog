@@ -9,6 +9,7 @@ Version 5.43, unreleased, urgency: LOW
   - OpenSSL 1.1.1-dev compilation fixes.
 * Bugfixes
   - Fixed a memory fault on Solaris.
+  - Fixed round-robin failover in the FORK threading model.
   - Fixed handling SSL_ERROR_ZERO_RETURN in SSL_shutdown().
   - Minor fixes of the logging subsystem.
 

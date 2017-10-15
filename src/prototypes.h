@@ -100,7 +100,7 @@ typedef struct sockaddr_list {                          /* list of addresses */
     SOCKADDR_UNION *addr;                     /* array of resolved addresses */
     SOCKET *fd;                       /* array of accepting file descriptors */
     SSL_SESSION **session;                /* array of cached client sessions */
-    unsigned rr;                          /* current address for round-robin */
+    unsigned start;              /* initial address for round-robin failover */
     unsigned num;                             /* how many addresses are used */
     int passive;                                         /* listening socket */
     NAME_LIST *names;                          /* a list of unresolved names */
@@ -253,6 +253,7 @@ typedef struct service_options_struct {
     int timeout_connect;                           /* maximum connect() time */
     int timeout_idle;                        /* maximum idle connection time */
     enum {FAILOVER_RR, FAILOVER_PRIO} failover;         /* failover strategy */
+    unsigned seq;              /* sequential number for round-robin failover */
     char *username;
 
         /* service-specific data for protocol.c */

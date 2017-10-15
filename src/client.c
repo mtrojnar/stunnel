@@ -85,6 +85,7 @@ CLI *alloc_client_session(SERVICE_OPTIONS *opt, SOCKET rfd, SOCKET wfd) {
     c->local_rfd.fd=rfd;
     c->local_wfd.fd=wfd;
     c->seq=seq++;
+    c->opt->seq++;
     return c;
 }
 
@@ -1444,9 +1445,7 @@ NOEXPORT unsigned idx_cache_retrieve(CLI *c) {
     }
 
     if(c->opt->failover==FAILOVER_RR) {
-        /* the race condition here can be safely ignored */
-        i=c->connect_addr.parent->rr;
-        c->connect_addr.parent->rr=(i+1)%c->connect_addr.num;
+        i=(c->connect_addr.start+c->opt->seq)%c->connect_addr.num;
         s_log(LOG_INFO, "failover: round-robin, starting at entry #%d", i);
     } else {
         i=0;
