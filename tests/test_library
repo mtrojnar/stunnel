@@ -43,7 +43,7 @@ waiting_for(){
   pid_tail=$!
   (sleep 3; echo "TIMEOUT") > "fifo" &
   pid_timeout=$!
-  grep -q -e "$2" -e "$3" -e "$4" -e "$5" -e "TIMEOUT" "fifo"
+  grep -q -e "$2" -e "$3" -e "$4" -e "TIMEOUT" "fifo"
   pid_children=$(ps -o pid,ppid | \
     awk -v ppid1="${pid_tail}" -v ppid2="${pid_timeout}" \
       '{if ($2==ppid1 || $2==ppid2) print $1}')
@@ -68,7 +68,7 @@ connecting_ncat(){
       printf "\n%s\n" "test $1" > "stderr_nc.log"
       nc -l -p "$http2" -vvv > "temp.log" 2>> "stderr_nc.log" &
       pid_nc=$!
-      waiting_for "stderr_nc" "Listening" "listening" "QUITTING" "UNUSED PATTERN"
+      waiting_for "stderr_nc" "Listening" "listening" "QUITTING"
       if grep -q "istening" "stderr_nc.log"
         then # Listening or listening
           printf "%-35s\t%s\n" "test $1" "$2" | nc 127.0.0.1 "$http1" -vv 2>> "stderr_nc.log" &
@@ -76,7 +76,12 @@ connecting_ncat(){
           result=1
         fi
     fi
-  waiting_for "stderr_nc" "Closing" "Connection reset by peer" "succeeded" "from localhost"
+  if [ -n "$(command -v ncat)" ]
+    then
+      waiting_for "stderr_nc" "Closing connection" "Connection reset by peer" "UNUSED PATTERN"
+    else
+      waiting_for "stderr_nc" "succeeded" "from localhost" "Connection reset by peer"
+  fi
   kill -TERM ${pid_ncat} ${pid_nc} 2>> "stderr_nc.log"
   cat "stderr_nc.log" >> "stderr.log"
   return $result
@@ -288,7 +293,7 @@ loop_rr() {
             screen_result "$1" "ok"
             rm "$1.log"
           else
-            printf "%-35s\t%s\n" "test $1:" "$first x $second x $third" "failed" > "temp.log"
+            printf "%-35s\t%s\n" "test $1: $first x $second x $third" "failed" > "temp.log"
             screen_result "$1" "failed"
             result=1
           fi
