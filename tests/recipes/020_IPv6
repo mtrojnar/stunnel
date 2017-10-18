@@ -11,12 +11,12 @@ start() {
 
   [https client]
   client = yes
-  accept = :::${http1}
+  accept = 127.0.0.1:${http1}
   connect = :::${https}
 
   [https server]
   accept = :::${https}
-  connect = :::${http2}
+  connect = 127.0.0.1:${http2}
   cert = ${script_path}/certs/stunnel.pem
 EOT
 }
