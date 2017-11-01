@@ -22,7 +22,7 @@ EOT
 }
 
 check_ports "015_p12_cert"
-if [ -n "$(grep "OpenSSL 1" results.log)" ]
+if grep -q "OpenSSL 1" "results.log"
   then
     start 2> "error.log"
     test_log_for "015_p12_cert" "success" 2>> "stderr.log"

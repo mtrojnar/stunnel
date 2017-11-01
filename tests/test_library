@@ -78,7 +78,7 @@ connecting_ncat(){
     fi
   if [ -n "$(command -v ncat)" ]
     then
-      waiting_for "stderr_nc" "Closing connection" "Connection reset by peer" "UNUSED PATTERN"
+      waiting_for "stderr_nc" "Closing" "Connection reset by peer" "UNUSED PATTERN"
     else
       waiting_for "stderr_nc" "succeeded" "from localhost" "Connection reset by peer"
   fi

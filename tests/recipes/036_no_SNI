@@ -30,7 +30,7 @@ EOT
 }
 
 check_ports "036_no_SNI"
-if [ -n "$(grep "OpenSSL 1" results.log)" ]
+if grep -q "OpenSSL 1" "results.log"
   then
     start 2> "error.log"
     test_log_for "036_no_SNI" "execute" 2>> "stderr.log"
