@@ -1,7 +1,9 @@
 stunnel change log
 
-Version 5.43, unreleased, urgency: LOW
+Version 5.43, 2017.11.05, urgency: LOW
 * New features
+  - OpenSSL DLLs updated to version 1.0.2m.
+  - Android build updated to OpenSSL 1.1.0g.
   - Allow for multiple "accept" ports per section.
   - Self-test framework (make check).
   - Added config load before OpenSSL init (thx to Dmitrii Pichulin).

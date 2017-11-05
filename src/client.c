@@ -1138,8 +1138,8 @@ NOEXPORT void auth_user(CLI *c, char *accepted_address) {
         longjmp(c->err, 1);
     s_log(LOG_DEBUG, "IDENT server connected");
     remote_port=ntohs(c->peer_addr.in.sin_port);
-    local_port=c->opt->local_addr.addr ?
-        ntohs(c->opt->local_addr.addr[0].in.sin_port) : 0;
+    local_port=(unsigned)(c->opt->local_addr.addr ?
+        ntohs(c->opt->local_addr.addr[0].in.sin_port) : 0);
     fd_printf(c, c->fd, "%u , %u", remote_port, local_port);
     line=fd_getline(c, c->fd);
     closesocket(c->fd);

@@ -22,7 +22,7 @@ EOT
 }
 
 check_ports "020_IPv6"
-if grep -q "IPv6" "results.log" && [ -n "$(command -v ncat)" ] # nc does not support IPv6
+if grep -q "IPv6" "results.log" && PATH="${PATH}:/sbin:/usr/sbin" ifconfig | grep -q "inet6" && [ -n "$(command -v ncat)" ] # nc does not support IPv6
   then
     start 2> "error.log"
     test_log_for "020_IPv6" "success" 2>> "stderr.log"
