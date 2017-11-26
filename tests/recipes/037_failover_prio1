@@ -4,7 +4,6 @@
 start() {
   ../../src/stunnel -fd 0 <<EOT
   debug = debug
-  log = overwrite
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
@@ -29,5 +28,5 @@ EOT
 }
 
 check_ports "037_failover_prio1"
-test_log_for "037_failover_prio1" "prio" 2>> "stderr.log"
+test_log_for "037_failover_prio1" "prio" "$1" 2>> "stderr.log"
 exit $?

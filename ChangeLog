@@ -1,5 +1,13 @@
 stunnel change log
 
+Version 5.44, 2017.11.26, urgency: MEDIUM
+* New features
+  - Signed Win32 executables, libraries, and installer.
+* Bugfixes
+  - Default accept address restored to INADDR_ANY.
+  - Fixed a race condition in "make check".
+  - Fixed removing the pid file after configuration reload.
+
 Version 5.43, 2017.11.05, urgency: LOW
 * New features
   - OpenSSL DLLs updated to version 1.0.2m.

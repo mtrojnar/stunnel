@@ -126,7 +126,6 @@ typedef struct {
 #ifdef HAVE_CHROOT
     char *chroot_dir;
 #endif
-    unsigned long dpid;
     char *pidfile;
 #endif
 

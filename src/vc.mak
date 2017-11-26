@@ -10,8 +10,10 @@
 
 !IF [ml64.exe /help >NUL 2>&1]
 TARGET=win32
+SSLLIBS=libeay32.lib ssleay32.lib
 !ELSE
 TARGET=win64
+SSLLIBS=libcrypto.lib libssl.lib
 !ENDIF
 !MESSAGE Detected target: $(TARGET)
 !MESSAGE
@@ -53,7 +55,6 @@ LDFLAGS=/NOLOGO /DEBUG
 SHAREDLIBS=ws2_32.lib user32.lib shell32.lib kernel32.lib
 GUILIBS=advapi32.lib comdlg32.lib crypt32.lib gdi32.lib psapi.lib
 CLILIBS=
-SSLLIBS=/LIBPATH:"$(LIBDIR)" libeay32.lib ssleay32.lib
 # static linking:
 #	/LIBPATH:"$(LIBDIR)\VC\static" libeay32MD.lib ssleay32MD.lib
 
@@ -90,12 +91,12 @@ $(GUIOBJS): *.h vc.mak
 $(CLIOBJS): *.h vc.mak
 
 $(BIN)\stunnel.exe: $(SHAREDOBJS) $(GUIOBJS)
-	$(LINK) $(LDFLAGS) $(SHAREDLIBS) $(GUILIBS) $(SSLLIBS) /OUT:$@ $**
+	$(LINK) $(LDFLAGS) $(SHAREDLIBS) $(GUILIBS) /LIBPATH:"$(LIBDIR)" $(SSLLIBS) /OUT:$@ $**
 	IF EXIST $@.manifest \
 		mt -nologo -manifest $@.manifest -outputresource:$@;1
 
 $(BIN)\tstunnel.exe: $(SHAREDOBJS) $(CLIOBJS)
-	$(LINK) $(LDFLAGS) $(SHAREDLIBS) $(CLILIBS) $(SSLLIBS) /OUT:$@ $**
+	$(LINK) $(LDFLAGS) $(SHAREDLIBS) $(CLILIBS) /LIBPATH:"$(LIBDIR)" $(SSLLIBS) /OUT:$@ $**
 	IF EXIST $@.manifest \
 		mt -nologo -manifest $@.manifest -outputresource:$@;1
 

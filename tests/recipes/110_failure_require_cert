@@ -4,7 +4,6 @@
 start() {
   ../../src/stunnel -fd 0 <<EOT
   debug = debug
-  log = overwrite
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
@@ -25,5 +24,5 @@ EOT
 
 check_ports "110_failure_require_cert"
 start 2> "error.log"
-test_log_for "110_failure_require_cert" "failure" 2>> "stderr.log"
+test_log_for "110_failure_require_cert" "failure" "$1" 2>> "stderr.log"
 exit $?

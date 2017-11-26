@@ -50,5 +50,5 @@ EOT
 
 check_ports "031_redirect"
 start 2> "error.log"
-test_log_for "031_redirect" "execute" 2>> "stderr.log"
+test_log_for "031_redirect" "execute" "$1" 2>> "stderr.log"
 exit $?

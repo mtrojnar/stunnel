@@ -4,7 +4,6 @@
 start() {
   ../../src/stunnel -fd 0 <<EOT
   debug = debug
-  log = overwrite
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
@@ -36,10 +35,9 @@ check_ports "035_SNI"
 if grep -q "OpenSSL 1" "results.log"
   then
     start 2> "error.log"
-    test_log_for "035_SNI" "execute" 2>> "stderr.log"
+    test_log_for "035_SNI" "execute" "$1" 2>> "stderr.log"
     exit $?
   else
-    screen_result "035_SNI" "skipped"
-    file_result "035_SNI" "error" "skipped"
+    exit_logs "035_SNI" "skipped"
     exit 125
   fi

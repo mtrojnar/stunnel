@@ -38,6 +38,8 @@
 #include "common.h"
 #include "prototypes.h"
 
+NOEXPORT unsigned long dpid;
+
 NOEXPORT int main_unix(int, char*[]);
 #if !defined(__vms) && !defined(USE_OS2)
 NOEXPORT int daemonize(int);
@@ -184,7 +186,7 @@ NOEXPORT int create_pid(void) {
         s_log(LOG_ERR, "Pid file (%s) must be full path name", global_options.pidfile);
         return 1;
     }
-    global_options.dpid=(unsigned long)getpid();
+    dpid=(unsigned long)getpid();
 
     /* silently remove old pid file */
     unlink(global_options.pidfile);
@@ -194,7 +196,7 @@ NOEXPORT int create_pid(void) {
         ioerror("create");
         return 1;
     }
-    pid=str_printf("%lu\n", global_options.dpid);
+    pid=str_printf("%lu\n", dpid);
     if(write(pf, pid, strlen(pid))<(int)strlen(pid)) {
         s_log(LOG_ERR, "Cannot write pid file %s", global_options.pidfile);
         ioerror("write");
@@ -208,7 +210,7 @@ NOEXPORT int create_pid(void) {
 }
 
 NOEXPORT void delete_pid(void) {
-    if((unsigned long)getpid()!=global_options.dpid)
+    if((unsigned long)getpid()!=dpid)
         return; /* current process is not main daemon process */
     s_log(LOG_DEBUG, "removing pid file %s", global_options.pidfile);
     if(unlink(global_options.pidfile)<0)

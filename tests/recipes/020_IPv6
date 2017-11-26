@@ -4,7 +4,6 @@
 start() {
   ../../src/stunnel -fd 0 <<EOT
   debug = debug
-  log = overwrite
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
@@ -25,10 +24,9 @@ check_ports "020_IPv6"
 if grep -q "IPv6" "results.log" && PATH="${PATH}:/sbin:/usr/sbin" ifconfig | grep -q "inet6" && [ -n "$(command -v ncat)" ] # nc does not support IPv6
   then
     start 2> "error.log"
-    test_log_for "020_IPv6" "success" 2>> "stderr.log"
+    test_log_for "020_IPv6" "success" "$1" 2>> "stderr.log"
     exit $?
   else
-    screen_result "020_IPv6" "skipped"
-    file_result "020_IPv6" "error" "skipped"
+    exit_logs "020_IPv6" "skipped"
     exit 125
   fi

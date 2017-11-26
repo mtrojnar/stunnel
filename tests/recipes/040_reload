@@ -5,7 +5,6 @@ check_ports "040_reload"
 
 echo "
   debug = debug
-  log = overwrite
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
@@ -25,7 +24,6 @@ echo "
 #  accept = 127.0.0.1:${http3} -> accept = 127.0.0.1:${http1}
 echo "
   debug = debug
-  log = overwrite
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
@@ -41,5 +39,5 @@ echo "
   cert = ${script_path}/certs/server_cert.pem" > "stunnel.conf"
 
 reload_stunnel
-test_log_for "040_reload" "success" 2>> "stderr.log"
+test_log_for "040_reload" "success" "$1" 2>> "stderr.log"
 exit $?

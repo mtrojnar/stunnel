@@ -45,11 +45,13 @@ BrandingText "Author: Michal Trojnara"
 !define /ifndef BIN_DIR ${ROOT_DIR}\${ARCH}
 !define /ifndef OPENSSL_DIR ${BIN_DIR}\openssl
 !define /ifndef OPENSSL_BIN_DIR ${OPENSSL_DIR}\bin
+!if ${ARCH} == win32
 !define /ifndef OPENSSL_ENGINES_DIR ${OPENSSL_DIR}\lib\engines
+!else
+!define /ifndef OPENSSL_ENGINES_DIR ${OPENSSL_DIR}\lib\engines-1_1
+!endif
 !define /ifndef ZLIB_DIR ${BIN_DIR}\zlib
 !define /ifndef REDIST_DIR ${BIN_DIR}\redist
-
-!define /ifndef LIBP11_DIR ${ROOT_DIR}\src\libp11-0.4.7\src
 
 !define MUI_ICON ${STUNNEL_SRC_DIR}\stunnel.ico
 
@@ -173,16 +175,28 @@ no_service_restart:
   Delete "$INSTDIR\bin\Microsoft.VC90.CRT.Manifest"
   RMDir "$INSTDIR\bin"
 
+  Delete "$INSTDIR\engines\4758cca.dll"
+  Delete "$INSTDIR\engines\4758cca.pdb"
+  Delete "$INSTDIR\engines\aep.dll"
+  Delete "$INSTDIR\engines\aep.pdb"
+  Delete "$INSTDIR\engines\atalla.dll"
+  Delete "$INSTDIR\engines\atalla.pdb"
   Delete "$INSTDIR\engines\capi.dll"
   Delete "$INSTDIR\engines\capi.pdb"
   Delete "$INSTDIR\engines\chil.dll"
   Delete "$INSTDIR\engines\chil.pdb"
+  Delete "$INSTDIR\engines\cswift.dll"
+  Delete "$INSTDIR\engines\cswift.pdb"
   Delete "$INSTDIR\engines\gmp.dll"
   Delete "$INSTDIR\engines\gmp.pdb"
   Delete "$INSTDIR\engines\gost.dll"
   Delete "$INSTDIR\engines\gost.pdb"
+  Delete "$INSTDIR\engines\nuron.dll"
+  Delete "$INSTDIR\engines\nuron.pdb"
   Delete "$INSTDIR\engines\padlock.dll"
   Delete "$INSTDIR\engines\padlock.pdb"
+  Delete "$INSTDIR\engines\sureware.dll"
+  Delete "$INSTDIR\engines\sureware.pdb"
   Delete "$INSTDIR\engines\ubsec.dll"
   Delete "$INSTDIR\engines\ubsec.pdb"
   Delete "$INSTDIR\engines\pkcs11.dll"
@@ -304,26 +318,23 @@ Section "Core Files" sectionCORE
   # write new executables/libraries files
   SetOutPath "$INSTDIR\bin"
   File "${STUNNEL_BIN_DIR}\stunnel.exe"
+  !if ${ARCH} == win32
   File "${OPENSSL_BIN_DIR}\libeay32.dll"
   File "${OPENSSL_BIN_DIR}\ssleay32.dll"
-  !if ${ARCH} == win32
-  File "${ZLIB_DIR}\zlib1.dll"
   File "${REDIST_DIR}\msvcr90.dll"
   File "${REDIST_DIR}\Microsoft.VC90.CRT.Manifest"
   # MINGW builds requires libssp-0.dll instead of msvcr90.dll
   !else
+  File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.dll"
+  File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.dll"
   File "${REDIST_DIR}\vcruntime140.dll"
   !endif
 
   # write new engine libraries
   SetOutPath "$INSTDIR\engines"
   File "${OPENSSL_ENGINES_DIR}\capi.dll"
-  File "${OPENSSL_ENGINES_DIR}\chil.dll"
-  File "${OPENSSL_ENGINES_DIR}\gmp.dll"
-  File "${OPENSSL_ENGINES_DIR}\gost.dll"
   File "${OPENSSL_ENGINES_DIR}\padlock.dll"
-  File "${OPENSSL_ENGINES_DIR}\ubsec.dll"
-  File "${LIBP11_DIR}\pkcs11.dll"
+  File "${OPENSSL_ENGINES_DIR}\pkcs11.dll"
 
   # write new documentation
   SetOutPath "$INSTDIR\doc"
@@ -467,10 +478,13 @@ Section /o "Debugging Symbols" sectionDEBUG
 
   # core components
   File "${STUNNEL_BIN_DIR}\stunnel.pdb"
+  !if ${ARCH} == win32
   File "${OPENSSL_BIN_DIR}\libeay32.pdb"
   File "${OPENSSL_BIN_DIR}\ssleay32.pdb"
-  !if ${ARCH} == win32
   File "${ZLIB_DIR}\zlib1.pdb"
+  !else
+  File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.dll"
+  File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.dll"
   !endif
 
   # optional tstunnel.exe
@@ -490,12 +504,8 @@ no_openssl_pdb:
   # engines
   SetOutPath "$INSTDIR\engines"
   File "${OPENSSL_ENGINES_DIR}\capi.pdb"
-  File "${OPENSSL_ENGINES_DIR}\chil.pdb"
-  File "${OPENSSL_ENGINES_DIR}\gmp.pdb"
-  File "${OPENSSL_ENGINES_DIR}\gost.pdb"
   File "${OPENSSL_ENGINES_DIR}\padlock.pdb"
-  File "${OPENSSL_ENGINES_DIR}\ubsec.pdb"
-  # File "${LIBP11_DIR}\pkcs11.pdb"
+  # File "${OPENSSL_ENGINES_DIR}\pkcs11.pdb"
   SetOutPath "$INSTDIR"
 SectionEnd
 

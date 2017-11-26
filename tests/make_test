@@ -11,7 +11,16 @@ script_path=$(pwd)
 cd "${result_path}"
 result_path="${result_path}/logs"
 
-if [ -n "$(command -v ncat)" ] || [ -n "$(command -v nc)" ]
+if [ -n "$(command -v ncat)" ]
+  then # ncat
+    mynetcat="ncat"
+  elif [ -n "$(command -v nc)" ]
+    then # nc
+      mynetcat="nc"
+  else # # netcat not found
+    mynetcat="null"
+  fi
+if [ "$mynetcat" != "null" ] # netcat is required
   then
     rm -rf "${result_path}"
     mkdir "${result_path}"
@@ -19,40 +28,32 @@ if [ -n "$(command -v ncat)" ] || [ -n "$(command -v nc)" ]
     date > "results.log"
     ../../src/stunnel -version 2>> "results.log"
     printf "\n%s\n" "Testing..." >> "results.log"
-    if ! grep -q "apple" "results.log"
-      then
-        head -n5 "results.log"
-        for plik in ${script_path}/recipes/*
-          do
-            /bin/sh $plik
-            state=$?
-            if [ "$state" -eq 0 ]
-              then
-                count=$((count + 1))
-              elif [ "$state" -eq 125 ]
-                then
-                  skip=$((skip + 1))
-              else # $state -eq 1
-                fail=$((fail + 1))
-                result=1
-              fi
-          done
-        if [ $count -eq 0 ]
-          then # no test was done
+    head -n5 "results.log"
+    for plik in ${script_path}/recipes/*
+      do
+        /bin/sh $plik $mynetcat
+        state=$?
+        if [ "$state" -eq 0 ]
+          then # $state=0
+            count=$((count + 1))
+          elif [ "$state" -eq 125 ]
+            then # $state=125
+              skip=$((skip + 1))
+          else # $state=1
+            fail=$((fail + 1))
             result=1
           fi
-        printf "%s\n" "summary: success $count, skip $skip, fail $fail"
-        printf "%s\n" "summary: success $count, skip $skip, fail $fail" >> "results.log"
-        printf "%s\n" "./make_test finished"
-      else # macOS
-        head -n2 "results.log" | tail -1
-        printf "%s\n" "./make_test error: platform not supported"
-        printf "%s\n" "./make_test error: platform not supported" >> "results.log"
-        result=125
+      done
+    if [ $count -eq 0 ]
+      then # no test was done
+        result=1
       fi
+    printf "%s\n" "summary: success $count, skip $skip, fail $fail"
+    printf "%s\n" "summary: success $count, skip $skip, fail $fail" >> "results.log"
+    printf "%s\n" "./make_test finished"
     cd ..
-  else # ncat was not found
-    printf "%s\n" "./make_test error: ncat (nc) not found in \$PATH"
-    result=125
+  else # netcat not found
+    printf "%s\n" "./make_test skipped: ncat (nc) not found in \$PATH"
+    #result=125
   fi
 exit $result

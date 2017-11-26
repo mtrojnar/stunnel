@@ -1151,7 +1151,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* accept */
     switch(cmd) {
     case CMD_BEGIN:
-        addrlist_clear(&section->local_addr, 0);
+        addrlist_clear(&section->local_addr, 1);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "accept"))
@@ -3307,6 +3307,7 @@ SOCK_OPT *sock_opts=NULL, sock_opts_def[]= {
 #ifdef SO_BINDTODEVICE
     {"SO_BINDTODEVICE", SOL_SOCKET,     SO_BINDTODEVICE, TYPE_STRING,  {NULL, NULL, NULL}},
 #endif
+#ifdef SOL_TCP
 #ifdef TCP_KEEPCNT
     {"TCP_KEEPCNT",     SOL_TCP,        TCP_KEEPCNT,     TYPE_INT,     {NULL, NULL, NULL}},
 #endif
@@ -3316,6 +3317,7 @@ SOCK_OPT *sock_opts=NULL, sock_opts_def[]= {
 #ifdef TCP_KEEPINTVL
     {"TCP_KEEPINTVL",   SOL_TCP,        TCP_KEEPINTVL,   TYPE_INT,     {NULL, NULL, NULL}},
 #endif
+#endif /* SOL_TCP */
 #ifdef IP_TOS
     {"IP_TOS",          IPPROTO_IP,     IP_TOS,          TYPE_INT,     {NULL, NULL, NULL}},
 #endif
