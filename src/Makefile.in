@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 2015-2017
+# by Michal Trojnara 1998-2018
 
 ###############################################################################
 # File lists                                                                  #
@@ -381,8 +381,9 @@ CLEANFILES = stunnel3
 # Red Hat "by design" bug #82369
 
 # Additional preprocesor definitions
-stunnel_CPPFLAGS = -I/usr/kerberos/include -I$(SSLDIR)/include \
-	-DLIBDIR='"$(pkglibdir)"' -DCONFDIR='"$(sysconfdir)/stunnel"'
+stunnel_CPPFLAGS = -I$(SYSROOT)/usr/kerberos/include \
+	-I$(SSLDIR)/include -DLIBDIR='"$(pkglibdir)"' \
+	-DCONFDIR='"$(sysconfdir)/stunnel"'
 
 # TLS library
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto

@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -47,7 +47,7 @@
 #define USE_LIBWRAP_POOL
 #endif /* USE_PTHREAD && !__CYGWIN__ */
 
-NOEXPORT int check(char *, int);
+NOEXPORT uint8_t check(char *, int);
 
 int allow_severity=LOG_NOTICE, deny_severity=LOG_WARNING;
 
@@ -68,7 +68,8 @@ static int *ipc_socket, *busy;
 int libwrap_init() {
 #ifdef USE_LIBWRAP_POOL
     unsigned i, j;
-    int rfd, result;
+    int rfd;
+    uint8_t result;
     char servname[SERVNAME_LEN];
     static int initialized=0;
     SERVICE_OPTIONS *opt;
@@ -104,7 +105,7 @@ int libwrap_init() {
                 if(read_fd(ipc_socket[2*i+1], servname, SERVNAME_LEN, &rfd)<=0)
                     _exit(0);
                 result=check(servname, rfd);
-                write(ipc_socket[2*i+1], (uint8_t *)&result, sizeof result);
+                write(ipc_socket[2*i+1], &result, sizeof result);
                 if(rfd>=0)
                     close(rfd);
             }
@@ -120,9 +121,10 @@ int libwrap_init() {
 #pragma GCC diagnostic pop
 #endif /* __GNUC__ */
 
-void libwrap_auth(CLI *c, char *accepted_address) {
-    int result=0; /* deny by default */
+void libwrap_auth(CLI *c) {
+    uint8_t result=0; /* deny by default */
 #ifdef USE_LIBWRAP_POOL
+    jmp_buf exception_buffer, *exception_backup;
     static volatile unsigned num_busy=0, roundrobin=0;
     unsigned my_process;
     int retval;
@@ -146,14 +148,12 @@ void libwrap_auth(CLI *c, char *accepted_address) {
         if(retval) {
             errno=retval;
             ioerror("pthread_mutex_lock");
-            longjmp(c->err, 1);
         }
         while(num_busy==num_processes) { /* all child processes are busy */
             retval=pthread_cond_wait(&cond, &mutex);
             if(retval) {
                 errno=retval;
                 ioerror("pthread_cond_wait");
-                longjmp(c->err, 1);
             }
         }
         while(busy[roundrobin]) /* find a free child process */
@@ -165,21 +165,23 @@ void libwrap_auth(CLI *c, char *accepted_address) {
         if(retval) {
             errno=retval;
             ioerror("pthread_mutex_unlock");
-            longjmp(c->err, 1);
         }
 
         s_log(LOG_DEBUG, "Acquired libwrap process #%d", my_process);
-        write_fd(ipc_socket[2*my_process], c->opt->servname,
-            strlen(c->opt->servname)+1, c->local_rfd.fd);
-        s_read(c, ipc_socket[2*my_process],
-            (uint8_t *)&result, sizeof result);
+        exception_backup=c->exception_pointer;
+        c->exception_pointer=&exception_buffer;
+        if(!setjmp(exception_buffer)) {
+            write_fd(ipc_socket[2*my_process], c->opt->servname,
+                strlen(c->opt->servname)+1, c->local_rfd.fd);
+            s_read(c, ipc_socket[2*my_process], &result, sizeof result);
+        }
+        c->exception_pointer=exception_backup;
         s_log(LOG_DEBUG, "Releasing libwrap process #%d", my_process);
 
         retval=pthread_mutex_lock(&mutex);
         if(retval) {
             errno=retval;
             ioerror("pthread_mutex_lock");
-            longjmp(c->err, 1);
         }
         busy[my_process]=0; /* mark the child process as free */
         --num_busy; /* the child process has been released */
@@ -187,13 +189,11 @@ void libwrap_auth(CLI *c, char *accepted_address) {
         if(retval) {
             errno=retval;
             ioerror("pthread_cond_signal");
-            longjmp(c->err, 1);
         }
         retval=pthread_mutex_unlock(&mutex);
         if(retval) {
             errno=retval;
             ioerror("pthread_mutex_unlock");
-            longjmp(c->err, 1);
         }
 
         s_log(LOG_DEBUG, "Released libwrap process #%d", my_process);
@@ -206,20 +206,20 @@ void libwrap_auth(CLI *c, char *accepted_address) {
     }
     if(!result) {
         s_log(LOG_WARNING, "Service [%s] REFUSED by libwrap from %s",
-            c->opt->servname, accepted_address);
+            c->opt->servname, c->accepted_address);
         s_log(LOG_DEBUG, "See hosts_access(5) manual for details");
-        longjmp(c->err, 1);
+        throw_exception(c, 1);
     }
     s_log(LOG_DEBUG, "Service [%s] permitted by libwrap from %s",
-        c->opt->servname, accepted_address);
+        c->opt->servname, c->accepted_address);
 }
 
-NOEXPORT int check(char *name, int fd) {
+NOEXPORT uint8_t check(char *name, int fd) {
     struct request_info request;
 
     request_init(&request, RQ_DAEMON, name, RQ_FILE, fd, 0);
     fromhost(&request);
-    return hosts_access(&request);
+    return hosts_access(&request)!=0;
 }
 
 #ifdef USE_LIBWRAP_POOL

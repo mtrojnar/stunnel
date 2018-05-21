@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -65,6 +65,7 @@ struct sockaddr_un {
 #endif
 
 NOEXPORT int accept_connection(SERVICE_OPTIONS *, unsigned);
+NOEXPORT int exec_connect_start(void);
 NOEXPORT void unbind_port(SERVICE_OPTIONS *, unsigned);
 NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *, int, unsigned);
 #ifdef HAVE_CHROOT
@@ -227,8 +228,10 @@ NOEXPORT void client_status(void) { /* dead children detected */
     int pid, status;
 
 #ifdef HAVE_WAIT_FOR_PID
+    s_log(LOG_DEBUG, "Retrieving pid values with " HAVE_WAIT_FOR_PID);
     while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
 #else
+    s_log(LOG_DEBUG, "Retrieving a pid value with wait()");
     if((pid=wait(&status))>0) {
 #endif
 #ifdef WIFSIGNALED
@@ -256,8 +259,10 @@ void child_status(void) { /* dead libwrap or 'exec' process detected */
     int pid, status;
 
 #ifdef HAVE_WAIT_FOR_PID
+    s_log(LOG_DEBUG, "Retrieving pid values with " HAVE_WAIT_FOR_PID);
     while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
 #else
+    s_log(LOG_DEBUG, "Retrieving a pid value with wait()");
     if((pid=wait(&status))>0) {
 #endif
 #ifdef WIFSIGNALED
@@ -284,8 +289,14 @@ void child_status(void) { /* dead libwrap or 'exec' process detected */
 /**************************************** main loop accepting connections */
 
 void daemon_loop(void) {
-    if(cron_init()) /* initialize periodic events */
-        fatal("Cron initialization failed");
+    if(cron_init()) { /* initialize periodic events */
+        s_log(LOG_CRIT, "Cron initialization failed");
+        exit(1);
+    }
+    if(exec_connect_start()) {
+        s_log(LOG_CRIT, "Failed to start exec+connect services");
+        exit(1);
+    }
     while(1) {
         int temporary_lack_of_resources=0;
         int num=s_poll_wait(fds, -1, -1);
@@ -299,10 +310,13 @@ void daemon_loop(void) {
                     break; /* terminate daemon_loop */
             for(opt=service_options.next; opt; opt=opt->next) {
                 unsigned i;
-                for(i=0; i<opt->local_addr.num; ++i)
-                    if(s_poll_canread(fds, opt->local_addr.fd[i]))
-                        if(accept_connection(opt, i))
-                            temporary_lack_of_resources=1;
+                for(i=0; i<opt->local_addr.num; ++i) {
+                    SOCKET fd=opt->local_fd[i];
+                    if(fd!=INVALID_SOCKET &&
+                            s_poll_canread(fds, fd) &&
+                            accept_connection(opt, i))
+                        temporary_lack_of_resources=1;
+                }
             }
         } else {
             log_error(LOG_NOTICE, get_last_socket_error(),
@@ -321,7 +335,7 @@ void daemon_loop(void) {
 NOEXPORT int accept_connection(SERVICE_OPTIONS *opt, unsigned i) {
     SOCKADDR_UNION addr;
     char *from_address;
-    SOCKET s, fd=opt->local_addr.fd[i];
+    SOCKET s, fd=opt->local_fd[i];
     socklen_t addrlen;
 
     addrlen=sizeof addr;
@@ -361,15 +375,37 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt, unsigned i) {
         return 0;
     }
 #endif
-    if(create_client(fd, s, alloc_client_session(opt, s, s), client_thread)) {
+    service_up_ref(opt);
+    if(create_client(fd, s, alloc_client_session(opt, s, s))) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
         closesocket(s);
+        service_free(opt);
         return 0;
     }
     return 0;
 }
 
 /**************************************** initialization helpers */
+
+NOEXPORT int exec_connect_start(void) {
+    SERVICE_OPTIONS *opt;
+
+    for(opt=service_options.next; opt; opt=opt->next) {
+        if(opt->exec_name && opt->connect_addr.names) {
+            s_log(LOG_DEBUG, "Starting exec+connect service [%s]",
+                opt->servname);
+            service_up_ref(opt);
+            if(create_client(INVALID_SOCKET, INVALID_SOCKET,
+                    alloc_client_session(opt, INVALID_SOCKET, INVALID_SOCKET))) {
+                s_log(LOG_ERR, "Failed to start exec+connect service [%s]",
+                    opt->servname);
+                service_free(opt);
+                return 1; /* fatal error */
+            }
+        }
+    }
+    return 0; /* OK */
+}
 
 /* clear fds, close old ports */
 void unbind_ports(void) {
@@ -378,7 +414,11 @@ void unbind_ports(void) {
     s_poll_init(fds);
     s_poll_add(fds, signal_pipe[0], 1, 0);
 
-    for(opt=service_options.next; opt; opt=opt->next) {
+    opt=service_options.next;
+    service_options.next=NULL;
+    service_free(&service_options);
+
+    while(opt) {
         unsigned i;
         s_log(LOG_DEBUG, "Unbinding service [%s]", opt->servname);
         for(i=0; i<opt->local_addr.num; ++i)
@@ -388,6 +428,7 @@ void unbind_ports(void) {
             /* create exec+connect services             */
             /* FIXME: this is just a crude workaround   */
             /*        is it better to kill the service? */
+            /* FIXME: this won't work with FORK threads */
             opt->option.retry=0;
         }
         /* purge session cache of the old SSL_CTX object */
@@ -397,19 +438,26 @@ void unbind_ports(void) {
             SSL_CTX_flush_sessions(opt->ctx,
                 (long)time(NULL)+opt->session_timeout+1);
         s_log(LOG_DEBUG, "Service [%s] closed", opt->servname);
+
+        {
+            SERVICE_OPTIONS *garbage=opt;
+            opt=opt->next;
+            garbage->next=NULL;
+            service_free(garbage);
+        }
     }
 }
 
 NOEXPORT void unbind_port(SERVICE_OPTIONS *opt, unsigned i) {
-    SOCKET fd=opt->local_addr.fd[i];
-    SOCKADDR_UNION *addr=opt->local_addr.addr+i;
+    SOCKET fd=opt->local_fd[i];
 #ifdef HAVE_STRUCT_SOCKADDR_UN
+    SOCKADDR_UNION *addr=opt->local_addr.addr+i;
     struct stat sb; /* buffer for lstat() */
 #endif
 
     if(fd==INVALID_SOCKET)
         return;
-    opt->local_addr.fd[i]=INVALID_SOCKET;
+    opt->local_fd[i]=INVALID_SOCKET;
 
     if(fd<(SOCKET)listen_fds_start ||
             fd>=(SOCKET)(listen_fds_start+systemd_fds))
@@ -454,29 +502,38 @@ int bind_ports(void) {
     for(opt=service_options.next; opt; opt=opt->next) {
         unsigned i;
         for(i=0; i<opt->local_addr.num; ++i)
-            opt->local_addr.fd[i]=INVALID_SOCKET;
+            opt->local_fd[i]=INVALID_SOCKET;
     }
 
     listening_section=0;
     for(opt=service_options.next; opt; opt=opt->next) {
-        unsigned i;
-        s_log(LOG_DEBUG, "Binding service [%s]", opt->servname);
-        for(i=0; i<opt->local_addr.num; ++i) {
-            SOCKET fd;
-            fd=bind_port(opt, listening_section, i);
-            if(fd==INVALID_SOCKET)
+        opt->bound_ports=0;
+        if(opt->local_addr.num) { /* ports to bind for this service */
+            unsigned i;
+            s_log(LOG_DEBUG, "Binding service [%s]", opt->servname);
+            for(i=0; i<opt->local_addr.num; ++i) {
+                SOCKET fd;
+                fd=bind_port(opt, listening_section, i);
+                opt->local_fd[i]=fd;
+                if(fd!=INVALID_SOCKET) {
+                    s_poll_add(fds, fd, 1, 0);
+                    ++opt->bound_ports;
+                }
+            }
+            if(!opt->bound_ports) {
+                s_log(LOG_ERR, "Could not bind any accepting port");
                 return 1;
-            s_poll_add(fds, fd, 1, 0);
-            opt->local_addr.fd[i]=fd;
-        }
-        if(opt->local_addr.num)
+            }
             ++listening_section;
-        /* create exec+connect services */
-        if(opt->exec_name && opt->connect_addr.names) {
-            /* FIXME: needs to be delayed on reload with opt->option.retry set */
-            create_client(INVALID_SOCKET, INVALID_SOCKET,
-                alloc_client_session(opt, INVALID_SOCKET, INVALID_SOCKET),
-                client_thread);
+        } else if(opt->exec_name && opt->connect_addr.names) {
+            s_log(LOG_DEBUG, "Skipped exec+connect service [%s]", opt->servname);
+#ifndef OPENSSL_NO_TLSEXT
+        } else if(!opt->option.client && opt->sni) {
+            s_log(LOG_DEBUG, "Skipped SNI slave service [%s]", opt->servname);
+#endif
+        } else { /* each service must define two endpoints */
+            s_log(LOG_ERR, "Invalid service [%s]", opt->servname);
+            return 1;
         }
     }
     if(listening_section<systemd_fds) {
@@ -509,7 +566,7 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
             (long)fd);
     }
 
-    if(set_socket_options(fd, 0)<0) {
+    if(socket_options_set(opt, fd, 0)<0) {
         closesocket(fd);
         return INVALID_SOCKET;
     }
@@ -519,9 +576,15 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
     /* we don't bind or listen on a socket inherited from systemd */
     if(listening_section>=systemd_fds) {
         if(bind(fd, &addr->sa, addr_len(addr))) {
-            sockerror("bind");
-            s_log(LOG_ERR, "Error binding service [%s] to %s",
-                opt->servname, local_address);
+            if(opt->bound_ports) {
+                log_error(LOG_DEBUG, get_last_socket_error(), "bind");
+                s_log(LOG_DEBUG, "Ignoring error binding service [%s] to %s",
+                    opt->servname, local_address);
+            } else {
+                sockerror("bind");
+                s_log(LOG_ERR, "Error binding service [%s] to %s",
+                    opt->servname, local_address);
+            }
             str_free(local_address);
             closesocket(fd);
             return INVALID_SOCKET;
@@ -558,7 +621,7 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
     }
 #endif
 
-    s_log(LOG_DEBUG, "Service [%s] (FD=%ld) bound to %s",
+    s_log(LOG_INFO, "Service [%s] (FD=%ld) bound to %s",
         opt->servname, (long)fd, local_address);
     str_free(local_address);
     return fd;
@@ -626,93 +689,91 @@ NOEXPORT int signal_pipe_init(void) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
 #endif /* __GNUC__ */
-void signal_post(int sig) {
+void signal_post(uint8_t sig) {
     /* no meaningful way here to handle the result */
-    writesocket(signal_pipe[1], (char *)&sig, sizeof sig);
+    writesocket(signal_pipe[1], (char *)&sig, 1);
 }
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif /* __GNUC__ */
 
+/* make a single attempt to dispatch a signal from the signal pipe */
+/* return 1 on SIGNAL_TERMINATE or a fatal error, 0 otherwise */
 NOEXPORT int signal_pipe_dispatch(void) {
-    static int sig;
-    static size_t ptr=0;
+    uint8_t sig=0xff;
     ssize_t num;
     char *sig_name;
 
-    s_log(LOG_DEBUG, "Dispatching signals from the signal pipe");
-    for(;;) {
-        num=readsocket(signal_pipe[0], (char *)&sig+ptr, sizeof sig-ptr);
-        if(num==-1 && get_last_socket_error()==S_EWOULDBLOCK) {
-            s_log(LOG_DEBUG, "Signal pipe is empty");
-            return 0;
-        }
-        if(num==-1 || num==0) {
-            if(num)
-                sockerror("signal pipe read");
-            else
-                s_log(LOG_ERR, "Signal pipe closed");
-            s_poll_remove(fds, signal_pipe[0]);
-            closesocket(signal_pipe[0]);
-            closesocket(signal_pipe[1]);
-            if(signal_pipe_init()) {
-                s_log(LOG_ERR,
-                    "Signal pipe reinitialization failed; terminating");
-                return 1;
+    s_log(LOG_DEBUG, "Dispatching a signal from the signal pipe");
+    num=readsocket(signal_pipe[0], (char *)&sig, 1);
+    if(num!=1) {
+        if(num) {
+            if(get_last_socket_error()==S_EWOULDBLOCK) {
+                s_log(LOG_DEBUG, "Signal pipe is empty");
+                return 0;
             }
-            s_poll_add(fds, signal_pipe[0], 1, 0);
-            s_log(LOG_ERR, "Signal pipe reinitialized");
-            return 0;
+            sockerror("signal pipe read");
+        } else {
+            s_log(LOG_ERR, "Signal pipe closed");
         }
-        ptr+=(size_t)num;
-        if(ptr<sizeof sig) {
-            s_log(LOG_DEBUG, "Incomplete signal pipe read (ptr=%ld)",
-                (long)ptr);
-            return 0;
+        s_poll_remove(fds, signal_pipe[0]);
+        closesocket(signal_pipe[0]);
+        closesocket(signal_pipe[1]);
+        if(signal_pipe_init()) {
+            s_log(LOG_ERR,
+                "Signal pipe reinitialization failed; terminating");
+            return 1;
         }
-        ptr=0;
-        switch(sig) {
+        s_poll_add(fds, signal_pipe[0], 1, 0);
+        s_log(LOG_ERR, "Signal pipe reinitialized");
+        return 0;
+    }
+
+    switch(sig) {
 #ifndef USE_WIN32
-        case SIGCHLD:
-            s_log(LOG_DEBUG, "Processing SIGCHLD");
+    case SIGCHLD:
+        s_log(LOG_DEBUG, "Processing SIGCHLD");
 #ifdef USE_FORK
-            client_status(); /* report status of client process */
+        client_status(); /* report status of client process */
 #else /* USE_UCONTEXT || USE_PTHREAD */
-            child_status();  /* report status of libwrap or 'exec' process */
+        child_status();  /* report status of libwrap or 'exec' process */
 #endif /* defined USE_FORK */
-            break;
+        return 0;
 #endif /* !defind USE_WIN32 */
-        case SIGNAL_RELOAD_CONFIG:
-            s_log(LOG_DEBUG, "Processing SIGNAL_RELOAD_CONFIG");
-            if(options_parse(CONF_RELOAD)) {
-                s_log(LOG_ERR, "Failed to reload the configuration file");
-            } else {
-                unbind_ports();
-                log_close();
-                options_apply();
-                log_open();
-                ui_config_reloaded();
-                if(bind_ports()) {
-                    /* FIXME: handle the error */
-                }
-            }
-            break;
-        case SIGNAL_REOPEN_LOG:
-            s_log(LOG_DEBUG, "Processing SIGNAL_REOPEN_LOG");
+    case SIGNAL_RELOAD_CONFIG:
+        s_log(LOG_DEBUG, "Processing SIGNAL_RELOAD_CONFIG");
+        if(options_parse(CONF_RELOAD)) {
+            s_log(LOG_ERR, "Failed to reload the configuration file");
+        } else {
+            unbind_ports();
             log_close();
+            options_free(); /* FIXME: the pattern should be copy-apply-free */
+            options_apply();
             log_open();
-            s_log(LOG_NOTICE, "Log file reopened");
-            break;
-        case SIGNAL_TERMINATE:
-            s_log(LOG_DEBUG, "Processing SIGNAL_TERMINATE");
-            s_log(LOG_NOTICE, "Terminated");
-            return 1;
-        default:
-            sig_name=signal_name(sig);
-            s_log(LOG_ERR, "Received %s; terminating", sig_name);
-            str_free(sig_name);
-            return 1;
+            ui_config_reloaded();
+            if(bind_ports()) {
+                /* FIXME: handle the error */
+            }
+            if(exec_connect_start()) {
+                /* FIXME: handle the error */
+            }
         }
+        return 0;
+    case SIGNAL_REOPEN_LOG:
+        s_log(LOG_DEBUG, "Processing SIGNAL_REOPEN_LOG");
+        log_close();
+        log_open();
+        s_log(LOG_NOTICE, "Log file reopened");
+        return 0;
+    case SIGNAL_TERMINATE:
+        s_log(LOG_DEBUG, "Processing SIGNAL_TERMINATE");
+        s_log(LOG_NOTICE, "Terminated");
+        return 1;
+    default:
+        sig_name=signal_name(sig);
+        s_log(LOG_ERR, "Received %s; terminating", sig_name);
+        str_free(sig_name);
+        return 1;
     }
 }
 

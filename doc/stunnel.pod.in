@@ -318,25 +318,6 @@ service sections, it is only useful in global options.
 
 default: stunnel
 
-=item B<socket> = a|l|r:OPTION=VALUE[:VALUE]
-
-Set an option on the accept/local/remote socket
-
-The values for the linger option are l_onof:l_linger.
-The values for the time are tv_sec:tv_usec.
-
-Examples:
-
-    socket = l:SO_LINGER=1:60
-        set one minute timeout for closing local socket
-    socket = r:SO_OOBINLINE=yes
-        place out-of-band data directly into the
-        receive data stream for remote sockets
-    socket = a:SO_REUSEADDR=no
-        disable address reuse (enabled by default)
-    socket = a:SO_BINDTODEVICE=lo
-        only accept connections on loopback interface
-
 =item B<syslog> = yes | no (Unix only)
 
 enable logging via syslog
@@ -614,7 +595,7 @@ priority - use the order specified in config file
 
 =back
 
-default: rr
+default: prio
 
 =item B<ident> = USERNAME
 
@@ -624,7 +605,17 @@ use IDENT (RFC 1413) username checking
 
 include all configuration file parts located in DIRECTORY
 
-The files are included in the ascending alphabetical order of their names.
+The files are included in the ascending alphabetical order of their names. The recommended filename convention is
+
+for global options:
+
+	00-global.conf
+
+for local service-level options:
+
+	01-service.conf
+
+	02-service.conf
 
 =item B<key> = KEY_FILE
 
@@ -962,11 +953,40 @@ Empty SERVER_NAME disables sending the SNI extension.
 The I<sni> option is only available when compiled with B<OpenSSL 1.0.0> and
 later.
 
+=item B<socket> = a|l|r:OPTION=VALUE[:VALUE]
+
+Set an option on the accept/local/remote socket
+
+The values for the linger option are l_onof:l_linger.
+The values for the time are tv_sec:tv_usec.
+
+Examples:
+
+    socket = l:SO_LINGER=1:60
+        set one minute timeout for closing local socket
+    socket = r:SO_OOBINLINE=yes
+        place out-of-band data directly into the
+        receive data stream for remote sockets
+    socket = a:SO_REUSEADDR=no
+        disable address reuse (enabled by default)
+    socket = a:SO_BINDTODEVICE=lo
+        only accept connections on loopback interface
+
 =item B<sslVersion> = SSL_VERSION
 
 select the TLS protocol version
 
-Supported values: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+Supported versions: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+
+sslVersion is obsolete and it will be removed in future releases of stunnel.
+Use the following options instead:
+
+    options = NO_SSLv2
+    options = NO_SSLv3
+    options = NO_TLSv1
+    options = NO_TLSv1.1
+    options = NO_TLSv1.2
+    options = NO_TLSv1_3
 
 Availability of specific protocols depends on the linked OpenSSL library.
 Older versions of OpenSSL do not support TLSv1.1 and TLSv1.2.

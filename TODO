@@ -3,25 +3,18 @@ stunnel TODO
 
 High priority features.  They will likely be supported some day.
 A sponsor could allocate my time to get them faster.
+* Extend session tickets and/or sessiond to also serialize application
+  data ("redirect" state and session persistence).
 * Add client certificate autoselection based on the list of accepted issuers:
   SSL_CTX_set_client_cert_cb(), SSL_get_client_CA_list().
 * Add an Apparmor profile.
 * Optional line-buffering of the log file.
 * Log rotation on Windows.
 * Configuration file option to limit the number of concurrent connections.
-* Implement reference counting of the SERVICE_OPTIONS structure
-  - Add 'leastconn' failover strategy to order defined 'connect' targets
-    by the number of active connections.
-  - Add '-status' command line option reporting the number of clients
-    connected to each service.
-  - Deallocate SERVICE_OPTIONS structure when the configuration file
-    is reloaded *and* old connections are closed.
 * Command-line server control interface on both Unix and Windows.
 * Separate GUI process running as the current user on Windows.
 * An Android GUI.
 * OCSP stapling (tlsext_status).
-* Extend session tickets and/or sessiond to also serialize application
-  data ("redirect" state and session persistence).
 * Indirect CRL support (RFC 3280, section 5).
 * Provide 64-bit Windows builds (besides 32-bit builds).
   This requires either Microsoft Visual Studio Standard Edition or Microsoft
@@ -38,6 +31,10 @@ Low priority features.  They will unlikely ever be supported.
 * Logging to NT EventLog on Windows.
 * Internationalization of logged messages (i18n).
 * Generic scripting engine instead or static protocol.c.
+* Add 'leastconn' failover strategy to order defined 'connect' targets
+  by the number of active connections.
+* Add '-status' command line option reporting the number of clients
+  connected to each service.
 
 Features I won't support, unless convinced otherwise by a wealthy sponsor.
 * Support for adding X-Forwarded-For to HTTP request headers.

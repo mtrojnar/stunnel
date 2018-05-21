@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 2015-2017
+# by Michal Trojnara 1998-2018
 
 VPATH = @srcdir@
 am__is_gnu_make = { \
@@ -370,10 +370,6 @@ EXTRA_DIST = PORTS BUGS COPYRIGHT.GPL CREDITS INSTALL.W32 INSTALL.WCE \
 doc_DATA = INSTALL README TODO COPYING AUTHORS ChangeLog PORTS BUGS \
 	COPYRIGHT.GPL CREDITS INSTALL.W32 INSTALL.WCE INSTALL.FIPS
 distcleancheck_listfiles = find -type f -exec sh -c 'test -f $(srcdir)/{} || echo {}' ';'
-edit = sed \
-	-e 's|@bindir[@]|$(bindir)|g' \
-	-e 's|@sysconfdir[@]|$(sysconfdir)|g'
-
 all: all-recursive
 
 .SUFFIXES:
@@ -896,11 +892,6 @@ install-data-hook:
 	@echo "*********************************************************"
 	@echo "* Type 'make cert' to also install a sample certificate *"
 	@echo "*********************************************************"
-
-stunnel.pod: Makefile
-	$(edit) '$(srcdir)/$@.in' >$@
-
-stunnel.pod: $(srcdir)/stunnel.pod
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

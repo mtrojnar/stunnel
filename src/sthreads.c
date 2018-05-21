@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -212,7 +212,7 @@ void stunnel_rwlock_destroy_debug(struct CRYPTO_dynlock_value *lock,
 
 #endif /* USE_WIN32 */
 
-#if defined(USE_PTHREAD) || defined(USE_WIN32)
+#ifdef USE_OS_THREADS
 
 struct CRYPTO_dynlock_value stunnel_locks[STUNNEL_LOCKS];
 
@@ -286,7 +286,7 @@ void locking_init(void) {
 #endif
 }
 
-#endif /* defined(USE_PTHREAD) || defined(USE_WIN32) */
+#endif /* USE_OS_THREADS */
 
 /**************************************** creating a client */
 
@@ -351,7 +351,7 @@ int sthreads_init(void) {
     return 0;
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     CONTEXT *context;
 
     (void)ls; /* this parameter is only used with USE_FORK */
@@ -386,7 +386,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
     context->context.uc_stack.ss_size=arg->opt->stack_size;
     context->context.uc_stack.ss_flags=0;
 
-    makecontext(&context->context, (void(*)(void))cli, ARGC, arg);
+    makecontext(&context->context, (void(*)(void))client_thread, ARGC, arg);
     s_log(LOG_DEBUG, "New context created");
     return 0;
 }
@@ -405,7 +405,7 @@ NOEXPORT void null_handler(int sig) {
     signal(SIGCHLD, null_handler);
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     switch(fork()) {
     case -1:    /* error */
         str_free(arg);
@@ -416,7 +416,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
         if(ls>=0)
             closesocket(ls);
         signal(SIGCHLD, null_handler);
-        cli(arg);
+        client_thread(arg);
         _exit(0);
     default:    /* parent */
         str_free(arg);
@@ -436,7 +436,7 @@ int sthreads_init(void) {
     return 0;
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     pthread_t thread;
     pthread_attr_t pth_attr;
     int error;
@@ -458,7 +458,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
     pthread_attr_init(&pth_attr);
     pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
     pthread_attr_setstacksize(&pth_attr, arg->opt->stack_size);
-    error=pthread_create(&thread, &pth_attr, cli, arg);
+    error=pthread_create(&thread, &pth_attr, client_thread, arg);
     pthread_attr_destroy(&pth_attr);
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
     pthread_sigmask(SIG_SETMASK, &old_set, NULL); /* unblock signals */
@@ -479,23 +479,31 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
 
 #ifdef USE_WIN32
 
+#if !defined(_MT)
+#error _beginthreadex requires a multithreaded C run-time library
+#endif
+
 int sthreads_init(void) {
     thread_id_init();
     locking_init();
     return 0;
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg) {
+    HANDLE thread;
+
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
-    if((long)_beginthread((void(*)(void *))cli,
-            (unsigned)arg->opt->stack_size, arg)==-1) {
-        ioerror("_beginthread");
+    thread=(HANDLE)_beginthreadex(NULL, (unsigned)arg->opt->stack_size,
+        client_thread, arg, 0, NULL);
+    if(!thread) {
+        ioerror("_beginthreadex");
         str_free(arg);
         if(s!=INVALID_SOCKET)
             closesocket(s);
         return -1;
     }
+    CloseHandle(thread);
     s_log(LOG_DEBUG, "New thread created");
     return 0;
 }
@@ -520,10 +528,10 @@ unsigned long stunnel_thread_id(void) {
     return (unsigned long)ppib->pib_ulpid;
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
+int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
-    if((long)_beginthread((void(*)(void *))cli, NULL, arg->opt->stack_size, arg)==-1L) {
+    if((long)_beginthread(client_thread, NULL, arg->opt->stack_size, arg)==-1L) {
         ioerror("_beginthread");
         str_free(arg);
         if(s>=0)
@@ -538,22 +546,16 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg, void *(*cli)(void *)) {
 
 #ifdef _WIN32_WCE
 
-long _beginthread(void (*start_address)(void *),
-        int stack_size, void *arglist) {
-    DWORD thread_id;
-    HANDLE handle;
-
-    handle=CreateThread(NULL, stack_size,
+uintptr_t _beginthreadex(void *security, unsigned stack_size,
+        unsigned ( __stdcall *start_address)(void *),
+        void *arglist, unsigned initflag, unsigned *thrdaddr) {
+    return CreateThread(NULL, stack_size,
         (LPTHREAD_START_ROUTINE)start_address, arglist,
-        STACK_SIZE_PARAM_IS_A_RESERVATION, &thread_id);
-    if(!handle)
-        return -1L;
-    CloseHandle(handle);
-    return 0;
+        STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
 }
 
-void _endthread(void) {
-    ExitThread(0);
+void _endthreadex(unsigned retval) {
+    ExitThread(retval);
 }
 
 #endif /* _WIN32_WCE */

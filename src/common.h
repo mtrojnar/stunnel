@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -52,8 +52,10 @@
 #define BUFFSIZE 18432
 
 /* how many bytes of random input to read from files for PRNG */
-/* OpenSSL likes at least 128 bits, so 64 bytes seems plenty. */
-#define RANDOM_BYTES 64
+/* security margin is huge to compensate for flawed entropy */
+#define RANDOM_BYTES 1024
+
+/**************************************** debugging */
 
 /* for FormatGuard */
 /* #define __NO_FORMATGUARD_ */
@@ -66,6 +68,12 @@
 #else
 #define NOEXPORT static
 #endif
+
+#ifdef __GNUC__
+#define NORETURN __attribute__((noreturn))
+#else
+#define NORETURN
+#endif /* __GNUC__ */
 
 /**************************************** platform */
 
@@ -358,11 +366,11 @@ typedef int SOCKET;
 #if defined(HAVE_WAITPID)
 /* for SYSV systems */
 #define wait_for_pid(a, b, c) waitpid((a), (b), (c))
-#define HAVE_WAIT_FOR_PID 1
+#define HAVE_WAIT_FOR_PID "waitpid()"
 #elif defined(HAVE_WAIT4)
 /* for BSD systems */
 #define wait_for_pid(a, b, c) wait4((a), (b), (c), NULL)
-#define HAVE_WAIT_FOR_PID 1
+#define HAVE_WAIT_FOR_PID "wait4()"
 #endif
 
 /* SunOS 4 */
@@ -460,6 +468,7 @@ extern char *sys_errlist[];
 #define USE_FIPS
 #endif
 
+#include <openssl/conf.h>
 #include <openssl/lhash.h>
 #include <openssl/ssl.h>
 #include <openssl/ui.h>

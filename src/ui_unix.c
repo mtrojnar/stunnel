@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -37,8 +37,6 @@
 
 #include "common.h"
 #include "prototypes.h"
-
-NOEXPORT unsigned long dpid;
 
 NOEXPORT int main_unix(int, char*[]);
 #if !defined(__vms) && !defined(USE_OS2)
@@ -110,6 +108,9 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
             signal(SIGINT, signal_handler); /* fatal */
 #endif
         daemon_loop();
+#if !defined(__vms) && !defined(USE_OS2)
+        delete_pid();
+#endif /* standard Unix */
     } else { /* inetd mode */
         CLI *c;
 #if !defined(__vms) && !defined(USE_OS2)
@@ -133,7 +134,7 @@ NOEXPORT void signal_handler(int sig) {
     int saved_errno;
 
     saved_errno=errno;
-    signal_post(sig);
+    signal_post((uint8_t)sig);
     signal(sig, signal_handler);
     errno=saved_errno;
 }
@@ -186,17 +187,18 @@ NOEXPORT int create_pid(void) {
         s_log(LOG_ERR, "Pid file (%s) must be full path name", global_options.pidfile);
         return 1;
     }
-    dpid=(unsigned long)getpid();
 
-    /* silently remove old pid file */
+    /* silently remove the old pid file */
     unlink(global_options.pidfile);
+
+    /* create a new pid file */
     pf=open(global_options.pidfile, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
     if(pf==-1) {
         s_log(LOG_ERR, "Cannot create pid file %s", global_options.pidfile);
         ioerror("create");
         return 1;
     }
-    pid=str_printf("%lu\n", dpid);
+    pid=str_printf("%lu\n", (unsigned long)getpid());
     if(write(pf, pid, strlen(pid))<(int)strlen(pid)) {
         s_log(LOG_ERR, "Cannot write pid file %s", global_options.pidfile);
         ioerror("write");
@@ -205,16 +207,18 @@ NOEXPORT int create_pid(void) {
     str_free(pid);
     close(pf);
     s_log(LOG_DEBUG, "Created pid file %s", global_options.pidfile);
-    atexit(delete_pid);
     return 0;
 }
 
 NOEXPORT void delete_pid(void) {
-    if((unsigned long)getpid()!=dpid)
-        return; /* current process is not main daemon process */
-    s_log(LOG_DEBUG, "removing pid file %s", global_options.pidfile);
-    if(unlink(global_options.pidfile)<0)
-        ioerror(global_options.pidfile); /* not critical */
+    if(global_options.pidfile) {
+        if(unlink(global_options.pidfile)<0)
+            ioerror(global_options.pidfile); /* not critical */
+        else
+            s_log(LOG_DEBUG, "Removed pid file %s", global_options.pidfile);
+    } else {
+        s_log(LOG_DEBUG, "No pid file to remove");
+    }
 }
 
 #endif /* standard Unix */

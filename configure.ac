@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.44])
+AC_INIT([stunnel],[5.45])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -405,6 +405,7 @@ if test -z "$sysroot" -o "x$sysroot" = "x/"; then
     sysroot=""
     AC_MSG_RESULT([/])
 else
+    SYSROOT="$sysroot"
     AC_MSG_RESULT([$sysroot])
 fi
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -38,6 +38,9 @@
 #include "common.h"
 #include "prototypes.h"
 
+/* Uncomment to see allocation sources in core dumps */
+/* #define DEBUG_PADDING 64 */
+
 /* reportedly, malloc does not always return 16-byte aligned addresses
  * for 64-bit targets as specified by
  * https://msdn.microsoft.com/en-us/library/6ewkz86d.aspx */
@@ -66,6 +69,9 @@ struct alloc_list_struct {
     size_t size;
     const char *alloc_file, *free_file;
     int alloc_line, free_line;
+#ifdef DEBUG_PADDING
+    char debug[DEBUG_PADDING];
+#endif
     uint64_t valid_canary, magic;
 #ifdef __GNUC__
 } __attribute__((aligned(16)));
@@ -80,7 +86,7 @@ struct alloc_list_struct {
 typedef struct {
     const char *alloc_file;
     int alloc_line;
-    int num, max;
+    long num, max;
 } LEAK_ENTRY;
 NOEXPORT LEAK_ENTRY leak_hash_table[LEAK_TABLE_SIZE],
     *leak_results[LEAK_TABLE_SIZE];
@@ -93,7 +99,7 @@ NOEXPORT LPTSTR str_vtprintf(LPCTSTR, va_list);
 NOEXPORT void *str_realloc_internal_debug(void *, size_t, const char *, int);
 
 NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
-NOEXPORT void str_leak_debug(const ALLOC_LIST *, int);
+NOEXPORT void str_leak_debug(const ALLOC_LIST *, long);
 
 NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *);
 NOEXPORT void leak_report();
@@ -116,7 +122,19 @@ NOEXPORT volatile uint64_t canary_initialized=CANARY_UNINTIALIZED;
 char *str_dup_debug(const char *str, const char *file, int line) {
     char *retval;
 
+    if(!str)
+        return NULL;
     retval=str_alloc_debug(strlen(str)+1, file, line);
+    strcpy(retval, str);
+    return retval;
+}
+
+char *str_dup_detached_debug(const char *str, const char *file, int line) {
+    char *retval;
+
+    if(!str)
+        return NULL;
+    retval=str_alloc_detached_debug(strlen(str)+1, file, line);
     strcpy(retval, str);
     return retval;
 }
@@ -246,7 +264,7 @@ void *str_alloc_debug(size_t size, const char *file, int line) {
     tls_data=tls_get();
     if(!tls_data) {
         tls_data=tls_alloc(NULL, NULL, "alloc");
-        s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized TLS at %s, line %d",
+        s_log(LOG_CRIT, "INTERNAL ERROR: Uninitialized TLS at %s, line %d",
             file, line);
     }
 
@@ -281,6 +299,10 @@ void *str_alloc_detached_debug(size_t size, const char *file, int line) {
     alloc_list->alloc_line=line;
     alloc_list->free_file="none";
     alloc_list->free_line=0;
+#ifdef DEBUG_PADDING
+    snprintf(alloc_list->debug+1, DEBUG_PADDING-1, "ALLOC_%lu@%s:%d",
+        (unsigned long)size, file, line);
+#endif
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
     memcpy((uint8_t *)(alloc_list+1)+size, canary, sizeof canary);
     alloc_list->magic=MAGIC_ALLOCATED;
@@ -332,6 +354,10 @@ NOEXPORT void *str_realloc_internal_debug(void *ptr, size_t size, const char *fi
     alloc_list->alloc_line=line;
     alloc_list->free_file="none";
     alloc_list->free_line=0;
+#ifdef DEBUG_PADDING
+    snprintf(alloc_list->debug+1, DEBUG_PADDING-1, "ALLOC_%lu@%s:%d",
+        (unsigned long)size, file, line);
+#endif
     alloc_list->valid_canary=canary_initialized; /* before memcpy */
     memcpy((uint8_t *)ptr+size, canary, sizeof canary);
     str_leak_debug(alloc_list, 1);
@@ -372,8 +398,8 @@ void str_free_debug(void *ptr, const char *file, int line) {
     alloc_list=(ALLOC_LIST *)ptr-1;
     if(alloc_list->magic==MAGIC_DEALLOCATED) { /* double free */
         /* this may (unlikely) log garbage instead of file names */
-        s_log(LOG_CRIT,
-            "Double free attempt: ptr=%p alloc=%s:%d free#1=%s:%d free#2=%s:%d",
+        s_log(LOG_CRIT, "INTERNAL ERROR: Double free attempt: "
+                "ptr=%p alloc=%s:%d free#1=%s:%d free#2=%s:%d",
             ptr,
             alloc_list->alloc_file, alloc_list->alloc_line,
             alloc_list->free_file, alloc_list->free_line,
@@ -407,15 +433,16 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
 
 /**************************************** memory leak detection */
 
-NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
+NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, long change) {
     static size_t entries=0;
     LEAK_ENTRY *entry;
-    int new_entry, allocations;
+    int new_entry;
+    long allocations;
 
-#if defined(USE_PTHREAD) || defined(USE_WIN32)
+#ifdef USE_OS_THREADS
     if(!&stunnel_locks[STUNNEL_LOCKS-1]) /* threads not initialized */
         return;
-#endif /* defined(USE_PTHREAD) || defined(USE_WIN32) */
+#endif /* USE_OS_THREADS */
     if(!number_of_sections) /* configuration file not initialized */
         return;
 
@@ -439,12 +466,16 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
         stunnel_write_unlock(&stunnel_locks[LOCK_LEAK_HASH]);
     }
 
-#ifdef PRECISE_LEAK_ALLOCATON_COUNTERS
-    /* this is *really* slow in OpenSSL < 1.1.0 */
+#if defined(USE_OS_THREADS) && defined(__GNUC__)
+    allocations=__sync_add_and_fetch(&entry->num, change);
+#elif defined(USE_OS_THREADS) && defined(_MSC_VER)
+    allocations=InterlockedExchangeAdd(&entry->num, change);
+#elif defined(USE_OS_THREADS) && OPENSSL_VERSION_NUMBER>=0x10100000L
+    /* CRYPTO_atomic_add() is *really* slow in OpenSSL < 1.1.0 */
     CRYPTO_atomic_add(&entry->num, change, &allocations,
         &stunnel_locks[LOCK_LEAK_HASH]);
-#else
-    allocations=(entry->num+=change); /* we just need an estimate... */
+#else /* non-atomic operations cause occasional false positives */
+    allocations=(entry->num+=change);
 #endif
 
     if(allocations<=leak_threshold()) /* leak not detected */
@@ -488,7 +519,7 @@ NOEXPORT void leak_report() {
     for(i=0; i<leak_result_num; ++i)
         if(leak_results[i] /* an officious compiler could reorder code */ &&
                 leak_results[i]->max>limit /* the limit could have changed */)
-            s_log(LOG_WARNING, "Possible memory leak at %s:%d: %d allocations",
+            s_log(LOG_WARNING, "Possible memory leak at %s:%d: %ld allocations",
                 leak_results[i]->alloc_file, leak_results[i]->alloc_line,
                 leak_results[i]->max);
 }

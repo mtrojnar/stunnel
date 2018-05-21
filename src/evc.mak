@@ -1,4 +1,4 @@
-# wce.mak for stunnel.exe by Michal Trojnara 2006-2012
+# wce.mak for stunnel.exe by Michal Trojnara 1998-2018
 # with help of Pierre Delaage <delaage.pierre@free.fr>
 # pdelaage 20140610 : added UNICODE optional FLAG, always ACTIVE on WCE because of poor ANSI support
 # pdelaage 20140610 : added _WIN32_WCE flag for RC compilation, to preprocess out "HELP" unsupported menu flag on WCE

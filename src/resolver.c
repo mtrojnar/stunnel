@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -138,8 +138,6 @@ unsigned name2addr(SOCKADDR_UNION *addr, char *name, int passive) {
     if(retval)
         addrlist2addr(addr, addr_list);
     str_free(addr_list->addr);
-    str_free(addr_list->fd);
-    str_free(addr_list->session);
     str_free(addr_list);
     return retval;
 }
@@ -155,8 +153,6 @@ unsigned hostport2addr(SOCKADDR_UNION *addr,
     if(num)
         addrlist2addr(addr, addr_list);
     str_free(addr_list->addr);
-    str_free(addr_list->fd);
-    str_free(addr_list->session);
     str_free(addr_list);
     return num;
 }
@@ -194,16 +190,10 @@ unsigned name2addrlist(SOCKADDR_LIST *addr_list, char *name) {
             s_log(LOG_ERR, "Unix socket path is too long");
             return 0; /* no results */
         }
-        addr_list->addr=str_realloc(addr_list->addr,
+        addr_list->addr=str_realloc_detached(addr_list->addr,
             (addr_list->num+1)*sizeof(SOCKADDR_UNION));
         addr_list->addr[addr_list->num].un.sun_family=AF_UNIX;
         strcpy(addr_list->addr[addr_list->num].un.sun_path, name);
-        addr_list->fd=str_realloc(addr_list->fd,
-            (addr_list->num+1)*sizeof(SOCKET));
-        addr_list->fd[addr_list->num]=INVALID_SOCKET;
-        addr_list->session=str_realloc(addr_list->session,
-            (addr_list->num+1)*sizeof(SSL_SESSION *));
-        addr_list->session[addr_list->num]=NULL;
         ++(addr_list->num);
         return 1; /* ok - return the number of new addresses */
     }
@@ -228,9 +218,9 @@ unsigned name2addrlist(SOCKADDR_LIST *addr_list, char *name) {
 
 unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         char *host_name, char *port_name) {
-    struct addrinfo hints, *res=NULL, *cur;
+    struct addrinfo hints, *res, *cur;
     int err, retry=0;
-    unsigned num=0;
+    unsigned num;
 
     memset(&hints, 0, sizeof hints);
 #if defined(USE_IPv6) || defined(USE_WIN32)
@@ -241,19 +231,20 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
     hints.ai_socktype=SOCK_STREAM;
     hints.ai_protocol=IPPROTO_TCP;
     hints.ai_flags=0;
-    if(addr_list->passive) {
-        hints.ai_family=AF_INET; /* first try IPv4 for passive requests */
+    if(addr_list->passive)
         hints.ai_flags|=AI_PASSIVE;
-    }
 #ifdef AI_ADDRCONFIG
     hints.ai_flags|=AI_ADDRCONFIG;
 #endif
     for(;;) {
+        res=NULL;
         err=getaddrinfo(host_name, port_name, &hints, &res);
-        if(!err)
+        if(!err) /* success */
             break;
-        if(res)
-            freeaddrinfo(res);
+        if(err==EAI_SERVICE) {
+            s_log(LOG_ERR, "Unknown TCP service \"%s\"", port_name);
+            return 0; /* error */
+        }
         if(err==EAI_AGAIN && ++retry<=3) {
             s_log(LOG_DEBUG, "getaddrinfo: EAI_AGAIN received: retrying");
             sleep(1);
@@ -265,19 +256,6 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
             continue; /* retry for unconfigured network interfaces */
         }
 #endif
-#if defined(USE_IPv6) || defined(USE_WIN32)
-        if(hints.ai_family==AF_INET) {
-            hints.ai_family=AF_UNSPEC;
-            continue; /* retry for non-IPv4 addresses */
-        }
-#endif
-        break;
-    }
-    if(err==EAI_SERVICE) {
-        s_log(LOG_ERR, "Unknown TCP service \"%s\"", port_name);
-        return 0; /* error */
-    }
-    if(err) {
         s_log(LOG_ERR, "Error resolving \"%s\": %s",
             host_name ? host_name :
                 (addr_list->passive ? DEFAULT_ANY : DEFAULT_LOOPBACK),
@@ -285,26 +263,24 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         return 0; /* error */
     }
 
-    /* copy the list of addresses */
+    /* find the number of newly resolved addresses */
+    num=0;
     for(cur=res; cur; cur=cur->ai_next) {
         if(cur->ai_addrlen>(int)sizeof(SOCKADDR_UNION)) {
             s_log(LOG_ERR, "INTERNAL ERROR: ai_addrlen value too big");
             freeaddrinfo(res);
             return 0; /* no results */
         }
-        addr_list->addr=str_realloc(addr_list->addr,
-            (addr_list->num+1)*sizeof(SOCKADDR_UNION));
-        memcpy(&addr_list->addr[addr_list->num], cur->ai_addr,
-            (size_t)cur->ai_addrlen);
-        addr_list->fd=str_realloc(addr_list->fd,
-            (addr_list->num+1)*sizeof(SOCKET));
-        addr_list->fd[addr_list->num]=INVALID_SOCKET;
-        addr_list->session=str_realloc(addr_list->session,
-            (addr_list->num+1)*sizeof(SSL_SESSION *));
-        addr_list->session[addr_list->num]=NULL;
-        ++(addr_list->num);
         ++num;
     }
+
+    /* append the newly resolved addresses to addr_list->addr */
+    addr_list->addr=str_realloc_detached(addr_list->addr,
+        (addr_list->num+num)*sizeof(SOCKADDR_UNION));
+    for(cur=res; cur; cur=cur->ai_next)
+        memcpy(&addr_list->addr[(addr_list->num)++], cur->ai_addr,
+            (size_t)cur->ai_addrlen);
+
     freeaddrinfo(res);
     return num; /* ok - return the number of new addresses */
 }
@@ -320,8 +296,6 @@ void addrlist_clear(SOCKADDR_LIST *addr_list, int passive) {
 NOEXPORT void addrlist_reset(SOCKADDR_LIST *addr_list) {
     addr_list->num=0;
     addr_list->addr=NULL;
-    addr_list->fd=NULL;
-    addr_list->session=NULL;
     addr_list->start=0;
     addr_list->parent=addr_list; /* allow a copy to locate its parent */
 }
@@ -329,13 +303,11 @@ NOEXPORT void addrlist_reset(SOCKADDR_LIST *addr_list) {
 unsigned addrlist_dup(SOCKADDR_LIST *dst, const SOCKADDR_LIST *src) {
     memcpy(dst, src, sizeof(SOCKADDR_LIST));
     if(src->num) { /* already resolved */
-        dst->addr=str_alloc(src->num*sizeof(SOCKADDR_UNION));
+        dst->addr=str_alloc_detached(src->num*sizeof(SOCKADDR_UNION));
         memcpy(dst->addr, src->addr, src->num*sizeof(SOCKADDR_UNION));
     } else { /* delayed resolver */
         addrlist_resolve(dst);
     }
-    /* a client does not have its own local copy of
-       src->session and src->fd */
     return dst->num;
 }
 

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 2015-2017
+# by Michal Trojnara 1998-2018
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -47,12 +47,3 @@ install-data-hook:
 	@echo "*********************************************************"
 	@echo "* Type 'make cert' to also install a sample certificate *"
 	@echo "*********************************************************"
-
-edit = sed \
-	-e 's|@bindir[@]|$(bindir)|g' \
-	-e 's|@sysconfdir[@]|$(sysconfdir)|g'
-
-stunnel.pod: Makefile
-	$(edit) '$(srcdir)/$@.in' >$@
-
-stunnel.pod: $(srcdir)/stunnel.pod

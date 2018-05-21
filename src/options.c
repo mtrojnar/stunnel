@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -48,7 +48,8 @@ typedef enum {
     CMD_BEGIN,      /* initialize defaults */
     CMD_EXEC,       /* process command */
     CMD_END,        /* end of section */
-    CMD_FREE,       /* TODO: deallocate memory */
+    CMD_DUP,        /* duplicate new_service_options */
+    CMD_FREE,       /* deallocate memory */
     CMD_DEFAULT,    /* print default value */
     CMD_HELP        /* print help */
 } CMD;
@@ -69,12 +70,14 @@ NOEXPORT char *parse_service_option(CMD, SERVICE_OPTIONS *, char *, char *);
 
 #ifndef OPENSSL_NO_TLSEXT
 NOEXPORT char *sni_init(SERVICE_OPTIONS *);
+NOEXPORT void sni_free(SERVICE_OPTIONS *);
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 
 NOEXPORT char *parse_debug_level(char *, SERVICE_OPTIONS *);
 
 #ifndef OPENSSL_NO_PSK
 NOEXPORT PSK_KEYS *psk_read(char *);
+NOEXPORT PSK_KEYS *psk_dup(PSK_KEYS *);
 NOEXPORT void psk_free(PSK_KEYS *);
 #endif /* !defined(OPENSSL_NO_PSK) */
 
@@ -146,9 +149,18 @@ static const SSL_OPTION ssl_opts[] = {
     {"NO_TLSv1", SSL_OP_NO_TLSv1},
 #ifdef SSL_OP_NO_TLSv1_1
     {"NO_TLSv1.1", SSL_OP_NO_TLSv1_1},
+#else /* ignore if unsupported by OpenSSL */
+    {"NO_TLSv1.1", 0},
 #endif
 #ifdef SSL_OP_NO_TLSv1_2
     {"NO_TLSv1.2", SSL_OP_NO_TLSv1_2},
+#else /* ignore if unsupported by OpenSSL */
+    {"NO_TLSv1.2", 0},
+#endif
+#ifdef SSL_OP_NO_TLSv1_3
+    {"NO_TLSv1_3", SSL_OP_NO_TLSv1_3},
+#else /* ignore if unsupported by OpenSSL */
+    {"NO_TLSv1_3", 0},
 #endif
     {"PKCS1_CHECK_1", SSL_OP_PKCS1_CHECK_1},
     {"PKCS1_CHECK_2", SSL_OP_PKCS1_CHECK_2},
@@ -175,8 +187,17 @@ static const SSL_OPTION ssl_opts[] = {
 #ifdef SSL_OP_NO_ENCRYPT_THEN_MAC
     {"NO_ENCRYPT_THEN_MAC", SSL_OP_NO_ENCRYPT_THEN_MAC},
 #endif
-#ifdef SSL_OP_NO_TLSv1_3
-    {"NO_TLSv1_3", SSL_OP_NO_TLSv1_3},
+#ifdef SSL_OP_ALLOW_NO_DHE_KEX
+    {"ALLOW_NO_DHE_KEX", SSL_OP_ALLOW_NO_DHE_KEX},
+#endif
+#ifdef SSL_OP_ENABLE_MIDDLEBOX_COMPAT
+    {"ENABLE_MIDDLEBOX_COMPAT", SSL_OP_ENABLE_MIDDLEBOX_COMPAT},
+#endif
+#ifdef SSL_OP_NO_RENEGOTIATION
+    {"NO_RENEGOTIATION", SSL_OP_NO_RENEGOTIATION},
+#endif
+#ifdef SSL_OP_PRIORITIZE_CHACHA
+    {"PRIORITIZE_CHACHA", SSL_OP_PRIORITIZE_CHACHA},
 #endif
     {NULL, 0}
 };
@@ -184,10 +205,13 @@ static const SSL_OPTION ssl_opts[] = {
 NOEXPORT long unsigned parse_ssl_option(char *);
 NOEXPORT void print_ssl_options(void);
 
-NOEXPORT void init_socket_options(void);
-NOEXPORT int print_socket_options(void);
-NOEXPORT char *print_option(int, OPT_UNION *);
-NOEXPORT int parse_socket_option(char *);
+NOEXPORT SOCK_OPT *socket_options_init(void);
+NOEXPORT void socket_option_set_int(SOCK_OPT *, char *, int, int);
+NOEXPORT SOCK_OPT *socket_options_dup(SOCK_OPT *);
+NOEXPORT void socket_options_free(SOCK_OPT *);
+NOEXPORT int socket_options_print(void);
+NOEXPORT char *socket_option_text(int, OPT_UNION *);
+NOEXPORT int socket_option_parse(SOCK_OPT *, char *);
 
 #ifndef OPENSSL_NO_OCSP
 NOEXPORT unsigned long parse_ocsp_flag(char *);
@@ -207,8 +231,12 @@ NOEXPORT ENGINE *engine_get_by_num(const int);
 NOEXPORT void print_syntax(void);
 
 NOEXPORT void name_list_append(NAME_LIST **, char *);
+NOEXPORT void name_list_dup(NAME_LIST **, NAME_LIST *);
+NOEXPORT void name_list_free(NAME_LIST *);
 #ifndef USE_WIN32
-NOEXPORT char **argalloc(char *);
+NOEXPORT char **arg_alloc(char *);
+NOEXPORT char **arg_dup(char **);
+NOEXPORT void arg_free(char **arg);
 #endif
 
 char configuration_file[PATH_MAX];
@@ -264,7 +292,7 @@ int options_cmdline(char *arg1, char *arg2) {
         log_flush(LOG_MODE_INFO);
         return 2;
     } else if(!strcasecmp(arg1, "-sockets")) {
-        print_socket_options();
+        socket_options_print();
         log_flush(LOG_MODE_INFO);
         return 2;
     } else if(!strcasecmp(arg1, "-options")) {
@@ -394,9 +422,8 @@ NOEXPORT int options_file(char *path, CONF_TYPE type, SERVICE_OPTIONS **section)
             continue;
 
         if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
-            SERVICE_OPTIONS *new_section;
-
-            if(!new_service_options.next) { /* initialize global options */
+            /* initialize global options */
+            if(!new_service_options.next) {
                 errstr=parse_global_option(CMD_END, NULL, NULL);
                 if(errstr) {
                     s_log(LOG_ERR, "%s:%d: \"%s\": %s",
@@ -405,15 +432,22 @@ NOEXPORT int options_file(char *path, CONF_TYPE type, SERVICE_OPTIONS **section)
                     return 1;
                 }
             }
+
+            /* append a new SERVICE_OPTIONS structure to the list */
+            {
+                SERVICE_OPTIONS *new_section;
+                new_section=str_alloc_detached(sizeof(SERVICE_OPTIONS));
+                new_section->next=NULL;
+                (*section)->next=new_section;
+                *section=new_section;
+            }
+
+            /* initialize the newly allocated section */
             ++config_opt;
             config_opt[strlen(config_opt)-1]='\0';
-            new_section=str_alloc(sizeof(SERVICE_OPTIONS));
-            memcpy(new_section, &new_service_options, sizeof(SERVICE_OPTIONS));
-            new_section->servname=str_dup(config_opt);
-            new_section->session=NULL;
-            new_section->next=NULL;
-            (*section)->next=new_section;
-            *section=new_section;
+            (*section)->servname=str_dup_detached(config_opt);
+            (*section)->session=NULL;
+            parse_service_option(CMD_DUP, *section, NULL, NULL);
             continue;
         }
 
@@ -542,9 +576,10 @@ int alphasort(const struct dirent **a, const struct dirent **b) {
 
 void options_defaults() {
     /* initialize globals *before* opening the config file */
-    memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS)); /* reset global options */
-    memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS)); /* reset local options */
+    memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS));
+    memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS));
     new_service_options.next=NULL;
+
     parse_global_option(CMD_BEGIN, NULL, NULL);
     parse_service_option(CMD_BEGIN, &new_service_options, NULL, NULL);
 }
@@ -553,18 +588,41 @@ void options_apply() { /* apply default/validated configuration */
     unsigned num=0;
     SERVICE_OPTIONS *section;
 
+    memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
+
+    /* service_options are used for inetd mode and to enumerate services */
     for(section=new_service_options.next; section; section=section->next)
         section->section_number=num++;
-    /* FIXME: this operation may be unsafe, as client() threads use it */
-    memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
-    /* service_options are used for inetd mode and to enumerate services */
     memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
     number_of_sections=num;
+}
+
+void options_free() {
+    /* FIXME: this operation may be unsafe, as client() threads use it */
+    parse_global_option(CMD_FREE, NULL, NULL);
+}
+
+void service_up_ref(SERVICE_OPTIONS *section) {
+    stunnel_write_lock(&stunnel_locks[LOCK_REF]);
+    ++(section->ref);
+    stunnel_write_unlock(&stunnel_locks[LOCK_REF]);
+}
+
+void service_free(SERVICE_OPTIONS *section) {
+    int ref;
+
+    stunnel_write_lock(&stunnel_locks[LOCK_REF]);
+    ref=--(section->ref);
+    stunnel_write_unlock(&stunnel_locks[LOCK_REF]);
+    if(ref==0)
+        parse_service_option(CMD_FREE, section, NULL, NULL);
 }
 
 /**************************************** global options */
 
 NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
+    void *tmp;
+
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
         s_log(LOG_NOTICE, "Global options:");
@@ -583,7 +641,12 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
+        tmp=global_options.chroot_dir;
+        global_options.chroot_dir=NULL;
+        str_free(tmp);
         break;
     case CMD_DEFAULT:
         break;
@@ -602,7 +665,11 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_EXEC:
         if(strcasecmp(opt, "compression"))
             break;
-        if(OpenSSL_version_num()>=0x00908051L && !strcasecmp(arg, "deflate"))
+        /* only allow compression with OpenSSL 0.9.8 or later
+         * with OpenSSL #1468 zlib memory leak fixed */
+        if(OpenSSL_version_num()<0x00908051L) /* 0.9.8e-beta1 */
+            return "Compression unsupported due to a memory leak";
+        if(!strcasecmp(arg, "deflate"))
             new_global_options.compression=COMP_DEFLATE;
         else if(!strcasecmp(arg, "zlib"))
             new_global_options.compression=COMP_ZLIB;
@@ -610,6 +677,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
             return "Specified compression type is not available";
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP: /* not used for global options */
         break;
     case CMD_FREE:
         break;
@@ -638,7 +707,12 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
+        tmp=global_options.egd_sock;
+        global_options.egd_sock=NULL;
+        str_free(tmp);
         break;
     case CMD_DEFAULT:
 #ifdef EGD_SOCKET
@@ -667,7 +741,10 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_END:
         engine_init();
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
+        /* FIXME: investigate if we can free it */
         break;
     case CMD_DEFAULT:
         break;
@@ -692,6 +769,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         }
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -711,6 +790,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
             break;
         return engine_default(arg);
     case CMD_END:
+        break;
+    case CMD_DUP: /* not used for global options */
         break;
     case CMD_FREE:
         break;
@@ -748,6 +829,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -784,6 +867,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -810,7 +895,10 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
+        /* FIXME: investigate if we can free it */
         break;
     case CMD_DEFAULT:
         break;
@@ -832,7 +920,10 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
+        /* FIXME: investigate if we can free it */
         break;
     case CMD_DEFAULT:
         break;
@@ -854,7 +945,10 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
+        /* FIXME: investigate if we can free it */
         break;
     case CMD_DEFAULT:
         break;
@@ -882,6 +976,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -904,7 +1000,12 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
+        tmp=global_options.output_file;
+        global_options.output_file=NULL;
+        str_free(tmp);
         break;
     case CMD_DEFAULT:
         break;
@@ -929,7 +1030,12 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
+        tmp=global_options.pidfile;
+        global_options.pidfile=NULL;
+        str_free(tmp);
         break;
     case CMD_DEFAULT:
         break;
@@ -956,6 +1062,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -969,7 +1077,11 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* RNDfile */
     switch(cmd) {
     case CMD_BEGIN:
+#ifdef RANDOM_FILE
+        new_global_options.rand_file=str_dup(RANDOM_FILE);
+#else
         new_global_options.rand_file=NULL;
+#endif
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "RNDfile"))
@@ -978,7 +1090,12 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
+        tmp=global_options.rand_file;
+        global_options.rand_file=NULL;
+        str_free(tmp);
         break;
     case CMD_DEFAULT:
 #ifdef RANDOM_FILE
@@ -1007,6 +1124,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -1015,52 +1134,6 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no overwrite seed datafiles with new random data",
             "RNDoverwrite");
-        break;
-    }
-
-#ifndef USE_WIN32
-    /* service */
-    switch(cmd) {
-    case CMD_BEGIN:
-        new_service_options.servname=str_dup("stunnel");
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "service"))
-            break;
-        new_service_options.servname=str_dup(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = service name", "service");
-        break;
-    }
-#endif
-
-    /* socket */
-    switch(cmd) {
-    case CMD_BEGIN:
-        init_socket_options();
-        break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "socket"))
-            break;
-        if(parse_socket_option(arg))
-            return "Illegal socket option";
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = a|l|r:option=value[:value]", "socket");
-        s_log(LOG_NOTICE, "%25sset an option on accept/local/remote socket", "");
         break;
     }
 
@@ -1081,6 +1154,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP: /* not used for global options */
         break;
     case CMD_FREE:
         break;
@@ -1111,6 +1186,8 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP: /* not used for global options */
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -1122,13 +1199,24 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     }
 #endif
 
-    if(cmd==CMD_EXEC)
+    /* final checks */
+    switch(cmd) {
+    case CMD_BEGIN:
+        break;
+    case CMD_EXEC:
         return option_not_found;
-
-    if(cmd==CMD_END) {
+    case CMD_END:
         /* FIPS needs to be initialized as early as possible */
         if(ssl_configure(&new_global_options)) /* configure global TLS settings */
             return "Failed to initialize TLS";
+    case CMD_DUP:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        break;
     }
     return NULL; /* OK */
 }
@@ -1146,12 +1234,18 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
         s_log(LOG_NOTICE, " ");
         s_log(LOG_NOTICE, "Service-level options:");
+    } else if(cmd==CMD_FREE) {
+        if(section==&service_options)
+            s_log(LOG_DEBUG, "Deallocating section defaults");
+        else
+            s_log(LOG_DEBUG, "Deallocating section [%s]", section->servname);
     }
 
     /* accept */
     switch(cmd) {
     case CMD_BEGIN:
         addrlist_clear(&section->local_addr, 1);
+        section->local_fd=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "accept"))
@@ -1161,12 +1255,23 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         if(section->local_addr.names) {
+            unsigned i;
             if(!addrlist_resolve(&section->local_addr))
                 return "Cannot resolve accept target";
+            section->local_fd=str_alloc_detached(section->local_addr.num*sizeof(SOCKET));
+            for(i=0; i<section->local_addr.num; ++i)
+                section->local_fd[i]=INVALID_SOCKET;
             ++endpoints;
         }
         break;
+    case CMD_DUP:
+        name_list_dup(&section->local_addr.names,
+            new_service_options.local_addr.names);
+        break;
     case CMD_FREE:
+        name_list_free(section->local_addr.names);
+        str_free(section->local_addr.addr);
+        str_free(section->local_fd);
         break;
     case CMD_DEFAULT:
         break;
@@ -1187,14 +1292,19 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "CApath"))
             break;
+        str_free(section->ca_dir);
         if(arg[0]) /* not empty */
-            section->ca_dir=str_dup(arg);
+            section->ca_dir=str_dup_detached(arg);
         else
             section->ca_dir=NULL;
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->ca_dir=str_dup_detached(new_service_options.ca_dir);
+        break;
     case CMD_FREE:
+        str_free(section->ca_dir);
         break;
     case CMD_DEFAULT:
 #if 0
@@ -1219,14 +1329,19 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "CAfile"))
             break;
+        str_free(section->ca_file);
         if(arg[0]) /* not empty */
-            section->ca_file=str_dup(arg);
+            section->ca_file=str_dup_detached(arg);
         else
             section->ca_file=NULL;
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->ca_file=str_dup_detached(new_service_options.ca_file);
+        break;
     case CMD_FREE:
+        str_free(section->ca_file);
         break;
     case CMD_DEFAULT:
 #if 0
@@ -1248,7 +1363,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "cert"))
             break;
-        section->cert=str_dup(arg);
+        str_free(section->cert);
+        section->cert=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
 #ifndef OPENSSL_NO_PSK
@@ -1262,7 +1378,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(!section->option.client && !section->cert)
             return "TLS server needs a certificate";
         break;
+    case CMD_DUP:
+        section->cert=str_dup_detached(new_service_options.cert);
+        break;
     case CMD_FREE:
+        str_free(section->cert);
         break;
     case CMD_DEFAULT:
         break; /* no default certificate */
@@ -1284,10 +1404,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         name_list_append(&section->check_email, arg);
         return NULL; /* OK */
     case CMD_END:
-	if(section->check_email && !section->option.verify_chain && !section->option.verify_peer)
+        if(section->check_email && !section->option.verify_chain && !section->option.verify_peer)
             return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
         break;
+    case CMD_DUP:
+        name_list_dup(&section->check_email,
+            new_service_options.check_email);
+        break;
     case CMD_FREE:
+        name_list_free(section->check_email);
         break;
     case CMD_DEFAULT:
         break;
@@ -1308,10 +1433,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         name_list_append(&section->check_host, arg);
         return NULL; /* OK */
     case CMD_END:
-        if(section->check_host  && !section->option.verify_chain && !section->option.verify_peer)
+        if(section->check_host && !section->option.verify_chain && !section->option.verify_peer)
             return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
         break;
+    case CMD_DUP:
+        name_list_dup(&section->check_host,
+            new_service_options.check_host);
+        break;
     case CMD_FREE:
+        name_list_free(section->check_host);
         break;
     case CMD_DEFAULT:
         break;
@@ -1332,8 +1462,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         name_list_append(&section->check_ip, arg);
         return NULL; /* OK */
     case CMD_END:
+        if(section->check_ip && !section->option.verify_chain && !section->option.verify_peer)
+            return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
+        break;
+    case CMD_DUP:
+        name_list_dup(&section->check_ip,
+            new_service_options.check_ip);
         break;
     case CMD_FREE:
+        name_list_free(section->check_ip);
         break;
     case CMD_DEFAULT:
         break;
@@ -1353,7 +1490,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "ciphers"))
             break;
-        section->cipher_list=str_dup(arg);
+        str_free(section->cipher_list);
+        section->cipher_list=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         if(!section->cipher_list) {
@@ -1361,13 +1499,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
              * because section->cipher_list is no longer NULL */
 #ifdef USE_FIPS
             if(new_global_options.option.fips)
-                section->cipher_list="FIPS";
+                section->cipher_list=str_dup_detached("FIPS");
             else
 #endif /* USE_FIPS */
-                section->cipher_list=stunnel_cipher_list;
+                section->cipher_list=str_dup_detached(stunnel_cipher_list);
         }
         break;
+    case CMD_DUP:
+        section->cipher_list=str_dup_detached(new_service_options.cipher_list);
+        break;
     case CMD_FREE:
+        str_free(section->cipher_list);
         break;
     case CMD_DEFAULT:
 #ifdef USE_FIPS
@@ -1401,6 +1543,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->option.client=new_service_options.option.client;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -1425,7 +1570,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        name_list_dup(&section->config, new_service_options.config);
+        break;
     case CMD_FREE:
+        name_list_free(section->config);
         break;
     case CMD_DEFAULT:
         break;
@@ -1441,6 +1590,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     switch(cmd) {
     case CMD_BEGIN:
         addrlist_clear(&section->connect_addr, 0);
+        section->connect_session=NULL;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "connect"))
@@ -1453,15 +1603,24 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                     !addrlist_resolve(&section->connect_addr)) {
                 s_log(LOG_INFO,
                     "Cannot resolve connect target - delaying DNS lookup");
+                section->connect_addr.num=0;
                 section->redirect_addr.num=0;
-                str_free(section->redirect_addr.names);
-                section->redirect_addr.names=NULL;
                 section->option.delayed_lookup=1;
             }
+            if(section->option.client)
+                section->connect_session=
+                    str_alloc_detached(section->connect_addr.num*sizeof(SSL_SESSION *));
             ++endpoints;
         }
         break;
+    case CMD_DUP:
+        name_list_dup(&section->connect_addr.names,
+            new_service_options.connect_addr.names);
+        break;
     case CMD_FREE:
+        name_list_free(section->connect_addr.names);
+        str_free(section->connect_addr.addr);
+        str_free(section->connect_session);
         break;
     case CMD_DEFAULT:
         break;
@@ -1479,14 +1638,19 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "CRLpath"))
             break;
+        str_free(section->crl_dir);
         if(arg[0]) /* not empty */
-            section->crl_dir=str_dup(arg);
+            section->crl_dir=str_dup_detached(arg);
         else
             section->crl_dir=NULL;
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->crl_dir=str_dup_detached(new_service_options.crl_dir);
+        break;
     case CMD_FREE:
+        str_free(section->crl_dir);
         break;
     case CMD_DEFAULT:
         break;
@@ -1503,14 +1667,19 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "CRLfile"))
             break;
+        str_free(section->crl_file);
         if(arg[0]) /* not empty */
-            section->crl_file=str_dup(arg);
+            section->crl_file=str_dup_detached(arg);
         else
             section->crl_file=NULL;
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->crl_file=str_dup_detached(new_service_options.crl_file);
+        break;
     case CMD_FREE:
+        str_free(section->crl_file);
         break;
     case CMD_DEFAULT:
         break;
@@ -1535,6 +1704,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "Curve name not supported";
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->curve=new_service_options.curve;
         break;
     case CMD_FREE:
         break;
@@ -1561,6 +1733,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             break;
         return parse_debug_level(arg, section);
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->log_level=new_service_options.log_level;
         break;
     case CMD_FREE:
         break;
@@ -1597,6 +1772,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->option.delayed_lookup=new_service_options.option.delayed_lookup;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -1622,6 +1800,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "Engine ID not found";
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->engine=new_service_options.engine;
         break;
     case CMD_FREE:
         break;
@@ -1652,6 +1833,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->engine=new_service_options.engine;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -1672,14 +1856,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "exec"))
             break;
-        section->exec_name=str_dup(arg);
+        str_free(section->exec_name);
+        section->exec_name=str_dup_detached(arg);
 #ifdef USE_WIN32
-        section->exec_args=str_dup(arg);
+        section->exec_args=str_dup_detached(arg);
 #else
         if(!section->exec_args) {
-            section->exec_args=str_alloc(2*sizeof(char *));
-            section->exec_args[0]=section->exec_name;
-            section->exec_args[1]=NULL; /* to show that it's null-terminated */
+            section->exec_args=str_alloc_detached(2*sizeof(char *));
+            section->exec_args[0]=str_dup_detached(section->exec_name);
+            section->exec_args[1]=NULL; /* null-terminate */
         }
 #endif
         return NULL; /* OK */
@@ -1687,7 +1872,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(section->exec_name)
             ++endpoints;
         break;
+    case CMD_DUP:
+        section->exec_name=str_dup_detached(new_service_options.exec_name);
+        break;
     case CMD_FREE:
+        str_free(section->exec_name);
         break;
     case CMD_DEFAULT:
         break;
@@ -1706,14 +1895,28 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(strcasecmp(opt, "execArgs"))
             break;
 #ifdef USE_WIN32
-        section->exec_args=str_dup(arg);
+        str_free(section->exec_args);
+        section->exec_args=str_dup_detached(arg);
 #else
-        section->exec_args=argalloc(arg);
+        arg_free(section->exec_args);
+        section->exec_args=arg_alloc(arg);
 #endif
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+#ifdef USE_WIN32
+        section->exec_args=str_dup_detached(new_service_options.exec_args);
+#else
+        section->exec_args=arg_dup(new_service_options.exec_args);
+#endif
+        break;
     case CMD_FREE:
+#ifdef USE_WIN32
+        str_free(section->exec_args);
+#else
+        arg_free(section->exec_args);
+#endif
         break;
     case CMD_DEFAULT:
         break;
@@ -1726,8 +1929,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* failover */
     switch(cmd) {
     case CMD_BEGIN:
-        section->failover=FAILOVER_RR;
-        section->seq=0;
+        section->failover=FAILOVER_PRIO;
+        section->rr=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "failover"))
@@ -1742,6 +1945,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_END:
         if(section->option.delayed_lookup)
             section->failover=FAILOVER_PRIO;
+        break;
+    case CMD_DUP:
+        section->failover=new_service_options.failover;
+        section->rr=new_service_options.rr;
         break;
     case CMD_FREE:
         break;
@@ -1761,11 +1968,16 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "ident"))
             break;
-        section->username=str_dup(arg);
+        str_free(section->username);
+        section->username=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->username=str_dup_detached(new_service_options.username);
+        break;
     case CMD_FREE:
+        str_free(section->username);
         break;
     case CMD_DEFAULT:
         break;
@@ -1782,13 +1994,18 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "key"))
             break;
-        section->key=str_dup(arg);
+        str_free(section->key);
+        section->key=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         if(section->cert && !section->key)
-            section->key=str_dup(section->cert);
+            section->key=str_dup_detached(section->cert);
+        break;
+    case CMD_DUP:
+        section->key=str_dup_detached(new_service_options.key);
         break;
     case CMD_FREE:
+        str_free(section->key);
         break;
     case CMD_DEFAULT:
         break;
@@ -1814,6 +2031,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->option.libwrap=new_service_options.option.libwrap;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -1838,6 +2058,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         section->option.local=1;
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->option.local=new_service_options.option.local;
+        memcpy(&section->source_addr, &new_service_options.source_addr,
+            sizeof(SOCKADDR_UNION));
         break;
     case CMD_FREE:
         break;
@@ -1870,6 +2095,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->log_id=new_service_options.log_id;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -1891,11 +2119,16 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "ocsp"))
             break;
-        section->ocsp_url=str_dup(arg);
+        str_free(section->ocsp_url);
+        section->ocsp_url=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->ocsp_url=str_dup_detached(new_service_options.ocsp_url);
+        break;
     case CMD_FREE:
+        str_free(section->ocsp_url);
         break;
     case CMD_DEFAULT:
         break;
@@ -1920,6 +2153,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->option.aia=new_service_options.option.aia;
         break;
     case CMD_FREE:
         break;
@@ -1949,6 +2185,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL;
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->ocsp_flags=new_service_options.ocsp_flags;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -1975,6 +2214,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->option.nonce=new_service_options.option.nonce;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -1991,7 +2233,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* options */
     switch(cmd) {
     case CMD_BEGIN:
-        section->ssl_options_set|=SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3;
+        section->ssl_options_set=0;
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
         section->ssl_options_clear=0;
 #endif /* OpenSSL 0.9.8m or later */
@@ -2017,6 +2259,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->ssl_options_set=new_service_options.ssl_options_set;
+#if OPENSSL_VERSION_NUMBER>=0x009080dfL
+        section->ssl_options_clear=new_service_options.ssl_options_clear;
+#endif /* OpenSSL 0.9.8m or later */
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2036,7 +2284,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "protocol"))
             break;
-        section->protocol=str_dup(arg);
+        str_free(section->protocol);
+        section->protocol=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         /* PROTOCOL_CHECK also initializes:
@@ -2055,7 +2304,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             section->ssl_options_set|=SSL_OP_NO_TICKET;
 #endif
         break;
+    case CMD_DUP:
+        section->protocol=str_dup_detached(new_service_options.protocol);
+        break;
     case CMD_FREE:
+        str_free(section->protocol);
         break;
     case CMD_DEFAULT:
         break;
@@ -2070,16 +2323,22 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* protocolAuthentication */
     switch(cmd) {
     case CMD_BEGIN:
-        section->protocol_authentication="basic";
+        section->protocol_authentication=str_dup_detached("basic");
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "protocolAuthentication"))
             break;
-        section->protocol_authentication=str_dup(arg);
+        str_free(section->protocol_authentication);
+        section->protocol_authentication=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->protocol_authentication=
+            str_dup_detached(new_service_options.protocol_authentication);
+        break;
     case CMD_FREE:
+        str_free(section->protocol_authentication);
         break;
     case CMD_DEFAULT:
         break;
@@ -2097,11 +2356,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "protocolDomain"))
             break;
-        section->protocol_domain=str_dup(arg);
+        str_free(section->protocol_domain);
+        section->protocol_domain=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->protocol_domain=
+            str_dup_detached(new_service_options.protocol_domain);
+        break;
     case CMD_FREE:
+        str_free(section->protocol_domain);
         break;
     case CMD_DEFAULT:
         break;
@@ -2119,11 +2384,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "protocolHost"))
             break;
-        section->protocol_host=str_dup(arg);
+        str_free(section->protocol_host);
+        section->protocol_host=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->protocol_host=
+            str_dup_detached(new_service_options.protocol_host);
+        break;
     case CMD_FREE:
+        str_free(section->protocol_host);
         break;
     case CMD_DEFAULT:
         break;
@@ -2141,11 +2412,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "protocolPassword"))
             break;
-        section->protocol_password=str_dup(arg);
+        str_free(section->protocol_password);
+        section->protocol_password=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->protocol_password=
+            str_dup_detached(new_service_options.protocol_password);
+        break;
     case CMD_FREE:
+        str_free(section->protocol_password);
         break;
     case CMD_DEFAULT:
         break;
@@ -2163,11 +2440,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "protocolUsername"))
             break;
-        section->protocol_username=str_dup(arg);
+        str_free(section->protocol_username);
+        section->protocol_username=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->protocol_username=
+            str_dup_detached(new_service_options.protocol_username);
+        break;
     case CMD_FREE:
+        str_free(section->protocol_username);
         break;
     case CMD_DEFAULT:
         break;
@@ -2190,11 +2473,16 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_EXEC:
         if(strcasecmp(opt, "PSKidentity"))
             break;
-        section->psk_identity=str_dup(arg);
+        str_free(section->psk_identity);
+        section->psk_identity=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         if(!section->psk_keys) /* PSK not configured */
             break;
+#ifdef SSL_OP_NO_TLSv1_3
+        /* PSK is not supported in TLS 1.3 */
+        section->ssl_options_set|=SSL_OP_NO_TLSv1_3;
+#endif
         psk_sort(&section->psk_sorted, section->psk_keys);
         if(section->option.client) {
             if(section->psk_identity) {
@@ -2211,7 +2499,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                     "PSK identity is ignored in the server mode");
         }
         break;
+    case CMD_DUP:
+        section->psk_identity=
+            str_dup_detached(new_service_options.psk_identity);
+        break;
     case CMD_FREE:
+        str_free(section->psk_identity);
+        str_free(section->psk_sorted.val);
         break;
     case CMD_DEFAULT:
         break;
@@ -2234,6 +2528,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "Failed to read PSK secrets";
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->psk_keys=psk_dup(new_service_options.psk_keys);
         break;
     case CMD_FREE:
         psk_free(section->psk_keys);
@@ -2265,6 +2562,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->option.pty=new_service_options.option.pty;
         break;
     case CMD_FREE:
         break;
@@ -2299,15 +2599,20 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 s_log(LOG_INFO,
                     "Cannot resolve redirect target - delaying DNS lookup");
                 section->connect_addr.num=0;
-                str_free(section->connect_addr.names);
-                section->connect_addr.names=NULL;
+                section->redirect_addr.num=0;
                 section->option.delayed_lookup=1;
             }
             if(!section->option.verify_chain && !section->option.verify_peer)
                 return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled for \"redirect\" to work";
         }
         break;
+    case CMD_DUP:
+        name_list_dup(&section->redirect_addr.names,
+            new_service_options.redirect_addr.names);
+        break;
     case CMD_FREE:
+        name_list_free(section->redirect_addr.names);
+        str_free(section->redirect_addr.addr);
         break;
     case CMD_DEFAULT:
         break;
@@ -2334,6 +2639,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->option.renegotiation=new_service_options.option.renegotiation;
         break;
     case CMD_FREE:
         break;
@@ -2364,6 +2672,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->option.require_cert=new_service_options.option.require_cert;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2390,6 +2701,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->option.reset=new_service_options.option.reset;
         break;
     case CMD_FREE:
         break;
@@ -2418,6 +2732,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->option.retry=new_service_options.option.retry;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2427,6 +2744,34 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             "retry");
         break;
     }
+
+#ifndef USE_WIN32
+    /* service */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->servname=str_dup_detached("stunnel");
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "service"))
+            break;
+        str_free(section->servname);
+        section->servname=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_DUP:
+        /* servname is *not* copied from the global section */
+        break;
+    case CMD_FREE:
+        /* deallocation is performed at the end CMD_FREE */
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = service name", "service");
+        break;
+    }
+#endif
 
 #ifndef USE_WIN32
     /* setgid */
@@ -2450,6 +2795,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         }
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->gid=new_service_options.gid;
         break;
     case CMD_FREE:
         break;
@@ -2484,6 +2832,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->uid=new_service_options.uid;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2511,6 +2862,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->session_size=new_service_options.session_size;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2537,6 +2891,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         }
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->session_timeout=new_service_options.session_timeout;
         break;
     case CMD_FREE:
         break;
@@ -2570,6 +2927,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->option.sessiond=new_service_options.option.sessiond;
+        memcpy(&section->sessiond_addr, &new_service_options.sessiond_addr,
+            sizeof(SOCKADDR_UNION));
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2586,12 +2948,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_BEGIN:
         section->servername_list_head=NULL;
         section->servername_list_tail=NULL;
-        section->option.sni=0;
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "sni"))
             break;
-        section->sni=str_dup(arg);
+        str_free(section->sni);
+        section->sni=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_END:
         {
@@ -2599,10 +2961,16 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             if(tmp_str)
                 return tmp_str;
         }
-        if(section->option.sni)
+        if(!section->option.client && section->sni)
             ++endpoints;
         break;
+    case CMD_DUP:
+        section->sni=
+            str_dup_detached(new_service_options.sni);
+        break;
     case CMD_FREE:
+        str_free(section->sni);
+        sni_free(section);
         break;
     case CMD_DEFAULT:
         break;
@@ -2612,6 +2980,33 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
+
+    /* socket */
+    switch(cmd) {
+    case CMD_BEGIN:
+        section->sock_opts=socket_options_init();
+        break;
+    case CMD_EXEC:
+        if(strcasecmp(opt, "socket"))
+            break;
+        if(socket_option_parse(section->sock_opts, arg))
+            return "Illegal socket option";
+        return NULL; /* OK */
+    case CMD_END:
+        break;
+    case CMD_DUP:
+        section->sock_opts=socket_options_dup(new_service_options.sock_opts);
+        break;
+    case CMD_FREE:
+        socket_options_free(section->sock_opts);
+        break;
+    case CMD_DEFAULT:
+        break;
+    case CMD_HELP:
+        s_log(LOG_NOTICE, "%-22s = a|l|r:option=value[:value]", "socket");
+        s_log(LOG_NOTICE, "%25sset an option on accept/local/remote socket", "");
+        break;
+    }
 
     /* sslVersion */
     switch(cmd) {
@@ -2693,6 +3088,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         }
 #endif /* USE_FIPS */
         break;
+    case CMD_DUP:
+        section->client_method=new_service_options.client_method;
+        section->server_method=new_service_options.server_method;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2727,6 +3126,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->stack_size=new_service_options.stack_size;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2755,6 +3157,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->timeout_busy=new_service_options.timeout_busy;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2781,6 +3186,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         }
         return NULL; /* OK */
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->timeout_close=new_service_options.timeout_close;
         break;
     case CMD_FREE:
         break;
@@ -2810,6 +3218,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->timeout_connect=new_service_options.timeout_connect;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2836,6 +3247,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return NULL; /* OK */
         }
     case CMD_END:
+        break;
+    case CMD_DUP:
+        section->timeout_idle=new_service_options.timeout_idle;
         break;
     case CMD_FREE:
         break;
@@ -2876,6 +3290,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(section->option.transparent_dst)
             ++endpoints;
         break;
+    case CMD_DUP:
+        section->option.transparent_src=new_service_options.option.transparent_src;
+        section->option.transparent_dst=new_service_options.option.transparent_dst;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2911,6 +3329,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if((section->option.verify_chain || section->option.verify_peer) &&
                 !section->ca_file && !section->ca_dir)
             return "Either \"CAfile\" or \"CApath\" has to be configured";
+        break;
+    case CMD_DUP:
+        /* handled by requireCert, verifyChain and verifyPeer */
         break;
     case CMD_FREE:
         break;
@@ -2953,6 +3374,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->option.verify_chain=new_service_options.option.verify_chain;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2983,6 +3407,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         return NULL; /* OK */
     case CMD_END:
         break;
+    case CMD_DUP:
+        section->option.verify_peer=new_service_options.option.verify_peer;
+        break;
     case CMD_FREE:
         break;
     case CMD_DEFAULT:
@@ -2996,6 +3423,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* final checks */
     switch(cmd) {
     case CMD_BEGIN:
+        section->ref=1;
         break;
     case CMD_EXEC:
         return option_not_found;
@@ -3006,15 +3434,31 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         } else { /* inetd mode checks */
             if(section->option.accept)
                 return "'accept' option is only allowed in a [section]";
-            /* no need to check for section->option.sni in inetd mode,
+            /* no need to check for section->sni in inetd mode,
                as it requires valid sections to be set */
             if(endpoints!=1)
                 return "Inetd mode must define one endpoint";
         }
         if(context_init(section)) /* initialize TLS context */
             return "Failed to initialize TLS context";
+        break;
+    case CMD_DUP:
+        section->ref=1;
+        break;
     case CMD_FREE:
+        str_free(section->chain);
+        if(section->session)
+            SSL_SESSION_free(section->session);
+        if(section->ctx)
+            SSL_CTX_free(section->ctx);
+        str_free(section->servname);
+        if(section==&service_options)
+            memset(section, 0, sizeof(SERVICE_OPTIONS));
+        else
+            str_free(section);
+        break;
     case CMD_DEFAULT:
+        break;
     case CMD_HELP:
         break;
     }
@@ -3025,6 +3469,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 /**************************************** validate and initialize configuration */
 
 #ifndef OPENSSL_NO_TLSEXT
+
 NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
     char *tmp_str;
     SERVICE_OPTIONS *tmpsrv;
@@ -3043,19 +3488,18 @@ NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
         if(tmpsrv->option.client)
             return "SNI master service is a TLS client";
         if(tmpsrv->servername_list_tail) {
-            tmpsrv->servername_list_tail->next=str_alloc(sizeof(SERVERNAME_LIST));
+            tmpsrv->servername_list_tail->next=str_alloc_detached(sizeof(SERVERNAME_LIST));
             tmpsrv->servername_list_tail=tmpsrv->servername_list_tail->next;
         } else { /* first virtual service */
             tmpsrv->servername_list_head=
                 tmpsrv->servername_list_tail=
-                str_alloc(sizeof(SERVERNAME_LIST));
+                str_alloc_detached(sizeof(SERVERNAME_LIST));
             tmpsrv->ssl_options_set|=
                 SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
         }
-        tmpsrv->servername_list_tail->servername=str_dup(tmp_str);
+        tmpsrv->servername_list_tail->servername=str_dup_detached(tmp_str);
         tmpsrv->servername_list_tail->opt=section;
         tmpsrv->servername_list_tail->next=NULL;
-        section->option.sni=1;
         /* always negotiate a new session on renegotiation, as the TLS
          * context settings (including access control) may be different */
         section->ssl_options_set|=
@@ -3066,21 +3510,34 @@ NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
     if(section->option.client && !section->sni) {
         /* setup host_name for SNI, prefer SNI and protocolHost if specified */
         if(section->protocol_host) /* 'protocolHost' option */
-            section->sni=str_dup(section->protocol_host);
+            section->sni=str_dup_detached(section->protocol_host);
         else if(section->connect_addr.names) /* 'connect' option */
-            section->sni=str_dup(section->connect_addr.names->name); /* first hostname */
+            section->sni=str_dup_detached(section->connect_addr.names->name); /* first hostname */
         if(section->sni) { /* either 'protocolHost' or 'connect' specified */
             tmp_str=strrchr(section->sni, ':');
             if(tmp_str) { /* 'host:port' -> drop ':port' */
                 *tmp_str='\0';
             } else { /* 'port' -> default to 'localhost' */
                 str_free(section->sni);
-                section->sni=str_dup("localhost");
+                section->sni=str_dup_detached("localhost");
             }
         }
     }
     return NULL;
 }
+
+NOEXPORT void sni_free(SERVICE_OPTIONS *section) {
+    SERVERNAME_LIST *curr=section->servername_list_head;
+    while(curr) {
+        SERVERNAME_LIST *next=curr->next;
+        str_free(curr->servername);
+        str_free(curr);
+        curr=next;
+    }
+    section->servername_list_head=NULL;
+    section->servername_list_tail=NULL;
+}
+
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 
 /**************************************** facility/debug level */
@@ -3091,8 +3548,6 @@ typedef struct {
 } facilitylevel;
 
 NOEXPORT char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
-    char *arg_copy;
-    char *string;
     facilitylevel *fl;
 
 /* facilities only make sense on unix */
@@ -3127,36 +3582,33 @@ NOEXPORT char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
         {NULL, -1}
     };
 
-    arg_copy=str_dup(arg);
-    string=arg_copy;
-
 /* facilities only make sense on Unix */
 #if !defined (USE_WIN32) && !defined (__vms)
-    if(section==&new_service_options && strchr(string, '.')) {
+    if(section==&new_service_options && strchr(arg, '.')) {
         /* a facility was specified in the global options */
         new_global_options.log_facility=-1;
-        string=strtok(arg_copy, "."); /* break it up */
+        arg=strtok(arg, "."); /* break it up */
 
         for(fl=facilities; fl->name; ++fl) {
-            if(!strcasecmp(fl->name, string)) {
+            if(!strcasecmp(fl->name, arg)) {
                 new_global_options.log_facility=fl->value;
                 break;
             }
         }
         if(new_global_options.log_facility==-1)
             return "Illegal syslog facility";
-        string=strtok(NULL, ".");    /* set to the remainder */
+        arg=strtok(NULL, ".");    /* set to the remainder */
     }
 #endif /* USE_WIN32, __vms */
 
     /* time to check the syslog level */
-    if(string && strlen(string)==1 && *string>='0' && *string<='7') {
-        section->log_level=*string-'0';
+    if(arg && strlen(arg)==1 && *arg>='0' && *arg<='7') {
+        section->log_level=*arg-'0';
         return NULL; /* OK */
     }
     section->log_level=8;    /* illegal level */
     for(fl=levels; fl->name; ++fl) {
-        if(!strcasecmp(fl->name, string)) {
+        if(!strcasecmp(fl->name, arg)) {
             section->log_level=fl->value;
             break;
         }
@@ -3244,9 +3696,9 @@ NOEXPORT PSK_KEYS *psk_read(char *key_file) {
             psk_free(head);
             return NULL;
         }
-        curr=str_alloc(sizeof(PSK_KEYS));
-        curr->identity=str_dup(line);
-        curr->key_val=(unsigned char *)str_dup(key_val);
+        curr=str_alloc_detached(sizeof(PSK_KEYS));
+        curr->identity=str_dup_detached(line);
+        curr->key_val=(unsigned char *)str_dup_detached(key_val);
         curr->key_len=key_len;
         curr->next=NULL;
         if(head)
@@ -3259,11 +3711,27 @@ NOEXPORT PSK_KEYS *psk_read(char *key_file) {
     return head;
 }
 
-NOEXPORT void psk_free(PSK_KEYS *head) {
-    PSK_KEYS *next;
+NOEXPORT PSK_KEYS *psk_dup(PSK_KEYS *src) {
+    PSK_KEYS *head=NULL, *tail=NULL, *curr;
 
+    while(src) {
+        curr=str_alloc_detached(sizeof(PSK_KEYS));
+        curr->identity=str_dup_detached(src->identity);
+        curr->key_val=(unsigned char *)str_dup_detached((char *)src->key_val);
+        curr->key_len=src->key_len;
+        curr->next=NULL;
+        if(head)
+            tail->next=curr;
+        else
+            head=curr;
+        tail=curr;
+    }
+    return head;
+}
+
+NOEXPORT void psk_free(PSK_KEYS *head) {
     while(head) {
-        next=head->next;
+        PSK_KEYS *next=head->next;
         str_free(head->identity);
         str_free(head->key_val);
         str_free(head);
@@ -3275,104 +3743,146 @@ NOEXPORT void psk_free(PSK_KEYS *head) {
 
 /**************************************** socket options */
 
-static int on=1;
-#define DEF_ON ((void *)&on)
+#define VAL_TAB {NULL, NULL, NULL}
 
-SOCK_OPT *sock_opts=NULL, sock_opts_def[]= {
-    {"SO_DEBUG",        SOL_SOCKET,     SO_DEBUG,        TYPE_FLAG,    {NULL, NULL, NULL}},
-    {"SO_DONTROUTE",    SOL_SOCKET,     SO_DONTROUTE,    TYPE_FLAG,    {NULL, NULL, NULL}},
-    {"SO_KEEPALIVE",    SOL_SOCKET,     SO_KEEPALIVE,    TYPE_FLAG,    {NULL, NULL, NULL}},
-    {"SO_LINGER",       SOL_SOCKET,     SO_LINGER,       TYPE_LINGER,  {NULL, NULL, NULL}},
-    {"SO_OOBINLINE",    SOL_SOCKET,     SO_OOBINLINE,    TYPE_FLAG,    {NULL, NULL, NULL}},
-    {"SO_RCVBUF",       SOL_SOCKET,     SO_RCVBUF,       TYPE_INT,     {NULL, NULL, NULL}},
-    {"SO_SNDBUF",       SOL_SOCKET,     SO_SNDBUF,       TYPE_INT,     {NULL, NULL, NULL}},
+SOCK_OPT sock_opts_def[]={
+    {"SO_DEBUG",        SOL_SOCKET,     SO_DEBUG,        TYPE_FLAG,     VAL_TAB},
+    {"SO_DONTROUTE",    SOL_SOCKET,     SO_DONTROUTE,    TYPE_FLAG,     VAL_TAB},
+    {"SO_KEEPALIVE",    SOL_SOCKET,     SO_KEEPALIVE,    TYPE_FLAG,     VAL_TAB},
+    {"SO_LINGER",       SOL_SOCKET,     SO_LINGER,       TYPE_LINGER,   VAL_TAB},
+    {"SO_OOBINLINE",    SOL_SOCKET,     SO_OOBINLINE,    TYPE_FLAG,     VAL_TAB},
+    {"SO_RCVBUF",       SOL_SOCKET,     SO_RCVBUF,       TYPE_INT,      VAL_TAB},
+    {"SO_SNDBUF",       SOL_SOCKET,     SO_SNDBUF,       TYPE_INT,      VAL_TAB},
 #ifdef SO_RCVLOWAT
-    {"SO_RCVLOWAT",     SOL_SOCKET,     SO_RCVLOWAT,     TYPE_INT,     {NULL, NULL, NULL}},
+    {"SO_RCVLOWAT",     SOL_SOCKET,     SO_RCVLOWAT,     TYPE_INT,      VAL_TAB},
 #endif
 #ifdef SO_SNDLOWAT
-    {"SO_SNDLOWAT",     SOL_SOCKET,     SO_SNDLOWAT,     TYPE_INT,     {NULL, NULL, NULL}},
+    {"SO_SNDLOWAT",     SOL_SOCKET,     SO_SNDLOWAT,     TYPE_INT,      VAL_TAB},
 #endif
 #ifdef SO_RCVTIMEO
-    {"SO_RCVTIMEO",     SOL_SOCKET,     SO_RCVTIMEO,     TYPE_TIMEVAL, {NULL, NULL, NULL}},
+    {"SO_RCVTIMEO",     SOL_SOCKET,     SO_RCVTIMEO,     TYPE_TIMEVAL,  VAL_TAB},
 #endif
 #ifdef SO_SNDTIMEO
-    {"SO_SNDTIMEO",     SOL_SOCKET,     SO_SNDTIMEO,     TYPE_TIMEVAL, {NULL, NULL, NULL}},
+    {"SO_SNDTIMEO",     SOL_SOCKET,     SO_SNDTIMEO,     TYPE_TIMEVAL,  VAL_TAB},
 #endif
 #ifdef USE_WIN32
-    {"SO_EXCLUSIVEADDRUSE", SOL_SOCKET, SO_EXCLUSIVEADDRUSE, TYPE_FLAG, {DEF_ON, NULL, NULL}},
-    {"SO_REUSEADDR",    SOL_SOCKET,     SO_REUSEADDR,    TYPE_FLAG,    {NULL, NULL, NULL}},
-#else
-    {"SO_REUSEADDR",    SOL_SOCKET,     SO_REUSEADDR,    TYPE_FLAG,    {DEF_ON, NULL, NULL}},
+    {"SO_EXCLUSIVEADDRUSE", SOL_SOCKET, SO_EXCLUSIVEADDRUSE, TYPE_FLAG, VAL_TAB},
 #endif
+    {"SO_REUSEADDR",    SOL_SOCKET,     SO_REUSEADDR,    TYPE_FLAG,     VAL_TAB},
 #ifdef SO_BINDTODEVICE
-    {"SO_BINDTODEVICE", SOL_SOCKET,     SO_BINDTODEVICE, TYPE_STRING,  {NULL, NULL, NULL}},
+    {"SO_BINDTODEVICE", SOL_SOCKET,     SO_BINDTODEVICE, TYPE_STRING,   VAL_TAB},
 #endif
 #ifdef SOL_TCP
 #ifdef TCP_KEEPCNT
-    {"TCP_KEEPCNT",     SOL_TCP,        TCP_KEEPCNT,     TYPE_INT,     {NULL, NULL, NULL}},
+    {"TCP_KEEPCNT",     SOL_TCP,        TCP_KEEPCNT,     TYPE_INT,      VAL_TAB},
 #endif
 #ifdef TCP_KEEPIDLE
-    {"TCP_KEEPIDLE",    SOL_TCP,        TCP_KEEPIDLE,    TYPE_INT,     {NULL, NULL, NULL}},
+    {"TCP_KEEPIDLE",    SOL_TCP,        TCP_KEEPIDLE,    TYPE_INT,      VAL_TAB},
 #endif
 #ifdef TCP_KEEPINTVL
-    {"TCP_KEEPINTVL",   SOL_TCP,        TCP_KEEPINTVL,   TYPE_INT,     {NULL, NULL, NULL}},
+    {"TCP_KEEPINTVL",   SOL_TCP,        TCP_KEEPINTVL,   TYPE_INT,      VAL_TAB},
 #endif
 #endif /* SOL_TCP */
 #ifdef IP_TOS
-    {"IP_TOS",          IPPROTO_IP,     IP_TOS,          TYPE_INT,     {NULL, NULL, NULL}},
+    {"IP_TOS",          IPPROTO_IP,     IP_TOS,          TYPE_INT,      VAL_TAB},
 #endif
 #ifdef IP_TTL
-    {"IP_TTL",          IPPROTO_IP,     IP_TTL,          TYPE_INT,     {NULL, NULL, NULL}},
+    {"IP_TTL",          IPPROTO_IP,     IP_TTL,          TYPE_INT,      VAL_TAB},
 #endif
 #ifdef IP_MAXSEG
-    {"TCP_MAXSEG",      IPPROTO_TCP,    TCP_MAXSEG,      TYPE_INT,     {NULL, NULL, NULL}},
+    {"TCP_MAXSEG",      IPPROTO_TCP,    TCP_MAXSEG,      TYPE_INT,      VAL_TAB},
 #endif
-    {"TCP_NODELAY",     IPPROTO_TCP,    TCP_NODELAY,     TYPE_FLAG,    {NULL, DEF_ON, DEF_ON}},
+    {"TCP_NODELAY",     IPPROTO_TCP,    TCP_NODELAY,     TYPE_FLAG,     VAL_TAB},
 #ifdef IP_FREEBIND
-    {"IP_FREEBIND",     IPPROTO_IP,     IP_FREEBIND,     TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"IP_FREEBIND",     IPPROTO_IP,     IP_FREEBIND,     TYPE_FLAG,     VAL_TAB},
 #endif
 #ifdef IP_BINDANY
-    {"IP_BINDANY",      IPPROTO_IP,     IP_BINDANY,      TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"IP_BINDANY",      IPPROTO_IP,     IP_BINDANY,      TYPE_FLAG,     VAL_TAB},
 #endif
 #ifdef IPV6_BINDANY
-    {"IPV6_BINDANY",    IPPROTO_IPV6,   IPV6_BINDANY,    TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"IPV6_BINDANY",    IPPROTO_IPV6,   IPV6_BINDANY,    TYPE_FLAG,     VAL_TAB},
 #endif
 #ifdef IPV6_V6ONLY
-    {"IPV6_V6ONLY",     IPPROTO_IPV6,   IPV6_V6ONLY,     TYPE_FLAG,    {NULL, NULL, NULL}},
+    {"IPV6_V6ONLY",     IPPROTO_IPV6,   IPV6_V6ONLY,     TYPE_FLAG,     VAL_TAB},
 #endif
-    {NULL,              0,              0,               TYPE_NONE,    {NULL, NULL, NULL}}
+    {NULL,              0,              0,               TYPE_NONE,     VAL_TAB}
 };
 
-NOEXPORT void init_socket_options(void) {
+NOEXPORT SOCK_OPT *socket_options_init(void) {
 #ifdef USE_WIN32
     DWORD version;
     int major, minor;
-    SOCK_OPT *ptr;
+#endif
 
+    SOCK_OPT *opt=str_alloc_detached(sizeof sock_opts_def);
+    memcpy(opt, sock_opts_def, sizeof sock_opts_def);
+
+#ifdef USE_WIN32
     version=GetVersion();
     major=LOBYTE(LOWORD(version));
     minor=HIBYTE(LOWORD(version));
     s_log(LOG_DEBUG, "Running on Windows %d.%d", major, minor);
 
-    for(ptr=sock_opts_def; ptr->opt_str; ++ptr)
-        if(ptr->opt_level==SOL_SOCKET && ptr->opt_name==SO_EXCLUSIVEADDRUSE)
-            ptr->opt_val[0]=major>5 ? DEF_ON : NULL; /* Vista or later */
+    if(major>5) /* Vista or later */
+        socket_option_set_int(opt, "SO_EXCLUSIVEADDRUSE", 0, 1); /* accepting socket */
+#else
+    socket_option_set_int(opt, "SO_REUSEADDR", 0, 1); /* accepting socket */
 #endif
-
-    if(!sock_opts)
-        sock_opts=str_alloc_detached(sizeof sock_opts_def);
-    memcpy(sock_opts, sock_opts_def, sizeof sock_opts_def);
+    socket_option_set_int(opt, "TCP_NODELAY", 1, 1); /* local socket */
+    socket_option_set_int(opt, "TCP_NODELAY", 2, 1); /* remote socket */
+    return opt;
 }
 
-NOEXPORT int print_socket_options(void) {
+NOEXPORT void socket_option_set_int(SOCK_OPT *opt, char *name, int type, int value) {
+    for(; opt->opt_str; ++opt) {
+        if(!strcmp(name, opt->opt_str)) {
+            opt->opt_val[type]=str_alloc_detached(sizeof(OPT_UNION));
+            opt->opt_val[type]->i_val=value;
+        }
+    }
+}
+
+NOEXPORT SOCK_OPT *socket_options_dup(SOCK_OPT *src) {
+    SOCK_OPT *dst=str_alloc_detached(sizeof sock_opts_def);
+    SOCK_OPT *ptr;
+
+    memcpy(dst, sock_opts_def, sizeof sock_opts_def);
+    for(ptr=dst; src->opt_str; ++src, ++ptr) {
+        int type;
+        for(type=0; type<3; ++type) {
+            if(src->opt_val[type]) {
+                ptr->opt_val[type]=str_alloc_detached(sizeof(OPT_UNION));
+                memcpy(ptr->opt_val[type],
+                    src->opt_val[type], sizeof(OPT_UNION));
+            }
+        }
+    }
+    return dst;
+}
+
+NOEXPORT void socket_options_free(SOCK_OPT *opt) {
+    SOCK_OPT *ptr;
+    if(!opt) {
+        s_log(LOG_ERR, "INTERNAL ERROR: Socket options not initialized");
+        return;
+    }
+    for(ptr=opt; ptr->opt_str; ++ptr) {
+        int type;
+        for(type=0; type<3; ++type)
+            str_free(ptr->opt_val[type]);
+    }
+    str_free(opt);
+}
+
+NOEXPORT int socket_options_print(void) {
+    SOCK_OPT *opt, *ptr;
     SOCKET fd;
     socklen_t optlen;
-    SOCK_OPT *ptr;
     OPT_UNION val;
     char *ta, *tl, *tr, *td;
 
     fd=socket(AF_INET, SOCK_STREAM, 0);
-    init_socket_options();
+    opt=socket_options_init();
 
     s_log(LOG_NOTICE, " ");
     s_log(LOG_NOTICE, "Socket option defaults:");
@@ -3380,7 +3890,7 @@ NOEXPORT int print_socket_options(void) {
         "    Option Name         |  Accept  |   Local  |  Remote  |OS default");
     s_log(LOG_NOTICE,
         "    --------------------+----------+----------+----------+----------");
-    for(ptr=sock_opts; ptr->opt_str; ++ptr) {
+    for(ptr=opt; ptr->opt_str; ++ptr) {
         /* get OS default value */
         optlen=sizeof val;
         if(getsockopt(fd, ptr->opt_level,
@@ -3397,21 +3907,22 @@ NOEXPORT int print_socket_options(void) {
                 return 1; /* FAILED */
             }
         } else
-            td=print_option(ptr->opt_type, &val);
+            td=socket_option_text(ptr->opt_type, &val);
         /* get stunnel default values */
-        ta=print_option(ptr->opt_type, ptr->opt_val[0]);
-        tl=print_option(ptr->opt_type, ptr->opt_val[1]);
-        tr=print_option(ptr->opt_type, ptr->opt_val[2]);
+        ta=socket_option_text(ptr->opt_type, ptr->opt_val[0]);
+        tl=socket_option_text(ptr->opt_type, ptr->opt_val[1]);
+        tr=socket_option_text(ptr->opt_type, ptr->opt_val[2]);
         /* print collected data and fee the memory */
         s_log(LOG_NOTICE, "    %-20s|%10s|%10s|%10s|%10s",
             ptr->opt_str, ta, tl, tr, td);
         str_free(ta); str_free(tl); str_free(tr); str_free(td);
     }
+    socket_options_free(opt);
     closesocket(fd);
     return 0; /* OK */
 }
 
-NOEXPORT char *print_option(int type, OPT_UNION *val) {
+NOEXPORT char *socket_option_text(int type, OPT_UNION *val) {
     if(!val)
         return str_dup("    --    ");
     switch(type) {
@@ -3431,10 +3942,10 @@ NOEXPORT char *print_option(int type, OPT_UNION *val) {
     return str_dup("  Ooops?  "); /* internal error? */
 }
 
-NOEXPORT int parse_socket_option(char *arg) {
+NOEXPORT int socket_option_parse(SOCK_OPT *opt, char *arg) {
     int socket_type; /* 0-accept, 1-local, 2-remote */
     char *opt_val_str, *opt_val2_str, *tmp_str;
-    SOCK_OPT *ptr;
+    OPT_UNION opt_val;
 
     if(arg[1]!=':')
         return 1; /* FAILED */
@@ -3453,72 +3964,72 @@ NOEXPORT int parse_socket_option(char *arg) {
     if(!opt_val_str) /* no '='? */
         return 1; /* FAILED */
     *opt_val_str++='\0';
-    ptr=sock_opts;
-    for(;;) {
-        if(!ptr->opt_str)
-            return 1; /* FAILED */
-        if(!strcmp(arg, ptr->opt_str))
-            break; /* option name found */
-        ++ptr;
-    }
-    ptr->opt_val[socket_type]=str_alloc(sizeof(OPT_UNION));
-    switch(ptr->opt_type) {
+
+    for(; opt->opt_str && strcmp(arg, opt->opt_str); ++opt)
+        ;
+    if(!opt->opt_str)
+        return 1; /* FAILED */
+
+    switch(opt->opt_type) {
     case TYPE_FLAG:
         if(!strcasecmp(opt_val_str, "yes") || !strcmp(opt_val_str, "1")) {
-            ptr->opt_val[socket_type]->i_val=1;
-            return 0; /* OK */
+            opt_val.i_val=1;
+            break; /* OK */
         }
         if(!strcasecmp(opt_val_str, "no") || !strcmp(opt_val_str, "0")) {
-            ptr->opt_val[socket_type]->i_val=0;
-            return 0; /* OK */
+            opt_val.i_val=0;
+            break; /* OK */
         }
         return 1; /* FAILED */
     case TYPE_INT:
-        ptr->opt_val[socket_type]->i_val=(int)strtol(opt_val_str, &tmp_str, 10);
+        opt_val.i_val=(int)strtol(opt_val_str, &tmp_str, 10);
         if(tmp_str==arg || *tmp_str) /* not a number */
             return 1; /* FAILED */
-        return 0; /* OK */
+        break; /* OK */
     case TYPE_LINGER:
         opt_val2_str=strchr(opt_val_str, ':');
         if(opt_val2_str) {
             *opt_val2_str++='\0';
-            ptr->opt_val[socket_type]->linger_val.l_linger=
+            opt_val.linger_val.l_linger=
                 (u_short)strtol(opt_val2_str, &tmp_str, 10);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return 1; /* FAILED */
         } else {
-            ptr->opt_val[socket_type]->linger_val.l_linger=0;
+            opt_val.linger_val.l_linger=0;
         }
-        ptr->opt_val[socket_type]->linger_val.l_onoff=
+        opt_val.linger_val.l_onoff=
             (u_short)strtol(opt_val_str, &tmp_str, 10);
         if(tmp_str==arg || *tmp_str) /* not a number */
             return 1; /* FAILED */
-        return 0; /* OK */
+        break; /* OK */
     case TYPE_TIMEVAL:
         opt_val2_str=strchr(opt_val_str, ':');
         if(opt_val2_str) {
             *opt_val2_str++='\0';
-            ptr->opt_val[socket_type]->timeval_val.tv_usec=
+            opt_val.timeval_val.tv_usec=
                 (int)strtol(opt_val2_str, &tmp_str, 10);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return 1; /* FAILED */
         } else {
-            ptr->opt_val[socket_type]->timeval_val.tv_usec=0;
+            opt_val.timeval_val.tv_usec=0;
         }
-        ptr->opt_val[socket_type]->timeval_val.tv_sec=
+        opt_val.timeval_val.tv_sec=
             (int)strtol(opt_val_str, &tmp_str, 10);
         if(tmp_str==arg || *tmp_str) /* not a number */
             return 1; /* FAILED */
-        return 0; /* OK */
+        break; /* OK */
     case TYPE_STRING:
         if(strlen(opt_val_str)+1>sizeof(OPT_UNION))
             return 1; /* FAILED */
-        strcpy(ptr->opt_val[socket_type]->c_val, opt_val_str);
-        return 0; /* OK */
+        strcpy(opt_val.c_val, opt_val_str);
+        break; /* OK */
     default:
-        ; /* ANSI C compiler needs it */
+        return 1; /* FAILED */
     }
-    return 1; /* FAILED */
+    str_free(opt->opt_val[socket_type]);
+    opt->opt_val[socket_type]=str_alloc_detached(sizeof(OPT_UNION));
+    memcpy(opt->opt_val[socket_type], &opt_val, sizeof(OPT_UNION));
+    return 0;
 }
 
 /**************************************** OCSP */
@@ -3731,31 +4242,76 @@ NOEXPORT void print_syntax(void) {
 NOEXPORT void name_list_append(NAME_LIST **ptr, char *name) {
     while(*ptr) /* find the null pointer */
         ptr=&(*ptr)->next;
-    *ptr=str_alloc(sizeof(NAME_LIST));
-    (*ptr)->name=str_dup(name);
+    *ptr=str_alloc_detached(sizeof(NAME_LIST));
+    (*ptr)->name=str_dup_detached(name);
     (*ptr)->next=NULL;
+}
+
+NOEXPORT void name_list_dup(NAME_LIST **dst, NAME_LIST *src) {
+    for(; src; src=src->next)
+        name_list_append(dst, src->name);
+}
+
+NOEXPORT void name_list_free(NAME_LIST *ptr) {
+    while(ptr) {
+        NAME_LIST *next=ptr->next;
+        str_free(ptr->name);
+        str_free(ptr);
+        ptr=next;
+    }
 }
 
 #ifndef USE_WIN32
 
-NOEXPORT char **argalloc(char *str) { /* allocate 'exec' argumets */
+/* allocate 'exec' arguments */
+/* TODO: support quotes */
+NOEXPORT char **arg_alloc(char *str) {
     size_t max_arg, i;
-    char *ptr, **retval;
+    char **tmp, **retval;
 
     max_arg=strlen(str)/2+1;
-    ptr=str_dup(str);
-    retval=str_alloc((max_arg+1)*sizeof(char *));
+    tmp=str_alloc((max_arg+1)*sizeof(char *));
+
     i=0;
-    while(*ptr && i<max_arg) {
-        retval[i++]=ptr;
-        while(*ptr && !isspace((unsigned char)*ptr))
-            ++ptr;
-        while(*ptr && isspace((unsigned char)*ptr))
-            *ptr++='\0';
+    while(*str && i<max_arg) {
+        tmp[i++]=str;
+        while(*str && !isspace((unsigned char)*str))
+            ++str;
+        while(*str && isspace((unsigned char)*str))
+            *str++='\0';
     }
-    retval[i]=NULL; /* to show that it's null-terminated */
+    tmp[i]=NULL; /* null-terminate the table */
+
+    retval=arg_dup(tmp);
+    str_free(tmp);
     return retval;
 }
+
+NOEXPORT char **arg_dup(char **src) {
+    size_t i, n;
+    char **dst;
+
+    if(!src)
+        return NULL;
+    for(n=0; src[n]; ++n)
+        ;
+    dst=str_alloc_detached((n+1)*sizeof(char *));
+    for(i=0; i<n; ++i)
+        dst[i]=str_dup_detached(src[i]);
+    dst[n]=NULL;
+    return dst;
+}
+
+NOEXPORT void arg_free(char **arg) {
+    size_t i;
+
+    if(arg) {
+        for(i=0; arg[i]; ++i)
+            str_free(arg[i]);
+        str_free(arg);
+    }
+}
+
 #endif
 
 /* end of options.c */

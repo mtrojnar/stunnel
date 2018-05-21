@@ -389,26 +389,6 @@
 <p>default: stunnel</p>
 
 </dd>
-<dt id="socket-a-l-r:OPTION-VALUE-:VALUE"><b>socket</b> = a|l|r:OPTION=VALUE[:VALUE]</dt>
-<dd>
-
-<p>Set an option on the accept/local/remote socket</p>
-
-<p>The values for the linger option are l_onof:l_linger. The values for the time are tv_sec:tv_usec.</p>
-
-<p>Examples:</p>
-
-<pre><code>    socket = l:SO_LINGER=1:60
-        set one minute timeout for closing local socket
-    socket = r:SO_OOBINLINE=yes
-        place out-of-band data directly into the
-        receive data stream for remote sockets
-    socket = a:SO_REUSEADDR=no
-        disable address reuse (enabled by default)
-    socket = a:SO_BINDTODEVICE=lo
-        only accept connections on loopback interface</code></pre>
-
-</dd>
 <dt id="syslog-yes-no-Unix-only"><b>syslog</b> = yes | no (Unix only)</dt>
 <dd>
 
@@ -696,7 +676,7 @@
 </dd>
 </dl>
 
-<p>default: rr</p>
+<p>default: prio</p>
 
 </dd>
 <dt id="ident-USERNAME"><b>ident</b> = USERNAME</dt>
@@ -710,7 +690,17 @@
 
 <p>include all configuration file parts located in DIRECTORY</p>
 
-<p>The files are included in the ascending alphabetical order of their names.</p>
+<p>The files are included in the ascending alphabetical order of their names. The recommended filename convention is</p>
+
+<p>for global options:</p>
+
+<pre><code>        00-global.conf</code></pre>
+
+<p>for local service-level options:</p>
+
+<pre><code>        01-service.conf
+
+        02-service.conf</code></pre>
 
 </dd>
 <dt id="key-KEY_FILE"><b>key</b> = KEY_FILE</dt>
@@ -1070,12 +1060,41 @@
 <p>The <i>sni</i> option is only available when compiled with <b>OpenSSL 1.0.0</b> and later.</p>
 
 </dd>
+<dt id="socket-a-l-r:OPTION-VALUE-:VALUE"><b>socket</b> = a|l|r:OPTION=VALUE[:VALUE]</dt>
+<dd>
+
+<p>Set an option on the accept/local/remote socket</p>
+
+<p>The values for the linger option are l_onof:l_linger. The values for the time are tv_sec:tv_usec.</p>
+
+<p>Examples:</p>
+
+<pre><code>    socket = l:SO_LINGER=1:60
+        set one minute timeout for closing local socket
+    socket = r:SO_OOBINLINE=yes
+        place out-of-band data directly into the
+        receive data stream for remote sockets
+    socket = a:SO_REUSEADDR=no
+        disable address reuse (enabled by default)
+    socket = a:SO_BINDTODEVICE=lo
+        only accept connections on loopback interface</code></pre>
+
+</dd>
 <dt id="sslVersion-SSL_VERSION"><b>sslVersion</b> = SSL_VERSION</dt>
 <dd>
 
 <p>select the TLS protocol version</p>
 
-<p>Supported values: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
+<p>Supported versions: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
+
+<p>sslVersion is obsolete and it will be removed in future releases of stunnel. Use the following options instead:</p>
+
+<pre><code>    options = NO_SSLv2
+    options = NO_SSLv3
+    options = NO_TLSv1
+    options = NO_TLSv1.1
+    options = NO_TLSv1.2
+    options = NO_TLSv1_3</code></pre>
 
 <p>Availability of specific protocols depends on the linked OpenSSL library. Older versions of OpenSSL do not support TLSv1.1 and TLSv1.2. Newer versions of OpenSSL do not support SSLv2.</p>
 

@@ -1,0 +1,44 @@
+#!/bin/sh
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  [https client]
+  client = yes
+  failover = rr
+  exec = ${script_path}/execute_read
+  execArgs = execute_read ${result_path}/temp.log
+  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https2}
+  retry = yes
+
+  [https server_1]
+  accept = 127.0.0.1:${https}
+  exec = ${script_path}/execute
+  execArgs = execute 044_session_nodelay
+  cert = ${script_path}/certs/server_cert.pem
+
+  [https server_2]
+  accept = 127.0.0.1:${https2}
+  exec = ${script_path}/execute
+  execArgs = execute 044_session_nodelay
+  cert = ${script_path}/certs/server_cert.pem
+EOT
+}
+
+check_ports "044_session_nodelay"
+if ! grep -q "FORK" results.log
+  then
+    start 2> "error.log"
+    test_log_for "044_session_nodelay" "session" "$1" "2" 2>> "stderr.log"
+    exit $?
+  else
+    exit_logs "044_session_nodelay" "skipped"
+    exit 125
+  fi
+exit $?

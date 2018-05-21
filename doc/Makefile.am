@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 2015-2017
+# by Michal Trojnara 1998-2018
 
 EXTRA_DIST = stunnel.pod.in stunnel.8.in stunnel.html.in en
 EXTRA_DIST += stunnel.pl.pod.in stunnel.pl.8.in stunnel.pl.html.in pl
@@ -24,7 +24,8 @@ SUFFIXES = .pod.in .8.in .html.in
 
 edit = sed \
 	-e 's|@bindir[@]|$(bindir)|g' \
-	-e 's|@sysconfdir[@]|$(sysconfdir)|g'
+	-e 's|@sysconfdir[@]|$(sysconfdir)|g' \
+	-e '\|^<link rev="made" href="|d'
 
 $(man_MANS) $(doc_DATA): Makefile
 	$(edit) '$(srcdir)/$@.in' >$@

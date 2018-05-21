@@ -387,30 +387,6 @@
 <p>domy&#x15B;lnie: stunnel</p>
 
 </dd>
-<dt id="socket-a-l-r:OPCJA-WARTO-:WARTO"><b>socket</b> = a|l|r:OPCJA=WARTO&#x15A;&#x106;[:WARTO&#x15A;&#x106;]</dt>
-<dd>
-
-<p>ustaw opcj&#x119; na akceptuj&#x105;cym/lokalnym/zdalnym gnie&#x17A;dzie</p>
-
-<p>Dla opcji linger warto&#x15B;ci maj&#x105; posta&#x107; l_onof:l_linger. Dla opcji time warto&#x15B;ci maj&#x105; posta&#x107; tv_sec:tv_usec.</p>
-
-<p>Przyk&#x142;ady:</p>
-
-<pre><code>    socket = l:SO_LINGER=1:60
-        ustaw jednominutowe przeterminowanie
-        przy zamykaniu lokalnego gniazda
-    socket = r:SO_OOBINLINE=yes
-        umie&#x15B;&#x107; dane pozapasmowe (out-of-band)
-        bezpo&#x15B;rednio w strumieniu danych
-        wej&#x15B;ciowych dla zdalnych gniazd
-    socket = a:SO_REUSEADDR=no
-        zablokuj ponowne u&#x17C;ywanie portu
-        (domy&#x15B;lnie w&#x142;&#x105;czone)
-    socket = a:SO_BINDTODEVICE=lo
-        przyjmuj po&#x142;&#x105;czenia wy&#x142;&#x105;cznie na
-        interfejsie zwrotnym (ang. loopback)</code></pre>
-
-</dd>
 <dt id="syslog-yes-no-tylko-Unix"><b>syslog</b> = yes | no (tylko Unix)</dt>
 <dd>
 
@@ -696,7 +672,7 @@
 </dd>
 </dl>
 
-<p>domy&#x15B;lnie: rr</p>
+<p>domy&#x15B;lnie: prio</p>
 
 </dd>
 <dt id="ident-NAZWA_UYTKOWNIKA"><b>ident</b> = NAZWA_U&#x17B;YTKOWNIKA</dt>
@@ -710,7 +686,17 @@
 
 <p>wczytaj fragmenty plik&oacute;w konfiguracyjnych z podanego katalogu</p>
 
-<p>Pliki s&#x105; wczytywane w rosn&#x105;cej kolejno&#x15B;ci alfabetycznej ich nazw.</p>
+<p>Pliki s&#x105; wczytywane w rosn&#x105;cej kolejno&#x15B;ci alfabetycznej ich nazw. Rekomendowana konwencja nazewnictwa plik&oacute;w</p>
+
+<p>dla opcji globalnych:</p>
+
+<pre><code>        00-global.conf</code></pre>
+
+<p>dla lokalnych opcji us&#x142;ug:</p>
+
+<pre><code>        01-service.conf
+
+        02-service.conf</code></pre>
 
 </dd>
 <dt id="key-PLIK_KLUCZA"><b>key</b> = PLIK_KLUCZA</dt>
@@ -1072,12 +1058,45 @@
 <p>Opcja <i>sni</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.0.0</b>.</p>
 
 </dd>
+<dt id="socket-a-l-r:OPCJA-WARTO-:WARTO"><b>socket</b> = a|l|r:OPCJA=WARTO&#x15A;&#x106;[:WARTO&#x15A;&#x106;]</dt>
+<dd>
+
+<p>ustaw opcj&#x119; na akceptuj&#x105;cym/lokalnym/zdalnym gnie&#x17A;dzie</p>
+
+<p>Dla opcji linger warto&#x15B;ci maj&#x105; posta&#x107; l_onof:l_linger. Dla opcji time warto&#x15B;ci maj&#x105; posta&#x107; tv_sec:tv_usec.</p>
+
+<p>Przyk&#x142;ady:</p>
+
+<pre><code>    socket = l:SO_LINGER=1:60
+        ustaw jednominutowe przeterminowanie
+        przy zamykaniu lokalnego gniazda
+    socket = r:SO_OOBINLINE=yes
+        umie&#x15B;&#x107; dane pozapasmowe (out-of-band)
+        bezpo&#x15B;rednio w strumieniu danych
+        wej&#x15B;ciowych dla zdalnych gniazd
+    socket = a:SO_REUSEADDR=no
+        zablokuj ponowne u&#x17C;ywanie portu
+        (domy&#x15B;lnie w&#x142;&#x105;czone)
+    socket = a:SO_BINDTODEVICE=lo
+        przyjmuj po&#x142;&#x105;czenia wy&#x142;&#x105;cznie na
+        interfejsie zwrotnym (ang. loopback)</code></pre>
+
+</dd>
 <dt id="sslVersion-WERSJA_SSL"><b>sslVersion</b> = WERSJA_SSL</dt>
 <dd>
 
 <p>wersja protoko&#x142;u TLS</p>
 
-<p>Wspierane opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
+<p>Wspierane wersje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
+
+<p>Ocja <i>sslVersion</i> jest przestarza&#x142;a i zostanie usuni&#x119;ta w przysz&#x142;ych wersjach stunnela. Zamiast niej nale&#x17C;y u&#x17C;ywa&#x107; nast&#x119;puj&#x105;cych opcji:</p>
+
+<pre><code>    options = NO_SSLv2
+    options = NO_SSLv3
+    options = NO_TLSv1
+    options = NO_TLSv1.1
+    options = NO_TLSv1.2
+    options = NO_TLSv1_3</code></pre>
 
 <p>Dost&#x119;pno&#x15B;&#x107; konkretnych protoko&#x142;&oacute;w zale&#x17C;y od u&#x17C;ytej wersji OpenSSL. Starsze wersje OpenSSL nie wspieraj&#x105; TLSv1.1 i TLSv1.2. Nowsze wersje OpenSSL nie wspieraj&#x105; SSLv2.</p>
 
@@ -1119,7 +1138,7 @@
 
 <p>tryb przezroczystego proxy na wspieranych platformach</p>
 
-<p>Wspierane opcje:</p>
+<p>Wspierane warto&#x15B;ci:</p>
 
 <dl>
 

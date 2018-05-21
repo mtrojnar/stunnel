@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -79,7 +79,7 @@ NOEXPORT int save_text_file(LPTSTR, char *);
 NOEXPORT void update_logs(void);
 NOEXPORT LPTSTR log_txt(void);
 
-NOEXPORT void daemon_thread(void *);
+NOEXPORT unsigned __stdcall daemon_thread(void *);
 
 NOEXPORT void valid_config(void);
 NOEXPORT void invalid_config(void);
@@ -331,6 +331,7 @@ NOEXPORT int initialize_winsock() {
 /**************************************** GUI thread */
 
 NOEXPORT int gui_loop() {
+    HANDLE handle;
 #ifdef _WIN32_WCE
     WNDCLASS wc;
 #else
@@ -381,8 +382,12 @@ NOEXPORT int gui_loop() {
     /* auto-reset, non-signaled events */
     main_initialized=CreateEvent(NULL, FALSE, FALSE, NULL);
     config_ready=CreateEvent(NULL, FALSE, FALSE, NULL);
-    /* hwnd needs to be initialized before _beginthread() */
-    _beginthread(daemon_thread, DEFAULT_STACK_SIZE, NULL);
+    /* hwnd needs to be initialized before _beginthreadex() */
+    handle=(HANDLE)_beginthreadex(NULL, DEFAULT_STACK_SIZE,
+        daemon_thread, NULL, 0, NULL);
+    if(!handle)
+        fatal("Failed to create the daemon thread");
+    CloseHandle(handle);
     WaitForSingleObject(main_initialized, INFINITE);
     /* logging subsystem is now available */
 
@@ -893,7 +898,7 @@ NOEXPORT LPTSTR log_txt(void) {
 
 /**************************************** worker thread */
 
-NOEXPORT void daemon_thread(void *arg) {
+NOEXPORT unsigned __stdcall daemon_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
 
     tls_alloc(NULL, NULL, "main"); /* new thread-local storage */
@@ -914,7 +919,8 @@ NOEXPORT void daemon_thread(void *arg) {
     /* start the main loop */
     daemon_loop();
     main_cleanup();
-    _endthread(); /* SIGNAL_TERMINATE received */
+    _endthreadex(0); /* SIGNAL_TERMINATE received */
+    return 0;
 }
 
 /**************************************** helper functions */

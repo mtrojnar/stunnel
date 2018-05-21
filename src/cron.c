@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -42,9 +42,9 @@
 NOEXPORT void *cron_thread(void *arg);
 #endif
 #ifdef USE_WIN32
-NOEXPORT void cron_thread(void *arg);
+NOEXPORT unsigned __stdcall cron_thread(void *arg);
 #endif
-#if defined(USE_PTHREAD) || defined(USE_WIN32)
+#ifdef USE_OS_THREADS
 NOEXPORT void cron_worker(void);
 NOEXPORT void cron_dh_param(void);
 #endif
@@ -92,21 +92,28 @@ NOEXPORT void *cron_thread(void *arg) {
 #elif defined(USE_WIN32)
 
 int cron_init() {
-    if((long)_beginthread(cron_thread, 0, NULL)==-1)
-        ioerror("_beginthread");
+    HANDLE handle;
+
+    handle=(HANDLE)_beginthreadex(NULL, 0, cron_thread, NULL, 0, NULL);
+    if(!handle) {
+        ioerror("_beginthreadex");
+        return 1;
+    }
+    CloseHandle(handle);
     return 0;
 }
 
-NOEXPORT void cron_thread(void *arg) {
+NOEXPORT unsigned __stdcall cron_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
     tls_alloc(NULL, NULL, "cron");
     if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST))
         ioerror("SetThreadPriority");
     cron_worker();
-    _endthread(); /* it should never be executed */
+    _endthreadex(0); /* it should never be executed */
+    return 0;
 }
 
-#else /* !defined(USE_PTHREAD) && !defined(USE_WIN32) */
+#else /* USE_OS_THREADS */
 
 int cron_init() {
     /* not implemented for now */
@@ -118,7 +125,7 @@ int cron_init() {
 /* run the cron job every 24 hours */
 #define CRON_PERIOD (24*60*60)
 
-#if defined(USE_PTHREAD) || defined(USE_WIN32)
+#ifdef USE_OS_THREADS
 
 NOEXPORT void cron_worker(void) {
     time_t now, then;
@@ -196,6 +203,6 @@ NOEXPORT void cron_dh_param(void) {
 }
 #endif /* OPENSSL_NO_DH */
 
-#endif /* USE_PTHREAD || USE_WIN32 */
+#endif /* USE_OS_THREADS */
 
 /* end of cron.c */

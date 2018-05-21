@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 2017
+# by Michal Trojnara 1998-2018
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -248,7 +248,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-EXTRA_DIST = make_test test_library recipes certs execute
+EXTRA_DIST = make_test test_library recipes certs execute execute_read execute_write
 all: all-am
 
 .SUFFIXES:

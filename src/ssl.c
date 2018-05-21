@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -46,6 +46,7 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *);
 #endif
 NOEXPORT int prng_init(GLOBAL_OPTIONS *);
 NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
+NOEXPORT void update_rand_file(const char *);
 
 int index_ssl_cli, index_ssl_ctx_opt;
 int index_session_authenticated, index_session_connect_address;
@@ -140,13 +141,30 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
 #endif /* OPENSSL_NO_COMP */
     if(prng_init(global))
         return 1;
-    s_log(LOG_DEBUG, "PRNG seeded successfully");
     return 0; /* SUCCESS */
 }
 
 #ifndef OPENSSL_NO_COMP
+
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+
+NOEXPORT int COMP_get_type(const COMP_METHOD *meth) {
+    return meth->type;
+}
+
+NOEXPORT const char *SSL_COMP_get0_name(const SSL_COMP *comp) {
+    return comp->name;
+}
+
+NOEXPORT int SSL_COMP_get_id(const SSL_COMP *comp) {
+    return comp->id;
+}
+
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
+
 NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
     STACK_OF(SSL_COMP) *methods;
+    int num_methods, i;
 
     methods=SSL_COMP_get_compression_methods();
     if(!methods) {
@@ -159,40 +177,51 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
         }
     }
 
-    if(global->compression==COMP_NONE ||
-            OpenSSL_version_num()<0x00908051L /* 0.9.8e-beta1 */) {
+    if(global->compression==COMP_NONE) {
         /* delete OpenSSL defaults (empty the SSL_COMP stack) */
         /* cannot use sk_SSL_COMP_pop_free,
          * as it also destroys the stack itself */
         /* only leave the standard RFC 1951 (DEFLATE) algorithm,
          * if any of the private algorithms is enabled */
-        /* only allow DEFLATE with OpenSSL 0.9.8 or later
-         * with OpenSSL #1468 zlib memory leak fixed */
         while(sk_SSL_COMP_num(methods))
             OPENSSL_free(sk_SSL_COMP_pop(methods));
-    }
-
-    if(global->compression==COMP_NONE) {
         s_log(LOG_DEBUG, "Compression disabled");
         return 0; /* success */
+    }
+
+    if(!sk_SSL_COMP_num(methods)) {
+        s_log(LOG_ERR, "No compression method is available");
+        return 1;
     }
 
     /* also insert the obsolete ZLIB algorithm */
     if(global->compression==COMP_ZLIB) {
         /* 224 - within the private range (193 to 255) */
         COMP_METHOD *meth=COMP_zlib();
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
         if(!meth || COMP_get_type(meth)==NID_undef) {
-#else
-        if(!meth || meth->type==NID_undef) {
-#endif
             s_log(LOG_ERR, "ZLIB compression is not supported");
             return 1;
         }
-        SSL_COMP_add_compression_method(0xe0, meth);
+        if(SSL_COMP_add_compression_method(0xe0, meth)) {
+            sslerror("SSL_COMP_add_compression_method");
+            return 1;
+        }
     }
-    s_log(LOG_INFO, "Compression enabled: %d method(s)",
-        sk_SSL_COMP_num(methods));
+
+    num_methods=sk_SSL_COMP_num(methods);
+    s_log(LOG_INFO, "Compression enabled: %d method%s",
+        num_methods, num_methods==1 ? "" : "s");
+    for(i=0; i<num_methods; ++i) {
+        SSL_COMP *comp=sk_SSL_COMP_value(methods, i);
+        if(comp) {
+            const char *name=SSL_COMP_get0_name(comp);
+            /* see OpenSSL commit 847406923534dd791f73d0cda15d3f17f513f2a5 */
+            if(!name)
+                name="unknown";
+            s_log(LOG_INFO, "Compression id 0x%02x: %s",
+                SSL_COMP_get_id(comp), name);
+        }
+    }
     return 0; /* success */
 }
 #endif /* OPENSSL_NO_COMP */
@@ -201,7 +230,10 @@ NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
     int totbytes=0;
     char filename[256];
 
-    filename[0]='\0';
+    if(RAND_status()) {
+        s_log(LOG_DEBUG, "No PRNG seeding was required");
+        return 0; /* success */
+    }
 
     /* if they specify a rand file on the command line we
        assume that they really do want it, so try it first */
@@ -212,46 +244,47 @@ NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
     }
 
     /* try the $RANDFILE or $HOME/.rnd files */
-    RAND_file_name(filename, 256);
+    filename[0]='\0';
+    RAND_file_name(filename, sizeof filename);
     if(filename[0]) {
         totbytes+=add_rand_file(global, filename);
         if(RAND_status())
             return 0; /* success */
     }
 
-#ifdef RANDOM_FILE
-    totbytes+=add_rand_file(global, RANDOM_FILE);
-    if(RAND_status())
-        return 0; /* success */
-#endif
-
 #ifdef USE_WIN32
+
+#if OPENSSL_VERSION_NUMBER<0x10100000L
     RAND_screen();
     if(RAND_status()) {
         s_log(LOG_DEBUG, "Seeded PRNG with RAND_screen");
         return 0; /* success */
     }
     s_log(LOG_DEBUG, "RAND_screen failed to sufficiently seed PRNG");
-#else
+#endif
+
+#else /* USE_WIN32 */
+
 #ifndef OPENSSL_NO_EGD
     if(global->egd_sock) {
         int bytes=RAND_egd(global->egd_sock);
-        if(bytes==-1) {
-            s_log(LOG_WARNING, "EGD Socket %s failed", global->egd_sock);
-            bytes=0;
-        } else {
-            totbytes+=bytes;
+        if(bytes>=0) {
             s_log(LOG_DEBUG, "Snagged %d random bytes from EGD Socket %s",
                 bytes, global->egd_sock);
             return 0; /* OpenSSL always gets what it needs or fails,
                          so no need to check if seeded sufficiently */
         }
+        s_log(LOG_WARNING, "EGD Socket %s failed", global->egd_sock);
     }
 #endif
-    /* try the good-old default /dev/urandom, if available  */
+
+#ifndef RANDOM_FILE
+    /* try the good-old default /dev/urandom, if no RANDOM_FILE is defined */
     totbytes+=add_rand_file(global, "/dev/urandom");
     if(RAND_status())
         return 0; /* success */
+#endif
+
 #endif /* USE_WIN32 */
 
     /* random file specified during configure */
@@ -262,28 +295,39 @@ NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
 
 NOEXPORT int add_rand_file(GLOBAL_OPTIONS *global, const char *filename) {
     int readbytes;
-    int writebytes;
     struct stat sb;
 
     if(stat(filename, &sb))
         return 0; /* could not stat() file --> return 0 bytes */
-    if((readbytes=RAND_load_file(filename, global->random_bytes)))
-        s_log(LOG_DEBUG, "Snagged %d random bytes from %s",
-            readbytes, filename);
-    else
+
+    readbytes=RAND_load_file(filename, global->random_bytes);
+    if(readbytes<0) {
+        sslerror("RAND_load_file");
         s_log(LOG_INFO, "Cannot retrieve any random data from %s",
             filename);
-    /* write new random data for future seeding if it's a regular file */
-    if(global->option.rand_write && S_ISREG(sb.st_mode)) {
-        writebytes=RAND_write_file(filename);
-        if(writebytes==-1)
-            s_log(LOG_WARNING, "Failed to write strong random data to %s - "
-                "may be a permissions or seeding problem", filename);
-        else
-            s_log(LOG_DEBUG, "Wrote %d new random bytes to %s",
-                writebytes, filename);
+        return 0;
     }
+    s_log(LOG_DEBUG, "Snagged %d random bytes from %s", readbytes, filename);
+
+    /* write new random data for future seeding if it's a regular file */
+    if(global->option.rand_write && S_ISREG(sb.st_mode))
+        update_rand_file(filename);
+
     return readbytes;
+}
+
+NOEXPORT void update_rand_file(const char *filename) {
+    int writebytes;
+
+    writebytes=RAND_write_file(filename);
+    if(writebytes<0) {
+        sslerror("RAND_write_file");
+        s_log(LOG_WARNING, "Failed to write strong random data to %s - "
+            "may be a permissions or seeding problem", filename);
+        return;
+    }
+    s_log(LOG_DEBUG, "Wrote %d new random bytes to %s",
+        writebytes, filename);
 }
 
 /* end of ssl.c */

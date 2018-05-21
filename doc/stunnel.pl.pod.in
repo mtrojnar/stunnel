@@ -322,29 +322,6 @@ globalnych.
 
 domyślnie: stunnel
 
-=item B<socket> = a|l|r:OPCJA=WARTOŚĆ[:WARTOŚĆ]
-
-ustaw opcję na akceptującym/lokalnym/zdalnym gnieździe
-
-Dla opcji linger wartości mają postać l_onof:l_linger.
-Dla opcji time wartości mają postać tv_sec:tv_usec.
-
-Przykłady:
-
-    socket = l:SO_LINGER=1:60
-        ustaw jednominutowe przeterminowanie
-        przy zamykaniu lokalnego gniazda
-    socket = r:SO_OOBINLINE=yes
-        umieść dane pozapasmowe (out-of-band)
-        bezpośrednio w strumieniu danych
-        wejściowych dla zdalnych gniazd
-    socket = a:SO_REUSEADDR=no
-        zablokuj ponowne używanie portu
-        (domyślnie włączone)
-    socket = a:SO_BINDTODEVICE=lo
-        przyjmuj połączenia wyłącznie na
-        interfejsie zwrotnym (ang. loopback)
-
 =item B<syslog> = yes | no (tylko Unix)
 
 włącz logowanie poprzez mechanizm syslog
@@ -630,7 +607,7 @@ priority - użyj kolejności opcji w pliku konfiguracyjnym
 
 =back
 
-domyślnie: rr
+domyślnie: prio
 
 =item B<ident> = NAZWA_UŻYTKOWNIKA
 
@@ -640,7 +617,17 @@ weryfikuj nazwę zdalnego użytkownika korzystając z protokołu IDENT (RFC 1413
 
 wczytaj fragmenty plików konfiguracyjnych z podanego katalogu
 
-Pliki są wczytywane w rosnącej kolejności alfabetycznej ich nazw.
+Pliki są wczytywane w rosnącej kolejności alfabetycznej ich nazw. Rekomendowana konwencja nazewnictwa plików
+
+dla opcji globalnych:
+
+	00-global.conf
+
+dla lokalnych opcji usług:
+
+	01-service.conf
+
+	02-service.conf
 
 =item B<key> = PLIK_KLUCZA
 
@@ -976,11 +963,44 @@ Pusta wartość parametru NAZWA_SERWERA wyłącza wysyłanie rozszerzenia SNI.
 
 Opcja I<sni> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
+=item B<socket> = a|l|r:OPCJA=WARTOŚĆ[:WARTOŚĆ]
+
+ustaw opcję na akceptującym/lokalnym/zdalnym gnieździe
+
+Dla opcji linger wartości mają postać l_onof:l_linger.
+Dla opcji time wartości mają postać tv_sec:tv_usec.
+
+Przykłady:
+
+    socket = l:SO_LINGER=1:60
+        ustaw jednominutowe przeterminowanie
+        przy zamykaniu lokalnego gniazda
+    socket = r:SO_OOBINLINE=yes
+        umieść dane pozapasmowe (out-of-band)
+        bezpośrednio w strumieniu danych
+        wejściowych dla zdalnych gniazd
+    socket = a:SO_REUSEADDR=no
+        zablokuj ponowne używanie portu
+        (domyślnie włączone)
+    socket = a:SO_BINDTODEVICE=lo
+        przyjmuj połączenia wyłącznie na
+        interfejsie zwrotnym (ang. loopback)
+
 =item B<sslVersion> = WERSJA_SSL
 
 wersja protokołu TLS
 
-Wspierane opcje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+Wspierane wersje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+
+Ocja I<sslVersion> jest przestarzała i zostanie usunięta w przyszłych wersjach stunnela.
+Zamiast niej należy używać następujących opcji:
+
+    options = NO_SSLv2
+    options = NO_SSLv3
+    options = NO_TLSv1
+    options = NO_TLSv1.1
+    options = NO_TLSv1.2
+    options = NO_TLSv1_3
 
 Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
 Starsze wersje OpenSSL nie wspierają TLSv1.1 i TLSv1.2.
@@ -1013,7 +1033,7 @@ maksymalny czas utrzymywania bezczynnego połączenia
 
 tryb przezroczystego proxy na wspieranych platformach
 
-Wspierane opcje:
+Wspierane wartości:
 
 =over 4
 

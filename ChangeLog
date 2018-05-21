@@ -1,5 +1,32 @@
 stunnel change log
 
+Version 5.45, 2018.05.21, urgency: MEDIUM
+* New feature sponsored by https://loadbalancer.org/
+  - Implemented delayed deallocation of service sections
+    after configuration file reload.
+* Other new features
+  - OpenSSL DLLs updated to version 1.0.2o.
+  - Deprecated the sslVersion option.
+  - The "socket" option is now also available in service sections.
+  - Implemented try-restart in the SysV init script (thx to
+    Peter Pentchev).
+  - TLS 1.3 compliant session handling for OpenSSL 1.1.1.
+  - Default "failover" value changed from "rr" to "prio".
+  - New "make check" tests.
+* Bugfixes
+  - A service no longer refuses to start if binding fails for
+    some (but not all) addresses:ports.
+  - Fixed compression handling with OpenSSL 1.1.0 and later.
+  - _beginthread() replaced with safer _beginthreadex().
+  - Fixed exception handling in libwrap.
+  - Fixed exec+connect services.
+  - Fixed automatic resolver delaying.
+  - Fixed a Gentoo cross-compilation bug (thx to Joe Harvell).
+  - A number of "make check" framework fixes.
+  - Fixed false postive memory leak logs.
+  - Build fixes for OpenSSL versions down to 0.9.7.
+  - Fixed (again) round-robin failover in the FORK threading model.
+
 Version 5.44, 2017.11.26, urgency: MEDIUM
 * New features
   - Signed Win32 executables, libraries, and installer.

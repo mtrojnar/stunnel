@@ -1,4 +1,4 @@
-# NSIS stunnel installer by Michal Trojnara 1998-2017
+# NSIS stunnel installer by Michal Trojnara 1998-2018
 
 !define /ifndef VERSION testing
 !define /ifndef ARCH win32
@@ -173,6 +173,11 @@ no_service_restart:
   Delete "$INSTDIR\bin\zlib1.pdb"
   Delete "$INSTDIR\bin\msvcr90.dll"
   Delete "$INSTDIR\bin\Microsoft.VC90.CRT.Manifest"
+  Delete "$INSTDIR\bin\libcrypto-1_1-x64.dll"
+  Delete "$INSTDIR\bin\libcrypto-1_1-x64.pdb"
+  Delete "$INSTDIR\bin\libssl-1_1-x64.dll"
+  Delete "$INSTDIR\bin\libssl-1_1-x64.pdb"
+  Delete "$INSTDIR\bin\vcruntime140.dll"
   RMDir "$INSTDIR\bin"
 
   Delete "$INSTDIR\engines\4758cca.dll"
@@ -483,8 +488,8 @@ Section /o "Debugging Symbols" sectionDEBUG
   File "${OPENSSL_BIN_DIR}\ssleay32.pdb"
   File "${ZLIB_DIR}\zlib1.pdb"
   !else
-  File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.dll"
-  File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.dll"
+  File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.pdb"
+  File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.pdb"
   !endif
 
   # optional tstunnel.exe

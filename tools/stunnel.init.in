@@ -137,6 +137,47 @@ querydaemons()
   exit "$res"
 }
 
+restartrunningdaemons()
+{
+  local res file pidfile status args
+
+  res=0
+  for file in $FILES; do
+    echo -n " $file: "
+    pidfile=`get_pidfile "$file"`
+    if [ ! -e "$pidfile" ]; then
+      echo -n 'no pid file'
+    else
+      status=0
+      pidofproc -p "$pidfile" "$DAEMON" >/dev/null || status="$?"
+      if [ "$status" = 0 ]; then
+        echo -n 'stopping'
+        killproc -p "$pidfile" "$DAEMON" "$sig" || status="$?"
+        if [ "$status" -eq 0 ]; then
+          echo -n ' starting'
+          args="$file $OPTIONS"
+          start_daemon -p "$pidfile" "$DAEMON" $args || status="$?"
+          if [ "$status" -eq 0 ]; then
+            echo -n ' started'
+          else
+            echo ' failed'
+            res=1
+          fi
+        else
+          echo -n ' failed'
+          res=1
+        fi
+      elif [ "$status" = 4 ]; then
+        echo "cannot access the pid file $pidfile"
+      else
+        echo -n 'stopped'
+      fi
+    fi
+  done
+  echo ''
+  exit "$res"
+}
+
 if [ "x$OPTIONS" != "x" ]; then
   OPTIONS="-- $OPTIONS"
 fi
@@ -194,6 +235,11 @@ case "$1" in
     killdaemons && startdaemons
     res=$?
     ;;
+  try-restart)
+    echo -n "Restarting $DESC if running:"
+    restartrunningdaemons
+    res=$?
+    ;;
   status)
     echo -n "$DESC status:"
     querydaemons
@@ -201,7 +247,7 @@ case "$1" in
     ;;
   *)
     N=@sysconfdir@/init.d/$NAME
-    echo "Usage: $N {start|stop|status|reload|reopen-logs|restart} [<stunnel instance>]" >&2
+    echo "Usage: $N {start|stop|status|reload|reopen-logs|restart|try-restart} [<stunnel instance>]" >&2
     res=1
     ;;
 esac

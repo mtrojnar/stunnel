@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -43,6 +43,7 @@
 /**************************************** forward declarations */
 
 typedef struct tls_data_struct TLS_DATA;
+typedef struct sock_opt_struct SOCK_OPT;
 
 /**************************************** data structures */
 
@@ -98,8 +99,6 @@ typedef struct name_list_struct {
 typedef struct sockaddr_list {                          /* list of addresses */
     struct sockaddr_list *parent;   /* used by copies to locate their parent */
     SOCKADDR_UNION *addr;                     /* array of resolved addresses */
-    SOCKET *fd;                       /* array of accepting file descriptors */
-    SSL_SESSION **session;                /* array of cached client sessions */
     unsigned start;              /* initial address for round-robin failover */
     unsigned num;                             /* how many addresses are used */
     int passive;                                         /* listening socket */
@@ -180,12 +179,14 @@ typedef struct service_options_struct {
     struct service_options_struct *next;   /* next node in the services list */
     SSL_CTX *ctx;                                            /*  TLS context */
     char *servname;        /* service name for logging & permission checking */
+    int ref;                   /* reference counter for delayed deallocation */
 
         /* service-specific data for stunnel.c */
 #ifndef USE_WIN32
     uid_t uid;
     gid_t gid;
 #endif
+    int bound_ports;                /* number of ports bound to this service */
 
         /* service-specific data for log.c */
     int log_level;                                /* debug level for logging */
@@ -195,6 +196,9 @@ typedef struct service_options_struct {
 #ifndef USE_FORK
     size_t stack_size;                         /* stack size for this thread */
 #endif
+
+        /* some global data for network.c */
+    SOCK_OPT *sock_opts;
 
         /* service-specific data for verify.c */
     char *ca_dir;                              /* directory for hashed certs */
@@ -238,7 +242,6 @@ typedef struct service_options_struct {
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
         /* service-specific data for client.c */
-    SSL_SESSION *session;                           /* recently used session */
     char *exec_name;                          /* program name for local mode */
 #ifdef USE_WIN32
     char *exec_args;                     /* program arguments for local mode */
@@ -247,12 +250,15 @@ typedef struct service_options_struct {
 #endif
     SOCKADDR_UNION source_addr;
     SOCKADDR_LIST local_addr, connect_addr, redirect_addr;
+    SOCKET *local_fd;                 /* array of accepting file descriptors */
+    SSL_SESSION **connect_session;   /* per-destination client session cache */
+    SSL_SESSION *session;    /* previous client session for delayed resolver */
     int timeout_busy;                       /* maximum waiting for data time */
     int timeout_close;                          /* maximum close_notify time */
     int timeout_connect;                           /* maximum connect() time */
     int timeout_idle;                        /* maximum idle connection time */
     enum {FAILOVER_RR, FAILOVER_PRIO} failover;         /* failover strategy */
-    unsigned seq;              /* sequential number for round-robin failover */
+    unsigned rr;   /* per-service sequential number for round-robin failover */
     char *username;
 
         /* service-specific data for protocol.c */
@@ -285,9 +291,6 @@ typedef struct service_options_struct {
         unsigned local:1;               /* outgoing interface specified */
         unsigned retry:1;               /* loop remote+program */
         unsigned sessiond:1;
-#ifndef OPENSSL_NO_TLSEXT
-        unsigned sni:1;                 /* endpoint: sni */
-#endif /* !defined(OPENSSL_NO_TLSEXT) */
 #ifndef USE_WIN32
         unsigned pty:1;
         unsigned transparent_src:1;
@@ -329,13 +332,13 @@ typedef union {
     struct timeval timeval_val;
 } OPT_UNION;
 
-typedef struct {
+struct sock_opt_struct {
     char *opt_str;
     int  opt_level;
     int  opt_name;
     VAL_TYPE opt_type;
     OPT_UNION *opt_val[3];
-} SOCK_OPT;
+};
 
 typedef enum {
     CONF_RELOAD, CONF_FILE, CONF_FD
@@ -380,32 +383,34 @@ typedef enum {
 } RENEG_STATE;
 
 typedef struct {
-    jmp_buf err; /* 64-bit platforms require jmp_buf to be 16-byte aligned */
-    SSL *ssl; /* TLS connection */
+    jmp_buf *exception_pointer;
+
+    SSL *ssl;                                              /* TLS connection */
     SERVICE_OPTIONS *opt;
     TLS_DATA *tls;
 
-    SOCKADDR_UNION peer_addr; /* peer address */
+    SOCKADDR_UNION peer_addr;                                /* peer address */
     socklen_t peer_addr_len;
-    SOCKADDR_UNION *bind_addr; /* address to bind() the socket */
-    SOCKADDR_LIST connect_addr; /* either copied or resolved dynamically */
-    unsigned idx; /* actually connected address in connect_addr */
-    FD local_rfd, local_wfd; /* read and write local descriptors */
-    FD remote_fd; /* remote file descriptor */
-        /* IP for explicit local bind or transparent proxy */
-    unsigned long pid; /* PID of the local process */
-    SOCKET fd; /* temporary file descriptor */
-    RENEG_STATE reneg_state; /* used to track renegotiation attempts */
-    unsigned long long seq; /* sequential thread number for logging */
+    char *accepted_address;    /* textual representation of the peer address */
+    SOCKADDR_UNION *bind_addr;               /* address to bind() the socket */
+    SOCKADDR_LIST connect_addr;     /* either copied or resolved dynamically */
+    unsigned idx;              /* actually connected address in connect_addr */
+    FD local_rfd, local_wfd;             /* read and write local descriptors */
+    FD remote_fd;                                  /* remote file descriptor */
+    unsigned long pid;                           /* PID of the local process */
+    SOCKET fd;                                  /* temporary file descriptor */
+    RENEG_STATE reneg_state;         /* used to track renegotiation attempts */
+    unsigned long long seq;          /* sequential thread number for logging */
+    unsigned rr;    /* per-client sequential number for round-robin failover */
 
     /* data for transfer() function */
-    char sock_buff[BUFFSIZE]; /* socket read buffer */
-    char ssl_buff[BUFFSIZE]; /* TLS read buffer */
-    size_t sock_ptr, ssl_ptr; /* index of the first unused byte */
-    FD *sock_rfd, *sock_wfd; /* read and write socket descriptors */
-    FD *ssl_rfd, *ssl_wfd; /* read and write TLS descriptors */
-    uint64_t sock_bytes, ssl_bytes; /* bytes written to socket and TLS */
-    s_poll_set *fds; /* file descriptors */
+    char sock_buff[BUFFSIZE];                          /* socket read buffer */
+    char ssl_buff[BUFFSIZE];                              /* TLS read buffer */
+    size_t sock_ptr, ssl_ptr;              /* index of the first unused byte */
+    FD *sock_rfd, *sock_wfd;            /* read and write socket descriptors */
+    FD *ssl_rfd, *ssl_wfd;                 /* read and write TLS descriptors */
+    uint64_t sock_bytes, ssl_bytes;       /* bytes written to socket and TLS */
+    s_poll_set *fds;                                     /* file descriptors */
 } CLI;
 
 /**************************************** prototypes for stunnel.c */
@@ -422,7 +427,7 @@ int drop_privileges(int);
 void daemon_loop(void);
 void unbind_ports(void);
 int bind_ports(void);
-void signal_post(int);
+void signal_post(uint8_t);
 #if !defined(USE_WIN32) && !defined(USE_OS2)
 void child_status(void);  /* dead libwrap or 'exec' process detected */
 #endif
@@ -437,6 +442,10 @@ int options_cmdline(char *, char *);
 int options_parse(CONF_TYPE);
 void options_defaults(void);
 void options_apply(void);
+void options_free(void);
+
+void service_up_ref(SERVICE_OPTIONS *);
+void service_free(SERVICE_OPTIONS *);
 
 /**************************************** prototypes for fd.c */
 
@@ -465,7 +474,7 @@ void s_log(int, const char *, ...)
     ;
 #endif
 char *log_id(CLI *);
-void fatal_debug(char *, const char *, int);
+void fatal_debug(char *, const char *, int) NORETURN;
 #define fatal(a) fatal_debug((a), __FILE__, __LINE__)
 void ioerror(const char *);
 void sockerror(const char *);
@@ -539,15 +548,21 @@ void s_poll_dump(s_poll_set *, int);
 #define SIGNAL_TERMINATE        SIGTERM
 #endif
 
-int set_socket_options(SOCKET, int);
+int socket_options_set(SERVICE_OPTIONS *, SOCKET, int);
 int make_sockets(SOCKET[2]);
 int original_dst(const SOCKET, SOCKADDR_UNION *);
 
 /**************************************** prototypes for client.c */
 
 CLI *alloc_client_session(SERVICE_OPTIONS *, SOCKET, SOCKET);
-void *client_thread(void *);
+#if defined(USE_WIN32) || defined(USE_OS2)
+unsigned __stdcall
+#else
+void *
+#endif
+client_thread(void *);
 void client_main(CLI *);
+void throw_exception(CLI *, int) NORETURN;
 
 /**************************************** prototypes for network.c */
 
@@ -634,6 +649,10 @@ int getnameinfo(const struct sockaddr *, socklen_t,
 /**************************************** prototypes for sthreads.c */
 
 #if defined(USE_PTHREAD) || defined(USE_WIN32)
+#define USE_OS_THREADS
+#endif
+
+#ifdef USE_OS_THREADS
 
 struct CRYPTO_dynlock_value {
 #ifdef USE_PTHREAD
@@ -651,6 +670,7 @@ struct CRYPTO_dynlock_value {
 typedef enum {
     LOCK_SESSION, LOCK_ADDR,
     LOCK_CLIENTS, LOCK_SSL,                 /* client.c */
+    LOCK_REF,                               /* options.c */
     LOCK_INET,                              /* resolver.c */
 #ifndef USE_WIN32
     LOCK_LIBWRAP,                           /* libwrap.c */
@@ -683,7 +703,7 @@ void stunnel_rwlock_destroy_debug(struct CRYPTO_dynlock_value *, const char *, i
     *result = type ? CRYPTO_add(addr,amount,type) : (*addr+=amount)
 #endif
 
-#else /* defined(USE_PTHREAD) || defined(USE_WIN32) */
+#else /* USE_OS_THREADS */
 
 #define stunnel_rwlock_init(x) {}
 #define stunnel_read_lock(x) {}
@@ -692,12 +712,12 @@ void stunnel_rwlock_destroy_debug(struct CRYPTO_dynlock_value *, const char *, i
 #define stunnel_write_unlock(x) {}
 #define stunnel_rwlock_destroy(x) {}
 
-#endif /* defined(USE_PTHREAD) || defined(USE_WIN32) */
+#endif /* USE_OS_THREADS */
 
 int sthreads_init(void);
 unsigned long stunnel_process_id(void);
 unsigned long stunnel_thread_id(void);
-int create_client(SOCKET, SOCKET, CLI *, void *(*)(void *));
+int create_client(SOCKET, SOCKET, CLI *);
 #ifdef USE_UCONTEXT
 typedef struct CONTEXT_STRUCTURE {
     char *stack; /* CPU stack for this thread */
@@ -739,7 +759,7 @@ LPSTR tstr2str(LPCTSTR);
 /**************************************** prototypes for libwrap.c */
 
 int libwrap_init();
-void libwrap_auth(CLI *, char *);
+void libwrap_auth(CLI *);
 
 /**************************************** prototypes for tls.c */
 
@@ -768,6 +788,8 @@ void str_init(TLS_DATA *);
 void str_cleanup(TLS_DATA *);
 char *str_dup_debug(const char *, const char *, int);
 #define str_dup(a) str_dup_debug((a), __FILE__, __LINE__)
+char *str_dup_detached_debug(const char *, const char *, int);
+#define str_dup_detached(a) str_dup_detached_debug((a), __FILE__, __LINE__)
 char *str_vprintf(const char *, va_list);
 char *str_printf(const char *, ...)
 #ifdef __GNUC__
@@ -785,9 +807,10 @@ void *str_alloc_debug(size_t, const char *, int);
 #define str_alloc(a) str_alloc_debug((a), __FILE__, __LINE__)
 void *str_alloc_detached_debug(size_t, const char *, int);
 #define str_alloc_detached(a) str_alloc_detached_debug((a), __FILE__, __LINE__)
-void *str_realloc_detached_debug(void *, size_t, const char *, int);
 void *str_realloc_debug(void *, size_t, const char *, int);
 #define str_realloc(a, b) str_realloc_debug((a), (b), __FILE__, __LINE__)
+void *str_realloc_detached_debug(void *, size_t, const char *, int);
+#define str_realloc_detached(a, b) str_realloc_detached_debug((a), (b), __FILE__, __LINE__)
 void str_detach_debug(void *, const char *, int);
 #define str_detach(a) str_detach_debug((a), __FILE__, __LINE__)
 void str_free_debug(void *, const char *, int);

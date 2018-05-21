@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2017 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -92,6 +92,8 @@ NOEXPORT int ui_retry();
 
 /* session callbacks */
 NOEXPORT int sess_new_cb(SSL *, SSL_SESSION *);
+NOEXPORT void new_chain(CLI *);
+NOEXPORT void session_cache_save(CLI *, SSL_SESSION *);
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *,
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     const
@@ -148,19 +150,29 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
         }
     }
 
-    /* options */
+    /* TLS options: configure the stunnel defaults first */
+    SSL_CTX_set_options(section->ctx, SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
+#ifdef SSL_OP_NO_COMPRESSION
+    /* we implemented a better way to disable compression if needed */
+    SSL_CTX_clear_options(section->ctx, SSL_OP_NO_COMPRESSION);
+#endif /* SSL_OP_NO_COMPRESSION */
+
+    /* TLS options: configure the user-specified values */
     SSL_CTX_set_options(section->ctx,
         (SSL_OPTIONS_TYPE)(section->ssl_options_set));
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
     SSL_CTX_clear_options(section->ctx,
         (SSL_OPTIONS_TYPE)(section->ssl_options_clear));
+#endif /* OpenSSL 0.9.8m or later */
+
+    /* TLS options: log the configured values */
+#if OPENSSL_VERSION_NUMBER>=0x009080dfL
     s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX, -0x%08lX)",
         SSL_CTX_get_options(section->ctx),
         section->ssl_options_set, section->ssl_options_clear);
 #else /* OpenSSL older than 0.9.8m */
     s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX)",
-        SSL_CTX_get_options(section->ctx),
-        section->ssl_options_set);
+        SSL_CTX_get_options(section->ctx), section->ssl_options_set);
 #endif /* OpenSSL 0.9.8m or later */
 
     /* initialize OpenSSL CONF options */
@@ -190,6 +202,8 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
             return 1; /* FAILED */
         }
     }
+    SSL_CTX_set_session_cache_mode(section->ctx,
+        SSL_SESS_CACHE_BOTH | SSL_SESS_CACHE_NO_INTERNAL_STORE);
     SSL_CTX_sess_set_cache_size(section->ctx, section->session_size);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
     SSL_CTX_sess_set_new_cb(section->ctx, sess_new_cb);
@@ -233,9 +247,6 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
     const char *servername=SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     SERVERNAME_LIST *list;
     CLI *c;
-#ifdef USE_LIBWRAP
-    char *accepted_address;
-#endif /* USE_LIBWRAP */
 
     /* leave the alert type at SSL_AD_UNRECOGNIZED_NAME */
     (void)ad; /* squash the unused parameter warning */
@@ -260,9 +271,7 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
             s_log(LOG_NOTICE, "SNI: switched to service [%s]",
                 c->opt->servname);
 #ifdef USE_LIBWRAP
-            accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
-            libwrap_auth(c, accepted_address); /* retry on a service switch */
-            str_free(accepted_address);
+            libwrap_auth(c); /* retry on a service switch */
 #endif /* USE_LIBWRAP */
             return SSL_TLSEXT_ERR_OK;
         }
@@ -608,7 +617,7 @@ void psk_sort(PSK_TABLE *table, PSK_KEYS *head) {
         ++table->num;
     s_log(LOG_INFO, "PSK identities: %lu retrieved",
         (long unsigned)table->num);
-    table->val=str_alloc(table->num*sizeof(PSK_KEYS *));
+    table->val=str_alloc_detached(table->num*sizeof(PSK_KEYS *));
     for(curr=head, i=0; i<table->num; ++i) {
         table->val[i]=curr;
         curr=curr->next;
@@ -901,9 +910,89 @@ NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
 
     s_log(LOG_DEBUG, "New session callback");
     c=SSL_get_ex_data(ssl, index_ssl_cli);
+    new_chain(c);
+    if(c->opt->option.client)
+        session_cache_save(c, sess);
+    else /* SSL_SESS_CACHE_NO_INTERNAL_STORE prevented automatic caching */
+        SSL_CTX_add_session(SSL_get_SSL_CTX(ssl), sess);
     if(c->opt->option.sessiond)
         cache_new(ssl, sess);
     return 0; /* the OpenSSL's manual is really bad -> use the source here */
+}
+
+NOEXPORT void new_chain(CLI *c) {
+    BIO *bio;
+    int i, len;
+    X509 *peer_cert;
+    STACK_OF(X509) *sk;
+    char *chain;
+
+    if(c->opt->chain) /* already cached */
+        return; /* this race condition is safe to ignore */
+    bio=BIO_new(BIO_s_mem());
+    if(!bio)
+        return;
+    sk=SSL_get_peer_cert_chain(c->ssl);
+    for(i=0; sk && i<sk_X509_num(sk); i++) {
+        peer_cert=sk_X509_value(sk, i);
+        PEM_write_bio_X509(bio, peer_cert);
+    }
+    if(!sk || !c->opt->option.client) {
+        peer_cert=SSL_get_peer_certificate(c->ssl);
+        if(peer_cert) {
+            PEM_write_bio_X509(bio, peer_cert);
+            X509_free(peer_cert);
+        }
+    }
+    len=BIO_pending(bio);
+    if(len<=0) {
+        s_log(LOG_INFO, "No peer certificate received");
+        BIO_free(bio);
+        return;
+    }
+    /* prevent automatic deallocation of the cached value */
+    chain=str_alloc_detached((size_t)len+1);
+    len=BIO_read(bio, chain, len);
+    if(len<0) {
+        s_log(LOG_ERR, "BIO_read failed");
+        BIO_free(bio);
+        str_free(chain);
+        return;
+    }
+    chain[len]='\0';
+    BIO_free(bio);
+    c->opt->chain=chain; /* this race condition is safe to ignore */
+    ui_new_chain(c->opt->section_number);
+    s_log(LOG_DEBUG, "Peer certificate was cached (%d bytes)", len);
+}
+
+/* cache client sessions */
+NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess) {
+    SSL_SESSION *old;
+
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    SSL_SESSION_up_ref(sess);
+#else
+    sess=SSL_get1_session(c->ssl);
+#endif
+
+    stunnel_write_lock(&stunnel_locks[LOCK_SESSION]);
+    if(c->opt->option.delayed_lookup) {
+        old=c->opt->session;
+        c->opt->session=sess;
+    } else { /* per-destination client cache */
+        if(c->opt->connect_session) {
+            old=c->opt->connect_session[c->idx];
+            c->opt->connect_session[c->idx]=sess;
+        } else {
+            s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized client session cache");
+            old=NULL;
+        }
+    }
+    stunnel_write_unlock(&stunnel_locks[LOCK_SESSION]);
+
+    if(old)
+        SSL_SESSION_free(old);
 }
 
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
@@ -972,9 +1061,9 @@ NOEXPORT SSL_SESSION *cache_get(SSL *ssl,
         return NULL;
     val_tmp=val;
     sess=d2i_SSL_SESSION(NULL,
-#if OPENSSL_VERSION_NUMBER>=0x0090800fL
+#if OPENSSL_VERSION_NUMBER>=0x0090707fL
         (const unsigned char **)
-#endif /* OpenSSL version >= 0.8.0 */
+#endif /* OpenSSL version >= 0.9.7g */
         &val_tmp, (long)val_len);
     str_free(val);
     return sess;
@@ -1143,13 +1232,13 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
 #else
         if(state==SSL3_ST_CR_CERT_REQ_A)
 #endif
-            print_client_CA_list(SSL_get_client_CA_list(ssl));
+            print_client_CA_list(SSL_get_client_CA_list((SSL *)ssl));
 #ifndef SSL3_ST_CR_SRVR_DONE_A
         if(state==TLS_ST_CR_SRVR_DONE)
 #else
         if(state==SSL3_ST_CR_SRVR_DONE_A)
 #endif
-            if(!SSL_get_client_CA_list(ssl))
+            if(!SSL_get_client_CA_list((SSL *)ssl))
                 s_log(LOG_INFO, "Client certificate not requested");
 
         /* prevent renegotiation DoS attack */
