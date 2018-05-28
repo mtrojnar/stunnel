@@ -252,7 +252,7 @@ static char *option_not_found=
     "Specified option name is not valid here";
 
 static char *stunnel_cipher_list=
-    "HIGH:!DH:!aNULL:!SSLv2";
+    "HIGH:!aNULL:!SSLv2:!DH:!kDHEPSK";
 
 /**************************************** parse commandline parameters */
 
@@ -1265,6 +1265,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         }
         break;
     case CMD_DUP:
+        addrlist_clear(&section->local_addr, 1);
+        section->local_fd=NULL;
         name_list_dup(&section->local_addr.names,
             new_service_options.local_addr.names);
         break;
@@ -1614,6 +1616,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         }
         break;
     case CMD_DUP:
+        addrlist_clear(&section->connect_addr, 0);
+        section->connect_session=NULL;
         name_list_dup(&section->connect_addr.names,
             new_service_options.connect_addr.names);
         break;
@@ -2607,6 +2611,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         }
         break;
     case CMD_DUP:
+        addrlist_clear(&section->redirect_addr, 0);
         name_list_dup(&section->redirect_addr.names,
             new_service_options.redirect_addr.names);
         break;

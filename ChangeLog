@@ -1,5 +1,12 @@
 stunnel change log
 
+Version 5.46, 2018.05.28, urgency: MEDIUM
+* New features
+  - The default cipher list was updated to a safer value:
+    "HIGH:!aNULL:!SSLv2:!DH:!kDHEPSK".
+* Bugfixes
+  - Default accept address restored to INADDR_ANY.
+
 Version 5.45, 2018.05.21, urgency: MEDIUM
 * New feature sponsored by https://loadbalancer.org/
   - Implemented delayed deallocation of service sections
