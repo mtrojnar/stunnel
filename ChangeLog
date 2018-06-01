@@ -2,6 +2,7 @@ stunnel change log
 
 Version 5.47, unreleased, urgency: LOW
 * New features
+  - Automatic detection of Homebrew OpenSSL.
 * Bugfixes
 
 Version 5.46, 2018.05.28, urgency: MEDIUM
