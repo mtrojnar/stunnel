@@ -1,5 +1,9 @@
 stunnel change log
 
+Version 5.47, unreleased, urgency: LOW
+* New features
+* Bugfixes
+
 Version 5.46, 2018.05.28, urgency: MEDIUM
 * New features
   - The default cipher list was updated to a safer value:
