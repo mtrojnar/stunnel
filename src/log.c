@@ -106,13 +106,13 @@ int log_open(void) {
 
 void log_close(void) {
     /* prevent changing the mode while logging */
-    stunnel_write_lock(&stunnel_locks[LOCK_LOG_MODE]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
     log_mode=LOG_MODE_BUFFER;
     if(outfile) {
         file_close(outfile);
         outfile=NULL;
     }
-    stunnel_write_unlock(&stunnel_locks[LOCK_LOG_MODE]);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
 }
 
 void s_log(int level, const char *format, ...) {
@@ -162,12 +162,12 @@ void s_log(int level, const char *format, ...) {
         safestring(text);
 
         /* either log or queue for logging */
-        stunnel_read_lock(&stunnel_locks[LOCK_LOG_MODE]);
+        CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LOG_MODE]);
         if(log_mode==LOG_MODE_BUFFER)
             log_queue(tls_data->opt, level, stamp, id, text);
         else
             log_raw(tls_data->opt, level, stamp, id, text);
-        stunnel_read_unlock(&stunnel_locks[LOCK_LOG_MODE]);
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
     }
 
     set_last_error(libc_error);
@@ -191,23 +191,24 @@ NOEXPORT void log_queue(SERVICE_OPTIONS *opt,
     str_detach(tmp->text);
 
     /* append the new element to the list */
-    stunnel_write_lock(&stunnel_locks[LOCK_LOG_BUFFER]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
     if(tail)
         tail->next=tmp;
     else
         head=tmp;
     tail=tmp;
-    stunnel_write_unlock(&stunnel_locks[LOCK_LOG_BUFFER]);
+    if(stunnel_locks[LOCK_LOG_BUFFER])
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
 }
 
 void log_flush(LOG_MODE new_mode) {
-    stunnel_write_lock(&stunnel_locks[LOCK_LOG_MODE]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
     /* prevent changing LOG_MODE_CONFIGURED to LOG_MODE_ERROR
      * once stderr file descriptor is closed */
     if(log_mode!=LOG_MODE_CONFIGURED)
         log_mode=new_mode;
     /* log_raw() will use the new value of log_mode */
-    stunnel_write_lock(&stunnel_locks[LOCK_LOG_BUFFER]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
     while(head) {
         struct LIST *tmp=head;
         head=head->next;
@@ -215,8 +216,8 @@ void log_flush(LOG_MODE new_mode) {
         str_free(tmp);
     }
     head=tail=NULL;
-    stunnel_write_unlock(&stunnel_locks[LOCK_LOG_BUFFER]);
-    stunnel_write_unlock(&stunnel_locks[LOCK_LOG_MODE]);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
 }
 
 NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
@@ -272,7 +273,9 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
 }
 
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic push
+#endif /* __GNUC__>=4.6 */
 #pragma GCC diagnostic ignored "-Wformat"
 #pragma GCC diagnostic ignored "-Wformat-extra-args"
 #endif /* __GNUC__ */
@@ -314,14 +317,18 @@ char *log_id(CLI *c) {
     return str_dup("error");
 }
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic pop
+#endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
 
 /* critical problem handling */
 /* str.c functions are not safe to use here */
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
+#endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
 void fatal_debug(char *txt, const char *file, int line) {
     char msg[80];
@@ -372,7 +379,9 @@ void fatal_debug(char *txt, const char *file, int line) {
     abort();
 }
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic pop
+#endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
 
 void ioerror(const char *txt) { /* input/output error */

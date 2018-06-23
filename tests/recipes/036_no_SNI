@@ -8,33 +8,32 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  [https client]
+  [client]
   client = yes
   accept = 127.0.0.1:${http1}
-  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https1}
   ;sni = sni.mydomain.com
 
-  [virtual]
-  accept = 127.0.0.1:${https}
+  [server_virtual]
+  accept = 127.0.0.1:${https1}
   cert =  ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 036_no_SNI
 
   [sni]
-  sni = virtual:sni.mydomain.com
+  sni = server_virtual:sni.mydomain.com
   cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 036_no_SNI_error
 EOT
 }
 
-check_ports "036_no_SNI"
 if grep -q "OpenSSL 1" "results.log"
   then
-    start 2> "error.log"
-    test_log_for "036_no_SNI" "execute" "$1" 2>> "stderr.log"
+    test_log_for "036_no_SNI" "execute" "0" "$1" "$2" "$3" 2>> "stderr.log"
     exit $?
   else
     exit_logs "036_no_SNI" "skipped"
+    clean_logs
     exit 125
   fi

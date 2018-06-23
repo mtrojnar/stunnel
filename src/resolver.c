@@ -106,6 +106,11 @@ void resolver_init() {
 }
 
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpragmas"
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif /* __GNUC__ */
 NOEXPORT int get_ipv6(LPTSTR file) {
     HINSTANCE handle;
 
@@ -124,6 +129,9 @@ NOEXPORT int get_ipv6(LPTSTR file) {
     }
     return 1; /* IPv6 detected -> OK */
 }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 #endif
 
 /**************************************** stunnel resolver API */
@@ -431,7 +439,7 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
     /* not numerical: need to call resolver library */
     *res=NULL;
     ai=NULL;
-    stunnel_write_lock(&stunnel_locks[LOCK_INET]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_INET]);
 #ifdef HAVE_GETHOSTBYNAME2
     h=gethostbyname2(node, AF_INET6);
     if(h) /* some IPv6 addresses found */
@@ -449,7 +457,7 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
 #ifdef HAVE_ENDHOSTENT
     endhostent();
 #endif
-    stunnel_write_unlock(&stunnel_locks[LOCK_INET]);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_INET]);
     if(retval) { /* error: free allocated memory */
         freeaddrinfo(*res);
         *res=NULL;
@@ -584,10 +592,11 @@ int getnameinfo(const struct sockaddr *sa, socklen_t salen,
                 (void *)&((struct sockaddr_in *)sa)->sin_addr,
             host, hostlen);
 #else /* USE_IPv6 */
-        stunnel_write_lock(&stunnel_locks[LOCK_INET]); /* inet_ntoa is not mt-safe */
+        /* inet_ntoa is not mt-safe */
+        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_INET]);
         strncpy(host, inet_ntoa(((struct sockaddr_in *)sa)->sin_addr),
             hostlen);
-        stunnel_write_unlock(&stunnel_locks[LOCK_INET]);
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_INET]);
         host[hostlen-1]='\0';
 #endif /* USE_IPv6 */
     }

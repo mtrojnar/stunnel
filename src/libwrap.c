@@ -200,9 +200,9 @@ void libwrap_auth(CLI *c) {
     } else
 #endif /* USE_LIBWRAP_POOL */
     { /* use original, synchronous libwrap calls */
-        stunnel_write_lock(&stunnel_locks[LOCK_LIBWRAP]);
+        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LIBWRAP]);
         result=check(c->opt->servname, c->local_rfd.fd);
-        stunnel_write_unlock(&stunnel_locks[LOCK_LIBWRAP]);
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LIBWRAP]);
     }
     if(!result) {
         s_log(LOG_WARNING, "Service [%s] REFUSED by libwrap from %s",

@@ -8,31 +8,30 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  [https client]
+  [client]
   client = yes
   failover = rr
   accept = 127.0.0.1:${http1}
-  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https1}
   connect = 127.0.0.1:${https2}
   connect = 127.0.0.1:${https3}
 
-  [https server_1]
-  accept = 127.0.0.1:${https}
-  connect = 127.0.0.1:${http2}
+  [server_1]
+  accept = 127.0.0.1:${https1}
+  connect = 127.0.0.1:${http_nc}
   cert = ${script_path}/certs/server_cert.pem
 
-  [https server_2]
+  [server_2]
   accept = 127.0.0.1:${https2}
-  connect = 127.0.0.1:${http2}
+  connect = 127.0.0.1:${http_nc}
   cert = ${script_path}/certs/server_cert.pem
 
-  [https server_3]
+  [server_3]
   accept = 127.0.0.1:${https3}
-  connect = 127.0.0.1:${http2}
+  connect = 127.0.0.1:${http_nc}
   cert = ${script_path}/certs/server_cert.pem
 EOT
 }
 
-check_ports "039_failover_rr"
-test_log_for "039_failover_rr" "rr" "$1" 2>> "stderr.log"
+test_log_for "039_failover_rr" "rr" "0" "$1" "$2" "$3" 2>> "stderr.log"
 exit $?

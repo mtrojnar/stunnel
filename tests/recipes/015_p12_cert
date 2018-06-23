@@ -8,25 +8,24 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  [https client]
+  [client]
   client = yes
   accept = 127.0.0.1:${http1}
-  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https1}
 
-  [https server]
-  accept = 127.0.0.1:${https}
-  connect = 127.0.0.1:${http2}
+  [server]
+  accept = 127.0.0.1:${https1}
+  connect = 127.0.0.1:${http_nc}
   cert = ${script_path}/certs/server_cert.p12
 EOT
 }
 
-check_ports "015_p12_cert"
 if grep -q "OpenSSL 1" "results.log"
   then
-    start 2> "error.log"
-    test_log_for "015_p12_cert" "success" "$1" 2>> "stderr.log"
+    test_log_for "015_p12_cert" "success" "0" "$1" "$2" "$3" 2>> "stderr.log"
     exit $?
   else
     exit_logs "015_p12_cert" "skipped"
+    clean_logs
     exit 125
   fi

@@ -9,25 +9,24 @@ start() {
   output = ${result_path}/stunnel.log
   fips = yes
 
-  [https client]
+  [client]
   client = yes
   accept = 127.0.0.1:${http1}
-  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https1}
 
-  [https server]
-  accept = 127.0.0.1:${https}
-  connect = 127.0.0.1:${http2}
+  [server]
+  accept = 127.0.0.1:${https1}
+  connect = 127.0.0.1:${http_nc}
   cert = ${script_path}/certs/server_cert.pem
 EOT
 }
 
-check_ports "021_FIPS"
 if grep -q "FIPS" results.log && grep -q "\-fips" results.log
   then
-    start 2> "error.log"
-    test_log_for "021_FIPS" "success" "$1" 2>> "stderr.log"
+    test_log_for "021_FIPS" "success" "0" "$1" "$2" "$3" 2>> "stderr.log"
     exit $?
   else
     exit_logs "021_FIPS" "skipped"
+    clean_logs
     exit 125
   fi

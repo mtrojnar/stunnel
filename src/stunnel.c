@@ -42,14 +42,18 @@
 #ifdef USE_WIN32
 
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic push
+#endif /* __GNUC__>=4.6 */
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif /* __GNUC__ */
 
 #include <openssl/applink.c>
 
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic pop
+#endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
 
 #endif /* USE_WIN32 */
@@ -64,6 +68,10 @@ struct sockaddr_un {
 };
 #endif
 
+#if !defined(USE_WIN32) && !defined(USE_OS2)
+NOEXPORT void pid_status_nohang(const char *);
+NOEXPORT void status_info(int, int, const char *);
+#endif
 NOEXPORT int accept_connection(SERVICE_OPTIONS *, unsigned);
 NOEXPORT int exec_connect_start(void);
 NOEXPORT void unbind_port(SERVICE_OPTIONS *, unsigned);
@@ -73,9 +81,6 @@ NOEXPORT int change_root(void);
 #endif
 NOEXPORT int signal_pipe_init(void);
 NOEXPORT int signal_pipe_dispatch(void);
-#ifdef USE_FORK
-NOEXPORT void client_status(void); /* dead children detected */
-#endif
 NOEXPORT char *signal_name(int);
 
 /**************************************** global variables */
@@ -83,9 +88,9 @@ NOEXPORT char *signal_name(int);
 static SOCKET signal_pipe[2]={INVALID_SOCKET, INVALID_SOCKET};
 
 #ifndef USE_FORK
-long max_clients=0;
+int max_clients=0;
 /* -1 before a valid config is loaded, then the current number of clients */
-volatile long num_clients=-1;
+int num_clients=-1;
 #endif
 s_poll_set *fds; /* file descriptors of listening sockets */
 int systemd_fds; /* number of file descriptors passed by systemd */
@@ -221,70 +226,48 @@ void main_cleanup() {
 
 /**************************************** Unix-specific initialization */
 
-#ifndef USE_WIN32
+#if !defined(USE_WIN32) && !defined(USE_OS2)
 
-#ifdef USE_FORK
-NOEXPORT void client_status(void) { /* dead children detected */
+NOEXPORT void pid_status_nohang(const char *info) {
     int pid, status;
 
-#ifdef HAVE_WAIT_FOR_PID
-    s_log(LOG_DEBUG, "Retrieving pid values with " HAVE_WAIT_FOR_PID);
-    while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
-#else
-    s_log(LOG_DEBUG, "Retrieving a pid value with wait()");
-    if((pid=wait(&status))>0) {
-#endif
-#ifdef WIFSIGNALED
-        if(WIFSIGNALED(status)) {
-            char *sig_name=signal_name(WTERMSIG(status));
-            s_log(LOG_DEBUG, "Process %d terminated on %s",
-                pid, sig_name);
-            str_free(sig_name);
-        } else {
-            s_log(LOG_DEBUG, "Process %d finished with code %d",
-                pid, WEXITSTATUS(status));
-        }
-    }
-#else
-        s_log(LOG_DEBUG, "Process %d finished with code %d",
-            pid, status);
-    }
+#ifdef HAVE_WAITPID /* POSIX.1 */
+    s_log(LOG_DEBUG, "Retrieving pid statuses with waitpid()");
+    while((pid=waitpid(-1, &status, WNOHANG))>0)
+        status_info(pid, status, info);
+#elif defined(HAVE_WAIT4) /* 4.3BSD */
+    s_log(LOG_DEBUG, "Retrieving pid statuses with wait4()");
+    while((pid=wait4(-1, &status, WNOHANG, NULL))>0)
+        status_info(pid, status, info);
+#else /* no support for WNOHANG */
+    pid_status_hang(info);
 #endif
 }
-#endif /* defined USE_FORK */
 
-#ifndef USE_OS2
-
-void child_status(void) { /* dead libwrap or 'exec' process detected */
+void pid_status_hang(const char *info) {
     int pid, status;
 
-#ifdef HAVE_WAIT_FOR_PID
-    s_log(LOG_DEBUG, "Retrieving pid values with " HAVE_WAIT_FOR_PID);
-    while((pid=wait_for_pid(-1, &status, WNOHANG))>0) {
-#else
-    s_log(LOG_DEBUG, "Retrieving a pid value with wait()");
-    if((pid=wait(&status))>0) {
-#endif
-#ifdef WIFSIGNALED
-        if(WIFSIGNALED(status)) {
-            char *sig_name=signal_name(WTERMSIG(status));
-            s_log(LOG_INFO, "Child process %d terminated on %s",
-                pid, sig_name);
-            str_free(sig_name);
-        } else {
-            s_log(LOG_INFO, "Child process %d finished with code %d",
-                pid, WEXITSTATUS(status));
-        }
-#else
-        s_log(LOG_INFO, "Child process %d finished with status %d",
-            pid, status);
-#endif
-    }
+    s_log(LOG_DEBUG, "Retrieving a pid status with wait()");
+    if((pid=wait(&status))>0)
+        status_info(pid, status, info);
 }
 
-#endif /* !defined(USE_OS2) */
+NOEXPORT void status_info(int pid, int status, const char *info) {
+#ifdef WIFSIGNALED
+    if(WIFSIGNALED(status)) {
+        char *sig_name=signal_name(WTERMSIG(status));
+        s_log(LOG_INFO, "%s %d terminated on %s", info, pid, sig_name);
+        str_free(sig_name);
+    } else {
+        s_log(LOG_INFO, "%s %d finished with code %d",
+            info, pid, WEXITSTATUS(status));
+    }
+#else
+    s_log(LOG_INFO, "%s %d finished with status %d", info, pid, status);
+#endif
+}
 
-#endif /* !defined(USE_WIN32) */
+#endif /* !defined(USE_WIN32) && !defined(USE_OS2) */
 
 /**************************************** main loop accepting connections */
 
@@ -329,6 +312,7 @@ void daemon_loop(void) {
             sleep(1); /* to avoid log trashing */
         }
     }
+    leak_table_utilization();
 }
 
     /* return 1 when a short delay is needed before another try */
@@ -369,17 +353,21 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt, unsigned i) {
     RAND_add("", 1, 0.0); /* each child needs a unique entropy pool */
 #else
     if(max_clients && num_clients>=max_clients) {
-        s_log(LOG_WARNING, "Connection rejected: too many clients (>=%ld)",
+        s_log(LOG_WARNING, "Connection rejected: too many clients (>=%d)",
             max_clients);
         closesocket(s);
         return 0;
     }
 #endif
+#ifndef USE_FORK
     service_up_ref(opt);
+#endif
     if(create_client(fd, s, alloc_client_session(opt, s, s))) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
         closesocket(s);
+#ifndef USE_FORK
         service_free(opt);
+#endif
         return 0;
     }
     return 0;
@@ -394,12 +382,16 @@ NOEXPORT int exec_connect_start(void) {
         if(opt->exec_name && opt->connect_addr.names) {
             s_log(LOG_DEBUG, "Starting exec+connect service [%s]",
                 opt->servname);
+#ifndef USE_FORK
             service_up_ref(opt);
+#endif
             if(create_client(INVALID_SOCKET, INVALID_SOCKET,
                     alloc_client_session(opt, INVALID_SOCKET, INVALID_SOCKET))) {
                 s_log(LOG_ERR, "Failed to start exec+connect service [%s]",
                     opt->servname);
+#ifndef USE_FORK
                 service_free(opt);
+#endif
                 return 1; /* fatal error */
             }
         }
@@ -521,7 +513,7 @@ int bind_ports(void) {
                 }
             }
             if(!opt->bound_ports) {
-                s_log(LOG_ERR, "Could not bind any accepting port");
+                s_log(LOG_ERR, "Binding service [%s] failed", opt->servname);
                 return 1;
             }
             ++listening_section;
@@ -576,15 +568,9 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
     /* we don't bind or listen on a socket inherited from systemd */
     if(listening_section>=systemd_fds) {
         if(bind(fd, &addr->sa, addr_len(addr))) {
-            if(opt->bound_ports) {
-                log_error(LOG_DEBUG, get_last_socket_error(), "bind");
-                s_log(LOG_DEBUG, "Ignoring error binding service [%s] to %s",
-                    opt->servname, local_address);
-            } else {
-                sockerror("bind");
-                s_log(LOG_ERR, "Error binding service [%s] to %s",
-                    opt->servname, local_address);
-            }
+            int err=get_last_socket_error();
+            s_log(LOG_NOTICE, "Binding service [%s] to %s: %s (%d)",
+                opt->servname, local_address, s_strerror(err), err);
             str_free(local_address);
             closesocket(fd);
             return INVALID_SOCKET;
@@ -686,15 +672,19 @@ NOEXPORT int signal_pipe_init(void) {
 }
 
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
+#endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
 void signal_post(uint8_t sig) {
     /* no meaningful way here to handle the result */
     writesocket(signal_pipe[1], (char *)&sig, 1);
 }
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic pop
+#endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
 
 /* make a single attempt to dispatch a signal from the signal pipe */
@@ -734,9 +724,9 @@ NOEXPORT int signal_pipe_dispatch(void) {
     case SIGCHLD:
         s_log(LOG_DEBUG, "Processing SIGCHLD");
 #ifdef USE_FORK
-        client_status(); /* report status of client process */
+        pid_status_nohang("Process"); /* client process */
 #else /* USE_UCONTEXT || USE_PTHREAD */
-        child_status();  /* report status of libwrap or 'exec' process */
+        pid_status_nohang("Child process"); /* 'exec' process */
 #endif /* defined USE_FORK */
         return 0;
 #endif /* !defind USE_WIN32 */

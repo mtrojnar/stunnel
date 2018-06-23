@@ -1094,7 +1094,7 @@
     options = NO_TLSv1
     options = NO_TLSv1.1
     options = NO_TLSv1.2
-    options = NO_TLSv1_3</code></pre>
+    options = NO_TLSv1.3</code></pre>
 
 <p>Availability of specific protocols depends on the linked OpenSSL library. Older versions of OpenSSL do not support TLSv1.1 and TLSv1.2. Newer versions of OpenSSL do not support SSLv2.</p>
 

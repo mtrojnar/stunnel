@@ -86,7 +86,7 @@ struct alloc_list_struct {
 typedef struct {
     const char *alloc_file;
     int alloc_line;
-    long num, max;
+    int num, max;
 } LEAK_ENTRY;
 NOEXPORT LEAK_ENTRY leak_hash_table[LEAK_TABLE_SIZE],
     *leak_results[LEAK_TABLE_SIZE];
@@ -99,7 +99,7 @@ NOEXPORT LPTSTR str_vtprintf(LPCTSTR, va_list);
 NOEXPORT void *str_realloc_internal_debug(void *, size_t, const char *, int);
 
 NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
-NOEXPORT void str_leak_debug(const ALLOC_LIST *, long);
+NOEXPORT void str_leak_debug(const ALLOC_LIST *, int);
 
 NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *);
 NOEXPORT void leak_report();
@@ -150,7 +150,9 @@ char *str_printf(const char *format, ...) {
 }
 
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic push
+#endif /* __GNUC__>=4.6 */
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
 #endif /* __GNUC__ */
 char *str_vprintf(const char *format, va_list start_ap) {
@@ -173,7 +175,9 @@ char *str_vprintf(const char *format, va_list start_ap) {
     }
 }
 #ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic pop
+#endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
 
 #ifdef USE_WIN32
@@ -433,14 +437,14 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
 
 /**************************************** memory leak detection */
 
-NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, long change) {
+NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
     static size_t entries=0;
     LEAK_ENTRY *entry;
     int new_entry;
-    long allocations;
+    int allocations;
 
 #ifdef USE_OS_THREADS
-    if(!&stunnel_locks[STUNNEL_LOCKS-1]) /* threads not initialized */
+    if(!stunnel_locks[STUNNEL_LOCKS-1]) /* threads not initialized */
         return;
 #endif /* USE_OS_THREADS */
     if(!number_of_sections) /* configuration file not initialized */
@@ -452,31 +456,37 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, long change) {
         entry->alloc_file!=alloc_list->alloc_file;
 
     if(new_entry) { /* the file:line pair was encountered for the first time */
-        stunnel_write_lock(&stunnel_locks[LOCK_LEAK_HASH]);
+        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LEAK_HASH]);
         entry=leak_search(alloc_list); /* the list may have changed */
         if(entry->alloc_line==0) {
             if(entries>LEAK_TABLE_SIZE-100) { /* this should never happen */
-                stunnel_write_unlock(&stunnel_locks[LOCK_LEAK_HASH]);
+                CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LEAK_HASH]);
                 return;
             }
             entries++;
             entry->alloc_line=alloc_list->alloc_line;
             entry->alloc_file=alloc_list->alloc_file;
         }
-        stunnel_write_unlock(&stunnel_locks[LOCK_LEAK_HASH]);
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LEAK_HASH]);
     }
 
-#if defined(USE_OS_THREADS) && defined(__GNUC__)
-    allocations=__sync_add_and_fetch(&entry->num, change);
-#elif defined(USE_OS_THREADS) && defined(_MSC_VER)
-    allocations=InterlockedExchangeAdd(&entry->num, change);
-#elif defined(USE_OS_THREADS) && OPENSSL_VERSION_NUMBER>=0x10100000L
-    /* CRYPTO_atomic_add() is *really* slow in OpenSSL < 1.1.0 */
+    /* for performance we try to avoid calling CRYPTO_atomic_add() here */
+#ifdef USE_OS_THREADS
+#if defined(__GNUC__) && defined(__ATOMIC_ACQ_REL)
+    if(__atomic_is_lock_free(sizeof entry->num, &entry->num))
+        allocations=__atomic_add_fetch(&entry->num, change, __ATOMIC_ACQ_REL);
+    else
+        CRYPTO_atomic_add(&entry->num, change, &allocations,
+            stunnel_locks[LOCK_LEAK_HASH]);
+#elif defined(_MSC_VER)
+    allocations=InterlockedExchangeAdd(&entry->num, change)+change;
+#else /* atomic add not directly supported by the compiler */
     CRYPTO_atomic_add(&entry->num, change, &allocations,
-        &stunnel_locks[LOCK_LEAK_HASH]);
-#else /* non-atomic operations cause occasional false positives */
-    allocations=(entry->num+=change);
+        stunnel_locks[LOCK_LEAK_HASH]);
 #endif
+#else /* USE_OS_THREADS */
+    allocations=(entry->num+=change);
+#endif /* USE_OS_THREADS */
 
     if(allocations<=leak_threshold()) /* leak not detected */
         return;
@@ -488,7 +498,7 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, long change) {
     }
     /* we *may* need to allocate a new leak_results entry */
     /* locking is slow, so we try to avoid it if possible */
-    stunnel_write_lock(&stunnel_locks[LOCK_LEAK_RESULTS]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LEAK_RESULTS]);
     if(entry->max==0) { /* the table may have changed */
         leak_results[leak_result_num]=entry;
         entry->max=allocations;
@@ -496,18 +506,36 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, long change) {
     } else { /* gracefully handle the race condition */
         entry->max=allocations;
     }
-    stunnel_write_unlock(&stunnel_locks[LOCK_LEAK_RESULTS]);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LEAK_RESULTS]);
 }
 
 /* O(1) hash table lookup */
 NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *alloc_list) {
-    int i=alloc_list->alloc_line%LEAK_TABLE_SIZE;
+    /* a trivial hash based on source file name *address* and line number */
+    unsigned i=((unsigned)(uintptr_t)alloc_list->alloc_file+
+        (unsigned)alloc_list->alloc_line)%LEAK_TABLE_SIZE;
 
     while(!(leak_hash_table[i].alloc_line==0 ||
             (leak_hash_table[i].alloc_line==alloc_list->alloc_line &&
             leak_hash_table[i].alloc_file==alloc_list->alloc_file)))
         i=(i+1)%LEAK_TABLE_SIZE;
     return leak_hash_table+i;
+}
+
+void leak_table_utilization() {
+    int i, utilization=0;
+
+    for(i=0; i<LEAK_TABLE_SIZE; ++i) {
+        if(leak_hash_table[i].alloc_line) {
+            ++utilization;
+#if 0
+            s_log(LOG_DEBUG, "Leak hash entry %d: %s:%d", i,
+                leak_hash_table[i].alloc_file, leak_hash_table[i].alloc_line);
+#endif
+        }
+    }
+    s_log(LOG_DEBUG, "Leak detection table utilization: %d/%d, %02.2f%%",
+        utilization, LEAK_TABLE_SIZE, 100.0*utilization/LEAK_TABLE_SIZE);
 }
 
 /* report identified leaks */
@@ -519,7 +547,7 @@ NOEXPORT void leak_report() {
     for(i=0; i<leak_result_num; ++i)
         if(leak_results[i] /* an officious compiler could reorder code */ &&
                 leak_results[i]->max>limit /* the limit could have changed */)
-            s_log(LOG_WARNING, "Possible memory leak at %s:%d: %ld allocations",
+            s_log(LOG_WARNING, "Possible memory leak at %s:%d: %d allocations",
                 leak_results[i]->alloc_file, leak_results[i]->alloc_line,
                 leak_results[i]->max);
 }

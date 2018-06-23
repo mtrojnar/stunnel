@@ -8,21 +8,19 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  [https client]
+  [client]
   client = yes
   accept = 127.0.0.1:${http1}
-  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https1}
   verifyChain = yes
   CAfile = ${script_path}/certs/CACert.pem
 
-  [https server]
-  accept = 127.0.0.1:${https}
-  connect = 127.0.0.1:${http2}
+  [server]
+  accept = 127.0.0.1:${https1}
+  connect = 127.0.0.1:${http_nc}
   cert = ${script_path}/certs/stunnel.pem
 EOT
 }
 
-check_ports "112_failure_verify_chain"
-start 2> "error.log"
-test_log_for "112_failure_verify_chain" "failure" "$1" 2>> "stderr.log"
+test_log_for "112_failure_verify_chain" "failure" "0" "$1" "$2" "$3" 2>> "stderr.log"
 exit $?

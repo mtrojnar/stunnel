@@ -416,8 +416,8 @@ typedef struct {
 /**************************************** prototypes for stunnel.c */
 
 #ifndef USE_FORK
-extern long max_clients;
-extern volatile long num_clients;
+extern int max_clients;
+extern int num_clients;
 #endif
 
 void main_init(void);
@@ -429,7 +429,7 @@ void unbind_ports(void);
 int bind_ports(void);
 void signal_post(uint8_t);
 #if !defined(USE_WIN32) && !defined(USE_OS2)
-void child_status(void);  /* dead libwrap or 'exec' process detected */
+void pid_status_hang(const char *);
 #endif
 void stunnel_info(int);
 
@@ -631,7 +631,7 @@ const char *s_gai_strerror(int);
 #ifndef _WIN32_WCE
 typedef int (CALLBACK * GETADDRINFO) (const char *,
     const char *, const struct addrinfo *, struct addrinfo **);
-typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo FAR *);
+typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo *);
 typedef int (CALLBACK * GETNAMEINFO) (const struct sockaddr *, socklen_t,
     char *, size_t, char *, size_t, int);
 extern GETADDRINFO s_getaddrinfo;
@@ -652,6 +652,8 @@ int getnameinfo(const struct sockaddr *, socklen_t,
 #define USE_OS_THREADS
 #endif
 
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+
 #ifdef USE_OS_THREADS
 
 struct CRYPTO_dynlock_value {
@@ -662,10 +664,19 @@ struct CRYPTO_dynlock_value {
     CRITICAL_SECTION critical_section;
 #endif
     const char *init_file, *read_lock_file, *write_lock_file,
-        *read_unlock_file, *write_unlock_file, *destroy_file;
-    int init_line, read_lock_line, write_lock_line,
-        read_unlock_line, write_unlock_line, destroy_line;
+        *unlock_file, *destroy_file;
+    int init_line, read_lock_line, write_lock_line, unlock_line, destroy_line;
 };
+
+typedef struct CRYPTO_dynlock_value CRYPTO_RWLOCK;
+
+#else /* USE_OS_THREADS */
+
+typedef void CRYPTO_RWLOCK;
+
+#endif /* USE_OS_THREADS */
+
+#endif /* OPENSSL_VERSION_NUMBER<0x10100004L */
 
 typedef enum {
     LOCK_SESSION, LOCK_ADDR,
@@ -682,37 +693,18 @@ typedef enum {
 #endif /* OPENSSL_NO_DH */
     STUNNEL_LOCKS                           /* number of locks */
 } LOCK_TYPE;
-extern struct CRYPTO_dynlock_value stunnel_locks[STUNNEL_LOCKS];
 
-void stunnel_rwlock_init_debug(struct CRYPTO_dynlock_value *, const char *, int);
-void stunnel_read_lock_debug(struct CRYPTO_dynlock_value *, const char *, int);
-void stunnel_write_lock_debug(struct CRYPTO_dynlock_value *, const char *, int);
-void stunnel_read_unlock_debug(struct CRYPTO_dynlock_value *, const char *, int);
-void stunnel_write_unlock_debug(struct CRYPTO_dynlock_value *, const char *, int);
-void stunnel_rwlock_destroy_debug(struct CRYPTO_dynlock_value *, const char *, int);
-
-#define stunnel_rwlock_init(x) stunnel_rwlock_init_debug((x),__FILE__,__LINE__)
-#define stunnel_read_lock(x) stunnel_read_lock_debug((x),__FILE__,__LINE__)
-#define stunnel_write_lock(x) stunnel_write_lock_debug((x),__FILE__,__LINE__)
-#define stunnel_read_unlock(x) stunnel_read_unlock_debug((x),__FILE__,__LINE__)
-#define stunnel_write_unlock(x) stunnel_write_unlock_debug((x),__FILE__,__LINE__)
-#define stunnel_rwlock_destroy(x) stunnel_rwlock_destroy_debug((x),__FILE__,__LINE__)
+extern CRYPTO_RWLOCK *stunnel_locks[STUNNEL_LOCKS];
 
 #if OPENSSL_VERSION_NUMBER<0x10100004L
-#define CRYPTO_atomic_add(addr,amount,result,type) \
-    *result = type ? CRYPTO_add(addr,amount,type) : (*addr+=amount)
+/* Emulate the OpenSSL 1.1 locking API for older OpenSSL versions */
+CRYPTO_RWLOCK *CRYPTO_THREAD_lock_new(void);
+int CRYPTO_THREAD_read_lock(CRYPTO_RWLOCK *);
+int CRYPTO_THREAD_write_lock(CRYPTO_RWLOCK *);
+int CRYPTO_THREAD_unlock(CRYPTO_RWLOCK *);
+void CRYPTO_THREAD_lock_free(CRYPTO_RWLOCK *);
+int CRYPTO_atomic_add(int *, int, int *, CRYPTO_RWLOCK *);
 #endif
-
-#else /* USE_OS_THREADS */
-
-#define stunnel_rwlock_init(x) {}
-#define stunnel_read_lock(x) {}
-#define stunnel_write_lock(x) {}
-#define stunnel_read_unlock(x) {}
-#define stunnel_write_unlock(x) {}
-#define stunnel_rwlock_destroy(x) {}
-
-#endif /* USE_OS_THREADS */
 
 int sthreads_init(void);
 unsigned long stunnel_process_id(void);
@@ -816,6 +808,8 @@ void str_detach_debug(void *, const char *, int);
 void str_free_debug(void *, const char *, int);
 #define str_free(a) str_free_debug((a), __FILE__, __LINE__), (a)=NULL
 #define str_free_expression(a) str_free_debug((a), __FILE__, __LINE__)
+
+void leak_table_utilization(void);
 
 int safe_memcmp(const void *, const void *, size_t);
 

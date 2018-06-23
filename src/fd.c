@@ -89,8 +89,8 @@ void get_limits(void) { /* set max_fds and max_clients */
         max_fds=16;
 
     if(max_fds) {
-        max_clients=(long)(max_fds>=256 ? max_fds*125/256 : (max_fds-6)/2);
-        s_log(LOG_DEBUG, "Clients allowed=%ld", max_clients);
+        max_clients=(int)(max_fds>=256 ? max_fds*125/256 : (max_fds-6)/2);
+        s_log(LOG_DEBUG, "Clients allowed=%d", max_clients);
     } else {
         max_clients=0;
         s_log(LOG_DEBUG, "No limit detected for the number of clients");

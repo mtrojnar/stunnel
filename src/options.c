@@ -73,6 +73,9 @@ NOEXPORT char *sni_init(SERVICE_OPTIONS *);
 NOEXPORT void sni_free(SERVICE_OPTIONS *);
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 
+NOEXPORT char *tls_methods_set(SERVICE_OPTIONS *, const char *);
+NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *);
+
 NOEXPORT char *parse_debug_level(char *, SERVICE_OPTIONS *);
 
 #ifndef OPENSSL_NO_PSK
@@ -158,9 +161,11 @@ static const SSL_OPTION ssl_opts[] = {
     {"NO_TLSv1.2", 0},
 #endif
 #ifdef SSL_OP_NO_TLSv1_3
-    {"NO_TLSv1_3", SSL_OP_NO_TLSv1_3},
+    {"NO_TLSv1.3", SSL_OP_NO_TLSv1_3},
+    {"NO_TLSv1_3", SSL_OP_NO_TLSv1_3}, /* keep compatibility with our typo */
 #else /* ignore if unsupported by OpenSSL */
-    {"NO_TLSv1_3", 0},
+    {"NO_TLSv1.3", 0},
+    {"NO_TLSv1_3", 0}, /* keep compatibility with our typo */
 #endif
     {"PKCS1_CHECK_1", SSL_OP_PKCS1_CHECK_1},
     {"PKCS1_CHECK_2", SSL_OP_PKCS1_CHECK_2},
@@ -210,7 +215,7 @@ NOEXPORT void socket_option_set_int(SOCK_OPT *, char *, int, int);
 NOEXPORT SOCK_OPT *socket_options_dup(SOCK_OPT *);
 NOEXPORT void socket_options_free(SOCK_OPT *);
 NOEXPORT int socket_options_print(void);
-NOEXPORT char *socket_option_text(int, OPT_UNION *);
+NOEXPORT char *socket_option_text(VAL_TYPE, OPT_UNION *);
 NOEXPORT int socket_option_parse(SOCK_OPT *, char *);
 
 #ifndef OPENSSL_NO_OCSP
@@ -603,17 +608,23 @@ void options_free() {
 }
 
 void service_up_ref(SERVICE_OPTIONS *section) {
-    stunnel_write_lock(&stunnel_locks[LOCK_REF]);
+#ifdef USE_OS_THREADS
+    int ref;
+
+    CRYPTO_atomic_add(&section->ref, 1, &ref, stunnel_locks[LOCK_REF]);
+#else
     ++(section->ref);
-    stunnel_write_unlock(&stunnel_locks[LOCK_REF]);
+#endif
 }
 
 void service_free(SERVICE_OPTIONS *section) {
     int ref;
 
-    stunnel_write_lock(&stunnel_locks[LOCK_REF]);
+#ifdef USE_OS_THREADS
+    CRYPTO_atomic_add(&section->ref, -1, &ref, stunnel_locks[LOCK_REF]);
+#else
     ref=--(section->ref);
-    stunnel_write_unlock(&stunnel_locks[LOCK_REF]);
+#endif
     if(ref==0)
         parse_service_option(CMD_FREE, section, NULL, NULL);
 }
@@ -2483,10 +2494,6 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_END:
         if(!section->psk_keys) /* PSK not configured */
             break;
-#ifdef SSL_OP_NO_TLSv1_3
-        /* PSK is not supported in TLS 1.3 */
-        section->ssl_options_set|=SSL_OP_NO_TLSv1_3;
-#endif
         psk_sort(&section->psk_sorted, section->psk_keys);
         if(section->option.client) {
             if(section->psk_identity) {
@@ -3016,82 +3023,18 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* sslVersion */
     switch(cmd) {
     case CMD_BEGIN:
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
-        section->client_method=(SSL_METHOD *)TLS_client_method();
-        section->server_method=(SSL_METHOD *)TLS_server_method();
-#else
-        section->client_method=(SSL_METHOD *)SSLv23_client_method();
-        section->server_method=(SSL_METHOD *)SSLv23_server_method();
-#endif
+        tls_methods_set(section, NULL);
         break;
     case CMD_EXEC:
         if(strcasecmp(opt, "sslVersion"))
             break;
-        if(!strcasecmp(arg, "all")) {
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
-            section->client_method=(SSL_METHOD *)TLS_client_method();
-            section->server_method=(SSL_METHOD *)TLS_server_method();
-#else
-            section->client_method=(SSL_METHOD *)SSLv23_client_method();
-            section->server_method=(SSL_METHOD *)SSLv23_server_method();
-#endif
-#if OPENSSL_API_COMPAT<0x10100000L
-        } else if(!strcasecmp(arg, "SSLv2")) {
-#ifndef OPENSSL_NO_SSL2
-            section->client_method=(SSL_METHOD *)SSLv2_client_method();
-            section->server_method=(SSL_METHOD *)SSLv2_server_method();
-#else /* defined(OPENSSL_NO_SSL2) */
-            return "SSLv2 not supported";
-#endif /* !defined(OPENSSL_NO_SSL2) */
-        } else if(!strcasecmp(arg, "SSLv3")) {
-#ifndef OPENSSL_NO_SSL3
-            section->client_method=(SSL_METHOD *)SSLv3_client_method();
-            section->server_method=(SSL_METHOD *)SSLv3_server_method();
-#else /* defined(OPENSSL_NO_SSL3) */
-            return "SSLv3 not supported";
-#endif /* !defined(OPENSSL_NO_SSL3) */
-        } else if(!strcasecmp(arg, "TLSv1")) {
-#ifndef OPENSSL_NO_TLS1
-            section->client_method=(SSL_METHOD *)TLSv1_client_method();
-            section->server_method=(SSL_METHOD *)TLSv1_server_method();
-#else /* defined(OPENSSL_NO_TLS1) */
-            return "TLSv1 not supported";
-#endif /* !defined(OPENSSL_NO_TLS1) */
-        } else if(!strcasecmp(arg, "TLSv1.1")) {
-#ifndef OPENSSL_NO_TLS1_1
-            section->client_method=(SSL_METHOD *)TLSv1_1_client_method();
-            section->server_method=(SSL_METHOD *)TLSv1_1_server_method();
-#else /* defined(OPENSSL_NO_TLS1_1) */
-            return "TLSv1.1 not supported";
-#endif /* !defined(OPENSSL_NO_TLS1_1) */
-        } else if(!strcasecmp(arg, "TLSv1.2")) {
-#ifndef OPENSSL_NO_TLS1_2
-            section->client_method=(SSL_METHOD *)TLSv1_2_client_method();
-            section->server_method=(SSL_METHOD *)TLSv1_2_server_method();
-#else /* defined(OPENSSL_NO_TLS1_2) */
-            return "TLSv1.2 not supported";
-#endif /* !defined(OPENSSL_NO_TLS1_2) */
-#endif /* OPENSSL_API_COMPAT<0x10100000L */
-        } else
-            return "Incorrect version of TLS protocol";
-        return NULL; /* OK */
+        return tls_methods_set(section, arg);
     case CMD_END:
-#ifdef USE_FIPS
-        if(new_global_options.option.fips) {
-#ifndef OPENSSL_NO_SSL2
-            if(section->option.client ?
-                    section->client_method==(SSL_METHOD *)SSLv2_client_method() :
-                    section->server_method==(SSL_METHOD *)SSLv2_server_method())
-                return "\"sslVersion = SSLv2\" not supported in FIPS mode";
-#endif /* !defined(OPENSSL_NO_SSL2) */
-#ifndef OPENSSL_NO_SSL3
-            if(section->option.client ?
-                    section->client_method==(SSL_METHOD *)SSLv3_client_method() :
-                    section->server_method==(SSL_METHOD *)SSLv3_server_method())
-                return "\"sslVersion = SSLv3\" not supported in FIPS mode";
-#endif /* !defined(OPENSSL_NO_SSL3) */
+        {
+            char *tmp_str=tls_methods_check(section);
+            if(tmp_str)
+                return tmp_str;
         }
-#endif /* USE_FIPS */
         break;
     case CMD_DUP:
         section->client_method=new_service_options.client_method;
@@ -3502,6 +3445,9 @@ NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
             tmpsrv->ssl_options_set|=
                 SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
         }
+        /* a slave section reference is needed to prevent a race condition
+           while switching to a section after configuration file reload */
+        service_up_ref(section);
         tmpsrv->servername_list_tail->servername=str_dup_detached(tmp_str);
         tmpsrv->servername_list_tail->opt=section;
         tmpsrv->servername_list_tail->next=NULL;
@@ -3536,6 +3482,7 @@ NOEXPORT void sni_free(SERVICE_OPTIONS *section) {
     while(curr) {
         SERVERNAME_LIST *next=curr->next;
         str_free(curr->servername);
+        service_free(curr->opt); /* free the slave section */
         str_free(curr);
         curr=next;
     }
@@ -3544,6 +3491,97 @@ NOEXPORT void sni_free(SERVICE_OPTIONS *section) {
 }
 
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
+
+/**************************************** (deprecated) TLS methods */
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif /* __GNUC__ */
+
+NOEXPORT char *tls_methods_set(SERVICE_OPTIONS *section, const char *arg) {
+    if(!arg) { /* defaults */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+        section->client_method=(SSL_METHOD *)TLS_client_method();
+        section->server_method=(SSL_METHOD *)TLS_server_method();
+#else
+        section->client_method=(SSL_METHOD *)SSLv23_client_method();
+        section->server_method=(SSL_METHOD *)SSLv23_server_method();
+#endif
+    } else if(!strcasecmp(arg, "all")) {
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+        section->client_method=(SSL_METHOD *)TLS_client_method();
+        section->server_method=(SSL_METHOD *)TLS_server_method();
+#else
+        section->client_method=(SSL_METHOD *)SSLv23_client_method();
+        section->server_method=(SSL_METHOD *)SSLv23_server_method();
+#endif
+#if OPENSSL_API_COMPAT<0x10100000L
+    } else if(!strcasecmp(arg, "SSLv2")) {
+#ifndef OPENSSL_NO_SSL2
+        section->client_method=(SSL_METHOD *)SSLv2_client_method();
+        section->server_method=(SSL_METHOD *)SSLv2_server_method();
+#else /* OPENSSL_NO_SSL2 */
+        return "SSLv2 not supported";
+#endif /* !OPENSSL_NO_SSL2 */
+    } else if(!strcasecmp(arg, "SSLv3")) {
+#ifndef OPENSSL_NO_SSL3
+        section->client_method=(SSL_METHOD *)SSLv3_client_method();
+        section->server_method=(SSL_METHOD *)SSLv3_server_method();
+#else /* OPENSSL_NO_SSL3 */
+        return "SSLv3 not supported";
+#endif /* !OPENSSL_NO_SSL3 */
+    } else if(!strcasecmp(arg, "TLSv1")) {
+#ifndef OPENSSL_NO_TLS1
+        section->client_method=(SSL_METHOD *)TLSv1_client_method();
+        section->server_method=(SSL_METHOD *)TLSv1_server_method();
+#else /* OPENSSL_NO_TLS1 */
+        return "TLSv1 not supported";
+#endif /* !OPENSSL_NO_TLS1 */
+    } else if(!strcasecmp(arg, "TLSv1.1")) {
+#ifndef OPENSSL_NO_TLS1_1
+        section->client_method=(SSL_METHOD *)TLSv1_1_client_method();
+        section->server_method=(SSL_METHOD *)TLSv1_1_server_method();
+#else /* OPENSSL_NO_TLS1_1 */
+        return "TLSv1.1 not supported";
+#endif /* !OPENSSL_NO_TLS1_1 */
+    } else if(!strcasecmp(arg, "TLSv1.2")) {
+#ifndef OPENSSL_NO_TLS1_2
+        section->client_method=(SSL_METHOD *)TLSv1_2_client_method();
+        section->server_method=(SSL_METHOD *)TLSv1_2_server_method();
+#else /* OPENSSL_NO_TLS1_2 */
+        return "TLSv1.2 not supported";
+#endif /* !OPENSSL_NO_TLS1_2 */
+#endif /* OPENSSL_API_COMPAT<0x10100000L */
+    } else
+        return "Incorrect version of TLS protocol";
+    return NULL; /* OK */
+}
+
+NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *section) {
+    (void)section; /* squash the unused parameter warning */
+#ifdef USE_FIPS
+    if(new_global_options.option.fips) {
+#ifndef OPENSSL_NO_SSL2
+        if(section->option.client ?
+                section->client_method==(SSL_METHOD *)SSLv2_client_method() :
+                section->server_method==(SSL_METHOD *)SSLv2_server_method())
+            return "\"sslVersion = SSLv2\" not supported in FIPS mode";
+#endif /* !OPENSSL_NO_SSL2 */
+#ifndef OPENSSL_NO_SSL3
+        if(section->option.client ?
+                section->client_method==(SSL_METHOD *)SSLv3_client_method() :
+                section->server_method==(SSL_METHOD *)SSLv3_server_method())
+            return "\"sslVersion = SSLv3\" not supported in FIPS mode";
+#endif /* !OPENSSL_NO_SSL3 */
+    }
+#endif /* USE_FIPS */
+    return NULL;
+}
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif /* __GNUC__ */
 
 /**************************************** facility/debug level */
 
@@ -3927,7 +3965,7 @@ NOEXPORT int socket_options_print(void) {
     return 0; /* OK */
 }
 
-NOEXPORT char *socket_option_text(int type, OPT_UNION *val) {
+NOEXPORT char *socket_option_text(VAL_TYPE type, OPT_UNION *val) {
     if(!val)
         return str_dup("    --    ");
     switch(type) {
@@ -3943,6 +3981,8 @@ NOEXPORT char *socket_option_text(int type, OPT_UNION *val) {
             (int)val->timeval_val.tv_sec, (int)val->timeval_val.tv_usec);
     case TYPE_STRING:
         return str_printf("%s", val->c_val);
+    case TYPE_NONE:
+        return str_dup("   none   "); /* internal error? */
     }
     return str_dup("  Ooops?  "); /* internal error? */
 }

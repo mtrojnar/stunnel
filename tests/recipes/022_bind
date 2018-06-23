@@ -8,20 +8,18 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  [https client]
+  [client]
   client = yes
   accept = 127.0.0.1:${http1}
-  connect = ${https}
+  connect = ${https1}
 
-  [https server]
-  accept = 127.0.0.1:${https}
-  accept = 127.0.0.1:${https}
-  connect = ${http2}
+  [server]
+  accept = 127.0.0.1:${https1}
+  accept = 127.0.0.1:${https1}
+  connect = ${http_nc}
   cert = ${script_path}/certs/server_cert.pem
 EOT
 }
 
-check_ports "022_bind"
-start 2> "error.log"
-test_log_for "022_bind" "success" "$1" 2>> "stderr.log"
+test_log_for "022_bind" "success" "0" "$1" "$2" "$3" 2>> "stderr.log"
 exit $?

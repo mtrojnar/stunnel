@@ -54,7 +54,7 @@ int dh_needed=0;
 /* SNI */
 #ifndef OPENSSL_NO_TLSEXT
 NOEXPORT int servername_cb(SSL *, int *, void *);
-NOEXPORT int matches_wildcard(char *, char *);
+NOEXPORT int matches_wildcard(const char *, const char *);
 #endif
 
 /* DH/ECDH */
@@ -224,7 +224,6 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     /* initialize the DH/ECDH key agreement in the server mode */
     if(!section->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
-        SSL_CTX_set_tlsext_servername_arg(section->ctx, section);
         SSL_CTX_set_tlsext_servername_callback(section->ctx, servername_cb);
 #endif /* OPENSSL_NO_TLSEXT */
 #ifndef OPENSSL_NO_DH
@@ -243,14 +242,16 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 #ifndef OPENSSL_NO_TLSEXT
 
 NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
-    SERVICE_OPTIONS *section=(SERVICE_OPTIONS *)arg;
     const char *servername=SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    CLI *c=SSL_get_ex_data(ssl, index_ssl_cli);
     SERVERNAME_LIST *list;
-    CLI *c;
 
     /* leave the alert type at SSL_AD_UNRECOGNIZED_NAME */
     (void)ad; /* squash the unused parameter warning */
-    if(!section->servername_list_head) {
+    (void)arg; /* squash the unused parameter warning */
+
+    /* handle trivial cases first */
+    if(!c->opt->servername_list_head) {
         s_log(LOG_DEBUG, "SNI: no virtual services defined");
         return SSL_TLSEXT_ERR_OK;
     }
@@ -258,24 +259,31 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
         s_log(LOG_NOTICE, "SNI: no servername received");
         return SSL_TLSEXT_ERR_NOACK;
     }
-    s_log(LOG_INFO, "SNI: requested servername: %s", servername);
 
-    for(list=section->servername_list_head; list; list=list->next)
-        if(matches_wildcard((char *)servername, list->servername)) {
-            s_log(LOG_DEBUG, "SNI: matched pattern: %s", list->servername);
-            c=SSL_get_ex_data(ssl, index_ssl_cli);
-            c->opt=list->opt;
-            SSL_set_SSL_CTX(ssl, c->opt->ctx);
-            SSL_set_verify(ssl, SSL_CTX_get_verify_mode(c->opt->ctx),
-                SSL_CTX_get_verify_callback(c->opt->ctx));
-            s_log(LOG_NOTICE, "SNI: switched to service [%s]",
-                c->opt->servname);
+    /* find a matching section */
+    s_log(LOG_INFO, "SNI: requested servername: %s", servername);
+    for(list=c->opt->servername_list_head; list; list=list->next)
+        if(matches_wildcard(servername, list->servername))
+            break;
+    if(!list) {
+        s_log(LOG_ERR, "SNI: no pattern matched servername: %s", servername);
+        return SSL_TLSEXT_ERR_OK;
+    }
+    s_log(LOG_DEBUG, "SNI: matched pattern: %s", list->servername);
+
+    /* switch to the new section */
+#ifndef USE_FORK
+    service_up_ref(list->opt);
+    service_free(c->opt);
+#endif
+    c->opt=list->opt;
+    SSL_set_SSL_CTX(ssl, c->opt->ctx);
+    SSL_set_verify(ssl, SSL_CTX_get_verify_mode(c->opt->ctx),
+        SSL_CTX_get_verify_callback(c->opt->ctx));
+    s_log(LOG_NOTICE, "SNI: switched to service [%s]", c->opt->servname);
 #ifdef USE_LIBWRAP
-            libwrap_auth(c); /* retry on a service switch */
+    libwrap_auth(c); /* retry on a service switch */
 #endif /* USE_LIBWRAP */
-            return SSL_TLSEXT_ERR_OK;
-        }
-    s_log(LOG_ERR, "SNI: no pattern matched servername: %s", servername);
     return SSL_TLSEXT_ERR_OK;
 }
 /* TLSEXT callback return codes:
@@ -284,18 +292,17 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
  *  - SSL_TLSEXT_ERR_ALERT_FATAL
  *  - SSL_TLSEXT_ERR_NOACK */
 
-NOEXPORT int matches_wildcard(char *servername, char *pattern) {
-    ssize_t diff;
-
+NOEXPORT int matches_wildcard(const char *servername, const char *pattern) {
     if(!servername || !pattern)
         return 0;
     if(*pattern=='*') { /* wildcard comparison */
-        diff=(ssize_t)strlen(servername)-(ssize_t)strlen(++pattern);
+        ssize_t diff=(ssize_t)strlen(servername)-((ssize_t)strlen(pattern)-1);
         if(diff<0) /* pattern longer than servername */
             return 0;
-        servername+=diff;
+        return !strcasecmp(servername+diff, pattern+1);
+    } else { /* string comparison */
+        return !strcasecmp(servername, pattern);
     }
-    return !strcasecmp(servername, pattern);
 }
 
 #endif /* OPENSSL_NO_TLSEXT */
@@ -346,9 +353,9 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
         DH_free(dh);
         return 0; /* OK */
     }
-    stunnel_read_lock(&stunnel_locks[LOCK_DH]);
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_DH]);
     SSL_CTX_set_tmp_dh(section->ctx, dh_params);
-    stunnel_read_unlock(&stunnel_locks[LOCK_DH]);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_DH]);
     dh_needed=1; /* generate temporary DH parameters in cron */
     section->option.dh_needed=1; /* update this context */
     s_log(LOG_INFO, "Using dynamic DH parameters");
@@ -976,7 +983,7 @@ NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess) {
     sess=SSL_get1_session(c->ssl);
 #endif
 
-    stunnel_write_lock(&stunnel_locks[LOCK_SESSION]);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
     if(c->opt->option.delayed_lookup) {
         old=c->opt->session;
         c->opt->session=sess;
@@ -989,7 +996,7 @@ NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess) {
             old=NULL;
         }
     }
-    stunnel_write_unlock(&stunnel_locks[LOCK_SESSION]);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SESSION]);
 
     if(old)
         SSL_SESSION_free(old);
@@ -1220,7 +1227,11 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
 
     c=SSL_get_ex_data((SSL *)ssl, index_ssl_cli);
     if(c) {
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+        OSSL_HANDSHAKE_STATE state=SSL_get_state(ssl);
+#else
         int state=SSL_get_state((SSL *)ssl);
+#endif
 
 #if 0
         s_log(LOG_DEBUG, "state = %x", state);

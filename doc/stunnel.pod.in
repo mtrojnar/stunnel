@@ -986,7 +986,7 @@ Use the following options instead:
     options = NO_TLSv1
     options = NO_TLSv1.1
     options = NO_TLSv1.2
-    options = NO_TLSv1_3
+    options = NO_TLSv1.3
 
 Availability of specific protocols depends on the linked OpenSSL library.
 Older versions of OpenSSL do not support TLSv1.1 and TLSv1.2.

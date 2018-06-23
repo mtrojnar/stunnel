@@ -1000,7 +1000,7 @@ Zamiast niej należy używać następujących opcji:
     options = NO_TLSv1
     options = NO_TLSv1.1
     options = NO_TLSv1.2
-    options = NO_TLSv1_3
+    options = NO_TLSv1.3
 
 Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
 Starsze wersje OpenSSL nie wspierają TLSv1.1 i TLSv1.2.

@@ -67,7 +67,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2018.05.15" "5.45" "stunnel TLS Proxy"
+.TH stunnel 8 "2018.06.20" "5.47" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -935,7 +935,7 @@ Zamiast niej należy używać następujących opcji:
 \&    options = NO_TLSv1
 \&    options = NO_TLSv1.1
 \&    options = NO_TLSv1.2
-\&    options = NO_TLSv1_3
+\&    options = NO_TLSv1.3
 .Ve
 .Sp
 Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.

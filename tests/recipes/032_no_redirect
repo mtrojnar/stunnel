@@ -8,10 +8,10 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  [https client]
+  [client_1]
   client = yes
   accept = 127.0.0.1:${http1}
-  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https1}
 ;correct certificate
   cert = ${script_path}/certs/client_cert.pem
 
@@ -25,8 +25,8 @@ start() {
   accept = 127.0.0.1:${http3}
   connect = 127.0.0.1:${https3}
 
-  [https server]
-  accept = 127.0.0.1:${https}
+  [server_1]
+  accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http2}
   redirect = ${http3}
   cert = ${script_path}/certs/server_cert.pem
@@ -47,7 +47,5 @@ start() {
 EOT
 }
 
-check_ports "032_no_redirect"
-start 2> "error.log"
-test_log_for "032_no_redirect" "execute" "$1" 2>> "stderr.log"
+test_log_for "032_no_redirect" "execute" "0" "$1" "$2" "$3" 2>> "stderr.log"
 exit $?

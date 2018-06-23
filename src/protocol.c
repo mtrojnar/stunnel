@@ -1372,8 +1372,8 @@ NOEXPORT char *ntlm3(char *domain,
     crypt_DES(phase3+ntlm_off+16, decoded+24, md4_hash+14);
     str_free(decoded);
 
-    strncpy((char *)phase3+domain_off, domain, domain_len);
-    strncpy((char *)phase3+user_off, user, user_len);
+    memcpy((char *)phase3+domain_off, domain, domain_len);
+    memcpy((char *)phase3+user_off, user, user_len);
 
     return base64(1, (char *)phase3, (int)end_off); /* encode */
 }

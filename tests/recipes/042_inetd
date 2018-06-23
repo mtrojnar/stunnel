@@ -8,8 +8,8 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  [https server]
-  accept = 127.0.0.1:${https}
+  [server]
+  accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
   execArgs = execute 042_inetd
   cert = ${script_path}/certs/server_cert.pem
@@ -23,12 +23,9 @@ start_inetd() {
   output = ${result_path}/stunnel_0.log
   service = inetd client
   client = yes
-  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https1}
 EOT
 }
 
-check_ports "042_inetd"
-start 2> "error.log"
-start_inetd 1> "temp.log" 2>> "error.log"
-test_log_for "042_inetd" "exe_con" "$1" 2>> "stderr.log"
+test_log_for "042_inetd" "exe_con" "0" "$1" "$2" "$3" 2>> "stderr.log"
 exit $?

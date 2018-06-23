@@ -363,16 +363,6 @@ typedef int SOCKET;
 #define INADDR_LOOPBACK  (u32)0x7F000001
 #endif
 
-#if defined(HAVE_WAITPID)
-/* for SYSV systems */
-#define wait_for_pid(a, b, c) waitpid((a), (b), (c))
-#define HAVE_WAIT_FOR_PID "waitpid()"
-#elif defined(HAVE_WAIT4)
-/* for BSD systems */
-#define wait_for_pid(a, b, c) wait4((a), (b), (c), NULL)
-#define HAVE_WAIT_FOR_PID "wait4()"
-#endif
-
 /* SunOS 4 */
 #if defined(sun) && !defined(__svr4__) && !defined(__SVR4)
 #define atexit(a) on_exit((a), NULL)

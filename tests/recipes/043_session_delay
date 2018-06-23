@@ -8,27 +8,25 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  [https client]
+  [client]
   client = yes
   exec = ${script_path}/execute_read
   execArgs = execute_read ${result_path}/temp.log
-  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https1}
   delay = yes
   retry = yes
 
-  [https server_1]
-  accept = 127.0.0.1:${https}
+  [server_1]
+  accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
   execArgs = execute 043_session_delay
   cert = ${script_path}/certs/server_cert.pem
 EOT
 }
 
-check_ports "043_session_delay"
 if ! grep -q "FORK" results.log
   then
-    start 2> "error.log"
-    test_log_for "043_session_delay" "session" "$1" "1" 2>> "stderr.log"
+    test_log_for "043_session_delay" "session" "1" "$1" "$2" "$3" 2>> "stderr.log"
     exit $?
   else
     exit_logs "043_session_delay" "skipped"

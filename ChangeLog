@@ -1,9 +1,14 @@
 stunnel change log
 
-Version 5.47, unreleased, urgency: LOW
+Version 5.47, 2018.06.23, urgency: HIGH
 * New features
+  - Fast add_lock_callback for OpenSSL < 1.1.0.
+    This largely improves performance on heavy load.
   - Automatic detection of Homebrew OpenSSL.
+  - Clarified port binding error logs.
+  - Various "make test" improvements.
 * Bugfixes
+  - Fixed a crash on switching to SNI slave sections.
 
 Version 5.46, 2018.05.28, urgency: MEDIUM
 * New features

@@ -11,16 +11,48 @@ script_path=$(pwd)
 cd "${result_path}"
 result_path="${result_path}/logs"
 
-if [ -n "$(command -v ncat)" ]
-  then # ncat
-    mynetcat="ncat"
-  elif [ -n "$(command -v nc)" ]
-    then # nc
-      mynetcat="nc"
-  else # # netcat not found
-    mynetcat="null"
+autodetection() {
+
+  result=0
+  if [ -n "$(command -v ncat)" ]
+    then # ncat
+      mynetcat="ncat"
+    elif [ -n "$(command -v nc)" ]
+      then # nc
+        mynetcat="nc"
+    else # netcat is required
+      printf "%s\n" "ncat / nc not found in \$PATH"
+      result=1
   fi
-if [ "$mynetcat" != "null" ] # netcat is required
+
+  if [ -n "$(command -v netstat)" ] && ! netstat -a -n 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
+    then
+      mynetstat="netstat"
+    elif [ -n "$(command -v ss)" ] && ! ss -a -n -l 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
+      then
+        mynetstat="ss"
+    elif [ -n "$(command -v lsof)" ] && ! lsof -i -n -P 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
+      then
+        mynetstat="lsof"
+    else # netstat / ss / lsof is required
+      printf "%s\n" "netstat / ss / lsof not found in \$PATH or some option error"
+      result=1
+   fi
+
+  if [ -n "$(command -v stdbuf)" ]
+    then
+      mybuffer="stdbuf"
+    elif [ -n "$(command -v unbuffer)" ]
+      then
+        mybuffer="unbuffer"
+    else
+      mybuffer=""
+    fi
+
+  return $result
+}
+
+if autodetection
   then
     rm -rf "${result_path}"
     mkdir "${result_path}"
@@ -29,31 +61,38 @@ if [ "$mynetcat" != "null" ] # netcat is required
     ../../src/stunnel -version 2>> "results.log"
     printf "\n%s\n" "Testing..." >> "results.log"
     head -n5 "results.log"
-    for plik in ${script_path}/recipes/*
-      do
-        /bin/sh $plik $mynetcat
-        state=$?
-        if [ "$state" -eq 0 ]
-          then # $state=0
-            count=$((count + 1))
-          elif [ "$state" -eq 125 ]
-            then # $state=125
-              skip=$((skip + 1))
-          else # $state=1
-            fail=$((fail + 1))
+    if ! grep -q "solaris" "results.log"
+      then
+        for plik in ${script_path}/recipes/*
+          do
+            /bin/sh $plik "$mynetcat" "$mynetstat" "$mybuffer"
+            state=$?
+            if [ "$state" -eq 0 ]
+              then # $state=0
+                count=$((count + 1))
+              elif [ "$state" -eq 125 ]
+                then # $state=125
+                  skip=$((skip + 1))
+              else # $state=1
+                fail=$((fail + 1))
+                result=1
+              fi
+          done
+        if [ $count -eq 0 ]
+          then # no test was done
             result=1
           fi
-      done
-    if [ $count -eq 0 ]
-      then # no test was done
-        result=1
+        printf "%s\n" "summary: success $count, skip $skip, fail $fail"
+        printf "%s\n" "summary: success $count, skip $skip, fail $fail" >> "results.log"
+        printf "%s\n" "./make_test finished"
+        cd ..
+      else # skip make test for solaris
+        printf "%s\n" "./make_test skipped"
+        printf "%s\n" "./make_test skipped" >> "results.log"
+        #result=125
       fi
-    printf "%s\n" "summary: success $count, skip $skip, fail $fail"
-    printf "%s\n" "summary: success $count, skip $skip, fail $fail" >> "results.log"
-    printf "%s\n" "./make_test finished"
-    cd ..
   else # netcat not found
-    printf "%s\n" "./make_test skipped: ncat (nc) not found in \$PATH"
+    printf "%s\n" "./make_test skipped"
     #result=125
   fi
 exit $result

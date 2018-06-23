@@ -8,21 +8,19 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  [https client]
+  [client]
   client = yes
   exec = ${script_path}/execute
   execArgs = execute 041_exec_connect
-  connect = 127.0.0.1:${https}
+  connect = 127.0.0.1:${https1}
 
-  [https server]
-  accept = 127.0.0.1:${https}
+  [server]
+  accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute_read
   execArgs = execute_read ${result_path}/temp.log
   cert = ${script_path}/certs/server_cert.pem
 EOT
 }
 
-check_ports "041_exec_connect"
-start 2> "error.log"
-test_log_for "041_exec_connect" "exe_con" 2>> "stderr.log"
+test_log_for "041_exec_connect" "exe_con" "0" "$1" "$2" "$3" 2>> "stderr.log"
 exit $?
