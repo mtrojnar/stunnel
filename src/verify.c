@@ -301,14 +301,17 @@ NOEXPORT int cert_check_subject(CLI *c, X509_STORE_CTX *callback_ctx) {
     X509 *cert=X509_STORE_CTX_get_current_cert(callback_ctx);
     NAME_LIST *ptr;
     char *peername=NULL;
+    int ret = -1;
 
     if(c->opt->check_host) {
         for(ptr=c->opt->check_host; ptr; ptr=ptr->next)
-            if(X509_check_host(cert, ptr->name, 0, 0, &peername)>0)
+            if(X509_check_host(cert, ptr->name, 0, 0, &peername)>0) {
+                ret = 1; /* accept */
                 break;
+            }
         if(!ptr) {
             s_log(LOG_WARNING, "CERT: No matching host name found");
-            return 0; /* reject */
+            if( ret == -1 ) ret = 0; /* reject */
         }
         s_log(LOG_INFO, "CERT: Host name \"%s\" matched with \"%s\"",
             ptr->name, peername);
@@ -317,27 +320,31 @@ NOEXPORT int cert_check_subject(CLI *c, X509_STORE_CTX *callback_ctx) {
 
     if(c->opt->check_email) {
         for(ptr=c->opt->check_email; ptr; ptr=ptr->next)
-            if(X509_check_email(cert, ptr->name, 0, 0)>0)
+            if(X509_check_email(cert, ptr->name, 0, 0)>0) {
+                ret = 1; /* accept */
                 break;
+            }
         if(!ptr) {
             s_log(LOG_WARNING, "CERT: No matching email address found");
-            return 0; /* reject */
+            if( ret == -1 ) ret = 0; /* reject */
         }
         s_log(LOG_INFO, "CERT: Email address \"%s\" matched", ptr->name);
     }
 
     if(c->opt->check_ip) {
         for(ptr=c->opt->check_ip; ptr; ptr=ptr->next)
-            if(X509_check_ip_asc(cert, ptr->name, 0)>0)
+            if(X509_check_ip_asc(cert, ptr->name, 0)>0) {
+                ret = 1; /* accept */
                 break;
+            }
         if(!ptr) {
             s_log(LOG_WARNING, "CERT: No matching IP address found");
-            return 0; /* reject */
+            if( ret == -1 ) ret = 0; /* reject */
         }
         s_log(LOG_INFO, "CERT: IP address \"%s\" matched", ptr->name);
     }
 
-    return 1; /* accept */
+    return ret;
 }
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
 
