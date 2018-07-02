@@ -464,7 +464,7 @@
 
 <p>email address of the peer certificate subject</p>
 
-<p>Multiple <i>checkEmail</i> options are allowed in a single service section. Certificates are accepted if no <i>checkEmail</i> option was specified, or the email address of the peer certificate matches any of the email addresses specified with <i>checkEmail</i>.</p>
+<p>Multiple <i>checkEmail</i> options are allowed in a single service section. Certificates are accepted if no subject checks were specified, or the email address of the peer certificate matches any of the email addresses specified with <i>checkEmail</i>.</p>
 
 <p>This option requires OpenSSL 1.0.2 or later.</p>
 
@@ -474,7 +474,7 @@
 
 <p>host of the peer certificate subject</p>
 
-<p>Multiple <i>checkHost</i> options are allowed in a single service section. Certificates are accepted if no <i>checkHost</i> option was specified, or the host name of the peer certificate matches any of the hosts specified with <i>checkHost</i>.</p>
+<p>Multiple <i>checkHost</i> options are allowed in a single service section. Certificates are accepted if no subject checks were specified, or the host name of the peer certificate matches any of the hosts specified with <i>checkHost</i>.</p>
 
 <p>This option requires OpenSSL 1.0.2 or later.</p>
 
@@ -484,7 +484,7 @@
 
 <p>IP address of the peer certificate subject</p>
 
-<p>Multiple <i>checkIP</i> options are allowed in a single service section. Certificates are accepted if no <i>checkIP</i> option was specified, or the IP address of the peer certificate matches any of the IP addresses specified with <i>checkIP</i>.</p>
+<p>Multiple <i>checkIP</i> options are allowed in a single service section. Certificates are accepted if no subject checks were specified, or the IP address of the peer certificate matches any of the IP addresses specified with <i>checkIP</i>.</p>
 
 <p>This option requires OpenSSL 1.0.2 or later.</p>
 

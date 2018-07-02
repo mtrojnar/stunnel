@@ -2029,6 +2029,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     }
 
+    /* libwrap */
 #ifdef USE_LIBWRAP
     switch(cmd) {
     case CMD_BEGIN:
@@ -2148,7 +2149,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     case CMD_DEFAULT:
         break;
     case CMD_HELP:
-        s_log(LOG_NOTICE, "%-22s = OCSP responder URL", "ocsp");
+        s_log(LOG_NOTICE, "%-22s = OCSP responder URL", "OCSP");
         break;
     }
 
@@ -2723,7 +2724,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     case CMD_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no send TCP RST on error",
-            "retry");
+            "reset");
         break;
     }
 
@@ -3279,7 +3280,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "Either \"CAfile\" or \"CApath\" has to be configured";
         break;
     case CMD_DUP:
-        /* handled by requireCert, verifyChain and verifyPeer */
+        section->option.request_cert=new_service_options.option.request_cert;
         break;
     case CMD_FREE:
         break;

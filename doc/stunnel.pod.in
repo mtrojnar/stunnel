@@ -398,9 +398,9 @@ engine is enabled.
 email address of the peer certificate subject
 
 Multiple I<checkEmail> options are allowed in a single service section.
-Certificates are accepted if no I<checkEmail> option was specified, or the
-email address of the peer certificate matches any of the email addresses
-specified with I<checkEmail>.
+Certificates are accepted if no subject checks were specified, or the email
+address of the peer certificate matches any of the email addresses specified
+with I<checkEmail>.
 
 This option requires OpenSSL 1.0.2 or later.
 
@@ -409,9 +409,8 @@ This option requires OpenSSL 1.0.2 or later.
 host of the peer certificate subject
 
 Multiple I<checkHost> options are allowed in a single service section.
-Certificates are accepted if no I<checkHost> option was specified, or the host
-name of the peer certificate matches any of the hosts specified with
-I<checkHost>.
+Certificates are accepted if no subject checks were specified, or the host name
+of the peer certificate matches any of the hosts specified with I<checkHost>.
 
 This option requires OpenSSL 1.0.2 or later.
 
@@ -420,7 +419,7 @@ This option requires OpenSSL 1.0.2 or later.
 IP address of the peer certificate subject
 
 Multiple I<checkIP> options are allowed in a single service section.
-Certificates are accepted if no I<checkIP> option was specified, or the IP
+Certificates are accepted if no subject checks were specified, or the IP
 address of the peer certificate matches any of the IP addresses specified with
 I<checkIP>.
 

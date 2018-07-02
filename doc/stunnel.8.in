@@ -67,7 +67,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2018.06.20" "5.47" "stunnel TLS Proxy"
+.TH stunnel 8 "2018.07.02" "5.48" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -378,9 +378,9 @@ engine is enabled.
 email address of the peer certificate subject
 .Sp
 Multiple \fIcheckEmail\fR options are allowed in a single service section.
-Certificates are accepted if no \fIcheckEmail\fR option was specified, or the
-email address of the peer certificate matches any of the email addresses
-specified with \fIcheckEmail\fR.
+Certificates are accepted if no subject checks were specified, or the email
+address of the peer certificate matches any of the email addresses specified
+with \fIcheckEmail\fR.
 .Sp
 This option requires OpenSSL 1.0.2 or later.
 .IP "\fBcheckHost\fR = \s-1HOST\s0" 4
@@ -388,9 +388,8 @@ This option requires OpenSSL 1.0.2 or later.
 host of the peer certificate subject
 .Sp
 Multiple \fIcheckHost\fR options are allowed in a single service section.
-Certificates are accepted if no \fIcheckHost\fR option was specified, or the host
-name of the peer certificate matches any of the hosts specified with
-\&\fIcheckHost\fR.
+Certificates are accepted if no subject checks were specified, or the host name
+of the peer certificate matches any of the hosts specified with \fIcheckHost\fR.
 .Sp
 This option requires OpenSSL 1.0.2 or later.
 .IP "\fBcheckIP\fR = \s-1IP\s0" 4
@@ -398,7 +397,7 @@ This option requires OpenSSL 1.0.2 or later.
 \&\s-1IP\s0 address of the peer certificate subject
 .Sp
 Multiple \fIcheckIP\fR options are allowed in a single service section.
-Certificates are accepted if no \fIcheckIP\fR option was specified, or the \s-1IP\s0
+Certificates are accepted if no subject checks were specified, or the \s-1IP\s0
 address of the peer certificate matches any of the \s-1IP\s0 addresses specified with
 \&\fIcheckIP\fR.
 .Sp

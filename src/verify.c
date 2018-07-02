@@ -302,42 +302,35 @@ NOEXPORT int cert_check_subject(CLI *c, X509_STORE_CTX *callback_ctx) {
     NAME_LIST *ptr;
     char *peername=NULL;
 
-    if(c->opt->check_host) {
-        for(ptr=c->opt->check_host; ptr; ptr=ptr->next)
-            if(X509_check_host(cert, ptr->name, 0, 0, &peername)>0)
-                break;
-        if(!ptr) {
-            s_log(LOG_WARNING, "CERT: No matching host name found");
-            return 0; /* reject */
-        }
-        s_log(LOG_INFO, "CERT: Host name \"%s\" matched with \"%s\"",
-            ptr->name, peername);
-        OPENSSL_free(peername);
+    if(!c->opt->check_host && !c->opt->check_email && !c->opt->check_ip) {
+        s_log(LOG_INFO, "CERT: No subject checks configured");
+        return 1; /* accept */
     }
 
-    if(c->opt->check_email) {
-        for(ptr=c->opt->check_email; ptr; ptr=ptr->next)
-            if(X509_check_email(cert, ptr->name, 0, 0)>0)
-                break;
-        if(!ptr) {
-            s_log(LOG_WARNING, "CERT: No matching email address found");
-            return 0; /* reject */
+    for(ptr=c->opt->check_host; ptr; ptr=ptr->next)
+        if(X509_check_host(cert, ptr->name, 0, 0, &peername)>0) {
+            s_log(LOG_INFO, "CERT: Host name \"%s\" matched with \"%s\"",
+                ptr->name, peername);
+            OPENSSL_free(peername);
+            return 1; /* accept */
         }
-        s_log(LOG_INFO, "CERT: Email address \"%s\" matched", ptr->name);
-    }
 
-    if(c->opt->check_ip) {
-        for(ptr=c->opt->check_ip; ptr; ptr=ptr->next)
-            if(X509_check_ip_asc(cert, ptr->name, 0)>0)
-                break;
-        if(!ptr) {
-            s_log(LOG_WARNING, "CERT: No matching IP address found");
-            return 0; /* reject */
+    for(ptr=c->opt->check_email; ptr; ptr=ptr->next)
+        if(X509_check_email(cert, ptr->name, 0, 0)>0) {
+            s_log(LOG_INFO, "CERT: Email address \"%s\" matched",
+                ptr->name);
+            return 1; /* accept */
         }
-        s_log(LOG_INFO, "CERT: IP address \"%s\" matched", ptr->name);
-    }
 
-    return 1; /* accept */
+    for(ptr=c->opt->check_ip; ptr; ptr=ptr->next)
+        if(X509_check_ip_asc(cert, ptr->name, 0)>0) {
+            s_log(LOG_INFO, "CERT: IP address \"%s\" matched",
+                ptr->name);
+            return 1; /* accept */
+        }
+
+    s_log(LOG_WARNING, "CERT: Subject checks failed");
+    return 0; /* reject */
 }
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
 

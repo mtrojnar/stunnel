@@ -401,33 +401,33 @@ pozwala wybrać identyfikator używanego certyfikatu.
 
 =item B<checkEmail> = EMAIL
 
-adres email przedstawionego certyfikatu
+adres email podmiotu przedstawionego certyfikatu
 
 Pojedyncza sekcja może zawierać wiele wystąpień opcji B<checkEmail>.
-Certyfikaty są akceptowane, jeżeli sekcja nie zawiera opcji B<checkEmail>,
-albo adres email przedstawionego certyfikatu pasuje do jednego z adresów
-email określonych przy pomocy B<checkEmail>.
+Certyfikaty są akceptowane, jeżeli sekcja nie weryfikuje podmiotu certyfikatu,
+albo adres email przedstawionego certyfikatu pasuje do jednego z adresów email
+określonych przy pomocy B<checkEmail>.
 
 Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 
 =item B<checkHost> = NAZWA_SERWERA
 
-nazwa serwera przedstawionego certyfikatu
+nazwa serwera podmiotu przedstawionego certyfikatu
 
 Pojedyncza sekcja może zawierać wiele wystąpień opcji B<checkHost>.
-Certyfikaty są akceptowane, jeżeli sekcja nie zawiera opcji B<checkHost>, albo
-nazwa serwera przedstawionego certyfikatu pasuje do jednego nazw określonych
-przy pomocy B<checkHost>.
+Certyfikaty są akceptowane, jeżeli sekcja nie weryfikuje podmiotu certyfikatu,
+albo nazwa serwera przedstawionego certyfikatu pasuje do jednego nazw
+określonych przy pomocy B<checkHost>.
 
 Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 
 =item B<checkIP> = IP
 
-adres IP przedstawionego certyfikatu
+adres IP podmiotu przedstawionego certyfikatu
 
 Pojedyncza sekcja może zawierać wiele wystąpień opcji B<checkIP>.  Certyfikaty
-są akceptowane, jeżeli sekcja nie zawiera opcji B<checkIP>, albo adres IP
-przedstawionego certyfikatu pasuje do jednego z adresów IP określonych przy
+są akceptowane, jeżeli sekcja nie weryfikuje podmiotu certyfikatu, albo adres
+IP przedstawionego certyfikatu pasuje do jednego z adresów IP określonych przy
 pomocy B<checkIP>.
 
 Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.

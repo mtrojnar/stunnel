@@ -460,9 +460,9 @@
 <dt id="checkEmail-EMAIL"><b>checkEmail</b> = EMAIL</dt>
 <dd>
 
-<p>adres email przedstawionego certyfikatu</p>
+<p>adres email podmiotu przedstawionego certyfikatu</p>
 
-<p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkEmail</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie zawiera opcji <b>checkEmail</b>, albo adres email przedstawionego certyfikatu pasuje do jednego z adres&oacute;w email okre&#x15B;lonych przy pomocy <b>checkEmail</b>.</p>
+<p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkEmail</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie weryfikuje podmiotu certyfikatu, albo adres email przedstawionego certyfikatu pasuje do jednego z adres&oacute;w email okre&#x15B;lonych przy pomocy <b>checkEmail</b>.</p>
 
 <p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
 
@@ -470,9 +470,9 @@
 <dt id="checkHost-NAZWA_SERWERA"><b>checkHost</b> = NAZWA_SERWERA</dt>
 <dd>
 
-<p>nazwa serwera przedstawionego certyfikatu</p>
+<p>nazwa serwera podmiotu przedstawionego certyfikatu</p>
 
-<p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkHost</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie zawiera opcji <b>checkHost</b>, albo nazwa serwera przedstawionego certyfikatu pasuje do jednego nazw okre&#x15B;lonych przy pomocy <b>checkHost</b>.</p>
+<p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkHost</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie weryfikuje podmiotu certyfikatu, albo nazwa serwera przedstawionego certyfikatu pasuje do jednego nazw okre&#x15B;lonych przy pomocy <b>checkHost</b>.</p>
 
 <p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
 
@@ -480,9 +480,9 @@
 <dt id="checkIP-IP"><b>checkIP</b> = IP</dt>
 <dd>
 
-<p>adres IP przedstawionego certyfikatu</p>
+<p>adres IP podmiotu przedstawionego certyfikatu</p>
 
-<p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkIP</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie zawiera opcji <b>checkIP</b>, albo adres IP przedstawionego certyfikatu pasuje do jednego z adres&oacute;w IP okre&#x15B;lonych przy pomocy <b>checkIP</b>.</p>
+<p>Pojedyncza sekcja mo&#x17C;e zawiera&#x107; wiele wyst&#x105;pie&#x144; opcji <b>checkIP</b>. Certyfikaty s&#x105; akceptowane, je&#x17C;eli sekcja nie weryfikuje podmiotu certyfikatu, albo adres IP przedstawionego certyfikatu pasuje do jednego z adres&oacute;w IP okre&#x15B;lonych przy pomocy <b>checkIP</b>.</p>
 
 <p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
 
