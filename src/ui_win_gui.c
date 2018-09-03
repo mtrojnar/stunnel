@@ -912,7 +912,6 @@ NOEXPORT unsigned __stdcall daemon_thread(void *arg) {
         log_flush(LOG_MODE_ERROR); /* otherwise logs are buffered */
         PostMessage(hwnd, WM_INVALID_CONFIG, 0, 0); /* display error */
         WaitForSingleObject(config_ready, INFINITE);
-        log_close(); /* prevent main_configure() from logging in error mode */
     }
     PostMessage(hwnd, WM_VALID_CONFIG, 0, 0);
 

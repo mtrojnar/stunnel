@@ -460,12 +460,11 @@ void set_nonblock(SOCKET, unsigned long);
 
 /**************************************** prototypes for log.c */
 
-#if !defined(USE_WIN32) && !defined(__vms)
-void syslog_open(void);
-void syslog_close(void);
-#endif
-int log_open(void);
-void log_close(void);
+#define SINK_SYSLOG 1
+#define SINK_OUTFILE 2
+
+int log_open(int);
+void log_close(int);
 void log_flush(LOG_MODE);
 void s_log(int, const char *, ...)
 #ifdef __GNUC__
@@ -480,6 +479,7 @@ void ioerror(const char *);
 void sockerror(const char *);
 void log_error(int, int, const char *);
 char *s_strerror(int);
+void bin2hexstring(const unsigned char *, size_t, char *, size_t);
 
 /**************************************** prototypes for pty.c */
 
@@ -515,6 +515,7 @@ int context_init(SERVICE_OPTIONS *);
 void psk_sort(PSK_TABLE *, PSK_KEYS *);
 PSK_KEYS *psk_find(const PSK_TABLE *, const char *);
 #endif /* !defined(OPENSSL_NO_PSK) */
+void print_session_id(SSL_SESSION *);
 void sslerror(char *);
 
 /**************************************** prototypes for verify.c */

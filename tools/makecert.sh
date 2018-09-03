@@ -8,6 +8,7 @@ fi
 
 if test -n "$2"; then
     OPENSSL="$2/bin/openssl"
+    LD_LIBRARY_PATH="$2/lib"
 else
     OPENSSL=openssl
 fi

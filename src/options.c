@@ -515,8 +515,7 @@ NOEXPORT int options_include(char *directory, SERVICE_OPTIONS **section) {
                 "%s/%s",
 #endif
                 directory, namelist[i]->d_name);
-            stat(name, &sb);
-            if(S_ISREG(sb.st_mode))
+            if(!stat(name, &sb) && S_ISREG(sb.st_mode))
                 err=options_file(name, CONF_FILE, section);
             else
                 s_log(LOG_DEBUG, "\"%s\" is not a file", name);

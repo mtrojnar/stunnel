@@ -26,7 +26,6 @@ DAEMON=@bindir@/stunnel
 NAME=stunnel
 DESC="TLS tunnels"
 OPTIONS=""
-ENABLED=0
 
 get_opt() {
   sed -e "s;^[[:space:]]*;;" -e "s;[[:space:]]*$;;" \
@@ -86,7 +85,7 @@ killdaemons()
 {
   local sig file pidfile status
 
-  sig=${1:-TERM}
+  sig=$1
   res=0
   for file in $FILES; do
     echo -n " $file: "
@@ -95,7 +94,7 @@ killdaemons()
       echo -n "no pid file"
     else
       status=0
-      killproc -p "$pidfile" "$DAEMON" "$sig" || status=$?
+      killproc -p "$pidfile" "$DAEMON" ${sig:+"$sig"} || status=$?
       if [ "$status" -eq 0 ]; then
         echo -n 'stopped'
       else
@@ -183,10 +182,6 @@ if [ "x$OPTIONS" != "x" ]; then
 fi
 
 [ -f @sysconfdir@/default/stunnel ] && . @sysconfdir@/default/stunnel
-if [ "$ENABLED" = "0" ] ; then
-  echo "$DESC disabled, see @sysconfdir@/default/stunnel"
-  exit 0
-fi
 
 # If the user want to manage a single tunnel, the conf file's name
 # is in $2. Otherwise, respect @sysconfdir@/default/stunnel4 setting.

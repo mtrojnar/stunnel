@@ -55,19 +55,25 @@ static LOG_MODE log_mode=LOG_MODE_BUFFER;
 
 static int syslog_opened=0;
 
-void syslog_open(void) {
-    syslog_close();
-    if(global_options.option.log_syslog)
+NOEXPORT void syslog_open(void) {
+    if(global_options.option.log_syslog) {
+        static char *servname=NULL;
+        char *servname_old;
+
+        /* openlog(3) requires a persistent copy of the "ident" parameter */
+        servname_old=servname;
+        servname=str_dup(service_options.servname);
 #ifdef __ultrix__
-        openlog(service_options.servname, 0);
+        openlog(servname, 0);
 #else
-        openlog(service_options.servname,
-            LOG_CONS|LOG_NDELAY, global_options.log_facility);
+        openlog(servname, LOG_CONS|LOG_NDELAY, global_options.log_facility);
 #endif /* __ultrix__ */
+        str_free(servname_old);
+    }
     syslog_opened=1;
 }
 
-void syslog_close(void) {
+NOEXPORT void syslog_close(void) {
     if(syslog_opened) {
         if(global_options.option.log_syslog)
             closelog();
@@ -77,7 +83,7 @@ void syslog_close(void) {
 
 #endif /* !defined(USE_WIN32) && !defined(__vms) */
 
-int log_open(void) {
+NOEXPORT int outfile_open(void) {
     if(global_options.output_file) { /* 'output' option specified */
         outfile=file_open(global_options.output_file,
             global_options.log_file_mode);
@@ -100,18 +106,35 @@ int log_open(void) {
             return 1;
         }
     }
-    log_flush(LOG_MODE_CONFIGURED);
     return 0;
 }
 
-void log_close(void) {
-    /* prevent changing the mode while logging */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
-    log_mode=LOG_MODE_BUFFER;
+NOEXPORT void outfile_close(void) {
     if(outfile) {
         file_close(outfile);
         outfile=NULL;
     }
+}
+
+int log_open(int sink) {
+#if !defined(USE_WIN32) && !defined(__vms)
+    if(sink&SINK_SYSLOG)
+        syslog_open();
+#endif
+    if(sink&SINK_OUTFILE && outfile_open())
+        return 1;
+    return 0;
+}
+
+void log_close(int sink) {
+    /* prevent changing the mode while logging */
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
+#if !defined(USE_WIN32) && !defined(__vms)
+    if(sink&SINK_SYSLOG)
+        syslog_close();
+#endif
+    if(sink&SINK_OUTFILE)
+        outfile_close();
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
 }
 
@@ -203,20 +226,26 @@ NOEXPORT void log_queue(SERVICE_OPTIONS *opt,
 
 void log_flush(LOG_MODE new_mode) {
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
+
     /* prevent changing LOG_MODE_CONFIGURED to LOG_MODE_ERROR
      * once stderr file descriptor is closed */
-    if(log_mode!=LOG_MODE_CONFIGURED)
+    if(log_mode!=LOG_MODE_CONFIGURED || new_mode!=LOG_MODE_ERROR)
         log_mode=new_mode;
-    /* log_raw() will use the new value of log_mode */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
-    while(head) {
-        struct LIST *tmp=head;
-        head=head->next;
-        log_raw(tmp->opt, tmp->level, tmp->stamp, tmp->id, tmp->text);
-        str_free(tmp);
+
+    /* emit the buffered logs (unless we just started buffering) */
+    if(new_mode!=LOG_MODE_BUFFER) {
+        /* log_raw() will use the new value of log_mode */
+        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
+        while(head) {
+            struct LIST *tmp=head;
+            head=head->next;
+            log_raw(tmp->opt, tmp->level, tmp->stamp, tmp->id, tmp->text);
+            str_free(tmp);
+        }
+        head=tail=NULL;
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
     }
-    head=tail=NULL;
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
+
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
 }
 
@@ -514,6 +543,19 @@ NOEXPORT void safestring(char *c) {
     for(; *c; ++c)
         if(!(*c&0x80 || isprint((int)*c)))
             *c='.';
+}
+
+/* provide hex string corresponding to the input string
+ * will be NULL terminated */
+void bin2hexstring(const unsigned char *in_data, size_t in_size, char *out_data, size_t out_size) {
+    const char hex[16]="0123456789ABCDEF";
+    size_t i;
+
+    for(i=0; i<in_size && 2*i+2<out_size; ++i) {
+        out_data[2*i]=hex[in_data[i]>>4];
+        out_data[2*i+1]=hex[in_data[i]&0x0f];
+    }
+    out_data[2*i]='\0';
 }
 
 /* end of log.c */

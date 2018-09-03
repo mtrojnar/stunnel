@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.48])
+AC_INIT([stunnel],[5.49])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -468,7 +468,7 @@ CPPFLAGS="$valid_CPPFLAGS"
 LIBS="$valid_LIBS"
 
 AC_MSG_NOTICE([**************************************** write the results])
-AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile tests/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile tests/Makefile tests/certs/Makefile])
 AC_OUTPUT
 
 AC_MSG_NOTICE([**************************************** success])

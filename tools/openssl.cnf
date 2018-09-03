@@ -6,7 +6,7 @@
 encrypt_key                     = no
 # the default key length is secure and quite fast - do not change it
 default_bits                    = 2048
-default_md                      = sha1
+default_md                      = sha256
 x509_extensions                 = stunnel_extensions
 distinguished_name              = stunnel_dn
 

@@ -443,6 +443,8 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
     int new_entry;
     int allocations;
 
+    if(service_options.log_level<LOG_DEBUG) /* performance optimization */
+        return;
 #ifdef USE_OS_THREADS
     if(!stunnel_locks[STUNNEL_LOCKS-1]) /* threads not initialized */
         return;
@@ -567,11 +569,33 @@ NOEXPORT long leak_threshold() {
 /* a version of memcmp() with execution time not dependent on data values */
 /* it does *not* allow testing whether s1 is greater or lesser than s2  */
 int safe_memcmp(const void *s1, const void *s2, size_t n) {
-    uint8_t *p1=(uint8_t *)s1, *p2=(uint8_t *)s2;
-    int r=0;
+#ifdef _WIN64
+    typedef unsigned long long TL;
+#else
+    typedef unsigned long TL;
+#endif
+    typedef unsigned char TS;
+    TL r=0, *pl1, *pl2;
+    TS *ps1, *ps2;
+    int n1=(int)((uintptr_t)s1&(sizeof(TL)-1)); /* unaligned bytes in s1 */
+    int n2=(int)((uintptr_t)s2&(sizeof(TL)-1)); /* unaligned bytes in s2 */
+
+    if(n1 || n2) { /* either pointer unaligned */
+        ps1=(TS *)s1;
+        ps2=(TS *)s2;
+    } else { /* both pointers aligned -> compare full words */
+        pl1=(TL *)s1;
+        pl2=(TL *)s2;
+        while(n>=sizeof(TL)) {
+            n-=sizeof(TL);
+            r|=(*pl1++)^(*pl2++);
+        }
+        ps1=(TS *)pl1;
+        ps2=(TS *)pl2;
+    }
     while(n--)
-        r|=(*p1++)^(*p2++);
-    return r;
+        r|=(*ps1++)^(*ps2++);
+    return r!=0;
 }
 
 /* end of str.c */

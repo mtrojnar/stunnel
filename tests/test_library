@@ -467,7 +467,8 @@ execute_connect() {
   start_stunnel "$1"
   if [ "$1" = "042_inetd" ]
     then # inetd test
-      start_inetd > "temp.log" 2>> "error.log"
+      mkfifo "nodata" 2>> "stderr_nc.log"
+      cat "nodata" | start_inetd > "temp.log" 2>> "error.log" &
     fi
   if no_file "error.log"
     then
@@ -475,6 +476,8 @@ execute_connect() {
       if [ $1 = "042_inetd" ]
         then # inetd test
           waiting_for "stunnel_0" "Service .* finished"
+          echo "somedata" > "nodata" 2>> "stderr_nc.log"
+          rm -f "nodata"
         fi
       finding_text "yes" "test $1.*success" "temp.log" "UNUSED PATTERN"
       result=$?

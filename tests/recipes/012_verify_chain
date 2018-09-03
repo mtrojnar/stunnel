@@ -22,5 +22,12 @@ start() {
 EOT
 }
 
-test_log_for "012_verify_chain" "success" "0" "$1" "$2" "$3" 2>> "stderr.log"
-exit $?
+if grep -q -e "OpenSSL 0.9.8" -e "OpenSSL 1" "results.log"
+  then
+    test_log_for "012_verify_chain" "success" "0" "$1" "$2" "$3" 2>> "stderr.log"
+    exit $?
+  else # older OpenSSL doesn't support sha256
+    exit_logs "012_verify_chain" "skipped"
+    clean_logs
+    exit 125
+  fi

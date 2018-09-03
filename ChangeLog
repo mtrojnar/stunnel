@@ -1,5 +1,22 @@
 stunnel change log
 
+Version 5.49, 2018.09.03, urgency: MEDIUM
+* New features
+  - Performance optimizations.
+  - Logging of negotiated or resumed TLS session IDs (thx
+    to ANSSI - National Cybersecurity Agency of France).
+  - Merged Debian 10-enabled.patch and 11-killproc.patch
+    (thx to Peter Pentchev).
+  - OpenSSL DLLs updated to version 1.0.2p.
+  - PKCS#11 engine DLL updated to version 0.4.9.
+* Bugfixes
+  - Fixed a crash in the session persistence implementation.
+  - Fixed syslog identifier after configuration file reload.
+  - Fixed non-interactive "make check" invocations.
+  - Fixed reloading syslog configuration.
+  - stunnel.pem created with SHA-256 instead of SHA-1.
+  - SHA-256 "make check" certificates.
+
 Version 5.48, 2018.07.02, urgency: HIGH
 * Security bugfixes
   - Fixed requesting client certificate when specified

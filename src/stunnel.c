@@ -149,11 +149,9 @@ int main_configure(char *arg1, char *arg2) {
         return cmdline_status;
     options_apply();
     str_canary_init(); /* needs prng initialization from options_cmdline */
-#if !defined(USE_WIN32) && !defined(__vms)
-    /* syslog_open() must be called before change_root()
+    /* log_open(SINK_SYSLOG) must be called before change_root()
      * to be able to access /dev/log socket */
-    syslog_open();
-#endif /* !defined(USE_WIN32) && !defined(__vms) */
+    log_open(SINK_SYSLOG);
     if(bind_ports())
         return 1;
 
@@ -167,15 +165,16 @@ int main_configure(char *arg1, char *arg2) {
     if(drop_privileges(1))
         return 1;
 
-    /* log_open() must be called after drop_privileges()
+    /* log_open(SINK_OUTFILE) must be called after drop_privileges()
      * or logfile rotation won't be possible */
-    /* log_open() must be called before daemonize()
-     * since daemonize() invalidates stderr */
-    if(log_open())
+    if(log_open(SINK_OUTFILE))
         return 1;
 #ifndef USE_FORK
     num_clients=0; /* the first valid config */
 #endif
+    /* log_flush(LOG_MODE_CONFIGURED) must be called before daemonize()
+     * since daemonize() invalidates stderr */
+    log_flush(LOG_MODE_CONFIGURED);
     return 0;
 }
 
@@ -219,9 +218,7 @@ void main_cleanup() {
     str_stats(); /* main thread allocation tracking */
 #endif
     log_flush(LOG_MODE_ERROR);
-#if !defined(USE_WIN32) && !defined(__vms)
-    syslog_close();
-#endif /* !defined(USE_WIN32) && !defined(__vms) */
+    log_close(SINK_SYSLOG|SINK_OUTFILE);
 }
 
 /**************************************** Unix-specific initialization */
@@ -625,6 +622,7 @@ NOEXPORT int change_root(void) {
         sockerror("chdir");
         return 1;
     }
+    s_log(LOG_NOTICE, "Switched to chroot directory: %s", global_options.chroot_dir);
     return 0;
 }
 #endif /* HAVE_CHROOT */
@@ -735,11 +733,26 @@ NOEXPORT int signal_pipe_dispatch(void) {
         if(options_parse(CONF_RELOAD)) {
             s_log(LOG_ERR, "Failed to reload the configuration file");
         } else {
+#ifdef HAVE_CHROOT
+            struct stat sb;
+#endif /* HAVE_CHROOT */
             unbind_ports();
-            log_close();
+            log_flush(LOG_MODE_BUFFER);
+#ifdef HAVE_CHROOT
+            /* we don't close SINK_SYSLOG if chroot is enabled and
+             * there is no /dev/log inside it, which could allow
+             * openlog(3) to reopen the syslog socket later */
+            if(global_options.chroot_dir && stat("/dev/log", &sb))
+                log_close(SINK_OUTFILE);
+            else
+#endif /* HAVE_CHROOT */
+                log_close(SINK_SYSLOG|SINK_OUTFILE);
             options_free(); /* FIXME: the pattern should be copy-apply-free */
             options_apply();
-            log_open();
+            /* we hope that a sane openlog(3) implementation won't
+             * attempt to reopen /dev/log if it's already open */
+            log_open(SINK_SYSLOG|SINK_OUTFILE);
+            log_flush(LOG_MODE_CONFIGURED);
             ui_config_reloaded();
             if(bind_ports()) {
                 /* FIXME: handle the error */
@@ -751,8 +764,10 @@ NOEXPORT int signal_pipe_dispatch(void) {
         return 0;
     case SIGNAL_REOPEN_LOG:
         s_log(LOG_DEBUG, "Processing SIGNAL_REOPEN_LOG");
-        log_close();
-        log_open();
+        log_flush(LOG_MODE_BUFFER);
+        log_close(SINK_OUTFILE);
+        log_open(SINK_OUTFILE);
+        log_flush(LOG_MODE_CONFIGURED);
         s_log(LOG_NOTICE, "Log file reopened");
         return 0;
     case SIGNAL_TERMINATE:

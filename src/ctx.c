@@ -917,14 +917,39 @@ NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
 
     s_log(LOG_DEBUG, "New session callback");
     c=SSL_get_ex_data(ssl, index_ssl_cli);
-    new_chain(c);
+
+    new_chain(c); /* new session -> we may have a new peer certificate chain */
+
     if(c->opt->option.client)
         session_cache_save(c, sess);
     else /* SSL_SESS_CACHE_NO_INTERNAL_STORE prevented automatic caching */
         SSL_CTX_add_session(SSL_get_SSL_CTX(ssl), sess);
     if(c->opt->option.sessiond)
         cache_new(ssl, sess);
+
+    print_session_id(sess);
+
     return 0; /* the OpenSSL's manual is really bad -> use the source here */
+}
+
+#if OPENSSL_VERSION_NUMBER<0x0090800fL
+NOEXPORT const unsigned char *SSL_SESSION_get_id(const SSL_SESSION *s,
+        unsigned int *len) {
+    if(len)
+        *len=s->session_id_length;
+    return (const unsigned char *)s->session_id;
+}
+#endif
+
+void print_session_id(SSL_SESSION *sess) {
+    const unsigned char *session_id;
+    unsigned int session_id_length;
+    char session_id_txt[2*SSL_MAX_SSL_SESSION_ID_LENGTH+1];
+
+    session_id=SSL_SESSION_get_id(sess, &session_id_length);
+    bin2hexstring(session_id, session_id_length,
+        session_id_txt, sizeof session_id_txt);
+    s_log(LOG_INFO, "Session id: %s", session_id_txt);
 }
 
 NOEXPORT void new_chain(CLI *c) {
@@ -1044,12 +1069,7 @@ NOEXPORT void cache_new(SSL *ssl, SSL_SESSION *sess) {
     val_tmp=val=str_alloc((size_t)val_len);
     i2d_SSL_SESSION(sess, &val_tmp);
 
-#if OPENSSL_VERSION_NUMBER>=0x0090800fL
     session_id=SSL_SESSION_get_id(sess, &session_id_length);
-#else
-    session_id=(const unsigned char *)sess->session_id;
-    session_id_length=sess->session_id_length;
-#endif
     cache_transfer(SSL_get_SSL_CTX(ssl), CACHE_CMD_NEW,
         SSL_SESSION_get_timeout(sess),
         session_id, session_id_length, val, (size_t)val_len, NULL, NULL);
@@ -1080,12 +1100,7 @@ NOEXPORT void cache_remove(SSL_CTX *ctx, SSL_SESSION *sess) {
     const unsigned char *session_id;
     unsigned int session_id_length;
 
-#if OPENSSL_VERSION_NUMBER>=0x0090800fL
     session_id=SSL_SESSION_get_id(sess, &session_id_length);
-#else
-    session_id=(const unsigned char *)sess->session_id;
-    session_id_length=sess->session_id_length;
-#endif
     cache_transfer(ctx, CACHE_CMD_REMOVE, 0,
         session_id, session_id_length, NULL, 0, NULL, NULL);
 }
@@ -1104,9 +1119,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
         const u_char *val, const size_t val_len,
         unsigned char **ret, size_t *ret_len) {
     char session_id_txt[2*SSL_MAX_SSL_SESSION_ID_LENGTH+1];
-    const char hex[16]="0123456789ABCDEF";
     const char *type_description[]={"new", "get", "remove"};
-    unsigned i;
     SOCKET s;
     ssize_t len;
     struct timeval t;
@@ -1117,11 +1130,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
         *ret=NULL;
 
     /* log the request information */
-    for(i=0; i<key_len && i<SSL_MAX_SSL_SESSION_ID_LENGTH; ++i) {
-        session_id_txt[2*i]=hex[key[i]>>4];
-        session_id_txt[2*i+1]=hex[key[i]&0x0f];
-    }
-    session_id_txt[2*i]='\0';
+    bin2hexstring(key, key_len, session_id_txt, sizeof session_id_txt);
     s_log(LOG_INFO,
         "cache_transfer: request=%s, timeout=%ld, id=%s, length=%lu",
         type_description[type], timeout, session_id_txt, (long unsigned)val_len);

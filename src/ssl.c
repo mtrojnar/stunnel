@@ -39,7 +39,14 @@
 #include "prototypes.h"
 
     /* global OpenSSL initialization: compression, engine, entropy */
-NOEXPORT void cb_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
+    void *from_d, int idx, long argl, void *argp);
+#else
+NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, CRYPTO_EX_DATA *from,
+    void *from_d, int idx, long argl, void *argp);
+#endif
+NOEXPORT void cb_free_addr(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
     int idx, long argl, void *argp);
 #ifndef OPENSSL_NO_COMP
 NOEXPORT int compression_init(GLOBAL_OPTIONS *);
@@ -67,7 +74,7 @@ int ssl_init(void) { /* init TLS before parsing configuration file */
     index_session_authenticated=SSL_SESSION_get_ex_new_index(0,
         "session authenticated", NULL, NULL, NULL);
     index_session_connect_address=SSL_SESSION_get_ex_new_index(0,
-        "session connect address", NULL, NULL, cb_free);
+        "session connect address", NULL, cb_dup_addr, cb_free_addr);
     if(index_ssl_cli<0 || index_ssl_ctx_opt<0 ||
             index_session_authenticated<0 ||
             index_session_connect_address<0) {
@@ -107,7 +114,31 @@ int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g) {
 #endif
 #endif
 
-NOEXPORT void cb_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
+        void *from_d, int idx, long argl, void *argp) {
+#else
+NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, CRYPTO_EX_DATA *from,
+        void *from_d, int idx, long argl, void *argp) {
+#endif
+    SOCKADDR_UNION *src, *dst;
+    socklen_t len;
+
+    (void)to; /* squash the unused parameter warning */
+    (void)from; /* squash the unused parameter warning */
+    (void)idx; /* squash the unused parameter warning */
+    (void)argl; /* squash the unused parameter warning */
+    s_log(LOG_DEBUG, "Duplicating application specific data for %s",
+        (char *)argp);
+    src=*(void **)from_d;
+    len=addr_len(src);
+    dst=str_alloc_detached((size_t)len);
+    memcpy(dst, src, (size_t)len);
+    *(void **)from_d=dst;
+    return 1;
+}
+
+NOEXPORT void cb_free_addr(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
         int idx, long argl, void *argp) {
     (void)parent; /* squash the unused parameter warning */
     (void)ad; /* squash the unused parameter warning */

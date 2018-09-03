@@ -560,6 +560,8 @@ NOEXPORT void ssl_start(CLI *c) {
         throw_exception(c, 1);
     }
     print_cipher(c);
+    if(SSL_session_reused(c->ssl))
+        print_session_id(SSL_get_session(c->ssl));
 }
 
 NOEXPORT void session_cache_retrieve(CLI *c) {
@@ -1431,10 +1433,14 @@ NOEXPORT void idx_cache_save(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
 
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_ADDR]);
     old_addr=SSL_SESSION_get_ex_data(sess, index_session_connect_address);
-    /* we can safely ignore the SSL_SESSION_set_ex_data() failure */
-    SSL_SESSION_set_ex_data(sess, index_session_connect_address, new_addr);
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
-    str_free(old_addr); /* NULL pointers are ignored */
+    if(SSL_SESSION_set_ex_data(sess, index_session_connect_address, new_addr)) {
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
+        str_free(old_addr); /* NULL pointers are ignored */
+    } else { /* failed to store new_addr -> remove it */
+        sslerror("SSL_SESSION_set_ex_data");
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
+        str_free(new_addr); /* NULL pointers are ignored */
+    }
 }
 
 NOEXPORT unsigned idx_cache_retrieve(CLI *c) {

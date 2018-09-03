@@ -332,7 +332,16 @@ Section "Core Files" sectionCORE
   !else
   File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.dll"
   File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.dll"
-  File "${REDIST_DIR}\vcruntime140.dll"
+  SetOutPath "$INSTDIR"
+  ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+  ${If} $0 == 1
+    DetailPrint "VC 2017 Redistributable already installed"
+  ${Else}
+    DetailPrint "Installing VC 2017 Redistributable"
+    File "${REDIST_DIR}\VC_redist.x64.exe"
+    ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet'
+    Delete "$INSTDIR\VC_redist.x64.exe"
+  ${EndIf}
   !endif
 
   # write new engine libraries
@@ -510,7 +519,7 @@ no_openssl_pdb:
   SetOutPath "$INSTDIR\engines"
   File "${OPENSSL_ENGINES_DIR}\capi.pdb"
   File "${OPENSSL_ENGINES_DIR}\padlock.pdb"
-  # File "${OPENSSL_ENGINES_DIR}\pkcs11.pdb"
+  File "${OPENSSL_ENGINES_DIR}\pkcs11.pdb"
   SetOutPath "$INSTDIR"
 SectionEnd
 
