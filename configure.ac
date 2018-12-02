@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.49])
+AC_INIT([stunnel],[5.50])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -8,7 +8,6 @@ AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
 AM_INIT_AUTOMAKE
 
-AM_CONDITIONAL([AUTHOR_TESTS], [test -d ".git"])
 AC_CANONICAL_HOST
 AC_SUBST([host])
 AC_DEFINE_UNQUOTED([HOST], ["$host"], [Host description])
@@ -397,36 +396,39 @@ AC_ARG_ENABLE(libwrap,
 
 AC_MSG_NOTICE([**************************************** TLS])
 
-AC_MSG_CHECKING([for compiler sysroot])
-if test "x$GCC" = "xyes"; then
-    sysroot=`$CC --print-sysroot 2>/dev/null`
-fi
-if test -z "$sysroot" -o "x$sysroot" = "x/"; then
-    sysroot=""
-    AC_MSG_RESULT([/])
-else
-    SYSROOT="$sysroot"
-    AC_MSG_RESULT([$sysroot])
-fi
-
 check_ssl_dir() { :
     test -n "$1" -a -f "$1/include/openssl/ssl.h" && SSLDIR="$1"
 }
 
-find_ssl_dir() { :
-    stunnel_prefix="$prefix"
-    test "x$stunnel_prefix" = "xNONE" && stunnel_prefix=$ac_default_prefix
+iterate_ssl_dir() { :
     # OpenSSL directory search order:
     # - the user-specified prefix
     # - common locations for packages built from sources
     # - common locations for non-OS-default package managers
     # - common locations for OS-default package managers
     # - empty prefix
-    for main_dir in "$stunnel_prefix" "/usr/local" "/opt" "/opt/local" "/usr/local/opt" "/opt/csw" "/usr/pkg" "/usr/lib" "/usr" ""; do
+    for main_dir in "/usr/local" "/opt" "/opt/local" "/usr/local/opt" "/opt/csw" "/usr/pkg" "/usr/lib" "/usr" ""; do
         for sub_dir in "/ssl" "/openssl" "/ossl" ""; do
-            check_ssl_dir "$sysroot$main_dir$sub_dir" && return
+            check_ssl_dir "$1$main_dir$sub_dir" && return 0
         done
     done
+    return 1
+}
+
+find_ssl_dir() { :
+    # try Android *first*
+    case "$host_os" in
+    *androideabi*)
+        iterate_ssl_dir "$ANDROID_NDK/sysroot" && return
+        ;;
+    esac
+
+    test -d "$lt_sysroot" && iterate_ssl_dir "$lt_sysroot" && return
+    test "$prefix" != "NONE" && iterate_ssl_dir "$prefix" && return
+    test -d "$ac_default_prefix" && iterate_ssl_dir "$ac_default_prefix" && return
+    iterate_ssl_dir "" && return
+
+    # try Xcode *last*
     if test -x "/usr/bin/xcrun"; then
         sdk_path=`/usr/bin/xcrun --sdk macosx --show-sdk-path`
         check_ssl_dir "$sdk_path/usr" && return
@@ -464,6 +466,7 @@ if test "x$use_fips" = "xauto"; then
     ])
 fi
 
+SYSROOT="$lt_sysroot"
 CPPFLAGS="$valid_CPPFLAGS"
 LIBS="$valid_LIBS"
 

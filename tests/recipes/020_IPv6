@@ -16,7 +16,7 @@ start() {
   [server]
   accept = ::1:${https1}
   connect = 127.0.0.1:${http_nc}
-  cert = ${script_path}/certs/server_cert.pem
+  cert = ../certs/server_cert.pem
 EOT
 }
 

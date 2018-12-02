@@ -562,7 +562,7 @@ usługi.
 
 Opóźnione rozwijanie adresu automatycznie aktywuje I<failover = prio>.
 
-default: no
+domyślnie: no
 
 =item B<engineId> = NUMER_URZĄDZENIA
 
@@ -708,6 +708,9 @@ domyślnie:
 
     options = NO_SSLv2
     options = NO_SSLv3
+
+Począwszy od B<OpenSSL 1.1.0>, zamiast wyłączać określone wersje protokołów TLS
+użyj opcji I<sslVersionMax> lub I<sslVersionMin>.
 
 =item B<protocol> = PROTOKÓŁ
 
@@ -990,28 +993,61 @@ Przykłady:
 
 wersja protokołu TLS
 
-Wspierane wersje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
-
-Ocja I<sslVersion> jest przestarzała i zostanie usunięta w przyszłych wersjach stunnela.
-Zamiast niej należy używać następujących opcji:
-
-    options = NO_SSLv2
-    options = NO_SSLv3
-    options = NO_TLSv1
-    options = NO_TLSv1.1
-    options = NO_TLSv1.2
-    options = NO_TLSv1.3
+Wspierane wersje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
 
 Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
-Starsze wersje OpenSSL nie wspierają TLSv1.1 i TLSv1.2.
+Starsze wersje OpenSSL nie wspierają TLSv1.1, TLSv1.2, TLSv1.3.
 Nowsze wersje OpenSSL nie wspierają SSLv2.
 
 Przestarzałe protokoły SSLv2 i SSLv3 są domyślnie wyłączone.
-Szczegółowe informacje dostępne są w opisie opcji B<options>.
+
+Począwszy od B<OpenSSL 1.1.0>, ustawienie
+
+    sslVersion = WERSJA_SSL
+
+jest równoważne opcjom
+
+    sslVersionMax = WERSJA_SSL
+    sslVersionMin = WERSJA_SSL
+
+=item B<sslVersionMax> = WERSJA_SSL
+
+maksymalna wspierana wersja protokołu TLS
+
+Wspierane wersje: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
+
+I<all> włącza wszystkie wersje protokołów aż do maksymalnej wersji wspieranej
+przez bibliotekę użytej wersji OpenSSL.
+
+Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
+
+Opcja I<sslVersionMax> jest dostępna począwszy od B<OpenSSL 1.1.0>.
+
+domyślnie: all
+
+=item B<sslVersionMin> = WERSJA_SSL
+
+minimalna wspierana wersja protokołu TLS
+
+Wspierane wersje: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
+
+I<all> włącza wszystkie wersje protokołów aż do minimalnej wersji wspieranej
+przez bibliotekę użytej wersji OpenSSL.
+
+Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
+
+Opcja I<sslVersionMin> jest dostępna począwszy od B<OpenSSL 1.1.0>.
+
+domyślnie: TLSv1
 
 =item B<stack> = LICZBA_BAJTÓW (z wyjątkiem modelu FORK)
 
-rozmiar stosu procesora wątku
+rozmiar stosu procesora tworzonych wątków
+
+Zbyt duży stos zwiększa zużycie pamięci wirtualnej.
+Zbyt mały stos może powodować problemy ze stabilnością aplikacji.
+
+domyślnie: 65536 bytes (wystarczający dla testowanych platform) 
 
 =item B<TIMEOUTbusy> = LICZBA_SEKUND
 
@@ -1427,22 +1463,16 @@ Najprostszą metodą uzyskania certyfikatu jest wygenerowanie go przy pomocy
 wolnego pakietu B<OpenSSL>.  Więcej informacji na temat generowania
 certyfikatów można znaleźć na umieszczonych poniżej stronach.
 
-Istotną kwestią jest kolejność zawartości pliku I<.pem>.
-W pierwszej kolejności powinien on zawierać klucz prywatny,
-a dopiero za nim podpisany certyfikat (nie żądanie certyfikatu).
-Po certyfikacie i kluczu prywatnym powinny znajdować się puste linie.
-Jeżeli przed certyfikatem znajdują się dodatkowe informacje tekstowe,
-to powinny one zostać usunięte.  Otrzymany plik powinien mieć
-następującą postać:
+Plik I<.pem> powinien zawierać klucz prywatny oraz podpisany certyfikat
+(nie żądanie certyfikatu).
+Otrzymany plik powinien mieć następującą postać:
 
     -----BEGIN RSA PRIVATE KEY-----
     [zakodowany klucz]
     -----END RSA PRIVATE KEY-----
-    [pusta linia]
     -----BEGIN CERTIFICATE-----
     [zakodowany certyfikat]
     -----END CERTIFICATE-----
-    [pusta linia]
 
 =head2 LOSOWOŚĆ
 

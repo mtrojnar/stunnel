@@ -96,12 +96,15 @@ void *
 #endif
 client_thread(void *arg) {
     CLI *c=arg;
+#ifdef DEBUG_STACK_SIZE
+    size_t stack_size=c->opt->stack_size;
+#endif
 
     /* initialize */
     c->tls=NULL; /* do not reuse */
     tls_alloc(c, NULL, NULL);
 #ifdef DEBUG_STACK_SIZE
-    stack_info(1); /* initialize */
+    stack_info(stack_size, 1); /* initialize */
 #endif
 
     /* execute */
@@ -109,7 +112,7 @@ client_thread(void *arg) {
 
     /* cleanup */
 #ifdef DEBUG_STACK_SIZE
-    stack_info(0); /* display computed value */
+    stack_info(stack_size, 0); /* display computed value */
 #endif
     str_stats(); /* client thread allocation tracking */
     tls_cleanup();
@@ -128,6 +131,12 @@ client_thread(void *arg) {
     return NULL;
 #endif
 }
+
+#ifdef DEBUG_STACK_SIZE
+void ignore_value(void *ptr) {
+    (void)ptr; /* squash the unused parameter warning */
+}
+#endif
 
 void client_main(CLI *c) {
     s_log(LOG_DEBUG, "Service [%s] started", c->opt->servname);
@@ -594,7 +603,7 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
 
     s_log(LOG_INFO, "TLS %s: %s",
         c->opt->option.client ? "connected" : "accepted",
-        SSL_session_reused(c->ssl) ?
+        SSL_session_reused(c->ssl) && !c->flag.psk ?
             "previous session reused" : "new session negotiated");
 
     cipher=(SSL_CIPHER *)SSL_get_current_cipher(c->ssl);
@@ -1287,7 +1296,7 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
         /* dup2() does not copy FD_CLOEXEC flag */
         dup2(fd[1], 0);
         dup2(fd[1], 1);
-        if(!global_options.option.log_stderr)
+        if(!c->opt->option.log_stderr)
             dup2(fd[1], 2);
         closesocket(fd[1]); /* not really needed due to FD_CLOEXEC */
 #ifdef HAVE_PTHREAD_SIGMASK

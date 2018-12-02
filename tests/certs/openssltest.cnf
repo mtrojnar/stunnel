@@ -1,7 +1,7 @@
 # OpenSSL root CA configuration file
 
 [ ca ]
-default_ca = CA_default
+default_ca                      = CA_default
 
 [ CA_default ]
 # Directory and file locations.
@@ -12,8 +12,6 @@ new_certs_dir                   = $dir/demoCA
 database                        = $dir/demoCA/index.txt
 serial                          = $dir/demoCA/serial
 crl_extensions                  = crl_ext
-default_crl_days                = 1461
-default_days                    = 1461
 default_md                      = sha256
 preserve                        = no
 policy                          = policy_match

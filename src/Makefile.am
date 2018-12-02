@@ -64,15 +64,12 @@ libstunnel_la_LDFLAGS = -avoid-version
 # Win32 executables                                                           #
 ###############################################################################
 
-if AUTHOR_TESTS
-# Just check if the programs can be built, don't perform any actual tests
-#check-local: mingw mingw64
-endif
-
 mingw:
-	$(MAKE) -f $(srcdir)/mingw.mk srcdir=$(srcdir) win32_targetcpu=i686 win32_mingw=mingw
+	$(MAKE) -f $(srcdir)/mingw.mk srcdir=$(srcdir) win32_arch=win32 win32_targetcpu=i686 win32_mingw=mingw
+
 mingw64:
-	$(MAKE) -f $(srcdir)/mingw.mk srcdir=$(srcdir) win32_targetcpu=x86_64 win32_mingw=mingw64
+	$(MAKE) -f $(srcdir)/mingw.mk srcdir=$(srcdir) win32_arch=win64 win32_targetcpu=x86_64 win32_mingw=mingw64
+
 .PHONY: mingw mingw64
 
 clean-local:

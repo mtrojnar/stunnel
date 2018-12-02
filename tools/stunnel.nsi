@@ -30,17 +30,16 @@ BrandingText "Author: Michal Trojnara"
 !include "MUI2.nsh"
 # define SF_SELECTED
 !include "Sections.nsh"
-# additional plugins
-!addplugindir "plugins/SimpleFC"
-!addplugindir "plugins/ShellLink/Plugins"
 
 !define /ifndef ROOT_DIR \devel
 
 !define /ifndef STUNNEL_DIR ${ROOT_DIR}\src\stunnel
-!define /ifndef STUNNEL_BIN_DIR ${STUNNEL_DIR}\bin\${ARCH}
 !define /ifndef STUNNEL_TOOLS_DIR ${STUNNEL_DIR}\tools
-!define /ifndef STUNNEL_DOC_DIR ${STUNNEL_DIR}\doc
 !define /ifndef STUNNEL_SRC_DIR ${STUNNEL_DIR}\src
+
+!define /ifndef DEST_DIR ${STUNNEL_DIR}
+!define /ifndef STUNNEL_BIN_DIR ${DEST_DIR}\bin\${ARCH}
+!define /ifndef STUNNEL_DOC_DIR ${DEST_DIR}\doc
 
 !define /ifndef BIN_DIR ${ROOT_DIR}\${ARCH}
 !define /ifndef OPENSSL_DIR ${BIN_DIR}\openssl
@@ -53,9 +52,13 @@ BrandingText "Author: Michal Trojnara"
 !define /ifndef ZLIB_DIR ${BIN_DIR}\zlib
 !define /ifndef REDIST_DIR ${BIN_DIR}\redist
 
+# additional plugins
+!addplugindir "${STUNNEL_TOOLS_DIR}/plugins/SimpleFC"
+!addplugindir "${STUNNEL_TOOLS_DIR}/plugins/ShellLink/Plugins"
+
 !define MUI_ICON ${STUNNEL_SRC_DIR}\stunnel.ico
 
-!insertmacro MUI_PAGE_LICENSE "stunnel.license"
+!insertmacro MUI_PAGE_LICENSE "${STUNNEL_TOOLS_DIR}\stunnel.license"
 !insertmacro MULTIUSER_PAGE_INSTALLMODE
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
@@ -321,6 +324,7 @@ Section "Core Files" sectionCORE
   File "${STUNNEL_TOOLS_DIR}\ca-certs.pem"
 
   # write new executables/libraries files
+  # we assume Visual C++ 2008 for win32, and MinGW for win64
   SetOutPath "$INSTDIR\bin"
   File "${STUNNEL_BIN_DIR}\stunnel.exe"
   !if ${ARCH} == win32
@@ -328,20 +332,20 @@ Section "Core Files" sectionCORE
   File "${OPENSSL_BIN_DIR}\ssleay32.dll"
   File "${REDIST_DIR}\msvcr90.dll"
   File "${REDIST_DIR}\Microsoft.VC90.CRT.Manifest"
-  # MINGW builds requires libssp-0.dll instead of msvcr90.dll
   !else
   File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.dll"
   File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.dll"
-  SetOutPath "$INSTDIR"
-  ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
-  ${If} $0 == 1
-    DetailPrint "VC 2017 Redistributable already installed"
-  ${Else}
-    DetailPrint "Installing VC 2017 Redistributable"
-    File "${REDIST_DIR}\VC_redist.x64.exe"
-    ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet'
-    Delete "$INSTDIR\VC_redist.x64.exe"
-  ${EndIf}
+  # TODO: add libssp-0.dll when -fstack-protector is fixed
+  #SetOutPath "$INSTDIR"
+  #ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+  #${If} $0 == 1
+  #  DetailPrint "VC 2017 Redistributable already installed"
+  #${Else}
+  #  DetailPrint "Installing VC 2017 Redistributable"
+  #  File "${REDIST_DIR}\VC_redist.x64.exe"
+  #  ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet'
+  #  Delete "$INSTDIR\VC_redist.x64.exe"
+  #${EndIf}
   !endif
 
   # write new engine libraries
@@ -487,6 +491,7 @@ SectionEnd
 
 SectionGroupEnd
 
+/*
 Section /o "Debugging Symbols" sectionDEBUG
   SetOutPath "$INSTDIR\bin"
 
@@ -522,6 +527,7 @@ no_openssl_pdb:
   File "${OPENSSL_ENGINES_DIR}\pkcs11.pdb"
   SetOutPath "$INSTDIR"
 SectionEnd
+*/
 
 Section
   !insertmacro RestartStunnel
@@ -559,8 +565,10 @@ LangString DESC_sectionMENU ${LANG_ENGLISH} \
   "Installs the Start Menu shortcuts for managing stunnel."
 LangString DESC_sectionDESKTOP ${LANG_ENGLISH} \
   "Installs the Desktop shortcut for stunnel."
+/*
 LangString DESC_sectionDEBUG ${LANG_ENGLISH} \
   "Installs the .PDB (program database) files for the executables and libraries."
+*/
 LangString DESC_groupTOOLS ${LANG_ENGLISH} \
   "Installs optional (but useful) tools."
 LangString DESC_groupSHORTCUTS ${LANG_ENGLISH} \
@@ -572,7 +580,9 @@ LangString DESC_groupSHORTCUTS ${LANG_ENGLISH} \
     !insertmacro MUI_DESCRIPTION_TEXT ${sectionTSTUNNEL} $(DESC_sectionTSTUNNEL)
     !insertmacro MUI_DESCRIPTION_TEXT ${sectionMENU} $(DESC_sectionMENU)
     !insertmacro MUI_DESCRIPTION_TEXT ${sectionDESKTOP} $(DESC_sectionDESKTOP)
+/*
     !insertmacro MUI_DESCRIPTION_TEXT ${sectionDEBUG} $(DESC_sectionDEBUG)
+*/
     !insertmacro MUI_DESCRIPTION_TEXT ${groupTOOLS} $(DESC_groupTOOLS)
     !insertmacro MUI_DESCRIPTION_TEXT ${groupSHORTCUTS} $(DESC_groupSHORTCUTS)
 !insertmacro MUI_FUNCTION_DESCRIPTION_END

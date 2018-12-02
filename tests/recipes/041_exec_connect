@@ -18,7 +18,7 @@ start() {
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute_read
   execArgs = execute_read ${result_path}/temp.log
-  cert = ${script_path}/certs/server_cert.pem
+  cert = ../certs/server_cert.pem
 EOT
 }
 

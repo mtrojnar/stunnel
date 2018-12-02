@@ -781,6 +781,8 @@
 <pre><code>    options = NO_SSLv2
     options = NO_SSLv3</code></pre>
 
+<p>Use <i>sslVersionMax</i> or <i>sslVersionMin</i> option instead of disabling specific TLS protocol versions when compiled with <b>OpenSSL 1.1.0</b> or later.</p>
+
 </dd>
 <dt id="protocol-PROTO"><b>protocol</b> = PROTO</dt>
 <dd>
@@ -1085,26 +1087,64 @@
 
 <p>select the TLS protocol version</p>
 
-<p>Supported versions: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
+<p>Supported versions: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3</p>
 
-<p>sslVersion is obsolete and it will be removed in future releases of stunnel. Use the following options instead:</p>
+<p>Availability of specific protocols depends on the linked OpenSSL library. Older versions of OpenSSL do not support TLSv1.1, TLSv1.2 and TLSv1.3. Newer versions of OpenSSL do not support SSLv2.</p>
 
-<pre><code>    options = NO_SSLv2
-    options = NO_SSLv3
-    options = NO_TLSv1
-    options = NO_TLSv1.1
-    options = NO_TLSv1.2
-    options = NO_TLSv1.3</code></pre>
+<p>Obsolete SSLv2 and SSLv3 are currently disabled by default.</p>
 
-<p>Availability of specific protocols depends on the linked OpenSSL library. Older versions of OpenSSL do not support TLSv1.1 and TLSv1.2. Newer versions of OpenSSL do not support SSLv2.</p>
+<p>Setting the option</p>
 
-<p>Obsolete SSLv2 and SSLv3 are currently disabled by default. See the <b>options</b> option documentation for details.</p>
+<pre><code>    sslVersion = SSL_VERSION</code></pre>
+
+<p>is equivalent to options</p>
+
+<pre><code>    sslVersionMax = SSL_VERSION
+    sslVersionMin = SSL_VERSION</code></pre>
+
+<p>when compiled with <b>OpenSSL 1.1.0</b> and later.</p>
+
+</dd>
+<dt id="sslVersionMax-SSL_VERSION"><b>sslVersionMax</b> = SSL_VERSION</dt>
+<dd>
+
+<p>maximum supported protocol versions</p>
+
+<p>Supported versions: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3</p>
+
+<p><i>all</i> enable protocol versions up to the highest version supported by the linked OpenSSL library.</p>
+
+<p>Availability of specific protocols depends on the linked OpenSSL library.</p>
+
+<p>The <i>sslVersionMax</i> option is only available when compiled with <b>OpenSSL 1.1.0</b> and later.</p>
+
+<p>default: all</p>
+
+</dd>
+<dt id="sslVersionMin-SSL_VERSION"><b>sslVersionMin</b> = SSL_VERSION</dt>
+<dd>
+
+<p>minimum supported protocol versions</p>
+
+<p>Supported versions: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3</p>
+
+<p><i>all</i> enable protocol versions down to the lowest version supported by the linked OpenSSL library.</p>
+
+<p>Availability of specific protocols depends on the linked OpenSSL library.</p>
+
+<p>The <i>sslVersionMin</i> option is only available when compiled with <b>OpenSSL 1.1.0</b> and later.</p>
+
+<p>default: TLSv1</p>
 
 </dd>
 <dt id="stack-BYTES-except-for-FORK-model"><b>stack</b> = BYTES (except for FORK model)</dt>
 <dd>
 
-<p>thread stack size</p>
+<p>CPU stack size of created threads</p>
+
+<p>Excessive thread stack size increases virtual memory usage. Insufficient thread stack size may cause application crashes.</p>
+
+<p>default: 65536 bytes (sufficient for all platforms we tested)</p>
 
 </dd>
 <dt id="TIMEOUTbusy-SECONDS"><b>TIMEOUTbusy</b> = SECONDS</dt>
@@ -1516,16 +1556,14 @@
 
 <p>Each TLS-enabled daemon needs to present a valid X.509 certificate to the peer. It also needs a private key to decrypt the incoming data. The easiest way to obtain a certificate and a key is to generate them with the free <b>OpenSSL</b> package. You can find more information on certificates generation on pages listed below.</p>
 
-<p>The order of contents of the <i>.pem</i> file is important. It should contain the unencrypted private key first, then a signed certificate (not certificate request). There should also be empty lines after the certificate and the private key. Any plaintext certificate information appended on the top of generated certificate should be discarded. So the file should look like this:</p>
+<p>The <i>.pem</i> file should contain the unencrypted private key and a signed certificate (not certificate request). So the file should look like this:</p>
 
 <pre><code>    -----BEGIN RSA PRIVATE KEY-----
     [encoded key]
     -----END RSA PRIVATE KEY-----
-    [empty line]
     -----BEGIN CERTIFICATE-----
     [encoded certificate]
-    -----END CERTIFICATE-----
-    [empty line]</code></pre>
+    -----END CERTIFICATE-----</code></pre>
 
 <h2 id="RANDOMNESS">RANDOMNESS</h2>
 

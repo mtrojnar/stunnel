@@ -166,7 +166,7 @@ typedef struct servername_list_struct SERVERNAME_LIST;/* forward declaration */
 typedef struct psk_keys_struct {
     char *identity;
     unsigned char *key_val;
-    size_t key_len;
+    unsigned key_len;
     struct psk_keys_struct *next;
 } PSK_KEYS;
 typedef struct psk_table_struct {
@@ -223,7 +223,11 @@ typedef struct service_options_struct {
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
     long unsigned ssl_options_clear;
 #endif /* OpenSSL 0.9.8m or later */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    int min_proto_version, max_proto_version;
+#else /* OPENSSL_VERSION_NUMBER<0x10100000L */
     SSL_METHOD *client_method, *server_method;
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
     SOCKADDR_UNION sessiond_addr;
 #ifndef OPENSSL_NO_TLSEXT
     char *sni;
@@ -305,8 +309,11 @@ typedef struct service_options_struct {
         unsigned nonce:1;               /* send and verify OCSP nonce */
 #endif /* !defined(OPENSSL_NO_OCSP) */
 #ifndef OPENSSL_NO_DH
-        unsigned dh_needed:1;
+        unsigned dh_temp_params:1;
 #endif /* OPENSSL_NO_DH */
+#ifndef USE_WIN32
+        unsigned log_stderr:1;          /* a copy of the global switch */
+#endif /* USE_WIN32 */
     } option;
 } SERVICE_OPTIONS;
 
@@ -411,6 +418,9 @@ typedef struct {
     FD *ssl_rfd, *ssl_wfd;                 /* read and write TLS descriptors */
     uint64_t sock_bytes, ssl_bytes;       /* bytes written to socket and TLS */
     s_poll_set *fds;                                     /* file descriptors */
+    struct {
+        unsigned psk:1;                            /* PSK identity was found */
+    } flag;
 } CLI;
 
 /**************************************** prototypes for stunnel.c */
@@ -435,7 +445,7 @@ void stunnel_info(int);
 
 /**************************************** prototypes for options.c */
 
-extern char configuration_file[PATH_MAX];
+extern char *configuration_file;
 extern unsigned number_of_sections;
 
 int options_cmdline(char *, char *);
@@ -507,7 +517,7 @@ extern SERVICE_OPTIONS *current_section;
 
 #ifndef OPENSSL_NO_DH
 extern DH *dh_params;
-extern int dh_needed;
+extern int dh_temp_params;
 #endif /* OPENSSL_NO_DH */
 
 int context_init(SERVICE_OPTIONS *);
@@ -692,6 +702,10 @@ typedef enum {
 #ifndef OPENSSL_NO_DH
     LOCK_DH,                                /* ctx.c */
 #endif /* OPENSSL_NO_DH */
+#ifdef USE_WIN32
+    LOCK_WIN_LOG,                           /* ui_win_gui.c */
+#endif
+    LOCK_SECTIONS,                          /* traversing section list */
     STUNNEL_LOCKS                           /* number of locks */
 } LOCK_TYPE;
 
@@ -730,7 +744,8 @@ long _beginthread(void (*)(void *), int, void *);
 void _endthread(void);
 #endif
 #ifdef DEBUG_STACK_SIZE
-void stack_info(int);
+void stack_info(size_t, int);
+void ignore_value(void *);
 #endif
 
 /**************************************** prototypes for file.c */

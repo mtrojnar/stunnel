@@ -165,7 +165,7 @@ NOEXPORT void cron_dh_param(void) {
     SERVICE_OPTIONS *opt;
     DH *dh;
 
-    if(!dh_needed)
+    if(!dh_temp_params || !service_options.next)
         return;
 
     s_log(LOG_NOTICE, "Updating DH parameters");
@@ -196,9 +196,11 @@ NOEXPORT void cron_dh_param(void) {
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_DH]);
 
     /* set for all sections that require it */
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SECTIONS]);
     for(opt=service_options.next; opt; opt=opt->next)
-        if(opt->option.dh_needed)
+        if(opt->option.dh_temp_params)
             SSL_CTX_set_tmp_dh(opt->ctx, dh);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
     s_log(LOG_NOTICE, "DH parameters updated");
 }
 #endif /* OPENSSL_NO_DH */

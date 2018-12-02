@@ -13,7 +13,7 @@ start() {
   accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
 ;correct certificate
-  cert = ${script_path}/certs/client_cert.pem
+  cert = ../certs/client_cert.pem
 
   [client_2]
   client = yes
@@ -29,19 +29,19 @@ start() {
   accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http2}
   redirect = ${http3}
-  cert = ${script_path}/certs/server_cert.pem
+  cert = ../certs/server_cert.pem
   verifyPeer = yes
-  CAfile = ${script_path}/certs/PeerCerts.pem
+  CAfile = ../certs/PeerCerts.pem
 
   [server_2]
   accept = 127.0.0.1:${https2}
-  cert = ${script_path}/certs/server_cert.pem
+  cert = ../certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 032_no_redirect
 
   [server_3]
   accept = 127.0.0.1:${https3}
-  cert = ${script_path}/certs/server_cert.pem
+  cert = ../certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 032_no_redirect_error
 EOT

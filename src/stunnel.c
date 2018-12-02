@@ -403,6 +403,8 @@ void unbind_ports(void) {
     s_poll_init(fds);
     s_poll_add(fds, signal_pipe[0], 1, 0);
 
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SECTIONS]);
+
     opt=service_options.next;
     service_options.next=NULL;
     service_free(&service_options);
@@ -435,6 +437,8 @@ void unbind_ports(void) {
             service_free(garbage);
         }
     }
+
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
 }
 
 NOEXPORT void unbind_port(SERVICE_OPTIONS *opt, unsigned i) {
@@ -747,7 +751,9 @@ NOEXPORT int signal_pipe_dispatch(void) {
             else
 #endif /* HAVE_CHROOT */
                 log_close(SINK_SYSLOG|SINK_OUTFILE);
-            options_free(); /* FIXME: the pattern should be copy-apply-free */
+            /* there is no race condition here:
+             * client threads are not allowed to use global options */
+            options_free();
             options_apply();
             /* we hope that a sane openlog(3) implementation won't
              * attempt to reopen /dev/log if it's already open */

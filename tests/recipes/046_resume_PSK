@@ -1,0 +1,36 @@
+#!/bin/sh
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  [client]
+  client = yes
+  exec = ${script_path}/execute_read
+  execArgs = execute_read ${result_path}/temp.log
+  connect = 127.0.0.1:${https1}
+  delay = yes
+  retry = yes
+  PSKsecrets = ../certs/psk1.txt
+
+  [server_1]
+  accept = 127.0.0.1:${https1}
+  exec = ${script_path}/execute
+  execArgs = execute 046_resume_PSK
+  PSKsecrets = ../certs/secrets.txt
+EOT
+}
+
+if grep -q "OpenSSL 1" "results.log" && ! grep -q "FORK" "results.log"
+  then
+    test_log_for "046_resume_PSK" "session" "1" "$1" "$2" "$3" 2>> "stderr.log"
+    exit $?
+  else
+    exit_logs "046_resume_PSK" "skipped"
+    exit 125
+  fi
+exit $?

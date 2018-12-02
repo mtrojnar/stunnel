@@ -567,7 +567,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
     thread=(HANDLE)_beginthreadex(NULL, (unsigned)arg->opt->stack_size,
-        client_thread, arg, 0, NULL);
+        client_thread, arg, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
     if(!thread) {
         ioerror("_beginthreadex");
         str_free(arg);
@@ -623,7 +623,7 @@ uintptr_t _beginthreadex(void *security, unsigned stack_size,
         void *arglist, unsigned initflag, unsigned *thrdaddr) {
     return CreateThread(NULL, stack_size,
         (LPTHREAD_START_ROUTINE)start_address, arglist,
-        STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
+        (DWORD)initflag, (LPDWORD)thrdaddr);
 }
 
 void _endthreadex(unsigned retval) {
@@ -634,46 +634,92 @@ void _endthreadex(unsigned retval) {
 
 #ifdef DEBUG_STACK_SIZE
 
-#define STACK_RESERVE (STACK_SIZE/8)
-#define VERIFY_AREA ((STACK_SIZE-STACK_RESERVE)/sizeof(uint32_t))
-#define TEST_VALUE 0xdeadbeef
+#define STACK_RESERVE 16384
 
 /* some heuristic to determine the usage of client stack size */
-void stack_info(int init) { /* 1-initialize, 0-display */
-    uint32_t table[VERIFY_AREA];
-    int i, num;
-    static int min_num=VERIFY_AREA;
+NOEXPORT size_t stack_num(size_t stack_size, int init) {
+#ifdef _WIN64
+    typedef unsigned long long TL;
+#else
+    typedef unsigned long TL;
+#endif
+    size_t verify_area, verify_num, i;
+    TL test_value, *table;
+
+    if(stack_size<STACK_RESERVE)
+        return 0;
+    verify_area=(stack_size-STACK_RESERVE)&~(sizeof(TL)-1);
+    verify_num=verify_area/sizeof(TL);
+    test_value=(TL)0x1337deadbeef1337;
+    table=alloca(verify_area);
 
     if(init) {
-        for(i=0; i<VERIFY_AREA; i++)
-            table[i]=TEST_VALUE;
+        for(i=0; i<verify_num; i++)
+            table[i]=test_value;
+        ignore_value(table); /* prevent code optimization */
+        return 0;
     } else {
         /* the stack grows down */
-        for(i=0; i<VERIFY_AREA; i++)
-            if(table[i]!=TEST_VALUE)
+        for(i=0; i<verify_num; i++)
+            if(table[i]!=test_value)
                 break;
-        num=i;
+        if(i>=16)
+            return stack_size-i*sizeof(TL);
         /* the stack grows up */
-        for(i=0; i<VERIFY_AREA; i++)
-            if(table[VERIFY_AREA-i-1]!=TEST_VALUE)
+        for(i=0; i<verify_num; i++)
+            if(table[verify_num-i-1]!=test_value)
                 break;
-        if(i>num) /* use the higher value */
-            num=i;
-        if(num<64) {
-            s_log(LOG_NOTICE, "STACK_RESERVE is too high");
-            return;
-        }
-        if(num<min_num)
-            min_num=num;
-        s_log(LOG_NOTICE,
-            "stack_info: size=%d, current=%d (%d%%), maximum=%d (%d%%)",
-            STACK_SIZE,
-            (int)((VERIFY_AREA-num)*sizeof(uint32_t)),
-            (int)((VERIFY_AREA-num)*sizeof(uint32_t)*100/STACK_SIZE),
-            (int)((VERIFY_AREA-min_num)*sizeof(uint32_t)),
-            (int)((VERIFY_AREA-min_num)*sizeof(uint32_t)*100/STACK_SIZE));
+        if(i>=16)
+            return stack_size-(i*sizeof(TL)+STACK_RESERVE);
+        return 0; /* not enough samples for meaningful results */
     }
 }
+
+#ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic push
+#endif /* __GNUC__>=4.6 */
+#pragma GCC diagnostic ignored "-Wformat"
+#endif /* __GNUC__ */
+void stack_info(size_t stack_size, int init) { /* 1-initialize, 0-display */
+    static size_t max_num=0;
+    size_t num;
+
+#ifdef USE_WIN32
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    stack_size&=~((size_t)si.dwPageSize-1);
+#elif defined(_SC_PAGESIZE)
+    stack_size&=~((size_t)sysconf(_SC_PAGESIZE)-1);
+#elif defined(_SC_PAGE_SIZE)
+    stack_size&=~((size_t)sysconf(_SC_PAGE_SIZE)-1);
+#else
+    stack_size&=~(4096-1); /* just a guess */
+#endif
+    num=stack_num(stack_size, init);
+    if(init)
+        return;
+    if(!num) {
+        s_log(LOG_NOTICE, "STACK_RESERVE is too high");
+        return;
+    }
+    if(num>max_num)
+        max_num=num;
+    s_log(LOG_NOTICE,
+#ifdef USE_WIN32
+        "stack_info: size=%Iu, current=%Iu (%Iu%%), maximum=%Iu (%Iu%%)",
+#else
+        "stack_info: size=%zu, current=%zu (%zu%%), maximum=%zu (%zu%%)",
+#endif
+        stack_size,
+        num, num*100/stack_size,
+        max_num, max_num*100/stack_size);
+}
+#ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic pop
+#endif /* __GNUC__>=4.6 */
+#endif /* __GNUC__ */
 
 #endif /* DEBUG_STACK_SIZE */
 

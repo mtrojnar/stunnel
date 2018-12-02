@@ -616,7 +616,7 @@
 
 <p>Op&oacute;&#x17A;nione rozwijanie adresu automatycznie aktywuje <i>failover = prio</i>.</p>
 
-<p>default: no</p>
+<p>domy&#x15B;lnie: no</p>
 
 </dd>
 <dt id="engineId-NUMER_URZDZENIA"><b>engineId</b> = NUMER_URZ&#x104;DZENIA</dt>
@@ -778,6 +778,8 @@
 
 <pre><code>    options = NO_SSLv2
     options = NO_SSLv3</code></pre>
+
+<p>Pocz&#x105;wszy od <b>OpenSSL 1.1.0</b>, zamiast wy&#x142;&#x105;cza&#x107; okre&#x15B;lone wersje protoko&#x142;&oacute;w TLS u&#x17C;yj opcji <i>sslVersionMax</i> lub <i>sslVersionMin</i>.</p>
 
 </dd>
 <dt id="protocol-PROTOK"><b>protocol</b> = PROTOK&Oacute;&#x141;</dt>
@@ -1087,26 +1089,62 @@
 
 <p>wersja protoko&#x142;u TLS</p>
 
-<p>Wspierane wersje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
+<p>Wspierane wersje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3</p>
 
-<p>Ocja <i>sslVersion</i> jest przestarza&#x142;a i zostanie usuni&#x119;ta w przysz&#x142;ych wersjach stunnela. Zamiast niej nale&#x17C;y u&#x17C;ywa&#x107; nast&#x119;puj&#x105;cych opcji:</p>
+<p>Dost&#x119;pno&#x15B;&#x107; konkretnych protoko&#x142;&oacute;w zale&#x17C;y od u&#x17C;ytej wersji OpenSSL. Starsze wersje OpenSSL nie wspieraj&#x105; TLSv1.1, TLSv1.2, TLSv1.3. Nowsze wersje OpenSSL nie wspieraj&#x105; SSLv2.</p>
 
-<pre><code>    options = NO_SSLv2
-    options = NO_SSLv3
-    options = NO_TLSv1
-    options = NO_TLSv1.1
-    options = NO_TLSv1.2
-    options = NO_TLSv1.3</code></pre>
+<p>Przestarza&#x142;e protoko&#x142;y SSLv2 i SSLv3 s&#x105; domy&#x15B;lnie wy&#x142;&#x105;czone.</p>
 
-<p>Dost&#x119;pno&#x15B;&#x107; konkretnych protoko&#x142;&oacute;w zale&#x17C;y od u&#x17C;ytej wersji OpenSSL. Starsze wersje OpenSSL nie wspieraj&#x105; TLSv1.1 i TLSv1.2. Nowsze wersje OpenSSL nie wspieraj&#x105; SSLv2.</p>
+<p>Pocz&#x105;wszy od <b>OpenSSL 1.1.0</b>, ustawienie</p>
 
-<p>Przestarza&#x142;e protoko&#x142;y SSLv2 i SSLv3 s&#x105; domy&#x15B;lnie wy&#x142;&#x105;czone. Szczeg&oacute;&#x142;owe informacje dost&#x119;pne s&#x105; w opisie opcji <b>options</b>.</p>
+<pre><code>    sslVersion = WERSJA_SSL</code></pre>
+
+<p>jest r&oacute;wnowa&#x17C;ne opcjom</p>
+
+<pre><code>    sslVersionMax = WERSJA_SSL
+    sslVersionMin = WERSJA_SSL</code></pre>
+
+</dd>
+<dt id="sslVersionMax-WERSJA_SSL"><b>sslVersionMax</b> = WERSJA_SSL</dt>
+<dd>
+
+<p>maksymalna wspierana wersja protoko&#x142;u TLS</p>
+
+<p>Wspierane wersje: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3</p>
+
+<p><i>all</i> w&#x142;&#x105;cza wszystkie wersje protoko&#x142;&oacute;w a&#x17C; do maksymalnej wersji wspieranej przez bibliotek&#x119; u&#x17C;ytej wersji OpenSSL.</p>
+
+<p>Dost&#x119;pno&#x15B;&#x107; konkretnych protoko&#x142;&oacute;w zale&#x17C;y od u&#x17C;ytej wersji OpenSSL.</p>
+
+<p>Opcja <i>sslVersionMax</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.1.0</b>.</p>
+
+<p>domy&#x15B;lnie: all</p>
+
+</dd>
+<dt id="sslVersionMin-WERSJA_SSL"><b>sslVersionMin</b> = WERSJA_SSL</dt>
+<dd>
+
+<p>minimalna wspierana wersja protoko&#x142;u TLS</p>
+
+<p>Wspierane wersje: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3</p>
+
+<p><i>all</i> w&#x142;&#x105;cza wszystkie wersje protoko&#x142;&oacute;w a&#x17C; do minimalnej wersji wspieranej przez bibliotek&#x119; u&#x17C;ytej wersji OpenSSL.</p>
+
+<p>Dost&#x119;pno&#x15B;&#x107; konkretnych protoko&#x142;&oacute;w zale&#x17C;y od u&#x17C;ytej wersji OpenSSL.</p>
+
+<p>Opcja <i>sslVersionMin</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.1.0</b>.</p>
+
+<p>domy&#x15B;lnie: TLSv1</p>
 
 </dd>
 <dt id="stack-LICZBA_BAJTW-z-wyjtkiem-modelu-FORK"><b>stack</b> = LICZBA_BAJT&Oacute;W (z wyj&#x105;tkiem modelu FORK)</dt>
 <dd>
 
-<p>rozmiar stosu procesora w&#x105;tku</p>
+<p>rozmiar stosu procesora tworzonych w&#x105;tk&oacute;w</p>
+
+<p>Zbyt du&#x17C;y stos zwi&#x119;ksza zu&#x17C;ycie pami&#x119;ci wirtualnej. Zbyt ma&#x142;y stos mo&#x17C;e powodowa&#x107; problemy ze stabilno&#x15B;ci&#x105; aplikacji.</p>
+
+<p>domy&#x15B;lnie: 65536 bytes (wystarczaj&#x105;cy dla testowanych platform)</p>
 
 </dd>
 <dt id="TIMEOUTbusy-LICZBA_SEKUND"><b>TIMEOUTbusy</b> = LICZBA_SEKUND</dt>
@@ -1517,16 +1555,14 @@
 
 <p>Protok&oacute;&#x142; TLS wymaga, aby ka&#x17C;dy serwer przedstawia&#x142; si&#x119; nawi&#x105;zuj&#x105;cemu po&#x142;&#x105;czenie klientowi prawid&#x142;owym certyfikatem X.509. Potwierdzenie to&#x17C;samo&#x15B;ci serwera polega na wykazaniu, &#x17C;e posiada on odpowiadaj&#x105;cy certyfikatowi klucz prywatny. Najprostsz&#x105; metod&#x105; uzyskania certyfikatu jest wygenerowanie go przy pomocy wolnego pakietu <b>OpenSSL</b>. Wi&#x119;cej informacji na temat generowania certyfikat&oacute;w mo&#x17C;na znale&#x17A;&#x107; na umieszczonych poni&#x17C;ej stronach.</p>
 
-<p>Istotn&#x105; kwesti&#x105; jest kolejno&#x15B;&#x107; zawarto&#x15B;ci pliku <i>.pem</i>. W pierwszej kolejno&#x15B;ci powinien on zawiera&#x107; klucz prywatny, a dopiero za nim podpisany certyfikat (nie &#x17C;&#x105;danie certyfikatu). Po certyfikacie i kluczu prywatnym powinny znajdowa&#x107; si&#x119; puste linie. Je&#x17C;eli przed certyfikatem znajduj&#x105; si&#x119; dodatkowe informacje tekstowe, to powinny one zosta&#x107; usuni&#x119;te. Otrzymany plik powinien mie&#x107; nast&#x119;puj&#x105;c&#x105; posta&#x107;:</p>
+<p>Plik <i>.pem</i> powinien zawiera&#x107; klucz prywatny oraz podpisany certyfikat (nie &#x17C;&#x105;danie certyfikatu). Otrzymany plik powinien mie&#x107; nast&#x119;puj&#x105;c&#x105; posta&#x107;:</p>
 
 <pre><code>    -----BEGIN RSA PRIVATE KEY-----
     [zakodowany klucz]
     -----END RSA PRIVATE KEY-----
-    [pusta linia]
     -----BEGIN CERTIFICATE-----
     [zakodowany certyfikat]
-    -----END CERTIFICATE-----
-    [pusta linia]</code></pre>
+    -----END CERTIFICATE-----</code></pre>
 
 <h2 id="LOSOWO">LOSOWO&#x15A;&#x106;</h2>
 

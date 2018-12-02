@@ -67,7 +67,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2018.07.02" "5.48" "stunnel TLS Proxy"
+.TH stunnel 8 "2018.12.02" "5.50" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -653,6 +653,9 @@ default:
 \&    options = NO_SSLv2
 \&    options = NO_SSLv3
 .Ve
+.Sp
+Use \fIsslVersionMax\fR or \fIsslVersionMin\fR option instead of disabling specific \s-1TLS\s0 protocol
+versions when compiled with \fBOpenSSL 1.1.0\fR or later.
 .IP "\fBprotocol\fR = \s-1PROTO\s0" 4
 .IX Item "protocol = PROTO"
 application protocol to negotiate \s-1TLS\s0
@@ -907,29 +910,64 @@ Examples:
 .IX Item "sslVersion = SSL_VERSION"
 select the \s-1TLS\s0 protocol version
 .Sp
-Supported versions: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
-.Sp
-sslVersion is obsolete and it will be removed in future releases of stunnel.
-Use the following options instead:
-.Sp
-.Vb 6
-\&    options = NO_SSLv2
-\&    options = NO_SSLv3
-\&    options = NO_TLSv1
-\&    options = NO_TLSv1.1
-\&    options = NO_TLSv1.2
-\&    options = NO_TLSv1.3
-.Ve
+Supported versions: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
 .Sp
 Availability of specific protocols depends on the linked OpenSSL library.
-Older versions of OpenSSL do not support TLSv1.1 and TLSv1.2.
+Older versions of OpenSSL do not support TLSv1.1, TLSv1.2 and TLSv1.3.
 Newer versions of OpenSSL do not support SSLv2.
 .Sp
 Obsolete SSLv2 and SSLv3 are currently disabled by default.
-See the \fBoptions\fR option documentation for details.
+.Sp
+Setting the option
+.Sp
+.Vb 1
+\&    sslVersion = SSL_VERSION
+.Ve
+.Sp
+is equivalent to options
+.Sp
+.Vb 2
+\&    sslVersionMax = SSL_VERSION
+\&    sslVersionMin = SSL_VERSION
+.Ve
+.Sp
+when compiled with \fBOpenSSL 1.1.0\fR and later.
+.IP "\fBsslVersionMax\fR = \s-1SSL_VERSION\s0" 4
+.IX Item "sslVersionMax = SSL_VERSION"
+maximum supported protocol versions
+.Sp
+Supported versions: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
+.Sp
+\&\fIall\fR enable protocol versions up to the highest version supported by the
+linked OpenSSL library.
+.Sp
+Availability of specific protocols depends on the linked OpenSSL library.
+.Sp
+The \fIsslVersionMax\fR option is only available when compiled with \fBOpenSSL 1.1.0\fR and later.
+.Sp
+default: all
+.IP "\fBsslVersionMin\fR = \s-1SSL_VERSION\s0" 4
+.IX Item "sslVersionMin = SSL_VERSION"
+minimum supported protocol versions
+.Sp
+Supported versions: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
+.Sp
+\&\fIall\fR enable protocol versions down to the lowest version supported by the
+linked OpenSSL library.
+.Sp
+Availability of specific protocols depends on the linked OpenSSL library.
+.Sp
+The \fIsslVersionMin\fR option is only available when compiled with \fBOpenSSL 1.1.0\fR and later.
+.Sp
+default: TLSv1
 .IP "\fBstack\fR = \s-1BYTES \s0(except for \s-1FORK\s0 model)" 4
 .IX Item "stack = BYTES (except for FORK model)"
-thread stack size
+\&\s-1CPU\s0 stack size of created threads
+.Sp
+Excessive thread stack size increases virtual memory usage.
+Insufficient thread stack size may cause application crashes.
+.Sp
+default: 65536 bytes (sufficient for all platforms we tested)
 .IP "\fBTIMEOUTbusy\fR = \s-1SECONDS\s0" 4
 .IX Item "TIMEOUTbusy = SECONDS"
 time to wait for expected data
@@ -1319,21 +1357,17 @@ data. The easiest way to obtain a certificate and a key is to
 generate them with the free \fBOpenSSL\fR package. You can find more
 information on certificates generation on pages listed below.
 .PP
-The order of contents of the \fI.pem\fR file is important.  It should contain the
-unencrypted private key first, then a signed certificate (not certificate
-request).  There should also be empty lines after the certificate and the private key.
-Any plaintext certificate information appended on the top of generated certificate
-should be discarded. So the file should look like this:
+The \fI.pem\fR file should contain the unencrypted private key and
+a signed certificate (not certificate request).
+So the file should look like this:
 .PP
-.Vb 8
+.Vb 6
 \&    \-\-\-\-\-BEGIN RSA PRIVATE KEY\-\-\-\-\-
 \&    [encoded key]
 \&    \-\-\-\-\-END RSA PRIVATE KEY\-\-\-\-\-
-\&    [empty line]
 \&    \-\-\-\-\-BEGIN CERTIFICATE\-\-\-\-\-
 \&    [encoded certificate]
 \&    \-\-\-\-\-END CERTIFICATE\-\-\-\-\-
-\&    [empty line]
 .Ve
 .SS "\s-1RANDOMNESS\s0"
 .IX Subsection "RANDOMNESS"

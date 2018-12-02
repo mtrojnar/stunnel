@@ -1,5 +1,7 @@
 #!/bin/sh
 
+ddays=1461
+
 result_path=$(pwd)
 cd $(dirname "$0")
 script_path=$(pwd)
@@ -42,13 +44,13 @@ touch "demoCA/index.txt.attr"
 echo 1000 > "demoCA/serial"
 
 # generate a self-signed certificate
-$OPENSSL req -config $CONF -new -x509 -keyout tmp/stunnel.pem -out tmp/stunnel.pem \
+$OPENSSL req -config $CONF -new -x509 -days $ddays -keyout tmp/stunnel.pem -out tmp/stunnel.pem \
     -subj "/C=PL/ST=Mazovia Province/L=Warsaw/O=Stunnel Developers/OU=Provisional CA/CN=localhost/emailAddress=stunnel@example.com" \
     1>&2 2>> "maketestcert.log"
 
 # generate root CA certificate
 $OPENSSL genrsa -out demoCA/CA.key 1>&2 2>> "maketestcert.log"
-$OPENSSL req -config $CONF -new -x509 -key demoCA/CA.key -out tmp/CACert.pem \
+$OPENSSL req -config $CONF -new -x509 -days $ddays -key demoCA/CA.key -out tmp/CACert.pem \
     -subj "/C=PL/O=Stunnel Developers/OU=Root CA/CN=CA/emailAddress=CA@example.com" \
     1>&2 2>> "maketestcert.log"
 
@@ -58,14 +60,14 @@ $OPENSSL req -config $CONF -new -key demoCA/revoked.key -out demoCA/revoked.csr 
     -subj "/C=PL/O=Stunnel Developers/OU=revoked/CN=revoked/emailAddress=revoked@example.com" \
     1>&2 2>> "maketestcert.log"
 
-$OPENSSL ca -config $CONF -batch -in demoCA/revoked.csr -out demoCA/revoked.cer 1>&2 2>> "maketestcert.log"
+$OPENSSL ca -config $CONF -batch -days $ddays -in demoCA/revoked.csr -out demoCA/revoked.cer 1>&2 2>> "maketestcert.log"
 
 $OPENSSL x509 -in demoCA/revoked.cer -out tmp/revoked_cert.pem 1>&2 2>> "maketestcert.log"
 cat demoCA/revoked.key >> tmp/revoked_cert.pem 2>> "maketestcert.log"
 
 # revoke above certificate and generate CRL file
 $OPENSSL ca -config $CONF -revoke demoCA/1000.pem 1>&2 2>> "maketestcert.log"
-$OPENSSL ca -config $CONF -gencrl -out tmp/CACertCRL.pem 1>&2 2>> "maketestcert.log"
+$OPENSSL ca -config $CONF -gencrl -crldays $ddays -out tmp/CACertCRL.pem 1>&2 2>> "maketestcert.log"
 
 # generate a client certificate
 $OPENSSL genrsa -out demoCA/client.key 1>&2 2>> "maketestcert.log"
@@ -73,7 +75,7 @@ $OPENSSL req -config $CONF -new -key demoCA/client.key -out demoCA/client.csr \
     -subj "/C=PL/O=Stunnel Developers/OU=client/CN=client/emailAddress=client@example.com" \
     1>&2 2>> "maketestcert.log"
 
-$OPENSSL ca -config $CONF -batch -in demoCA/client.csr -out demoCA/client.cer 1>&2 2>> "maketestcert.log"
+$OPENSSL ca -config $CONF -batch -days $ddays -in demoCA/client.csr -out demoCA/client.cer 1>&2 2>> "maketestcert.log"
 
 $OPENSSL x509 -in demoCA/client.cer -out tmp/client_cert.pem 1>&2 2>> "maketestcert.log"
 cat tmp/client_cert.pem > tmp/PeerCerts.pem 2>> "maketestcert.log"
@@ -85,7 +87,7 @@ $OPENSSL req -config $CONF -new -key demoCA/server.key -out demoCA/server.csr \
     -subj "/C=PL/O=Stunnel Developers/OU=server/CN=server/emailAddress=server@example.com" \
     1>&2 2>> "maketestcert.log"
 
-$OPENSSL ca -config $CONF -batch -in demoCA/server.csr -out demoCA/server.cer 1>&2 2>> "maketestcert.log"
+$OPENSSL ca -config $CONF -batch -days $ddays -in demoCA/server.csr -out demoCA/server.cer 1>&2 2>> "maketestcert.log"
 
 $OPENSSL x509 -in demoCA/server.cer -out tmp/server_cert.pem 1>&2 2>> "maketestcert.log"
 cat tmp/server_cert.pem >> tmp/PeerCerts.pem 2>> "maketestcert.log"

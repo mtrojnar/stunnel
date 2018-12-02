@@ -1,6 +1,6 @@
 [Unit]
 Description=TLS tunnel for network daemons
-After=syslog.target
+After=syslog.target network.target
 
 [Service]
 ExecStart=@bindir@/stunnel

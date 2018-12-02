@@ -694,6 +694,9 @@ default:
     options = NO_SSLv2
     options = NO_SSLv3
 
+Use I<sslVersionMax> or I<sslVersionMin> option instead of disabling specific TLS protocol
+versions when compiled with B<OpenSSL 1.1.0> or later.
+
 =item B<protocol> = PROTO
 
 application protocol to negotiate TLS
@@ -975,28 +978,63 @@ Examples:
 
 select the TLS protocol version
 
-Supported versions: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
-
-sslVersion is obsolete and it will be removed in future releases of stunnel.
-Use the following options instead:
-
-    options = NO_SSLv2
-    options = NO_SSLv3
-    options = NO_TLSv1
-    options = NO_TLSv1.1
-    options = NO_TLSv1.2
-    options = NO_TLSv1.3
+Supported versions: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
 
 Availability of specific protocols depends on the linked OpenSSL library.
-Older versions of OpenSSL do not support TLSv1.1 and TLSv1.2.
+Older versions of OpenSSL do not support TLSv1.1, TLSv1.2 and TLSv1.3.
 Newer versions of OpenSSL do not support SSLv2.
 
 Obsolete SSLv2 and SSLv3 are currently disabled by default.
-See the B<options> option documentation for details.
+
+Setting the option
+
+    sslVersion = SSL_VERSION
+
+is equivalent to options
+
+    sslVersionMax = SSL_VERSION
+    sslVersionMin = SSL_VERSION
+
+when compiled with B<OpenSSL 1.1.0> and later.
+
+=item B<sslVersionMax> = SSL_VERSION
+
+maximum supported protocol versions
+
+Supported versions: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
+
+I<all> enable protocol versions up to the highest version supported by the
+linked OpenSSL library.
+
+Availability of specific protocols depends on the linked OpenSSL library.
+
+The I<sslVersionMax> option is only available when compiled with B<OpenSSL 1.1.0> and later.
+
+default: all
+
+=item B<sslVersionMin> = SSL_VERSION
+
+minimum supported protocol versions
+
+Supported versions: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
+
+I<all> enable protocol versions down to the lowest version supported by the
+linked OpenSSL library.
+
+Availability of specific protocols depends on the linked OpenSSL library.
+
+The I<sslVersionMin> option is only available when compiled with B<OpenSSL 1.1.0> and later.
+
+default: TLSv1
 
 =item B<stack> = BYTES (except for FORK model)
 
-thread stack size
+CPU stack size of created threads
+
+Excessive thread stack size increases virtual memory usage.
+Insufficient thread stack size may cause application crashes.
+
+default: 65536 bytes (sufficient for all platforms we tested) 
 
 =item B<TIMEOUTbusy> = SECONDS
 
@@ -1408,20 +1446,16 @@ data. The easiest way to obtain a certificate and a key is to
 generate them with the free B<OpenSSL> package. You can find more
 information on certificates generation on pages listed below.
 
-The order of contents of the I<.pem> file is important.  It should contain the
-unencrypted private key first, then a signed certificate (not certificate
-request).  There should also be empty lines after the certificate and the private key.
-Any plaintext certificate information appended on the top of generated certificate
-should be discarded. So the file should look like this:
+The I<.pem> file should contain the unencrypted private key and
+a signed certificate (not certificate request).
+So the file should look like this:
 
     -----BEGIN RSA PRIVATE KEY-----
     [encoded key]
     -----END RSA PRIVATE KEY-----
-    [empty line]
     -----BEGIN CERTIFICATE-----
     [encoded certificate]
     -----END CERTIFICATE-----
-    [empty line]
 
 =head2 RANDOMNESS
 

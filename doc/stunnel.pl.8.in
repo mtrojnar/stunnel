@@ -67,7 +67,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2018.07.02" "5.48" "stunnel TLS Proxy"
+.TH stunnel 8 "2018.12.02" "5.50" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -530,7 +530,7 @@ usługi.
 .Sp
 Opóźnione rozwijanie adresu automatycznie aktywuje \fIfailover = prio\fR.
 .Sp
-default: no
+domyślnie: no
 .IP "\fBengineId\fR = NUMER_URZĄDZENIA" 4
 .IX Item "engineId = NUMER_URZĄDZENIA"
 wybierz urządzenie dla usługi
@@ -670,6 +670,9 @@ domyślnie:
 \&    options = NO_SSLv2
 \&    options = NO_SSLv3
 .Ve
+.Sp
+Począwszy od \fBOpenSSL 1.1.0\fR, zamiast wyłączać określone wersje protokołów \s-1TLS\s0
+użyj opcji \fIsslVersionMax\fR lub \fIsslVersionMin\fR.
 .IP "\fBprotocol\fR = PROTOKÓŁ" 4
 .IX Item "protocol = PROTOKÓŁ"
 negocjuj \s-1TLS\s0 podanym protokołem aplikacyjnym
@@ -924,29 +927,62 @@ Przykłady:
 .IX Item "sslVersion = WERSJA_SSL"
 wersja protokołu \s-1TLS\s0
 .Sp
-Wspierane wersje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
-.Sp
-Ocja \fIsslVersion\fR jest przestarzała i zostanie usunięta w przyszłych wersjach stunnela.
-Zamiast niej należy używać następujących opcji:
-.Sp
-.Vb 6
-\&    options = NO_SSLv2
-\&    options = NO_SSLv3
-\&    options = NO_TLSv1
-\&    options = NO_TLSv1.1
-\&    options = NO_TLSv1.2
-\&    options = NO_TLSv1.3
-.Ve
+Wspierane wersje: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
 .Sp
 Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
-Starsze wersje OpenSSL nie wspierają TLSv1.1 i TLSv1.2.
+Starsze wersje OpenSSL nie wspierają TLSv1.1, TLSv1.2, TLSv1.3.
 Nowsze wersje OpenSSL nie wspierają SSLv2.
 .Sp
 Przestarzałe protokoły SSLv2 i SSLv3 są domyślnie wyłączone.
-Szczegółowe informacje dostępne są w opisie opcji \fBoptions\fR.
+.Sp
+Począwszy od \fBOpenSSL 1.1.0\fR, ustawienie
+.Sp
+.Vb 1
+\&    sslVersion = WERSJA_SSL
+.Ve
+.Sp
+jest równoważne opcjom
+.Sp
+.Vb 2
+\&    sslVersionMax = WERSJA_SSL
+\&    sslVersionMin = WERSJA_SSL
+.Ve
+.IP "\fBsslVersionMax\fR = \s-1WERSJA_SSL\s0" 4
+.IX Item "sslVersionMax = WERSJA_SSL"
+maksymalna wspierana wersja protokołu \s-1TLS\s0
+.Sp
+Wspierane wersje: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
+.Sp
+\&\fIall\fR włącza wszystkie wersje protokołów aż do maksymalnej wersji wspieranej
+przez bibliotekę użytej wersji OpenSSL.
+.Sp
+Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
+.Sp
+Opcja \fIsslVersionMax\fR jest dostępna począwszy od \fBOpenSSL 1.1.0\fR.
+.Sp
+domyślnie: all
+.IP "\fBsslVersionMin\fR = \s-1WERSJA_SSL\s0" 4
+.IX Item "sslVersionMin = WERSJA_SSL"
+minimalna wspierana wersja protokołu \s-1TLS\s0
+.Sp
+Wspierane wersje: all, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
+.Sp
+\&\fIall\fR włącza wszystkie wersje protokołów aż do minimalnej wersji wspieranej
+przez bibliotekę użytej wersji OpenSSL.
+.Sp
+Dostępność konkretnych protokołów zależy od użytej wersji OpenSSL.
+.Sp
+Opcja \fIsslVersionMin\fR jest dostępna począwszy od \fBOpenSSL 1.1.0\fR.
+.Sp
+domyślnie: TLSv1
 .IP "\fBstack\fR = LICZBA_BAJTÓW (z wyjątkiem modelu \s-1FORK\s0)" 4
 .IX Item "stack = LICZBA_BAJTÓW (z wyjątkiem modelu FORK)"
-rozmiar stosu procesora wątku
+rozmiar stosu procesora tworzonych wątków
+.Sp
+Zbyt duży stos zwiększa zużycie pamięci wirtualnej.
+Zbyt mały stos może powodować problemy ze stabilnością aplikacji.
+.Sp
+domyślnie: 65536 bytes (wystarczający dla testowanych platform)
 .IP "\fBTIMEOUTbusy\fR = \s-1LICZBA_SEKUND\s0" 4
 .IX Item "TIMEOUTbusy = LICZBA_SEKUND"
 czas oczekiwania na spodziewane dane
@@ -1342,23 +1378,17 @@ Najprostszą metodą uzyskania certyfikatu jest wygenerowanie go przy pomocy
 wolnego pakietu \fBOpenSSL\fR.  Więcej informacji na temat generowania
 certyfikatów można znaleźć na umieszczonych poniżej stronach.
 .PP
-Istotną kwestią jest kolejność zawartości pliku \fI.pem\fR.
-W pierwszej kolejności powinien on zawierać klucz prywatny,
-a dopiero za nim podpisany certyfikat (nie żądanie certyfikatu).
-Po certyfikacie i kluczu prywatnym powinny znajdować się puste linie.
-Jeżeli przed certyfikatem znajdują się dodatkowe informacje tekstowe,
-to powinny one zostać usunięte.  Otrzymany plik powinien mieć
-następującą postać:
+Plik \fI.pem\fR powinien zawierać klucz prywatny oraz podpisany certyfikat
+(nie żądanie certyfikatu).
+Otrzymany plik powinien mieć następującą postać:
 .PP
-.Vb 8
+.Vb 6
 \&    \-\-\-\-\-BEGIN RSA PRIVATE KEY\-\-\-\-\-
 \&    [zakodowany klucz]
 \&    \-\-\-\-\-END RSA PRIVATE KEY\-\-\-\-\-
-\&    [pusta linia]
 \&    \-\-\-\-\-BEGIN CERTIFICATE\-\-\-\-\-
 \&    [zakodowany certyfikat]
 \&    \-\-\-\-\-END CERTIFICATE\-\-\-\-\-
-\&    [pusta linia]
 .Ve
 .SS "LOSOWOŚĆ"
 .IX Subsection "LOSOWOŚĆ"

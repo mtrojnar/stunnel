@@ -293,7 +293,7 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
             level<=opt->log_level
 #else
             (level<=opt->log_level &&
-            global_options.option.log_stderr)
+            opt->option.log_stderr)
 #endif
             )
         ui_new_log(line);

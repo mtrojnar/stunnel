@@ -1,5 +1,24 @@
 stunnel change log
 
+Version 5.50, 2018.12.02, urgency: MEDIUM
+* New features
+  - 32-bit Windows builds replaced with 64-bit builds.
+  - OpenSSL DLLs updated to version 1.1.1.
+  - Check whether "output" is not a relative file name.
+  - Major code cleanup in the configuration file parser.
+  - Added sslVersion, sslVersionMin and sslVersionMax
+    for OpenSSL 1.1.0 and later.
+* Bugfixes
+  - Fixed PSK session resumption with TLS 1.3.
+  - Fixed a memory leak in WIN32 logging subsystem.
+  - Allow for zero value (ignored) TLS options.
+  - Partially refactored configuration file parsing
+    and logging subsystems for clearer code and minor
+	bugfixes.
+* Caveats
+  - We removed FIPS support from our standard builds.
+    FIPS will still be available with bespoke builds.
+
 Version 5.49, 2018.09.03, urgency: MEDIUM
 * New features
   - Performance optimizations.

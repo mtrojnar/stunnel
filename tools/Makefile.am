@@ -5,6 +5,7 @@ EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh makecert.sh
 EXTRA_DIST += openssl.cnf stunnel.nsi stunnel.license stunnel.conf
 EXTRA_DIST += stunnel.conf-sample.in stunnel.init.in stunnel.service.in
 EXTRA_DIST += stunnel.logrotate stunnel.rh.init stunnel.spec
+EXTRA_DIST += plugins ca-certs.pem
 
 confdir = $(sysconfdir)/stunnel
 conf_DATA = stunnel.conf-sample

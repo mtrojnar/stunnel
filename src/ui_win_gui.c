@@ -69,6 +69,7 @@ NOEXPORT int gui_loop();
 
 NOEXPORT void CALLBACK timer_proc(HWND, UINT, UINT_PTR, DWORD);
 NOEXPORT LRESULT CALLBACK window_proc(HWND, UINT, WPARAM, LPARAM);
+NOEXPORT void save_peer_certificate(WPARAM wParam);
 NOEXPORT LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
 NOEXPORT LRESULT CALLBACK pass_proc(HWND, UINT, WPARAM, LPARAM);
 NOEXPORT int pin_cb(UI *, UI_STRING *);
@@ -84,6 +85,7 @@ NOEXPORT unsigned __stdcall daemon_thread(void *);
 NOEXPORT void valid_config(void);
 NOEXPORT void invalid_config(void);
 NOEXPORT void update_peer_menu(void);
+NOEXPORT void update_peer_menu_unlocked(void);
 NOEXPORT void tray_update(const int);
 NOEXPORT void tray_delete(void);
 NOEXPORT void error_box(LPCTSTR);
@@ -135,7 +137,7 @@ static SERVICE_STATUS_HANDLE serviceStatusHandle=0;
 static BOOL visible=FALSE;
 static HANDLE main_initialized=NULL; /* global initialization performed */
 static HANDLE config_ready=NULL; /* reload without a valid configuration */
-static LONG new_logs=0;
+static BOOL new_logs=FALSE;
 
 static struct {
     char *config_file;
@@ -424,15 +426,11 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
     POINT pt;
     RECT rect;
     PAINTSTRUCT ps;
-    SERVICE_OPTIONS *section;
-    unsigned section_number;
-    LPTSTR txt;
 
 #if 0
     switch(message) {
     case WM_CTLCOLORSTATIC:
     case WM_TIMER:
-    case WM_LOG:
         break;
     default:
         s_log(LOG_DEBUG, "Window message: 0x%x(0x%hx,0x%lx)",
@@ -526,24 +524,6 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         return 0;
 
     case WM_COMMAND:
-        if(wParam>=IDM_PEER_MENU && wParam<IDM_PEER_MENU+number_of_sections) {
-            for(section=service_options.next, section_number=0;
-                    section && wParam!=IDM_PEER_MENU+section_number;
-                    section=section->next, ++section_number)
-                ;
-            if(!section)
-                return 0;
-            if(save_text_file(section->file, section->chain))
-                return 0;
-#ifndef _WIN32_WCE
-            if(main_menu_handle)
-                CheckMenuItem(main_menu_handle, (UINT)wParam, MF_CHECKED);
-#endif
-            if(tray_menu_handle)
-                CheckMenuItem(tray_menu_handle, (UINT)wParam, MF_CHECKED);
-            message_box(section->help, MB_ICONINFORMATION);
-            return 0;
-        }
         switch(wParam) {
         case IDM_ABOUT:
             DialogBox(ghInst, TEXT("AboutBox"), main_window_handle,
@@ -598,6 +578,9 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
                     TEXT("http://www.stunnel.org/"), NULL, NULL, SW_SHOWNORMAL);
 #endif
             break;
+        default:
+            if(wParam>=IDM_PEER_MENU && wParam<IDM_PEER_MENU+number_of_sections)
+                save_peer_certificate(wParam);
         }
         return 0;
 
@@ -639,12 +622,6 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         invalid_config();
         return 0;
 
-    case WM_LOG:
-        txt=(LPTSTR)wParam;
-        win_log(txt);
-        str_free(txt);
-        return 0;
-
     case WM_NEW_CHAIN:
 #ifndef _WIN32_WCE
         if(main_menu_handle)
@@ -662,6 +639,27 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
     }
 
     return DefWindowProc(main_window_handle, message, wParam, lParam);
+}
+
+NOEXPORT void save_peer_certificate(WPARAM wParam) {
+    SERVICE_OPTIONS *section;
+    unsigned section_number;
+
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SECTIONS]);
+    for(section=service_options.next, section_number=0;
+            section && wParam!=IDM_PEER_MENU+section_number;
+            section=section->next, ++section_number)
+        ;
+    if(section && !save_text_file(section->file, section->chain)) {
+#ifndef _WIN32_WCE
+        if(main_menu_handle)
+            CheckMenuItem(main_menu_handle, (UINT)wParam, MF_CHECKED);
+#endif
+        if(tray_menu_handle)
+            CheckMenuItem(tray_menu_handle, (UINT)wParam, MF_CHECKED);
+        message_box(section->help, MB_ICONINFORMATION);
+    }
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
 }
 
 NOEXPORT LRESULT CALLBACK about_proc(HWND dialog_handle, UINT message,
@@ -814,7 +812,9 @@ NOEXPORT void save_log() {
     if(!GetSaveFileName(&ofn))
         return;
 
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_WIN_LOG]);
     txt=log_txt(); /* need to convert the result to UTF-8 */
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_WIN_LOG]);
     str=tstr2str(txt);
     str_free(txt);
     save_text_file(file_name, str);
@@ -846,34 +846,49 @@ NOEXPORT void win_log(LPCTSTR txt) {
     static size_t log_len=0;
 
     txt_len=_tcslen(txt);
-    curr=str_alloc(sizeof(struct LIST)+txt_len*sizeof(TCHAR));
+    curr=str_alloc_detached(sizeof(struct LIST)+txt_len*sizeof(TCHAR));
     curr->len=txt_len;
     _tcscpy(curr->txt, txt);
     curr->next=NULL;
+
+    /* this critical section is performance critical */
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_WIN_LOG]);
     if(tail)
         tail->next=curr;
     tail=curr;
     if(!head)
         head=tail;
     log_len++;
-    while(log_len>LOG_LINES) {
+    new_logs=TRUE;
+    if(log_len>LOG_LINES) {
         curr=head;
         head=head->next;
-        str_free(curr);
         log_len--;
+    } else {
+        curr=NULL;
     }
-    new_logs=1;
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_WIN_LOG]);
+
+    str_free(curr);
 }
 
 NOEXPORT void update_logs(void) {
     LPTSTR txt;
 
-    if(!InterlockedExchange(&new_logs, 0))
-        return;
-    txt=log_txt();
-    SetWindowText(edit_handle, txt);
-    str_free(txt);
-    SendMessage(edit_handle, WM_VSCROLL, (WPARAM)SB_BOTTOM, (LPARAM)0);
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_WIN_LOG]);
+    if(new_logs) {
+        txt=log_txt();
+        new_logs=FALSE;
+    } else {
+        txt=NULL;
+    }
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_WIN_LOG]);
+
+    if(txt) {
+        SetWindowText(edit_handle, txt);
+        str_free(txt);
+        SendMessage(edit_handle, WM_VSCROLL, (WPARAM)SB_BOTTOM, (LPARAM)0);
+    }
 }
 
 NOEXPORT LPTSTR log_txt(void) {
@@ -965,6 +980,12 @@ NOEXPORT void valid_config() {
 }
 
 NOEXPORT void update_peer_menu(void) {
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SECTIONS]);
+    update_peer_menu_unlocked();
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
+}
+
+NOEXPORT void update_peer_menu_unlocked(void) {
     SERVICE_OPTIONS *section;
 #ifndef _WIN32_WCE
     HMENU main_peer_list=NULL;
@@ -1162,9 +1183,10 @@ void ui_new_chain(const unsigned section_number) {
 
 void ui_new_log(const char *line) {
     LPTSTR txt;
+
     txt=str2tstr(line);
-    str_detach(txt); /* this allocation will be freed in the GUI thread */
-    PostMessage(hwnd, WM_LOG, (WPARAM)txt, 0);
+    win_log(txt);
+    str_free(txt);
 }
 
 void ui_config_reloaded(void) {

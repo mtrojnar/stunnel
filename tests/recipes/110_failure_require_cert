@@ -12,12 +12,12 @@ start() {
   client = yes
   accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
-  ;cert = ${script_path}/certs/client_cert.pem
+  ;cert = ../certs/client_cert.pem
 
   [server]
   accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http_nc}
-  cert = ${script_path}/certs/server_cert.pem
+  cert = ../certs/server_cert.pem
   requireCert = yes
 EOT
 }

@@ -44,18 +44,20 @@
 
 #define CONFLINELEN (16*1024)
 
+#define INVALID_SSL_OPTION ((long unsigned)-1)
+
 typedef enum {
-    CMD_BEGIN,      /* initialize defaults */
-    CMD_EXEC,       /* process command */
-    CMD_END,        /* end of section */
-    CMD_DUP,        /* duplicate new_service_options */
-    CMD_FREE,       /* deallocate memory */
-    CMD_DEFAULT,    /* print default value */
-    CMD_HELP        /* print help */
+    CMD_SET_DEFAULTS,   /* set default values */
+    CMD_SET_COPY,       /* duplicate from new_service_options */
+    CMD_FREE,           /* deallocate memory */
+    CMD_SET_VALUE,      /* set a user-specified value */
+    CMD_INITIALIZE,     /* initialize the global options or a section */
+    CMD_PRINT_DEFAULTS, /* print default values */
+    CMD_PRINT_HELP      /* print help */
 } CMD;
 
 NOEXPORT int options_file(char *, CONF_TYPE, SERVICE_OPTIONS **);
-NOEXPORT int options_include(char *, SERVICE_OPTIONS **);
+NOEXPORT int init_section(int, SERVICE_OPTIONS **);
 #ifdef USE_WIN32
 struct dirent {
     char d_name[MAX_PATH];
@@ -66,15 +68,19 @@ int scandir(const char *, struct dirent ***,
 int alphasort(const struct dirent **, const struct dirent **);
 #endif
 NOEXPORT char *parse_global_option(CMD, char *, char *);
-NOEXPORT char *parse_service_option(CMD, SERVICE_OPTIONS *, char *, char *);
+NOEXPORT char *parse_service_option(CMD, SERVICE_OPTIONS **, char *, char *);
 
 #ifndef OPENSSL_NO_TLSEXT
 NOEXPORT char *sni_init(SERVICE_OPTIONS *);
 NOEXPORT void sni_free(SERVICE_OPTIONS *);
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+NOEXPORT int str_to_proto_version(const char *);
+#else /* OPENSSL_VERSION_NUMBER<0x10100000L */
 NOEXPORT char *tls_methods_set(SERVICE_OPTIONS *, const char *);
 NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *);
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 
 NOEXPORT char *parse_debug_level(char *, SERVICE_OPTIONS *);
 
@@ -233,6 +239,8 @@ NOEXPORT ENGINE *engine_get_by_id(const char *);
 NOEXPORT ENGINE *engine_get_by_num(const int);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
+NOEXPORT char *include_config(char *, SERVICE_OPTIONS **);
+
 NOEXPORT void print_syntax(void);
 
 NOEXPORT void name_list_append(NAME_LIST **, char *);
@@ -244,7 +252,7 @@ NOEXPORT char **arg_dup(char **);
 NOEXPORT void arg_free(char **arg);
 #endif
 
-char configuration_file[PATH_MAX];
+char *configuration_file=NULL;
 
 GLOBAL_OPTIONS global_options;
 SERVICE_OPTIONS service_options;
@@ -287,13 +295,13 @@ int options_cmdline(char *arg1, char *arg2) {
             "stunnel.conf";
         type=CONF_FILE;
     } else if(!strcasecmp(arg1, "-help")) {
-        parse_global_option(CMD_HELP, NULL, NULL);
-        parse_service_option(CMD_HELP, NULL, NULL, NULL);
+        parse_global_option(CMD_PRINT_HELP, NULL, NULL);
+        parse_service_option(CMD_PRINT_HELP, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
         return 2;
     } else if(!strcasecmp(arg1, "-version")) {
-        parse_global_option(CMD_DEFAULT, NULL, NULL);
-        parse_service_option(CMD_DEFAULT, NULL, NULL, NULL);
+        parse_global_option(CMD_PRINT_DEFAULTS, NULL, NULL);
+        parse_service_option(CMD_PRINT_DEFAULTS, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
         return 2;
     } else if(!strcasecmp(arg1, "-sockets")) {
@@ -321,18 +329,24 @@ int options_cmdline(char *arg1, char *arg2) {
         type=CONF_FILE;
     }
 
-#ifdef HAVE_REALPATH
     if(type==CONF_FILE) {
-        if(!realpath(name, configuration_file)) {
+#ifdef HAVE_REALPATH
+        char *real_path=realpath(name, NULL);
+        if(!real_path) {
             s_log(LOG_ERR, "Invalid configuration file name \"%s\"", name);
             ioerror("realpath");
             return 1;
         }
-        return options_parse(type);
-    }
+        configuration_file=str_dup(real_path);
+        free(real_path);
+#else
+        configuration_file=str_dup(name);
 #endif
-    strncpy(configuration_file, name, PATH_MAX-1);
-    configuration_file[PATH_MAX-1]='\0';
+#ifndef USE_WIN32
+    } else if(type==CONF_FD) {
+        configuration_file=str_dup(name);
+#endif
+    }
     return options_parse(type);
 }
 
@@ -340,40 +354,20 @@ int options_cmdline(char *arg1, char *arg2) {
 
 int options_parse(CONF_TYPE type) {
     SERVICE_OPTIONS *section;
-    char *errstr;
 
     options_defaults();
     section=&new_service_options;
     if(options_file(configuration_file, type, &section))
         return 1;
-
-    if(new_service_options.next) { /* daemon mode: initialize sections */
-        for(section=new_service_options.next; section; section=section->next) {
-            s_log(LOG_INFO, "Initializing service [%s]", section->servname);
-            errstr=parse_service_option(CMD_END, section, NULL, NULL);
-            if(errstr)
-                break;
-        }
-    } else { /* inetd mode: need to initialize global options */
-        errstr=parse_global_option(CMD_END, NULL, NULL);
-        if(errstr) {
-            s_log(LOG_ERR, "Global options: %s", errstr);
-            return 1;
-        }
-        s_log(LOG_INFO, "Initializing inetd mode configuration");
-        section=&new_service_options;
-        errstr=parse_service_option(CMD_END, section, NULL, NULL);
-    }
-    if(errstr) {
-        s_log(LOG_ERR, "Service [%s]: %s", section->servname, errstr);
+    if(init_section(1, &section))
         return 1;
-    }
 
     s_log(LOG_NOTICE, "Configuration successful");
     return 0;
 }
 
-NOEXPORT int options_file(char *path, CONF_TYPE type, SERVICE_OPTIONS **section) {
+NOEXPORT int options_file(char *path, CONF_TYPE type,
+        SERVICE_OPTIONS **section_ptr) {
     DISK_FILE *df;
     char line_text[CONFLINELEN], *errstr;
     char config_line[CONFLINELEN], *config_opt, *config_arg;
@@ -427,15 +421,9 @@ NOEXPORT int options_file(char *path, CONF_TYPE type, SERVICE_OPTIONS **section)
             continue;
 
         if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
-            /* initialize global options */
-            if(!new_service_options.next) {
-                errstr=parse_global_option(CMD_END, NULL, NULL);
-                if(errstr) {
-                    s_log(LOG_ERR, "%s:%d: \"%s\": %s",
-                        path, line_number, line_text, errstr);
-                    file_close(df);
-                    return 1;
-                }
+            if(init_section(0, section_ptr)) {
+                file_close(df);
+                return 1;
             }
 
             /* append a new SERVICE_OPTIONS structure to the list */
@@ -443,16 +431,16 @@ NOEXPORT int options_file(char *path, CONF_TYPE type, SERVICE_OPTIONS **section)
                 SERVICE_OPTIONS *new_section;
                 new_section=str_alloc_detached(sizeof(SERVICE_OPTIONS));
                 new_section->next=NULL;
-                (*section)->next=new_section;
-                *section=new_section;
+                (*section_ptr)->next=new_section;
+                *section_ptr=new_section;
             }
 
             /* initialize the newly allocated section */
             ++config_opt;
             config_opt[strlen(config_opt)-1]='\0';
-            (*section)->servname=str_dup_detached(config_opt);
-            (*section)->session=NULL;
-            parse_service_option(CMD_DUP, *section, NULL, NULL);
+            (*section_ptr)->servname=str_dup_detached(config_opt);
+            (*section_ptr)->session=NULL;
+            parse_service_option(CMD_SET_COPY, section_ptr, NULL, NULL);
             continue;
         }
 
@@ -469,22 +457,12 @@ NOEXPORT int options_file(char *path, CONF_TYPE type, SERVICE_OPTIONS **section)
         while(isspace((unsigned char)*config_arg))
             ++config_arg; /* remove initial whitespaces */
 
-        if(!strcasecmp(config_opt, "include")) {
-            if(options_include(config_arg, section)) {
-                s_log(LOG_ERR, "%s:%d: Failed to include directory \"%s\"",
-                    path, line_number, config_arg);
-                file_close(df);
-                return 1;
-            }
-            continue;
-        }
-
         errstr=option_not_found;
         /* try global options first (e.g. for 'debug') */
         if(!new_service_options.next)
-            errstr=parse_global_option(CMD_EXEC, config_opt, config_arg);
+            errstr=parse_global_option(CMD_SET_VALUE, config_opt, config_arg);
         if(errstr==option_not_found)
-            errstr=parse_service_option(CMD_EXEC, *section, config_opt, config_arg);
+            errstr=parse_service_option(CMD_SET_VALUE, section_ptr, config_opt, config_arg);
         if(errstr) {
             s_log(LOG_ERR, "%s:%d: \"%s\": %s",
                 path, line_number, line_text, errstr);
@@ -496,35 +474,40 @@ NOEXPORT int options_file(char *path, CONF_TYPE type, SERVICE_OPTIONS **section)
     return 0;
 }
 
-NOEXPORT int options_include(char *directory, SERVICE_OPTIONS **section) {
-    struct dirent **namelist;
-    int i, num, err=0;
+NOEXPORT int init_section(int eof, SERVICE_OPTIONS **section_ptr) {
+    char *errstr;
 
-    num=scandir(directory, &namelist, NULL, alphasort);
-    if(num<0) {
-        ioerror("scandir");
-        return 1;
-    }
-    for(i=0; i<num; ++i) {
-        if(!err) {
-            struct stat sb;
-            char *name=str_printf(
-#ifdef USE_WIN32
-                "%s\\%s",
-#else
-                "%s/%s",
-#endif
-                directory, namelist[i]->d_name);
-            if(!stat(name, &sb) && S_ISREG(sb.st_mode))
-                err=options_file(name, CONF_FILE, section);
-            else
-                s_log(LOG_DEBUG, "\"%s\" is not a file", name);
-            str_free(name);
+#ifndef USE_WIN32
+    (*section_ptr)->option.log_stderr=new_global_options.option.log_stderr;
+#endif /* USE_WIN32 */
+
+    if(*section_ptr==&new_service_options) {
+        /* end of global options or inetd mode -> initialize globals */
+        errstr=parse_global_option(CMD_INITIALIZE, NULL, NULL);
+        if(errstr) {
+            s_log(LOG_ERR, "Global options: %s", errstr);
+            return 1;
         }
-        free(namelist[i]);
     }
-    free(namelist);
-    return err;
+
+    if(*section_ptr!=&new_service_options || eof) {
+        /* end service section or inetd mode -> initialize service */
+        if(*section_ptr==&new_service_options)
+            s_log(LOG_INFO, "Initializing inetd mode configuration");
+        else
+            s_log(LOG_INFO, "Initializing service [%s]",
+                (*section_ptr)->servname);
+        errstr=parse_service_option(CMD_INITIALIZE, section_ptr, NULL, NULL);
+        if(errstr) {
+            if(*section_ptr==&new_service_options)
+                s_log(LOG_ERR, "Inetd mode: %s", errstr);
+            else
+                s_log(LOG_ERR, "Service [%s]: %s",
+                    (*section_ptr)->servname, errstr);
+            return 1;
+        }
+    }
+    return 0;
 }
 
 #ifdef USE_WIN32
@@ -579,18 +562,23 @@ int alphasort(const struct dirent **a, const struct dirent **b) {
 #endif
 
 void options_defaults() {
+    SERVICE_OPTIONS *service;
+
     /* initialize globals *before* opening the config file */
     memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS));
     memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS));
     new_service_options.next=NULL;
 
-    parse_global_option(CMD_BEGIN, NULL, NULL);
-    parse_service_option(CMD_BEGIN, &new_service_options, NULL, NULL);
+    parse_global_option(CMD_SET_DEFAULTS, NULL, NULL);
+    service=&new_service_options;
+    parse_service_option(CMD_SET_DEFAULTS, &service, NULL, NULL);
 }
 
 void options_apply() { /* apply default/validated configuration */
     unsigned num=0;
     SERVICE_OPTIONS *section;
+
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SECTIONS]);
 
     memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
 
@@ -599,10 +587,11 @@ void options_apply() { /* apply default/validated configuration */
         section->section_number=num++;
     memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
     number_of_sections=num;
+
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
 }
 
 void options_free() {
-    /* FIXME: this operation may be unsafe, as client() threads use it */
     parse_global_option(CMD_FREE, NULL, NULL);
 }
 
@@ -624,8 +613,10 @@ void service_free(SERVICE_OPTIONS *section) {
 #else
     ref=--(section->ref);
 #endif
+    if(ref<0)
+        fatal("Negative section reference counter");
     if(ref==0)
-        parse_service_option(CMD_FREE, section, NULL, NULL);
+        parse_service_option(CMD_FREE, &section, NULL, NULL);
 }
 
 /**************************************** global options */
@@ -633,7 +624,7 @@ void service_free(SERVICE_OPTIONS *section) {
 NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     void *tmp;
 
-    if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
+    if(cmd==CMD_PRINT_DEFAULTS || cmd==CMD_PRINT_HELP) {
         s_log(LOG_NOTICE, " ");
         s_log(LOG_NOTICE, "Global options:");
     }
@@ -641,26 +632,26 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* chroot */
 #ifdef HAVE_CHROOT
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.chroot_dir=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "chroot"))
-            break;
-        new_global_options.chroot_dir=str_dup(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_SET_COPY: /* not used for global options */
         break;
     case CMD_FREE:
         tmp=global_options.chroot_dir;
         global_options.chroot_dir=NULL;
         str_free(tmp);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "chroot"))
+            break;
+        new_global_options.chroot_dir=str_dup(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = directory to chroot stunnel process", "chroot");
         break;
     }
@@ -669,10 +660,14 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* compression */
 #ifndef OPENSSL_NO_COMP
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.compression=COMP_NONE;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "compression"))
             break;
         /* only allow compression with OpenSSL 0.9.8 or later
@@ -686,15 +681,11 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else
             return "Specified compression type is not available";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = compression type",
             "compression");
         break;
@@ -703,33 +694,33 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* EGD */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
 #ifdef EGD_SOCKET
         new_global_options.egd_sock=EGD_SOCKET;
 #else
         new_global_options.egd_sock=NULL;
 #endif
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "EGD"))
-            break;
-        new_global_options.egd_sock=str_dup(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_SET_COPY: /* not used for global options */
         break;
     case CMD_FREE:
         tmp=global_options.egd_sock;
         global_options.egd_sock=NULL;
         str_free(tmp);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "EGD"))
+            break;
+        new_global_options.egd_sock=str_dup(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
 #ifdef EGD_SOCKET
         s_log(LOG_NOTICE, "%-22s = %s", "EGD", EGD_SOCKET);
 #endif
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = path to Entropy Gathering Daemon socket", "EGD");
         break;
     }
@@ -738,27 +729,27 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* engine */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         engine_reset_list();
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        /* FIXME: investigate if we can free it */
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "engine"))
             break;
         if(!strcasecmp(arg, "auto"))
             return engine_auto();
         else
             return engine_open(arg);
-    case CMD_END:
+    case CMD_INITIALIZE:
         engine_init();
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        /* FIXME: investigate if we can free it */
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = auto|engine_id",
             "engine");
         break;
@@ -766,9 +757,13 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* engineCtrl */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "engineCtrl"))
             break;
         {
@@ -777,15 +772,11 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
                 *tmp_str++='\0';
             return engine_ctrl(arg, tmp_str);
         }
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = cmd[:arg]",
             "engineCtrl");
         break;
@@ -793,21 +784,21 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* engineDefault */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "engineDefault"))
-            break;
-        return engine_default(arg);
-    case CMD_END:
-        break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_SET_COPY: /* not used for global options */
         break;
     case CMD_FREE:
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "engineDefault"))
+            break;
+        return engine_default(arg);
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = TASK_LIST",
             "engineDefault");
         break;
@@ -817,12 +808,16 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* fips */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
 #ifdef USE_FIPS
         new_global_options.option.fips=0;
 #endif /* USE_FIPS */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "fips"))
             break;
 #ifdef USE_FIPS
@@ -837,15 +832,11 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
             return "FIPS support is not available";
 #endif /* USE_FIPS */
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
 #ifdef USE_FIPS
         s_log(LOG_NOTICE, "%-22s = yes|no FIPS 140-2 mode",
             "fips");
@@ -856,11 +847,15 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* foreground */
 #ifndef USE_WIN32
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.option.foreground=0;
         new_global_options.option.log_stderr=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "foreground"))
             break;
         if(!strcasecmp(arg, "yes")) {
@@ -875,15 +870,11 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         } else
             return "The argument needs to be either 'yes', 'quiet' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|quiet|no foreground mode (don't fork, log to stderr)",
             "foreground");
         break;
@@ -894,75 +885,75 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* iconActive */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.icon[ICON_ACTIVE]=load_icon_default(ICON_ACTIVE);
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        /* FIXME: investigate if we can free it */
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "iconActive"))
             break;
         if(!(new_global_options.icon[ICON_ACTIVE]=load_icon_file(arg)))
             return "Failed to load the specified icon";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        /* FIXME: investigate if we can free it */
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = icon when connections are established", "iconActive");
         break;
     }
 
     /* iconError */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.icon[ICON_ERROR]=load_icon_default(ICON_ERROR);
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        /* FIXME: investigate if we can free it */
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "iconError"))
             break;
         if(!(new_global_options.icon[ICON_ERROR]=load_icon_file(arg)))
             return "Failed to load the specified icon";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        /* FIXME: investigate if we can free it */
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = icon for invalid configuration file", "iconError");
         break;
     }
 
     /* iconIdle */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.icon[ICON_IDLE]=load_icon_default(ICON_IDLE);
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        /* FIXME: investigate if we can free it */
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "iconIdle"))
             break;
         if(!(new_global_options.icon[ICON_IDLE]=load_icon_file(arg)))
             return "Failed to load the specified icon";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        /* FIXME: investigate if we can free it */
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = icon when no connections were established", "iconIdle");
         break;
     }
@@ -971,10 +962,14 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* log */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.log_file_mode=FILE_MODE_APPEND;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "log"))
             break;
         if(!strcasecmp(arg, "append"))
@@ -984,15 +979,11 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else
             return "The argument needs to be either 'append' or 'overwrite'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = append|overwrite log file",
             "log");
         break;
@@ -1000,26 +991,32 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* output */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.output_file=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "output"))
-            break;
-        new_global_options.output_file=str_dup(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_SET_COPY: /* not used for global options */
         break;
     case CMD_FREE:
         tmp=global_options.output_file;
         global_options.output_file=NULL;
         str_free(tmp);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "output"))
+            break;
+        new_global_options.output_file=str_dup(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+#ifndef USE_WIN32
+        if(!new_global_options.option.foreground /* daemonize() used */ &&
+                new_global_options.output_file /* log file enabled */ &&
+                new_global_options.output_file[0]!='/' /* relative path */)
+            return "Log file must include full path name";
+#endif
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = file to append log messages", "output");
         break;
     }
@@ -1027,10 +1024,17 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* pid */
 #ifndef USE_WIN32
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.pidfile=NULL; /* do not create a pid file */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        tmp=global_options.pidfile;
+        global_options.pidfile=NULL;
+        str_free(tmp);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "pid"))
             break;
         if(arg[0]) /* is argument not empty? */
@@ -1038,18 +1042,15 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else
             new_global_options.pidfile=NULL; /* empty -> do not create a pid file */
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
+        if(!new_global_options.option.foreground /* daemonize() used */ &&
+                new_global_options.pidfile /* pid file enabled */ &&
+                new_global_options.pidfile[0]!='/' /* relative path */)
+            return "Pid file must include full path name";
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        tmp=global_options.pidfile;
-        global_options.pidfile=NULL;
-        str_free(tmp);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = pid file", "pid");
         break;
     }
@@ -1057,10 +1058,14 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* RNDbytes */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.random_bytes=RANDOM_BYTES;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "RNDbytes"))
             break;
         {
@@ -1070,59 +1075,59 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
                 return "Illegal number of bytes to read from random seed files";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %d", "RNDbytes", RANDOM_BYTES);
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = bytes to read from random seed files", "RNDbytes");
         break;
     }
 
     /* RNDfile */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
 #ifdef RANDOM_FILE
         new_global_options.rand_file=str_dup(RANDOM_FILE);
 #else
         new_global_options.rand_file=NULL;
 #endif
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "RNDfile"))
-            break;
-        new_global_options.rand_file=str_dup(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_SET_COPY: /* not used for global options */
         break;
     case CMD_FREE:
         tmp=global_options.rand_file;
         global_options.rand_file=NULL;
         str_free(tmp);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "RNDfile"))
+            break;
+        new_global_options.rand_file=str_dup(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
 #ifdef RANDOM_FILE
         s_log(LOG_NOTICE, "%-22s = %s", "RNDfile", RANDOM_FILE);
 #endif
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = path to file with random seed data", "RNDfile");
         break;
     }
 
     /* RNDoverwrite */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.option.rand_write=1;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "RNDoverwrite"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -1132,16 +1137,12 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = yes", "RNDoverwrite");
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no overwrite seed datafiles with new random data",
             "RNDoverwrite");
         break;
@@ -1150,10 +1151,14 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* syslog */
 #ifndef USE_WIN32
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.option.log_syslog=1;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "syslog"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -1163,15 +1168,11 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no send logging messages to syslog",
             "syslog");
         break;
@@ -1181,10 +1182,14 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     /* taskbar */
 #ifdef USE_WIN32
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         new_global_options.option.taskbar=1;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "taskbar"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -1194,16 +1199,12 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP: /* not used for global options */
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = yes", "taskbar");
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no enable the taskbar icon", "taskbar");
         break;
     }
@@ -1211,21 +1212,21 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
     /* final checks */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         break;
-    case CMD_EXEC:
-        return option_not_found;
-    case CMD_END:
-        /* FIPS needs to be initialized as early as possible */
-        if(ssl_configure(&new_global_options)) /* configure global TLS settings */
-            return "Failed to initialize TLS";
-    case CMD_DUP:
+    case CMD_SET_COPY:
         break;
     case CMD_FREE:
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        return option_not_found;
+    case CMD_INITIALIZE:
+        /* FIPS needs to be initialized as early as possible */
+        if(ssl_configure(&new_global_options)) /* configure global TLS settings */
+            return "Failed to initialize TLS";
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         break;
     }
     return NULL; /* OK */
@@ -1233,48 +1234,36 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
 
 /**************************************** service-level options */
 
-NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
+NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
         char *opt, char *arg) {
+    SERVICE_OPTIONS *section;
     int endpoints=0;
 #ifndef USE_WIN32
     struct group *gr;
     struct passwd *pw;
 #endif
 
-    if(cmd==CMD_DEFAULT || cmd==CMD_HELP) {
-        s_log(LOG_NOTICE, " ");
-        s_log(LOG_NOTICE, "Service-level options:");
+    section=section_ptr ? *section_ptr : NULL;
+
+    if(cmd==CMD_SET_DEFAULTS || cmd==CMD_SET_COPY) {
+        section->ref=1;
     } else if(cmd==CMD_FREE) {
-        if(section==&service_options)
+        if(section==&service_options || section==&new_service_options)
             s_log(LOG_DEBUG, "Deallocating section defaults");
         else
             s_log(LOG_DEBUG, "Deallocating section [%s]", section->servname);
+    } else if(cmd==CMD_PRINT_DEFAULTS || cmd==CMD_PRINT_HELP) {
+        s_log(LOG_NOTICE, " ");
+        s_log(LOG_NOTICE, "Service-level options:");
     }
 
     /* accept */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         addrlist_clear(&section->local_addr, 1);
         section->local_fd=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "accept"))
-            break;
-        section->option.accept=1;
-        name_list_append(&section->local_addr.names, arg);
-        return NULL; /* OK */
-    case CMD_END:
-        if(section->local_addr.names) {
-            unsigned i;
-            if(!addrlist_resolve(&section->local_addr))
-                return "Cannot resolve accept target";
-            section->local_fd=str_alloc_detached(section->local_addr.num*sizeof(SOCKET));
-            for(i=0; i<section->local_addr.num; ++i)
-                section->local_fd[i]=INVALID_SOCKET;
-            ++endpoints;
-        }
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         addrlist_clear(&section->local_addr, 1);
         section->local_fd=NULL;
         name_list_dup(&section->local_addr.names,
@@ -1285,9 +1274,26 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         str_free(section->local_addr.addr);
         str_free(section->local_fd);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "accept"))
+            break;
+        section->option.accept=1;
+        name_list_append(&section->local_addr.names, arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(section->local_addr.names) {
+            unsigned i;
+            if(!addrlist_resolve(&section->local_addr))
+                return "Cannot resolve accept target";
+            section->local_fd=str_alloc_detached(section->local_addr.num*sizeof(SOCKET));
+            for(i=0; i<section->local_addr.num; ++i)
+                section->local_fd[i]=INVALID_SOCKET;
+            ++endpoints;
+        }
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = [host:]port accept connections on specified host:port",
             "accept");
         break;
@@ -1295,13 +1301,19 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* CApath */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
 #if 0
         section->ca_dir=(char *)X509_get_default_cert_dir();
 #endif
         section->ca_dir=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->ca_dir=str_dup_detached(new_service_options.ca_dir);
+        break;
+    case CMD_FREE:
+        str_free(section->ca_dir);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "CApath"))
             break;
         str_free(section->ca_dir);
@@ -1310,21 +1322,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             section->ca_dir=NULL;
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->ca_dir=str_dup_detached(new_service_options.ca_dir);
-        break;
-    case CMD_FREE:
-        str_free(section->ca_dir);
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
 #if 0
         s_log(LOG_NOTICE, "%-22s = %s", "CApath",
             section->ca_dir ? section->ca_dir : "(none)");
 #endif
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = CA certificate directory for 'verify' option",
             "CApath");
         break;
@@ -1332,13 +1338,19 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* CAfile */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
 #if 0
         section->ca_file=(char *)X509_get_default_certfile();
 #endif
         section->ca_file=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->ca_file=str_dup_detached(new_service_options.ca_file);
+        break;
+    case CMD_FREE:
+        str_free(section->ca_file);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "CAfile"))
             break;
         str_free(section->ca_file);
@@ -1347,21 +1359,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             section->ca_file=NULL;
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->ca_file=str_dup_detached(new_service_options.ca_file);
-        break;
-    case CMD_FREE:
-        str_free(section->ca_file);
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
 #if 0
         s_log(LOG_NOTICE, "%-22s = %s", "CAfile",
             section->ca_file ? section->ca_file : "(none)");
 #endif
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = CA certificate file for 'verify' option",
             "CAfile");
         break;
@@ -1369,16 +1375,22 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* cert */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->cert=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->cert=str_dup_detached(new_service_options.cert);
+        break;
+    case CMD_FREE:
+        str_free(section->cert);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "cert"))
             break;
         str_free(section->cert);
         section->cert=str_dup_detached(arg);
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
 #ifndef OPENSSL_NO_PSK
         if(section->psk_keys)
             break;
@@ -1390,15 +1402,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(!section->option.client && !section->cert)
             return "TLS server needs a certificate";
         break;
-    case CMD_DUP:
-        section->cert=str_dup_detached(new_service_options.cert);
-        break;
-    case CMD_FREE:
-        str_free(section->cert);
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         break; /* no default certificate */
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = certificate chain", "cert");
         break;
     }
@@ -1407,28 +1413,28 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* checkEmail */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->check_email=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "checkEmail"))
-            break;
-        name_list_append(&section->check_email, arg);
-        return NULL; /* OK */
-    case CMD_END:
-        if(section->check_email && !section->option.verify_chain && !section->option.verify_peer)
-            return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         name_list_dup(&section->check_email,
             new_service_options.check_email);
         break;
     case CMD_FREE:
         name_list_free(section->check_email);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "checkEmail"))
+            break;
+        name_list_append(&section->check_email, arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(section->check_email && !section->option.verify_chain && !section->option.verify_peer)
+            return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = peer certificate email address",
             "checkEmail");
         break;
@@ -1436,28 +1442,28 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* checkHost */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->check_host=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "checkHost"))
-            break;
-        name_list_append(&section->check_host, arg);
-        return NULL; /* OK */
-    case CMD_END:
-        if(section->check_host && !section->option.verify_chain && !section->option.verify_peer)
-            return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         name_list_dup(&section->check_host,
             new_service_options.check_host);
         break;
     case CMD_FREE:
         name_list_free(section->check_host);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "checkHost"))
+            break;
+        name_list_append(&section->check_host, arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(section->check_host && !section->option.verify_chain && !section->option.verify_peer)
+            return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = peer certificate host name pattern",
             "checkHost");
         break;
@@ -1465,28 +1471,28 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* checkIP */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->check_ip=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "checkIP"))
-            break;
-        name_list_append(&section->check_ip, arg);
-        return NULL; /* OK */
-    case CMD_END:
-        if(section->check_ip && !section->option.verify_chain && !section->option.verify_peer)
-            return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         name_list_dup(&section->check_ip,
             new_service_options.check_ip);
         break;
     case CMD_FREE:
         name_list_free(section->check_ip);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "checkIP"))
+            break;
+        name_list_append(&section->check_ip, arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(section->check_ip && !section->option.verify_chain && !section->option.verify_peer)
+            return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled";
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = peer certificate IP address",
             "checkIP");
         break;
@@ -1496,16 +1502,22 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* ciphers */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->cipher_list=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->cipher_list=str_dup_detached(new_service_options.cipher_list);
+        break;
+    case CMD_FREE:
+        str_free(section->cipher_list);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "ciphers"))
             break;
         str_free(section->cipher_list);
         section->cipher_list=str_dup_detached(arg);
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         if(!section->cipher_list) {
             /* this is only executed for global options,
              * because section->cipher_list is no longer NULL */
@@ -1517,13 +1529,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 section->cipher_list=str_dup_detached(stunnel_cipher_list);
         }
         break;
-    case CMD_DUP:
-        section->cipher_list=str_dup_detached(new_service_options.cipher_list);
-        break;
-    case CMD_FREE:
-        str_free(section->cipher_list);
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
 #ifdef USE_FIPS
         s_log(LOG_NOTICE, "%-22s = %s %s", "ciphers",
             "FIPS", "(with \"fips = yes\")");
@@ -1533,17 +1539,22 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         s_log(LOG_NOTICE, "%-22s = %s", "ciphers", stunnel_cipher_list);
 #endif /* USE_FIPS */
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = list of permitted TLS ciphers", "ciphers");
         break;
     }
 
     /* client */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.client=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.client=new_service_options.option.client;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "client"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -1553,16 +1564,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.client=new_service_options.option.client;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no client mode (remote service uses TLS)",
             "client");
         break;
@@ -1572,25 +1578,25 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* config */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->config=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "config"))
-            break;
-        name_list_append(&section->config, arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         name_list_dup(&section->config, new_service_options.config);
         break;
     case CMD_FREE:
         name_list_free(section->config);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "config"))
+            break;
+        name_list_append(&section->config, arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = command[:parameter] to execute",
             "config");
         break;
@@ -1600,16 +1606,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* connect */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         addrlist_clear(&section->connect_addr, 0);
         section->connect_session=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        addrlist_clear(&section->connect_addr, 0);
+        section->connect_session=NULL;
+        name_list_dup(&section->connect_addr.names,
+            new_service_options.connect_addr.names);
+        break;
+    case CMD_FREE:
+        name_list_free(section->connect_addr.names);
+        str_free(section->connect_addr.addr);
+        str_free(section->connect_session);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "connect"))
             break;
         name_list_append(&section->connect_addr.names, arg);
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         if(section->connect_addr.names) {
             if(!section->option.delayed_lookup &&
                     !addrlist_resolve(&section->connect_addr)) {
@@ -1625,20 +1642,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             ++endpoints;
         }
         break;
-    case CMD_DUP:
-        addrlist_clear(&section->connect_addr, 0);
-        section->connect_session=NULL;
-        name_list_dup(&section->connect_addr.names,
-            new_service_options.connect_addr.names);
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        name_list_free(section->connect_addr.names);
-        str_free(section->connect_addr.addr);
-        str_free(section->connect_session);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = [host:]port to connect",
             "connect");
         break;
@@ -1646,10 +1652,16 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* CRLpath */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->crl_dir=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->crl_dir=str_dup_detached(new_service_options.crl_dir);
+        break;
+    case CMD_FREE:
+        str_free(section->crl_dir);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "CRLpath"))
             break;
         str_free(section->crl_dir);
@@ -1658,27 +1670,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             section->crl_dir=NULL;
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->crl_dir=str_dup_detached(new_service_options.crl_dir);
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        str_free(section->crl_dir);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = CRL directory", "CRLpath");
         break;
     }
 
     /* CRLfile */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->crl_file=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->crl_file=str_dup_detached(new_service_options.crl_file);
+        break;
+    case CMD_FREE:
+        str_free(section->crl_file);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "CRLfile"))
             break;
         str_free(section->crl_file);
@@ -1687,17 +1699,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             section->crl_file=NULL;
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->crl_file=str_dup_detached(new_service_options.crl_file);
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        str_free(section->crl_file);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = CRL file", "CRLfile");
         break;
     }
@@ -1707,27 +1713,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* curve */
 #define DEFAULT_CURVE NID_X9_62_prime256v1
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->curve=DEFAULT_CURVE;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->curve=new_service_options.curve;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "curve"))
             break;
         section->curve=OBJ_txt2nid(arg);
         if(section->curve==NID_undef)
             return "Curve name not supported";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->curve=new_service_options.curve;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %s", "curve", OBJ_nid2ln(DEFAULT_CURVE));
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = ECDH curve name", "curve");
         break;
     }
@@ -1736,31 +1742,31 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* debug */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->log_level=LOG_NOTICE;
 #if !defined (USE_WIN32) && !defined (__vms)
         new_global_options.log_facility=LOG_DAEMON;
 #endif
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "debug"))
-            break;
-        return parse_debug_level(arg, section);
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->log_level=new_service_options.log_level;
         break;
     case CMD_FREE:
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "debug"))
+            break;
+        return parse_debug_level(arg, section);
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
 #if !defined (USE_WIN32) && !defined (__vms)
         s_log(LOG_NOTICE, "%-22s = %s", "debug", "daemon.notice");
 #else
         s_log(LOG_NOTICE, "%-22s = %s", "debug", "notice");
 #endif
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
 #if !defined (USE_WIN32) && !defined (__vms)
         s_log(LOG_NOTICE, "%-22s = [facility].level (e.g. daemon.info)", "debug");
 #else
@@ -1771,10 +1777,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* delay */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.delayed_lookup=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.delayed_lookup=new_service_options.option.delayed_lookup;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "delay"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -1784,16 +1795,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.delayed_lookup=new_service_options.option.delayed_lookup;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE,
             "%-22s = yes|no delay DNS lookup for 'connect' option",
             "delay");
@@ -1804,25 +1810,25 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* engineId */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->engine=new_service_options.engine;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "engineId"))
             break;
         section->engine=engine_get_by_id(arg);
         if(!section->engine)
             return "Engine ID not found";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->engine=new_service_options.engine;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = ID of engine to read the key from",
             "engineId");
         break;
@@ -1830,9 +1836,14 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* engineNum */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->engine=new_service_options.engine;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "engineNum"))
             break;
         {
@@ -1845,16 +1856,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(!section->engine)
             return "Illegal engine number";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->engine=new_service_options.engine;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = number of engine to read the key from",
             "engineNum");
         break;
@@ -1864,10 +1870,16 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* exec */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->exec_name=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->exec_name=str_dup_detached(new_service_options.exec_name);
+        break;
+    case CMD_FREE:
+        str_free(section->exec_name);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "exec"))
             break;
         str_free(section->exec_name);
@@ -1882,19 +1894,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         }
 #endif
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         if(section->exec_name)
             ++endpoints;
         break;
-    case CMD_DUP:
-        section->exec_name=str_dup_detached(new_service_options.exec_name);
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        str_free(section->exec_name);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = file execute local inetd-type program",
             "exec");
         break;
@@ -1902,23 +1908,10 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* execArgs */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->exec_args=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "execArgs"))
-            break;
-#ifdef USE_WIN32
-        str_free(section->exec_args);
-        section->exec_args=str_dup_detached(arg);
-#else
-        arg_free(section->exec_args);
-        section->exec_args=arg_alloc(arg);
-#endif
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
 #ifdef USE_WIN32
         section->exec_args=str_dup_detached(new_service_options.exec_args);
 #else
@@ -1932,9 +1925,22 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         arg_free(section->exec_args);
 #endif
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "execArgs"))
+            break;
+#ifdef USE_WIN32
+        str_free(section->exec_args);
+        section->exec_args=str_dup_detached(arg);
+#else
+        arg_free(section->exec_args);
+        section->exec_args=arg_alloc(arg);
+#endif
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = arguments for 'exec' (including $0)",
             "execArgs");
         break;
@@ -1942,11 +1948,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* failover */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->failover=FAILOVER_PRIO;
         section->rr=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->failover=new_service_options.failover;
+        section->rr=new_service_options.rr;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "failover"))
             break;
         if(!strcasecmp(arg, "rr"))
@@ -1956,19 +1968,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'rr' or 'prio'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         if(section->option.delayed_lookup)
             section->failover=FAILOVER_PRIO;
         break;
-    case CMD_DUP:
-        section->failover=new_service_options.failover;
-        section->rr=new_service_options.rr;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = rr|prio failover strategy",
             "failover");
         break;
@@ -1976,54 +1982,76 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* ident */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->username=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "ident"))
-            break;
-        str_free(section->username);
-        section->username=str_dup_detached(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->username=str_dup_detached(new_service_options.username);
         break;
     case CMD_FREE:
         str_free(section->username);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "ident"))
+            break;
+        str_free(section->username);
+        section->username=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = username for IDENT (RFC 1413) checking", "ident");
+        break;
+    }
+
+    /* include */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        break;
+    case CMD_SET_COPY:
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "include"))
+            break;
+        return include_config(arg, section_ptr);
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = directory with configuration file snippets",
+            "include");
         break;
     }
 
     /* key */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->key=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "key"))
-            break;
-        str_free(section->key);
-        section->key=str_dup_detached(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        if(section->cert && !section->key)
-            section->key=str_dup_detached(section->cert);
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->key=str_dup_detached(new_service_options.key);
         break;
     case CMD_FREE:
         str_free(section->key);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "key"))
+            break;
+        str_free(section->key);
+        section->key=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(section->cert && !section->key)
+            section->key=str_dup_detached(section->cert);
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = certificate private key", "key");
         break;
     }
@@ -2031,10 +2059,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* libwrap */
 #ifdef USE_LIBWRAP
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.libwrap=0; /* disable libwrap by default */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.libwrap=new_service_options.option.libwrap;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "libwrap"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -2044,16 +2077,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.libwrap=new_service_options.option.libwrap;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no use /etc/hosts.allow and /etc/hosts.deny",
             "libwrap");
         break;
@@ -2062,28 +2090,28 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* local */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.local=0;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "local"))
-            break;
-        if(!hostport2addr(&section->source_addr, arg, "0", 1))
-            return "Failed to resolve local address";
-        section->option.local=1;
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->option.local=new_service_options.option.local;
         memcpy(&section->source_addr, &new_service_options.source_addr,
             sizeof(SOCKADDR_UNION));
         break;
     case CMD_FREE:
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "local"))
+            break;
+        if(!hostport2addr(&section->source_addr, arg, "0", 1))
+            return "Failed to resolve local address";
+        section->option.local=1;
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = IP address to be used as source for remote"
             " connections", "local");
         break;
@@ -2091,10 +2119,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* logId */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->log_id=LOG_ID_SEQUENTIAL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->log_id=new_service_options.log_id;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "logId"))
             break;
         if(!strcasecmp(arg, "sequential"))
@@ -2108,17 +2141,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "Invalid connection identifier type";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->log_id=new_service_options.log_id;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %s", "logId", "sequential");
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = connection identifier type",
             "logId");
         break;
@@ -2128,36 +2156,41 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* OCSP */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->ocsp_url=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "ocsp"))
-            break;
-        str_free(section->ocsp_url);
-        section->ocsp_url=str_dup_detached(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->ocsp_url=str_dup_detached(new_service_options.ocsp_url);
         break;
     case CMD_FREE:
         str_free(section->ocsp_url);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "ocsp"))
+            break;
+        str_free(section->ocsp_url);
+        section->ocsp_url=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = OCSP responder URL", "OCSP");
         break;
     }
 
     /* OCSPaia */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.aia=0; /* disable AIA by default */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.aia=new_service_options.option.aia;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "OCSPaia"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -2167,16 +2200,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.aia=new_service_options.option.aia;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE,
             "%-22s = yes|no check the AIA responders from certificates",
             "OCSPaia");
@@ -2185,10 +2213,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* OCSPflag */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->ocsp_flags=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->ocsp_flags=new_service_options.ocsp_flags;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "OCSPflag"))
             break;
         {
@@ -2198,26 +2231,26 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             section->ocsp_flags|=tmp_ulong;
         }
         return NULL;
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->ocsp_flags=new_service_options.ocsp_flags;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = OCSP responder flags", "OCSPflag");
         break;
     }
 
     /* OCSPnonce */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.nonce=0; /* disable OCSP nonce by default */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.nonce=new_service_options.option.nonce;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "OCSPnonce"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -2227,16 +2260,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.nonce=new_service_options.option.nonce;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE,
             "%-22s = yes|no send and verify the OCSP nonce extension",
             "OCSPnonce");
@@ -2247,34 +2275,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* options */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->ssl_options_set=0;
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
         section->ssl_options_clear=0;
 #endif /* OpenSSL 0.9.8m or later */
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "options"))
-            break;
-#if OPENSSL_VERSION_NUMBER>=0x009080dfL
-        if(*arg=='-') {
-            long unsigned tmp=parse_ssl_option(arg+1);
-            if(!tmp)
-                return "Illegal TLS option";
-            section->ssl_options_clear|=tmp;
-            return NULL; /* OK */
-        }
-#endif /* OpenSSL 0.9.8m or later */
-        {
-            long unsigned tmp=parse_ssl_option(arg);
-            if(!tmp)
-                return "Illegal TLS option";
-            section->ssl_options_set|=tmp;
-        }
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->ssl_options_set=new_service_options.ssl_options_set;
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
         section->ssl_options_clear=new_service_options.ssl_options_clear;
@@ -2282,27 +2289,54 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         break;
     case CMD_FREE:
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "options"))
+            break;
+#if OPENSSL_VERSION_NUMBER>=0x009080dfL
+        if(*arg=='-') {
+            long unsigned tmp=parse_ssl_option(arg+1);
+            if(tmp==INVALID_SSL_OPTION)
+                return "Illegal TLS option";
+            section->ssl_options_clear|=tmp;
+            return NULL; /* OK */
+        }
+#endif /* OpenSSL 0.9.8m or later */
+        {
+            long unsigned tmp=parse_ssl_option(arg);
+            if(tmp==INVALID_SSL_OPTION)
+                return "Illegal TLS option";
+            section->ssl_options_set|=tmp;
+        }
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %s", "options", "NO_SSLv2");
         s_log(LOG_NOTICE, "%-22s = %s", "options", "NO_SSLv3");
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = TLS option to set/reset", "options");
         break;
     }
 
     /* protocol */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->protocol=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->protocol=str_dup_detached(new_service_options.protocol);
+        break;
+    case CMD_FREE:
+        str_free(section->protocol);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "protocol"))
             break;
         str_free(section->protocol);
         section->protocol=str_dup_detached(arg);
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         /* PROTOCOL_CHECK also initializes:
            section->option.connect_before_ssl
            section->option.protocol_endpoint */
@@ -2319,15 +2353,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             section->ssl_options_set|=SSL_OP_NO_TICKET;
 #endif
         break;
-    case CMD_DUP:
-        section->protocol=str_dup_detached(new_service_options.protocol);
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        str_free(section->protocol);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = protocol to negotiate before TLS initialization",
             "protocol");
         s_log(LOG_NOTICE, "%25scurrently supported: cifs, connect, imap,", "");
@@ -2337,27 +2365,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* protocolAuthentication */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->protocol_authentication=str_dup_detached("basic");
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "protocolAuthentication"))
-            break;
-        str_free(section->protocol_authentication);
-        section->protocol_authentication=str_dup_detached(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->protocol_authentication=
             str_dup_detached(new_service_options.protocol_authentication);
         break;
     case CMD_FREE:
         str_free(section->protocol_authentication);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "protocolAuthentication"))
+            break;
+        str_free(section->protocol_authentication);
+        section->protocol_authentication=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = authentication type for protocol negotiations",
             "protocolAuthentication");
         break;
@@ -2365,27 +2393,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* protocolDomain */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->protocol_domain=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "protocolDomain"))
-            break;
-        str_free(section->protocol_domain);
-        section->protocol_domain=str_dup_detached(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->protocol_domain=
             str_dup_detached(new_service_options.protocol_domain);
         break;
     case CMD_FREE:
         str_free(section->protocol_domain);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "protocolDomain"))
+            break;
+        str_free(section->protocol_domain);
+        section->protocol_domain=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = domain for protocol negotiations",
             "protocolDomain");
         break;
@@ -2393,27 +2421,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* protocolHost */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->protocol_host=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "protocolHost"))
-            break;
-        str_free(section->protocol_host);
-        section->protocol_host=str_dup_detached(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->protocol_host=
             str_dup_detached(new_service_options.protocol_host);
         break;
     case CMD_FREE:
         str_free(section->protocol_host);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "protocolHost"))
+            break;
+        str_free(section->protocol_host);
+        section->protocol_host=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = host:port for protocol negotiations",
             "protocolHost");
         break;
@@ -2421,27 +2449,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* protocolPassword */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->protocol_password=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "protocolPassword"))
-            break;
-        str_free(section->protocol_password);
-        section->protocol_password=str_dup_detached(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->protocol_password=
             str_dup_detached(new_service_options.protocol_password);
         break;
     case CMD_FREE:
         str_free(section->protocol_password);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "protocolPassword"))
+            break;
+        str_free(section->protocol_password);
+        section->protocol_password=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = password for protocol negotiations",
             "protocolPassword");
         break;
@@ -2449,27 +2477,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* protocolUsername */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->protocol_username=NULL;
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "protocolUsername"))
-            break;
-        str_free(section->protocol_username);
-        section->protocol_username=str_dup_detached(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->protocol_username=
             str_dup_detached(new_service_options.protocol_username);
         break;
     case CMD_FREE:
         str_free(section->protocol_username);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "protocolUsername"))
+            break;
+        str_free(section->protocol_username);
+        section->protocol_username=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = username for protocol negotiations",
             "protocolUsername");
         break;
@@ -2479,19 +2507,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* PSKidentity */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->psk_identity=NULL;
         section->psk_selected=NULL;
         section->psk_sorted.val=NULL;
         section->psk_sorted.num=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->psk_identity=
+            str_dup_detached(new_service_options.psk_identity);
+        break;
+    case CMD_FREE:
+        str_free(section->psk_identity);
+        str_free(section->psk_sorted.val);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "PSKidentity"))
             break;
         str_free(section->psk_identity);
         section->psk_identity=str_dup_detached(arg);
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         if(!section->psk_keys) /* PSK not configured */
             break;
         psk_sort(&section->psk_sorted, section->psk_keys);
@@ -2510,17 +2546,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                     "PSK identity is ignored in the server mode");
         }
         break;
-    case CMD_DUP:
-        section->psk_identity=
-            str_dup_detached(new_service_options.psk_identity);
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        str_free(section->psk_identity);
-        str_free(section->psk_sorted.val);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = identity for PSK authentication",
             "PSKidentity");
         break;
@@ -2528,27 +2556,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* PSKsecrets */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->psk_keys=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->psk_keys=psk_dup(new_service_options.psk_keys);
+        break;
+    case CMD_FREE:
+        psk_free(section->psk_keys);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "PSKsecrets"))
             break;
         section->psk_keys=psk_read(arg);
         if(!section->psk_keys)
             return "Failed to read PSK secrets";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->psk_keys=psk_dup(new_service_options.psk_keys);
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        psk_free(section->psk_keys);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = secrets for PSK authentication",
             "PSKsecrets");
         break;
@@ -2559,10 +2587,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* pty */
 #ifndef USE_WIN32
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.pty=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.pty=new_service_options.option.pty;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "pty"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -2572,16 +2605,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.pty=new_service_options.option.pty;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no allocate pseudo terminal for 'exec' option",
             "pty");
         break;
@@ -2590,10 +2618,19 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* redirect */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         addrlist_clear(&section->redirect_addr, 0);
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        addrlist_clear(&section->redirect_addr, 0);
+        name_list_dup(&section->redirect_addr.names,
+            new_service_options.redirect_addr.names);
+        break;
+    case CMD_FREE:
+        name_list_free(section->redirect_addr.names);
+        str_free(section->redirect_addr.addr);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "redirect"))
             break;
 #ifdef SSL_OP_NO_TICKET
@@ -2603,7 +2640,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #endif
         name_list_append(&section->redirect_addr.names, arg);
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         if(section->redirect_addr.names) {
             if(!section->option.delayed_lookup &&
                     !addrlist_resolve(&section->redirect_addr)) {
@@ -2617,18 +2654,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled for \"redirect\" to work";
         }
         break;
-    case CMD_DUP:
-        addrlist_clear(&section->redirect_addr, 0);
-        name_list_dup(&section->redirect_addr.names,
-            new_service_options.redirect_addr.names);
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        name_list_free(section->redirect_addr.names);
-        str_free(section->redirect_addr.addr);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE,
             "%-22s = [host:]port to redirect on authentication failures",
             "redirect");
@@ -2637,10 +2665,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* renegotiation */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.renegotiation=1;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.renegotiation=new_service_options.option.renegotiation;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "renegotiation"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -2650,16 +2683,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.renegotiation=new_service_options.option.renegotiation;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no support renegotiation",
               "renegotiation");
         break;
@@ -2667,10 +2695,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* requireCert */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.require_cert=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.require_cert=new_service_options.option.require_cert;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "requireCert"))
             break;
         if(!strcasecmp(arg, "yes")) {
@@ -2682,16 +2715,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "The argument needs to be either 'yes' or 'no'";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.require_cert=new_service_options.option.require_cert;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no require client certificate",
             "requireCert");
         break;
@@ -2699,10 +2727,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* reset */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.reset=1; /* enabled by default */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.reset=new_service_options.option.reset;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "reset"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -2712,16 +2745,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.reset=new_service_options.option.reset;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no send TCP RST on error",
             "reset");
         break;
@@ -2729,10 +2757,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* retry */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.retry=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.retry=new_service_options.option.retry;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "retry"))
             break;
         if(!strcasecmp(arg, "yes"))
@@ -2742,16 +2775,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             return "The argument needs to be either 'yes' or 'no'";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.retry=new_service_options.option.retry;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no retry connect+exec section",
             "retry");
         break;
@@ -2760,26 +2788,26 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #ifndef USE_WIN32
     /* service */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->servname=str_dup_detached("stunnel");
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "service"))
-            break;
-        str_free(section->servname);
-        section->servname=str_dup_detached(arg);
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         /* servname is *not* copied from the global section */
         break;
     case CMD_FREE:
         /* deallocation is performed at the end CMD_FREE */
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "service"))
+            break;
+        str_free(section->servname);
+        section->servname=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = service name", "service");
         break;
     }
@@ -2788,10 +2816,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #ifndef USE_WIN32
     /* setgid */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->gid=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->gid=new_service_options.gid;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "setgid"))
             break;
         gr=getgrnam(arg);
@@ -2806,16 +2839,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Illegal GID";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->gid=new_service_options.gid;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = groupname for setgid()", "setgid");
         break;
     }
@@ -2824,10 +2852,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #ifndef USE_WIN32
     /* setuid */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->uid=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->uid=new_service_options.uid;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "setuid"))
             break;
         pw=getpwnam(arg);
@@ -2842,16 +2875,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Illegal UID";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->uid=new_service_options.uid;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = username for setuid()", "setuid");
         break;
     }
@@ -2859,10 +2887,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* sessionCacheSize */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->session_size=1000L;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->session_size=new_service_options.session_size;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "sessionCacheSize"))
             break;
         {
@@ -2872,27 +2905,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Illegal session cache size";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->session_size=new_service_options.session_size;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %ld", "sessionCacheSize", 1000L);
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = session cache size", "sessionCacheSize");
         break;
     }
 
     /* sessionCacheTimeout */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->session_timeout=300L;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->session_timeout=new_service_options.session_timeout;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "sessionCacheTimeout") && strcasecmp(opt, "session"))
             break;
         {
@@ -2902,17 +2935,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Illegal session cache timeout";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->session_timeout=new_service_options.session_timeout;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %ld seconds", "sessionCacheTimeout", 300L);
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = session cache timeout (in seconds)",
             "sessionCacheTimeout");
         break;
@@ -2920,12 +2948,19 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* sessiond */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.sessiond=0;
         memset(&section->sessiond_addr, 0, sizeof(SOCKADDR_UNION));
         section->sessiond_addr.in.sin_family=AF_INET;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.sessiond=new_service_options.option.sessiond;
+        memcpy(&section->sessiond_addr, &new_service_options.sessiond_addr,
+            sizeof(SOCKADDR_UNION));
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "sessiond"))
             break;
         section->option.sessiond=1;
@@ -2937,18 +2972,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(!name2addr(&section->sessiond_addr, arg, 0))
             return "Failed to resolve sessiond server address";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.sessiond=new_service_options.option.sessiond;
-        memcpy(&section->sessiond_addr, &new_service_options.sessiond_addr,
-            sizeof(SOCKADDR_UNION));
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = [host:]port use sessiond at host:port",
             "sessiond");
         break;
@@ -2957,17 +2985,25 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 #ifndef OPENSSL_NO_TLSEXT
     /* sni */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->servername_list_head=NULL;
         section->servername_list_tail=NULL;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->sni=
+            str_dup_detached(new_service_options.sni);
+        break;
+    case CMD_FREE:
+        str_free(section->sni);
+        sni_free(section);
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "sni"))
             break;
         str_free(section->sni);
         section->sni=str_dup_detached(arg);
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         {
             char *tmp_str=sni_init(section);
             if(tmp_str)
@@ -2976,17 +3012,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         if(!section->option.client && section->sni)
             ++endpoints;
         break;
-    case CMD_DUP:
-        section->sni=
-            str_dup_detached(new_service_options.sni);
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        str_free(section->sni);
-        sni_free(section);
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = master_service:host_name for an SNI virtual service",
             "sni");
         break;
@@ -2995,74 +3023,180 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* socket */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->sock_opts=socket_options_init();
         break;
-    case CMD_EXEC:
-        if(strcasecmp(opt, "socket"))
-            break;
-        if(socket_option_parse(section->sock_opts, arg))
-            return "Illegal socket option";
-        return NULL; /* OK */
-    case CMD_END:
-        break;
-    case CMD_DUP:
+    case CMD_SET_COPY:
         section->sock_opts=socket_options_dup(new_service_options.sock_opts);
         break;
     case CMD_FREE:
         socket_options_free(section->sock_opts);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "socket"))
+            break;
+        if(socket_option_parse(section->sock_opts, arg))
+            return "Illegal socket option";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = a|l|r:option=value[:value]", "socket");
         s_log(LOG_NOTICE, "%25sset an option on accept/local/remote socket", "");
         break;
     }
 
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+
     /* sslVersion */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
+        /* handled in sslVersionMax and sslVersionMin */
+        break;
+    case CMD_SET_COPY:
+        /* handled in sslVersionMax and sslVersionMin */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "sslVersion"))
+            break;
+        section->max_proto_version=
+            section->min_proto_version=str_to_proto_version(arg);
+        if(section->max_proto_version==-1)
+            return "Invalid protocol version";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(section->max_proto_version && section->min_proto_version &&
+                section->max_proto_version<section->min_proto_version)
+            return "Invalid protocol version range";
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = all"
+            "|SSLv3|TLSv1|TLSv1.1|TLSv1.2"
+#ifdef TLS1_3_VERSION
+            "|TLSv1.3"
+#endif
+            " TLS version", "sslVersion");
+        break;
+    }
+
+    /* sslVersionMax */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->max_proto_version=0; /* highest supported */
+        break;
+    case CMD_SET_COPY:
+        section->max_proto_version=new_service_options.max_proto_version;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "sslVersionMax"))
+            break;
+        section->max_proto_version=str_to_proto_version(arg);
+        if(section->max_proto_version==-1)
+            return "Invalid protocol version";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = all"
+            "|SSLv3|TLSv1|TLSv1.1|TLSv1.2"
+#ifdef TLS1_3_VERSION
+            "|TLSv1.3"
+#endif
+            " TLS version", "sslVersionMax");
+        break;
+    }
+
+    /* sslVersionMin */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->min_proto_version=TLS1_VERSION;
+        break;
+    case CMD_SET_COPY:
+        section->min_proto_version=new_service_options.min_proto_version;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "sslVersionMin"))
+            break;
+        section->min_proto_version=str_to_proto_version(arg);
+        if(section->min_proto_version==-1)
+            return "Invalid protocol version";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = all"
+            "|SSLv3|TLSv1|TLSv1.1|TLSv1.2"
+#ifdef TLS1_3_VERSION
+            "|TLSv1.3"
+#endif
+            " TLS version", "sslVersionMin");
+        break;
+    }
+
+#else /* OPENSSL_VERSION_NUMBER<0x10100000L */
+
+    /* sslVersion */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
         tls_methods_set(section, NULL);
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->client_method=new_service_options.client_method;
+        section->server_method=new_service_options.server_method;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "sslVersion"))
             break;
         return tls_methods_set(section, arg);
-    case CMD_END:
+    case CMD_INITIALIZE:
         {
             char *tmp_str=tls_methods_check(section);
             if(tmp_str)
                 return tmp_str;
         }
         break;
-    case CMD_DUP:
-        section->client_method=new_service_options.client_method;
-        section->server_method=new_service_options.server_method;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = all"
-#if OPENSSL_VERSION_NUMBER<0x10100000L
             "|SSLv2|SSLv3|TLSv1"
 #if OPENSSL_VERSION_NUMBER>=0x10001000L
             "|TLSv1.1|TLSv1.2"
 #endif /* OPENSSL_VERSION_NUMBER>=0x10001000L */
-#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
             " TLS method", "sslVersion");
         break;
     }
 
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
+
 #ifndef USE_FORK
     /* stack */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->stack_size=DEFAULT_STACK_SIZE;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->stack_size=new_service_options.stack_size;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "stack"))
             break;
         {
@@ -3072,17 +3206,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Illegal thread stack size";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->stack_size=new_service_options.stack_size;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %d bytes", "stack", DEFAULT_STACK_SIZE);
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = thread stack size (in bytes)", "stack");
         break;
     }
@@ -3090,10 +3219,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* TIMEOUTbusy */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->timeout_busy=300; /* 5 minutes */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->timeout_busy=new_service_options.timeout_busy;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "TIMEOUTbusy"))
             break;
         {
@@ -3103,27 +3237,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Illegal busy timeout";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->timeout_busy=new_service_options.timeout_busy;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %d seconds", "TIMEOUTbusy", 300);
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = seconds to wait for expected data", "TIMEOUTbusy");
         break;
     }
 
     /* TIMEOUTclose */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->timeout_close=60; /* 1 minute */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->timeout_close=new_service_options.timeout_close;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "TIMEOUTclose"))
             break;
         {
@@ -3133,17 +3267,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Illegal close timeout";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->timeout_close=new_service_options.timeout_close;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %d seconds", "TIMEOUTclose", 60);
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = seconds to wait for close_notify",
             "TIMEOUTclose");
         break;
@@ -3151,10 +3280,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* TIMEOUTconnect */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->timeout_connect=10; /* 10 seconds */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->timeout_connect=new_service_options.timeout_connect;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "TIMEOUTconnect"))
             break;
         {
@@ -3164,27 +3298,27 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Illegal connect timeout";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->timeout_connect=new_service_options.timeout_connect;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %d seconds", "TIMEOUTconnect", 10);
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = seconds to connect remote host", "TIMEOUTconnect");
         break;
     }
 
     /* TIMEOUTidle */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->timeout_idle=43200; /* 12 hours */
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->timeout_idle=new_service_options.timeout_idle;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "TIMEOUTidle"))
             break;
         {
@@ -3194,17 +3328,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
                 return "Illegal idle timeout";
             return NULL; /* OK */
         }
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->timeout_idle=new_service_options.timeout_idle;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %d seconds", "TIMEOUTidle", 43200);
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = seconds to keep an idle connection", "TIMEOUTidle");
         break;
     }
@@ -3212,11 +3341,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
     /* transparent */
 #ifndef USE_WIN32
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.transparent_src=0;
         section->option.transparent_dst=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.transparent_src=new_service_options.option.transparent_src;
+        section->option.transparent_dst=new_service_options.option.transparent_dst;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "transparent"))
             break;
         if(!strcasecmp(arg, "none") || !strcasecmp(arg, "no")) {
@@ -3234,19 +3369,13 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         } else
             return "Selected transparent proxy mode is not available";
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         if(section->option.transparent_dst)
             ++endpoints;
         break;
-    case CMD_DUP:
-        section->option.transparent_src=new_service_options.option.transparent_src;
-        section->option.transparent_dst=new_service_options.option.transparent_dst;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE,
             "%-22s = none|source|destination|both transparent proxy mode",
             "transparent");
@@ -3256,10 +3385,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* verify */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.request_cert=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.request_cert=new_service_options.option.request_cert;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "verify"))
             break;
         {
@@ -3273,20 +3407,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             section->option.verify_peer=(tmp_int>=3);
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         if((section->option.verify_chain || section->option.verify_peer) &&
                 !section->ca_file && !section->ca_dir)
             return "Either \"CAfile\" or \"CApath\" has to be configured";
         break;
-    case CMD_DUP:
-        section->option.request_cert=new_service_options.option.request_cert;
-        break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
+    case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = none", "verify");
         break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE,
             "%-22s = level of peer certificate verification", "verify");
         s_log(LOG_NOTICE,
@@ -3304,10 +3433,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* verifyChain */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.verify_chain=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.verify_chain=new_service_options.option.verify_chain;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "verifyChain"))
             break;
         if(!strcasecmp(arg, "yes")) {
@@ -3320,16 +3454,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "The argument needs to be either 'yes' or 'no'";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.verify_chain=new_service_options.option.verify_chain;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no verify certificate chain",
             "verifyChain");
         break;
@@ -3337,10 +3466,15 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* verifyPeer */
     switch(cmd) {
-    case CMD_BEGIN:
+    case CMD_SET_DEFAULTS:
         section->option.verify_peer=0;
         break;
-    case CMD_EXEC:
+    case CMD_SET_COPY:
+        section->option.verify_peer=new_service_options.option.verify_peer;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
         if(strcasecmp(opt, "verifyPeer"))
             break;
         if(!strcasecmp(arg, "yes")) {
@@ -3353,16 +3487,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
             return "The argument needs to be either 'yes' or 'no'";
         }
         return NULL; /* OK */
-    case CMD_END:
+    case CMD_INITIALIZE:
         break;
-    case CMD_DUP:
-        section->option.verify_peer=new_service_options.option.verify_peer;
+    case CMD_PRINT_DEFAULTS:
         break;
-    case CMD_FREE:
-        break;
-    case CMD_DEFAULT:
-        break;
-    case CMD_HELP:
+    case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no verify peer certificate",
             "verifyPeer");
         break;
@@ -3370,28 +3499,9 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
 
     /* final checks */
     switch(cmd) {
-    case CMD_BEGIN:
-        section->ref=1;
+    case CMD_SET_DEFAULTS:
         break;
-    case CMD_EXEC:
-        return option_not_found;
-    case CMD_END:
-        if(new_service_options.next) { /* daemon mode checks */
-            if(endpoints!=2)
-                return "Each service must define two endpoints";
-        } else { /* inetd mode checks */
-            if(section->option.accept)
-                return "'accept' option is only allowed in a [section]";
-            /* no need to check for section->sni in inetd mode,
-               as it requires valid sections to be set */
-            if(endpoints!=1)
-                return "Inetd mode must define one endpoint";
-        }
-        if(context_init(section)) /* initialize TLS context */
-            return "Failed to initialize TLS context";
-        break;
-    case CMD_DUP:
-        section->ref=1;
+    case CMD_SET_COPY:
         break;
     case CMD_FREE:
         str_free(section->chain);
@@ -3405,9 +3515,26 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS *section,
         else
             str_free(section);
         break;
-    case CMD_DEFAULT:
+    case CMD_SET_VALUE:
+        return option_not_found;
+    case CMD_INITIALIZE:
+        if(section!=&new_service_options) { /* daemon mode checks */
+            if(endpoints!=2)
+                return "Each service must define two endpoints";
+        } else { /* inetd mode checks */
+            if(section->option.accept)
+                return "'accept' option is only allowed in a [section]";
+            /* no need to check for section->sni in inetd mode,
+               as it requires valid sections to be set */
+            if(endpoints!=1)
+                return "Inetd mode must define one endpoint";
+        }
+        if(context_init(section)) /* initialize TLS context */
+            return "Failed to initialize TLS context";
         break;
-    case CMD_HELP:
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
         break;
     }
 
@@ -3492,7 +3619,31 @@ NOEXPORT void sni_free(SERVICE_OPTIONS *section) {
 
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 
-/**************************************** (deprecated) TLS methods */
+/**************************************** modern TLS version handling */
+
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+
+NOEXPORT int str_to_proto_version(const char *name) {
+    if(!strcasecmp(name, "all"))
+        return 0;
+    if(!strcasecmp(name, "SSLv3"))
+        return SSL3_VERSION;
+    if(!strcasecmp(name, "TLSv1"))
+        return TLS1_VERSION;
+    if(!strcasecmp(name, "TLSv1.1"))
+        return TLS1_1_VERSION;
+    if(!strcasecmp(name, "TLSv1.2"))
+        return TLS1_2_VERSION;
+#ifdef TLS1_3_VERSION
+    if(!strcasecmp(name, "TLSv1.3"))
+        return TLS1_3_VERSION;
+#endif
+    return -1;
+}
+
+/**************************************** deprecated TLS version handling */
+
+#else /* OPENSSL_VERSION_NUMBER<0x10100000L */
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
@@ -3501,22 +3652,11 @@ NOEXPORT void sni_free(SERVICE_OPTIONS *section) {
 
 NOEXPORT char *tls_methods_set(SERVICE_OPTIONS *section, const char *arg) {
     if(!arg) { /* defaults */
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
-        section->client_method=(SSL_METHOD *)TLS_client_method();
-        section->server_method=(SSL_METHOD *)TLS_server_method();
-#else
         section->client_method=(SSL_METHOD *)SSLv23_client_method();
         section->server_method=(SSL_METHOD *)SSLv23_server_method();
-#endif
     } else if(!strcasecmp(arg, "all")) {
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
-        section->client_method=(SSL_METHOD *)TLS_client_method();
-        section->server_method=(SSL_METHOD *)TLS_server_method();
-#else
         section->client_method=(SSL_METHOD *)SSLv23_client_method();
         section->server_method=(SSL_METHOD *)SSLv23_server_method();
-#endif
-#if OPENSSL_API_COMPAT<0x10100000L
     } else if(!strcasecmp(arg, "SSLv2")) {
 #ifndef OPENSSL_NO_SSL2
         section->client_method=(SSL_METHOD *)SSLv2_client_method();
@@ -3552,7 +3692,6 @@ NOEXPORT char *tls_methods_set(SERVICE_OPTIONS *section, const char *arg) {
 #else /* OPENSSL_NO_TLS1_2 */
         return "TLSv1.2 not supported";
 #endif /* !OPENSSL_NO_TLS1_2 */
-#endif /* OPENSSL_API_COMPAT<0x10100000L */
     } else
         return "Incorrect version of TLS protocol";
     return NULL; /* OK */
@@ -3582,6 +3721,8 @@ NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *section) {
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif /* __GNUC__ */
+
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 
 /**************************************** facility/debug level */
 
@@ -3669,7 +3810,7 @@ NOEXPORT long unsigned parse_ssl_option(char *arg) {
     for(option=(SSL_OPTION *)ssl_opts; option->name; ++option)
         if(!strcasecmp(option->name, arg))
             return option->value;
-    return 0; /* FAILED */
+    return INVALID_SSL_OPTION; /* FAILED */
 }
 
 NOEXPORT void print_ssl_options(void) {
@@ -3688,7 +3829,7 @@ NOEXPORT void print_ssl_options(void) {
 NOEXPORT PSK_KEYS *psk_read(char *key_file) {
     DISK_FILE *df;
     char line[CONFLINELEN], *key_val;
-    size_t key_len;
+    unsigned key_len;
     PSK_KEYS *head=NULL, *tail=NULL, *curr;
     int line_number=0;
 
@@ -3713,7 +3854,7 @@ NOEXPORT PSK_KEYS *psk_read(char *key_file) {
             return NULL;
         }
         *key_val++='\0';
-        key_len=strlen(key_val);
+        key_len=(unsigned)strlen(key_val);
         if(strlen(line)+1>PSK_MAX_IDENTITY_LEN) { /* with the trailing '\0' */
             s_log(LOG_ERR,
                 "PSKsecrets line %d: Identity longer than %d characters",
@@ -4243,6 +4384,41 @@ NOEXPORT ENGINE *engine_get_by_num(const int i) {
 }
 
 #endif /* !defined(OPENSSL_NO_ENGINE) */
+
+/**************************************** include config directory */
+
+NOEXPORT char *include_config(char *directory, SERVICE_OPTIONS **section_ptr) {
+    struct dirent **namelist;
+    int i, num, err=0;
+
+    num=scandir(directory, &namelist, NULL, alphasort);
+    if(num<0) {
+        ioerror("scandir");
+        return "Failed to include directory";
+    }
+    for(i=0; i<num; ++i) {
+        if(!err) {
+            struct stat sb;
+            char *name=str_printf(
+#ifdef USE_WIN32
+                "%s\\%s",
+#else
+                "%s/%s",
+#endif
+                directory, namelist[i]->d_name);
+            if(!stat(name, &sb) && S_ISREG(sb.st_mode))
+                err=options_file(name, CONF_FILE, section_ptr);
+            else
+                s_log(LOG_DEBUG, "\"%s\" is not a file", name);
+            str_free(name);
+        }
+        free(namelist[i]);
+    }
+    free(namelist);
+    if(err)
+        return "Failed to include a file";
+    return NULL;
+}
 
 /**************************************** fatal error */
 

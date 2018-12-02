@@ -124,6 +124,7 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         set_nonblock(1, 1); /* stdout */
         c=alloc_client_session(&service_options, 0, 1);
         tls_alloc(c, ui_tls, NULL);
+        service_up_ref(&service_options);
         client_main(c);
     }
     return 0;
@@ -181,11 +182,6 @@ NOEXPORT int create_pid(void) {
     if(!global_options.pidfile) {
         s_log(LOG_DEBUG, "No pid file being created");
         return 0;
-    }
-    if(global_options.pidfile[0]!='/') {
-        /* to prevent creating pid file relative to '/' after daemonize() */
-        s_log(LOG_ERR, "Pid file (%s) must be full path name", global_options.pidfile);
-        return 1;
     }
 
     /* silently remove the old pid file */

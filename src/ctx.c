@@ -46,7 +46,7 @@ static int cached_len=0;
 
 #ifndef OPENSSL_NO_DH
 DH *dh_params=NULL;
-int dh_needed=0;
+int dh_temp_params=0;
 #endif /* OPENSSL_NO_DH */
 
 /**************************************** prototypes */
@@ -126,10 +126,29 @@ typedef long SSL_OPTIONS_TYPE;
 
 int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     /* create TLS context */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    if(section->option.client)
+        section->ctx=SSL_CTX_new(TLS_client_method());
+    else /* server mode */
+        section->ctx=SSL_CTX_new(TLS_server_method());
+    if(!SSL_CTX_set_min_proto_version(section->ctx,
+            section->min_proto_version)) {
+        s_log(LOG_ERR, "Failed to set the minimum protocol version 0x%X",
+            section->min_proto_version);
+        return 1; /* FAILED */
+    }
+    if(!SSL_CTX_set_max_proto_version(section->ctx,
+            section->max_proto_version)) {
+        s_log(LOG_ERR, "Failed to set the maximum protocol version 0x%X",
+            section->max_proto_version);
+        return 1; /* FAILED */
+    }
+#else /* OPENSSL_VERSION_NUMBER<0x10100000L */
     if(section->option.client)
         section->ctx=SSL_CTX_new(section->client_method);
     else /* server mode */
         section->ctx=SSL_CTX_new(section->server_method);
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
     if(!section->ctx) {
         sslerror("SSL_CTX_new");
         return 1; /* FAILED */
@@ -323,8 +342,9 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
     char description[128];
     STACK_OF(SSL_CIPHER) *ciphers;
 
+    section->option.dh_temp_params=0; /* disable by default */
+
     /* check if DH is actually enabled for this section */
-    section->option.dh_needed=0;
     ciphers=SSL_CTX_get_ciphers(section->ctx);
     if(!ciphers)
         return 1; /* ERROR (unlikely) */
@@ -335,12 +355,15 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
             description, sizeof description);
         /* s_log(LOG_INFO, "Ciphersuite: %s", description); */
         if(strstr(description, " Kx=DH")) {
-            section->option.dh_needed=1; /* update this context */
+            s_log(LOG_INFO, "DH initialization needed for %s",
+                SSL_CIPHER_get_name(sk_SSL_CIPHER_value(ciphers, i)));
             break;
         }
     }
-    if(!section->option.dh_needed) /* no DH ciphers found */
+    if(i==n) { /* no DH ciphers found */
+        s_log(LOG_INFO, "DH initialization not needed");
         return 0; /* OK */
+    }
 
     s_log(LOG_DEBUG, "DH initialization");
 #ifndef OPENSSL_NO_ENGINE
@@ -356,8 +379,8 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
     CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_DH]);
     SSL_CTX_set_tmp_dh(section->ctx, dh_params);
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_DH]);
-    dh_needed=1; /* generate temporary DH parameters in cron */
-    section->option.dh_needed=1; /* update this context */
+    dh_temp_params=1; /* generate temporary DH parameters in cron */
+    section->option.dh_temp_params=1; /* update this section in cron */
     s_log(LOG_INFO, "Using dynamic DH parameters");
     return 0; /* OK */
 }
@@ -577,33 +600,21 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     unsigned char *psk, unsigned max_psk_len) {
     CLI *c;
     PSK_KEYS *found;
-    size_t len;
 
     c=SSL_get_ex_data(ssl, index_ssl_cli);
     found=psk_find(&c->opt->psk_sorted, identity);
-    if(found) {
-        len=found->key_len;
-    } else {
-        s_log(LOG_ERR, "No key found for PSK identity \"%s\"", identity);
-        len=0;
+    if(!found) {
+        s_log(LOG_INFO, "PSK identity not found (session resumption?)");
+        return 0;
     }
-    if(len>max_psk_len) {
-        s_log(LOG_ERR, "PSK too long (%lu>%d bytes)",
-            (long unsigned)len, max_psk_len);
-        len=0;
+    if(found->key_len>max_psk_len) {
+        s_log(LOG_ERR, "PSK too long (%u>%u)", found->key_len, max_psk_len);
+        return 0;
     }
-    if(len) {
-        memcpy(psk, found->key_val, len);
-        s_log(LOG_NOTICE, "Key configured for PSK identity \"%s\"", identity);
-    } else { /* block identity probes if possible */
-        if(max_psk_len>=32 && RAND_bytes(psk, 32)>0) {
-            len=32; /* 256 random bits */
-            s_log(LOG_ERR, "Configured random PSK");
-        } else {
-            s_log(LOG_ERR, "Rejecting with unknown_psk_identity alert");
-        }
-    }
-    return (unsigned)len;
+    memcpy(psk, found->key_val, found->key_len);
+    s_log(LOG_NOTICE, "Key configured for PSK identity \"%s\"", identity);
+    c->flag.psk=1;
+    return found->key_len;
 }
 
 NOEXPORT int psk_compar(const void *a, const void *b) {

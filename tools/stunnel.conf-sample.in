@@ -108,6 +108,9 @@ OCSPaia = yes
 ;connect = 143
 ;cert = @sysconfdir@/stunnel/stunnel.pem
 
+; Either only expose this service to trusted networks, or require
+; authentication when relaying emails originated from loopback.
+; Otherwise the following configuration creates an open relay.
 ;[ssmtp]
 ;accept  = 465
 ;connect = 25
@@ -129,7 +132,6 @@ OCSPaia = yes
 ;accept = 1337
 ;exec = /bin/sh
 ;execArgs = sh -i
-;ciphers = PSK
 ;PSKsecrets = @sysconfdir@/stunnel/secrets.txt
 
 ; Non-standard MySQL-over-TLS encapsulation connecting the Unix socket

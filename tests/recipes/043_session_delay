@@ -20,11 +20,11 @@ start() {
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
   execArgs = execute 043_session_delay
-  cert = ${script_path}/certs/server_cert.pem
+  cert = ../certs/server_cert.pem
 EOT
 }
 
-if ! grep -q "FORK" results.log
+if ! grep -q "FORK" "results.log"
   then
     test_log_for "043_session_delay" "session" "1" "$1" "$2" "$3" 2>> "stderr.log"
     exit $?
