@@ -120,7 +120,7 @@ DISK_FILE *file_open(char *name, FILE_MODE mode) {
         return NULL;
 
     /* setup df structure */
-    df=str_alloc(sizeof df);
+    df=str_alloc(sizeof *df);
     df->fd=fd;
     return df;
 }
