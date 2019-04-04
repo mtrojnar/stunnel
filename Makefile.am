@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 1998-2018
+# by Michal Trojnara 1998-2019
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -33,6 +33,7 @@ dist-hook:
 		-DOPENSSL_DIR=/opt/openssl-mingw64 \
 		$(srcdir)/tools/stunnel.nsi
 	-$(srcdir)/sign/sign.sh $(distdir)-win64-installer.exe
+	-$(srcdir)/sign/verify.sh bin/win64/*.exe $(distdir)-win64-installer.exe
 
 sign:
 	cp -f $(distdir).tar.gz $(distdir)-win64-installer.exe $(distdir)-android.zip ../dist
@@ -57,3 +58,5 @@ install-data-hook:
 	@echo "*********************************************************"
 	@echo "* Type 'make cert' to also install a sample certificate *"
 	@echo "*********************************************************"
+
+.PHONY: sign cert mingw mingw64 test

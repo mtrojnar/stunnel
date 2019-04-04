@@ -67,7 +67,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2018.12.02" "5.50" "stunnel TLS Proxy"
+.TH stunnel 8 "2019.04.04" "5.51" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -404,10 +404,21 @@ address of the peer certificate matches any of the \s-1IP\s0 addresses specified
 This option requires OpenSSL 1.0.2 or later.
 .IP "\fBciphers\fR = \s-1CIPHER_LIST\s0" 4
 .IX Item "ciphers = CIPHER_LIST"
-Select permitted \s-1TLS\s0 ciphers
+select permitted \s-1TLS\s0 ciphers (TLSv1.2 and below)
+.Sp
+This option does not impact TLSv1.3 ciphersuites.
 .Sp
 A colon-delimited list of the ciphers to allow in the \s-1TLS\s0 connection,
 for example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5.\s0
+.IP "\fBciphersuites\fR = \s-1CIPHERSUITES_LIST\s0" 4
+.IX Item "ciphersuites = CIPHERSUITES_LIST"
+select permitted TLSv1.3 ciphersuites
+.Sp
+A colon-delimited list of TLSv1.3 ciphersuites names in order of perference.
+.Sp
+This option requires OpenSSL 1.1.1 or later.
+.Sp
+default: \s-1TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256\s0
 .IP "\fBclient\fR = yes | no" 4
 .IX Item "client = yes | no"
 client mode (remote service uses \s-1TLS\s0)
@@ -454,9 +465,11 @@ Certificate Revocation Lists file
 .Sp
 This file contains multiple CRLs, used with the \fIverifyChain\fR and
 \&\fIverifyPeer\fR options.
-.IP "\fBcurve\fR = \s-1NID\s0" 4
-.IX Item "curve = NID"
-specify \s-1ECDH\s0 curve name
+.IP "\fBcurves\fR = list" 4
+.IX Item "curves = list"
+\&\s-1ECDH\s0 curves separated with ':'
+.Sp
+Only a single curve name is allowed for OpenSSL older than 1.1.0.
 .Sp
 To get a list of supported curves use:
 .Sp
@@ -464,7 +477,13 @@ To get a list of supported curves use:
 \&    openssl ecparam \-list_curves
 .Ve
 .Sp
-default: prime256v1
+default:
+.Sp
+.Vb 1
+\&    X25519:P\-256:X448:P\-521:P\-384 (OpenSSL 1.1.1 or later)
+\&
+\&    prime256v1 (OpenSSL older than 1.1.1)
+.Ve
 .IP "\fBlogId\fR = \s-1TYPE\s0" 4
 .IX Item "logId = TYPE"
 connection identifier type
@@ -772,8 +791,10 @@ Each line of the file in the following format:
 \&    IDENTITY:KEY
 .Ve
 .Sp
-The key is required to be at least 20 characters long.
-The file should not be world-readable nor world-writable.
+Hexadecimal keys are automatically converted to binary form.
+Keys are required to be at least 16 bytes long, which implies
+at least 32 characters for hexadecimal keys.
+The file should neither be world-readable nor world-writable.
 .IP "\fBpty\fR = yes | no (Unix only)" 4
 .IX Item "pty = yes | no (Unix only)"
 allocate a pseudoterminal for 'exec' option

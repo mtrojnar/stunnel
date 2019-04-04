@@ -492,9 +492,23 @@
 <dt id="ciphers-CIPHER_LIST"><b>ciphers</b> = CIPHER_LIST</dt>
 <dd>
 
-<p>Select permitted TLS ciphers</p>
+<p>select permitted TLS ciphers (TLSv1.2 and below)</p>
+
+<p>This option does not impact TLSv1.3 ciphersuites.</p>
 
 <p>A colon-delimited list of the ciphers to allow in the TLS connection, for example DES-CBC3-SHA:IDEA-CBC-MD5.</p>
+
+</dd>
+<dt id="ciphersuites-CIPHERSUITES_LIST"><b>ciphersuites</b> = CIPHERSUITES_LIST</dt>
+<dd>
+
+<p>select permitted TLSv1.3 ciphersuites</p>
+
+<p>A colon-delimited list of TLSv1.3 ciphersuites names in order of perference.</p>
+
+<p>This option requires OpenSSL 1.1.1 or later.</p>
+
+<p>default: TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256</p>
 
 </dd>
 <dt id="client-yes-no"><b>client</b> = yes | no</dt>
@@ -549,16 +563,22 @@
 <p>This file contains multiple CRLs, used with the <i>verifyChain</i> and <i>verifyPeer</i> options.</p>
 
 </dd>
-<dt id="curve-NID"><b>curve</b> = NID</dt>
+<dt id="curves-list"><b>curves</b> = list</dt>
 <dd>
 
-<p>specify ECDH curve name</p>
+<p>ECDH curves separated with &#39;:&#39;</p>
+
+<p>Only a single curve name is allowed for OpenSSL older than 1.1.0.</p>
 
 <p>To get a list of supported curves use:</p>
 
 <pre><code>    openssl ecparam -list_curves</code></pre>
 
-<p>default: prime256v1</p>
+<p>default:</p>
+
+<pre><code>    X25519:P-256:X448:P-521:P-384 (OpenSSL 1.1.1 or later)
+
+    prime256v1 (OpenSSL older than 1.1.1)</code></pre>
 
 </dd>
 <dt id="logId-TYPE"><b>logId</b> = TYPE</dt>
@@ -929,7 +949,7 @@
 
 <pre><code>    IDENTITY:KEY</code></pre>
 
-<p>The key is required to be at least 20 characters long. The file should not be world-readable nor world-writable.</p>
+<p>Hexadecimal keys are automatically converted to binary form. Keys are required to be at least 16 bytes long, which implies at least 32 characters for hexadecimal keys. The file should neither be world-readable nor world-writable.</p>
 
 </dd>
 <dt id="pty-yes-no-Unix-only"><b>pty</b> = yes | no (Unix only)</dt>

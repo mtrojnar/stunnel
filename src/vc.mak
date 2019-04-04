@@ -1,4 +1,4 @@
-# vc.mak by Michal Trojnara 1998-2018
+# vc.mak by Michal Trojnara 1998-2019
 # with help of David Gillingham <dgillingham@gmail.com>
 # with help of Pierre Delaage <delaage.pierre@free.fr>
 
@@ -10,7 +10,9 @@
 
 !IF [ml64.exe /help >NUL 2>&1]
 TARGET=win32
-SSLLIBS=libeay32.lib ssleay32.lib
+SSLLIBS=libcrypto.lib libssl.lib
+# or change libraries for OpenSSL older than 1.1.0
+#SSLLIBS=libeay32.lib ssleay32.lib
 !ELSE
 TARGET=win64
 SSLLIBS=libcrypto.lib libssl.lib
@@ -49,7 +51,7 @@ CC=cl
 LINK=link
 
 UNICODEFLAGS=/DUNICODE /D_UNICODE
-CFLAGS=/MD /W3 /O2 /nologo /I"$(INCDIR)" $(UNICODEFLAGS)
+CFLAGS=/MD /W3 /O2 /Zi /nologo /I"$(INCDIR)" $(UNICODEFLAGS)
 LDFLAGS=/NOLOGO /DEBUG
 
 SHAREDLIBS=ws2_32.lib user32.lib shell32.lib kernel32.lib

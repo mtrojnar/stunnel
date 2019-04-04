@@ -1,4 +1,8 @@
 #!/bin/sh
+
+# Checking the wrong configuration.
+# The failure is expected because there is no connect option in the client service.
+
 . $(dirname $0)/../test_library
 
 start() {
@@ -22,7 +26,7 @@ start() {
 EOT
 }
 
-test_log_for "121_failure_wrong_config" "failure" "0" "$1" "$2" "$3" 2>> "stderr.log"
+test_log_for "115_failure_wrong_config" "failure" "0" "$1" "$2" "$3" 2>> "stderr.log"
 exit $?
 
 

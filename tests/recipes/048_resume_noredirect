@@ -1,9 +1,10 @@
 #!/bin/sh
 
+# Checking if redirect TLS client connections works properly when the session is resumed.
 # Do not redirect TLS client connections on certificate-based authentication success.
 # [client_1] -> [server_1]
-# The success is expected because the client presents the *correct* certificate
-# and the client connection isn't redirected.
+# Just "1" "accepted: new session negotiated" log for [server_1] service
+# is expected, becouse the client presents the correct certificate.
 
 . $(dirname $0)/../test_library
 
@@ -14,9 +15,12 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
+  retry = yes
+
   [client_1]
   client = yes
-  accept = 127.0.0.1:${http1}
+  exec = ${script_path}/execute_read
+  execArgs = execute_read ${result_path}/temp.log
   connect = 127.0.0.1:${https1}
 ;correct certificate
   cert = ../certs/client_cert.pem
@@ -29,7 +33,7 @@ start() {
   [server_1]
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
-  execArgs = execute 034_no_redirect_exec
+  execArgs = execute 048_resume_noredirect
   redirect = ${http2}
   cert = ../certs/server_cert.pem
   verifyPeer = yes
@@ -39,9 +43,16 @@ start() {
   accept = 127.0.0.1:${https2}
   cert = ../certs/server_cert.pem
   exec = ${script_path}/execute
-  execArgs = execute 034_no_redirect_exec_error
+  execArgs = execute 048_resume_noredirect_error
 EOT
 }
 
-test_log_for "034_no_redirect_exec" "execute" "0" "$1" "$2" "$3" 2>> "stderr.log"
+if ! grep -q "FORK" "results.log"
+  then
+    test_log_for "048_resume_noredirect" "session" "1" "$1" "$2" "$3" 2>> "stderr.log"
+    exit $?
+  else # the resumption of the session does not work for the FORK model
+    exit_logs "048_resume_noredirect" "skipped"
+    exit 125
+  fi
 exit $?

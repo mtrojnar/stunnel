@@ -1,4 +1,8 @@
 #!/bin/sh
+
+# Checking if stunnel works with the configuration placed in a few files.
+# All configuration file parts are located in the directory specified with include.
+
 . $(dirname $0)/../test_library
 
 set_config() {

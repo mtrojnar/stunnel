@@ -1,4 +1,10 @@
 #!/bin/sh
+
+# Redirect TLS client connections on certificate-based authentication failures.
+# [client_1] -> [server_1] -> [client_3] -> [server_3]
+# The success is expected because the client presents the *wrong* certificate
+# and the client connection is redirected.
+
 . $(dirname $0)/../test_library
 
 start() {

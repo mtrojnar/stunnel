@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -358,16 +358,20 @@ char *s_ntop(SOCKADDR_UNION *addr, socklen_t addrlen) {
 }
 
 socklen_t addr_len(const SOCKADDR_UNION *addr) {
-    if(addr->sa.sa_family==AF_INET)
+    switch(addr->sa.sa_family) {
+    case AF_UNSPEC: /* 0 */
+        return 0;
+    case AF_INET: /* 2 (almost universally) */
         return sizeof(struct sockaddr_in);
 #ifdef USE_IPv6
-    if(addr->sa.sa_family==AF_INET6)
+    case AF_INET6:
         return sizeof(struct sockaddr_in6);
 #endif
 #ifdef HAVE_STRUCT_SOCKADDR_UN
-    if(addr->sa.sa_family==AF_UNIX)
+    case AF_UNIX:
         return sizeof(struct sockaddr_un);
 #endif
+    }
     s_log(LOG_ERR, "INTERNAL ERROR: Unknown sa_family: %d",
         addr->sa.sa_family);
     return sizeof(SOCKADDR_UNION);

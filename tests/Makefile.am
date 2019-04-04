@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 1998-2018
+# by Michal Trojnara 1998-2019
 
 SUBDIRS = certs
 

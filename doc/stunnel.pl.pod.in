@@ -434,10 +434,22 @@ Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 
 =item B<ciphers> = LISTA_SZYFRÓW
 
-lista dozwolonych szyfrów TLS
+lista dozwolonych szyfrów dla protokołów SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+
+Ta opcja nie wpływa na listę parametrów kryptograficznych dla protokołu TLSv1.3
 
 Parametrem tej opcji jest lista szyfrów, które będą użyte przy
 otwieraniu nowych połączeń TLS, np.:  DES-CBC3-SHA:IDEA-CBC-MD5
+
+=item B<ciphersuites> = LISTA_PARAMETRÓW_KRYPTOGRAFICZNYCH
+
+lista dozwolonych parametrów kryptograficznych dla protokołu TLSv1.3
+
+Parametrem tej opcji są listy parametrów kryptograficznych w kolejności ich preferowania.
+
+Opcja I<ciphersuites> jest dostępna począwszy od B<OpenSSL 1.1.1>.
+
+domyślnie: TLS_CHACHA20_POLY1305_SHA256: TLS_AES_256_GCM_SHA384: TLS_AES_128_GCM_SHA256
 
 =item B<client> = yes | no
 
@@ -491,15 +503,21 @@ plik List Odwołanych Certyfikatów (CRL)
 Opcja pozwala określić położenie pliku zawierającego listy CRL używane
 przez opcje I<verifyChain> i I<verifyPeer>.
 
-=item B<curve> = NID
+=item B<curves> = lista
 
-krzywa dla ECDH
+krzywe ECDH odddzielone ':'
+
+Wersje OpenSSL starsze niż 1.1.0 pozwalają na użycie tylko jednej krzywej.
 
 Listę dostępnych krzywych można uzyskać poleceniem:
 
     openssl ecparam -list_curves
 
-domyślnie: prime256v1
+domyślnie:
+
+    X25519:P-256:X448:P-521:P-384 (począwszy od OpenSSL 1.1.1)
+
+    prime256v1 (OpenSSL starszy niż 1.1.1)
 
 =item B<logId> = TYP
 
@@ -838,7 +856,9 @@ Każda linia pliku jest w następującym formacie:
 
     TOŻSAMOŚĆ:KLUCZ
 
-Klucz musi być mieć przynajmniej 20 znaków.
+Szesnastkowe klucze są automatycznie konwertowane do postaci binarnej.
+Klucz musi być mieć przynajmniej 16 bajtów, co w przypadku kluczy
+szesnastkowych przekłada się na przynajmniej 32 znaki.
 Należy ograniczyć dostęp do czytania lub pisania do tego pliku.
 
 =item B<pty> = yes | no (tylko Unix)

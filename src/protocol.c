@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -711,6 +711,11 @@ NOEXPORT char *smtp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         break;
     case PROTOCOL_LATE:
         if(opt->protocol_username && opt->protocol_password) {
+            char *line;
+
+            ssl_putline(c, "HELO localhost");
+            line=ssl_getline(c); /* ignore the reply */
+            str_free(line);
             if(!strcasecmp(c->opt->protocol_authentication, "LOGIN"))
                 smtp_client_login(c,
                     opt->protocol_username, opt->protocol_password);

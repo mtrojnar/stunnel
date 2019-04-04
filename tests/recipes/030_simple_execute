@@ -1,4 +1,8 @@
 #!/bin/sh
+
+# Simple execute a local inetd-type program.
+# The execArgs option contains arguments for exec including the program name.
+
 . $(dirname $0)/../test_library
 
 start() {
@@ -7,6 +11,7 @@ start() {
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
+  execArgs = execute 030_simple_execute
 
   [client]
   client = yes
@@ -16,7 +21,6 @@ start() {
   [server]
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
-  execArgs = execute 030_simple_execute
   cert = ../certs/server_cert.pem
 EOT
 }

@@ -659,8 +659,11 @@ loop_session() {
         then
           result=1
         fi
-      finding_text "yes" "test $1.*success" "temp.log" "UNUSED PATTERN"
-      result=$?
+      if [ $result -eq 0 ]
+        then
+          finding_text "yes" "test $1.*success" "temp.log" "UNUSED PATTERN"
+          result=$?
+        fi
       j=$(grep -c "accepted: new session negotiated" "stunnel.log")
       if [ $result -eq 0 ] && [ $j -ne $2 ]
         then

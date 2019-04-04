@@ -1,4 +1,10 @@
 #!/bin/sh
+
+# Do not redirect TLS client connections on certificate-based authentication success.
+# [client_1] -> [server_1] -> [client_2] -> [server_2]
+# The success is expected because the client presents the *correct* certificate
+# and the client connection isn't redirected.
+
 . $(dirname $0)/../test_library
 
 start() {

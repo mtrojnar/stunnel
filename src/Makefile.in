@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 1998-2018
+# by Michal Trojnara 1998-2019
 
 ###############################################################################
 # File lists                                                                  #
@@ -1122,17 +1122,6 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 .PRECIOUS: Makefile
 
-
-###############################################################################
-# Generate a new set of DH parameters for each version                        #
-###############################################################################
-
-dhparam.c: version.h
-	echo '#include "common.h"' >dhparam.c
-	echo '#ifndef OPENSSL_NO_DH' >>dhparam.c
-	echo '#define DN_new DH_new' >>dhparam.c
-	openssl dhparam -noout -C 2048 >>dhparam.c
-	echo '#endif /* OPENSSL_NO_DH */' >>dhparam.c
 stunnel3: Makefile
 	$(edit) '$(srcdir)/$@.in' >$@
 stunnel3: $(srcdir)/stunnel3.in

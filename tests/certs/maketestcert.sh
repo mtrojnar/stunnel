@@ -29,14 +29,10 @@ cat tmp/psk2.txt >> tmp/secrets.txt 2>> "maketestcert.log"
 gen_psk 2
 
 # OpenSSL settings
+TEMP_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=""
+OPENSSL=openssl
 CONF="${script_path}/openssltest.cnf"
-
-if test -n "$1"; then
-    OPENSSL="$2/bin/openssl"
-    LD_LIBRARY_PATH="$2/lib"
-else
-    OPENSSL=openssl
-fi
 
 mkdir "demoCA/"
 touch "demoCA/index.txt"
@@ -114,3 +110,6 @@ if [ -s tmp/stunnel.pem ] && [ -s tmp/CACert.pem ] && [ -s tmp/CACertCRL.pem ] &
 # remove the working directory
 rm -rf "demoCA/"
 rm -rf "tmp/"
+
+# restore settings
+LD_LIBRARY_PATH=$TEMP_LD_LIBRARY_PATH

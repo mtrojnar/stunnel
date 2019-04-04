@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 1998-2018
+# by Michal Trojnara 1998-2019
 
 VPATH = @srcdir@
 am__is_gnu_make = { \
@@ -882,6 +882,7 @@ dist-hook:
 		-DOPENSSL_DIR=/opt/openssl-mingw64 \
 		$(srcdir)/tools/stunnel.nsi
 	-$(srcdir)/sign/sign.sh $(distdir)-win64-installer.exe
+	-$(srcdir)/sign/verify.sh bin/win64/*.exe $(distdir)-win64-installer.exe
 
 sign:
 	cp -f $(distdir).tar.gz $(distdir)-win64-installer.exe $(distdir)-android.zip ../dist
@@ -906,6 +907,8 @@ install-data-hook:
 	@echo "*********************************************************"
 	@echo "* Type 'make cert' to also install a sample certificate *"
 	@echo "*********************************************************"
+
+.PHONY: sign cert mingw mingw64 test
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

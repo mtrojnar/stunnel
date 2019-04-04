@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -908,11 +908,17 @@ void stunnel_info(int level) {
     if(strcmp(OPENSSL_VERSION_TEXT, OpenSSL_version(OPENSSL_VERSION))) {
         s_log(level, "Compiled with " OPENSSL_VERSION_TEXT);
         s_log(level, "Running  with %s", OpenSSL_version(OPENSSL_VERSION));
-        if((OpenSSL_version_num()^OPENSSL_VERSION_NUMBER)&~0xfffu)
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        if((OPENSSL_version_major()<<8 | OPENSSL_version_minor()) !=
+                OPENSSL_VERSION_NUMBER>>20)
+#else /* OpenSSL version < 3.0.0 */
+        if(OpenSSL_version_num()>>12 != OPENSSL_VERSION_NUMBER>>12)
+#endif /* OpenSSL version >= 3.0.0 */
             s_log(level, "Update OpenSSL shared libraries or rebuild stunnel");
     } else {
         s_log(level, "Compiled/running with " OPENSSL_VERSION_TEXT);
     }
+
     s_log(level,
 
         "Threading:"

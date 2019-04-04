@@ -490,9 +490,23 @@
 <dt id="ciphers-LISTA_SZYFRW"><b>ciphers</b> = LISTA_SZYFR&Oacute;W</dt>
 <dd>
 
-<p>lista dozwolonych szyfr&oacute;w TLS</p>
+<p>lista dozwolonych szyfr&oacute;w dla protoko&#x142;&oacute;w SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
+
+<p>Ta opcja nie wp&#x142;ywa na list&#x119; parametr&oacute;w kryptograficznych dla protoko&#x142;u TLSv1.3</p>
 
 <p>Parametrem tej opcji jest lista szyfr&oacute;w, kt&oacute;re b&#x119;d&#x105; u&#x17C;yte przy otwieraniu nowych po&#x142;&#x105;cze&#x144; TLS, np.: DES-CBC3-SHA:IDEA-CBC-MD5</p>
+
+</dd>
+<dt id="ciphersuites-LISTA_PARAMETRW_KRYPTOGRAFICZNYCH"><b>ciphersuites</b> = LISTA_PARAMETR&Oacute;W_KRYPTOGRAFICZNYCH</dt>
+<dd>
+
+<p>lista dozwolonych parametr&oacute;w kryptograficznych dla protoko&#x142;u TLSv1.3</p>
+
+<p>Parametrem tej opcji s&#x105; listy parametr&oacute;w kryptograficznych w kolejno&#x15B;ci ich preferowania.</p>
+
+<p>Opcja <i>ciphersuites</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.1.1</b>.</p>
+
+<p>domy&#x15B;lnie: TLS_CHACHA20_POLY1305_SHA256: TLS_AES_256_GCM_SHA384: TLS_AES_128_GCM_SHA256</p>
 
 </dd>
 <dt id="client-yes-no"><b>client</b> = yes | no</dt>
@@ -545,16 +559,22 @@
 <p>Opcja pozwala okre&#x15B;li&#x107; po&#x142;o&#x17C;enie pliku zawieraj&#x105;cego listy CRL u&#x17C;ywane przez opcje <i>verifyChain</i> i <i>verifyPeer</i>.</p>
 
 </dd>
-<dt id="curve-NID"><b>curve</b> = NID</dt>
+<dt id="curves-lista"><b>curves</b> = lista</dt>
 <dd>
 
-<p>krzywa dla ECDH</p>
+<p>krzywe ECDH odddzielone &#39;:&#39;</p>
+
+<p>Wersje OpenSSL starsze ni&#x17C; 1.1.0 pozwalaj&#x105; na u&#x17C;ycie tylko jednej krzywej.</p>
 
 <p>List&#x119; dost&#x119;pnych krzywych mo&#x17C;na uzyska&#x107; poleceniem:</p>
 
 <pre><code>    openssl ecparam -list_curves</code></pre>
 
-<p>domy&#x15B;lnie: prime256v1</p>
+<p>domy&#x15B;lnie:</p>
+
+<pre><code>    X25519:P-256:X448:P-521:P-384 (pocz&#x105;wszy od OpenSSL 1.1.1)
+
+    prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
 
 </dd>
 <dt id="logId-TYP"><b>logId</b> = TYP</dt>
@@ -927,7 +947,7 @@
 
 <pre><code>    TO&#x17B;SAMO&#x15A;&#x106;:KLUCZ</code></pre>
 
-<p>Klucz musi by&#x107; mie&#x107; przynajmniej 20 znak&oacute;w. Nale&#x17C;y ograniczy&#x107; dost&#x119;p do czytania lub pisania do tego pliku.</p>
+<p>Szesnastkowe klucze s&#x105; automatycznie konwertowane do postaci binarnej. Klucz musi by&#x107; mie&#x107; przynajmniej 16 bajt&oacute;w, co w przypadku kluczy szesnastkowych przek&#x142;ada si&#x119; na przynajmniej 32 znaki. Nale&#x17C;y ograniczy&#x107; dost&#x119;p do czytania lub pisania do tego pliku.</p>
 
 </dd>
 <dt id="pty-yes-no-tylko-Unix"><b>pty</b> = yes | no (tylko Unix)</dt>

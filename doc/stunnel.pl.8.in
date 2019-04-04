@@ -67,7 +67,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2018.12.02" "5.50" "stunnel TLS Proxy"
+.TH stunnel 8 "2019.04.04" "5.51" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -413,10 +413,21 @@ pomocy \fBcheckIP\fR.
 Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 .IP "\fBciphers\fR = LISTA_SZYFRÓW" 4
 .IX Item "ciphers = LISTA_SZYFRÓW"
-lista dozwolonych szyfrów \s-1TLS\s0
+lista dozwolonych szyfrów dla protokołów SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
+.Sp
+Ta opcja nie wpływa na listę parametrów kryptograficznych dla protokołu TLSv1.3
 .Sp
 Parametrem tej opcji jest lista szyfrów, które będą użyte przy
 otwieraniu nowych połączeń \s-1TLS,\s0 np.:  \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5\s0
+.IP "\fBciphersuites\fR = LISTA_PARAMETRÓW_KRYPTOGRAFICZNYCH" 4
+.IX Item "ciphersuites = LISTA_PARAMETRÓW_KRYPTOGRAFICZNYCH"
+lista dozwolonych parametrów kryptograficznych dla protokołu TLSv1.3
+.Sp
+Parametrem tej opcji są listy parametrów kryptograficznych w kolejności ich preferowania.
+.Sp
+Opcja \fIciphersuites\fR jest dostępna począwszy od \fBOpenSSL 1.1.1\fR.
+.Sp
+domyślnie: \s-1TLS_CHACHA20_POLY1305_SHA256: TLS_AES_256_GCM_SHA384: TLS_AES_128_GCM_SHA256\s0
 .IP "\fBclient\fR = yes | no" 4
 .IX Item "client = yes | no"
 tryb kliencki (zdalna usługa używa \s-1TLS\s0)
@@ -464,9 +475,11 @@ plik List Odwołanych Certyfikatów (\s-1CRL\s0)
 .Sp
 Opcja pozwala określić położenie pliku zawierającego listy \s-1CRL\s0 używane
 przez opcje \fIverifyChain\fR i \fIverifyPeer\fR.
-.IP "\fBcurve\fR = \s-1NID\s0" 4
-.IX Item "curve = NID"
-krzywa dla \s-1ECDH\s0
+.IP "\fBcurves\fR = lista" 4
+.IX Item "curves = lista"
+krzywe \s-1ECDH\s0 odddzielone ':'
+.Sp
+Wersje OpenSSL starsze niż 1.1.0 pozwalają na użycie tylko jednej krzywej.
 .Sp
 Listę dostępnych krzywych można uzyskać poleceniem:
 .Sp
@@ -474,7 +487,13 @@ Listę dostępnych krzywych można uzyskać poleceniem:
 \&    openssl ecparam \-list_curves
 .Ve
 .Sp
-domyślnie: prime256v1
+domyślnie:
+.Sp
+.Vb 1
+\&    X25519:P\-256:X448:P\-521:P\-384 (począwszy od OpenSSL 1.1.1)
+\&
+\&    prime256v1 (OpenSSL starszy niż 1.1.1)
+.Ve
 .IP "\fBlogId\fR = \s-1TYP\s0" 4
 .IX Item "logId = TYP"
 typ identyfikatora połączenia klienta
@@ -785,7 +804,9 @@ Każda linia pliku jest w następującym formacie:
 \&    TOŻSAMOŚĆ:KLUCZ
 .Ve
 .Sp
-Klucz musi być mieć przynajmniej 20 znaków.
+Szesnastkowe klucze są automatycznie konwertowane do postaci binarnej.
+Klucz musi być mieć przynajmniej 16 bajtów, co w przypadku kluczy
+szesnastkowych przekłada się na przynajmniej 32 znaki.
 Należy ograniczyć dostęp do czytania lub pisania do tego pliku.
 .IP "\fBpty\fR = yes | no (tylko Unix)" 4
 .IX Item "pty = yes | no (tylko Unix)"

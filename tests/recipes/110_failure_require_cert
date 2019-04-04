@@ -1,4 +1,8 @@
 #!/bin/sh
+
+# Checking if the requireCert option requires a client certificate.
+# The failure is expected because the client does not present the certificate.
+
 . $(dirname $0)/../test_library
 
 start() {

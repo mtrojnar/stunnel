@@ -1,4 +1,7 @@
 #!/bin/sh
+
+# Checking if IPv6 is supported.
+
 . $(dirname $0)/../test_library
 
 start() {

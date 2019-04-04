@@ -1,23 +1,39 @@
 stunnel change log
 
+Version 5.51, 2019.04.04, urgency: MEDIUM
+* New features
+  - Hexadecimal PSK keys are automatically converted to binary.
+  - Session ticket support (requires OpenSSL 1.1.1 or later).
+    "connect" address persistence is currently unsupported
+    with session tickets.
+  - SMTP HELO before authentication (thx to Jacopo Giudici).
+  - New "curves" option to control the list of elliptic
+    curves in OpenSSL 1.1.0 and later.
+  - New "ciphersuites" option to control the list of
+    permitted TLS 1.3 ciphersuites.
+  - Include file name and line number in OpenSSL errors.
+  - Compatibility with the current OpenSSL 3.0.0-dev branch.
+  - Better performance with SSL_set_read_ahead()/SSL_pending().
+* Bugfixes
+  - Fixed PSKsecrets as a global option (thx to Teodor Robas).
+  - Fixed a memory allocation bug (thx to matanfih).
+
 Version 5.50, 2018.12.02, urgency: MEDIUM
 * New features
   - 32-bit Windows builds replaced with 64-bit builds.
   - OpenSSL DLLs updated to version 1.1.1.
   - Check whether "output" is not a relative file name.
-  - Major code cleanup in the configuration file parser.
   - Added sslVersion, sslVersionMin and sslVersionMax
     for OpenSSL 1.1.0 and later.
 * Bugfixes
   - Fixed PSK session resumption with TLS 1.3.
-  - Fixed a memory leak in WIN32 logging subsystem.
+  - Fixed a memory leak in the WIN32 logging subsystem.
   - Allow for zero value (ignored) TLS options.
-  - Partially refactored configuration file parsing
-    and logging subsystems for clearer code and minor
-	bugfixes.
+  - Partially refactored configuration file parsing and
+    logging subsystems for clearer code and minor bugfixes.
 * Caveats
   - We removed FIPS support from our standard builds.
-    FIPS will still be available with bespoke builds.
+    FIPS will still be available with custom builds.
 
 Version 5.49, 2018.09.03, urgency: MEDIUM
 * New features

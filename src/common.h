@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -451,7 +451,12 @@ extern char *sys_errlist[];
 #endif /* !defined(OPENSSL_NO_SSL2) */
 #else /* OpenSSL older than 1.1.0 */
 #define X509_STORE_CTX_get0_chain(x) X509_STORE_CTX_get_chain(x)
+#define OPENSSL_hexstr2buf string_to_hex
 #endif /* OpenSSL 1.1.0 or newer */
+
+#if OPENSSL_VERSION_NUMBER<0x10101000L
+#define OPENSSL_NO_TLS1_3
+#endif /* OpenSSL older than 1.1.1 */
 
 #if defined(USE_WIN32) && defined(OPENSSL_FIPS)
 #define USE_FIPS

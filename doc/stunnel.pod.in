@@ -427,10 +427,22 @@ This option requires OpenSSL 1.0.2 or later.
 
 =item B<ciphers> = CIPHER_LIST
 
-Select permitted TLS ciphers
+select permitted TLS ciphers (TLSv1.2 and below)
+
+This option does not impact TLSv1.3 ciphersuites.
 
 A colon-delimited list of the ciphers to allow in the TLS connection,
 for example DES-CBC3-SHA:IDEA-CBC-MD5.
+
+=item B<ciphersuites> = CIPHERSUITES_LIST
+
+select permitted TLSv1.3 ciphersuites
+
+A colon-delimited list of TLSv1.3 ciphersuites names in order of perference.
+
+This option requires OpenSSL 1.1.1 or later.
+
+default: TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256
 
 =item B<client> = yes | no
 
@@ -483,15 +495,21 @@ Certificate Revocation Lists file
 This file contains multiple CRLs, used with the I<verifyChain> and
 I<verifyPeer> options.
 
-=item B<curve> = NID
+=item B<curves> = list
 
-specify ECDH curve name
+ECDH curves separated with ':'
+
+Only a single curve name is allowed for OpenSSL older than 1.1.0.
 
 To get a list of supported curves use:
 
     openssl ecparam -list_curves
 
-default: prime256v1
+default:
+
+    X25519:P-256:X448:P-521:P-384 (OpenSSL 1.1.1 or later)
+
+    prime256v1 (OpenSSL older than 1.1.1)
 
 =item B<logId> = TYPE
 
@@ -827,8 +845,10 @@ Each line of the file in the following format:
 
     IDENTITY:KEY
 
-The key is required to be at least 20 characters long.
-The file should not be world-readable nor world-writable.
+Hexadecimal keys are automatically converted to binary form.
+Keys are required to be at least 16 bytes long, which implies
+at least 32 characters for hexadecimal keys.
+The file should neither be world-readable nor world-writable.
 
 =item B<pty> = yes | no (Unix only)
 

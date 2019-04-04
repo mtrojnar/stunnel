@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -74,7 +74,7 @@ DISK_FILE *file_open(char *name, FILE_MODE mode) {
         SetFilePointer(fh, 0, NULL, FILE_END);
 
     /* setup df structure */
-    df=str_alloc(sizeof df);
+    df=str_alloc(sizeof(DISK_FILE));
     df->fh=fh;
     return df;
 }
@@ -120,7 +120,7 @@ DISK_FILE *file_open(char *name, FILE_MODE mode) {
         return NULL;
 
     /* setup df structure */
-    df=str_alloc(sizeof df);
+    df=str_alloc(sizeof(DISK_FILE));
     df->fd=fd;
     return df;
 }

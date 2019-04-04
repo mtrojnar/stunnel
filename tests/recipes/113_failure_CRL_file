@@ -1,4 +1,11 @@
 #!/bin/sh
+
+# Checking if the CRL is verified.
+# The verifyChain option verifies the peer certificate starting from the root CA.
+# The self-signed root CA certificate is stored in the file specified with CAfile.
+# Certificate Revocation Lists file is stored in the file specified with CRLfile.
+# The failure is expected because the server presents the revoked certificate.
+
 . $(dirname $0)/../test_library
 
 start() {

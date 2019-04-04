@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 1998-2018
+# by Michal Trojnara 1998-2019
 
 ###############################################################################
 # File lists                                                                  #
@@ -14,17 +14,6 @@ shared_sources = env.c
 win32_gui_sources = ui_win_gui.c resources.h resources.rc
 win32_gui_sources += stunnel.ico active.ico error.ico idle.ico
 win32_cli_sources = ui_win_cli.c
-
-###############################################################################
-# Generate a new set of DH parameters for each version                        #
-###############################################################################
-
-dhparam.c: version.h
-	echo '#include "common.h"' >dhparam.c
-	echo '#ifndef OPENSSL_NO_DH' >>dhparam.c
-	echo '#define DN_new DH_new' >>dhparam.c
-	openssl dhparam -noout -C 2048 >>dhparam.c
-	echo '#endif /* OPENSSL_NO_DH */' >>dhparam.c
 
 ###############################################################################
 # Unix executables and shared library                                         #

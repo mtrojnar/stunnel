@@ -1,4 +1,10 @@
 #!/bin/sh
+
+# Checking if disable delay option works properly when the session is resumed.
+# This option delays DNS lookup for the connect option.
+# Exactly "2" "accepted: new session negotiated" logs for [server_1]
+# and [server_2] services are expected, becouse failover = rr
+
 . $(dirname $0)/../test_library
 
 start() {
@@ -8,14 +14,16 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
+  delay = no
+  failover = rr
+  retry = yes
+
   [client]
   client = yes
-  failover = rr
   exec = ${script_path}/execute_read
   execArgs = execute_read ${result_path}/temp.log
   connect = 127.0.0.1:${https1}
   connect = 127.0.0.1:${https2}
-  retry = yes
 
   [server_1]
   accept = 127.0.0.1:${https1}
@@ -35,7 +43,7 @@ if ! grep -q "FORK" "results.log"
   then
     test_log_for "044_session_nodelay" "session" "2" "$1" "$2" "$3" 2>> "stderr.log"
     exit $?
-  else
+  else # the resumption of the session does not work for the FORK model
     exit_logs "044_session_nodelay" "skipped"
     exit 125
   fi

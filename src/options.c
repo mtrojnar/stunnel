@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -37,6 +37,12 @@
 
 #include "common.h"
 #include "prototypes.h"
+
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+#define DEFAULT_CURVES "X25519:P-256:X448:P-521:P-384"
+#else /* OpenSSL version < 1.1.1 */
+#define DEFAULT_CURVES "prime256v1"
+#endif /* OpenSSL version >= 1.1.1 */
 
 #if defined(_WIN32_WCE) && !defined(CONFDIR)
 #define CONFDIR "\\stunnel"
@@ -266,6 +272,11 @@ static char *option_not_found=
 
 static char *stunnel_cipher_list=
     "HIGH:!aNULL:!SSLv2:!DH:!kDHEPSK";
+
+#ifndef OPENSSL_NO_TLS1_3
+static char *stunnel_ciphersuites=
+    "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256";
+#endif /* TLS 1.3 */
 
 /**************************************** parse commandline parameters */
 
@@ -670,10 +681,12 @@ NOEXPORT char *parse_global_option(CMD cmd, char *opt, char *arg) {
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "compression"))
             break;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         /* only allow compression with OpenSSL 0.9.8 or later
          * with OpenSSL #1468 zlib memory leak fixed */
         if(OpenSSL_version_num()<0x00908051L) /* 0.9.8e-beta1 */
             return "Compression unsupported due to a memory leak";
+#endif /* OpenSSL version < 1.1.0 */
         if(!strcasecmp(arg, "deflate"))
             new_global_options.compression=COMP_DEFLATE;
         else if(!strcasecmp(arg, "zlib"))
@@ -1519,8 +1532,8 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
         return NULL; /* OK */
     case CMD_INITIALIZE:
         if(!section->cipher_list) {
-            /* this is only executed for global options,
-             * because section->cipher_list is no longer NULL */
+            /* this is only executed for global options, because
+             * section->cipher_list is no longer NULL in sections */
 #ifdef USE_FIPS
             if(new_global_options.option.fips)
                 section->cipher_list=str_dup_detached("FIPS");
@@ -1540,9 +1553,43 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
 #endif /* USE_FIPS */
         break;
     case CMD_PRINT_HELP:
-        s_log(LOG_NOTICE, "%-22s = list of permitted TLS ciphers", "ciphers");
+        s_log(LOG_NOTICE, "%-22s = permitted ciphers for TLS 1.2 or older", "ciphers");
         break;
     }
+
+#ifndef OPENSSL_NO_TLS1_3
+    /* ciphersuites */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->ciphersuites=NULL;
+        break;
+    case CMD_SET_COPY:
+        section->ciphersuites=str_dup_detached(new_service_options.ciphersuites);
+        break;
+    case CMD_FREE:
+        str_free(section->ciphersuites);
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "ciphersuites"))
+            break;
+        str_free(section->ciphersuites);
+        section->ciphersuites=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(!section->ciphersuites) {
+            /* this is only executed for global options, because
+             * section->ciphersuites is no longer NULL in sections */
+            section->ciphersuites=str_dup_detached(stunnel_ciphersuites);
+        }
+        break;
+    case CMD_PRINT_DEFAULTS:
+        s_log(LOG_NOTICE, "%-22s = %s %s", "ciphersuites", stunnel_ciphersuites, "(with TLSv1.3)");
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = permitted ciphersuites for TLS 1.3", "ciphersuites");
+        break;
+    }
+#endif /* TLS 1.3 */
 
     /* client */
     switch(cmd) {
@@ -1710,31 +1757,30 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
 
 #ifndef OPENSSL_NO_ECDH
 
-    /* curve */
-#define DEFAULT_CURVE NID_X9_62_prime256v1
+    /* curves */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
-        section->curve=DEFAULT_CURVE;
+        section->curves=str_dup_detached(DEFAULT_CURVES);
         break;
     case CMD_SET_COPY:
-        section->curve=new_service_options.curve;
+        section->curves=str_dup_detached(new_service_options.curves);
         break;
     case CMD_FREE:
+        str_free(section->curves);
         break;
     case CMD_SET_VALUE:
-        if(strcasecmp(opt, "curve"))
+        if(strcasecmp(opt, "curves") && strcasecmp(opt, "curve"))
             break;
-        section->curve=OBJ_txt2nid(arg);
-        if(section->curve==NID_undef)
-            return "Curve name not supported";
+        str_free(section->curves);
+        section->curves=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_INITIALIZE:
         break;
     case CMD_PRINT_DEFAULTS:
-        s_log(LOG_NOTICE, "%-22s = %s", "curve", OBJ_nid2ln(DEFAULT_CURVE));
+        s_log(LOG_NOTICE, "%-22s = %s", "curves", DEFAULT_CURVES);
         break;
     case CMD_PRINT_HELP:
-        s_log(LOG_NOTICE, "%-22s = ECDH curve name", "curve");
+        s_log(LOG_NOTICE, "%-22s = ECDH curve names", "curves");
         break;
     }
 
@@ -2346,10 +2392,12 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
                 return tmp_str;
         }
         endpoints+=section->option.protocol_endpoint;
-#ifdef SSL_OP_NO_TICKET
+#if defined(SSL_OP_NO_TICKET) && OPENSSL_VERSION_NUMBER<0x10101000L
         /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
-        /* session tickets do not support SSL_SESSION_*_ex_data() */
-        if(!section->option.connect_before_ssl) /* address cache can be used */
+        /* OpenSSL 1.1.1 is required to serialize application data
+         * into session tickets */
+        /* this is needed for connect address session persistence */
+        if(!section->option.connect_before_ssl)
             section->ssl_options_set|=SSL_OP_NO_TICKET;
 #endif
         break;
@@ -2633,9 +2681,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "redirect"))
             break;
-#ifdef SSL_OP_NO_TICKET
+#if defined(SSL_OP_NO_TICKET) && OPENSSL_VERSION_NUMBER<0x10101000L
         /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
-        /* session tickets do not support SSL_SESSION_*_ex_data() */
+        /* OpenSSL 1.1.1 is required to serialize application data
+         * into session tickets */
+        /* this is needed for preserving authentication status */
         section->ssl_options_set|=SSL_OP_NO_TICKET;
 #endif
         name_list_append(&section->redirect_addr.names, arg);
@@ -3828,8 +3878,9 @@ NOEXPORT void print_ssl_options(void) {
 
 NOEXPORT PSK_KEYS *psk_read(char *key_file) {
     DISK_FILE *df;
-    char line[CONFLINELEN], *key_val;
-    unsigned key_len;
+    char line[CONFLINELEN], *key_str;
+    unsigned char *key_buf;
+    long key_len;
     PSK_KEYS *head=NULL, *tail=NULL, *curr;
     int line_number=0;
 
@@ -3844,8 +3895,8 @@ NOEXPORT PSK_KEYS *psk_read(char *key_file) {
         ++line_number;
         if(!line[0]) /* empty line */
             continue;
-        key_val=strchr(line, ':');
-        if(!key_val) {
+        key_str=strchr(line, ':');
+        if(!key_str) {
             s_log(LOG_ERR,
                 "PSKsecrets line %d: Not in identity:key format",
                 line_number);
@@ -3853,8 +3904,7 @@ NOEXPORT PSK_KEYS *psk_read(char *key_file) {
             psk_free(head);
             return NULL;
         }
-        *key_val++='\0';
-        key_len=(unsigned)strlen(key_val);
+        *key_str++='\0';
         if(strlen(line)+1>PSK_MAX_IDENTITY_LEN) { /* with the trailing '\0' */
             s_log(LOG_ERR,
                 "PSKsecrets line %d: Identity longer than %d characters",
@@ -3863,27 +3913,44 @@ NOEXPORT PSK_KEYS *psk_read(char *key_file) {
             psk_free(head);
             return NULL;
         }
+        key_buf=OPENSSL_hexstr2buf(key_str, &key_len);
+        if(key_buf) { /* a valid hexadecimal value */
+            s_log(LOG_INFO, "PSKsecrets line %d: "
+                "%ld-byte hexadecimal key configured for identity \"%s\"",
+                line_number, key_len, line);
+        } else { /* not a valid hexadecimal value -> copy as a string */
+            key_len=(long)strlen(key_str);
+            key_buf=OPENSSL_malloc((size_t)key_len);
+            memcpy(key_buf, key_str, (size_t)key_len);
+            s_log(LOG_INFO, "PSKsecrets line %d: "
+                "%ld-byte ASCII key configured for identity \"%s\"",
+                line_number, key_len, line);
+        }
         if(key_len>PSK_MAX_PSK_LEN) {
             s_log(LOG_ERR,
-                "PSKsecrets line %d: Key longer than %d characters",
+                "PSKsecrets line %d: Key longer than %d bytes",
                 line_number, PSK_MAX_PSK_LEN);
+            OPENSSL_free(key_buf);
             file_close(df);
             psk_free(head);
             return NULL;
         }
-        if(key_len<20) {
+        if(key_len<16) {
             /* shorter keys are unlikely to have sufficient entropy */
             s_log(LOG_ERR,
-                "PSKsecrets line %d: Key shorter than 20 characters",
+                "PSKsecrets line %d: Key shorter than 16 bytes",
                 line_number);
+            OPENSSL_free(key_buf);
             file_close(df);
             psk_free(head);
             return NULL;
         }
         curr=str_alloc_detached(sizeof(PSK_KEYS));
         curr->identity=str_dup_detached(line);
-        curr->key_val=(unsigned char *)str_dup_detached(key_val);
-        curr->key_len=key_len;
+        curr->key_val=str_alloc_detached((size_t)key_len);
+        memcpy(curr->key_val, key_buf, (size_t)key_len);
+        OPENSSL_free(key_buf);
+        curr->key_len=(unsigned)key_len;
         curr->next=NULL;
         if(head)
             tail->next=curr;
@@ -3898,10 +3965,11 @@ NOEXPORT PSK_KEYS *psk_read(char *key_file) {
 NOEXPORT PSK_KEYS *psk_dup(PSK_KEYS *src) {
     PSK_KEYS *head=NULL, *tail=NULL, *curr;
 
-    while(src) {
+    for(; src; src=src->next) {
         curr=str_alloc_detached(sizeof(PSK_KEYS));
         curr->identity=str_dup_detached(src->identity);
-        curr->key_val=(unsigned char *)str_dup_detached((char *)src->key_val);
+        curr->key_val=str_alloc_detached(src->key_len);
+        memcpy(curr->key_val, src->key_val, src->key_len);
         curr->key_len=src->key_len;
         curr->next=NULL;
         if(head)

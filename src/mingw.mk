@@ -1,5 +1,5 @@
 ## mingw/mingw64 Makefile
-# by Michal Trojnara 1998-2018
+# by Michal Trojnara 1998-2019
 
 # 32-bit Windows
 #win32_arch=win32
@@ -16,11 +16,11 @@ objdir = ../obj/$(win32_arch)
 
 win32_ssl_dir = /opt/openssl-$(win32_mingw)
 win32_cppflags = -I$(win32_ssl_dir)/include
-win32_cflags = -mthreads -O2
+win32_cflags = -g -mthreads -O2
 #win32_cflags += -fstack-protector
 win32_cflags += -Wall -Wextra -Wpedantic -Wformat=2 -Wconversion -Wno-long-long
 win32_cflags += -D_FORTIFY_SOURCE=2 -DUNICODE -D_UNICODE
-win32_ldflags = -s -mthreads
+win32_ldflags = -g -mthreads
 #win32_ldflags += -fstack-protector
 # -fstack-protector is broken (at least in x86_64-w64-mingw32-gcc 8.2.0)
 

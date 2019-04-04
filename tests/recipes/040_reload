@@ -1,4 +1,8 @@
 #!/bin/sh
+
+# Checking if the stunnel works correctly after reloading the configuration.
+# kill -HUP PID is called in reload_stunnel().
+
 . $(dirname $0)/../test_library
 
 set_config() {

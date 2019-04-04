@@ -1,4 +1,9 @@
 #!/bin/sh
+
+# Checking if the verifyChain option verifies the peer certificate starting from the root CA.
+# The self-signed root CA certificate is stored in the file specified with CAfile.
+# The success is expected because the server presents the valid certificate.
+
 . $(dirname $0)/../test_library
 
 start() {
@@ -7,13 +12,13 @@ start() {
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
+  CAfile = ../certs/CACert.pem
 
   [client]
   client = yes
   accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
   verifyChain = yes
-  CAfile = ../certs/CACert.pem
 
   [server]
   accept = 127.0.0.1:${https1}
@@ -22,7 +27,7 @@ start() {
 EOT
 }
 
-if grep -q -e "OpenSSL 0.9.8" -e "OpenSSL 1" "results.log"
+if grep -q -e "OpenSSL 0\.9\.8" -e "OpenSSL [1-9]" "results.log"
   then
     test_log_for "012_verify_chain" "success" "0" "$1" "$2" "$3" 2>> "stderr.log"
     exit $?

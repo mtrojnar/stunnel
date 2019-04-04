@@ -1,6 +1,6 @@
 #!/bin/sh
 set -ev
-VERSION=5.50
+VERSION=5.51
 DST=stunnel-$VERSION-android
 
 # install Android NDK on Arch Linux:

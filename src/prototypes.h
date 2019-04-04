@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -216,6 +216,9 @@ typedef struct service_options_struct {
 
         /* service-specific data for ctx.c */
     char *cipher_list;
+#ifndef OPENSSL_NO_TLS1_3
+    char *ciphersuites;
+#endif /* TLS 1.3 */
     char *cert;                                             /* cert filename */
     char *key;                               /* pem (priv key/cert) filename */
     long session_size, session_timeout;
@@ -239,7 +242,7 @@ typedef struct service_options_struct {
     PSK_TABLE psk_sorted;
 #endif /* !defined(OPENSSL_NO_PSK) */
 #ifndef OPENSSL_NO_ECDH
-    int curve;
+    char *curves;
 #endif /* !defined(OPENSSL_NO_ECDH) */
 #ifndef OPENSSL_NO_ENGINE
     ENGINE *engine;                        /* engine to read the private key */

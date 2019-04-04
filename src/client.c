@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2018 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -363,6 +363,9 @@ NOEXPORT void client_try(CLI *c) {
         remote_start(c);
     }
     protocol(c, c->opt, PROTOCOL_LATE);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+    SSL_set_read_ahead(c->ssl, 1); /* *after* protocol negotiations */
+#endif
     transfer(c);
 }
 
@@ -461,7 +464,9 @@ NOEXPORT void remote_start(CLI *c) {
 
 NOEXPORT void ssl_start(CLI *c) {
     int i, err;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     int unsafe_openssl;
+#endif /* OpenSSL version < 1.1.0 */
 
     c->ssl=SSL_new(c->opt->ctx);
     if(!c->ssl) {
@@ -507,25 +512,31 @@ NOEXPORT void ssl_start(CLI *c) {
     else
         s_log(LOG_INFO, "Peer certificate not required");
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     unsafe_openssl=OpenSSL_version_num()<0x0090810fL ||
         (OpenSSL_version_num()>=0x10000000L &&
         OpenSSL_version_num()<0x1000002fL);
+#endif /* OpenSSL version < 1.1.0 */
     while(1) {
         /* critical section for OpenSSL version < 0.9.8p or 1.x.x < 1.0.0b *
          * this critical section is a crude workaround for CVE-2010-3864   *
          * see http://www.securityfocus.com/bid/44884 for details          *
          * alternative solution is to disable internal session caching     *
          * NOTE: this critical section also covers callbacks (e.g. OCSP)   */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         if(unsafe_openssl)
             CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SSL]);
+#endif /* OpenSSL version < 1.1.0 */
 
         if(c->opt->option.client)
             i=SSL_connect(c->ssl);
         else
             i=SSL_accept(c->ssl);
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         if(unsafe_openssl)
             CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SSL]);
+#endif /* OpenSSL version < 1.1.0 */
 
         err=SSL_get_error(c->ssl, i);
         if(err==SSL_ERROR_NONE)
@@ -623,6 +634,8 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
 
 /****************************** transfer data */
 NOEXPORT void transfer(CLI *c) {
+    int timeout; /* s_poll_wait timeout in seconds */
+    int pending; /* either processed on unprocessed TLS data */
     int watchdog=0; /* a counter to detect an infinite loop */
     ssize_t num;
     int err;
@@ -667,17 +680,29 @@ NOEXPORT void transfer(CLI *c) {
         }
 
         /****************************** wait for an event */
-        err=s_poll_wait(c->fds,
-            (sock_open_rd && /* both peers open */
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+        pending=SSL_pending(c->ssl) || SSL_has_pending(c->ssl);
+#else
+        pending=SSL_pending(c->ssl);
+#endif
+        if(read_wants_read && pending) {
+            timeout=0; /* process any buffered data without delay */
+        } else if((sock_open_rd && /* both peers open */
                 !(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)) ||
-            c->ssl_ptr /* data buffered to write to socket */ ||
-            c->sock_ptr /* data buffered to write to TLS */ ?
-            c->opt->timeout_idle : c->opt->timeout_close, 0);
+                c->ssl_ptr /* data buffered to write to socket */ ||
+                c->sock_ptr /* data buffered to write to TLS */) {
+            timeout=c->opt->timeout_idle;
+        } else {
+            timeout=c->opt->timeout_close;
+        }
+        err=s_poll_wait(c->fds, timeout, 0);
         switch(err) {
         case -1:
             sockerror("transfer: s_poll_wait");
             throw_exception(c, 1);
         case 0: /* timeout */
+            if(read_wants_read && pending)
+                break;
             if((sock_open_rd &&
                     !(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)) ||
                     c->ssl_ptr || c->sock_ptr) {
@@ -685,12 +710,12 @@ NOEXPORT void transfer(CLI *c) {
                     " TIMEOUTidle exceeded: sending reset");
                 s_poll_dump(c->fds, LOG_DEBUG);
                 throw_exception(c, 1);
-            } else { /* already closing connection */
-                s_log(LOG_ERR, "transfer: s_poll_wait:"
-                    " TIMEOUTclose exceeded: closing");
-                s_poll_dump(c->fds, LOG_DEBUG);
-                return; /* OK */
             }
+            /* already closing connection */
+            s_log(LOG_ERR, "transfer: s_poll_wait:"
+                " TIMEOUTclose exceeded: closing");
+            s_poll_dump(c->fds, LOG_DEBUG);
+            return; /* OK */
         }
 
         /****************************** retrieve results from c->fds */
@@ -920,7 +945,7 @@ NOEXPORT void transfer(CLI *c) {
         }
 
         /****************************** read from TLS */
-        if((read_wants_read && (ssl_can_rd || SSL_pending(c->ssl))) ||
+        if((read_wants_read && (ssl_can_rd || pending)) ||
                 /* it may be possible to read some pending data after
                  * writesocket() above made some room in c->ssl_buff */
                 (read_wants_write && ssl_can_wr)) {
@@ -1430,6 +1455,7 @@ NOEXPORT void idx_cache_save(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
     SOCKADDR_UNION *old_addr, *new_addr;
     socklen_t len;
     char *addr_txt;
+    int ok;
 
     /* make a copy of the address, so it may work with delayed resolver */
     len=addr_len(cur_addr);
@@ -1442,12 +1468,12 @@ NOEXPORT void idx_cache_save(SSL_SESSION *sess, SOCKADDR_UNION *cur_addr) {
 
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_ADDR]);
     old_addr=SSL_SESSION_get_ex_data(sess, index_session_connect_address);
-    if(SSL_SESSION_set_ex_data(sess, index_session_connect_address, new_addr)) {
-        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
+    ok=SSL_SESSION_set_ex_data(sess, index_session_connect_address, new_addr);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
+    if(ok) {
         str_free(old_addr); /* NULL pointers are ignored */
     } else { /* failed to store new_addr -> remove it */
         sslerror("SSL_SESSION_set_ex_data");
-        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
         str_free(new_addr); /* NULL pointers are ignored */
     }
 }

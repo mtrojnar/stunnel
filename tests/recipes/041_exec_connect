@@ -1,4 +1,8 @@
 #!/bin/sh
+
+# Simple execute a local inetd-type program in the client service.
+# The execArgs option contains arguments for exec including the program name.
+
 . $(dirname $0)/../test_library
 
 start() {
