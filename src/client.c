@@ -636,6 +636,9 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
 NOEXPORT void transfer(CLI *c) {
     int timeout; /* s_poll_wait timeout in seconds */
     int pending; /* either processed on unprocessed TLS data */
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+    int has_pending=0, prev_has_pending;
+#endif
     int watchdog=0; /* a counter to detect an infinite loop */
     ssize_t num;
     int err;
@@ -680,10 +683,12 @@ NOEXPORT void transfer(CLI *c) {
         }
 
         /****************************** wait for an event */
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-        pending=SSL_pending(c->ssl) || SSL_has_pending(c->ssl);
-#else
         pending=SSL_pending(c->ssl);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+        /* only attempt to process SSL_has_pending() data once */
+        prev_has_pending=has_pending;
+        has_pending=SSL_has_pending(c->ssl);
+        pending=pending || (has_pending && !prev_has_pending);
 #endif
         if(read_wants_read && pending) {
             timeout=0; /* process any buffered data without delay */
@@ -1083,8 +1088,14 @@ NOEXPORT void transfer(CLI *c) {
             s_log(LOG_ERR,
                 "please report the problem to Michal.Trojnara@stunnel.org");
             stunnel_info(LOG_ERR);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+            s_log(LOG_ERR, "protocol=%s, SSL_pending=%d, SSL_has_pending=%d",
+                SSL_get_version(c->ssl),
+                SSL_pending(c->ssl), SSL_has_pending(c->ssl));
+#else
             s_log(LOG_ERR, "protocol=%s, SSL_pending=%d",
                 SSL_get_version(c->ssl), SSL_pending(c->ssl));
+#endif
             s_log(LOG_ERR, "sock_open_rd=%s, sock_open_wr=%s",
                 sock_open_rd ? "Y" : "n", sock_open_wr ? "Y" : "n");
             s_log(LOG_ERR, "SSL_RECEIVED_SHUTDOWN=%s, SSL_SENT_SHUTDOWN=%s",

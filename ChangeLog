@@ -1,7 +1,12 @@
 stunnel change log
 
+Version 5.52, 2019.04.08, urgency: HIGH
+* Bugfixes
+  - Fixed a transfer() loop bug introduced in stunnel 5.51.
+
 Version 5.51, 2019.04.04, urgency: MEDIUM
 * New features
+  - OpenSSL DLLs updated to version 1.1.1b.
   - Hexadecimal PSK keys are automatically converted to binary.
   - Session ticket support (requires OpenSSL 1.1.1 or later).
     "connect" address persistence is currently unsupported

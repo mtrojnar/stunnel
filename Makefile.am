@@ -37,7 +37,8 @@ dist-hook:
 
 sign:
 	cp -f $(distdir).tar.gz $(distdir)-win64-installer.exe $(distdir)-android.zip ../dist
-	gpg-agent --daemon /bin/sh -c "cd ../dist; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir).tar.gz; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir)-win64-installer.exe; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir)-android.zip"
+	-gpg-agent --daemon
+	/bin/sh -c "cd ../dist; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir).tar.gz; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir)-win64-installer.exe; gpg --yes --armor --detach-sign --force-v3-sigs $(distdir)-android.zip"
 	sha256sum $(distdir).tar.gz >../dist/$(distdir).tar.gz.sha256
 	sha256sum $(distdir)-win64-installer.exe >../dist/$(distdir)-win64-installer.exe.sha256
 	sha256sum $(distdir)-android.zip >../dist/$(distdir)-android.zip.sha256
