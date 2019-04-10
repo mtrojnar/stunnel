@@ -1,5 +1,11 @@
 stunnel change log
 
+Version 5.53, 2019.04.10, urgency: HIGH
+* Bugfixes
+  - Fixed data transfer stalls introduced in stunnel 5.51.
+* New features
+  - Android binary updated to support Android 4.x.
+
 Version 5.52, 2019.04.08, urgency: HIGH
 * Bugfixes
   - Fixed a transfer() loop bug introduced in stunnel 5.51.

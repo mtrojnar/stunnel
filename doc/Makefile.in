@@ -285,7 +285,8 @@ EXTRA_DIST = stunnel.pod.in stunnel.8.in stunnel.html.in en \
 	stunnel.pl.pod.in stunnel.pl.8.in stunnel.pl.html.in pl
 man_MANS = stunnel.8 stunnel.pl.8
 doc_DATA = stunnel.html stunnel.pl.html
-CLEANFILES = $(man_MANS) $(doc_DATA)
+CLEANFILES = $(man_MANS)
+DISTCLEANFILES = $(doc_DATA)
 SUFFIXES = .pod.in .8.in .html.in
 edit = sed \
 	-e 's|@bindir[@]|$(bindir)|g' \
@@ -466,6 +467,7 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"

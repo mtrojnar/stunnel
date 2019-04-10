@@ -1,6 +1,6 @@
 #!/bin/sh
 set -ev
-VERSION=5.52
+VERSION=5.53
 DST=stunnel-$VERSION-android
 
 # install Android NDK on Arch Linux:
@@ -12,13 +12,14 @@ DST=stunnel-$VERSION-android
 # build OpenSSL:
 # export ANDROID_NDK=/usr/lib/android-ndk
 # export PATH=$ANDROID_NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin:$PATH
-# ./Configure no-shared --prefix=/opt/openssl-android android-arm
-# make && sudo make install
+# ./Configure no-shared --prefix=/opt/openssl-android android-arm -D__ANDROID_API__=14
+# make
+# sudo PATH=$ANDROID_NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin:$PATH make install
 
 # Debian does not deploy /etc/profile.d/android-ndk.sh
 test -d "$ANDROID_NDK" || ANDROID_NDK=/usr/lib/android-ndk
 
-ANDROID_SYSROOT=$ANDROID_NDK/platforms/android-23/arch-arm
+ANDROID_SYSROOT=$ANDROID_NDK/platforms/android-14/arch-arm
 export CPPFLAGS="--sysroot=$ANDROID_SYSROOT"
 export CFLAGS="--sysroot=$ANDROID_SYSROOT"
 export PATH="$ANDROID_NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin:$PATH"

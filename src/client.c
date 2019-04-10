@@ -363,9 +363,6 @@ NOEXPORT void client_try(CLI *c) {
         remote_start(c);
     }
     protocol(c, c->opt, PROTOCOL_LATE);
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-    SSL_set_read_ahead(c->ssl, 1); /* *after* protocol negotiations */
-#endif
     transfer(c);
 }
 

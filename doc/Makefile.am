@@ -9,7 +9,8 @@ man_MANS = stunnel.8 stunnel.pl.8
 docdir = $(datadir)/doc/stunnel
 doc_DATA = stunnel.html stunnel.pl.html
 
-CLEANFILES = $(man_MANS) $(doc_DATA)
+CLEANFILES = $(man_MANS)
+DISTCLEANFILES = $(doc_DATA)
 
 SUFFIXES = .pod.in .8.in .html.in
 
