@@ -1067,7 +1067,45 @@ rozmiar stosu procesora tworzonych wątków
 Zbyt duży stos zwiększa zużycie pamięci wirtualnej.
 Zbyt mały stos może powodować problemy ze stabilnością aplikacji.
 
-domyślnie: 65536 bytes (wystarczający dla testowanych platform) 
+domyślnie: 65536 bytes (wystarczający dla testowanych platform)
+
+=item B<ticketKeySecret> = SECRET
+
+szesnastkowy klucz symetryczny używany przez serwer do zapewnienia poufności
+biletów sesji
+
+Bilety sesji zdefiniowane w RFC 5077 zapewniają ulepszoną możliwość wznawiania
+sesji, w której implementacja serwera nie jest wymagana do utrzymania stanu
+sesji.
+
+Łączne użycie opcji I<ticketKeySecret> i I<ticketMacSecret> umożliwia
+wznawianie sesji na klastrze serwerów lub wznowienie sesji po restarcie
+serwera.
+
+Klucz musi mieć rozmiar 16 lub 32 bajtów, co przekłada się na dokładnie 32 lub
+64 cyfry szesnastkowe. Poszczególne bajty mogą być opcjonalnie oddzielone
+dwukropkami.
+
+Opcja działa wyłącznie w trybie serwera.
+
+Opcja I<ticketKeySecret> jest dostępna począwszy od B<OpenSSL 1.0.0>.
+
+Wyłączenie opcji I<NO_TICKET> jest wymagane dla obsługi biletów sesji w
+OpenSSL-u starszym niż 1.1.1, ale opcja ta jest niekompatybilna z opcją
+I<redirect>.
+
+=item B<ticketMacSecret> = SECRET
+
+szesnastkowy klucz symetryczny używany przez serwer zapewnienia integralności
+biletów sesji
+
+Klucz musi mieć rozmiar 16 lub 32 bajtów, co przekłada się na dokładnie 32 lub
+64 cyfry szesnastkowe. Poszczególne bajty mogą być opcjonalnie oddzielone
+dwukropkami.
+
+Opcja działa wyłącznie w trybie serwera.
+
+Opcja I<ticketMacSecret> jest dostępna począwszy od B<OpenSSL 1.0.0>.
 
 =item B<TIMEOUTbusy> = LICZBA_SEKUND
 
@@ -1303,6 +1341,10 @@ plikiem pid) wewnątrz katalogu wskazanego przez 'chroot'.
 
 Zamknij i otwórz ponownie log.
 Funkcja ta może zostać użyta w skrypcie rotującym log programu B<stunnel>.
+
+=item SIGUSR2
+
+Zapisz w logu listę aktywnych połączeń.
 
 =item SIGTERM, SIGQUIT, SIGINT
 

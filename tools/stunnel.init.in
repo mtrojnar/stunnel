@@ -56,7 +56,7 @@ startdaemons() {
     ulimit $RLIMITS
   fi
   res=0
-  for file in $FILES; do 
+  for file in $FILES; do
     if [ -f $file ]; then
       echo -n " $file: "
       args="$file $OPTIONS"
@@ -224,7 +224,7 @@ case "$1" in
     echo -n "Reloading configuration $DESC:"
     killdaemons HUP
     res=$?
-    ;;  
+    ;;
   restart)
     echo -n "Restarting $DESC:"
     killdaemons && startdaemons

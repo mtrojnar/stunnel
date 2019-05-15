@@ -843,7 +843,7 @@ NOEXPORT char *smtp_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         return NULL;
 
     /* detect RFC 2487 */
-    s_poll_init(c->fds);
+    s_poll_init(c->fds, 0);
     s_poll_add(c->fds, c->local_rfd.fd, 1, 0);
     switch(s_poll_wait(c->fds, 0, 200)) { /* wait up to 200ms */
     case 0: /* fd not ready to read */
@@ -998,7 +998,7 @@ NOEXPORT char *imap_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         opt->option.connect_before_ssl=1; /* c->remote_fd needed */
     if(phase!=PROTOCOL_MIDDLE)
         return NULL;
-    s_poll_init(c->fds);
+    s_poll_init(c->fds, 0);
     s_poll_add(c->fds, c->local_rfd.fd, 1, 0);
     switch(s_poll_wait(c->fds, 0, 200)) {
     case 0: /* fd not ready to read */

@@ -96,6 +96,12 @@ NOEXPORT PSK_KEYS *psk_dup(PSK_KEYS *);
 NOEXPORT void psk_free(PSK_KEYS *);
 #endif /* !defined(OPENSSL_NO_PSK) */
 
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+NOEXPORT TICKET_KEY *key_read(char *, char *);
+NOEXPORT TICKET_KEY *key_dup(TICKET_KEY *);
+NOEXPORT void key_free(TICKET_KEY *);
+#endif /* OpenSSL 1.0.0 or later */
+
 typedef struct {
     char *name;
     long unsigned value;
@@ -3267,6 +3273,84 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
     }
 #endif
 
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+
+    /* ticketKeySecret */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->ticket_key=NULL;
+        break;
+    case CMD_SET_COPY:
+        section->ticket_key=key_dup(new_service_options.ticket_key);
+        break;
+    case CMD_FREE:
+        key_free(section->ticket_key);
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "ticketKeySecret"))
+            break;
+        section->ticket_key=key_read(arg, "ticketKeySecret");
+        if(!section->ticket_key)
+            return "Failed to read ticketKeySecret";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(!section->ticket_key)          /* ticketKeySecret not configured */
+            break;
+        if(section->option.client){
+            s_log(LOG_NOTICE,
+                    "ticketKeySecret is ignored in the client mode");
+            break;
+        }
+        if(section->ticket_key && !section->ticket_mac)
+            return "\"ticketKeySecret\" and \"ticketMacSecret\" must be set together";
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = secret key for encryption/decryption TLSv1.3 tickets",
+            "ticketKeySecret");
+        break;
+    }
+
+    /* ticketMacSecret */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->ticket_mac=NULL;
+        break;
+    case CMD_SET_COPY:
+        section->ticket_mac=key_dup(new_service_options.ticket_mac);
+        break;
+    case CMD_FREE:
+        key_free(section->ticket_mac);
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "ticketMacSecret"))
+            break;
+        section->ticket_mac=key_read(arg, "ticketMacSecret");
+        if(!section->ticket_mac)
+            return "Failed to read ticketMacSecret";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(!section->ticket_mac)            /* ticketMacSecret not configured */
+            break;
+        if(section->option.client){
+            s_log(LOG_NOTICE,
+                    "ticketMacSecret is ignored in the client mode");
+            break;
+        }
+        if(section->ticket_mac && !section->ticket_key)
+            return "\"ticketKeySecret\" and \"ticketMacSecret\" must be set together";
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = key for HMAC operations on TLSv1.3 tickets",
+            "ticketMacSecret");
+        break;
+    }
+
+#endif /* OpenSSL 1.0.0 or later */
+
     /* TIMEOUTbusy */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
@@ -3992,6 +4076,61 @@ NOEXPORT void psk_free(PSK_KEYS *head) {
 }
 
 #endif
+
+/**************************************** read ticket key */
+
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+
+NOEXPORT TICKET_KEY *key_read(char *arg, char *option) {
+    char *key_str;
+    unsigned char *key_buf;
+    long key_len;
+    TICKET_KEY *head=NULL;
+
+    key_str=str_dup_detached(arg);
+    key_buf=OPENSSL_hexstr2buf(key_str, &key_len);
+    if(key_buf)
+        if((key_len == 16) || (key_len == 32)) /* a valid 16 or 32 byte hexadecimal value */
+            s_log(LOG_INFO, "%s configured", option);
+        else { /* not a valid length */
+            s_log(LOG_ERR, "%s value has %ld bytes instead of required 16 or 32 bytes",
+                option, key_len);
+            OPENSSL_free(key_buf);
+            key_free(head);
+            return NULL;
+        }
+    else { /* not a valid hexadecimal form */
+        s_log(LOG_ERR, "Required %s is 16 or 32 byte hexadecimal key", option);
+        key_free(head);
+        return NULL;
+    }
+    head=str_alloc_detached(sizeof(TICKET_KEY));
+    head->key_val=str_alloc_detached((size_t)key_len);
+    memcpy(head->key_val, key_buf, (size_t)key_len);
+    OPENSSL_free(key_buf);
+    head->key_len=(int)key_len;
+    return head;
+}
+
+NOEXPORT TICKET_KEY *key_dup(TICKET_KEY *src) {
+    TICKET_KEY *head=NULL;
+
+    if (src) {
+        head=str_alloc_detached(sizeof(TICKET_KEY));
+        head->key_val=(unsigned char *)str_dup_detached((char *)src->key_val);
+        head->key_len=src->key_len;
+    }
+    return head;
+}
+
+NOEXPORT void key_free(TICKET_KEY *head) {
+    if (head) {
+        str_free(head->key_val);
+        str_free(head);
+    }
+}
+
+#endif /* OpenSSL 1.0.0 or later */
 
 /**************************************** socket options */
 

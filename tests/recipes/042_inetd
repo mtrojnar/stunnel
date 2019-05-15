@@ -14,7 +14,7 @@ start() {
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
   execArgs = execute 042_inetd
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   [server]
 EOT
 }
@@ -23,7 +23,7 @@ start_inetd() {
   ../../src/stunnel -fd 9 9<<EOT
   debug = debug
   syslog = no
-  output = ${result_path}/stunnel_0.log
+  output = ${result_path}/stunnel_inetd.log
   service = inetd client
   client = yes
   connect = 127.0.0.1:${https1}

@@ -18,12 +18,12 @@ start() {
   accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
   verifyChain = yes
-  CAfile = ../certs/CACert.pem
+  CAfile = ${script_path}/certs/CACert.pem
 
   [server]
   accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http_nc}
-  cert = ../certs/stunnel.pem
+  cert = ${script_path}/certs/stunnel.pem
 EOT
 }
 

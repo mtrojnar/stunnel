@@ -4,7 +4,7 @@
 # Redirect TLS client connections on certificate-based authentication failures.
 # [client_1] -> [server_1] -> [client_2] -> [server_2]
 # Exactly "2" "accepted: new session negotiated" logs for [server_1]
-# and [server_2] services are expected, becouse the client presents the wrong certificate.
+# and [server_2] services are expected, because the client presents the wrong certificate.
 
 . $(dirname $0)/../test_library
 
@@ -22,9 +22,9 @@ start() {
   exec = ${script_path}/execute_read
   execArgs = execute_read ${result_path}/temp.log
   connect = 127.0.0.1:${https1}
-  ;cert = ../certs/client_cert.pem
+  ;cert = ${script_path}/certs/client_cert.pem
 ;wrong certificate
-  cert = ../certs/stunnel.pem
+  cert = ${script_path}/certs/stunnel.pem
 
   [client_2]
   client = yes
@@ -36,13 +36,13 @@ start() {
   exec = ${script_path}/execute
   execArgs = execute 047_resume_redirect_error
   redirect = ${http2}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   verifyPeer = yes
-  CAfile = ../certs/PeerCerts.pem
+  CAfile = ${script_path}/certs/PeerCerts.pem
 
   [server_2]
   accept = 127.0.0.1:${https2}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 047_resume_redirect
 EOT

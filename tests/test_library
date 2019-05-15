@@ -225,12 +225,29 @@ start_stunnel() {
   return 0
 }
 
+close_process() {
+  # $1 = file name
+  # $2 = process pid
+
+  wait $2
+  local result=$?
+  case $result in
+    "0") ;; # expected exit status of the stunnel process
+    "127") ;; # non-existent stunnel process
+    "139") echo "INTERNAL ERROR: $1 exit status $result Segmentation fault (core dumped)" >> "$1.log";;
+    *) echo "INTERNAL ERROR: $1 exit status $result" >> "$1.log"
+  esac
+  return $result
+}
+
 killing_stunnel() {
+  # $1 = file name
 
   local result=0
-  if kill -TERM $(tail "stunnel.pid") 2>> "stderr_nc.log"
+  local pid_stunnel=$(tail "$1.pid")
+  if kill -TERM ${pid_stunnel} 2>> "stderr_nc.log"
     then
-      waiting_for "stunnel" "Removed pid file"
+      close_process $1 ${pid_stunnel}
     else
       exit_code="failed"
       result=1
@@ -249,17 +266,6 @@ reload_stunnel() {
       waiting_for "stunnel" "stunnel.pid"
       kill -HUP $(tail "stunnel.pid") 2>> "stderr_nc.log"
       waiting_for "stunnel" "127.0.0.1:$http1"
-      grep "Binding service \[client.*$http1" "stunnel.log" >> "stderr_nc.log"
-      grep "Binding service \[client.*failed" "stunnel.log" >> "stderr_nc.log"
-      while ! grep -q "Service \[client.*bound to.*$http1" "stunnel.log"
-        do
-          http1=$((http1+1))
-          change_config
-          kill -HUP $(tail "stunnel.pid") 2>> "stderr_nc.log"
-          waiting_for "stunnel" "127.0.0.1:$http1"
-          grep "Binding service \[client.*$http1" "stunnel.log" >> "stderr_nc.log"
-        done
-      printf "\n%s\n" "test $1 - accept port: $http1" >> "stderr_nc.log"
     else
       printf "\n%s" "$1 error: failed to reload the configuration file" >> "error.log"
       result=1
@@ -375,7 +381,7 @@ expected_success() {
         else # ncat (nc) failed
           result=1
         fi
-      if ! killing_stunnel
+      if ! killing_stunnel stunnel
         then
           result=1
         fi
@@ -410,7 +416,7 @@ expected_failure() {
         else # ncat (nc) failed
           result=1
         fi
-      if ! killing_stunnel
+      if ! killing_stunnel stunnel
         then
           result=1
         fi
@@ -434,7 +440,7 @@ execute_program() {
   if no_file "error.log"
     then
       sending_ncat "$1"
-      if ! killing_stunnel
+      if ! killing_stunnel stunnel
         then
           result=1
         fi
@@ -468,25 +474,24 @@ execute_connect() {
   if [ "$1" = "042_inetd" ]
     then # inetd test
       mkfifo "nodata" 2>> "stderr_nc.log"
-      cat "nodata" | start_inetd > "temp.log" 2>> "error.log" &
+      start_inetd > "temp.log" 2>> "error.log" &
+      pid_inetd=$!
     fi
   if no_file "error.log"
     then
       waiting_for "stunnel" "Service .* finished"
       if [ $1 = "042_inetd" ]
         then # inetd test
-          waiting_for "stunnel_0" "Service .* finished"
-          echo "somedata" > "nodata" 2>> "stderr_nc.log"
-          rm -f "nodata"
+          close_process stunnel_inetd ${pid_inetd}
         fi
       finding_text "yes" "test $1.*success" "temp.log" "UNUSED PATTERN"
       result=$?
       if [ "$1" = "042_inetd" ]
         then # inetd test
           printf "%s\n" "*** inetd mode ***" >> "stunnel.log"
-          cat "stunnel_0.log" >> "stunnel.log"
+          cat "stunnel_inetd.log" >> "stunnel.log"
         fi
-      if ! killing_stunnel
+      if ! killing_stunnel stunnel
         then
           result=1
         fi
@@ -497,7 +502,7 @@ execute_connect() {
     then
       result=1
     fi
-  rm -f "stunnel_0.log"
+  rm -f "stunnel_inetd.log"
   exit_logs "$1" "$exit_code"
   return $result
 }
@@ -548,7 +553,7 @@ loop_prio() {
           rm -f "stunnel_$j.log"
           j=$((j + 1))
         done
-      if ! killing_stunnel
+      if ! killing_stunnel stunnel
         then
           result=1
         fi
@@ -605,7 +610,7 @@ loop_rr() {
           rm -f "stunnel_$j.log"
           j=$((j + 1))
         done
-      if ! killing_stunnel
+      if ! killing_stunnel stunnel
         then
           result=1
         fi
@@ -681,6 +686,73 @@ loop_session() {
   return $result
 }
 
+two_instances() {
+  # $1 = test name
+  # $2 = number of new connections
+
+  local result=0
+  local i=0
+  local j=0
+  start_stunnel "$1"
+  if no_file "error.log"
+    then
+      waiting_for "stunnel" "Created pid file"
+      start_server 2> "error.log"
+      if no_file "error.log"
+        then
+          waiting_for "stunnel_server" "Created pid file"
+          while [ $i -le 2 ]
+            do
+              i=$(grep -c "Retrying an exec+connect section" "stunnel.log")
+            done
+          if ! killing_stunnel stunnel_server
+            then
+              result=1
+            fi
+          cat stunnel_server.log >> "stunnel.log"
+          start_server 2>> "error.log"
+          waiting_for "stunnel_server" "Created pid file"
+          while [ $i -le 3 ]
+            do
+              i=$(grep -c "Retrying an exec+connect section" "stunnel.log")
+            done
+          if ! killing_stunnel stunnel_server
+            then
+              result=1
+            fi
+          cat stunnel_server.log >> "stunnel.log"
+          if ! killing_stunnel stunnel
+            then
+              result=1
+            fi
+          if [ $result -eq 0 ]
+            then
+              finding_text "yes" "test $1.*success" "temp.log" "UNUSED PATTERN"
+              result=$?
+            fi
+          j=$(grep -c "accepted: new session negotiated" "stunnel.log")
+          if [ $result -eq 0 ] && [ $j -ne $2 ]
+            then
+              exit_code="failed"
+              result=1
+            fi
+        else # server configuration failed
+          killing_stunnel stunnel
+          exit_code="configuration failed"
+          result=1
+        fi
+    else # client configuration failed
+      result=1
+    fi
+  if ! finding_text "no" "INTERNAL ERROR" "stunnel.log" "error.log"
+    then
+      result=1
+    fi
+  rm -f "stunnel_server.log"
+  exit_logs "$1" "$exit_code"
+  return $result
+}
+
 myglobal() {
   # $1 = mynetcat name: "ncat" / "nc"
   # $2 = mynetstat name: "netstat" / "ss" / "lsof"
@@ -692,8 +764,8 @@ myglobal() {
 
   case "$mynetstat" in
     "netstat") opt_net="-a -n";;
-    "ss" ) opt_net="-a -n -l";;
-    "lsof" ) opt_net="-i -n -P";;
+    "ss") opt_net="-a -n -l";;
+    "lsof") opt_net="-i -n -P";;
   esac
 
   case "$mybuffer" in
@@ -719,6 +791,7 @@ test_log_for() {
     "prio") loop_prio "$1";;
     "rr") loop_rr "$1";;
     "session") loop_session "$1" "$3";;
+    "instances") two_instances "$1" "$3";;
   esac
   result=$?
   clean_logs

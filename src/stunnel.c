@@ -79,13 +79,15 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *, int, unsigned);
 #ifdef HAVE_CHROOT
 NOEXPORT int change_root(void);
 #endif
-NOEXPORT int signal_pipe_init(void);
+NOEXPORT int pipe_init(SOCKET [2], char *);
 NOEXPORT int signal_pipe_dispatch(void);
+NOEXPORT int process_connections(void);
 NOEXPORT char *signal_name(int);
 
 /**************************************** global variables */
 
-static SOCKET signal_pipe[2]={INVALID_SOCKET, INVALID_SOCKET};
+SOCKET signal_pipe[2]={INVALID_SOCKET, INVALID_SOCKET};
+SOCKET terminate_pipe[2]={INVALID_SOCKET, INVALID_SOCKET};
 
 #ifndef USE_FORK
 int max_clients=0;
@@ -125,8 +127,11 @@ void main_init() { /* one-time initialization */
     get_limits(); /* required by setup_fd() */
 #endif
     fds=s_poll_alloc();
-    if(signal_pipe_init())
+    if(pipe_init(signal_pipe, "signal_pipe"))
         fatal("Signal pipe initialization failed: "
+            "check your personal firewall");
+    if(pipe_init(terminate_pipe, "terminate_pipe"))
+        fatal("Terminate pipe initialization failed: "
             "check your personal firewall");
     stunnel_info(LOG_NOTICE);
     if(systemd_fds>0)
@@ -210,7 +215,55 @@ int drop_privileges(int critical) {
     return 0;
 }
 
+#ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif /* __GNUC__>=4.6 */
+#endif /* __GNUC__ */
 void main_cleanup() {
+#ifdef USE_OS_THREADS
+    CLI *c;
+    unsigned i, threads;
+    THREAD_ID *thread_list;
+
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    threads=0;
+    for(c=thread_head; c; c=c->thread_next) /* count client threads */
+        threads++;
+    thread_list=str_alloc((threads+1)*sizeof(THREAD_ID));
+    i=0;
+    for(c=thread_head; c; c=c->thread_next) { /* copy client threads */
+        thread_list[i++]=c->thread_id;
+        s_log(LOG_DEBUG, "Terminating a thread for [%s]", c->opt->servname);
+    }
+    if(cron_thread_id) { /* append cron_thread_id if used */
+        thread_list[threads++]=cron_thread_id;
+        s_log(LOG_DEBUG, "Terminating the cron thread");
+    }
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+
+    if(threads) {
+        s_log(LOG_NOTICE, "Terminating %u service thread(s)", threads);
+        writesocket(terminate_pipe[1], "", 1);
+        for(i=0; i<threads; ++i) { /* join client threads */
+#ifdef USE_PTHREAD
+            if(pthread_join(thread_list[i], NULL))
+                s_log(LOG_ERR, "pthread_join() failed");
+#endif
+#ifdef USE_WIN32
+            if(WaitForSingleObject(thread_list[i], INFINITE)==WAIT_FAILED)
+                ioerror("WaitForSingleObject");
+            if(!CloseHandle(thread_list[i]))
+                ioerror("CloseHandle");
+#endif
+        }
+        s_log(LOG_NOTICE, "Service threads terminated");
+    }
+
+    str_free(thread_list);
+#endif /* USE_OS_THREADS */
+
     unbind_ports();
     s_poll_free(fds);
     fds=NULL;
@@ -220,6 +273,11 @@ void main_cleanup() {
     log_flush(LOG_MODE_ERROR);
     log_close(SINK_SYSLOG|SINK_OUTFILE);
 }
+#ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic pop
+#endif /* __GNUC__>=4.6 */
+#endif /* __GNUC__ */
 
 /**************************************** Unix-specific initialization */
 
@@ -400,8 +458,7 @@ NOEXPORT int exec_connect_start(void) {
 void unbind_ports(void) {
     SERVICE_OPTIONS *opt;
 
-    s_poll_init(fds);
-    s_poll_add(fds, signal_pipe[0], 1, 0);
+    s_poll_init(fds, 1);
 
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SECTIONS]);
 
@@ -487,8 +544,7 @@ int bind_ports(void) {
     libwrap_init();
 #endif /* USE_LIBWRAP */
 
-    s_poll_init(fds);
-    s_poll_add(fds, signal_pipe[0], 1, 0);
+    s_poll_init(fds, 1);
 
     /* allow clean unbind_ports() even though
        bind_ports() was not fully performed */
@@ -541,7 +597,6 @@ int bind_ports(void) {
 NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned i) {
     SOCKET fd;
     SOCKADDR_UNION *addr=opt->local_addr.addr+i;
-    char *local_address;
 #ifdef HAVE_STRUCT_SOCKADDR_UN
     struct stat sb; /* buffer for lstat() */
 #endif
@@ -564,21 +619,22 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
         return INVALID_SOCKET;
     }
 
-    /* local socket can't be unnamed */
-    local_address=s_ntop(addr, addr_len(addr));
     /* we don't bind or listen on a socket inherited from systemd */
     if(listening_section>=systemd_fds) {
         if(bind(fd, &addr->sa, addr_len(addr))) {
             int err=get_last_socket_error();
+            char *requested_bind_address;
+
+            /* local socket can't be unnamed */
+            requested_bind_address=s_ntop(addr, addr_len(addr));
             s_log(LOG_NOTICE, "Binding service [%s] to %s: %s (%d)",
-                opt->servname, local_address, s_strerror(err), err);
-            str_free(local_address);
+                opt->servname, requested_bind_address, s_strerror(err), err);
+            str_free(requested_bind_address);
             closesocket(fd);
             return INVALID_SOCKET;
         }
         if(listen(fd, SOMAXCONN)) {
             sockerror("listen");
-            str_free(local_address);
             closesocket(fd);
             return INVALID_SOCKET;
         }
@@ -608,9 +664,21 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
     }
 #endif
 
-    s_log(LOG_INFO, "Service [%s] (FD=%ld) bound to %s",
-        opt->servname, (long)fd, local_address);
-    str_free(local_address);
+    {
+        SOCKADDR_UNION assigned_addr;
+        socklen_t assigned_addr_len=sizeof assigned_addr;
+        char *assigned_bind_address;
+
+        if(getsockname(fd, &assigned_addr.sa, &assigned_addr_len)) {
+            sockerror("getsockname");
+            closesocket(fd);
+            return INVALID_SOCKET;
+        }
+        assigned_bind_address=s_ntop(&assigned_addr, addr_len(&assigned_addr));
+        s_log(LOG_INFO, "Service [%s] (FD=%ld) bound to %s",
+            opt->servname, (long)fd, assigned_bind_address);
+        str_free(assigned_bind_address);
+    }
     return fd;
 }
 
@@ -633,9 +701,11 @@ NOEXPORT int change_root(void) {
 
 /**************************************** signal pipe handling */
 
-NOEXPORT int signal_pipe_init(void) {
+NOEXPORT int pipe_init(SOCKET socket_vector[2], char *name) {
 #ifdef USE_WIN32
-    if(make_sockets(signal_pipe))
+    (void)name; /* squash the unused parameter warning */
+
+    if(make_sockets(socket_vector))
         return 1;
 #elif defined(__INNOTEK_LIBC__)
     /* Innotek port of GCC can not use select on a pipe:
@@ -645,29 +715,29 @@ NOEXPORT int signal_pipe_init(void) {
     int pipe_in;
 
     FD_ZERO(&set_pipe);
-    signal_pipe[0]=s_socket(PF_OS2, SOCK_STREAM, 0, 0, "socket#1");
-    signal_pipe[1]=s_socket(PF_OS2, SOCK_STREAM, 0, 0, "socket#2");
+    socket_vector[0]=s_socket(PF_OS2, SOCK_STREAM, 0, 0, "socket#1");
+    socket_vector[1]=s_socket(PF_OS2, SOCK_STREAM, 0, 0, "socket#2");
 
     /* connect the two endpoints */
     memset(&un, 0, sizeof un);
     un.sun_len=sizeof un;
     un.sun_family=AF_OS2;
-    sprintf(un.sun_path, "\\socket\\stunnel-%u", getpid());
+    sprintf(un.sun_path, "\\socket\\stunnel-%s-%u", name, getpid());
     /* make the first endpoint listen */
-    bind(signal_pipe[0], (struct sockaddr *)&un, sizeof un);
-    listen(signal_pipe[0], 1);
-    connect(signal_pipe[1], (struct sockaddr *)&un, sizeof un);
-    FD_SET(signal_pipe[0], &set_pipe);
-    if(select(signal_pipe[0]+1, &set_pipe, NULL, NULL, NULL)>0) {
-        pipe_in=signal_pipe[0];
-        signal_pipe[0]=s_accept(signal_pipe[0], NULL, 0, 0, "accept");
+    bind(socket_vector[0], (struct sockaddr *)&un, sizeof un);
+    listen(socket_vector[0], 1);
+    connect(socket_vector[1], (struct sockaddr *)&un, sizeof un);
+    FD_SET(socket_vector[0], &set_pipe);
+    if(select(socket_vector[0]+1, &set_pipe, NULL, NULL, NULL)>0) {
+        pipe_in=socket_vector[0];
+        socket_vector[0]=s_accept(socket_vector[0], NULL, 0, 0, "accept");
         closesocket(pipe_in);
     } else {
         sockerror("select");
         return 1;
     }
 #else /* Unix */
-    if(s_pipe(signal_pipe, 1, "signal_pipe"))
+    if(s_pipe(socket_vector, 1, name))
         return 1;
 #endif /* USE_WIN32 */
     return 0;
@@ -711,7 +781,7 @@ NOEXPORT int signal_pipe_dispatch(void) {
         s_poll_remove(fds, signal_pipe[0]);
         closesocket(signal_pipe[0]);
         closesocket(signal_pipe[1]);
-        if(signal_pipe_init()) {
+        if(pipe_init(signal_pipe, "signal_pipe")) {
             s_log(LOG_ERR,
                 "Signal pipe reinitialization failed; terminating");
             return 1;
@@ -732,6 +802,10 @@ NOEXPORT int signal_pipe_dispatch(void) {
 #endif /* defined USE_FORK */
         return 0;
 #endif /* !defind USE_WIN32 */
+    case SIGNAL_TERMINATE:
+        s_log(LOG_DEBUG, "Processing SIGNAL_TERMINATE");
+        s_log(LOG_NOTICE, "Terminated");
+        return 1;
     case SIGNAL_RELOAD_CONFIG:
         s_log(LOG_DEBUG, "Processing SIGNAL_RELOAD_CONFIG");
         if(options_parse(CONF_RELOAD)) {
@@ -776,10 +850,8 @@ NOEXPORT int signal_pipe_dispatch(void) {
         log_flush(LOG_MODE_CONFIGURED);
         s_log(LOG_NOTICE, "Log file reopened");
         return 0;
-    case SIGNAL_TERMINATE:
-        s_log(LOG_DEBUG, "Processing SIGNAL_TERMINATE");
-        s_log(LOG_NOTICE, "Terminated");
-        return 1;
+    case SIGNAL_CONNECTIONS:
+        return process_connections();
     default:
         sig_name=signal_name(sig);
         s_log(LOG_ERR, "Received %s; terminating", sig_name);
@@ -787,6 +859,37 @@ NOEXPORT int signal_pipe_dispatch(void) {
         return 1;
     }
 }
+
+#ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic push
+#endif /* __GNUC__>=4.6 */
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wformat-extra-args"
+#endif /* __GNUC__ */
+NOEXPORT int process_connections() {
+#ifndef USE_FORK
+    CLI *c;
+
+    s_log(LOG_NOTICE, "Active connections:");
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    for(c=thread_head; c; c=c->thread_next) {
+        s_log(LOG_NOTICE, "Service [%s]: "
+            "%llu byte(s) sent to TLS, "
+            "%llu byte(s) sent to socket",
+            c->opt->servname,
+            (unsigned long long)c->ssl_bytes,
+            (unsigned long long)c->sock_bytes);
+    }
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+#endif /* USE_FORK */
+    return 0; /* continue execution */
+}
+#ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic pop
+#endif /* __GNUC__>=4.6 */
+#endif /* __GNUC__ */
 
 /**************************************** signal name decoding */
 

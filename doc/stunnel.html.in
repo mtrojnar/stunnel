@@ -504,7 +504,7 @@
 
 <p>select permitted TLSv1.3 ciphersuites</p>
 
-<p>A colon-delimited list of TLSv1.3 ciphersuites names in order of perference.</p>
+<p>A colon-delimited list of TLSv1.3 ciphersuites names in order of preference.</p>
 
 <p>This option requires OpenSSL 1.1.1 or later.</p>
 
@@ -1167,6 +1167,36 @@
 <p>default: 65536 bytes (sufficient for all platforms we tested)</p>
 
 </dd>
+<dt id="ticketKeySecret-SECRET"><b>ticketKeySecret</b> = SECRET</dt>
+<dd>
+
+<p>hexadecimal symmetric key used for session ticket confidentiality protection</p>
+
+<p>Session tickets defined in RFC 5077 provide an enhanced session resumption capability, where the server-side caching is not required to maintain per session state.</p>
+
+<p>Combining <i>ticketKeySecret</i> and <i>ticketMacSecret</i> options allow to resume a negotiated session on other cluster nodes, or to resume resume a negotiated session after server restart.</p>
+
+<p>The key is required to be either 16 or 32 bytes long, which implies exactly 32 or 64 hexadecimal digits. Colons may optionally be used between two-character hexadecimal bytes.</p>
+
+<p>This option only works in server mode.</p>
+
+<p>The <i>ticketKeySecret</i> option is only available when compiled with <b>OpenSSL 1.0.0</b> and later.</p>
+
+<p>Disabling <i>NO_TICKET</i> option is required for the ticket support in OpenSSL older than 1.1.1, but note that this option is incompatible with the <i>redirect</i> option.</p>
+
+</dd>
+<dt id="ticketMacSecret-SECRET"><b>ticketMacSecret</b> = SECRET</dt>
+<dd>
+
+<p>hexadecimal symmetric key used for session ticket integrity protection</p>
+
+<p>The key is required to be either 16 or 32 bytes long, which implies exactly 32 or 64 hexadecimal digits. Colons may optionally be used between two-character hexadecimal bytes.</p>
+
+<p>This option only works in server mode.</p>
+
+<p>The <i>ticketMacSecret</i> option is only available when compiled with <b>OpenSSL 1.0.0</b> and later.</p>
+
+</dd>
 <dt id="TIMEOUTbusy-SECONDS"><b>TIMEOUTbusy</b> = SECONDS</dt>
 <dd>
 
@@ -1429,6 +1459,12 @@
 <dd>
 
 <p>Close and reopen the <b>stunnel</b> log file. This function can be used for log rotation.</p>
+
+</dd>
+<dt id="SIGUSR2">SIGUSR2</dt>
+<dd>
+
+<p>Log the list of active connections.</p>
 
 </dd>
 <dt id="SIGTERM-SIGQUIT-SIGINT">SIGTERM, SIGQUIT, SIGINT</dt>

@@ -438,7 +438,7 @@ for example DES-CBC3-SHA:IDEA-CBC-MD5.
 
 select permitted TLSv1.3 ciphersuites
 
-A colon-delimited list of TLSv1.3 ciphersuites names in order of perference.
+A colon-delimited list of TLSv1.3 ciphersuites names in order of preference.
 
 This option requires OpenSSL 1.1.1 or later.
 
@@ -1054,7 +1054,45 @@ CPU stack size of created threads
 Excessive thread stack size increases virtual memory usage.
 Insufficient thread stack size may cause application crashes.
 
-default: 65536 bytes (sufficient for all platforms we tested) 
+default: 65536 bytes (sufficient for all platforms we tested)
+
+=item B<ticketKeySecret> = SECRET
+
+hexadecimal symmetric key used for session ticket confidentiality protection
+
+Session tickets defined in RFC 5077 provide an enhanced session resumption
+capability, where the server-side caching is not required to maintain per
+session state.
+
+Combining I<ticketKeySecret> and I<ticketMacSecret> options allow to resume a
+negotiated session on other cluster nodes, or to resume resume a negotiated
+session after server restart.
+
+The key is required to be either 16 or 32 bytes long, which implies exactly 32
+or 64 hexadecimal digits.  Colons may optionally be used between two-character
+hexadecimal bytes.
+
+This option only works in server mode.
+
+The I<ticketKeySecret> option is only available when compiled with
+B<OpenSSL 1.0.0> and later.
+
+Disabling I<NO_TICKET> option is required for the ticket support in OpenSSL
+older than 1.1.1, but note that this option is incompatible with the
+I<redirect> option.
+
+=item B<ticketMacSecret> = SECRET
+
+hexadecimal symmetric key used for session ticket integrity protection
+
+The key is required to be either 16 or 32 bytes long, which implies exactly 32
+or 64 hexadecimal digits.  Colons may optionally be used between two-character
+hexadecimal bytes.
+
+This option only works in server mode.
+
+The I<ticketMacSecret> option is only available when compiled with
+B<OpenSSL 1.0.0> and later.
 
 =item B<TIMEOUTbusy> = SECONDS
 
@@ -1292,6 +1330,10 @@ jail.
 
 Close and reopen the B<stunnel> log file.
 This function can be used for log rotation.
+
+=item SIGUSR2
+
+Log the list of active connections.
 
 =item SIGTERM, SIGQUIT, SIGINT
 

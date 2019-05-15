@@ -564,6 +564,9 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         case IDM_REOPEN_LOG:
             signal_post(SIGNAL_REOPEN_LOG);
             break;
+        case IDM_CONNECTIONS:
+            signal_post(SIGNAL_CONNECTIONS);
+            break;
         case IDM_MANPAGE:
 #ifndef _WIN32_WCE
             if(!cmdline.service) /* security */

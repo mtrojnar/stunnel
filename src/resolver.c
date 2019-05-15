@@ -255,7 +255,7 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
         }
         if(err==EAI_AGAIN && ++retry<=3) {
             s_log(LOG_DEBUG, "getaddrinfo: EAI_AGAIN received: retrying");
-            sleep(1);
+            s_poll_sleep(1, 0);
             continue;
         }
 #ifdef AI_ADDRCONFIG
@@ -320,7 +320,7 @@ unsigned addrlist_dup(SOCKADDR_LIST *dst, const SOCKADDR_LIST *src) {
 }
 
 unsigned addrlist_resolve(SOCKADDR_LIST *addr_list) {
-    unsigned num=0, rnd;
+    unsigned num=0, rnd=0;
     NAME_LIST *host;
 
     addrlist_reset(addr_list);

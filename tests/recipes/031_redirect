@@ -18,9 +18,9 @@ start() {
   client = yes
   accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
-  ;cert = ../certs/client_cert.pem
+  ;cert = ${script_path}/certs/client_cert.pem
 ;wrong certificate
-  cert = ../certs/stunnel.pem
+  cert = ${script_path}/certs/stunnel.pem
 
   [client_2]
   client = yes
@@ -36,19 +36,19 @@ start() {
   accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http2}
   redirect = ${http3}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   verifyPeer = yes
-  CAfile = ../certs/PeerCerts.pem
+  CAfile = ${script_path}/certs/PeerCerts.pem
 
   [server_2]
   accept = 127.0.0.1:${https2}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 031_redirect_error
 
   [server_3]
   accept = 127.0.0.1:${https3}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 031_redirect
 EOT

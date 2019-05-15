@@ -8,10 +8,10 @@
 #                     for X86-WCE targets, although compiler "cl.exe" is REALLY the same as desktop W32 VS6 C++ compiler,
 #                     the MT flags relating to LIBCMT is useless BECAUSE LIBCMT does NOT exist on WCE. No msvcrt on WCE either...
 
-# pdelaage 20140610 :  Note on /MC flag 
+# pdelaage 20140610 :  Note on /MC flag
 # For other targets than X86/Emulator, /MC flag is redundant with "/nodefaultlib coredll.lib corelibc.lib" LD lib list.
-# For << X86 / Emulator >> target, as the cl.exe compiler IS the SAME as the standard VS6.0 C++ compiler for Desktop Pentium processor, 
-# /MC flag is in fact NOT existing, thus requiring an explicit linking with core libs by using : 
+# For << X86 / Emulator >> target, as the cl.exe compiler IS the SAME as the standard VS6.0 C++ compiler for Desktop Pentium processor,
+# /MC flag is in fact NOT existing, thus requiring an explicit linking with core libs by using :
 # /NODEFAULTLIB coredll.lib corelibc.lib,
 # something that is correct for any WCE target, X86 and other, and leading /MC flag to be useless ALSO for other target than X86.
 

@@ -12,7 +12,7 @@ start() {
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
-  CAfile = ../certs/CACert.pem
+  CAfile = ${script_path}/certs/CACert.pem
 
   [client]
   client = yes
@@ -23,7 +23,7 @@ start() {
   [server]
   accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http_nc}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
 EOT
 }
 

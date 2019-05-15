@@ -651,7 +651,7 @@ NOEXPORT OCSP_RESPONSE *ocsp_get_response(CLI *c,
 
     /* OCSP protocol communication loop */
     while(OCSP_sendreq_nbio(&resp, req_ctx)==-1) {
-        s_poll_init(c->fds);
+        s_poll_init(c->fds, 0);
         s_poll_add(c->fds, c->fd, BIO_should_read(bio), BIO_should_write(bio));
         switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:

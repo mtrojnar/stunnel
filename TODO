@@ -16,9 +16,6 @@ A sponsor could allocate my time to get them faster.
 * An Android GUI.
 * OCSP stapling (tlsext_status).
 * Indirect CRL support (RFC 3280, section 5).
-* Provide 64-bit Windows builds (besides 32-bit builds).
-  This requires either Microsoft Visual Studio Standard Edition or Microsoft
-  Visual Studio Professional Edition in order to retain FIPS compliance.
 * MSI installer for Windows.
 * Add user-defined headers to CONNECT proxy requests.
   This can be used to impersonate other software (e.g. web browsers).

@@ -43,6 +43,11 @@
 #include "common.h"
 #include "prototypes.h"
 
+#ifndef USE_FORK
+CLI *thread_head=NULL;
+NOEXPORT void thread_list_add(CLI *);
+#endif
+
 /**************************************** thread ID callbacks */
 
 #ifdef USE_UCONTEXT
@@ -458,6 +463,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     context->context.uc_stack.ss_flags=0;
 
     makecontext(&context->context, (void(*)(void))client_thread, ARGC, arg);
+    thread_list_add(arg);
     s_log(LOG_DEBUG, "New context created");
     return 0;
 }
@@ -502,14 +508,25 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
 
 #ifdef USE_PTHREAD
 
+NOEXPORT void *dummy_thread(void *arg) {
+    pthread_exit(arg);
+    return arg;
+}
+
 int sthreads_init(void) {
+    pthread_t thread_id;
+
+    /* this is a workaround for NPTL threads failing to invoke
+     * pthread_exit() or pthread_cancel() from a chroot jail */
+    if(!pthread_create(&thread_id, NULL, dummy_thread, NULL))
+        pthread_join(thread_id, NULL);
+
     thread_id_init();
     locking_init();
     return 0;
 }
 
 int create_client(SOCKET ls, SOCKET s, CLI *arg) {
-    pthread_t thread;
     pthread_attr_t pth_attr;
     int error;
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
@@ -528,22 +545,25 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     pthread_sigmask(SIG_SETMASK, &new_set, &old_set); /* block signals */
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
     pthread_attr_init(&pth_attr);
-    pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
     pthread_attr_setstacksize(&pth_attr, arg->opt->stack_size);
-    error=pthread_create(&thread, &pth_attr, client_thread, arg);
+
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    error=pthread_create(&arg->thread_id, &pth_attr, client_thread, arg);
     pthread_attr_destroy(&pth_attr);
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
     pthread_sigmask(SIG_SETMASK, &old_set, NULL); /* unblock signals */
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
-
     if(error) {
         errno=error;
         ioerror("pthread_create");
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
         str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
     }
+    thread_list_add(arg);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
     return 0;
 }
 
@@ -562,20 +582,22 @@ int sthreads_init(void) {
 }
 
 int create_client(SOCKET ls, SOCKET s, CLI *arg) {
-    HANDLE thread;
-
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
-    thread=(HANDLE)_beginthreadex(NULL, (unsigned)arg->opt->stack_size,
-        client_thread, arg, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
-    if(!thread) {
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    arg->thread_id=(HANDLE)_beginthreadex(NULL,
+        (unsigned)arg->opt->stack_size, client_thread, arg,
+        STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
+    if(!arg->thread_id) {
         ioerror("_beginthreadex");
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
         str_free(arg);
         if(s!=INVALID_SOCKET)
             closesocket(s);
         return -1;
     }
-    CloseHandle(thread);
+    thread_list_add(arg);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
     s_log(LOG_DEBUG, "New thread created");
     return 0;
 }
@@ -722,5 +744,15 @@ void stack_info(size_t stack_size, int init) { /* 1-initialize, 0-display */
 #endif /* __GNUC__ */
 
 #endif /* DEBUG_STACK_SIZE */
+
+#ifndef USE_FORK
+NOEXPORT void thread_list_add(CLI *c) {
+    c->thread_next=thread_head;
+    c->thread_prev=NULL;
+    if(thread_head)
+        thread_head->thread_prev=c;
+    thread_head=c;
+}
+#endif /* !USE_FORK */
 
 /* end of sthreads.c */

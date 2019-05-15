@@ -94,11 +94,15 @@ unsigned __stdcall
 #else
 void *
 #endif
-client_thread(void *arg) {
+        client_thread(void *arg) {
     CLI *c=arg;
 #ifdef DEBUG_STACK_SIZE
     size_t stack_size=c->opt->stack_size;
 #endif
+
+    /* make sure c->thread_* values are initialized */
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
 
     /* initialize */
     c->tls=NULL; /* do not reuse */
@@ -110,7 +114,24 @@ client_thread(void *arg) {
     /* execute */
     client_main(c);
 
-    /* cleanup */
+    /* cleanup the thread */
+#ifndef USE_FORK
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    if(thread_head==c)
+        thread_head=c->thread_next;
+    if(c->thread_prev)
+        c->thread_prev->thread_next=c->thread_next;
+    if(c->thread_next)
+        c->thread_next->thread_prev=c->thread_prev;
+#ifdef USE_PTHREAD
+    pthread_detach(c->thread_id);
+#endif
+#ifdef USE_WIN32
+    CloseHandle(c->thread_id);
+#endif
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+#endif /* !USE_FORK */
+    client_free(c);
 #ifdef DEBUG_STACK_SIZE
     stack_info(stack_size, 0); /* display computed value */
 #endif
@@ -118,7 +139,7 @@ client_thread(void *arg) {
     tls_cleanup();
     /* s_log() is not allowed after tls_cleanup() */
 
-    /* terminate */
+    /* terminate the thread */
 #if defined(USE_WIN32) || defined(USE_OS2)
 #if !defined(_WIN32_WCE)
     _endthreadex(0);
@@ -148,6 +169,9 @@ void client_main(CLI *c) {
     } else {
         client_run(c);
     }
+}
+
+void client_free(CLI *c) {
 #ifndef USE_FORK
     service_free(c->opt);
 #endif
@@ -180,7 +204,7 @@ NOEXPORT void exec_connect_loop(CLI *c) {
             s_log(LOG_INFO, "Retrying an exec+connect section");
             /* c and id are detached, so it is safe to call str_stats() */
             str_stats(); /* client thread allocation tracking */
-            sleep(1); /* FIXME: not a good idea in ucontext threading */
+            s_poll_sleep(1, 0);
             c->rr++;
         }
 
@@ -539,7 +563,7 @@ NOEXPORT void ssl_start(CLI *c) {
         if(err==SSL_ERROR_NONE)
             break; /* ok -> done */
         if(err==SSL_ERROR_WANT_READ || err==SSL_ERROR_WANT_WRITE) {
-            s_poll_init(c->fds);
+            s_poll_init(c->fds, 0);
             s_poll_add(c->fds, c->ssl_rfd->fd,
                 err==SSL_ERROR_WANT_READ,
                 err==SSL_ERROR_WANT_WRITE);
@@ -663,7 +687,7 @@ NOEXPORT void transfer(CLI *c) {
             && c->sock_ptr && !write_wants_read;
 
         /****************************** setup c->fds structure */
-        s_poll_init(c->fds); /* initialize the structure */
+        s_poll_init(c->fds, 0); /* initialize the structure */
         /* for plain socket open data strem = open file descriptor */
         /* make sure to add each open socket to receive exceptions! */
         if(sock_open_rd) /* only poll if the read file descriptor is open */
@@ -1144,7 +1168,7 @@ NOEXPORT int parse_socket_error(CLI *c, const char *text) {
         return 1;
     case S_EWOULDBLOCK:
         s_log(LOG_NOTICE, "%s: Would block: retrying", text);
-        sleep(1); /* Microsoft bug KB177346 */
+        s_poll_sleep(1, 0); /* Microsoft bug KB177346 */
         return 1;
 #if S_EAGAIN!=S_EWOULDBLOCK
     case S_EAGAIN:
@@ -1230,7 +1254,7 @@ NOEXPORT void auth_user(CLI *c) {
     }
     *system++='\0';
     if(strcmp(type, " USERID ")) {
-        s_log(LOG_ERR, "Incorrect INETD response type");
+        s_log(LOG_ERR, "Incorrect IDENT response type");
         str_free(line);
         throw_exception(c, 1);
     }
@@ -1339,6 +1363,7 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
         signal(SIGCHLD, SIG_DFL);
         signal(SIGHUP, SIG_DFL);
         signal(SIGUSR1, SIG_DFL);
+        signal(SIGUSR2, SIG_DFL);
         signal(SIGPIPE, SIG_DFL);
         signal(SIGTERM, SIG_DFL);
         signal(SIGQUIT, SIG_DFL);

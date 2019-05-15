@@ -20,13 +20,13 @@ start() {
   accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
   verifyChain = yes
-  CAfile = ../certs/CACert.pem
-  CRLfile = ../certs/CACertCRL.pem
+  CAfile = ${script_path}/certs/CACert.pem
+  CRLfile = ${script_path}/certs/CACertCRL.pem
 
   [server]
   accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http_nc}
-  cert = ../certs/revoked_cert.pem
+  cert = ${script_path}/certs/revoked_cert.pem
 EOT
 }
 

@@ -4,7 +4,7 @@
 # Do not redirect TLS client connections on certificate-based authentication success.
 # [client_1] -> [server_1]
 # Just "1" "accepted: new session negotiated" log for [server_1] service
-# is expected, becouse the client presents the correct certificate.
+# is expected, because the client presents the correct certificate.
 
 . $(dirname $0)/../test_library
 
@@ -23,7 +23,7 @@ start() {
   execArgs = execute_read ${result_path}/temp.log
   connect = 127.0.0.1:${https1}
 ;correct certificate
-  cert = ../certs/client_cert.pem
+  cert = ${script_path}/certs/client_cert.pem
 
   [client_2]
   client = yes
@@ -35,13 +35,13 @@ start() {
   exec = ${script_path}/execute
   execArgs = execute 048_resume_noredirect
   redirect = ${http2}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   verifyPeer = yes
-  CAfile = ../certs/PeerCerts.pem
+  CAfile = ${script_path}/certs/PeerCerts.pem
 
   [server_2]
   accept = 127.0.0.1:${https2}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 048_resume_noredirect_error
 EOT

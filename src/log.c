@@ -320,6 +320,7 @@ char *log_id(CLI *c) {
     case LOG_ID_SEQUENTIAL:
         return str_printf("%llu", c->seq);
     case LOG_ID_UNIQUE:
+        memset(rnd, 0, sizeof rnd);
         if(RAND_bytes(rnd, sizeof rnd)<=0) /* log2(62^22)=130.99 */
             return str_dup("error");
         for(i=0; i<sizeof rnd; ++i) {

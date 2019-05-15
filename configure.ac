@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.53])
+AC_INIT([stunnel],[5.54])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -191,7 +191,7 @@ AC_CHECK_MEMBERS([struct msghdr.msg_control],
 AC_INCLUDES_DEFAULT
 #include <sys/socket.h>
     ])
-AC_CHECK_HEADERS([linux/netfilter_ipv4.h], , , 
+AC_CHECK_HEADERS([linux/netfilter_ipv4.h], , ,
     [
 #include <limits.h>
 #include <linux/types.h>
@@ -448,7 +448,7 @@ AC_MSG_RESULT([not found])
 AC_MSG_ERROR([
 Could not find your TLS library installation dir
 Use --with-ssl option to fix this problem
-]) 
+])
 fi
 AC_MSG_RESULT([$SSLDIR])
 AC_SUBST([SSLDIR])

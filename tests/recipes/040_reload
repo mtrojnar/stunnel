@@ -6,6 +6,7 @@
 . $(dirname $0)/../test_library
 
 set_config() {
+#  client doesn't present any certificate
   echo "
   debug = debug
   syslog = no
@@ -14,17 +15,19 @@ set_config() {
 
   [client_1]
   client = yes
-  accept = 127.0.0.1:${http2}
+  accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
 
   [server_1]
   accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http_nc}
-  cert = ../certs/server_cert.pem" > "stunnel.conf"
+  verifyPeer = yes
+  CAfile = ${script_path}/certs/PeerCerts.pem
+  cert = ${script_path}/certs/server_cert.pem" > "stunnel.conf"
 }
 
 change_config() {
-#  accept = 127.0.0.1:${http2} -> accept = 127.0.0.1:${http1}
+#  client presents the valid certificate
   echo "
   debug = debug
   syslog = no
@@ -35,11 +38,14 @@ change_config() {
   client = yes
   accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
+  cert = ${script_path}/certs/client_cert.pem
 
   [server_2]
   accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http_nc}
-  cert = ../certs/server_cert.pem" > "stunnel.conf"
+  verifyPeer = yes
+  CAfile = ${script_path}/certs/PeerCerts.pem
+  cert = ${script_path}/certs/server_cert.pem" > "stunnel.conf"
 }
 
 start() {

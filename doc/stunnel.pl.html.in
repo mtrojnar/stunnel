@@ -1167,6 +1167,36 @@
 <p>domy&#x15B;lnie: 65536 bytes (wystarczaj&#x105;cy dla testowanych platform)</p>
 
 </dd>
+<dt id="ticketKeySecret-SECRET"><b>ticketKeySecret</b> = SECRET</dt>
+<dd>
+
+<p>szesnastkowy klucz symetryczny u&#x17C;ywany przez serwer do zapewnienia poufno&#x15B;ci bilet&oacute;w sesji</p>
+
+<p>Bilety sesji zdefiniowane w RFC 5077 zapewniaj&#x105; ulepszon&#x105; mo&#x17C;liwo&#x15B;&#x107; wznawiania sesji, w kt&oacute;rej implementacja serwera nie jest wymagana do utrzymania stanu sesji.</p>
+
+<p>&#x141;&#x105;czne u&#x17C;ycie opcji <i>ticketKeySecret</i> i <i>ticketMacSecret</i> umo&#x17C;liwia wznawianie sesji na klastrze serwer&oacute;w lub wznowienie sesji po restarcie serwera.</p>
+
+<p>Klucz musi mie&#x107; rozmiar 16 lub 32 bajt&oacute;w, co przek&#x142;ada si&#x119; na dok&#x142;adnie 32 lub 64 cyfry szesnastkowe. Poszczeg&oacute;lne bajty mog&#x105; by&#x107; opcjonalnie oddzielone dwukropkami.</p>
+
+<p>Opcja dzia&#x142;a wy&#x142;&#x105;cznie w trybie serwera.</p>
+
+<p>Opcja <i>ticketKeySecret</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.0.0</b>.</p>
+
+<p>Wy&#x142;&#x105;czenie opcji <i>NO_TICKET</i> jest wymagane dla obs&#x142;ugi bilet&oacute;w sesji w OpenSSL-u starszym ni&#x17C; 1.1.1, ale opcja ta jest niekompatybilna z opcj&#x105; <i>redirect</i>.</p>
+
+</dd>
+<dt id="ticketMacSecret-SECRET"><b>ticketMacSecret</b> = SECRET</dt>
+<dd>
+
+<p>szesnastkowy klucz symetryczny u&#x17C;ywany przez serwer zapewnienia integralno&#x15B;ci bilet&oacute;w sesji</p>
+
+<p>Klucz musi mie&#x107; rozmiar 16 lub 32 bajt&oacute;w, co przek&#x142;ada si&#x119; na dok&#x142;adnie 32 lub 64 cyfry szesnastkowe. Poszczeg&oacute;lne bajty mog&#x105; by&#x107; opcjonalnie oddzielone dwukropkami.</p>
+
+<p>Opcja dzia&#x142;a wy&#x142;&#x105;cznie w trybie serwera.</p>
+
+<p>Opcja <i>ticketMacSecret</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.0.0</b>.</p>
+
+</dd>
 <dt id="TIMEOUTbusy-LICZBA_SEKUND"><b>TIMEOUTbusy</b> = LICZBA_SEKUND</dt>
 <dd>
 
@@ -1427,6 +1457,12 @@
 <dd>
 
 <p>Zamknij i otw&oacute;rz ponownie log. Funkcja ta mo&#x17C;e zosta&#x107; u&#x17C;yta w skrypcie rotuj&#x105;cym log programu <b>stunnel</b>.</p>
+
+</dd>
+<dt id="SIGUSR2">SIGUSR2</dt>
+<dd>
+
+<p>Zapisz w logu list&#x119; aktywnych po&#x142;&#x105;cze&#x144;.</p>
 
 </dd>
 <dt id="SIGTERM-SIGQUIT-SIGINT">SIGTERM, SIGQUIT, SIGINT</dt>

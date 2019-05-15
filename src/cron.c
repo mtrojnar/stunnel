@@ -38,22 +38,35 @@
 #include "common.h"
 #include "prototypes.h"
 
+#ifdef USE_OS_THREADS
+THREAD_ID cron_thread_id=(THREAD_ID)0;
+#endif
+
 #ifdef USE_PTHREAD
 NOEXPORT void *cron_thread(void *arg);
 #endif
+
 #ifdef USE_WIN32
 NOEXPORT unsigned __stdcall cron_thread(void *arg);
 #endif
+
 #ifdef USE_OS_THREADS
 NOEXPORT void cron_worker(void);
+#ifndef OPENSSL_NO_DH
+#if OPENSSL_VERSION_NUMBER>=0x0090800fL
+NOEXPORT void cron_dh_param(BN_GENCB *);
+NOEXPORT BN_GENCB *cron_bn_gencb(void);
+NOEXPORT int bn_callback(int, int, BN_GENCB *);
+#else /* OpenSSL older than 0.9.8 */
 NOEXPORT void cron_dh_param(void);
-#endif
+NOEXPORT void dh_callback(int, int, void *);
+#endif /* OpenSSL 0.9.8 or later */
+#endif /* OPENSSL_NO_DH */
+#endif /* USE_OS_THREADS */
 
 #if defined(USE_PTHREAD)
 
 int cron_init() {
-    pthread_t thread;
-    pthread_attr_t pth_attr;
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
     sigset_t new_set, old_set;
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
@@ -62,11 +75,10 @@ int cron_init() {
     sigfillset(&new_set);
     pthread_sigmask(SIG_SETMASK, &new_set, &old_set); /* block signals */
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
-    pthread_attr_init(&pth_attr);
-    pthread_attr_setdetachstate(&pth_attr, PTHREAD_CREATE_DETACHED);
-    if(pthread_create(&thread, &pth_attr, cron_thread, NULL))
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    if(pthread_create(&cron_thread_id, NULL, cron_thread, NULL))
         ioerror("pthread_create");
-    pthread_attr_destroy(&pth_attr);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
     pthread_sigmask(SIG_SETMASK, &old_set, NULL); /* unblock signals */
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
@@ -92,19 +104,19 @@ NOEXPORT void *cron_thread(void *arg) {
 #elif defined(USE_WIN32)
 
 int cron_init() {
-    HANDLE handle;
-
-    handle=(HANDLE)_beginthreadex(NULL, 0, cron_thread, NULL, 0, NULL);
-    if(!handle) {
+    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    cron_thread_id=(HANDLE)_beginthreadex(NULL, 0, cron_thread, NULL, 0, NULL);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+    if(!cron_thread_id) {
         ioerror("_beginthreadex");
         return 1;
     }
-    CloseHandle(handle);
     return 0;
 }
 
 NOEXPORT unsigned __stdcall cron_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
+
     tls_alloc(NULL, NULL, "cron");
     if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST))
         ioerror("SetThreadPriority");
@@ -130,14 +142,23 @@ int cron_init() {
 NOEXPORT void cron_worker(void) {
     time_t now, then;
     int delay;
+#if !defined(OPENSSL_NO_DH) && OPENSSL_VERSION_NUMBER>=0x0090800fL
+    BN_GENCB *bn_gencb;
+#endif
 
     s_log(LOG_DEBUG, "Cron thread initialized");
-    sleep(60); /* allow the other services to start with idle CPU */
+#if !defined(OPENSSL_NO_DH) && OPENSSL_VERSION_NUMBER>=0x0090800fL
+    bn_gencb=cron_bn_gencb();
+#endif
     time(&then);
     for(;;) {
         s_log(LOG_INFO, "Executing cron jobs");
 #ifndef OPENSSL_NO_DH
+#if OPENSSL_VERSION_NUMBER>=0x0090800fL
+        cron_dh_param(bn_gencb);
+#else /* OpenSSL older than 0.9.8 */
         cron_dh_param();
+#endif /* OpenSSL 0.9.8 or later */
 #endif /* OPENSSL_NO_DH */
         time(&now);
         s_log(LOG_INFO, "Cron jobs completed in %d seconds", (int)(now-then));
@@ -150,8 +171,8 @@ NOEXPORT void cron_worker(void) {
             then=now+delay;
         }
         s_log(LOG_DEBUG, "Waiting %d seconds", delay);
-        do { /* retry sleep() if it was interrupted by a signal */
-            sleep((unsigned)delay);
+        do { /* retry s_poll_sleep() if it was interrupted by a signal */
+            s_poll_sleep(delay, 0);
             time(&now);
             delay=(int)(then-now);
         } while(delay>0);
@@ -161,7 +182,12 @@ NOEXPORT void cron_worker(void) {
 }
 
 #ifndef OPENSSL_NO_DH
+
+#if OPENSSL_VERSION_NUMBER>=0x0090800fL
+NOEXPORT void cron_dh_param(BN_GENCB *bn_gencb) {
+#else /* OpenSSL older than 0.9.8 */
 NOEXPORT void cron_dh_param(void) {
+#endif /* OpenSSL 0.9.8 or later */
     SERVICE_OPTIONS *opt;
     DH *dh;
 
@@ -176,18 +202,18 @@ NOEXPORT void cron_dh_param(void) {
         sslerror("DH_new");
         return;
     }
-    if(!DH_generate_parameters_ex(dh, 2048, 2, NULL)) {
+    if(!DH_generate_parameters_ex(dh, 2048, 2, bn_gencb)) {
         DH_free(dh);
         sslerror("DH_generate_parameters_ex");
         return;
     }
 #else /* OpenSSL older than 0.9.8 */
-    dh=DH_generate_parameters(2048, 2, NULL, NULL);
+    dh=DH_generate_parameters(2048, 2, dh_callback, NULL);
     if(!dh) {
         sslerror("DH_generate_parameters");
         return;
     }
-#endif
+#endif /* OpenSSL 0.9.8 or later */
 
     /* update global dh_params for future configuration reloads */
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_DH]);
@@ -203,6 +229,47 @@ NOEXPORT void cron_dh_param(void) {
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
     s_log(LOG_NOTICE, "DH parameters updated");
 }
+
+#if OPENSSL_VERSION_NUMBER>=0x0090800fL
+
+NOEXPORT BN_GENCB *cron_bn_gencb(void) {
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    BN_GENCB *bn_gencb;
+
+    bn_gencb=BN_GENCB_new();
+    if(!bn_gencb) {
+        sslerror("BN_GENCB_new");
+        return NULL;
+    }
+    BN_GENCB_set(bn_gencb, bn_callback, NULL);
+    return bn_gencb;
+#else
+    static BN_GENCB bn_gencb;
+
+    BN_GENCB_set(&bn_gencb, bn_callback, NULL);
+    return &bn_gencb;
+#endif
+}
+
+NOEXPORT int bn_callback(int p, int n, BN_GENCB *cb) {
+    (void)p; /* squash the unused parameter warning */
+    (void)n; /* squash the unused parameter warning */
+    (void)cb; /* squash the unused parameter warning */
+    s_poll_sleep(0, 100); /* 100ms */
+    return 1; /* return nonzero for success */
+}
+
+#else /* OpenSSL older than 0.9.8 */
+
+NOEXPORT void dh_callback(int p, int n, void *arg) {
+    (void)p; /* squash the unused parameter warning */
+    (void)n; /* squash the unused parameter warning */
+    (void)arg; /* squash the unused parameter warning */
+    s_poll_sleep(0, 100); /* 100ms */
+}
+
+#endif /* OpenSSL 0.9.8 or later */
+
 #endif /* OPENSSL_NO_DH */
 
 #endif /* USE_OS_THREADS */

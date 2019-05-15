@@ -46,6 +46,9 @@
 /* #define DEBUG_UCONTEXT */
 
 NOEXPORT void s_poll_realloc(s_poll_set *);
+#ifndef USE_UCONTEXT
+NOEXPORT void check_terminate(s_poll_set *);
+#endif
 
 /**************************************** s_poll functions */
 
@@ -63,10 +66,12 @@ void s_poll_free(s_poll_set *fds) {
     }
 }
 
-void s_poll_init(s_poll_set *fds) {
+void s_poll_init(s_poll_set *fds, int main_thread) {
     fds->nfds=0;
     fds->allocated=4; /* prealloc 4 file descriptors */
     s_poll_realloc(fds);
+    fds->main_thread=main_thread;
+    s_poll_add(fds, main_thread ? signal_pipe[0] : terminate_pipe[0], 1, 0);
 }
 
 void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
@@ -334,6 +339,8 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     do { /* skip "Interrupted system call" errors */
         retval=poll(fds->ufds, fds->nfds, sec<0 ? -1 : 1000*sec+msec);
     } while(retval<0 && get_last_socket_error()==S_EINTR);
+    if(retval>0)
+        check_terminate(fds);
     return retval;
 }
 
@@ -358,7 +365,7 @@ void s_poll_free(s_poll_set *fds) {
     }
 }
 
-void s_poll_init(s_poll_set *fds) {
+void s_poll_init(s_poll_set *fds, int main_thread) {
 #ifdef USE_WIN32
     fds->allocated=4; /* prealloc 4 file descriptors */
 #endif
@@ -367,6 +374,8 @@ void s_poll_init(s_poll_set *fds) {
     FD_ZERO(fds->iwfds);
     FD_ZERO(fds->ixfds);
     fds->max=0; /* no file descriptors */
+    fds->main_thread=main_thread;
+    s_poll_add(fds, main_thread ? signal_pipe[0] : terminate_pipe[0], 1, 0);
 }
 
 void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
@@ -449,6 +458,8 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
         retval=select((int)fds->max+1,
             fds->orfds, fds->owfds, fds->oxfds, tv_ptr);
     } while(retval<0 && get_last_socket_error()==S_EINTR);
+    if(retval>0)
+        check_terminate(fds);
     return retval;
 }
 
@@ -480,6 +491,37 @@ void s_poll_dump(s_poll_set *fds, int level) {
 }
 
 #endif /* USE_POLL */
+
+void s_poll_sleep(int sec, int msec) {
+    s_poll_set *fds=s_poll_alloc();
+    s_poll_init(fds, 0);
+    s_poll_wait(fds, sec, msec);
+    s_poll_free(fds);
+}
+
+#ifndef USE_UCONTEXT
+NOEXPORT void check_terminate(s_poll_set *fds) {
+    if(!fds->main_thread && s_poll_canread(fds, terminate_pipe[0])) {
+#ifdef USE_PTHREAD
+        pthread_exit(NULL);
+#endif /* USE_PTHREAD */
+#if defined(USE_WIN32) || defined(USE_OS2)
+#if defined(_WIN32_WCE)
+        /* FIXME */
+#else /* !_WIN32_WCE */
+        _endthreadex(0);
+#endif /* _WIN32_WCE */
+#endif /* USE_WIN32 || USE_OS2 */
+#ifdef USE_UCONTEXT
+        /* currently unused */
+        s_poll_wait(NULL, 0, 0); /* wait on poll() */
+#endif /* USE_UCONTEXT */
+#ifdef USE_FORK
+        exit(0);
+#endif /* USE_FORK */
+    }
+}
+#endif
 
 /**************************************** fd management */
 
@@ -560,7 +602,7 @@ int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
 
     s_log(LOG_DEBUG, "s_connect: s_poll_wait %s: waiting %d seconds",
         dst, c->opt->timeout_connect);
-    s_poll_init(c->fds);
+    s_poll_init(c->fds, 0);
     s_poll_add(c->fds, c->fd, 1, 1);
     switch(s_poll_wait(c->fds, c->opt->timeout_connect, 0)) {
     case -1:
@@ -601,7 +643,7 @@ void s_write(CLI *c, SOCKET fd, const void *buf, size_t len) {
     ssize_t num;
 
     while(len>0) {
-        s_poll_init(c->fds);
+        s_poll_init(c->fds, 0);
         s_poll_add(c->fds, fd, 0, 1); /* write */
         switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
@@ -632,7 +674,7 @@ void s_read(CLI *c, SOCKET fd, void *ptr, size_t len) {
     ssize_t num;
 
     while(len>0) {
-        s_poll_init(c->fds);
+        s_poll_init(c->fds, 0);
         s_poll_add(c->fds, fd, 1, 0); /* read */
         switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
@@ -724,7 +766,7 @@ void s_ssl_write(CLI *c, const void *buf, int len) {
     int num;
 
     while(len>0) {
-        s_poll_init(c->fds);
+        s_poll_init(c->fds, 0);
         s_poll_add(c->fds, c->ssl_wfd->fd, 0, 1); /* write */
         switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
@@ -756,7 +798,7 @@ void s_ssl_read(CLI *c, void *ptr, int len) {
 
     while(len>0) {
         if(!SSL_pending(c->ssl)) {
-            s_poll_init(c->fds);
+            s_poll_init(c->fds, 0);
             s_poll_add(c->fds, c->ssl_rfd->fd, 1, 0); /* read */
             switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
             case -1:

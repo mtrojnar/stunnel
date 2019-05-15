@@ -21,7 +21,7 @@ start() {
   [server]
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
 EOT
 }
 

@@ -24,17 +24,17 @@ start() {
   [server_1]
   accept = 127.0.0.1:${https1}
   connect = 127.0.0.1:${http_nc}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
 
   [server_2]
   accept = 127.0.0.1:${https2}
   connect = 127.0.0.1:${http_nc}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
 
   [server_3]
   accept = 127.0.0.1:${https3}
   connect = 127.0.0.1:${http_nc}
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
 EOT
 }
 

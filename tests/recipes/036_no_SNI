@@ -22,13 +22,13 @@ start() {
 
   [server_virtual]
   accept = 127.0.0.1:${https1}
-  cert =  ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 036_no_SNI
 
   [sni]
   sni = server_virtual:sni.mydomain.com
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 036_no_SNI_error
 EOT

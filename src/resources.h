@@ -22,8 +22,9 @@
 
 #define IDM_SAVE_LOG        40
 #define IDM_REOPEN_LOG      41
-#define IDM_EDIT_CONFIG     42
-#define IDM_RELOAD_CONFIG   43
+#define IDM_CONNECTIONS     42
+#define IDM_EDIT_CONFIG     43
+#define IDM_RELOAD_CONFIG   44
 
 #define IDM_ABOUT           50
 #define IDM_MANPAGE         51

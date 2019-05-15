@@ -3,7 +3,7 @@
 # Checking if the PSK authentication works properly when the session is resumed.
 # PSK identities and corresponding keys are stored in files specified with PSKsecrets.
 # Just "1" "accepted: new session negotiated" log is expected for [server] service
-# becouse the client presents the valid PSK.
+# because the client presents the valid PSK.
 
 . $(dirname $0)/../test_library
 
@@ -22,13 +22,13 @@ start() {
   exec = ${script_path}/execute_read
   execArgs = execute_read ${result_path}/temp.log
   connect = 127.0.0.1:${https1}
-  PSKsecrets = ../certs/psk1.txt
+  PSKsecrets = ${script_path}/certs/psk1.txt
 
   [server]
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
   execArgs = execute 046_resume_PSK
-  PSKsecrets = ../certs/secrets.txt
+  PSKsecrets = ${script_path}/certs/secrets.txt
 EOT
 }
 

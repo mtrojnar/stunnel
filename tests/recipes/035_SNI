@@ -20,21 +20,21 @@ start() {
   accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
   sni = sni.mydomain.com
-  cert = ../certs/client_cert.pem
+  cert = ${script_path}/certs/client_cert.pem
 
   [server_virtual]
   accept = 127.0.0.1:${https1}
-  cert =  ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 035_SNI_error
 
   [sni]
   sni = server_virtual:*.mydomain.com
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
   execArgs = execute 035_SNI
   verifyPeer = yes
-  CAfile = ../certs/PeerCerts.pem
+  CAfile = ${script_path}/certs/PeerCerts.pem
 EOT
 }
 

@@ -3,7 +3,7 @@
 # Checking if disable delay option works properly when the session is resumed.
 # This option delays DNS lookup for the connect option.
 # Exactly "2" "accepted: new session negotiated" logs for [server_1]
-# and [server_2] services are expected, becouse failover = rr
+# and [server_2] services are expected, because failover = rr
 
 . $(dirname $0)/../test_library
 
@@ -29,13 +29,13 @@ start() {
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
   execArgs = execute 044_session_nodelay
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
 
   [server_2]
   accept = 127.0.0.1:${https2}
   exec = ${script_path}/execute
   execArgs = execute 044_session_nodelay
-  cert = ../certs/server_cert.pem
+  cert = ${script_path}/certs/server_cert.pem
 EOT
 }
 

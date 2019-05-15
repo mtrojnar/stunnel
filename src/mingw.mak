@@ -19,7 +19,7 @@
 # On Windows host, download:
 # http://gnuwin32.sourceforge.net/downlinks/coreutils.php
 # if you have forgotten this, this makefile will remind you...
- 
+
 # Modify this to point to your actual openssl compile directory
 # (You did already compile openssl, didn't you???)
 #SSLDIR=../../openssl-0.9.8zh
@@ -98,7 +98,7 @@ CFLAGS=-g -O2 -Wall $(DEFINES) -I$(SSLINC)
 # default options : -J rc -O coff, input rc file, output coff file.
 
 RFLAGS=-v --use-temp-file $(DEFINES)
-# following RFLAGS2 useful if one day use-temp-file does not exist anymore 
+# following RFLAGS2 useful if one day use-temp-file does not exist anymore
 RFLAGS2=-v $(DEFINES)
 LDFLAGS=-s
 
@@ -117,7 +117,7 @@ $(OBJ)/%.o: $(SRC)/%.rc
 
 # pdelaage : trick for windres preprocessing popen bug on Windows, in case the windres option
 # use_temp_file disappear one day...
-# comment out the $(RC) rule above to activate the following 
+# comment out the $(RC) rule above to activate the following
 
 $(OBJ)/%.rcp: $(SRC)/%.rc
 	$(RCP) $(DEFINES) -o$@ $<
@@ -125,7 +125,7 @@ $(OBJ)/%.rcp: $(SRC)/%.rc
 $(OBJ)/%.o: $(OBJ)/%.rcp
 	$(RC) $(RFLAGS2) -o$@ $<
 
-# Note : gnu-make will automatically RM the intermediate "rcp" file 
+# Note : gnu-make will automatically RM the intermediate "rcp" file
 # BUT it will ABSOLUTELY NEED the "rm" command available : not a problem on linux
 # but on a windows dev host machine, one will need to install gnu-win32/rm command
 # in the system...
@@ -152,7 +152,7 @@ testenv:
 	@true >$(NULLDEV) 2>&1
 endif
 	
-clean: 
+clean:
 	-@ $(DELFILES) $(OBJ)/*.o
 	-@ $(DELFILES) $(BIN)/stunnel.exe >$(NULLDEV) 2>&1
 	-@ $(DELDIR) $(OBJ) >$(NULLDEV) 2>&1
@@ -164,10 +164,10 @@ makedirs:
 	-@ $(MKDIR) $(BINROOT) >$(NULLDEV) 2>&1
 	-@ $(MKDIR) $(BIN) >$(NULLDEV) 2>&1
 
-# pseudo-target for RC-preprocessor debugging  
+# pseudo-target for RC-preprocessor debugging
 # result appears OK, as a text file
 faketest:
-	gcc -E -xc-header -DRC_INVOKED $(DEFINES) -o $(SRC)/resources.rcp $(SRC)/resources.rc  
+	gcc -E -xc-header -DRC_INVOKED $(DEFINES) -o $(SRC)/resources.rcp $(SRC)/resources.rc
 
 $(OBJS): *.h mingw.mak
 

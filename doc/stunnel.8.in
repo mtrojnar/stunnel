@@ -67,7 +67,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2019.04.04" "5.51" "stunnel TLS Proxy"
+.TH stunnel 8 "2019.05.15" "5.54" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -414,7 +414,7 @@ for example \s-1DES\-CBC3\-SHA:IDEA\-CBC\-MD5.\s0
 .IX Item "ciphersuites = CIPHERSUITES_LIST"
 select permitted TLSv1.3 ciphersuites
 .Sp
-A colon-delimited list of TLSv1.3 ciphersuites names in order of perference.
+A colon-delimited list of TLSv1.3 ciphersuites names in order of preference.
 .Sp
 This option requires OpenSSL 1.1.1 or later.
 .Sp
@@ -989,6 +989,42 @@ Excessive thread stack size increases virtual memory usage.
 Insufficient thread stack size may cause application crashes.
 .Sp
 default: 65536 bytes (sufficient for all platforms we tested)
+.IP "\fBticketKeySecret\fR = \s-1SECRET\s0" 4
+.IX Item "ticketKeySecret = SECRET"
+hexadecimal symmetric key used for session ticket confidentiality protection
+.Sp
+Session tickets defined in \s-1RFC 5077\s0 provide an enhanced session resumption
+capability, where the server-side caching is not required to maintain per
+session state.
+.Sp
+Combining \fIticketKeySecret\fR and \fIticketMacSecret\fR options allow to resume a
+negotiated session on other cluster nodes, or to resume resume a negotiated
+session after server restart.
+.Sp
+The key is required to be either 16 or 32 bytes long, which implies exactly 32
+or 64 hexadecimal digits.  Colons may optionally be used between two-character
+hexadecimal bytes.
+.Sp
+This option only works in server mode.
+.Sp
+The \fIticketKeySecret\fR option is only available when compiled with
+\&\fBOpenSSL 1.0.0\fR and later.
+.Sp
+Disabling \fI\s-1NO_TICKET\s0\fR option is required for the ticket support in OpenSSL
+older than 1.1.1, but note that this option is incompatible with the
+\&\fIredirect\fR option.
+.IP "\fBticketMacSecret\fR = \s-1SECRET\s0" 4
+.IX Item "ticketMacSecret = SECRET"
+hexadecimal symmetric key used for session ticket integrity protection
+.Sp
+The key is required to be either 16 or 32 bytes long, which implies exactly 32
+or 64 hexadecimal digits.  Colons may optionally be used between two-character
+hexadecimal bytes.
+.Sp
+This option only works in server mode.
+.Sp
+The \fIticketMacSecret\fR option is only available when compiled with
+\&\fBOpenSSL 1.0.0\fR and later.
 .IP "\fBTIMEOUTbusy\fR = \s-1SECONDS\s0" 4
 .IX Item "TIMEOUTbusy = SECONDS"
 time to wait for expected data
@@ -1188,6 +1224,9 @@ jail.
 .IX Item "SIGUSR1"
 Close and reopen the \fBstunnel\fR log file.
 This function can be used for log rotation.
+.IP "\s-1SIGUSR2\s0" 4
+.IX Item "SIGUSR2"
+Log the list of active connections.
 .IP "\s-1SIGTERM, SIGQUIT, SIGINT\s0" 4
 .IX Item "SIGTERM, SIGQUIT, SIGINT"
 Shut \fBstunnel\fR down.

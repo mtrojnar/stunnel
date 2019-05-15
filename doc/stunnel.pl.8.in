@@ -67,7 +67,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2019.04.04" "5.51" "stunnel TLS Proxy"
+.TH stunnel 8 "2019.05.15" "5.54" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -1004,6 +1004,42 @@ Zbyt duży stos zwiększa zużycie pamięci wirtualnej.
 Zbyt mały stos może powodować problemy ze stabilnością aplikacji.
 .Sp
 domyślnie: 65536 bytes (wystarczający dla testowanych platform)
+.IP "\fBticketKeySecret\fR = \s-1SECRET\s0" 4
+.IX Item "ticketKeySecret = SECRET"
+szesnastkowy klucz symetryczny używany przez serwer do zapewnienia poufności
+biletów sesji
+.Sp
+Bilety sesji zdefiniowane w \s-1RFC 5077\s0 zapewniają ulepszoną możliwość wznawiania
+sesji, w której implementacja serwera nie jest wymagana do utrzymania stanu
+sesji.
+.Sp
+Łączne użycie opcji \fIticketKeySecret\fR i \fIticketMacSecret\fR umożliwia
+wznawianie sesji na klastrze serwerów lub wznowienie sesji po restarcie
+serwera.
+.Sp
+Klucz musi mieć rozmiar 16 lub 32 bajtów, co przekłada się na dokładnie 32 lub
+64 cyfry szesnastkowe. Poszczególne bajty mogą być opcjonalnie oddzielone
+dwukropkami.
+.Sp
+Opcja działa wyłącznie w trybie serwera.
+.Sp
+Opcja \fIticketKeySecret\fR jest dostępna począwszy od \fBOpenSSL 1.0.0\fR.
+.Sp
+Wyłączenie opcji \fI\s-1NO_TICKET\s0\fR jest wymagane dla obsługi biletów sesji w
+OpenSSL-u starszym niż 1.1.1, ale opcja ta jest niekompatybilna z opcją
+\&\fIredirect\fR.
+.IP "\fBticketMacSecret\fR = \s-1SECRET\s0" 4
+.IX Item "ticketMacSecret = SECRET"
+szesnastkowy klucz symetryczny używany przez serwer zapewnienia integralności
+biletów sesji
+.Sp
+Klucz musi mieć rozmiar 16 lub 32 bajtów, co przekłada się na dokładnie 32 lub
+64 cyfry szesnastkowe. Poszczególne bajty mogą być opcjonalnie oddzielone
+dwukropkami.
+.Sp
+Opcja działa wyłącznie w trybie serwera.
+.Sp
+Opcja \fIticketMacSecret\fR jest dostępna począwszy od \fBOpenSSL 1.0.0\fR.
 .IP "\fBTIMEOUTbusy\fR = \s-1LICZBA_SEKUND\s0" 4
 .IX Item "TIMEOUTbusy = LICZBA_SEKUND"
 czas oczekiwania na spodziewane dane
@@ -1201,6 +1237,9 @@ plikiem pid) wewnątrz katalogu wskazanego przez 'chroot'.
 .IX Item "SIGUSR1"
 Zamknij i otwórz ponownie log.
 Funkcja ta może zostać użyta w skrypcie rotującym log programu \fBstunnel\fR.
+.IP "\s-1SIGUSR2\s0" 4
+.IX Item "SIGUSR2"
+Zapisz w logu listę aktywnych połączeń.
 .IP "\s-1SIGTERM, SIGQUIT, SIGINT\s0" 4
 .IX Item "SIGTERM, SIGQUIT, SIGINT"
 Zakończ działanie programu.

@@ -1,10 +1,24 @@
 stunnel change log
 
-Version 5.53, 2019.04.10, urgency: HIGH
+Version 5.54, 2019.05.16, urgency: LOW
+* New features
+  - New "ticketKeySecret" and "ticketMacSecret" options
+    to control confidentiality and integrity protection
+    of the issued session tickets.  These options allow
+    for session resumption on other nodes in a cluster.
+  - Added logging the list of active connections on
+    SIGUSR2 or with Windows GUI.
+  - Logging of the assigned bind address instead of the
+    requested bind address.
 * Bugfixes
-  - Fixed data transfer stalls introduced in stunnel 5.51.
+  - Service threads are terminated before OpenSSL cleanup
+    to prevent occasional stunnel crashes at shutdown.
+
+Version 5.53, 2019.04.10, urgency: HIGH
 * New features
   - Android binary updated to support Android 4.x.
+* Bugfixes
+  - Fixed data transfer stalls introduced in stunnel 5.51.
 
 Version 5.52, 2019.04.08, urgency: HIGH
 * Bugfixes
@@ -421,7 +435,7 @@ Version 5.21, 2015.07.27, urgency: MEDIUM
   - Added a retry when sleep(3) was interrupted by a signal
     in the cron thread scheduler.
 
-Version 5.20, 2015.07.09, urgency: HIGH 
+Version 5.20, 2015.07.09, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2d.
     https://www.openssl.org/news/secadv_20150709.txt

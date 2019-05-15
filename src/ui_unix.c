@@ -99,6 +99,7 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         signal(SIGCHLD, signal_handler); /* handle dead children */
         signal(SIGHUP, signal_handler); /* configuration reload */
         signal(SIGUSR1, signal_handler); /* log reopen */
+        signal(SIGUSR2, signal_handler); /* connections */
         signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
         if(signal(SIGTERM, SIG_IGN)!=SIG_IGN)
             signal(SIGTERM, signal_handler); /* fatal */
@@ -126,6 +127,7 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         tls_alloc(c, ui_tls, NULL);
         service_up_ref(&service_options);
         client_main(c);
+        client_free(c);
     }
     return 0;
 }
