@@ -375,7 +375,14 @@ void s_poll_init(s_poll_set *fds, int main_thread) {
     FD_ZERO(fds->ixfds);
     fds->max=0; /* no file descriptors */
     fds->main_thread=main_thread;
+#ifdef USE_WIN32
+    /* there seems to be a deadlock in the Windows select() function when
+     * waiting for the same terminate_pipe socket in multiple threads */
+    if(main_thread)
+        s_poll_add(fds, signal_pipe[0], 1, 0);
+#else
     s_poll_add(fds, main_thread ? signal_pipe[0] : terminate_pipe[0], 1, 0);
+#endif
 }
 
 void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
@@ -476,7 +483,7 @@ void s_poll_dump(s_poll_set *fds, int level) {
     SOCKET fd;
     int ir, iw, ix, or, ow, ox;
 
-    for(fd=0; fd<fds->max; fd++) {
+    for(fd=0; fd<fds->max+1; fd++) {
         ir=FD_ISSET(fd, fds->irfds);
         iw=FD_ISSET(fd, fds->iwfds);
         ix=FD_ISSET(fd, fds->ixfds);
@@ -493,10 +500,14 @@ void s_poll_dump(s_poll_set *fds, int level) {
 #endif /* USE_POLL */
 
 void s_poll_sleep(int sec, int msec) {
+#ifdef USE_WIN32
+    Sleep(1000*(DWORD)sec+(DWORD)msec);
+#else
     s_poll_set *fds=s_poll_alloc();
     s_poll_init(fds, 0);
     s_poll_wait(fds, sec, msec);
     s_poll_free(fds);
+#endif
 }
 
 #ifndef USE_UCONTEXT
@@ -604,6 +615,7 @@ int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
         dst, c->opt->timeout_connect);
     s_poll_init(c->fds, 0);
     s_poll_add(c->fds, c->fd, 1, 1);
+    s_poll_dump(c->fds, LOG_DEBUG);
     switch(s_poll_wait(c->fds, c->opt->timeout_connect, 0)) {
     case -1:
         error=get_last_socket_error();

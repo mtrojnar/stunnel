@@ -538,9 +538,7 @@ Section "Uninstall"
   !insertmacro CleanupStunnelFiles
 
   # remove the stunnel directory
-  Delete "$INSTDIR\config\stunnel.pem"
-  Delete "$INSTDIR\config\stunnel.conf"
-  RMDir "$INSTDIR\config"
+  RMDir /r "$INSTDIR\config"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
 

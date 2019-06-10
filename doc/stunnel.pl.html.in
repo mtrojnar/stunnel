@@ -844,7 +844,7 @@
 <dt id="pgsql"><i>pgsql</i></dt>
 <dd>
 
-<p>Negocjacja http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</p>
+<p>Negocjacja <i>http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</i></p>
 
 </dd>
 <dt id="pop3"><i>pop3</i></dt>
@@ -856,7 +856,7 @@
 <dt id="proxy"><i>proxy</i></dt>
 <dd>
 
-<p>Przekazywanie adresu IP haproxy http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt</p>
+<p>Przekazywanie oryginalnego IP klienta przez protok&oacute;&#x142; HAProxy PROXY w wersji 1 <i>https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt</i></p>
 
 </dd>
 <dt id="smtp"><i>smtp</i></dt>

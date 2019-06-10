@@ -224,7 +224,6 @@ typedef int                 ssize_t;
 #define vsnprintf                   _vsnprintf
 #define strcasecmp                  _stricmp
 #define strncasecmp                 _strnicmp
-#define sleep(c)                    Sleep(1000*(c))
 
 #define get_last_socket_error()     WSAGetLastError()
 #define set_last_socket_error(e)    WSASetLastError(e)

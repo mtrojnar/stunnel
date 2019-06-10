@@ -603,6 +603,9 @@ NOEXPORT void ssl_start(CLI *c) {
     print_cipher(c);
     if(SSL_session_reused(c->ssl))
         print_session_id(SSL_get_session(c->ssl));
+    /* SSL_SESS_CACHE_NO_INTERNAL_STORE prevented automatic caching */
+    if(!c->opt->option.client)
+        SSL_CTX_add_session(c->opt->ctx, SSL_get_session(c->ssl));
 }
 
 NOEXPORT void session_cache_retrieve(CLI *c) {

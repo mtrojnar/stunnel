@@ -656,7 +656,7 @@ loop_session() {
   if no_file "error.log"
     then
       waiting_for "stunnel" "Created pid file"
-      while [ $i -lt $max ]
+      while [ $i -le $max ]
         do
           i=$(grep -c "Retrying an exec+connect section" "stunnel.log")
         done

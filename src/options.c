@@ -3144,7 +3144,11 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
     /* sslVersionMax */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
+#ifdef TLS1_3_VERSION
         section->max_proto_version=0; /* highest supported */
+#else /* prevent negotiating TLS 1.3 when linked against a newer OpenSSL */
+        section->max_proto_version=TLS1_2_VERSION;
+#endif
         break;
     case CMD_SET_COPY:
         section->max_proto_version=new_service_options.max_proto_version;

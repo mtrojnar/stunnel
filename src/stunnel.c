@@ -364,7 +364,7 @@ void daemon_loop(void) {
         if(temporary_lack_of_resources) {
             s_log(LOG_NOTICE,
                 "Accepting new connections suspended for 1 second");
-            sleep(1); /* to avoid log trashing */
+            s_poll_sleep(1, 0); /* to avoid log trashing */
         }
     }
     leak_table_utilization();

@@ -759,8 +759,8 @@ Based on RFC 2449 - I<POP3 Extension Mechanism>
 
 =item I<proxy>
 
-Haproxy client IP address
-F<http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt>
+Passing of the original client IP with HAProxy PROXY protocol version 1
+F<https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt>
 
 =item I<smtp>
 

@@ -1156,8 +1156,7 @@ NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
 
     if(c->opt->option.client)
         session_cache_save(c, sess);
-    else /* SSL_SESS_CACHE_NO_INTERNAL_STORE prevented automatic caching */
-        SSL_CTX_add_session(SSL_get_SSL_CTX(ssl), sess);
+
     if(c->opt->option.sessiond)
         cache_new(ssl, sess);
 

@@ -858,7 +858,7 @@
 <dt id="proxy"><i>proxy</i></dt>
 <dd>
 
-<p>Haproxy client IP address <i>http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt</i></p>
+<p>Passing of the original client IP with HAProxy PROXY protocol version 1 <i>https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt</i></p>
 
 </dd>
 <dt id="smtp"><i>smtp</i></dt>

@@ -1,6 +1,6 @@
 #!/bin/sh
 set -ev
-VERSION=5.54
+VERSION=5.55
 DST=stunnel-$VERSION-android
 
 # install Android NDK on Arch Linux:
@@ -12,7 +12,7 @@ DST=stunnel-$VERSION-android
 # build OpenSSL:
 # export ANDROID_NDK=/usr/lib/android-ndk
 # export PATH=$ANDROID_NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin:$PATH
-# ./Configure no-shared --prefix=/opt/openssl-android android-arm -D__ANDROID_API__=14
+# ./Configure no-shared --prefix=/opt/openssl-android --openssldir=/data/local/tmp/ssl android-arm -D__ANDROID_API__=14
 # make
 # sudo PATH=$ANDROID_NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin:$PATH make install
 
