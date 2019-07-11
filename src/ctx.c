@@ -156,7 +156,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
         return 1; /* FAILED */
     }
 #else /* OPENSSL_VERSION_NUMBER<0x10100000L */
-    if(section->option.client)
+    if(section->option.client || section->option.protocol_before_connect)
         section->ctx=SSL_CTX_new(section->client_method);
     else /* server mode */
         section->ctx=SSL_CTX_new(section->server_method);

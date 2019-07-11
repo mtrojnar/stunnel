@@ -266,7 +266,7 @@ NOEXPORT void client_run(CLI *c) {
     c->fd=INVALID_SOCKET;
     c->ssl=NULL;
     c->sock_bytes=c->ssl_bytes=0;
-    if(c->opt->option.client) {
+    if(c->opt->option.client || c->opt->option.protocol_before_connect) {
         c->sock_rfd=&(c->local_rfd);
         c->sock_wfd=&(c->local_wfd);
         c->ssl_rfd=c->ssl_wfd=&(c->remote_fd);
@@ -377,10 +377,14 @@ NOEXPORT void client_run(CLI *c) {
 NOEXPORT void client_try(CLI *c) {
     local_start(c);
     protocol(c, c->opt, PROTOCOL_EARLY);
-    if(c->opt->option.connect_before_ssl) {
+    if(c->opt->option.protocol_before_connect) {
+        protocol(c, c->opt, PROTOCOL_MIDDLE);
+        remote_start(c);
+        ssl_start(c);
+    } else if(c->opt->option.connect_before_ssl) {
         remote_start(c);
         protocol(c, c->opt, PROTOCOL_MIDDLE);
-        ssl_start(c);
+        ssl_start(c); 
     } else {
         ssl_start(c);
         protocol(c, c->opt, PROTOCOL_MIDDLE);
@@ -484,10 +488,12 @@ NOEXPORT void remote_start(CLI *c) {
 }
 
 NOEXPORT void ssl_start(CLI *c) {
-    int i, err;
+    int i, err, connect_as_client;
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     int unsafe_openssl;
 #endif /* OpenSSL version < 1.1.0 */
+
+    connect_as_client = c->opt->option.client || c->opt->option.protocol_before_connect;
 
     c->ssl=SSL_new(c->opt->ctx);
     if(!c->ssl) {
@@ -499,7 +505,7 @@ NOEXPORT void ssl_start(CLI *c) {
         sslerror("SSL_set_ex_data");
         throw_exception(c, 1);
     }
-    if(c->opt->option.client) {
+    if(connect_as_client) {
 #ifndef OPENSSL_NO_TLSEXT
         /* c->opt->sni should always be initialized at this point,
          * either explicitly with "sni"
@@ -549,7 +555,7 @@ NOEXPORT void ssl_start(CLI *c) {
             CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SSL]);
 #endif /* OpenSSL version < 1.1.0 */
 
-        if(c->opt->option.client)
+        if(connect_as_client)
             i=SSL_connect(c->ssl);
         else
             i=SSL_accept(c->ssl);
@@ -594,7 +600,7 @@ NOEXPORT void ssl_start(CLI *c) {
                 continue;
             }
         }
-        if(c->opt->option.client)
+        if(connect_as_client)
             sslerror("SSL_connect");
         else
             sslerror("SSL_accept");
@@ -604,7 +610,7 @@ NOEXPORT void ssl_start(CLI *c) {
     if(SSL_session_reused(c->ssl))
         print_session_id(SSL_get_session(c->ssl));
     /* SSL_SESS_CACHE_NO_INTERNAL_STORE prevented automatic caching */
-    if(!c->opt->option.client)
+    if(!connect_as_client)
         SSL_CTX_add_session(c->opt->ctx, SSL_get_session(c->ssl));
 }
 

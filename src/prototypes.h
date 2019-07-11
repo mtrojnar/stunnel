@@ -329,6 +329,7 @@ typedef struct service_options_struct {
         unsigned reset:1;               /* reset sockets on error */
         unsigned renegotiation:1;
         unsigned connect_before_ssl:1;
+        unsigned protocol_before_connect:1;
 #ifndef OPENSSL_NO_OCSP
         unsigned aia:1;                 /* Authority Information Access */
         unsigned nonce:1;               /* send and verify OCSP nonce */
@@ -625,6 +626,7 @@ int s_connect(CLI *, SOCKADDR_UNION *, socklen_t);
 void s_write(CLI *, SOCKET fd, const void *, size_t);
 void s_read(CLI *, SOCKET fd, void *, size_t);
 void fd_putline(CLI *, SOCKET, const char *);
+char *fd_getstring(CLI *, SOCKET);
 char *fd_getline(CLI *, SOCKET);
 /* descriptor versions of fprintf/fscanf */
 void fd_printf(CLI *, SOCKET, const char *, ...)
@@ -638,6 +640,21 @@ void s_ssl_read(CLI *, void *, int);
 char *ssl_getstring(CLI *c);
 char *ssl_getline(CLI *c);
 void ssl_putline(CLI *c, const char *);
+
+#define cli_local_read(cli, dest, size) \
+  (cli->ssl? \
+      s_ssl_read(cli, dest, size) : \
+      s_read(cli, cli->local_rfd.fd, dest, size))
+
+#define cli_local_write(cli, src, size) \
+  (cli->ssl? \
+      s_ssl_write(cli, src, size) : \
+      s_write(cli, cli->local_wfd.fd, src, size))
+
+#define cli_local_getstring(cli) \
+  (cli->ssl? \
+      ssl_getstring(cli) : \
+      fd_getstring(cli, cli->local_rfd.fd))
 
 /**************************************** prototype for protocol.c */
 
