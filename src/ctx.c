@@ -139,7 +139,7 @@ typedef long SSL_OPTIONS_TYPE;
 int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     /* create TLS context */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
-    if(section->option.client)
+    if(section->option.client || section->option.protocol_before_connect)
         section->ctx=SSL_CTX_new(TLS_client_method());
     else /* server mode */
         section->ctx=SSL_CTX_new(TLS_server_method());
