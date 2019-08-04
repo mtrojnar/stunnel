@@ -728,6 +728,29 @@ void fd_putline(CLI *c, SOCKET fd, const char *line) {
     s_log(LOG_DEBUG, " -> %s", line);
 }
 
+char *fd_getstring(CLI *c, SOCKET fd) { /* get null-terminated string */
+    char *line;
+    size_t ptr=0, allocated=32;
+
+    line=str_alloc(allocated);
+    for(;;) {
+        if(ptr>65536) { /* >64KB --> DoS protection */
+            s_log(LOG_ERR, "ssl_getstring: Line too long");
+            str_free(line);
+            throw_exception(c, 1);
+        }
+        if(allocated<ptr+1) {
+            allocated*=2;
+            line=str_realloc(line, allocated);
+        }
+        s_read(c, fd, line+ptr, 1);
+        if(line[ptr]=='\0')
+            break;
+        ++ptr;
+    }
+    return line;
+}
+
 char *fd_getline(CLI *c, SOCKET fd) {
     char *line;
     size_t ptr=0, allocated=32;
