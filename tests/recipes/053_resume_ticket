@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# Checking the stateless session ticket resumption (RFC 4507bis) with TLS < 1.3.
+
+# We expect exactly 2 "accepted: new session negotiated" to be logged by the
+# [server] service for connections to [client_1] and [client_2]:
+#  - [client_1] connected 3 times (1 new session, 2 reused sessions).
+#  - [client_2] connected once (1 new session).
+
+# The following options are used to disable session cache:
+#  - The "sessionCacheSize = 1" option sets the internal session cache size.
+#  - "options = -NO_TICKET" (it is the default with OpenSSL 1.1.1 or later).
+
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  sslVersionMax = TLSv1.2
+
+  [client_1]
+  client = yes
+  retry = yes
+  exec = ${script_path}/execute_read
+  execArgs = execute_read ${result_path}/temp.log
+  connect = 127.0.0.1:${https1}
+
+  [client_2]
+  client = yes
+  accept = 127.0.0.1:${http1}
+  connect = 127.0.0.1:${https1}
+
+  [server]
+  accept = 127.0.0.1:${https1}
+  exec = ${script_path}/execute
+  execArgs = execute 053_resume_ticket
+  cert = ${script_path}/certs/server_cert.pem
+  sessionCacheSize = 1
+  options = -NO_TICKET
+EOT
+}
+
+# This test is only available when compiled with OpenSSL 1.1.1 or later,
+# because older OpenSSL versions do not have SSL_CTX_set_session_ticket_cb().
+# Stateless session ticket resumption also works with the FORK threading model.
+if grep -q -e "OpenSSL 1\.1\.1" -e "OpenSSL [3-9]" "results.log"
+  then
+    test_log_for "053_resume_ticket" "resumption" "2" "$1" "$2" "$3" 2>> "stderr.log"
+    exit $?
+  else
+    exit_logs "053_resume_ticket" "skipped"
+    exit 125
+  fi

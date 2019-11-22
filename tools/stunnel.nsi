@@ -335,7 +335,13 @@ Section "Core Files" sectionCORE
   !else
   File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.dll"
   File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.dll"
-  # TODO: add libssp-0.dll when -fstack-protector is fixed
+  !if /FileExists "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
+  File "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
+  !else
+  !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/8.3-win32/libssp-0.dll"
+  File "/usr/lib/gcc/x86_64-w64-mingw32/8.3-win32/libssp-0.dll"
+  !endif
+  !endif
   #SetOutPath "$INSTDIR"
   #ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
   #${If} $0 == 1

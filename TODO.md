@@ -1,7 +1,7 @@
-stunnel TODO
+# stunnel TODO
 
 
-High priority features.  They will likely be supported some day.
+### High priority features.  They will likely be supported some day.
 A sponsor could allocate my time to get them faster.
 * Extend session tickets and/or sessiond to also serialize application
   data ("redirect" state and session persistence).
@@ -20,7 +20,7 @@ A sponsor could allocate my time to get them faster.
 * Add user-defined headers to CONNECT proxy requests.
   This can be used to impersonate other software (e.g. web browsers).
 
-Low priority features.  They will unlikely ever be supported.
+### Low priority features.  They will unlikely ever be supported.
 * Database and/or directory interface for retrieving PSK secrets.
 * Support static FIPS-enabled build.
 * Service-level logging destination.
@@ -33,7 +33,7 @@ Low priority features.  They will unlikely ever be supported.
 * Add '-status' command line option reporting the number of clients
   connected to each service.
 
-Features I won't support, unless convinced otherwise by a wealthy sponsor.
+### Features I won't support, unless convinced otherwise by a wealthy sponsor.
 * Support for adding X-Forwarded-For to HTTP request headers.
   This feature is less useful since PROXY protocol support is available.
 * Support for adding X-Forwarded-For to SMTP email headers.
@@ -43,4 +43,3 @@ Features I won't support, unless convinced otherwise by a wealthy sponsor.
   - OU (Organizational Unit).
 * Set processes title that appear on the ps(1) and top(1) commands.
   I could not find a portable *and* non-copyleft library for it.
-

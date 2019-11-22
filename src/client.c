@@ -100,6 +100,18 @@ void *
     size_t stack_size=c->opt->stack_size;
 #endif
 
+#ifdef USE_FORK
+    /* do not use signal pipe in child processes */
+    signal(SIGCHLD, SIG_IGN); /* ignore dead children */
+    signal(SIGHUP, SIG_DFL);
+    signal(SIGUSR1, SIG_DFL);
+    signal(SIGUSR2, SIG_DFL);
+    signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
+    signal(SIGTERM, SIG_DFL);
+    signal(SIGQUIT, SIG_DFL);
+    signal(SIGINT, SIG_DFL);
+#endif /* USE_FORK */
+
     /* make sure c->thread_* values are initialized */
     CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_THREAD_LIST]);
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
@@ -485,6 +497,7 @@ NOEXPORT void remote_start(CLI *c) {
 
 NOEXPORT void ssl_start(CLI *c) {
     int i, err;
+    SSL_SESSION *sess;
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     int unsafe_openssl;
 #endif /* OpenSSL version < 1.1.0 */
@@ -601,11 +614,17 @@ NOEXPORT void ssl_start(CLI *c) {
         throw_exception(c, 1);
     }
     print_cipher(c);
-    if(SSL_session_reused(c->ssl))
-        print_session_id(SSL_get_session(c->ssl));
-    /* SSL_SESS_CACHE_NO_INTERNAL_STORE prevented automatic caching */
-    if(!c->opt->option.client)
-        SSL_CTX_add_session(c->opt->ctx, SSL_get_session(c->ssl));
+    sess=SSL_get1_session(c->ssl);
+    if(sess) {
+        if(SSL_session_reused(c->ssl)) {
+            print_session_id(sess);
+        } else { /* a new session was negotiated */
+            /* SSL_SESS_CACHE_NO_INTERNAL_STORE prevented automatic caching */
+            if(!c->opt->option.client)
+                SSL_CTX_add_session(c->opt->ctx, sess);
+        }
+        SSL_SESSION_free(sess);
+    }
 }
 
 NOEXPORT void session_cache_retrieve(CLI *c) {
@@ -1469,9 +1488,13 @@ NOEXPORT SOCKET connect_remote(CLI *c) {
         if(!connect_init(c, c->connect_addr.addr[c->idx].sa.sa_family) &&
                 !s_connect(c, &c->connect_addr.addr[c->idx],
                     addr_len(&c->connect_addr.addr[c->idx]))) {
-            if(c->ssl)
-                idx_cache_save(SSL_get_session(c->ssl),
-                    &c->connect_addr.addr[c->idx]);
+            if(c->ssl) {
+                SSL_SESSION *sess=SSL_get1_session(c->ssl);
+                if(sess) {
+                    idx_cache_save(sess, &c->connect_addr.addr[c->idx]);
+                    SSL_SESSION_free(sess);
+                }
+            }
             print_bound_address(c);
             fd=c->fd;
             c->fd=INVALID_SOCKET;
@@ -1521,30 +1544,34 @@ NOEXPORT unsigned idx_cache_retrieve(CLI *c) {
     char *addr_txt;
 
     if(c->ssl && SSL_session_reused(c->ssl)) {
-        CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_ADDR]);
-        ptr=SSL_SESSION_get_ex_data(SSL_get_session(c->ssl),
-            index_session_connect_address);
-        if(ptr) {
-            len=addr_len(ptr);
-            memcpy(&addr, ptr, (size_t)len);
-            CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
-            /* address was copied, ptr itself is no longer valid */
-            for(i=0; i<c->connect_addr.num; ++i) {
-                if(addr_len(&c->connect_addr.addr[i])==len &&
-                        !memcmp(&c->connect_addr.addr[i],
-                            &addr, (size_t)len)) {
-                    addr_txt=s_ntop(&addr, len);
-                    s_log(LOG_INFO, "persistence: %s reused", addr_txt);
-                    str_free(addr_txt);
-                    return i;
+        SSL_SESSION *sess=SSL_get1_session(c->ssl);
+        if(sess) {
+            CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_ADDR]);
+            ptr=SSL_SESSION_get_ex_data(sess, index_session_connect_address);
+            if(ptr) {
+                len=addr_len(ptr);
+                memcpy(&addr, ptr, (size_t)len);
+                CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
+                SSL_SESSION_free(sess);
+                /* address was copied, ptr itself is no longer valid */
+                for(i=0; i<c->connect_addr.num; ++i) {
+                    if(addr_len(&c->connect_addr.addr[i])==len &&
+                            !memcmp(&c->connect_addr.addr[i],
+                                &addr, (size_t)len)) {
+                        addr_txt=s_ntop(&addr, len);
+                        s_log(LOG_INFO, "persistence: %s reused", addr_txt);
+                        str_free(addr_txt);
+                        return i;
+                    }
                 }
+                addr_txt=s_ntop(&addr, len);
+                s_log(LOG_INFO, "persistence: %s not available", addr_txt);
+                str_free(addr_txt);
+            } else {
+                CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
+                SSL_SESSION_free(sess);
+                s_log(LOG_NOTICE, "persistence: No cached address found");
             }
-            addr_txt=s_ntop(&addr, len);
-            s_log(LOG_INFO, "persistence: %s not available", addr_txt);
-            str_free(addr_txt);
-        } else {
-            CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
-            s_log(LOG_NOTICE, "persistence: No cached address found");
         }
     }
 
@@ -1685,12 +1712,19 @@ NOEXPORT int connect_init(CLI *c, int domain) {
 }
 
 NOEXPORT int redirect(CLI *c) {
+    SSL_SESSION *sess;
+    void *ex_data;
+
     if(!c->opt->redirect_addr.names)
         return 0; /* redirect not configured */
     if(!c->ssl)
         return 1; /* TLS not established -> always redirect */
-    return !SSL_SESSION_get_ex_data(SSL_get_session(c->ssl),
-        index_session_authenticated);
+    sess=SSL_get1_session(c->ssl);
+    if(!sess)
+        return 1; /* no TLS session -> always redirect */
+    ex_data=SSL_SESSION_get_ex_data(sess, index_session_authenticated);
+    SSL_SESSION_free(sess);
+    return ex_data == NULL;
 }
 
 NOEXPORT void print_bound_address(CLI *c) {

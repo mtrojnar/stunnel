@@ -1,7 +1,7 @@
-stunnel FIPS install notes
+# stunnel FIPS install notes
 
 
-Unix HOWTO:
+### Unix HOWTO
 * Only dynamic linking of the FIPS-enabled OpenSSL is currently supported,
   i.e. FIPS-enabled OpenSSL has to be configured with "shared" parameter.
 * FIPS mode is autodetected if possible.  It can be forced with:
@@ -9,7 +9,7 @@ Unix HOWTO:
   or disable with:
     ./configure --disable-fips
 
-WIN32 HOWTO:
+### WIN32 HOWTO
 * On 32-bit Windows install one of the following compilers:
   - MSVC 8.0 (VS 2005) Standard or Professional Edition
   - MSVC 9.0 (VS 2008) any edition including Express Edition
@@ -22,4 +22,3 @@ WIN32 HOWTO:
   Mingw build requires DLL stubs.  Stubs can be built with:
   dlltool --def ms/libeay32.def --output-lib libcrypto.a
   dlltool --def ms/ssleay32.def --output-lib libssl.a
-

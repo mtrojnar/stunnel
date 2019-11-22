@@ -1,6 +1,20 @@
-stunnel change log
+# stunnel change log
 
-Version 5.55, 2019.06.10, urgency: HIGH
+
+### Version 5.56, 2019.11.22, urgency: HIGH
+* New features
+  - Various text files converted to Markdown format.
+* Bugfixes
+  - Support for realpath(3) implementations incompatible
+    with POSIX.1-2008, such as 4.4BSD or Solaris.
+  - Support for engines without PRNG seeding methods (thx to
+    Petr Mikhalitsyn).
+  - Retry unsuccessful port binding on configuration
+    file reload.
+  - Thread safety fixes in SSL_SESSION object handling.
+  - Terminate clients on exit in the FORK threading model.
+
+### Version 5.55, 2019.06.10, urgency: HIGH
 * Security bugfixes
   - Fixed a Windows local privilege escalation vulnerability
     caused insecure OpenSSL cross-compilation defaults.
@@ -16,7 +30,7 @@ Version 5.55, 2019.06.10, urgency: HIGH
     is now completely removed at uninstall.
   - A number of testing framework fixes and improvements.
 
-Version 5.54, 2019.05.15, urgency: LOW
+### Version 5.54, 2019.05.15, urgency: LOW
 * New features
   - New "ticketKeySecret" and "ticketMacSecret" options
     to control confidentiality and integrity protection
@@ -30,17 +44,17 @@ Version 5.54, 2019.05.15, urgency: LOW
   - Service threads are terminated before OpenSSL cleanup
     to prevent occasional stunnel crashes at shutdown.
 
-Version 5.53, 2019.04.10, urgency: HIGH
+### Version 5.53, 2019.04.10, urgency: HIGH
 * New features
   - Android binary updated to support Android 4.x.
 * Bugfixes
   - Fixed data transfer stalls introduced in stunnel 5.51.
 
-Version 5.52, 2019.04.08, urgency: HIGH
+### Version 5.52, 2019.04.08, urgency: HIGH
 * Bugfixes
   - Fixed a transfer() loop bug introduced in stunnel 5.51.
 
-Version 5.51, 2019.04.04, urgency: MEDIUM
+### Version 5.51, 2019.04.04, urgency: MEDIUM
 * New features
   - OpenSSL DLLs updated to version 1.1.1b.
   - Hexadecimal PSK keys are automatically converted to binary.
@@ -59,7 +73,7 @@ Version 5.51, 2019.04.04, urgency: MEDIUM
   - Fixed PSKsecrets as a global option (thx to Teodor Robas).
   - Fixed a memory allocation bug (thx to matanfih).
 
-Version 5.50, 2018.12.02, urgency: MEDIUM
+### Version 5.50, 2018.12.02, urgency: MEDIUM
 * New features
   - 32-bit Windows builds replaced with 64-bit builds.
   - OpenSSL DLLs updated to version 1.1.1.
@@ -76,7 +90,7 @@ Version 5.50, 2018.12.02, urgency: MEDIUM
   - We removed FIPS support from our standard builds.
     FIPS will still be available with custom builds.
 
-Version 5.49, 2018.09.03, urgency: MEDIUM
+### Version 5.49, 2018.09.03, urgency: MEDIUM
 * New features
   - Performance optimizations.
   - Logging of negotiated or resumed TLS session IDs (thx
@@ -93,7 +107,7 @@ Version 5.49, 2018.09.03, urgency: MEDIUM
   - stunnel.pem created with SHA-256 instead of SHA-1.
   - SHA-256 "make check" certificates.
 
-Version 5.48, 2018.07.02, urgency: HIGH
+### Version 5.48, 2018.07.02, urgency: HIGH
 * Security bugfixes
   - Fixed requesting client certificate when specified
     as a global option.
@@ -101,7 +115,7 @@ Version 5.48, 2018.07.02, urgency: HIGH
   - Certificate subject checks modified to accept certificates
     if at least one of the specified checks matches.
 
-Version 5.47, 2018.06.23, urgency: HIGH
+### Version 5.47, 2018.06.23, urgency: HIGH
 * New features
   - Fast add_lock_callback for OpenSSL < 1.1.0.
     This largely improves performance on heavy load.
@@ -111,14 +125,14 @@ Version 5.47, 2018.06.23, urgency: HIGH
 * Bugfixes
   - Fixed a crash on switching to SNI slave sections.
 
-Version 5.46, 2018.05.28, urgency: MEDIUM
+### Version 5.46, 2018.05.28, urgency: MEDIUM
 * New features
   - The default cipher list was updated to a safer value:
     "HIGH:!aNULL:!SSLv2:!DH:!kDHEPSK".
 * Bugfixes
   - Default accept address restored to INADDR_ANY.
 
-Version 5.45, 2018.05.21, urgency: MEDIUM
+### Version 5.45, 2018.05.21, urgency: MEDIUM
 * New feature sponsored by https://loadbalancer.org/
   - Implemented delayed deallocation of service sections
     after configuration file reload.
@@ -145,7 +159,7 @@ Version 5.45, 2018.05.21, urgency: MEDIUM
   - Build fixes for OpenSSL versions down to 0.9.7.
   - Fixed (again) round-robin failover in the FORK threading model.
 
-Version 5.44, 2017.11.26, urgency: MEDIUM
+### Version 5.44, 2017.11.26, urgency: MEDIUM
 * New features
   - Signed Win32 executables, libraries, and installer.
 * Bugfixes
@@ -153,7 +167,7 @@ Version 5.44, 2017.11.26, urgency: MEDIUM
   - Fixed a race condition in "make check".
   - Fixed removing the pid file after configuration reload.
 
-Version 5.43, 2017.11.05, urgency: LOW
+### Version 5.43, 2017.11.05, urgency: LOW
 * New features
   - OpenSSL DLLs updated to version 1.0.2m.
   - Android build updated to OpenSSL 1.1.0g.
@@ -168,7 +182,7 @@ Version 5.43, 2017.11.05, urgency: LOW
   - Fixed handling SSL_ERROR_ZERO_RETURN in SSL_shutdown().
   - Minor fixes of the logging subsystem.
 
-Version 5.42, 2017.07.16, urgency: HIGH
+### Version 5.42, 2017.07.16, urgency: HIGH
 * New features
   - "redirect" also supports "exec" and not only "connect".
   - PKCS#11 engine DLL updated to version 0.4.7.
@@ -177,7 +191,7 @@ Version 5.42, 2017.07.16, urgency: HIGH
   - Fixed "verifyPeer = yes" on OpenSSL <= 1.0.1.
   - Fixed pthreads support on OpenSolaris.
 
-Version 5.41, 2017.04.01, urgency: MEDIUM
+### Version 5.41, 2017.04.01, urgency: MEDIUM
 * New features
   - PKCS#11 engine DLL updated to version 0.4.5.
   - Default engine UI set with ENGINE_CTRL_SET_USER_INTERFACE.
@@ -189,7 +203,7 @@ Version 5.41, 2017.04.01, urgency: MEDIUM
     and "verifyChain = no" (the default), while the peer
     only returns a single certificate.
 
-Version 5.40, 2017.01.28, urgency: HIGH
+### Version 5.40, 2017.01.28, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2k.
     https://www.openssl.org/news/secadv/20170126.txt
@@ -202,7 +216,7 @@ Version 5.40, 2017.01.28, urgency: HIGH
 * Bugfixes
   - Fixed setting default ciphers.
 
-Version 5.39, 2017.01.01, urgency: LOW
+### Version 5.39, 2017.01.01, urgency: LOW
 * New features
   - PKCS#11 engine (pkcs11.dll) added to the Win32 build.
   - Per-destination TLS session cache added for the client mode.
@@ -217,7 +231,7 @@ Version 5.39, 2017.01.01, urgency: LOW
   - Fixed reloading invalid configuration file on Win32.
   - Fixed resolving addresses with unconfigured network interfaces.
 
-Version 5.38, 2016.11.26, urgency: MEDIUM
+### Version 5.38, 2016.11.26, urgency: MEDIUM
 * New features
   - "sni=" can be used to prevent sending the SNI extension.
   - The AI_ADDRCONFIG resolver flag is used when available.
@@ -227,14 +241,14 @@ Version 5.38, 2016.11.26, urgency: MEDIUM
   - Fixed error handling for mixed IPv4/IPv6 destinations.
   - Merged Debian 08-typos.patch (thx to Peter Pentchev).
 
-Version 5.37, 2016.11.06, urgency: MEDIUM
+### Version 5.37, 2016.11.06, urgency: MEDIUM
 * Bugfixes
   - OpenSSL DLLs updated to version 1.0.2j (stops crashes).
   - The default SNI target (not handled by any slave service)
     is handled by the master service rather than rejected.
   - Removed thread synchronization in the FORK threading model.
 
-Version 5.36, 2016.09.22, urgency: HIGH
+### Version 5.36, 2016.09.22, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2i.
     https://www.openssl.org/news/secadv_20160922.txt
@@ -242,13 +256,13 @@ Version 5.36, 2016.09.22, urgency: HIGH
   - Added support for OpenSSL 1.1.0 built with "no-deprecated".
   - Removed direct zlib dependency.
 
-Version 5.35, 2016.07.18, urgency: HIGH
+### Version 5.35, 2016.07.18, urgency: HIGH
 * Bugfixes
   - Fixed incorrectly enforced client certificate requests.
   - Only default to SO_EXCLUSIVEADDRUSE on Vista and later.
   - Fixed thread safety of the configuration file reopening.
 
-Version 5.34, 2016.07.05, urgency: HIGH
+### Version 5.34, 2016.07.05, urgency: HIGH
 * Security bugfixes
   - Fixed malfunctioning "verify = 4".
 * New features
@@ -257,7 +271,7 @@ Version 5.34, 2016.07.05, urgency: HIGH
     and verifyPeer for fine-grained certificate verification control.
   - Improved compatibility with the current OpenSSL 1.1.0-dev tree.
 
-Version 5.33, 2016.06.23, urgency: HIGH
+### Version 5.33, 2016.06.23, urgency: HIGH
 * New features
   - Improved memory leak detection performance and accuracy.
   - Improved compatibility with the current OpenSSL 1.1.0-dev tree.
@@ -273,7 +287,7 @@ Version 5.33, 2016.06.23, urgency: HIGH
   - Fixed a FORK threading build regression bug.
   - OPENSSL_NO_DH compilation fix (thx to Brian Lin).
 
-Version 5.32, 2016.05.03, urgency: HIGH
+### Version 5.32, 2016.05.03, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2h.
     https://www.openssl.org/news/secadv_20160503.txt
@@ -286,7 +300,7 @@ Version 5.32, 2016.05.03, urgency: HIGH
   - Workaround for a WinCE sockets quirk (thx to Richard Kraemer).
   - Fixed data alignment on 64-bit MSVC (thx to Yuris W. Auzins).
 
-Version 5.31, 2016.03.01, urgency: HIGH
+### Version 5.31, 2016.03.01, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2g.
     https://www.openssl.org/news/secadv_20160301.txt
@@ -300,7 +314,7 @@ Version 5.31, 2016.03.01, urgency: HIGH
   - Fixed logging an incorrect value of the round-robin starting
     point (thx to Jose Alf.).
 
-Version 5.30, 2016.01.28, urgency: HIGH
+### Version 5.30, 2016.01.28, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2f.
     https://www.openssl.org/news/secadv_20160128.txt
@@ -312,7 +326,7 @@ Version 5.30, 2016.01.28, urgency: HIGH
   - Stopped even trying -fstack-protector on unsupported platforms
     (thx to Rob Lockhart).
 
-Version 5.29, 2016.01.08, urgency: LOW
+### Version 5.29, 2016.01.08, urgency: LOW
 * New features
   - New WIN32 icons.
   - Performance improvement: rwlocks used for locking with pthreads.
@@ -323,7 +337,7 @@ Version 5.29, 2016.01.08, urgency: LOW
   - Fixed ignoring CRLfile unless CAfile was also specified (thx
     to Strukov Petr).
 
-Version 5.28, 2015.12.11, urgency: HIGH
+### Version 5.28, 2015.12.11, urgency: HIGH
 * New features
   - Build matrix (.travis.yml) extended with ./configure options.
   - mingw.mak updated to build tstunnel.exe (thx to Jose Alf.).
@@ -333,7 +347,7 @@ Version 5.28, 2015.12.11, urgency: HIGH
   - Fixed exit codes for information requests (as
     in "stunnel -version" or "stunnel -help").
 
-Version 5.27, 2015.12.03, urgency: MEDIUM
+### Version 5.27, 2015.12.03, urgency: MEDIUM
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2e.
     https://www.openssl.org/news/secadv_20151203.txt
@@ -347,11 +361,11 @@ Version 5.27, 2015.12.03, urgency: MEDIUM
   - mingw.mak updates (thx to Jose Alf.).
   - TODO list updated.
 
-Version 5.26, 2015.11.06, urgency: MEDIUM
+### Version 5.26, 2015.11.06, urgency: MEDIUM
 * Bugfixes
   - Compilation fixes for OSX, *BSD and Solaris.
 
-Version 5.25, 2015.11.02, urgency: MEDIUM
+### Version 5.25, 2015.11.02, urgency: MEDIUM
 * New features
   - SMTP client protocol negotiation support for
     "protocolUsername", "protocolPassword", and
@@ -374,7 +388,7 @@ Version 5.25, 2015.11.02, urgency: MEDIUM
   - Setting socket options no longer performed on PTYs.
   - Fixed 64-bit Windows build.
 
-Version 5.24, 2015.10.08, urgency: MEDIUM
+### Version 5.24, 2015.10.08, urgency: MEDIUM
 * New features
   - Custom CRL verification was replaced with the internal
     OpenSSL functionality.
@@ -399,7 +413,7 @@ Version 5.24, 2015.10.08, urgency: MEDIUM
   - Fixed the sequential log id with the FORK threading.
   - Restored the missing Microsoft.VC90.CRT.manifest file.
 
-Version 5.23, 2015.09.02, urgency: LOW
+### Version 5.23, 2015.09.02, urgency: LOW
 * New features
   - Client-side support for the SOCKS protocol.
     See https://www.stunnel.org/socksvpn.html for details.
@@ -423,7 +437,7 @@ Version 5.23, 2015.09.02, urgency: LOW
   - Compilation fix for OpenSSL version older than 1.0.0.
   - Compilation fix for mingw.
 
-Version 5.22, 2015.07.30, urgency: HIGH
+### Version 5.22, 2015.07.30, urgency: HIGH
 * New features
   - "OCSPaia = yes" added to the configuration file templates.
   - Improved double free detection.
@@ -433,7 +447,7 @@ Version 5.22, 2015.07.30, urgency: HIGH
     OCSP_basic_verify() checks as if they were successful.
   - Fixed the passive IPv6 resolver (broken in stunnel 5.21).
 
-Version 5.21, 2015.07.27, urgency: MEDIUM
+### Version 5.21, 2015.07.27, urgency: MEDIUM
 * New features
   - Signal names are displayed instead of numbers.
   - First resolve IPv4 addresses on passive resolver requests.
@@ -451,7 +465,7 @@ Version 5.21, 2015.07.27, urgency: MEDIUM
   - Added a retry when sleep(3) was interrupted by a signal
     in the cron thread scheduler.
 
-Version 5.20, 2015.07.09, urgency: HIGH
+### Version 5.20, 2015.07.09, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2d.
     https://www.openssl.org/news/secadv_20150709.txt
@@ -478,7 +492,7 @@ Version 5.20, 2015.07.09, urgency: HIGH
     to Peter Pentchev).
   - Fixed the manual page headers (thx to Gleydson Soares).
 
-Version 5.19, 2015.06.16, urgency: MEDIUM
+### Version 5.19, 2015.06.16, urgency: MEDIUM
 * New features
   - OpenSSL DLLs updated to version 1.0.2c.
   - Added a runtime check whether COMP_zlib() method is implemented
@@ -491,7 +505,7 @@ Version 5.19, 2015.06.16, urgency: MEDIUM
   - Fixed some typos in docs and scripts (thx to Peter Pentchev).
   - Fixed a log level check condition (thx to Peter Pentchev).
 
-Version 5.18, 2015.06.12, urgency: MEDIUM
+### Version 5.18, 2015.06.12, urgency: MEDIUM
 * New features
   - OpenSSL DLLs updated to version 1.0.2b.
     https://www.openssl.org/news/secadv_20150611.txt
@@ -513,16 +527,16 @@ Version 5.18, 2015.06.12, urgency: MEDIUM
   - Fixed --sysconfdir and --localstatedir handling (thx to
     Dagobert Michelsen).
 
-Version 5.17, 2015.04.29, urgency: HIGH
+### Version 5.17, 2015.04.29, urgency: HIGH
 * Bugfixes
   - Fixed a NULL pointer dereference causing the service to crash.
     This bug was introduced in stunnel 5.15.
 
-Version 5.16, 2015.04.19, urgency: MEDIUM
+### Version 5.16, 2015.04.19, urgency: MEDIUM
 * Bugfixes
   - Fixed compilation with old versions of gcc.
 
-Version 5.15, 2015.04.16, urgency: LOW
+### Version 5.15, 2015.04.16, urgency: LOW
 * New features
   - Added new service-level options "checkHost", "checkEmail" and
     "checkIP" for additional checks of the peer certificate subject.
@@ -554,7 +568,7 @@ Version 5.15, 2015.04.16, urgency: LOW
   - Fixed compilation against old versions of OpenSSL.
   - Fixed memory leaks in certificate verification.
 
-Version 5.14, 2015.03.25, urgency: HIGH
+### Version 5.14, 2015.03.25, urgency: HIGH
 * Security bugfixes
   - The "redirect" option now also redirects clients on SSL session
     reuse.  In stunnel versions 5.00 to 5.13 reused sessions were
@@ -568,14 +582,14 @@ Version 5.14, 2015.03.25, urgency: HIGH
   - Fixed handling multiple connect/redirect destinations.
   - OpenSSL FIPS builds are now correctly reported on startup.
 
-Version 5.13, 2015.03.20, urgency: MEDIUM
+### Version 5.13, 2015.03.20, urgency: MEDIUM
 * New features
   - The "service" option was modified to also control the syslog
     service name.
 * Bugfixes
   - Fixed Windows service crash.
 
-Version 5.12, 2015.03.19, urgency: HIGH
+### Version 5.12, 2015.03.19, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.2a.
     https://www.openssl.org/news/secadv_20150319.txt
@@ -588,7 +602,7 @@ Version 5.12, 2015.03.19, urgency: HIGH
 * Bugfixes
   - OCSP fixed on Windows platform (thx to Alec Kosky).
 
-Version 5.11, 2015.03.11, urgency: LOW
+### Version 5.11, 2015.03.11, urgency: LOW
 * New features
   - OpenSSL DLLs updated to version 1.0.2.
   - Removed dereferences of internal OpenSSL data structures.
@@ -600,7 +614,7 @@ Version 5.11, 2015.03.11, urgency: LOW
   - Fixed console logging in tstunnel.exe.
   - _tputenv_s() replaced with more portable _tputenv() on Win32.
 
-Version 5.10, 2015.01.22, urgency: LOW
+### Version 5.10, 2015.01.22, urgency: LOW
 * New features
   - OCSP AIA (Authority Information Access) support.  This feature
     can be enabled with the new service-level option "OCSPaia".
@@ -612,7 +626,7 @@ Version 5.10, 2015.01.22, urgency: LOW
   - FIPS canister updated to version 2.0.9 in the Win32 binary
     build.
 
-Version 5.09, 2015.01.02, urgency: LOW
+### Version 5.09, 2015.01.02, urgency: LOW
 * New features
   - Added PSK authentication with two new service-level
     configuration file options "PSKsecrets" and "PSKidentity".
@@ -630,7 +644,7 @@ Version 5.09, 2015.01.02, urgency: LOW
   - Fixed compilation against old versions of OpenSSL.
   - Removed outdated French manual page.
 
-Version 5.08, 2014.12.09, urgency: MEDIUM
+### Version 5.08, 2014.12.09, urgency: MEDIUM
 * New features
   - Added SOCKS4/SOCKS4a protocol support.
   - Added SOCKS5 protocol support.
@@ -642,7 +656,7 @@ Version 5.08, 2014.12.09, urgency: MEDIUM
   - Fixed missing -pic linker option.  This is required for
     Android 5.0 and improves security.
 
-Version 5.07, 2014.11.01, urgency: MEDIUM
+### Version 5.07, 2014.11.01, urgency: MEDIUM
 * New features
   - Several SMTP server protocol negotiation improvements.
   - Added UTF-8 byte order marks to stunnel.conf templates.
@@ -660,7 +674,7 @@ Version 5.07, 2014.11.01, urgency: MEDIUM
   - shfolder.h replaced with shlobj.h for compatibility
     with modern Microsoft compilers.
 
-Version 5.06, 2014.10.15, urgency: HIGH
+### Version 5.06, 2014.10.15, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.1j.
     https://www.openssl.org/news/secadv_20141015.txt
@@ -678,7 +692,7 @@ Version 5.06, 2014.10.15, urgency: HIGH
   - Fixed FORK threading build regression bug.
   - Fixed missing periodic Win32 GUI log updates.
 
-Version 5.05, 2014.10.10, urgency: MEDIUM
+### Version 5.05, 2014.10.10, urgency: MEDIUM
 * New features
   - Asynchronous communication with the GUI thread for faster
     logging on Win32.
@@ -704,7 +718,7 @@ Version 5.05, 2014.10.10, urgency: MEDIUM
     descriptor passing breaking the libwrap support:
     http://wiki.osdev.org/Cygwin_Issues#Passing_file_descriptors
 
-Version 5.04, 2014.09.21, urgency: LOW
+### Version 5.04, 2014.09.21, urgency: LOW
 * New features
   - Support for local mode ("exec" option) on Win32.
   - Support for UTF-8 config file and log file.
@@ -733,7 +747,7 @@ Version 5.04, 2014.09.21, urgency: LOW
     parameter of the CreateFile() function (thx to Pierre Delaage).
   - A number of minor Win32 GUI bugfixes and improvements.
 
-Version 5.03, 2014.08.07, urgency: HIGH
+### Version 5.03, 2014.08.07, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.1i.
     See https://www.openssl.org/news/secadv_20140806.txt
@@ -745,7 +759,7 @@ Version 5.03, 2014.08.07, urgency: HIGH
   - Compilation fixes for old versions of OpenSSL.
   - Fixed whitespace handling in the stunnel.init script.
 
-Version 5.02, 2014.06.09, urgency: HIGH
+### Version 5.02, 2014.06.09, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.1h.
     See https://www.openssl.org/news/secadv_20140605.txt
@@ -765,7 +779,7 @@ Version 5.02, 2014.06.09, urgency: HIGH
   - Fixed "taskbar = no" broken since version 5.00.
   - Compilation fix for missing SSL_OP_MSIE_SSLV2_RSA_PADDING option.
 
-Version 5.01, 2014.04.08, urgency: HIGH
+### Version 5.01, 2014.04.08, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 1.0.1g.
     This version mitigates TLS heartbeat read overrun (CVE-2014-0160).
@@ -784,13 +798,13 @@ Version 5.01, 2014.04.08, urgency: HIGH
   - Added s_pool_free() on exec+connect service retires.
   - Line-buffering enforced on stderr output.
 
-stunnel 5.00 disables some features previously enabled by default.
-Users should review whether the new defaults are appropriate for their
-particular deployments.  Packages maintainers may consider prepending
-the old defaults for "fips" (if supported by their OpenSSL library),
-"pid" and "libwrap" to stunnel.conf during automated updates.
+### stunnel 5.00 disables some features previously enabled by default.
+### Users should review whether the new defaults are appropriate for their
+### particular deployments.  Packages maintainers may consider prepending
+### the old defaults for "fips" (if supported by their OpenSSL library),
+### "pid" and "libwrap" to stunnel.conf during automated updates.
 
-Version 5.00, 2014.03.06, urgency: HIGH
+### Version 5.00, 2014.03.06, urgency: HIGH
 * Security bugfixes
   - Added PRNG state update in fork threading (CVE-2014-0016).
 * New global configuration file defaults
@@ -834,11 +848,11 @@ Version 5.00, 2014.03.06, urgency: HIGH
   - Numerous fixes in the engine support code.
   - On Win32 platform .rnd file moved from c:\ to the stunnel folder.
 
-Version 4.57, 2015.04.01, urgency: HIGH
+### Version 4.57, 2015.04.01, urgency: HIGH
 * Security bugfixes
   - Added PRNG state update in fork threading (CVE-2014-0016).
 
-Version 4.56, 2013.03.22, urgency: HIGH
+### Version 4.56, 2013.03.22, urgency: HIGH
 * New features
   - Win32 installer automatically configures firewall exceptions.
   - Win32 installer configures administrative shortcuts to invoke UAC.
@@ -851,7 +865,7 @@ Version 4.56, 2013.03.22, urgency: HIGH
   - Fixed FIPS detection with new versions of the OpenSSL library.
   - Failure to open the log file at startup is no longer ignored.
 
-Version 4.55, 2013.03.03, urgency: HIGH
+### Version 4.55, 2013.03.03, urgency: HIGH
 * Security bugfixes
   - Buffer overflow vulnerability fixed in the NTLM authentication
     of the CONNECT protocol negotiation.
@@ -874,7 +888,7 @@ Version 4.55, 2013.03.03, urgency: HIGH
   - IPv6 compilation fix in protocol.c.
   - Windows installer fixes.
 
-Version 4.54, 2012.10.09, urgency: MEDIUM
+### Version 4.54, 2012.10.09, urgency: MEDIUM
 * New Win32 features
   - FIPS module updated to version 2.0.
   - OpenSSL DLLs updated to version 1.0.1c.
@@ -908,7 +922,7 @@ Version 4.54, 2012.10.09, urgency: MEDIUM
   - The number of resolver retries of EAI_AGAIN error has been limited to 3
     in order to prevent infinite loops.
 
-Version 4.53, 2012.03.19, urgency: MEDIUM
+### Version 4.53, 2012.03.19, urgency: MEDIUM
 * New features
   - Added client-mode "sni" option to directly control the value of
     TLS Server Name Indication (RFC 3546) extension.
@@ -933,7 +947,7 @@ Version 4.53, 2012.03.19, urgency: MEDIUM
   - Fixed detection of WSAECONNREFUSED Winsock error.
   - Missing Microsoft.VC90.CRT.manifest added to Windows installer.
 
-Version 4.52, 2012.01.12, urgency: MEDIUM
+### Version 4.52, 2012.01.12, urgency: MEDIUM
 * Bugfixes
   - Fixed write closure notification for non-socket file descriptors.
   - Removed a line logged to stderr in inetd mode.
@@ -941,7 +955,7 @@ Version 4.52, 2012.01.12, urgency: MEDIUM
     platform.
   - Removed direct access to the fields of the X509_STORE_CTX data structure.
 
-Version 4.51, 2012.01.09, urgency: MEDIUM
+### Version 4.51, 2012.01.09, urgency: MEDIUM
 * New features
   - Updated Win32 binary distribution OpenSSL DLLs to version 0.9.8s-fips.
   - Updated Android binary OpenSSL to version 1.0.0f.
@@ -957,7 +971,7 @@ Version 4.51, 2012.01.09, urgency: MEDIUM
   - Added a workaround for broken Android getaddrinfo():
     http://stackoverflow.com/questions/7818246/segmentation-fault-in-getaddrinfo
 
-Version 4.50, 2011.12.03, urgency: MEDIUM
+### Version 4.50, 2011.12.03, urgency: MEDIUM
 * New features
   - Added Android port.
   - Updated INSTALL.FIPS.
@@ -971,13 +985,13 @@ Version 4.50, 2011.12.03, urgency: MEDIUM
   - POP3 server-side protocol negotiation updated to report STLS
     capability (thx to Anthony Morgan).
 
-Version 4.49, 2011.11.28, urgency: MEDIUM
+### Version 4.49, 2011.11.28, urgency: MEDIUM
 * Bugfixes
   - Missing Microsoft Visual C++ Redistributable (msvcr100.dll) required
     by FIPS-compliant OpenSSL library was added to the Windows installer.
   - A bug was fixed causing crashes on MacOS X and some other platforms.
 
-Version 4.48, 2011.11.26, urgency: MEDIUM
+### Version 4.48, 2011.11.26, urgency: MEDIUM
 * New features
   - FIPS support on Win32 platform added.  OpenSSL 0.9.8r DLLs based on
     FIPS 1.2.3 canister are included with this version of stunnel.  FIPS
@@ -985,7 +999,7 @@ Version 4.48, 2011.11.26, urgency: MEDIUM
 * Bugfixes
   - Fixed canary initialization problem on Win32 platform.
 
-Version 4.47, 2011.11.21, urgency: MEDIUM
+### Version 4.47, 2011.11.21, urgency: MEDIUM
 * Internal improvements
   - CVE-2010-3864 workaround improved to check runtime version of OpenSSL
     rather than compiled version, and to allow OpenSSL 0.x.x >= 0.9.8p.
@@ -996,7 +1010,7 @@ Version 4.47, 2011.11.21, urgency: MEDIUM
   - Option "service" was restricted to Unix, as since stunnel 4.42 it
     wasn't doing anything useful on Windows platform.
 
-Version 4.46, 2011.11.04, urgency: LOW
+### Version 4.46, 2011.11.04, urgency: LOW
 * New features
   - Added Unix socket support (e.g. "connect = /var/run/stunnel/socket").
   - Added "verify = 4" mode to ignore CA chain and only verify peer certificate.
@@ -1013,7 +1027,7 @@ Version 4.46, 2011.11.04, urgency: LOW
   - Fixed non-blocking API emulation layer in UCONTEXT threading model.
   - Fixed signal handling in UCONTEXT threading model.
 
-Version 4.45, 2011.10.24, urgency: LOW
+### Version 4.45, 2011.10.24, urgency: LOW
 * New features
   - "protocol = proxy" support to send original client IP address to haproxy:
     http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
@@ -1037,7 +1051,7 @@ Version 4.45, 2011.10.24, urgency: LOW
   - MSVC compilation script (vc.mak) was fixed.
   - A number of problems in WINSOCK error handling were fixed.
 
-Version 4.44, 2011.09.17, urgency: MEDIUM
+### Version 4.44, 2011.09.17, urgency: MEDIUM
 * New features
   - Major automake/autoconf cleanup.
   - Heap buffer overflow protection with canaries.
@@ -1048,7 +1062,7 @@ Version 4.44, 2011.09.17, urgency: MEDIUM
   - Use after free in fdprintf() (thx to Alexey Drozdov).
     This issue might cause GPF with "protocol" or "ident" options.
 
-Version 4.43, 2011.09.07, urgency: MEDIUM
+### Version 4.43, 2011.09.07, urgency: MEDIUM
 * New features
   - Updated Win32 DLLs for OpenSSL 1.0.0e.
   - Major optimization of the logging subsystem.
@@ -1058,7 +1072,7 @@ Version 4.43, 2011.09.07, urgency: MEDIUM
   - Fixed FORK and UCONTEXT threading models.
   - Corrected INSTALL.W32 file.
 
-Version 4.42, 2011.08.18, urgency: HIGH
+### Version 4.42, 2011.08.18, urgency: HIGH
 * New features
   - New verify level 0 to request and ignore peer certificate.  This
     feature is useful with the new Windows GUI menu to save cached peer
@@ -1071,11 +1085,11 @@ Version 4.42, 2011.08.18, urgency: HIGH
   - The -quiet commandline option was applied to *all* message boxes.
   - Silent install (/S option) no longer attempts to create stunnel.pem.
 
-Version 4.41, 2011.07.25, urgency: MEDIUM
+### Version 4.41, 2011.07.25, urgency: MEDIUM
 * Bugfixes
   - Fixed Windows service crash of stunnel 4.40.
 
-Version 4.40, 2011.07.23, urgency: LOW
+### Version 4.40, 2011.07.23, urgency: LOW
 * New Win32 features
   - Added a GUI menu to save cached peer certificate chains.
   - Added comandline "-exit" option to stop stunnel *not* running
@@ -1090,7 +1104,7 @@ Version 4.40, 2011.07.23, urgency: LOW
   - Default ECDH curve updated to "prime256v1".
   - Removed support for temporary RSA keys (used in obsolete export ciphers).
 
-Version 4.39, 2011.07.06, urgency: LOW
+### Version 4.39, 2011.07.06, urgency: LOW
 * New features
   - New Win32 installer module to build self-signed stunnel.pem.
   - Added configuration file editing with Windows GUI.
@@ -1098,7 +1112,7 @@ Version 4.39, 2011.07.06, urgency: LOW
     It might be useful to also implement log file rotation.
   - Improved configuration file reload with Windows GUI.
 
-Version 4.38, 2011.06.28, urgency: MEDIUM
+### Version 4.38, 2011.06.28, urgency: MEDIUM
 * New features
   - Server-side SNI implemented (RFC 3546 section 3.1) with a new
     service-level option "nsi".
@@ -1110,7 +1124,7 @@ Version 4.38, 2011.06.28, urgency: MEDIUM
     features based on signals, e.g. local mode, FORK threading, or
     configuration file reload on Unix.  Win32 platform was not affected.
 
-Version 4.37, 2011.06.17, urgency: MEDIUM
+### Version 4.37, 2011.06.17, urgency: MEDIUM
 * New features
   - Client-side SNI implemented (RFC 3546 section 3.1).
   - Default "ciphers" changed from the OpenSSL default to a more secure
@@ -1130,7 +1144,7 @@ Version 4.37, 2011.06.17, urgency: MEDIUM
   - Fixed "local" option parsing on IPv4 systems.
   - Solaris compilation fix (redefinition of "STR").
 
-Version 4.36, 2011.05.03, urgency: LOW
+### Version 4.36, 2011.05.03, urgency: LOW
 * New features
   - Updated Win32 DLLs for OpenSSL 1.0.0d.
   - Dynamic memory management for strings manipulation:
@@ -1150,7 +1164,7 @@ Version 4.36, 2011.05.03, urgency: LOW
   - A trivial bug fixed in the stunnel.init script.
   - Retry implemented on EAI_AGAIN error returned by resolver calls.
 
-Version 4.35, 2011.02.05, urgency: LOW
+### Version 4.35, 2011.02.05, urgency: LOW
 * New features
   - Updated Win32 DLLs for OpenSSL 1.0.0c.
   - Transparent source (non-local bind) added for FreeBSD 8.x.
@@ -1174,7 +1188,7 @@ Version 4.35, 2011.02.05, urgency: LOW
   - stunnel-users@mirt.net --> stunnel-users@stunnel.org
   - stunnel-announce@mirt.net --> stunnel-announce@stunnel.org
 
-Version 4.34, 2010.09.19, urgency: LOW
+### Version 4.34, 2010.09.19, urgency: LOW
 * New features
   - Updated Win32 DLLs for OpenSSL 1.0.0a.
   - Updated Win32 DLLs for zlib 1.2.5.
@@ -1190,7 +1204,7 @@ Version 4.34, 2010.09.19, urgency: LOW
   - Fixed a transfer() loop issue on socket errors.
   - Fixed missing Win32 taskbar icon while displaying a global option error.
 
-Version 4.33, 2010.04.05, urgency: MEDIUM
+### Version 4.33, 2010.04.05, urgency: MEDIUM
 * New features
   - Win32 DLLs for OpenSSL 1.0.0.
     This library requires to c_rehash CApath/CRLpath directories on upgrade.
@@ -1200,7 +1214,7 @@ Version 4.33, 2010.04.05, urgency: MEDIUM
 * Bugfixes
   - Inetd mode fixed.
 
-Version 4.32, 2010.03.24, urgency: MEDIUM
+### Version 4.32, 2010.03.24, urgency: MEDIUM
 * New features
   - New service-level "libwrap" option for run-time control whether
     /etc/hosts.allow and /etc/hosts.deny are used for access control.
@@ -1213,18 +1227,18 @@ Version 4.32, 2010.03.24, urgency: MEDIUM
   - Installer bugfixes for Vista and later versions of Windows.
   - FIPS mode can be enabled/disabled at runtime.
 
-Version 4.31, 2010.02.03, urgency: MEDIUM
+### Version 4.31, 2010.02.03, urgency: MEDIUM
 * New features
   - Log file reopen on USR1 signal was added.
 * Bugfixes
   - Some regression issues introduced in 4.30 were fixed.
 
-Version 4.30, 2010.01.21, urgency: LOW/EXPERIMENTAL
+### Version 4.30, 2010.01.21, urgency: LOW/EXPERIMENTAL
 * New features
   - Graceful configuration reload with HUP signal on Unix
     and with GUI on Windows.
 
-Version 4.29, 2009.12.02, urgency: MEDIUM
+### Version 4.29, 2009.12.02, urgency: MEDIUM
 * New feature sponsored by Searchtech Limited http://www.astraweb.com/
   - sessiond, a high performance SSL session cache was built for stunnel.
     A new service-level "sessiond" option was added.  sessiond is
@@ -1235,7 +1249,7 @@ Version 4.29, 2009.12.02, urgency: MEDIUM
   - Compilation fixes added for AIX and old versions of OpenSSL.
   - Missing "fips" option was added to the manual.
 
-Version 4.28, 2009.11.08, urgency: MEDIUM
+### Version 4.28, 2009.11.08, urgency: MEDIUM
 * New features
   - Win32 DLLs for OpenSSL 0.9.8l.
   - Transparent proxy support on Linux kernels >=2.6.28.
@@ -1249,7 +1263,7 @@ Version 4.28, 2009.11.08, urgency: MEDIUM
   - Polish manual encoding fixed.
   - Notes on compression implementation in OpenSSL added to the manual.
 
-Version 4.27, 2009.04.16, urgency: MEDIUM
+### Version 4.27, 2009.04.16, urgency: MEDIUM
 * New features
   - Win32 DLLs for OpenSSL 0.9.8k.
   - FIPS support was updated for openssl-fips 1.2.
@@ -1263,7 +1277,7 @@ Version 4.27, 2009.04.16, urgency: MEDIUM
   - OS2 compilation fixes.
   - WCE fixes by Pierre Delaage <delaage.pierre@free.fr>.
 
-Version 4.26, 2008.09.20, urgency: MEDIUM
+### Version 4.26, 2008.09.20, urgency: MEDIUM
 * New features
   - Win32 DLLs for OpenSSL 0.9.8i.
   - /etc/hosts.allow and /etc/hosts.deny no longer need to be
@@ -1276,24 +1290,24 @@ Version 4.26, 2008.09.20, urgency: MEDIUM
   - Killing all libwrap processes at stunnel shutdown fixed.
   - A minor bug in stunnel.init sample SysV startup file fixed.
 
-Version 4.25, 2008.06.01, urgency: MEDIUM
+### Version 4.25, 2008.06.01, urgency: MEDIUM
 * New features
   - Win32 DLLs for OpenSSL 0.9.8h.
 * Bugfixes
   - Spawning libwrap processes delayed until privileges are dropped.
   - Compilation fix for systems without struct msghdr.msg_control.
 
-Version 4.24, 2008.05.19, urgency: HIGH
+### Version 4.24, 2008.05.19, urgency: HIGH
 * Bugfixes
   - OCSP code was fixed to properly reject revoked certificates.
 
-Version 4.23, 2008.05.03, urgency: HIGH
+### Version 4.23, 2008.05.03, urgency: HIGH
 * Bugfixes
   - Local privilege escalation bug on Windows NT based
     systems fixed.  A local user could exploit stunnel
     running as a service to gain localsystem privileges.
 
-Version 4.22, 2008.03.28, urgency: MEDIUM
+### Version 4.22, 2008.03.28, urgency: MEDIUM
 * New features
   - Makefile was updated to use standard autoconf variables:
     sysconfdir, localstatedir and pkglibdir.
@@ -1311,7 +1325,7 @@ Version 4.22, 2008.03.28, urgency: MEDIUM
   - OpenSSL GPL license exception update based on
     http://www.gnu.org/licenses/gpl-faq.html#GPLIncompatibleLibs
 
-Version 4.21, 2007.10.27, urgency: LOW/EXPERIMENTAL
+### Version 4.21, 2007.10.27, urgency: LOW/EXPERIMENTAL
 * New features sponsored by Open-Source Software Institute
   - Initial FIPS 140-2 support (see INSTALL.FIPS for details).
     Win32 platform is not currently supported.
@@ -1338,7 +1352,7 @@ Version 4.21, 2007.10.27, urgency: LOW/EXPERIMENTAL
     "Save As" disabled in the service mode for local Win32 security
     (it's much like Yeti -- some people claim they have seen it).
 
-Version 4.20, 2006.11.30, urgency: MEDIUM
+### Version 4.20, 2006.11.30, urgency: MEDIUM
 * Release notes
   - The new transfer() function has been well tested.
     I recommend upgrading any previous version with this one.
@@ -1347,7 +1361,7 @@ Version 4.20, 2006.11.30, urgency: MEDIUM
   - Reduced amount of debug logs.
   - A minor man page update.
 
-Version 4.19, 2006.11.11, urgency: LOW/EXPERIMENTAL
+### Version 4.19, 2006.11.11, urgency: LOW/EXPERIMENTAL
 * Release notes
   - There are a lot of new features in this version.  I recommend
     to test it well before upgrading your mission-critical systems.
@@ -1369,13 +1383,13 @@ Version 4.19, 2006.11.11, urgency: LOW/EXPERIMENTAL
   - Serious problem with SSL_WANT_* retries fixed.
     The new code requires extensive testing!
 
-Version 4.18, 2006.09.26, urgency: MEDIUM
+### Version 4.18, 2006.09.26, urgency: MEDIUM
 * Bugfixes
   - GPF on entering private key pass phrase on Win32 fixed.
   - Updated OpenSSL Win32 DLLs.
   - Minor configure script update.
 
-Version 4.17, 2006.09.10, urgency: MEDIUM
+### Version 4.17, 2006.09.10, urgency: MEDIUM
 * New features
   - Win32 DLLs for OpenSSL 0.9.8c.
 * Bugfixes
@@ -1385,7 +1399,7 @@ Version 4.17, 2006.09.10, urgency: MEDIUM
   - Minor os2.mak update.
   - Minor update of safestring()/safename() macros.
 
-Version 4.16, 2006.08.31, urgency: MEDIUM
+### Version 4.16, 2006.08.31, urgency: MEDIUM
 * New features sponsored by Hewlett-Packard
   - A new global option to control engine:
     engineCtrl = <command>[:<parameter>]
@@ -1416,7 +1430,7 @@ Version 4.16, 2006.08.31, urgency: MEDIUM
 * Other changes
   - Maximum number of services increased from 64 to 256 when poll() is used.
 
-Version 4.15, 2006.03.11, urgency: LOW
+### Version 4.15, 2006.03.11, urgency: LOW
 * Release notes
   - There are a lot of new features in this version.  I recommend
     to test it well before upgrading your mission-critical systems.
@@ -1444,7 +1458,7 @@ Version 4.15, 2006.03.11, urgency: LOW
   - chroot directory is setup in $prefix/var/lib/stunnel/
     this directory is chmoded 1770 and group nogroup
 
-Version 4.14, 2005.11.02, urgency: HIGH
+### Version 4.14, 2005.11.02, urgency: HIGH
 * Bugfixes
   - transfer() fixed to avoid random stalls introduced in version 4.12.
   - poll() error handing bug fixed.
@@ -1455,7 +1469,7 @@ Version 4.14, 2005.11.02, urgency: HIGH
 * Release notes
   - This is an important bugfix release.  Upgrade is recommended.
 
-Version 4.13, 2005.10.21, urgency: MEDIUM
+### Version 4.13, 2005.10.21, urgency: MEDIUM
 * DLLs for OpenSSL 0.9.7i included because protection faults were reported
   in 0.9.8 and 0.9.8a.
 * New features
@@ -1470,7 +1484,7 @@ Version 4.13, 2005.10.21, urgency: MEDIUM
   - size_t printf() fixed in stack_info() (the previous fix didn't work).
   - socklen_t is used instead of int where required.
 
-Version 4.12, 2005.09.29, urgency: MEDIUM
+### Version 4.12, 2005.09.29, urgency: MEDIUM
 * New features
   - Win32 installer added.
   - New Win32 commandline options: -start and -stop.
@@ -1487,7 +1501,7 @@ Version 4.12, 2005.09.29, urgency: MEDIUM
 * Release notes
   - This is a bugfix release.  Upgrade is recommended.
 
-Version 4.11, 2005.07.09, urgency: MEDIUM
+### Version 4.11, 2005.07.09, urgency: MEDIUM
 * New features
   - New ./configure option --with-threads to select thread model.
   - ./configure option --with-tcp-wrappers renamed to --disable-libwrap.
@@ -1505,7 +1519,7 @@ Version 4.11, 2005.07.09, urgency: MEDIUM
 * Release notes
   - UCONTEXT threading seems stable, now.  Upgrade is recommended.
 
-Version 4.10, 2005.04.23, urgency: LOW/EXPERIMENTAL
+### Version 4.10, 2005.04.23, urgency: LOW/EXPERIMENTAL
 * DLLs for OpenSSL 0.9.7g.
 * Bugfixes
   - Missing locking on Win32 platform was added (thx to Yi Lin
@@ -1519,7 +1533,7 @@ Version 4.10, 2005.04.23, urgency: LOW/EXPERIMENTAL
   - This version should be thoroughly tested before using it in the
     mission-critical environment.
 
-Version 4.09, 2005.03.26, urgency: MEDIUM
+### Version 4.09, 2005.03.26, urgency: MEDIUM
 * DLLs for OpenSSL 0.9.7f.
 * Bugfixes
   - Compilation problem with undeclared socklen_t fixed.
@@ -1531,7 +1545,7 @@ Version 4.09, 2005.03.26, urgency: MEDIUM
   - Install/chmod race condition when installing default certificate fixed.
   - Stunnel no longer installs signal_handler on ignored signals.
 
-Version 4.08, 2005.02.27, urgency: LOW
+### Version 4.08, 2005.02.27, urgency: LOW
 * New features
   - New -quiet option was added to install NT service without a message box.
 * Bugfixes
@@ -1546,7 +1560,7 @@ Version 4.08, 2005.02.27, urgency: LOW
   - This version should be thoroughly tested before using it in the
     mission-critical environment.
 
-Version 4.07, 2005.01.03, urgency: MEDIUM
+### Version 4.07, 2005.01.03, urgency: MEDIUM
 * Bugfixes
   - Problem with infinite poll() timeout negative, but not equal to -1 fixed.
   - Problem with a file descriptor ready to be read just after a non-blocking
@@ -1558,7 +1572,7 @@ Version 4.07, 2005.01.03, urgency: MEDIUM
   - Broken NT Service mode on Win32 platform fixed.
   - Support for IPv4-only Win32 machines restored.
 
-Version 4.06, 2004.12.26, urgency: LOW
+### Version 4.06, 2004.12.26, urgency: LOW
 * New feature sponsored by SURFnet http://www.surfnet.nl/
   - IPv6 support (to be enabled with ./configure --enable-ipv6).
 * New features
@@ -1596,7 +1610,7 @@ Version 4.06, 2004.12.26, urgency: LOW
     connect.  For example to accept pop3s on IPv6 you could use:
     'accept = :::995'.  I hope the new syntax is clear enough.
 
-Version 4.05, 2004.02.14, urgency: MEDIUM
+### Version 4.05, 2004.02.14, urgency: MEDIUM
 * New feature sponsored by SURFnet http://www.surfnet.nl/
   - Support for CIFS aka SMB protocol SSL negotiation.
 * New features
@@ -1629,7 +1643,7 @@ Version 4.05, 2004.02.14, urgency: MEDIUM
     other systems.
   - Some other minor updates.
 
-Version 4.04, 2003.01.12, urgency: MEDIUM
+### Version 4.04, 2003.01.12, urgency: MEDIUM
 * New feature sponsored by SURFnet http://www.surfnet.nl/
   - Encrypted private key can be used with Win32 GUI.
 * New features
@@ -1656,7 +1670,7 @@ Version 4.04, 2003.01.12, urgency: MEDIUM
     Temporary random file is created with 'dd' instead.
 * DLLs for OpenSSL 0.9.7.
 
-Version 4.03, 2002.10.27, urgency: HIGH
+### Version 4.03, 2002.10.27, urgency: HIGH
 * NT Service (broken since 4.01) is operational again.
 * Memory leak in FORK environments fixed.
 * sigprocmask() mistake corrected.
@@ -1664,10 +1678,10 @@ Version 4.03, 2002.10.27, urgency: HIGH
 * EAGAIN handled in client.c for AIX.
 * Manual page updated.
 
-Version 4.02, 2002.10.21, urgency: HIGH
+### Version 4.02, 2002.10.21, urgency: HIGH
 * Serious bug in ECONNRESET handling fixed.
 
-Version 4.01, 2002.10.20, urgency: MEDIUM
+### Version 4.01, 2002.10.20, urgency: MEDIUM
 * New features
   - OpenVMS support.
   - Polish manual and some manual updates.
@@ -1686,9 +1700,9 @@ Version 4.01, 2002.10.20, urgency: MEDIUM
   - Signal mask is cleared just before exec in local mode.
   - Accepting sockets and log file descriptors are no longer
     leaked to the child processes.
-Special thanks to Steve Grubb for the source code audit.
+### Special thanks to Steve Grubb for the source code audit.
 
-Version 4.00, 2002.08.30, urgency: LOW
+### Version 4.00, 2002.08.30, urgency: LOW
 * New features sponsored by MAXIMUS http://www.maximus.com/
   - New user interface (config file).
   - Single daemon can listen on multiple ports, now.
@@ -1716,7 +1730,7 @@ Version 4.00, 2002.08.30, urgency: LOW
   - __svr4__ macro defined for Sun C/C++ compiler.
 * DLLs for OpenSSL 0.9.6g.
 
-Version 3.22, 2001.12.20, urgency: HIGH
+### Version 3.22, 2001.12.20, urgency: HIGH
 * Format string bug fixed in protocol.c
   smtp, pop3 and nntp in client mode were affected.
   (stunnel clients could be attacked by malicious servers)
@@ -1726,7 +1740,7 @@ Version 3.22, 2001.12.20, urgency: HIGH
 * More detailed information about negotiated ciphers is printed.
 * New ./configure options: '--enable-no-rsa' and '--enable-dh'.
 
-Version 3.21c, 2001.11.11, urgency: LOW
+### Version 3.21c, 2001.11.11, urgency: LOW
 * autoconf scripts upgraded to version 2.52.
 * Problem with pthread_sigmask on Darwin fixed (I hope).
 * Some documentation typos corrected.
@@ -1734,13 +1748,13 @@ Version 3.21c, 2001.11.11, urgency: LOW
 * Shared library version reported on startup.
 * DLLs for OpenSSL 0.9.6b.
 
-Version 3.21b, 2001.11.03, urgency: MEDIUM
+### Version 3.21b, 2001.11.03, urgency: MEDIUM
 * File descriptor leak on failed connect() fixed.
 
-Version 3.21a, 2001.10.31, urgency: MEDIUM
+### Version 3.21a, 2001.10.31, urgency: MEDIUM
 * Small bug in Makefile fixed.
 
-Version 3.21, 2001.10.31, urgency: MEDIUM
+### Version 3.21, 2001.10.31, urgency: MEDIUM
 * Problem with errno and posix threads fixed.
 * It is assumed that system has getopt() if it has getopt.h header file.
 * SSL_CLIENT_DN and SSL_CLIENT_I_DN environment variables set in local mode
@@ -1763,7 +1777,7 @@ Version 3.21, 2001.10.31, urgency: MEDIUM
   standalone/inetd, remote/local and server/client mode.
 * pop3 server mode support added.
 
-Version 3.20, 2001.08.15, urgency: LOW
+### Version 3.20, 2001.08.15, urgency: LOW
 * setsockopt() optlen set according to the optval for Solaris.
 * Minor NetBSD compatibility fixes by Martti Kuparinen.
 * Minor MSVC 6.0 compatibility fixes by Patrick Mayweg.
@@ -1771,7 +1785,7 @@ Version 3.20, 2001.08.15, urgency: LOW
 * Socket close instead of reset on close_notify timeout.
 * Some source arrangement and minor bugfixes.
 
-Version 3.19, 2001.08.10, urgency: MEDIUM
+### Version 3.19, 2001.08.10, urgency: MEDIUM
 * Critical section added around non MT-safe TCP Wrappers code.
 * Problem with 'select: Interrupted system call' error fixed.
 * errno replaced with get_last_socket_error() for Win32.
@@ -1781,19 +1795,19 @@ Version 3.19, 2001.08.10, urgency: MEDIUM
 * ./configure changed to recognize POSIX threads library on OSF.
 * New -O option to set socket options.
 
-Version 3.18, 2001.07.31, urgency: MEDIUM
+### Version 3.18, 2001.07.31, urgency: MEDIUM
 * MAX_CLIENTS is calculated based on FD_SETSIZE, now.
 * Problems with closing SSL in transfer() fixed.
 * -I option to bind a static local IP address added.
 * Debug output of info_callback redesigned.
 
-Version 3.17, 2001.07.29, urgency: MEDIUM
+### Version 3.17, 2001.07.29, urgency: MEDIUM
 * Problem with GPF on exit with active threads fixed.
 * Timeout for transfer() function added:
    - 1 hour if socket is open for read
    - 1 minute if socket is closed for read
 
-Version 3.16, 2001.07.22, urgency: MEDIUM
+### Version 3.16, 2001.07.22, urgency: MEDIUM
 * Some transfer() bugfixes/improvements.
 * STDIN/STDOUT are no longer assumed to be non-socket descriptors.
 * Problem with --with-tcp-wrappers patch fixed.
@@ -1801,7 +1815,7 @@ Version 3.16, 2001.07.22, urgency: MEDIUM
 * -o option to append log messages to a file added.
 * Changed error message for SSL error 0.
 
-Version 3.15, 2001.07.15, urgency: MEDIUM
+### Version 3.15, 2001.07.15, urgency: MEDIUM
 * Serious bug resulting in random transfer() hangs fixed.
 * Separate file descriptors are used for inetd mode.
 * -f (foreground) logs are now stamped with time.
@@ -1812,25 +1826,25 @@ Version 3.15, 2001.07.15, urgency: MEDIUM
 * Transparency support for Tru64 added.
 * Some #includes for AIX added.
 
-Version 3.14, 2001.02.21, urgency: LOW
+### Version 3.14, 2001.02.21, urgency: LOW
 * Pidfile creation algorithm has been changed.
 
-Version 3.13, 2001.01.25, urgency: MEDIUM
+### Version 3.13, 2001.01.25, urgency: MEDIUM
 * pthread_sigmask() argument in sthreads.c corrected.
 * OOB data is now handled correctly.
 
-Version 3.12, 2001.01.24, urgency: LOW
+### Version 3.12, 2001.01.24, urgency: LOW
 * Attempted to fix problem with zombies in local mode.
 * Patch for 64-bit machines by Nalin Dahyabhai <nalin@redhat.com> applied.
 * Tiny bugfix for OSF cc by Dobrica Pavlinusic <dpavlin@rot13.org> added.
 * PORTS file updated.
 
-Version 3.11, 2000.12.21, urgency: MEDIUM
+### Version 3.11, 2000.12.21, urgency: MEDIUM
 * New problem with zombies fixed.
 * Attempt to be integer-size independent.
 * SIGHUP handler added.
 
-Version 3.10, 2000.12.19, urgency: MEDIUM
+### Version 3.10, 2000.12.19, urgency: MEDIUM
 * Internal thread synchronization code added.
 * libdl added to stunnel dependencies if it exists.
 * Manpage converted to sdf format.
@@ -1842,7 +1856,7 @@ Version 3.10, 2000.12.19, urgency: MEDIUM
   You can cross-compile stunnel.exe on Unix, now.
   I'd like to be able to compile OpenSSL this way, too...
 
-Version 3.9, 2000.12.13, urgency: HIGH
+### Version 3.9, 2000.12.13, urgency: HIGH
 * Updated temporary key generation:
    - stunnel is now honoring requested key-lengths correctly,
    - temporary key is changed every hour.
@@ -1850,10 +1864,10 @@ Version 3.9, 2000.12.13, urgency: HIGH
   Special thanks to Peter Wagemans for the patch.
 * Potential security problem with syslog() call fixed.
 
-Version 3.8p4, 2000.06.25  bri@stunnel.org:
+### Version 3.8p4, 2000.06.25  bri@stunnel.org:
 * fixes for Windows platform
 
-Version 3.8p3, 2000.06.24  bri@stunnel.org:
+### Version 3.8p3, 2000.06.24  bri@stunnel.org:
 * Compile time definitions for the following:
     --with-cert-dir
     --with-cert-file
@@ -1880,19 +1894,19 @@ Version 3.8p3, 2000.06.24  bri@stunnel.org:
   Additionally, unless --with-pem-dir is specified at compile time,
   stunnel will default to looking for stunnel.pem in the current directory.
 
-Version 3.8p2, 2000.06.13  bri@stunnel.org:
+### Version 3.8p2, 2000.06.13  bri@stunnel.org:
 * Fixes for Win32 platform
 * Minor output formatting changes
 * Fixed version number in files
 
-Version 3.8p1, 2000.06.11  bri@stunnel.org:
+### Version 3.8p1, 2000.06.11  bri@stunnel.org:
 * Added rigorous PRNG seeding
 * PID changes (and related security-fix)
 * Man page fixes
 * Client SSL Session-IDs now used
 * -N flag to specify tcpwrapper service name
 
-Version 3.8, 2000.02.24:
+### Version 3.8, 2000.02.24:
 * Checking for threads in c_r library for FreeBSD.
 * Some compatibility fixes for Ultrix.
 * configure.in has been cleaned up.
@@ -1905,7 +1919,7 @@ Version 3.8, 2000.02.24:
 * Added pty.c based on a Public Domain code by Tatu Ylonen
 * Distribution files are now signed with GnuPG
 
-Version 3.7, 2000.02.10:
+### Version 3.7, 2000.02.10:
 * /usr/pkg added to list of possible SSL directories for pkgsrc installs
   of OpenSSL under NetBSD.
 * Added the -s option, which setuid()s to the specified user when running
@@ -1920,23 +1934,23 @@ Version 3.7, 2000.02.10:
   The directory is chmoded a=rwx,+t.
 * FAQ has been updated.
 
-3.6 2000.02.03
+### 3.6 2000.02.03
 * Automatic RFC 2487 detection based on patch by Pascual Perez and Borja Perez.
 * Non-blocking sockets not used by default.
 * DH support is disabled by default.
 * (both can be enabled in ssl.c)
 
-3.5 2000.02.02
+### 3.5 2000.02.02
 * Support for openssl 0.9.4 added.
 * /usr/ssl added to configure by Christian Zuckschwerdt.
 * Added tunneling for PPP through the addition of PTY handling.
 * Added some documentation.
 
-3.4a 1999.07.13 (bugfix release)
+### 3.4a 1999.07.13 (bugfix release)
 * Problem with cipher negotiation fixed.
 * setenv changed to putenv.
 
-3.4 1999.07.12
+### 3.4 1999.07.12
 * Local transparent proxy added with LD_PRELOADed shared library.
 * DH code rewritten.
 * Added -C option to set cipher list.
@@ -1944,7 +1958,7 @@ Version 3.7, 2000.02.10:
 * Minor portability bugfixes.
 * Manual updated (but still not perfect).
 
-3.3 1999.06.18
+### 3.3 1999.06.18
 * Support for openssl 0.9.3 added.
 * Generic support for protocol negotiation added (protocol.c).
 * SMTP protocol negotiation support for Netscape client added.
@@ -1959,7 +1973,7 @@ Version 3.7, 2000.02.10:
 * RSAref support fix (not tested).
 * Some compatibility fixes for Solaris and NetBSD added.
 
-3.2 1999.04.28
+### 3.2 1999.04.28
 * RSAref support (not tested).
 * Added full duplex with non-blocking sockets.
 * RST sent instead of FIN on peer error (on error peer
@@ -1968,7 +1982,7 @@ Version 3.7, 2000.02.10:
   a problem with Netscape.
 * Added NO_RSA for US citizens having problems with patents.
 
-3.1 1999.04.22
+### 3.1 1999.04.22
 * Changed -l syntax (first argument specified is now argv[0]).
 * Fixed problem with options passed to locally executed daemon.
 * Fixed problem with ':' passed to libwrap in a service name:
@@ -1980,17 +1994,17 @@ Version 3.7, 2000.02.10:
   and incorrect parameters passed to getopt() in Win32.
 * FAQ updated.
 
-3.0 1999.04.19
+### 3.0 1999.04.19
 * Some bugfixes.
 * FAQ added.
 
-3.0b7 1999.04.14
+### 3.0b7 1999.04.14
 * Win32 native port fixed (looks quite stable).
 * New transfer() function algorithm.
 * New 'make cert' to be compatible with openssl-0.9.2b.
 * Removed support for memory leaks debugging.
 
-3.0b6 1999.04.01
+### 3.0b6 1999.04.01
 * Fixed problems with session cache (by Adam).
 * Added client mode session cache.
 * Source structure, autoconf script and Makefile changed.
@@ -1998,32 +2012,32 @@ Version 3.7, 2000.02.10:
 * Added support for memory leaks debugging
   (SSL library needs to be compiled with -DMFUNC).
 
-3.0b5 1999.03.25
+### 3.0b5 1999.03.25
 * Lots of changes to make threads work.
 * Peer (client and server) authentication works!
 * Added -V option to display version.
 
-3.0b4 1999.03.22
+### 3.0b4 1999.03.22
 * Early POSIX threads implementation.
 * Work on porting to native Win32 application started.
 
-3.0b3 1999.03.05
+### 3.0b3 1999.03.05
 * Improved behavior on heavy load.
 
-3.0b2 1999.03.04
+### 3.0b2 1999.03.04
 * Fixed -v parsing bug.
 
-3.0b1 1999.01.18
+### 3.0b1 1999.01.18
 * New user interface.
 * Client mode added.
 * Peer certificate verification added (=strong authentication).
 * Win32 port added.
 * Other minor problems fixed.
 
-2.1 1998.06.01
+### 2.1 1998.06.01
 * Few bugs fixed.
 
-2.0 1998.05.25
+### 2.0 1998.05.25
 * Remote mode added!
 * Standalone mode added!
 * tcpd functionality added by libwrap utilization.
@@ -2031,36 +2045,35 @@ Version 3.7, 2000.02.10:
 * bind loopback on Intel and other bugs fixed by kravietZ.
 * New manual page by kravietZ & myself.
 
-1.6 1998.02.24
+### 1.6 1998.02.24
 * Linux bind fix.
 * New TODO ideas!
 
-1.5 1998.02.24
+### 1.5 1998.02.24
 * make_sockets() implemented with Internet sockets instead
   of Unix sockets for better compatibility.
   (i.e. to avoid random data returned by getpeername(2))
   This feature can be disabled in stunnel.c.
 
-1.4 1998.02.16
+### 1.4 1998.02.16
 * Ported to HP-UX, Solaris and probably other UNIXes.
 * Autoconfiguration added.
 
-1.3 1998.02.14
+### 1.3 1998.02.14
 * Man page by Pawel Krawczyk <kravietz@ceti.com.pl> added!
 * Copyrights added.
 * Minor errors corrected.
 
-1.2 1998.02.14
+### 1.2 1998.02.14
 * Separate certificate for each service added.
 * Connection logging support.
 
-1.1 1998.02.14
+### 1.1 1998.02.14
 * Callback functions added by Pawel Krawczyk <kravietz@ceti.com.pl>.
 
-1.0 1998.02.11
+### 1.0 1998.02.11
 * First version with SSL support
   - special thx to Adam Hernik <adas@infocentrum.com>.
 
-0.1 1998.02.10
+### 0.1 1998.02.10
 * Testing skeleton.
-

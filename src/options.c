@@ -348,7 +348,12 @@ int options_cmdline(char *arg1, char *arg2) {
 
     if(type==CONF_FILE) {
 #ifdef HAVE_REALPATH
-        char *real_path=realpath(name, NULL);
+        char *real_path=NULL;
+#ifdef MAXPATHLEN
+        /* a workaround for pre-POSIX.1-2008 4.4BSD and Solaris */
+        real_path=malloc(MAXPATHLEN);
+#endif
+        real_path=realpath(name, real_path);
         if(!real_path) {
             s_log(LOG_ERR, "Invalid configuration file name \"%s\"", name);
             ioerror("realpath");
@@ -2398,14 +2403,6 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
                 return tmp_str;
         }
         endpoints+=section->option.protocol_endpoint;
-#if defined(SSL_OP_NO_TICKET) && OPENSSL_VERSION_NUMBER<0x10101000L
-        /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
-        /* OpenSSL 1.1.1 is required to serialize application data
-         * into session tickets */
-        /* this is needed for connect address session persistence */
-        if(!section->option.connect_before_ssl)
-            section->ssl_options_set|=SSL_OP_NO_TICKET;
-#endif
         break;
     case CMD_PRINT_DEFAULTS:
         break;
@@ -2687,17 +2684,14 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "redirect"))
             break;
-#if defined(SSL_OP_NO_TICKET) && OPENSSL_VERSION_NUMBER<0x10101000L
-        /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
-        /* OpenSSL 1.1.1 is required to serialize application data
-         * into session tickets */
-        /* this is needed for preserving authentication status */
-        section->ssl_options_set|=SSL_OP_NO_TICKET;
-#endif
         name_list_append(&section->redirect_addr.names, arg);
         return NULL; /* OK */
     case CMD_INITIALIZE:
         if(section->redirect_addr.names) {
+            if(section->option.client)
+                return "\"redirect\" is unsupported in client sections";
+            if(section->option.connect_before_ssl)
+                return "\"redirect\" is incompatible with the specified protocol negotiation";
             if(!section->option.delayed_lookup &&
                     !addrlist_resolve(&section->redirect_addr)) {
                 s_log(LOG_INFO,
@@ -3144,11 +3138,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
     /* sslVersionMax */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
-#ifdef TLS1_3_VERSION
         section->max_proto_version=0; /* highest supported */
-#else /* prevent negotiating TLS 1.3 when linked against a newer OpenSSL */
-        section->max_proto_version=TLS1_2_VERSION;
-#endif
         break;
     case CMD_SET_COPY:
         section->max_proto_version=new_service_options.max_proto_version;
@@ -3667,6 +3657,17 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
             if(endpoints!=1)
                 return "Inetd mode must define one endpoint";
         }
+#ifdef SSL_OP_NO_TICKET
+        /* disable RFC4507 support introduced in OpenSSL 0.9.8f */
+        /* OpenSSL 1.1.1 is required to serialize application data
+         * into session tickets */
+        /* server mode sections need it for the "redirect" option
+         * and connect address session persistence */
+        if(OpenSSL_version_num()<0x10101000L &&
+                !section->option.client &&
+                !section->option.connect_before_ssl)
+            section->ssl_options_set|=SSL_OP_NO_TICKET;
+#endif /* SSL_OP_NO_TICKET */
         if(context_init(section)) /* initialize TLS context */
             return "Failed to initialize TLS context";
         break;

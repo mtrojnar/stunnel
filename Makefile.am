@@ -9,14 +9,12 @@ LIBTOOL_DEPS = @LIBTOOL_DEPS@
 libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status libtool
 
-EXTRA_DIST = PORTS BUGS COPYRIGHT.GPL CREDITS
-EXTRA_DIST += INSTALL.W32 INSTALL.WCE INSTALL.FIPS
-EXTRA_DIST += build-android.sh .travis.yml
-
 docdir = $(datadir)/doc/stunnel
-doc_DATA = INSTALL README TODO COPYING AUTHORS ChangeLog
-doc_DATA += PORTS BUGS COPYRIGHT.GPL CREDITS
-doc_DATA += INSTALL.W32 INSTALL.WCE INSTALL.FIPS
+doc_DATA = README.md TODO.md COPYING.md AUTHORS.md NEWS.md
+doc_DATA += PORTS.md BUGS.md COPYRIGHT.md CREDITS.md
+doc_DATA += INSTALL.W32.md INSTALL.WCE.md INSTALL.FIPS.md
+
+EXTRA_DIST = build-android.sh .travis.yml $(doc_DATA)
 
 distcleancheck_listfiles = find -type f -exec sh -c 'test -f $(srcdir)/{} || echo {}' ';'
 

@@ -215,10 +215,15 @@ NOEXPORT int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         return 1; /* accept */
     }
     if(verify_checks(c, preverify_ok, callback_ctx)) {
-        if(!SSL_SESSION_set_ex_data(SSL_get_session(ssl),
-                index_session_authenticated, (void *)(-1))) {
-            sslerror("SSL_SESSION_set_ex_data");
-            return 0; /* reject */
+        SSL_SESSION *sess=SSL_get1_session(c->ssl);
+        if(sess) {
+            int ok=SSL_SESSION_set_ex_data(sess, index_session_authenticated,
+                (void *)(-1));
+            SSL_SESSION_free(sess);
+            if(!ok) {
+                sslerror("SSL_SESSION_set_ex_data");
+                return 0; /* reject */
+            }
         }
         return 1; /* accept */
     }

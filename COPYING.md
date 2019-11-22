@@ -1,6 +1,7 @@
-stunnel license (see COPYRIGHT.GPL for detailed GPL conditions)
+# stunnel license (see COPYRIGHT.md for detailed GPL conditions)
 
-Copyright (C) 1998-2019 Michal Trojnara
+
+_Copyright (C) 1998-2019 Michal Trojnara_
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

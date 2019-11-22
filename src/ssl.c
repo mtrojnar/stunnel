@@ -260,6 +260,13 @@ NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
 NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
     int totbytes=0;
     char filename[256];
+    const RAND_METHOD *meth=RAND_get_rand_method();
+
+    /* skip PRNG initialization when no seeding methods are available */
+    if(meth->status==NULL || meth->add==NULL) {
+        s_log(LOG_DEBUG, "No PRNG seeding methods");
+        return 0; /* success */
+    }
 
     if(RAND_status()) {
         s_log(LOG_DEBUG, "No PRNG seeding was required");

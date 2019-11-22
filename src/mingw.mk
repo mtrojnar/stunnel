@@ -24,7 +24,8 @@ win32_ldflags = -g -mthreads
 #win32_ldflags += -fstack-protector
 # -fstack-protector is broken (at least in x86_64-w64-mingw32-gcc 8.2.0)
 
-win32_common_libs = -lws2_32 -lkernel32
+# compiling with -D_FORTIFY_SOURCE=2 may require linking with -lssp
+win32_common_libs = -lws2_32 -lkernel32 -lssp
 win32_ssl_libs = -L$(win32_ssl_dir)/lib -lcrypto -lssl
 win32_gui_libs = $(win32_common_libs) -lgdi32 -lpsapi $(win32_ssl_libs)
 win32_cli_libs = $(win32_common_libs) $(win32_ssl_libs)

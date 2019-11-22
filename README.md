@@ -1,6 +1,7 @@
-stunnel overview
+# stunnel overview
 
-Short description
+
+### Short description
 
      The stunnel program is designed to work as an SSL encryption
      wrapper between remote client and local (inetd-startable) or
@@ -11,20 +12,19 @@ Short description
      used  inetd  daemons  like  POP-2,  POP-3  and  IMAP servers
      without any changes in the programs' code.
 
-Compile instructions
+### Compile instructions
 
      See INSTALL file.
 
-License
+### License
 
      See COPYING file.
 
-Other files you should read
+### Other files you should read
 
      Changelog      What I did
      TODO           What I'm going to do
 
-Reporting problems and other contacts
+### Reporting problems and other contacts
 
      See FAQ file.
-

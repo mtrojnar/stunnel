@@ -994,12 +994,13 @@ NOEXPORT int generate_session_ticket_cb(SSL *ssl, void *arg) {
 #if 0
     SOCKADDR_UNION *addr;
 #endif
+    int retval;
 
     (void)arg; /* squash the unused parameter warning */
 
     s_log(LOG_DEBUG, "Generate session ticket callback");
 
-    sess=SSL_get_session(ssl);
+    sess=SSL_get1_session(ssl);
     if(!sess)
         return 0;
     memset(&ticket_data, 0, sizeof(TICKET_DATA));
@@ -1016,8 +1017,10 @@ NOEXPORT int generate_session_ticket_cb(SSL *ssl, void *arg) {
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
 #endif
 
-    return SSL_SESSION_set1_ticket_appdata(sess,
+    retval=SSL_SESSION_set1_ticket_appdata(sess,
         &ticket_data, sizeof(TICKET_DATA));
+    SSL_SESSION_free(sess);
+    return retval;
 }
 
 NOEXPORT int decrypt_session_ticket_cb(SSL *ssl, SSL_SESSION *sess,

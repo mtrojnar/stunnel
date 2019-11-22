@@ -315,6 +315,9 @@ typedef int SOCKET;
 #include <sys/select.h>     /* for aix */
 #endif
 #include <dirent.h>
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>      /* MAXPATHLEN */
+#endif
 
 #if defined(HAVE_POLL) && !defined(BROKEN_POLL)
 #ifdef HAVE_POLL_H

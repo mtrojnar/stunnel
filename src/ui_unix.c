@@ -108,7 +108,19 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         if(signal(SIGINT, SIG_IGN)!=SIG_IGN)
             signal(SIGINT, signal_handler); /* fatal */
 #endif
+#ifdef USE_FORK
+        setpgid(0, 0); /* create a new process group if needed */
+#endif
         daemon_loop();
+#ifdef USE_FORK
+        s_log(LOG_NOTICE, "Terminating service processes");
+        signal(SIGCHLD, SIG_IGN);
+        signal(SIGTERM, SIG_IGN);
+        kill(0, SIGTERM); /* kill the whole process group */
+        while(wait(NULL)!=-1)
+            ;
+        s_log(LOG_NOTICE, "Service processes terminated");
+#endif
 #if !defined(__vms) && !defined(USE_OS2)
         delete_pid();
 #endif /* standard Unix */

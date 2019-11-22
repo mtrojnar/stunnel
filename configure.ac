@@ -1,12 +1,12 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.55])
+AC_INIT([stunnel],[5.56])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/stunnel.c])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([foreign])
 
 AC_CANONICAL_HOST
 AC_SUBST([host])
@@ -183,7 +183,8 @@ AC_MSG_NOTICE([**************************************** header files])
 AC_CHECK_HEADERS([stdint.h inttypes.h malloc.h ucontext.h pthread.h poll.h \
     tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h limits.h])
 AC_CHECK_HEADERS([sys/types.h sys/select.h sys/poll.h sys/socket.h sys/un.h \
-    sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h sys/syscall.h])
+    sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h sys/syscall.h \
+    sys/param.h])
 AC_CHECK_HEADERS([linux/sched.h])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],
     [AC_DEFINE([HAVE_MSGHDR_MSG_CONTROL], [1],

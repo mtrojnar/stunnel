@@ -1,14 +1,14 @@
-stunnel Windows CE install notes
+# stunnel Windows CE install notes
 
 
-Two stunnel executables are available for Windows CE platform:
+### Two stunnel executables are available for Windows CE platform:
 
   1) stunnel.exe - version with interactive GUI
 
   2) tstunnel.exe - non-iteractive version for headless devices
 
 
-Building stunnel from source (optional):
+### Building stunnel from source (optional):
 
   1) install the following tools:
      evt2002web_min.exe from http://www.microsoft.com/
@@ -35,11 +35,10 @@ Building stunnel from source (optional):
   5) type "makece" to build stunnel
 
 
-Installing stunnel:
+### Installing stunnel:
 
   1) copy OpenSSL DLLs and stunnel.exe or tstunnel.exe into \stunnel directory
 
   2) read the manual (stunnel.html)
 
   3) create/edit stunnel.conf configuration file
-

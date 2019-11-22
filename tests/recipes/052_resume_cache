@@ -1,0 +1,53 @@
+#!/bin/sh
+
+# Checking the cache session resumption.
+
+# We expect exactly 1 "accepted: new session negotiated" to be logged by the
+# [server] service.
+
+# "options = NO_TICKET" turns off ticket support in TLSv1.2 and older.
+# In TLSv1.3, "options = NO_TICKET" switches from using stateful tickets to
+# stateless tickets (traditional cache with session id sent in tickets).
+# https://github.com/openssl/openssl/issues/10280
+
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  sslVersionMax = TLSv1.2
+
+  [client]
+  client = yes
+  retry = yes
+  exec = ${script_path}/execute_read
+  execArgs = execute_read ${result_path}/temp.log
+  connect = 127.0.0.1:${https1}
+  cert = ${script_path}/certs/client_cert.pem
+
+  [server]
+  accept = 127.0.0.1:${https1}
+  exec = ${script_path}/execute
+  execArgs = execute 052_resume_cache
+  cert = ${script_path}/certs/server_cert.pem
+  verifyPeer = yes
+  CAfile = ${script_path}/certs/PeerCerts.pem
+  options = NO_TICKET
+EOT
+}
+
+# This test is only available when compiled with OpenSSL 1.1.0 or later,
+# because it requires the "sslVersionMax" option support.
+# Session cache resumption does not work with the FORK threading model.
+if grep -q -e "OpenSSL 1\.1" -e "OpenSSL [3-9]" "results.log" && ! grep -q "FORK" "results.log"
+  then
+    test_log_for "052_resume_cache" "session" "1" "$1" "$2" "$3" 2>> "stderr.log"
+    exit $?
+  else
+    exit_logs "052_resume_cache" "skipped"
+    exit 125
+  fi

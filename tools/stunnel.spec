@@ -1,5 +1,5 @@
 Name:           stunnel
-Version:        5.55
+Version:        5.56
 Release:        1%{?dist}
 Summary:        An TLS-encrypting socket wrapper
 Group:          Applications/Internet
@@ -80,7 +80,7 @@ fi
 
 %files
 %defattr(-,root,root,-)
-%doc COPYING COPYRIGHT.GPL README ChangeLog doc/stunnel.html
+%doc COPYING.md COPYRIGHT.md README.md NEWS.md doc/stunnel.html
 %doc tools/ca.html tools/ca.pl tools/importCA.html tools/importCA.sh tools/openssl.cnf
 %{_bindir}/*
 %{_libdir}/%{name}

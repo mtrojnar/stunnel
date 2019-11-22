@@ -15,10 +15,9 @@ start() {
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
 
-  retry = yes
-
   [client_1]
   client = yes
+  retry = yes
   exec = ${script_path}/execute_read
   execArgs = execute_read ${result_path}/temp.log
   connect = 127.0.0.1:${https1}

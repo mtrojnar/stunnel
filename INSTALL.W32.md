@@ -1,7 +1,7 @@
-stunnel Windows install notes
+# stunnel Windows install notes
 
 
-Cross-compiling 64-bit stunnel from source with MinGW (optional):
+### Cross-compiling 64-bit stunnel from source with MinGW (optional):
 
  1) Install the mingw64 cross-compiler on a Unix/Linux machine.
     On Debian (and derivatives, including Ubuntu):
@@ -35,7 +35,7 @@ Cross-compiling 64-bit stunnel from source with MinGW (optional):
       make mingw64
 
 
-Cross-compiling 32-bit stunnel from source with MinGW (optional):
+### Cross-compiling 32-bit stunnel from source with MinGW (optional):
 
  1) Install the mingw64 cross-compiler on a Unix/Linux machine.
     On Debian (and derivatives, including Ubuntu):
@@ -69,13 +69,13 @@ Cross-compiling 32-bit stunnel from source with MinGW (optional):
       make mingw
 
 
-Building stunnel from source with MinGW (optional):
+### Building stunnel from source with MinGW (optional):
 
  Building stunnel with MinGW on a Windows machine is possible,
  but not currently supported.
 
 
-Building stunnel from source with Visual Studio (optional):
+### Building stunnel from source with Visual Studio (optional):
 
  1) Build your own or download pre-built OpenSSL library and headers.
     TODO
@@ -87,7 +87,7 @@ Building stunnel from source with Visual Studio (optional):
       nmake -f vc.mak
 
 
-Installing stunnel:
+### Installing stunnel:
 
  1) Install stunnel.
     Run installer to install the precompiled binaries.
