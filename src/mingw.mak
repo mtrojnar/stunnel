@@ -1,4 +1,4 @@
-# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-2019
+# Simple Makefile.w32 for stunnel.exe by Michal Trojnara 1998-2020
 #
 # Modified by Brian Hatch  (bri@stunnel.org)
 # 20101030 pdelaage:

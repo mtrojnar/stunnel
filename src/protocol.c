@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -686,17 +686,31 @@ NOEXPORT char *pgsql_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 
 NOEXPORT char *pgsql_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     uint8_t buffer[8], ssl_ok[1]={'S'};
+    /* https://www.postgresql.org/docs/current/protocol-message-formats.html */
+    static const uint8_t gss_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x30};
+    static const uint8_t gss_response[62]=
+        {'E', 0, 0, 0, 61, 'S', 'E', 'R', 'R', 'O', 'R', 0, 'C', 'X', 'X', '0',
+        '0', '0', 0, 'M', 'S', 'S', 'L', ' ', 'e', 'x', 'p', 'e', 'c', 't', 'e', 'd',
+        ' ', 'b', 'u', 't', ' ', 'n', 'o', 't', ' ', 'r', 'e', 'q', 'u', 'e', 's', 't',
+        'e', 'd', ' ', 'b', 'y', ' ', 'c', 'l', 'i', 'e', 'n', 't', 0, 0};
 
     (void)opt; /* squash the unused parameter warning */
     if(phase!=PROTOCOL_EARLY)
         return NULL;
+    s_log(LOG_DEBUG, "Started server-side psql protcol negotiation");
     memset(buffer, 0, sizeof buffer);
     s_read(c, c->local_rfd.fd, buffer, sizeof buffer);
+    if(!safe_memcmp(buffer, gss_request, sizeof gss_request)) {
+        s_log(LOG_INFO, "GSSAPI encryption requested, rejecting gracefully");
+        s_write(c, c->local_wfd.fd, gss_response, sizeof gss_response);
+        throw_exception(c, 2); /* don't reset */
+    }
     if(safe_memcmp(buffer, ssl_request, sizeof ssl_request)) {
         s_log(LOG_ERR, "PostgreSQL client did not request TLS, rejecting");
         /* no way to send error on startup, so just drop the client */
         throw_exception(c, 1);
     }
+    s_log(LOG_DEBUG, "SSLRequest received");
     s_write(c, c->local_wfd.fd, ssl_ok, sizeof ssl_ok);
     return NULL;
 }
@@ -1418,7 +1432,7 @@ NOEXPORT char *base64(int encode, const char *in, int len) {
     BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
     bio=BIO_new(BIO_s_mem());
     if(!bio) {
-        str_free(b64);
+        BIO_free(b64);
         return NULL;
     }
     if(encode)

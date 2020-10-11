@@ -1,6 +1,25 @@
 # stunnel change log
 
 
+### Version 5.57, 2020.10.11, urgency: HIGH
+* Security bugfixes
+  - The "redirect" option was fixed to properly
+    handle "verifyChain = yes" (thx to Rob Hoes).
+  - OpenSSL DLLs updated to version 1.1.1h.
+* New features
+  - New securityLevel configuration file option.
+  - FIPS support for RHEL-based distributions.
+  - Support for modern PostgreSQL clients (thx to Bram Geron).
+  - Windows tooltip texts updated to mention "stunnel".
+  - TLS 1.3 configuration updated for better compatibility.
+* Bugfixes
+  - Fixed a transfer() loop bug.
+  - Fixed memory leaks on configuration reloading errors.
+  - DH/ECDH initialization restored for client sections.
+  - Delay startup with systemd until network is online.
+  - bin\libssp-0.dll removed when uninstalling.
+  - A number of testing framework fixes and improvements.
+
 ### Version 5.56, 2019.11.22, urgency: HIGH
 * New features
   - Various text files converted to Markdown format.

@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -227,10 +227,7 @@ NOEXPORT void log_queue(SERVICE_OPTIONS *opt,
 void log_flush(LOG_MODE new_mode) {
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
 
-    /* prevent changing LOG_MODE_CONFIGURED to LOG_MODE_ERROR
-     * once stderr file descriptor is closed */
-    if(log_mode!=LOG_MODE_CONFIGURED || new_mode!=LOG_MODE_ERROR)
-        log_mode=new_mode;
+    log_mode=new_mode;
 
     /* emit the buffered logs (unless we just started buffering) */
     if(new_mode!=LOG_MODE_BUFFER) {

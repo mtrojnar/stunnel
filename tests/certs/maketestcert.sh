@@ -90,7 +90,7 @@ cat tmp/server_cert.pem >> tmp/PeerCerts.pem 2>> "maketestcert.log"
 cat demoCA/server.key >> tmp/server_cert.pem 2>> "maketestcert.log"
 
 # create a PKCS#12 file with a server certificate
-$OPENSSL pkcs12 -export -in tmp/server_cert.pem -out tmp/server_cert.p12 -passout pass: 1>&2 2>> "maketestcert.log"
+$OPENSSL pkcs12 -export -certpbe pbeWithSHA1And3-KeyTripleDES-CBC -in tmp/server_cert.pem -out tmp/server_cert.p12 -passout pass: 1>&2 2>> "maketestcert.log"
 
 # copy new files
 if [ -s tmp/stunnel.pem ] && [ -s tmp/CACert.pem ] && [ -s tmp/CACertCRL.pem ] && \

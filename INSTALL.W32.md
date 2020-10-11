@@ -17,9 +17,9 @@
  3) Build and install OpenSSL.
       ./Configure \
         --cross-compile-prefix=x86_64-w64-mingw32- \
-        --prefix=/opt/openssl-mingw64 mingw64 shared
-      sed -i 's/^\(OPENSSLDIR=\).*/\1..\/config/' Makefile
-      sed -i 's/^\(ENGINESDIR=\).*/\1..\/engines/' Makefile
+        --prefix=/opt/openssl-mingw64 mingw64 shared enable-capieng
+      sed -i 's/"\$(OPENSSLDIR)/"..\/config/' Makefile
+      sed -i 's/"\$(ENGINESDIR)/"..\/engines/' Makefile
       make
       sudo make install
       sudo cp ms/applink.c /opt/openssl-mingw64/include/openssl/
@@ -51,9 +51,9 @@
  3) Build and install OpenSSL.
       ./Configure \
         --cross-compile-prefix=i686-w64-mingw32- \
-        --prefix=/opt/openssl-mingw mingw shared
-      sed -i 's/^\(OPENSSLDIR=\).*/\1..\/config/' Makefile
-      sed -i 's/^\(ENGINESDIR=\).*/\1..\/engines/' Makefile
+        --prefix=/opt/openssl-mingw mingw shared enable-capieng
+      sed -i 's/"\$(OPENSSLDIR)/"..\/config/' Makefile
+      sed -i 's/"\$(ENGINESDIR)/"..\/engines/' Makefile
       make
       sudo make install
       sudo cp ms/applink.c /opt/openssl-mingw/include/openssl/

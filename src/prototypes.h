@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -240,6 +240,9 @@ typedef struct service_options_struct {
     char *cert;                                             /* cert filename */
     char *key;                               /* pem (priv key/cert) filename */
     long session_size, session_timeout;
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    int security_level;
+#endif /* OpenSSL 1.1.0 or later */
     long unsigned ssl_options_set;
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
     long unsigned ssl_options_clear;
@@ -470,8 +473,6 @@ int main_configure(char *, char *);
 void main_cleanup(void);
 int drop_privileges(int);
 void daemon_loop(void);
-void unbind_ports(void);
-int bind_ports(void);
 void signal_post(uint8_t);
 #if !defined(USE_WIN32) && !defined(USE_OS2)
 void pid_status_hang(const char *);
@@ -487,7 +488,7 @@ int options_cmdline(char *, char *);
 int options_parse(CONF_TYPE);
 void options_defaults(void);
 void options_apply(void);
-void options_free(void);
+void options_free(int);
 
 void service_up_ref(SERVICE_OPTIONS *);
 void service_free(SERVICE_OPTIONS *);

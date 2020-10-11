@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -39,7 +39,12 @@
 #include "prototypes.h"
 
     /* global OpenSSL initialization: compression, engine, entropy */
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+NOEXPORT void cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+        int idx, long argl, void *argp);
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
+    void **from_d, int idx, long argl, void *argp);
+#elif OPENSSL_VERSION_NUMBER>=0x10100000L
 NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
     void *from_d, int idx, long argl, void *argp);
 #else
@@ -72,7 +77,7 @@ int ssl_init(void) { /* init TLS before parsing configuration file */
     index_ssl_ctx_opt=SSL_CTX_get_ex_new_index(0,
         "SERVICE_OPTIONS pointer", NULL, NULL, NULL);
     index_session_authenticated=SSL_SESSION_get_ex_new_index(0,
-        "session authenticated", NULL, NULL, NULL);
+        "session authenticated", cb_new_auth, NULL, NULL);
     index_session_connect_address=SSL_SESSION_get_ex_new_index(0,
         "session connect address", NULL, cb_dup_addr, cb_free_addr);
     if(index_ssl_cli<0 || index_ssl_ctx_opt<0 ||
@@ -104,17 +109,31 @@ int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g) {
     BN_free(dh->p);
     BN_free(dh->q);
     BN_free(dh->g);
-    dh->p = p;
-    dh->q = q;
-    dh->g = g;
+    dh->p=p;
+    dh->q=q;
+    dh->g=g;
     if(q)
-        dh->length = BN_num_bits(q);
+        dh->length=BN_num_bits(q);
     return 1;
 }
 #endif
 #endif
 
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+NOEXPORT void cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+        int idx, long argl, void *argp) {
+    (void)parent; /* squash the unused parameter warning */
+    (void)ptr; /* squash the unused parameter warning */
+    (void)argl; /* squash the unused parameter warning */
+    s_log(LOG_DEBUG, "Initializing application specific data for %s",
+        (char *)argp);
+    if(!CRYPTO_set_ex_data(ad, idx, (void *)(-1)))
+        sslerror("CRYPTO_set_ex_data");
+}
+
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
+        void **from_d, int idx, long argl, void *argp) {
+#elif OPENSSL_VERSION_NUMBER>=0x10100000L
 NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
         void *from_d, int idx, long argl, void *argp) {
 #else

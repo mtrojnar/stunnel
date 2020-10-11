@@ -526,6 +526,8 @@
 
 <p>Mo&#x17C;liwe jest wyspecyfikowanie wielu opcji <b>OpenSSL</b> przez wielokrotne u&#x17C;ycie komendy <b>config</b>.</p>
 
+<p>Zamiast wy&#x142;&#x105;cza&#x107; <i>config = Curves:list_curves</i> u&#x17C;yj opcji <i>curves</i> w celu ustawnienia krzywych eliptycznych.</p>
+
 <p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
 
 </dd>
@@ -564,7 +566,7 @@
 
 <p>krzywe ECDH odddzielone &#39;:&#39;</p>
 
-<p>Wersje OpenSSL starsze ni&#x17C; 1.1.0 pozwalaj&#x105; na u&#x17C;ycie tylko jednej krzywej.</p>
+<p>Wersje OpenSSL starsze ni&#x17C; 1.1.1 pozwalaj&#x105; na u&#x17C;ycie tylko jednej krzywej.</p>
 
 <p>List&#x119; dost&#x119;pnych krzywych mo&#x17C;na uzyska&#x107; poleceniem:</p>
 
@@ -998,6 +1000,60 @@
 <p>domy&#x15B;lnie: no</p>
 
 </dd>
+<dt id="securityLevel-POZIOM"><b>securityLevel</b> = POZIOM</dt>
+<dd>
+
+<p>ustaw poziom bezpiecze&#x144;stwa</p>
+
+<p>Znaczenie ka&#x17C;dego poziomu opisano poni&#x17C;ej:</p>
+
+<dl>
+
+<dt id="poziom-0">poziom 0</dt>
+<dd>
+
+<p>Wszystko jest dozwolone.</p>
+
+</dd>
+<dt id="poziom-1">poziom 1</dt>
+<dd>
+
+<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy minimum 80 bit&oacute;w bezpiecze&#x144;stwa. &#x17B;adne parametry kryptograficzne oferuj&#x105;ce poziom bezpiecze&#x144;stwa poni&#x17C;ej 80 bit&oacute;w nie mog&#x105; zosta&#x107; u&#x17C;yte. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 1024 bity, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 160 bit&oacute;w i wszystkie eksportowe zestawy szyfr&oacute;w s&#x105; niedozwolone. U&#x17C;ycie SSLv2 jest zabronione. Wszelkie listy parametr&oacute;w kryptograficznych u&#x17C;ywaj&#x105;ce MD5 do MAC s&#x105; zabronione.</p>
+
+</dd>
+<dt id="poziom-2">poziom 2</dt>
+<dd>
+
+<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 112 bit&oacute;w bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 2048 bit&oacute;w, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 224 bity s&#x105; niedozwolone. Opr&oacute;cz wy&#x142;&#x105;cze&#x144; z poziomu 1 zabronione jest tak&#x17C;e korzystanie z zestaw&oacute;w szyfr&oacute;w u&#x17C;ywaj&#x105;cych RC4. U&#x17C;ycie SSLv3 jest zabronione. Kompresja jest wy&#x142;&#x105;czona.</p>
+
+</dd>
+<dt id="poziom-3">poziom 3</dt>
+<dd>
+
+<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 128 bit&oacute;w bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 3072 bity, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 256 bit&oacute;w s&#x105; niedozwolone. Opr&oacute;cz wy&#x142;&#x105;cze&#x144; z poziomu 2 zabronione jest tak&#x17C;e korzystanie z zestaw&oacute;w szyfr&oacute;w nie zapewniaj&#x105;cych utajniania z wyprzedzeniem (forward secrecy). Wersje TLS starsze ni&#x17C; 1.1 s&#x105; zabronione. Bilety sesji s&#x105; wy&#x142;&#x105;czone.</p>
+
+</dd>
+<dt id="poziom-4">poziom 4</dt>
+<dd>
+
+<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 192 bity bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 7680 bit&oacute;w, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 384 bity s&#x105; niedozwolone. Listy parametr&oacute;w kryptograficznych u&#x17C;ywaj&#x105;cych SHA1 do MAC s&#x105; zabronione. Wersje TLS starsze ni&#x17C; 1.2 s&#x105; zabronione.</p>
+
+</dd>
+<dt id="poziom-5">poziom 5</dt>
+<dd>
+
+<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 256 bit&oacute;w bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 15360 bit&oacute;w, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 512 bit&oacute;w s&#x105; niedozwolone.</p>
+
+</dd>
+<dt id="domylnie:-2">domy&#x15B;lnie: 2</dt>
+<dd>
+
+</dd>
+</dl>
+
+<p>Opcja <i>securityLevel</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.1.0</b>.</p>
+
+</dd>
 <dt id="requireCert-yes-no"><b>requireCert</b> = yes | no</dt>
 <dd>
 
@@ -1349,31 +1405,31 @@
 
 <dl>
 
-<dt id="poziom-0"><i>poziom 0</i></dt>
+<dt id="poziom-01"><i>poziom 0</i></dt>
 <dd>
 
 <p>zarz&#x105;daj certyfikatu i zignoruj go</p>
 
 </dd>
-<dt id="poziom-1"><i>poziom 1</i></dt>
+<dt id="poziom-11"><i>poziom 1</i></dt>
 <dd>
 
 <p>weryfikuj, je&#x17C;eli zosta&#x142; przedstawiony</p>
 
 </dd>
-<dt id="poziom-2"><i>poziom 2</i></dt>
+<dt id="poziom-21"><i>poziom 2</i></dt>
 <dd>
 
 <p>weryfikuj z zainstalowanym certyfikatem Centrum Certyfikacji</p>
 
 </dd>
-<dt id="poziom-3"><i>poziom 3</i></dt>
+<dt id="poziom-31"><i>poziom 3</i></dt>
 <dd>
 
 <p>weryfikuj z lokalnie zainstalowanym certyfikatem drugiej strony</p>
 
 </dd>
-<dt id="poziom-4"><i>poziom 4</i></dt>
+<dt id="poziom-41"><i>poziom 4</i></dt>
 <dd>
 
 <p>weryfikuj z certyfikatem drugiej strony ignoruj&#x105;c &#x142;a&#x144;cuch CA</p>

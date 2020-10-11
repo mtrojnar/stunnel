@@ -19,7 +19,7 @@ BEGIN
             VALUE "FileDescription",    "stunnel - TLS offloading and load-balancing proxy"
             VALUE "FileVersion",        STUNNEL_VERSION
             VALUE "InternalName",       "stunnel"
-            VALUE "LegalCopyright",     "© by Michal Trojnara, 1998-2019"
+            VALUE "LegalCopyright",     "© by Michal Trojnara, 1998-2020"
             VALUE "OriginalFilename",   "stunnel.exe"
             VALUE "ProductName",        STUNNEL_PRODUCTNAME
             VALUE "ProductVersion",     STUNNEL_VERSION
@@ -107,7 +107,7 @@ BEGIN
     ICON            IDI_STUNNEL_MAIN, -1,                        6,  6,  20, 20
     LTEXT           "stunnel version", -1,                      30,  4,  49,  8
     LTEXT           STUNNEL_VERSION, -1,                        79,  4,  57,  8
-    LTEXT           "© by Michal Trojnara, 1998-2019", -1,      30, 12, 106,  8
+    LTEXT           "© by Michal Trojnara, 1998-2020", -1,      30, 12, 106,  8
     LTEXT           "All Rights Reserved", -1,                  30, 20, 106,  8
     LTEXT           "Licensed under the GNU GPL version 2", -1,  4, 28, 132,  8
     LTEXT           "with a special exception for OpenSSL", -1,  4, 36, 132,  8

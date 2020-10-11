@@ -1,4 +1,4 @@
-# NSIS stunnel installer by Michal Trojnara 1998-2019
+# NSIS stunnel installer by Michal Trojnara 1998-2020
 
 !define /ifndef VERSION testing
 !define /ifndef ARCH win32
@@ -181,6 +181,7 @@ no_service_restart:
   Delete "$INSTDIR\bin\libssl-1_1-x64.dll"
   Delete "$INSTDIR\bin\libssl-1_1-x64.pdb"
   Delete "$INSTDIR\bin\vcruntime140.dll"
+  Delete "$INSTDIR\bin\libssp-0.dll"
   RMDir "$INSTDIR\bin"
 
   Delete "$INSTDIR\engines\4758cca.dll"
@@ -338,8 +339,16 @@ Section "Core Files" sectionCORE
   !if /FileExists "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
   File "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
   !else
+  !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll"
+  File "/usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll"
+  !else
+  !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/9.3-win32/libssp-0.dll"
+  File "/usr/lib/gcc/x86_64-w64-mingw32/9.3-win32/libssp-0.dll"
+  !else
   !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/8.3-win32/libssp-0.dll"
   File "/usr/lib/gcc/x86_64-w64-mingw32/8.3-win32/libssp-0.dll"
+  !endif
+  !endif
   !endif
   !endif
   #SetOutPath "$INSTDIR"

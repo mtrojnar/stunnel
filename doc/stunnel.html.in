@@ -528,6 +528,8 @@
 
 <p>Several <i>config</i> lines can be used to specify multiple configuration commands.</p>
 
+<p>Use <i>curves</i> option instead of enabling <i>config = Curves:list_curves</i> to support elliptic curves.</p>
+
 <p>This option requires OpenSSL 1.0.2 or later.</p>
 
 </dd>
@@ -568,7 +570,7 @@
 
 <p>ECDH curves separated with &#39;:&#39;</p>
 
-<p>Only a single curve name is allowed for OpenSSL older than 1.1.0.</p>
+<p>Only a single curve name is allowed for OpenSSL older than 1.1.1.</p>
 
 <p>To get a list of supported curves use:</p>
 
@@ -1000,6 +1002,60 @@
 <p>default: no</p>
 
 </dd>
+<dt id="securityLevel-LEVEL"><b>securityLevel</b> = LEVEL</dt>
+<dd>
+
+<p>set the security level</p>
+
+<p>The meaning of each level is described below:</p>
+
+<dl>
+
+<dt id="level-0">level 0</dt>
+<dd>
+
+<p>Everything is permitted.</p>
+
+</dd>
+<dt id="level-1">level 1</dt>
+<dd>
+
+<p>The security level corresponds to a minimum of 80 bits of security. Any parameters offering below 80 bits of security are excluded. As a result RSA, DSA and DH keys shorter than 1024 bits and ECC keys shorter than 160 bits are prohibited. All export cipher suites are prohibited since they all offer less than 80 bits of security. SSL version 2 is prohibited. Any cipher suite using MD5 for the MAC is also prohibited.</p>
+
+</dd>
+<dt id="level-2">level 2</dt>
+<dd>
+
+<p>Security level set to 112 bits of security. As a result RSA, DSA and DH keys shorter than 2048 bits and ECC keys shorter than 224 bits are prohibited. In addition to the level 1 exclusions any cipher suite using RC4 is also prohibited. SSL version 3 is also not allowed. Compression is disabled.</p>
+
+</dd>
+<dt id="level-3">level 3</dt>
+<dd>
+
+<p>Security level set to 128 bits of security. As a result RSA, DSA and DH keys shorter than 3072 bits and ECC keys shorter than 256 bits are prohibited. In addition to the level 2 exclusions cipher suites not offering forward secrecy are prohibited. TLS versions below 1.1 are not permitted. Session tickets are disabled.</p>
+
+</dd>
+<dt id="level-4">level 4</dt>
+<dd>
+
+<p>Security level set to 192 bits of security. As a result RSA, DSA and DH keys shorter than 7680 bits and ECC keys shorter than 384 bits are prohibited. Cipher suites using SHA1 for the MAC are prohibited. TLS versions below 1.2 are not permitted.</p>
+
+</dd>
+<dt id="level-5">level 5</dt>
+<dd>
+
+<p>Security level set to 256 bits of security. As a result RSA, DSA and DH keys shorter than 15360 bits and ECC keys shorter than 512 bits are prohibited.</p>
+
+</dd>
+<dt id="default:-2">default: 2</dt>
+<dd>
+
+</dd>
+</dl>
+
+<p>The <i>securityLevel</i> option is only available when compiled with <b>OpenSSL 1.1.0</b> and later.</p>
+
+</dd>
 <dt id="requireCert-yes-no"><b>requireCert</b> = yes | no</dt>
 <dd>
 
@@ -1351,31 +1407,31 @@
 
 <dl>
 
-<dt id="level-0">level 0</dt>
+<dt id="level-01">level 0</dt>
 <dd>
 
 <p>Request and ignore the peer certificate.</p>
 
 </dd>
-<dt id="level-1">level 1</dt>
+<dt id="level-11">level 1</dt>
 <dd>
 
 <p>Verify the peer certificate if present.</p>
 
 </dd>
-<dt id="level-2">level 2</dt>
+<dt id="level-21">level 2</dt>
 <dd>
 
 <p>Verify the peer certificate.</p>
 
 </dd>
-<dt id="level-3">level 3</dt>
+<dt id="level-31">level 3</dt>
 <dd>
 
 <p>Verify the peer against a locally installed certificate.</p>
 
 </dd>
-<dt id="level-4">level 4</dt>
+<dt id="level-41">level 4</dt>
 <dd>
 
 <p>Ignore the chain and only verify the peer certificate.</p>

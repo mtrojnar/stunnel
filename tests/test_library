@@ -302,7 +302,7 @@ connecting_ncat() {
         then # BSD nc
               cat "nodata" | $mybuffer $opt_buf $mynetcat -l "$http_nc" -vvv > "temp.log" 2>> "stderr_nc.log" &
         else # traditional nc
-              cat "nodata" | $mybuffer $opt_buf $mynetcat -l -p "$http_nc" -vvv > "temp.log" 2>> "stderr_nc.log" &
+              cat "nodata" | $mybuffer $opt_buf $mynetcat -l -p "$http_nc" -s 127.0.0.1 -vvv > "temp.log" 2>> "stderr_nc.log" &
         fi
       pid_nc=$!
       if check_listening "$http_nc"
@@ -805,6 +805,7 @@ myglobal() {
   mybuffer="$3"
 
   case "$mynetstat" in
+    "/mnt/c/Windows/System32/netstat.exe") opt_net="-a -n";;
     "netstat") opt_net="-a -n";;
     "ss") opt_net="-a -n -l";;
     "lsof") opt_net="-i -n -P";;

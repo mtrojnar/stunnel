@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -926,8 +926,6 @@ NOEXPORT unsigned __stdcall daemon_thread(void *arg) {
     while(main_configure(cmdline.config_file, NULL)) {
         if(cmdline.config_file && *cmdline.config_file=='-')
             cmdline.config_file=NULL; /* don't retry commandline switches */
-        unbind_ports(); /* in case initialization failed after bind_ports() */
-        log_flush(LOG_MODE_ERROR); /* otherwise logs are buffered */
         PostMessage(hwnd, WM_INVALID_CONFIG, 0, 0); /* display error */
         WaitForSingleObject(config_ready, INFINITE);
     }
@@ -1120,13 +1118,13 @@ NOEXPORT void tray_update(const int num) {
     nid.uCallbackMessage=WM_SYSTRAY; /* notification message */
     nid.hWnd=hwnd; /* window to receive notifications */
     if(num<0) {
-        tip=str_tprintf(TEXT("Server is down"));
+        tip=str_tprintf(TEXT("stunnel is down"));
         current_icon=ICON_ERROR;
     } else if(num>0) {
-        tip=str_tprintf(TEXT("%d active session(s)"), num);
+        tip=str_tprintf(TEXT("stunnel connections: %d"), num);
         current_icon=ICON_ACTIVE;
     } else {
-        tip=str_tprintf(TEXT("Server is idle"));
+        tip=str_tprintf(TEXT("stunnel is idle"));
         current_icon=ICON_IDLE;
     }
     _tcsncpy(nid.szTip, tip, 63);

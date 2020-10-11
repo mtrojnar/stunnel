@@ -24,7 +24,7 @@ start() {
 EOT
 }
 
-if grep -q "FIPS" results.log && grep -q "\-fips" results.log
+if (grep -q "FIPS" results.log && grep -q "\-fips" results.log) || grep -q "FIPS mode is enabled" results.log
   then
     test_log_for "021_FIPS" "success" "0" "$1" "$2" "$3" 2>> "stderr.log"
     exit $?

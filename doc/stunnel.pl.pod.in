@@ -469,6 +469,9 @@ I<SSL_CONF_cmd(3ssl)>.
 Możliwe jest wyspecyfikowanie wielu opcji B<OpenSSL> przez wielokrotne użycie
 komendy B<config>.
 
+Zamiast wyłączać I<config = Curves:list_curves>
+użyj opcji I<curves> w celu ustawnienia krzywych eliptycznych.
+
 Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 
 =item B<connect> = [HOST:]PORT
@@ -507,7 +510,7 @@ przez opcje I<verifyChain> i I<verifyPeer>.
 
 krzywe ECDH odddzielone ':'
 
-Wersje OpenSSL starsze niż 1.1.0 pozwalają na użycie tylko jednej krzywej.
+Wersje OpenSSL starsze niż 1.1.1 pozwalają na użycie tylko jednej krzywej.
 
 Listę dostępnych krzywych można uzyskać poleceniem:
 
@@ -902,6 +905,44 @@ domyślnie: yes
 połącz ponownie sekcję connect+exec po rozłączeniu
 
 domyślnie: no
+
+=item B<securityLevel> = POZIOM
+
+ustaw poziom bezpieczeństwa
+
+Znaczenie każdego poziomu opisano poniżej:
+
+=over 4
+
+=item poziom 0
+
+Wszystko jest dozwolone.
+
+=item poziom 1
+
+Poziom bezpieczeństwa zapewniający minimum 80 bitów bezpieczeństwa. Żadne parametry kryptograficzne oferujące poziom bezpieczeństwa poniżej 80 bitów nie mogą zostać użyte. W związku z tym RSA, DSA oraz klucze DH krótsze niż 1024 bity, a także klucze ECC krótsze niż 160 bitów i wszystkie eksportowe zestawy szyfrów są niedozwolone. Użycie SSLv2 jest zabronione. Wszelkie listy parametrów kryptograficznych używające MD5 do MAC są zabronione.
+
+=item poziom 2
+
+Poziom bezpieczeństwa zapewniający 112 bitów bezpieczeństwa. W związku z tym RSA, DSA oraz klucze DH krótsze niż 2048 bitów, a także klucze ECC krótsze niż 224 bity są niedozwolone. Oprócz wyłączeń z poziomu 1 zabronione jest także korzystanie z zestawów szyfrów używających RC4. Użycie SSLv3 jest zabronione. Kompresja jest wyłączona.
+
+=item poziom 3
+
+Poziom bezpieczeństwa zapewniający 128 bitów bezpieczeństwa. W związku z tym RSA, DSA oraz klucze DH krótsze niż 3072 bity, a także klucze ECC krótsze niż 256 bitów są niedozwolone. Oprócz wyłączeń z poziomu 2  zabronione jest także korzystanie z zestawów szyfrów nie zapewniających utajniania z wyprzedzeniem (forward secrecy).  Wersje TLS starsze niż 1.1 są zabronione. Bilety sesji są wyłączone.
+
+=item poziom 4
+
+Poziom bezpieczeństwa zapewniający 192 bity bezpieczeństwa. W związku z tym RSA, DSA oraz klucze DH krótsze niż 7680 bitów, a także klucze ECC krótsze niż 384 bity są niedozwolone. Listy parametrów kryptograficznych używających SHA1 do MAC są zabronione. Wersje TLS starsze niż 1.2 są zabronione.
+
+=item poziom 5
+
+Poziom bezpieczeństwa zapewniający 256 bitów bezpieczeństwa. W związku z tym RSA, DSA oraz klucze DH krótsze niż 15360 bitów, a także klucze ECC krótsze niż 512 bitów są niedozwolone.
+
+=item domyślnie: 2
+
+=back
+
+Opcja I<securityLevel> jest dostępna począwszy od B<OpenSSL 1.1.0>.
 
 =item B<requireCert> = yes | no
 

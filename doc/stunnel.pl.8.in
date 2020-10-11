@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2019.06.10" "5.55" "stunnel TLS Proxy"
+.TH stunnel 8 "2020.05.14" "5.57" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -449,6 +449,9 @@ konfiguracyjnego stunnela.  Dostępne komendy opisane są w manualu
 Możliwe jest wyspecyfikowanie wielu opcji \fBOpenSSL\fR przez wielokrotne użycie
 komendy \fBconfig\fR.
 .Sp
+Zamiast wyłączać \fIconfig = Curves:list_curves\fR
+użyj opcji \fIcurves\fR w celu ustawnienia krzywych eliptycznych.
+.Sp
 Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.
 .IP "\fBconnect\fR = [\s-1HOST:\s0]PORT" 4
 .IX Item "connect = [HOST:]PORT"
@@ -483,7 +486,7 @@ przez opcje \fIverifyChain\fR i \fIverifyPeer\fR.
 .IX Item "curves = lista"
 krzywe \s-1ECDH\s0 odddzielone ':'
 .Sp
-Wersje OpenSSL starsze niż 1.1.0 pozwalają na użycie tylko jednej krzywej.
+Wersje OpenSSL starsze niż 1.1.1 pozwalają na użycie tylko jednej krzywej.
 .Sp
 Listę dostępnych krzywych można uzyskać poleceniem:
 .Sp
@@ -849,6 +852,37 @@ domyślnie: yes
 połącz ponownie sekcję connect+exec po rozłączeniu
 .Sp
 domyślnie: no
+.IP "\fBsecurityLevel\fR = \s-1POZIOM\s0" 4
+.IX Item "securityLevel = POZIOM"
+ustaw poziom bezpieczeństwa
+.Sp
+Znaczenie każdego poziomu opisano poniżej:
+.RS 4
+.IP "poziom 0" 4
+.IX Item "poziom 0"
+Wszystko jest dozwolone.
+.IP "poziom 1" 4
+.IX Item "poziom 1"
+Poziom bezpieczeństwa zapewniający minimum 80 bitów bezpieczeństwa. Żadne parametry kryptograficzne oferujące poziom bezpieczeństwa poniżej 80 bitów nie mogą zostać użyte. W związku z tym \s-1RSA, DSA\s0 oraz klucze \s-1DH\s0 krótsze niż 1024 bity, a także klucze \s-1ECC\s0 krótsze niż 160 bitów i wszystkie eksportowe zestawy szyfrów są niedozwolone. Użycie SSLv2 jest zabronione. Wszelkie listy parametrów kryptograficznych używające \s-1MD5\s0 do \s-1MAC\s0 są zabronione.
+.IP "poziom 2" 4
+.IX Item "poziom 2"
+Poziom bezpieczeństwa zapewniający 112 bitów bezpieczeństwa. W związku z tym \s-1RSA, DSA\s0 oraz klucze \s-1DH\s0 krótsze niż 2048 bitów, a także klucze \s-1ECC\s0 krótsze niż 224 bity są niedozwolone. Oprócz wyłączeń z poziomu 1 zabronione jest także korzystanie z zestawów szyfrów używających \s-1RC4.\s0 Użycie SSLv3 jest zabronione. Kompresja jest wyłączona.
+.IP "poziom 3" 4
+.IX Item "poziom 3"
+Poziom bezpieczeństwa zapewniający 128 bitów bezpieczeństwa. W związku z tym \s-1RSA, DSA\s0 oraz klucze \s-1DH\s0 krótsze niż 3072 bity, a także klucze \s-1ECC\s0 krótsze niż 256 bitów są niedozwolone. Oprócz wyłączeń z poziomu 2  zabronione jest także korzystanie z zestawów szyfrów nie zapewniających utajniania z wyprzedzeniem (forward secrecy).  Wersje \s-1TLS\s0 starsze niż 1.1 są zabronione. Bilety sesji są wyłączone.
+.IP "poziom 4" 4
+.IX Item "poziom 4"
+Poziom bezpieczeństwa zapewniający 192 bity bezpieczeństwa. W związku z tym \s-1RSA, DSA\s0 oraz klucze \s-1DH\s0 krótsze niż 7680 bitów, a także klucze \s-1ECC\s0 krótsze niż 384 bity są niedozwolone. Listy parametrów kryptograficznych używających \s-1SHA1\s0 do \s-1MAC\s0 są zabronione. Wersje \s-1TLS\s0 starsze niż 1.2 są zabronione.
+.IP "poziom 5" 4
+.IX Item "poziom 5"
+Poziom bezpieczeństwa zapewniający 256 bitów bezpieczeństwa. W związku z tym \s-1RSA, DSA\s0 oraz klucze \s-1DH\s0 krótsze niż 15360 bitów, a także klucze \s-1ECC\s0 krótsze niż 512 bitów są niedozwolone.
+.IP "domyślnie: 2" 4
+.IX Item "domyślnie: 2"
+.RE
+.RS 4
+.Sp
+Opcja \fIsecurityLevel\fR jest dostępna począwszy od \fBOpenSSL 1.1.0\fR.
+.RE
 .IP "\fBrequireCert\fR = yes | no" 4
 .IX Item "requireCert = yes | no"
 wymagaj certyfikatu klienta dla \fIverifyChain\fR lub \fIverifyPeer\fR

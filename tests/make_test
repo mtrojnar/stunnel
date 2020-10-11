@@ -25,19 +25,22 @@ autodetection() {
       result=1
   fi
 
-  if [ -n "$(command -v netstat)" ] && ! netstat -a -n 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
+  if [ -f /mnt/c/Windows/System32/netstat.exe ] && ! /mnt/c/Windows/System32/netstat.exe -a -n 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
+    then
+      mynetstat="/mnt/c/Windows/System32/netstat.exe"
+  elif [ -n "$(command -v netstat)" ] && ! netstat -a -n 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
     then
       mynetstat="netstat"
-    elif [ -n "$(command -v ss)" ] && ! ss -a -n -l 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
-      then
-        mynetstat="ss"
-    elif [ -n "$(command -v lsof)" ] && ! lsof -i -n -P 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
-      then
-        mynetstat="lsof"
-    else # netstat / ss / lsof is required
-      printf "%s\n" "netstat / ss / lsof not found in \$PATH or some option error"
-      result=1
-   fi
+  elif [ -n "$(command -v ss)" ] && ! ss -a -n -l 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
+    then
+      mynetstat="ss"
+  elif [ -n "$(command -v lsof)" ] && ! lsof -i -n -P 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
+    then
+      mynetstat="lsof"
+  else # netstat / ss / lsof is required
+    printf "%s\n" "netstat / ss / lsof not found in \$PATH or some option error"
+    result=1
+  fi
 
   if [ -n "$(command -v stdbuf)" ]
     then
@@ -59,6 +62,11 @@ if autodetection
     cd "${result_path}"
     date > "results.log"
     ../../src/stunnel -version 2>> "results.log"
+    if [ -n "$(command -v fips-mode-setup)" ]
+      then
+        printf "\n" >> "results.log"
+        fips-mode-setup --check 1>> "results.log"
+      fi
     printf "\n%s\n" "Testing..." >> "results.log"
     head -n5 "results.log"
     if ! grep -q "solaris" "results.log"

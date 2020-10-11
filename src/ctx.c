@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -137,7 +137,7 @@ typedef long SSL_OPTIONS_TYPE;
 #endif
 
 int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
-    /* create TLS context */
+    /* create a new TLS context */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     if(section->option.client)
         section->ctx=SSL_CTX_new(TLS_client_method());
@@ -165,12 +165,31 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
         sslerror("SSL_CTX_new");
         return 1; /* FAILED */
     }
-    /* for callbacks */
+
+    /* allow callbacks to access their SERVICE_OPTIONS structure */
     if(!SSL_CTX_set_ex_data(section->ctx, index_ssl_ctx_opt, section)) {
         sslerror("SSL_CTX_set_ex_data");
         return 1; /* FAILED */
     }
     current_section=section; /* setup current section for callbacks */
+
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    /* set the security level */
+    if(section->security_level>=0) {
+        /* set the user-specified value */
+        SSL_CTX_set_security_level(section->ctx, section->security_level);
+        s_log(LOG_INFO, "User-specified security level set: %d",
+            section->security_level);
+    } else if(SSL_CTX_get_security_level(section->ctx)<DEFAULT_SECURITY_LEVEL) {
+        /* set our default, as it is more secure than the OpenSSL default */
+        SSL_CTX_set_security_level(section->ctx, DEFAULT_SECURITY_LEVEL);
+        s_log(LOG_INFO, "stunnel default security level set: %d",
+            DEFAULT_SECURITY_LEVEL);
+    } else { /* our default is not more secure than the OpenSSL default */
+        s_log(LOG_INFO, "OpenSSL security level is used: %d",
+            SSL_CTX_get_security_level(section->ctx));
+    }
+#endif /* OpenSSL 1.1.0 or later */
 
     /* ciphers */
     if(section->cipher_list) {
@@ -221,7 +240,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     if(conf_init(section))
         return 1; /* FAILED */
 
-    /* mode */
+    /* setup mode of operation for the TLS state machine */
 #ifdef SSL_MODE_RELEASE_BUFFERS
     SSL_CTX_set_mode(section->ctx,
         SSL_MODE_ENABLE_PARTIAL_WRITE |
@@ -274,18 +293,17 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     if(verify_init(section))
         return 1; /* FAILED */
 
-    /* initialize the DH/ECDH key agreement in the server mode */
-    if(!section->option.client) {
+    /* initialize the DH/ECDH key agreement */
 #ifndef OPENSSL_NO_TLSEXT
+    if(!section->option.client)
         SSL_CTX_set_tlsext_servername_callback(section->ctx, servername_cb);
 #endif /* OPENSSL_NO_TLSEXT */
 #ifndef OPENSSL_NO_DH
-        dh_init(section); /* ignore the result (errors are not critical) */
+    dh_init(section); /* ignore the result (errors are not critical) */
 #endif /* OPENSSL_NO_DH */
 #ifndef OPENSSL_NO_ECDH
-        ecdh_init(section); /* ignore the result (errors are not critical) */
+    ecdh_init(section); /* ignore the result (errors are not critical) */
 #endif /* OPENSSL_NO_ECDH */
-    }
 
     return 0; /* OK */
 }
@@ -378,7 +396,11 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
 
     section->option.dh_temp_params=0; /* disable by default */
 
-    /* check if DH is actually enabled for this section */
+    /* check if DH is needed for this section */
+    if(section->option.client) {
+        s_log(LOG_INFO, "DH initialization skipped: client section");
+        return 0; /* OK */
+    }
     ciphers=SSL_CTX_get_ciphers(section->ctx);
     if(!ciphers)
         return 1; /* ERROR (unlikely) */
@@ -395,7 +417,7 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
         }
     }
     if(i==n) { /* no DH ciphers found */
-        s_log(LOG_INFO, "DH initialization not needed");
+        s_log(LOG_INFO, "DH initialization skipped: no DH ciphersuites");
         return 0; /* OK */
     }
 
@@ -1115,12 +1137,12 @@ NOEXPORT int ssl_tlsext_ticket_key_cb(SSL *ssl, unsigned char *key_name,
         return -1;
     }
     if(c->opt->ticket_key->key_len == 16)
-        cipher = EVP_aes_128_cbc();
+        cipher=EVP_aes_128_cbc();
     else /* c->opt->ticket_key->key_len == 32 */
-        cipher = EVP_aes_256_cbc();
+        cipher=EVP_aes_256_cbc();
     if(enc) { /* create new session */
         /* EVP_CIPHER_iv_length() returns 16 for either cipher EVP_aes_128_cbc() or EVP_aes_256_cbc() */
-        iv_len = EVP_CIPHER_iv_length(cipher);
+        iv_len=EVP_CIPHER_iv_length(cipher);
         if(RAND_bytes(iv, iv_len) <= 0) { /* RAND_bytes error */
             s_log(LOG_ERR, "RAND_bytes failed");
             return -1;

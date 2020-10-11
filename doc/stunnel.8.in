@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2019.06.10" "5.55" "stunnel TLS Proxy"
+.TH stunnel 8 "2020.05.14" "5.57" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -439,6 +439,8 @@ configuration file.  Supported commands are described on the
 .Sp
 Several \fIconfig\fR lines can be used to specify multiple configuration commands.
 .Sp
+Use \fIcurves\fR option instead of enabling \fIconfig = Curves:list_curves\fR to support elliptic curves.
+.Sp
 This option requires OpenSSL 1.0.2 or later.
 .IP "\fBconnect\fR = [\s-1HOST:\s0]PORT" 4
 .IX Item "connect = [HOST:]PORT"
@@ -473,7 +475,7 @@ This file contains multiple CRLs, used with the \fIverifyChain\fR and
 .IX Item "curves = list"
 \&\s-1ECDH\s0 curves separated with ':'
 .Sp
-Only a single curve name is allowed for OpenSSL older than 1.1.0.
+Only a single curve name is allowed for OpenSSL older than 1.1.1.
 .Sp
 To get a list of supported curves use:
 .Sp
@@ -836,6 +838,37 @@ default: yes
 reconnect a connect+exec section after it was disconnected
 .Sp
 default: no
+.IP "\fBsecurityLevel\fR = \s-1LEVEL\s0" 4
+.IX Item "securityLevel = LEVEL"
+set the security level
+.Sp
+The meaning of each level is described below:
+.RS 4
+.IP "level 0" 4
+.IX Item "level 0"
+Everything is permitted.
+.IP "level 1" 4
+.IX Item "level 1"
+The security level corresponds to a minimum of 80 bits of security. Any parameters offering below 80 bits of security are excluded. As a result \s-1RSA, DSA\s0 and \s-1DH\s0 keys shorter than 1024 bits and \s-1ECC\s0 keys shorter than 160 bits are prohibited. All export cipher suites are prohibited since they all offer less than 80 bits of security. \s-1SSL\s0 version 2 is prohibited. Any cipher suite using \s-1MD5\s0 for the \s-1MAC\s0 is also prohibited.
+.IP "level 2" 4
+.IX Item "level 2"
+Security level set to 112 bits of security. As a result \s-1RSA, DSA\s0 and \s-1DH\s0 keys shorter than 2048 bits and \s-1ECC\s0 keys shorter than 224 bits are prohibited. In addition to the level 1 exclusions any cipher suite using \s-1RC4\s0 is also prohibited. \s-1SSL\s0 version 3 is also not allowed. Compression is disabled.
+.IP "level 3" 4
+.IX Item "level 3"
+Security level set to 128 bits of security. As a result \s-1RSA, DSA\s0 and \s-1DH\s0 keys shorter than 3072 bits and \s-1ECC\s0 keys shorter than 256 bits are prohibited. In addition to the level 2 exclusions cipher suites not offering forward secrecy are prohibited. \s-1TLS\s0 versions below 1.1 are not permitted. Session tickets are disabled.
+.IP "level 4" 4
+.IX Item "level 4"
+Security level set to 192 bits of security. As a result \s-1RSA, DSA\s0 and \s-1DH\s0 keys shorter than 7680 bits and \s-1ECC\s0 keys shorter than 384 bits are prohibited. Cipher suites using \s-1SHA1\s0 for the \s-1MAC\s0 are prohibited. \s-1TLS\s0 versions below 1.2 are not permitted.
+.IP "level 5" 4
+.IX Item "level 5"
+Security level set to 256 bits of security. As a result \s-1RSA, DSA\s0 and \s-1DH\s0 keys shorter than 15360 bits and \s-1ECC\s0 keys shorter than 512 bits are prohibited.
+.IP "default: 2" 4
+.IX Item "default: 2"
+.RE
+.RS 4
+.Sp
+The \fIsecurityLevel\fR option is only available when compiled with \fBOpenSSL 1.1.0\fR and later.
+.RE
 .IP "\fBrequireCert\fR = yes | no" 4
 .IX Item "requireCert = yes | no"
 require a client certificate for \fIverifyChain\fR or \fIverifyPeer\fR

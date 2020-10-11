@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -74,7 +74,9 @@ NOEXPORT void status_info(int, int, const char *);
 #endif
 NOEXPORT int accept_connection(SERVICE_OPTIONS *, unsigned);
 NOEXPORT int exec_connect_start(void);
+NOEXPORT void unbind_ports(void);
 NOEXPORT void unbind_port(SERVICE_OPTIONS *, unsigned);
+NOEXPORT int bind_ports(void);
 NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *, int, unsigned);
 #ifdef HAVE_CHROOT
 NOEXPORT int change_root(void);
@@ -122,8 +124,8 @@ void main_init() { /* one-time initialization */
         fatal("TLS initialization failed");
     if(sthreads_init()) /* initialize critical sections & TLS callbacks */
         fatal("Threads initialization failed");
-    options_defaults();
-    options_apply();
+    options_defaults(); /* initialize defaults */
+    options_apply(); /* apply the defaults */
 #ifndef USE_FORK
     get_limits(); /* required by setup_fd() */
 #endif
@@ -150,31 +152,47 @@ void main_init() { /* one-time initialization */
 int main_configure(char *arg1, char *arg2) {
     int cmdline_status;
 
+    log_flush(LOG_MODE_BUFFER);
     cmdline_status=options_cmdline(arg1, arg2);
-    if(cmdline_status) /* cannot proceed */
+    if(cmdline_status) { /* cannot proceed */
+        log_flush(LOG_MODE_ERROR);
         return cmdline_status;
-    options_apply();
+    }
+    options_free(1); /* free the defaults */
+    options_apply(); /* apply the new options */
     str_canary_init(); /* needs prng initialization from options_cmdline */
     /* log_open(SINK_SYSLOG) must be called before change_root()
      * to be able to access /dev/log socket */
     log_open(SINK_SYSLOG);
-    if(bind_ports())
+    if(bind_ports()) { /* initial binding failed - restoring the defaults */
+        unbind_ports(); /* unbind the successfully bound ports */
+        options_free(1); /* free the current options */
+        options_defaults(); /* initialize defaults */
+        options_apply(); /* apply the defaults */
+        log_flush(LOG_MODE_ERROR);
         return 1;
+    }
 
 #ifdef HAVE_CHROOT
     /* change_root() must be called before drop_privileges()
      * since chroot() needs root privileges */
-    if(change_root())
+    if(change_root()) {
+        log_flush(LOG_MODE_ERROR);
         return 1;
+    }
 #endif /* HAVE_CHROOT */
 
-    if(drop_privileges(1))
+    if(drop_privileges(1)) {
+        log_flush(LOG_MODE_ERROR);
         return 1;
+    }
 
     /* log_open(SINK_OUTFILE) must be called after drop_privileges()
      * or logfile rotation won't be possible */
-    if(log_open(SINK_OUTFILE))
+    if(log_open(SINK_OUTFILE)) {
+        log_flush(LOG_MODE_ERROR);
         return 1;
+    }
 #ifndef USE_FORK
     num_clients=0; /* the first valid config */
 #endif
@@ -271,7 +289,7 @@ void main_cleanup() {
 #if 0
     str_stats(); /* main thread allocation tracking */
 #endif
-    log_flush(LOG_MODE_ERROR);
+    log_flush(LOG_MODE_BUFFER); /* no more logs */
     log_close(SINK_SYSLOG|SINK_OUTFILE);
 }
 #ifdef __GNUC__
@@ -456,23 +474,21 @@ NOEXPORT int exec_connect_start(void) {
 }
 
 /* clear fds, close old ports */
-void unbind_ports(void) {
+NOEXPORT void unbind_ports(void) {
     SERVICE_OPTIONS *opt;
 
     s_poll_init(fds, 1);
 
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SECTIONS]);
-
-    opt=service_options.next;
-    service_options.next=NULL;
-    service_free(&service_options);
-
-    while(opt) {
+    for(opt=service_options.next; opt; opt=opt->next) {
         unsigned i;
+
         s_log(LOG_DEBUG, "Unbinding service [%s]", opt->servname);
+
+        /* "accept" service */
         for(i=0; i<opt->local_addr.num; ++i)
             unbind_port(opt, i);
-        /* exec+connect service */
+
+        /* "exec+connect" service */
         if(opt->exec_name && opt->connect_addr.names) {
             /* create exec+connect services             */
             /* FIXME: this is just a crude workaround   */
@@ -480,23 +496,9 @@ void unbind_ports(void) {
             /* FIXME: this won't work with FORK threads */
             opt->option.retry=0;
         }
-        /* purge session cache of the old SSL_CTX object */
-        /* this workaround won't be needed anymore after */
-        /* delayed deallocation calls SSL_CTX_free()     */
-        if(opt->ctx)
-            SSL_CTX_flush_sessions(opt->ctx,
-                (long)time(NULL)+opt->session_timeout+1);
+
         s_log(LOG_DEBUG, "Service [%s] closed", opt->servname);
-
-        {
-            SERVICE_OPTIONS *garbage=opt;
-            opt=opt->next;
-            garbage->next=NULL;
-            service_free(garbage);
-        }
     }
-
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
 }
 
 NOEXPORT void unbind_port(SERVICE_OPTIONS *opt, unsigned i) {
@@ -533,7 +535,7 @@ NOEXPORT void unbind_port(SERVICE_OPTIONS *opt, unsigned i) {
 }
 
 /* open new ports, update fds */
-int bind_ports(void) {
+NOEXPORT int bind_ports(void) {
     SERVICE_OPTIONS *opt;
     int listening_section;
 
@@ -830,7 +832,7 @@ NOEXPORT int signal_pipe_dispatch(void) {
 }
 
 NOEXPORT void reload_config() {
-    static int delay=10; /* 10ms */
+    static int delay=10; /* default of 10ms */
 #ifdef HAVE_CHROOT
     struct stat sb;
 #endif /* HAVE_CHROOT */
@@ -852,22 +854,23 @@ NOEXPORT void reload_config() {
         log_close(SINK_SYSLOG|SINK_OUTFILE);
     /* there is no race condition here:
      * client threads are not allowed to use global options */
-    options_free();
-    options_apply();
+    options_free(1); /* free the current options */
+    options_apply(); /* apply the new options */
     /* we hope that a sane openlog(3) implementation won't
      * attempt to reopen /dev/log if it's already open */
     log_open(SINK_SYSLOG|SINK_OUTFILE);
     log_flush(LOG_MODE_CONFIGURED);
     ui_config_reloaded();
     /* we use "|" instead of "||" to attempt initialization of both subsystems */
-    if(bind_ports() | exec_connect_start()) {
+    if(bind_ports() | exec_connect_start()) { /* failed */
+        unbind_ports();
         s_poll_sleep(delay/1000, delay%1000); /* sleep to avoid log trashing */
         signal_post(SIGNAL_RELOAD_CONFIG); /* retry */
         delay*=2;
-        if(delay > 10000) /* 10s */
+        if(delay > 10000) /* limit to 10s */
             delay=10000;
-    } else {
-        delay=10; /* 10ms */
+    } else { /* success */
+        delay=10; /* reset back to 10ms */
     }
 }
 

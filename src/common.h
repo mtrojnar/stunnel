@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -41,6 +41,8 @@
 #include "version.h"
 
 /**************************************** common constants */
+
+#define DEFAULT_SECURITY_LEVEL 2
 
 #define LIBWRAP_CLIENTS 5
 

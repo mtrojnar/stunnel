@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2019 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -56,6 +56,9 @@ NOEXPORT void local_start(CLI *);
 NOEXPORT void remote_start(CLI *);
 NOEXPORT void ssl_start(CLI *);
 NOEXPORT void session_cache_retrieve(CLI *);
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+NOEXPORT void print_tmp_key(SSL *s);
+#endif
 NOEXPORT void print_cipher(CLI *);
 NOEXPORT void transfer(CLI *);
 NOEXPORT int parse_socket_error(CLI *, const char *);
@@ -646,6 +649,42 @@ NOEXPORT void session_cache_retrieve(CLI *c) {
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SESSION]);
 }
 
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+NOEXPORT void print_tmp_key(SSL *s) {
+    EVP_PKEY *key;
+
+    if (!SSL_get_peer_tmp_key(s, &key)) {
+        sslerror("SSL_get_peer_tmp_key");
+        return;
+    }
+    switch (EVP_PKEY_id(key)) {
+    case EVP_PKEY_RSA:
+        s_log(LOG_INFO, "Peer temporary key: RSA, %d bits", EVP_PKEY_bits(key));
+        break;
+    case EVP_PKEY_DH:
+        s_log(LOG_INFO, "Peer temporary key: DH, %d bits", EVP_PKEY_bits(key));
+        break;
+#ifndef OPENSSL_NO_EC
+    case EVP_PKEY_EC:
+        {
+            EC_KEY *ec=EVP_PKEY_get1_EC_KEY(key);
+            int nid=EC_GROUP_get_curve_name(EC_KEY_get0_group(ec));
+            const char *cname=EC_curve_nid2nist(nid);
+            EC_KEY_free(ec);
+            if (cname == NULL)
+                cname=OBJ_nid2sn(nid);
+            s_log(LOG_INFO, "Peer temporary key: ECDH, %s, %d bits", cname, EVP_PKEY_bits(key));
+        }
+        break;
+#endif
+    default:
+        s_log(LOG_INFO, "Peer temporary key: %s, %d bits", OBJ_nid2sn(EVP_PKEY_id(key)),
+                   EVP_PKEY_bits(key));
+    }
+    EVP_PKEY_free(key);
+}
+#endif /* OpenSSL 1.1.1 or later */
+
 NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
     SSL_CIPHER *cipher;
 #ifndef OPENSSL_NO_COMP
@@ -664,6 +703,9 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
     s_log(LOG_INFO, "%s ciphersuite: %s (%d-bit encryption)",
         SSL_get_version(c->ssl), SSL_CIPHER_get_name(cipher),
         SSL_CIPHER_get_bits(cipher, NULL));
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+    print_tmp_key(c->ssl);
+#endif
 
 #ifndef OPENSSL_NO_COMP
     compression=SSL_get_current_compression(c->ssl);
@@ -683,7 +725,6 @@ NOEXPORT void transfer(CLI *c) {
     int has_pending=0, prev_has_pending;
 #endif
     int watchdog=0; /* a counter to detect an infinite loop */
-    ssize_t num;
     int err;
     /* logical channels (not file descriptors!) open for read or write */
     int sock_open_rd=1, sock_open_wr=1;
@@ -846,24 +887,14 @@ NOEXPORT void transfer(CLI *c) {
 
         /****************************** send TLS close_notify alert */
         if(shutdown_wants_read || shutdown_wants_write) {
-            num=SSL_shutdown(c->ssl); /* send close_notify alert */
+            int num=SSL_shutdown(c->ssl); /* send close_notify alert */
             if(num<0) /* -1 - not completed */
-                err=SSL_get_error(c->ssl, (int)num);
+                err=SSL_get_error(c->ssl, num);
             else /* 0 or 1 - success */
                 err=SSL_ERROR_NONE;
             switch(err) {
             case SSL_ERROR_NONE: /* the shutdown was successfully completed */
                 s_log(LOG_INFO, "SSL_shutdown successfully sent close_notify alert");
-                shutdown_wants_read=shutdown_wants_write=0;
-                break;
-            case SSL_ERROR_SYSCALL: /* socket error */
-                if(parse_socket_error(c, "SSL_shutdown"))
-                    break; /* a non-critical error: retry */
-                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-                shutdown_wants_read=shutdown_wants_write=0;
-                break;
-            case SSL_ERROR_ZERO_RETURN: /* connection closed */
-                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 shutdown_wants_read=shutdown_wants_write=0;
                 break;
             case SSL_ERROR_WANT_WRITE:
@@ -879,6 +910,16 @@ NOEXPORT void transfer(CLI *c) {
             case SSL_ERROR_SSL: /* TLS error */
                 sslerror("SSL_shutdown");
                 throw_exception(c, 1);
+            case SSL_ERROR_ZERO_RETURN: /* received a close_notify alert */
+                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                shutdown_wants_read=shutdown_wants_write=0;
+                break;
+            case SSL_ERROR_SYSCALL: /* socket error */
+                if(parse_socket_error(c, "SSL_shutdown"))
+                    break; /* a non-critical error: retry */
+                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                shutdown_wants_read=shutdown_wants_write=0;
+                break;
             default:
                 s_log(LOG_ERR, "SSL_shutdown/SSL_get_error returned %d", err);
                 throw_exception(c, 1);
@@ -887,7 +928,7 @@ NOEXPORT void transfer(CLI *c) {
 
         /****************************** write to socket */
         if(sock_open_wr && sock_can_wr) {
-            num=writesocket(c->sock_wfd->fd, c->ssl_buff, c->ssl_ptr);
+            ssize_t num=writesocket(c->sock_wfd->fd, c->ssl_buff, c->ssl_ptr);
             switch(num) {
             case -1: /* error */
                 if(parse_socket_error(c, "writesocket"))
@@ -908,7 +949,7 @@ NOEXPORT void transfer(CLI *c) {
 
         /****************************** read from socket */
         if(sock_open_rd && sock_can_rd) {
-            num=readsocket(c->sock_rfd->fd,
+            ssize_t num=readsocket(c->sock_rfd->fd,
                 c->sock_buff+c->sock_ptr, BUFFSIZE-c->sock_ptr);
             switch(num) {
             case -1:
@@ -936,10 +977,10 @@ NOEXPORT void transfer(CLI *c) {
         /****************************** write to TLS */
         if((write_wants_read && ssl_can_rd) ||
                 (write_wants_write && ssl_can_wr)) {
+            int num=SSL_write(c->ssl, c->sock_buff, (int)(c->sock_ptr));
             write_wants_read=0;
             write_wants_write=0;
-            num=SSL_write(c->ssl, c->sock_buff, (int)(c->sock_ptr));
-            switch(err=SSL_get_error(c->ssl, (int)num)) {
+            switch(err=SSL_get_error(c->ssl, num)) {
             case SSL_ERROR_NONE:
                 if(num==0) { /* nothing was written: ignore */
                     s_log(LOG_DEBUG, "SSL_write returned 0");
@@ -964,8 +1005,13 @@ NOEXPORT void transfer(CLI *c) {
                 s_log(LOG_DEBUG,
                     "SSL_write returned WANT_X509_LOOKUP: retrying");
                 break;
+            case SSL_ERROR_SSL:
+                sslerror("SSL_write");
+                throw_exception(c, 1);
+            case SSL_ERROR_ZERO_RETURN: /* a buffered close_notify alert */
+                /* fall through */
             case SSL_ERROR_SYSCALL: /* socket error */
-                if(num && parse_socket_error(c, "SSL_write"))
+                if(parse_socket_error(c, "SSL_write") && num) /* always log the error */
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
                  * TLS socket closed without close_notify alert */
@@ -978,14 +1024,6 @@ NOEXPORT void transfer(CLI *c) {
                 s_log(LOG_INFO, "TLS socket closed (SSL_write)");
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
-            case SSL_ERROR_ZERO_RETURN: /* close_notify alert received */
-                s_log(LOG_INFO, "TLS closed (SSL_write)");
-                if(SSL_version(c->ssl)==SSL2_VERSION)
-                    SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-                break;
-            case SSL_ERROR_SSL:
-                sslerror("SSL_write");
-                throw_exception(c, 1);
             default:
                 s_log(LOG_ERR, "SSL_write/SSL_get_error returned %d", err);
                 throw_exception(c, 1);
@@ -997,10 +1035,10 @@ NOEXPORT void transfer(CLI *c) {
                 /* it may be possible to read some pending data after
                  * writesocket() above made some room in c->ssl_buff */
                 (read_wants_write && ssl_can_wr)) {
+            int num=SSL_read(c->ssl, c->ssl_buff+c->ssl_ptr, (int)(BUFFSIZE-c->ssl_ptr));
             read_wants_read=0;
             read_wants_write=0;
-            num=SSL_read(c->ssl, c->ssl_buff+c->ssl_ptr, (int)(BUFFSIZE-c->ssl_ptr));
-            switch(err=SSL_get_error(c->ssl, (int)num)) {
+            switch(err=SSL_get_error(c->ssl, num)) {
             case SSL_ERROR_NONE:
                 if(num==0) { /* nothing was read: ignore */
                     s_log(LOG_DEBUG, "SSL_read returned 0");
@@ -1023,8 +1061,17 @@ NOEXPORT void transfer(CLI *c) {
                 s_log(LOG_DEBUG,
                     "SSL_read returned WANT_X509_LOOKUP: retrying");
                 break;
+            case SSL_ERROR_SSL:
+                sslerror("SSL_read");
+                throw_exception(c, 1);
+            case SSL_ERROR_ZERO_RETURN: /* received a close_notify alert */
+                s_log(LOG_INFO, "TLS closed (SSL_read)");
+                if(SSL_version(c->ssl)==SSL2_VERSION)
+                    SSL_set_shutdown(c->ssl,
+                        SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                break;
             case SSL_ERROR_SYSCALL:
-                if(num && parse_socket_error(c, "SSL_read"))
+                if(parse_socket_error(c, "SSL_read") && num) /* always log the error */
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
                  * TLS socket closed without close_notify alert */
@@ -1038,15 +1085,6 @@ NOEXPORT void transfer(CLI *c) {
                 SSL_set_shutdown(c->ssl,
                     SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
-            case SSL_ERROR_ZERO_RETURN: /* close_notify alert received */
-                s_log(LOG_INFO, "TLS closed (SSL_read)");
-                if(SSL_version(c->ssl)==SSL2_VERSION)
-                    SSL_set_shutdown(c->ssl,
-                        SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-                break;
-            case SSL_ERROR_SSL:
-                sslerror("SSL_read");
-                throw_exception(c, 1);
             default:
                 s_log(LOG_ERR, "SSL_read/SSL_get_error returned %d", err);
                 throw_exception(c, 1);
@@ -1165,22 +1203,15 @@ NOEXPORT void transfer(CLI *c) {
         shutdown_wants_read || shutdown_wants_write);
 }
 
-#ifdef __GNUC__
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
-#pragma GCC diagnostic push
-#endif /* __GNUC__>=4.6 */
-#if __GNUC__ >= 7
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-#endif /* __GNUC__>=7 */
-#endif /* __GNUC__ */
-
     /* returns 0 on close and 1 on non-critical errors */
 NOEXPORT int parse_socket_error(CLI *c, const char *text) {
     switch(get_last_socket_error()) {
         /* http://tangentsoft.net/wskfaq/articles/bsd-compatibility.html */
     case 0: /* close on read, or close on write on WIN32 */
+        /* fall through */
 #ifndef USE_WIN32
     case EPIPE: /* close on write on Unix */
+        /* fall through */
 #endif
     case S_ECONNABORTED:
         s_log(LOG_INFO, "%s: Socket is closed", text);
@@ -1205,20 +1236,14 @@ NOEXPORT int parse_socket_error(CLI *c, const char *text) {
             s_log(LOG_INFO, "%s: Socket is closed (exec)", text);
             return 0;
         }
-        /* fall through */
 #endif
+        /* fall through */
     default:
         sockerror(text);
         throw_exception(c, 1);
         return -1; /* some C compilers require a return value */
     }
 }
-
-#ifdef __GNUC__
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
-#pragma GCC diagnostic pop
-#endif /* __GNUC__>=4.6 */
-#endif /* __GNUC__ */
 
 NOEXPORT void auth_user(CLI *c) {
 #ifndef _WIN32_WCE

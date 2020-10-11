@@ -1,0 +1,50 @@
+#!/bin/sh
+
+# Redirect TLS client connections on certificate-based authentication failures.
+# [client_1] -> [server_1] -> [client_2] -> [server_2]
+# The success is expected because the client presents the *wrong* certificate
+# and the client connection is redirected.
+# Checking if the verifyChain option verifies the peer certificate starting from the root CA.
+
+. $(dirname $0)/../test_library
+
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  [client_1]
+  client = yes
+  accept = 127.0.0.1:${http1}
+  connect = 127.0.0.1:${https1}
+  ;cert = ${script_path}/certs/client_cert.pem
+;wrong self signed certificate
+  cert = ${script_path}/certs/stunnel.pem
+
+  [client_2]
+  client = yes
+  accept = 127.0.0.1:${http2}
+  connect = 127.0.0.1:${https2}
+
+  [server_1]
+  accept = 127.0.0.1:${https1}
+  exec = ${script_path}/execute
+  execArgs = execute 028_redirect_chain_error
+  redirect = ${http2}
+  cert = ${script_path}/certs/server_cert.pem
+  verifyChain = yes
+  CAfile = ${script_path}/certs/CACert.pem
+
+  [server_2]
+  accept = 127.0.0.1:${https2}
+  cert = ${script_path}/certs/server_cert.pem
+  exec = ${script_path}/execute
+  execArgs = execute 028_redirect_chain
+
+EOT
+}
+
+test_log_for "028_redirect_chain" "execute" "0" "$1" "$2" "$3" 2>> "stderr.log"
+exit $?
