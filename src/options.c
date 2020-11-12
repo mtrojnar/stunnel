@@ -2404,6 +2404,32 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
         break;
     }
 
+    /* passwd */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->passwd=NULL;
+        break;
+    case CMD_SET_COPY:
+        section->passwd=str_dup_detached(new_service_options.passwd);
+        break;
+    case CMD_FREE:
+        str_free(section->passwd);
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "passwd"))
+            break;
+        str_free(section->passwd);
+        section->passwd=str_dup_detached(arg);
+	return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = password to private key", "passwd");
+        break;
+    }
+
     /* protocol */
     switch(cmd) {
     case CMD_SET_DEFAULTS:

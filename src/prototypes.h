@@ -239,6 +239,7 @@ typedef struct service_options_struct {
 #endif /* TLS 1.3 */
     char *cert;                                             /* cert filename */
     char *key;                               /* pem (priv key/cert) filename */
+    char *passwd;                               /* passwd to key (if requested) */
     long session_size, session_timeout;
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     int security_level;

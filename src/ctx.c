@@ -84,7 +84,9 @@ NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *);
 #ifndef OPENSSL_NO_ENGINE
 NOEXPORT int load_cert_engine(SERVICE_OPTIONS *);
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
+NOEXPORT UI_METHOD *UI_stunnel_options_pin();
 #endif
+NOEXPORT int cache_passwd_set(char *, size_t);
 NOEXPORT int cache_passwd_get_cb(char *, int, int, void *);
 NOEXPORT int cache_passwd_set_cb(char *, int, int, void *);
 NOEXPORT void set_prompt(const char *);
@@ -770,6 +772,10 @@ NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section) {
     BIO_free(bio);
 
     /* try the cached value first */
+    if (section->passwd) {
+        cache_passwd_set(section->passwd, strlen(section->passwd));
+    }
+    
     set_prompt(section->cert);
     len=(size_t)cache_passwd_get_cb(pass, sizeof pass, 0, NULL);
     if(len>=sizeof pass)
@@ -833,6 +839,10 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
         return 1; /* FAILED */
 
     /* try the cached value first */
+    if (section->passwd) {
+        cache_passwd_set(section->passwd, strlen(section->passwd));
+    }
+
     set_prompt(section->key);
     SSL_CTX_set_default_passwd_cb(section->ctx, cache_passwd_get_cb);
     success=SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
@@ -890,13 +900,16 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
     EVP_PKEY *pkey;
 
     s_log(LOG_INFO, "Initializing private key on engine ID: %s", section->key);
+    if (section->passwd) {
+        cache_passwd_set(section->passwd, strlen(section->passwd));
+    }
 
     /* do not use caching for engine PINs to prevent device lockout */
     SSL_CTX_set_default_passwd_cb(section->ctx, ui_passwd_cb);
 
     for(i=0; i<3; i++) {
         pkey=ENGINE_load_private_key(section->engine, section->key,
-            UI_stunnel(), NULL);
+            (section->passwd && i==0) ? UI_stunnel_options_pin() : UI_stunnel(), NULL);
         if(!pkey) {
             if(i<2 && ui_retry()) { /* wrong PIN */
                 sslerror_queue(); /* dump the error queue */
@@ -918,6 +931,16 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
 /* additional caching layer on top of ui_passwd_cb() */
+
+/* retrieve the cached passwd */
+NOEXPORT int cache_passwd_set(char *buf, size_t len) {
+    cached_len= (int)len;
+    if (len >= sizeof cached_passwd)
+	    return -1;
+    memcpy(cached_passwd, buf, (size_t)len);
+    cached_passwd[len]=0;
+    return 0;
+}
 
 /* retrieve the cached passwd */
 NOEXPORT int cache_passwd_get_cb(char *buf, int size,
@@ -942,6 +965,28 @@ NOEXPORT int cache_passwd_set_cb(char *buf, int size,
         rwflag, userdata);
     return cache_passwd_get_cb(buf, size, rwflag, userdata);
 }
+
+#ifndef OPENSSL_NO_ENGINE
+NOEXPORT int options_pin_cb(UI *ui, UI_STRING *uis) {
+    UI_set_result(ui, uis, cached_passwd);
+    return 1;
+}
+
+NOEXPORT UI_METHOD *UI_stunnel_options_pin() {
+    static UI_METHOD *ui_options_method=NULL;
+    
+    if(ui_options_method) /* already initialized */
+        return ui_options_method;
+    ui_options_method=UI_create_method("stunnel options pin UI");
+    if(!ui_options_method) {
+        sslerror("UI_create_method");
+        return NULL;
+    }
+    UI_method_set_reader(ui_options_method, options_pin_cb);
+    return ui_options_method;
+}
+#endif
+
 
 NOEXPORT void set_prompt(const char *name) {
     char *prompt;
