@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -348,13 +348,14 @@ int options_cmdline(char *arg1, char *arg2) {
 
     if(type==CONF_FILE) {
 #ifdef HAVE_REALPATH
-        char *real_path=NULL;
+        char *buffer=NULL, *real_path;
 #ifdef MAXPATHLEN
         /* a workaround for pre-POSIX.1-2008 4.4BSD and Solaris */
-        real_path=malloc(MAXPATHLEN);
+        buffer=malloc(MAXPATHLEN);
 #endif
-        real_path=realpath(name, real_path);
+        real_path=realpath(name, buffer);
         if(!real_path) {
+            free(buffer);
             s_log(LOG_ERR, "Invalid configuration file name \"%s\"", name);
             ioerror("realpath");
             return 1;
@@ -846,7 +847,11 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
     switch(cmd) {
     case CMD_SET_DEFAULTS:
 #ifdef USE_FIPS
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        options->option.fips=0;
+#else /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
         options->option.fips=FIPS_mode()?1:0;
+#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
 #endif /* USE_FIPS */
         break;
     case CMD_SET_COPY: /* not used for global options */
@@ -864,8 +869,10 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
 #endif /* USE_FIPS */
         } else if(!strcasecmp(arg, "no")) {
 #ifdef USE_FIPS
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
             if(FIPS_mode())
                 return "Failed to override system-wide FIPS mode";
+#endif /* OPENSSL_VERSION_NUMBER < 0x30000000L */
             options->option.fips=0;
 #endif /* USE_FIPS */
         } else {
@@ -876,14 +883,19 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
         break;
     case CMD_PRINT_DEFAULTS:
 #ifdef USE_FIPS
-        s_log(LOG_NOTICE, "%-22s = %s", "fips", FIPS_mode()?"yes":"no");
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        if(fips_available())
+            s_log(LOG_NOTICE, "%-22s = %s", "fips", "no");
+#else /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+        if(fips_available())
+            s_log(LOG_NOTICE, "%-22s = %s", "fips", FIPS_mode()?"yes":"no");
+#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
 #endif /* USE_FIPS */
         break;
     case CMD_PRINT_HELP:
-#ifdef USE_FIPS
-        s_log(LOG_NOTICE, "%-22s = yes|no FIPS 140-2 mode",
-            "fips");
-#endif /* USE_FIPS */
+        if(fips_available())
+            s_log(LOG_NOTICE, "%-22s = yes|no FIPS 140-2 mode",
+                "fips");
         break;
     }
 
@@ -1582,14 +1594,14 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
         }
         break;
     case CMD_PRINT_DEFAULTS:
-#ifdef USE_FIPS
-        s_log(LOG_NOTICE, "%-22s = %s %s", "ciphers",
-            "FIPS", "(with \"fips = yes\")");
-        s_log(LOG_NOTICE, "%-22s = %s %s", "ciphers",
-            stunnel_cipher_list, "(with \"fips = no\")");
-#else
-        s_log(LOG_NOTICE, "%-22s = %s", "ciphers", stunnel_cipher_list);
-#endif /* USE_FIPS */
+        if(fips_available()) {
+            s_log(LOG_NOTICE, "%-22s = %s %s", "ciphers",
+                "FIPS", "(with \"fips = yes\")");
+            s_log(LOG_NOTICE, "%-22s = %s %s", "ciphers",
+                stunnel_cipher_list, "(with \"fips = no\")");
+        } else {
+            s_log(LOG_NOTICE, "%-22s = %s", "ciphers", stunnel_cipher_list);
+        }
         break;
     case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = permitted ciphers for TLS 1.2 or older", "ciphers");
@@ -2495,6 +2507,33 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
     case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = domain for protocol negotiations",
             "protocolDomain");
+        break;
+    }
+
+    /* protocolHeader */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->protocol_header=NULL;
+        break;
+    case CMD_SET_COPY:
+        name_list_dup(&section->protocol_header,
+            new_service_options.protocol_header);
+        break;
+    case CMD_FREE:
+        name_list_free(section->protocol_header);
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "protocolHeader"))
+            break;
+        name_list_append(&section->protocol_header, arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = custom header for protocol negotiations",
+            "protocolHeader");
         break;
     }
 
@@ -3888,7 +3927,6 @@ NOEXPORT char *tls_methods_set(SERVICE_OPTIONS *section, const char *arg) {
 }
 
 NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *section) {
-    (void)section; /* squash the unused parameter warning */
 #ifdef USE_FIPS
     if(new_global_options.option.fips) {
 #ifndef OPENSSL_NO_SSL2
@@ -3904,6 +3942,8 @@ NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *section) {
             return "\"sslVersion = SSLv3\" not supported in FIPS mode";
 #endif /* !OPENSSL_NO_SSL3 */
     }
+#else /* USE_FIPS */
+    (void)section; /* squash the unused parameter warning */
 #endif /* USE_FIPS */
     return NULL;
 }
@@ -4557,7 +4597,7 @@ NOEXPORT char *engine_open(const char *name) {
     }
     engine_initialized=0;
     if(ENGINE_ctrl(engines[current_engine], ENGINE_CTRL_SET_USER_INTERFACE,
-            0, UI_stunnel(), NULL)) {
+            0, ui_stunnel(), NULL)) {
         s_log(LOG_NOTICE, "UI set for engine #%d (%s)",
             current_engine+1, ENGINE_get_id(engines[current_engine]));
     } else {
@@ -4616,13 +4656,6 @@ NOEXPORT char *engine_init(void) {
         sslerror("ENGINE_set_default");
         return "Selecting default engine failed";
     }
-#endif
-    /* engines can add new algorithms */
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
-    OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS|
-        OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
-#else
-    OpenSSL_add_all_algorithms();
 #endif
 
     s_log(LOG_INFO, "Engine #%d (%s) initialized",

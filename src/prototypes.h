@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -294,7 +294,8 @@ typedef struct service_options_struct {
     char *username;
 
         /* service-specific data for protocol.c */
-    char * protocol;
+    char *protocol;
+    NAME_LIST *protocol_header;
     char *protocol_host;
     char *protocol_domain;
     char *protocol_username;
@@ -548,6 +549,7 @@ int cron_init(void);
 extern int index_ssl_cli, index_ssl_ctx_opt;
 extern int index_session_authenticated, index_session_connect_address;
 
+int fips_available();
 int ssl_init(void);
 int ssl_configure(GLOBAL_OPTIONS *);
 
@@ -565,6 +567,9 @@ int context_init(SERVICE_OPTIONS *);
 void psk_sort(PSK_TABLE *, PSK_KEYS *);
 PSK_KEYS *psk_find(const PSK_TABLE *, const char *);
 #endif /* !defined(OPENSSL_NO_PSK) */
+#ifndef OPENSSL_NO_ENGINE
+UI_METHOD *ui_stunnel(void);
+#endif /* !defined(OPENSSL_NO_ENGINE) */
 void print_session_id(SSL_SESSION *);
 void sslerror(char *);
 
@@ -639,6 +644,12 @@ void s_ssl_read(CLI *, void *, int);
 char *ssl_getstring(CLI *c);
 char *ssl_getline(CLI *c);
 void ssl_putline(CLI *c, const char *);
+void ssl_printf(CLI *, const char *, ...)
+#ifdef __GNUC__
+    __attribute__((format(printf, 2, 3)));
+#else
+    ;
+#endif
 
 /**************************************** prototype for protocol.c */
 
@@ -718,9 +729,11 @@ struct CRYPTO_dynlock_value {
 #ifdef USE_WIN32
     CRITICAL_SECTION critical_section;
 #endif
+#ifdef DEBUG_LOCKS
     const char *init_file, *read_lock_file, *write_lock_file,
         *unlock_file, *destroy_file;
     int init_line, read_lock_line, write_lock_line, unlock_line, destroy_line;
+#endif
 };
 
 typedef struct CRYPTO_dynlock_value CRYPTO_RWLOCK;
@@ -890,7 +903,10 @@ void message_box(LPCTSTR, const UINT);
 
 int ui_passwd_cb(char *, int, int, void *);
 #ifndef OPENSSL_NO_ENGINE
-UI_METHOD *UI_stunnel(void);
+int (*ui_get_opener(void)) (UI *);
+int (*ui_get_writer(void)) (UI *, UI_STRING *);
+int (*ui_get_reader(void)) (UI *, UI_STRING *);
+int (*ui_get_closer(void)) (UI *);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
 #ifdef ICON_IMAGE

@@ -1,10 +1,10 @@
 # stunnel TODO
 
 
-### High priority features.  They will likely be supported some day.
+### High priority features
+These features will likely be supported some day.
 A sponsor could allocate my time to get them faster.
-* Extend session tickets and/or sessiond to also serialize application
-  data ("redirect" state and session persistence).
+
 * Add client certificate autoselection based on the list of accepted issuers:
   SSL_CTX_set_client_cert_cb(), SSL_get_client_CA_list().
 * Add an Apparmor profile.
@@ -17,14 +17,13 @@ A sponsor could allocate my time to get them faster.
 * OCSP stapling (tlsext_status).
 * Indirect CRL support (RFC 3280, section 5).
 * MSI installer for Windows.
-* Add user-defined headers to CONNECT proxy requests.
-  This can be used to impersonate other software (e.g. web browsers).
 
-### Low priority features.  They will unlikely ever be supported.
+### Low priority features
+These features will unlikely ever be supported.
+
 * Database and/or directory interface for retrieving PSK secrets.
-* Support static FIPS-enabled build.
+* Support static FIPS-enabled builds.
 * Service-level logging destination.
-* Enforce key renegotiation (re-handshake) for long connections.
 * Logging to NT EventLog on Windows.
 * Internationalization of logged messages (i18n).
 * Generic scripting engine instead or static protocol.c.
@@ -33,7 +32,9 @@ A sponsor could allocate my time to get them faster.
 * Add '-status' command line option reporting the number of clients
   connected to each service.
 
-### Features I won't support, unless convinced otherwise by a wealthy sponsor.
+### Rejected features
+Features I will not support, unless convinced otherwise by a wealthy sponsor.
+
 * Support for adding X-Forwarded-For to HTTP request headers.
   This feature is less useful since PROXY protocol support is available.
 * Support for adding X-Forwarded-For to SMTP email headers.

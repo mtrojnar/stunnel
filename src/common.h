@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -462,7 +462,7 @@ extern char *sys_errlist[];
 #define OPENSSL_NO_TLS1_3
 #endif /* OpenSSL older than 1.1.1 */
 
-#if defined(USE_WIN32) && defined(OPENSSL_FIPS)
+#ifdef USE_WIN32
 #define USE_FIPS
 #endif
 
@@ -495,6 +495,9 @@ int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
 /* not defined in public headers before OpenSSL 0.9.8 */
 STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #endif /* !defined(OPENSSL_NO_COMP) */
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+#include <openssl/provider.h>
+#endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
 
 #ifndef OPENSSL_VERSION
 #define OPENSSL_VERSION SSLEAY_VERSION

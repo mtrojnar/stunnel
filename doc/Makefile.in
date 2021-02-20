@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 1998-2020
+# by Michal Trojnara 1998-2021
 
 VPATH = @srcdir@
 am__is_gnu_make = { \
@@ -567,7 +567,8 @@ uninstall-man: uninstall-man8
 
 .pod.in.html.in:
 	pod2html --index --backlink --header \
-		--title "stunnel TLS Proxy" --infile=$< --outfile=$@
+		--title "stunnel TLS Proxy" --infile=$< | \
+		sed -e 's|&#x142;|ł|g' >$@
 	rm -f pod2htmd.tmp pod2htmi.tmp
 
 $(man_MANS) $(doc_DATA): Makefile

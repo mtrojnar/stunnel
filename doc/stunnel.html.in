@@ -860,7 +860,7 @@
 <dt id="proxy"><i>proxy</i></dt>
 <dd>
 
-<p>Passing of the original client IP with HAProxy PROXY protocol version 1 <i>https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt</i></p>
+<p>Passing of the original client IP address with HAProxy PROXY protocol version 1 <i>https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt</i></p>
 
 </dd>
 <dt id="smtp"><i>smtp</i></dt>
@@ -906,14 +906,22 @@
 <p>Currently, this option is only supported in the client-side &#39;connect&#39; protocol.</p>
 
 </dd>
-<dt id="protocolHost-HOST:PORT"><b>protocolHost</b> = HOST:PORT</dt>
+<dt id="protocolHeader-HEADER"><b>protocolHeader</b> = HEADER</dt>
 <dd>
 
-<p>destination address for the protocol negotiations</p>
+<p>header for the protocol negotiations</p>
 
-<p><i>protocolHost</i> specifies the final TLS server to be connected to by the proxy, and not the proxy server directly connected by <b>stunnel</b>. The proxy server should be specified with the &#39;connect&#39; option.</p>
+<p>Currently, this option is only supported in the client-side &#39;connect&#39; protocol.</p>
 
-<p>Currently the protocol destination address only applies to the &#39;connect&#39; protocol.</p>
+</dd>
+<dt id="protocolHost-ADDRESS"><b>protocolHost</b> = ADDRESS</dt>
+<dd>
+
+<p>host address for the protocol negotiations</p>
+
+<p>For the &#39;connect&#39; protocol negotiations, <i>protocolHost</i> specifies HOST:PORT of the final TLS server to be connected to by the proxy. The proxy server directly connected by <b>stunnel</b> must be specified with the <i>connect</i> option.</p>
+
+<p>For the &#39;smtp&#39; protocol negotiations, <i>protocolHost</i> controls the client SMTP HELO/EHLO value.</p>
 
 </dd>
 <dt id="protocolPassword-PASSWORD"><b>protocolPassword</b> = PASSWORD</dt>
@@ -1230,7 +1238,7 @@
 
 <p>Session tickets defined in RFC 5077 provide an enhanced session resumption capability, where the server-side caching is not required to maintain per session state.</p>
 
-<p>Combining <i>ticketKeySecret</i> and <i>ticketMacSecret</i> options allow to resume a negotiated session on other cluster nodes, or to resume resume a negotiated session after server restart.</p>
+<p>Combining <i>ticketKeySecret</i> and <i>ticketMacSecret</i> options allow to resume a negotiated session on other cluster nodes, or to resume a negotiated session after server restart.</p>
 
 <p>The key is required to be either 16 or 32 bytes long, which implies exactly 32 or 64 hexadecimal digits. Colons may optionally be used between two-character hexadecimal bytes.</p>
 
@@ -1773,7 +1781,7 @@
 
 <dl>
 
-<dt id="Micha-Trojnara">Micha&#x142; Trojnara</dt>
+<dt id="Micha-Trojnara">Michał Trojnara</dt>
 <dd>
 
 <p>&lt;<i>Michal.Trojnara@stunnel.org</i>&gt;</p>

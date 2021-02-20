@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -220,15 +220,15 @@ NOEXPORT int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
         return 0; /* reject */
     if(c->opt->redirect_addr.names) {
         SSL_SESSION *sess=SSL_get1_session(c->ssl);
-        if(sess) {
-            int ok=SSL_SESSION_set_ex_data(sess,
-                index_session_authenticated, NULL);
+        if(!sess)
+            return 0; /* reject */
+        if(!SSL_SESSION_set_ex_data(sess,
+                index_session_authenticated, NULL)) {
+            sslerror("SSL_SESSION_set_ex_data");
             SSL_SESSION_free(sess);
-            if(!ok) {
-                sslerror("SSL_SESSION_set_ex_data");
-                return 0; /* reject */
-            }
+            return 0; /* reject */
         }
+        SSL_SESSION_free(sess);
         return 1; /* accept */
     }
     return 0; /* reject */

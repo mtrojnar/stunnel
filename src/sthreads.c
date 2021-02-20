@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -127,36 +127,61 @@ void thread_id_init(void) {
 NOEXPORT void s_lock_init_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     pthread_rwlock_init(&lock->rwlock, NULL);
+#ifdef DEBUG_LOCKS
     lock->init_file=file;
     lock->init_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
 }
 
 NOEXPORT void s_read_lock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     pthread_rwlock_rdlock(&lock->rwlock);
+#ifdef DEBUG_LOCKS
     lock->read_lock_file=file;
     lock->read_lock_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
 }
 
 NOEXPORT void s_write_lock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     pthread_rwlock_wrlock(&lock->rwlock);
+#ifdef DEBUG_LOCKS
     lock->write_lock_file=file;
     lock->write_lock_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
 }
 
 NOEXPORT void s_unlock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     pthread_rwlock_unlock(&lock->rwlock);
+#ifdef DEBUG_LOCKS
     lock->unlock_file=file;
     lock->unlock_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
 }
 
 NOEXPORT void s_lock_destroy_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     pthread_rwlock_destroy(&lock->rwlock);
+#ifdef DEBUG_LOCKS
     lock->destroy_file=file;
     lock->destroy_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
     str_free(lock);
 }
 
@@ -171,36 +196,61 @@ NOEXPORT void s_lock_destroy_debug(struct CRYPTO_dynlock_value *lock,
 NOEXPORT void s_lock_init_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     InitializeCriticalSection(&lock->critical_section);
+#ifdef DEBUG_LOCKS
     lock->init_file=file;
     lock->init_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
 }
 
 NOEXPORT void s_read_lock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     EnterCriticalSection(&lock->critical_section);
+#ifdef DEBUG_LOCKS
     lock->read_lock_file=file;
     lock->read_lock_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
 }
 
 NOEXPORT void s_write_lock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     EnterCriticalSection(&lock->critical_section);
+#ifdef DEBUG_LOCKS
     lock->write_lock_file=file;
     lock->write_lock_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
 }
 
 NOEXPORT void s_unlock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     LeaveCriticalSection(&lock->critical_section);
+#ifdef DEBUG_LOCKS
     lock->unlock_file=file;
     lock->unlock_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
 }
 
 NOEXPORT void s_lock_destroy_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     DeleteCriticalSection(&lock->critical_section);
+#ifdef DEBUG_LOCKS
     lock->destroy_file=file;
     lock->destroy_line=line;
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
     str_free(lock);
 }
 
@@ -261,7 +311,6 @@ NOEXPORT void s_dynlock_lock_cb(int mode, struct CRYPTO_dynlock_value *lock,
 NOEXPORT void s_dynlock_destroy_cb(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     s_lock_destroy_debug(lock, file, line);
-    str_free(lock);
 }
 
 NOEXPORT void s_locking_cb(int mode, int type, const char *file, int line) {
@@ -300,7 +349,6 @@ int CRYPTO_THREAD_unlock(CRYPTO_RWLOCK *lock) {
 
 void CRYPTO_THREAD_lock_free(CRYPTO_RWLOCK *lock) {
     s_lock_destroy_debug(lock, __FILE__, __LINE__);
-    str_free(lock);
 }
 
 #else /* USE_OS_THREADS */

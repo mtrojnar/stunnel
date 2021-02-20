@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -63,10 +63,30 @@ NOEXPORT void update_rand_file(const char *);
 int index_ssl_cli, index_ssl_ctx_opt;
 int index_session_authenticated, index_session_connect_address;
 
+int fips_available() { /* either FIPS provider or container is available */
+#ifdef USE_FIPS
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    return OSSL_PROVIDER_available(NULL, "fips");
+#else /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+    /* checking for OPENSSL_FIPS would be less precise, because it only
+     * depends on the compiled, and not on the running OpenSSL version */
+    return strstr(OpenSSL_version(OPENSSL_VERSION), "-fips") != NULL ||
+        strstr(OpenSSL_version(OPENSSL_VERSION), "FIPS") != NULL; /* RHEL */
+#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+#else /* USE_FIPS */
+    return 0;
+#endif /* USE_FIPS */
+}
+
 int ssl_init(void) { /* init TLS before parsing configuration file */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
-    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS |
-        OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_LOAD_CONFIG, NULL);
+    OPENSSL_INIT_SETTINGS *conf=OPENSSL_INIT_new();
+#ifdef USE_WIN32
+    OPENSSL_INIT_set_config_filename(conf, "..\\config\\openssl.cnf");
+#endif /* USE_WIN32 */
+    OPENSSL_init_crypto(
+        OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_LOAD_CONFIG, conf);
+    OPENSSL_INIT_free(conf);
 #else
     OPENSSL_config(NULL);
     SSL_load_error_strings();
@@ -86,9 +106,6 @@ int ssl_init(void) { /* init TLS before parsing configuration file */
         s_log(LOG_ERR, "Application specific data initialization failed");
         return 1;
     }
-#ifndef OPENSSL_NO_ENGINE
-    ENGINE_load_builtin_engines();
-#endif
 #ifndef OPENSSL_NO_DH
     dh_params=get_dh2048();
     if(!dh_params) {
@@ -170,6 +187,28 @@ NOEXPORT void cb_free_addr(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
 
 int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
 #ifdef USE_FIPS
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    static OSSL_PROVIDER *prov=NULL;
+
+    if(global->option.fips) {
+        if(!prov) { /* need to load */
+            if(!fips_available()) {
+                s_log(LOG_ERR, "FIPS provider not available");
+                return 1;
+            }
+            prov=OSSL_PROVIDER_load(NULL, "fips");
+            if(!prov) {
+                sslerror("OSSL_PROVIDER_load");
+                return 1;
+            }
+        }
+    } else {
+        if(prov) { /* need to unload */
+            OSSL_PROVIDER_unload(prov);
+            prov=NULL;
+        }
+    }
+#else /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
     if(FIPS_mode()!=global->option.fips) {
         RAND_set_rand_method(NULL); /* reset RAND methods */
         if(!FIPS_mode_set(global->option.fips)) {
@@ -182,15 +221,29 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
             return 1;
         }
     }
+#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
     s_log(LOG_NOTICE, "FIPS mode %s",
         global->option.fips ? "enabled" : "disabled");
 #endif /* USE_FIPS */
+
 #ifndef OPENSSL_NO_COMP
     if(compression_init(global))
         return 1;
 #endif /* OPENSSL_NO_COMP */
     if(prng_init(global))
         return 1;
+
+#ifndef OPENSSL_NO_ENGINE
+    ENGINE_load_builtin_engines();
+#endif
+
+    /* cryptographic algoritms can only be configured once,
+     * after all the engines are initialized */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
+#else
+    OpenSSL_add_all_algorithms();
+#endif
     return 0; /* SUCCESS */
 }
 

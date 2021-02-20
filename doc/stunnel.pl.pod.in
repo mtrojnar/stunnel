@@ -817,18 +817,24 @@ Domyślnym rodzajem uwierzytelnienia protokołu 'smtp' jest 'plain'.
 
 domena do negocjacji protokołu
 
-W obecnej wersji wybrana domena ma zastosowanie wyłącznie w protokole 'connect'.
+W obecnej wersji opcja ma zastosowanie wyłącznie w protokole 'connect'.
 
-=item B<protocolHost> = HOST:PORT
+=item B<protocolHeader> = NAGŁÓWEK
 
-adres docelowy do negocjacji protokołu
+nagłówek do negocjacji protokołu
 
-I<protocolHost> określa docelowy serwer TLS, do którego połączyć ma się proxy.
-Nie jest to adres serwera proxy, do którego połączenie zestawia B<stunnel>.
-Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.
+W obecnej wersji opcja ma zastosowanie wyłącznie w protokole 'connect'.
 
-W obecnej wersji adres docelowy protokołu ma zastosowanie wyłącznie w protokole
-'connect'.
+=item B<protocolHost> = ADRES
+
+adres hosta do negocjacji protokołu
+
+Dla protokołu 'connect', I<protocolHost> określa docelowy serwer TLS, do
+którego połączyć ma się proxy.  Adres serwera proxy, do którego łączy się
+B<stunnel>, musi być określony przy pomocy opcji I<connect>.
+
+Dla protokołu 'smtp', I<protocolHost> określa wartość HELO/EHLO wysyłanego
+przy negocjacji klienta.
 
 =item B<protocolPassword> = HASŁO
 

@@ -34,7 +34,7 @@ start() {
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
   execArgs = execute 047_resume_redirect_error
-  redirect = ${http2}
+  redirect = 127.0.0.1:${http2}
   cert = ${script_path}/certs/server_cert.pem
   verifyPeer = yes
   CAfile = ${script_path}/certs/PeerCerts.pem

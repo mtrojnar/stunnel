@@ -25,7 +25,7 @@ autodetection() {
       result=1
   fi
 
-  if [ -f /mnt/c/Windows/System32/netstat.exe ] && ! /mnt/c/Windows/System32/netstat.exe -a -n 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
+  if uname -r | grep -q Microsoft && test -f /mnt/c/Windows/System32/netstat.exe && ! /mnt/c/Windows/System32/netstat.exe -a -n 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"
     then
       mynetstat="/mnt/c/Windows/System32/netstat.exe"
   elif [ -n "$(command -v netstat)" ] && ! netstat -a -n 2>&1 | grep -q -e "usage" -e "invalid" -e "illegal" -e "command not found"

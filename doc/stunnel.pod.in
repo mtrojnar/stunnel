@@ -761,7 +761,7 @@ Based on RFC 2449 - I<POP3 Extension Mechanism>
 
 =item I<proxy>
 
-Passing of the original client IP with HAProxy PROXY protocol version 1
+Passing of the original client IP address with HAProxy PROXY protocol version 1
 F<https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt>
 
 =item I<smtp>
@@ -805,16 +805,22 @@ domain for the protocol negotiations
 
 Currently, this option is only supported in the client-side 'connect' protocol.
 
-=item B<protocolHost> = HOST:PORT
+=item B<protocolHeader> = HEADER
 
-destination address for the protocol negotiations
+header for the protocol negotiations
 
-I<protocolHost> specifies the final TLS server to be connected to by the proxy,
-and not the proxy server directly connected by B<stunnel>.
-The proxy server should be specified with the 'connect' option.
+Currently, this option is only supported in the client-side 'connect' protocol.
 
-Currently the protocol destination address only applies to the 'connect'
-protocol.
+=item B<protocolHost> = ADDRESS
+
+host address for the protocol negotiations
+
+For the 'connect' protocol negotiations, I<protocolHost> specifies HOST:PORT of
+the final TLS server to be connected to by the proxy.  The proxy server
+directly connected by B<stunnel> must be specified with the I<connect> option.
+
+For the 'smtp' protocol negotiations, I<protocolHost> controls the client SMTP
+HELO/EHLO value.
 
 =item B<protocolPassword> = PASSWORD
 
@@ -1105,7 +1111,7 @@ capability, where the server-side caching is not required to maintain per
 session state.
 
 Combining I<ticketKeySecret> and I<ticketMacSecret> options allow to resume a
-negotiated session on other cluster nodes, or to resume resume a negotiated
+negotiated session on other cluster nodes, or to resume a negotiated
 session after server restart.
 
 The key is required to be either 16 or 32 bytes long, which implies exactly 32

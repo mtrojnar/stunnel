@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -619,6 +619,17 @@ NOEXPORT void ssl_start(CLI *c) {
     print_cipher(c);
     sess=SSL_get1_session(c->ssl);
     if(sess) {
+        X509 *peer_cert=SSL_get_peer_certificate(c->ssl);
+        if(peer_cert) {
+            X509_free(peer_cert);
+        } else { /* no authentication was performed */
+            if(!SSL_SESSION_set_ex_data(sess,
+                    index_session_authenticated, NULL)) {
+                sslerror("SSL_SESSION_set_ex_data");
+                SSL_SESSION_free(sess);
+                throw_exception(c, 1);
+            }
+        }
         if(SSL_session_reused(c->ssl)) {
             print_session_id(sess);
         } else { /* a new session was negotiated */
@@ -627,6 +638,9 @@ NOEXPORT void ssl_start(CLI *c) {
                 SSL_CTX_add_session(c->opt->ctx, sess);
         }
         SSL_SESSION_free(sess);
+    } else if(c->opt->redirect_addr.names) {
+        s_log(LOG_ERR, "No session available for redirection");
+        throw_exception(c, 1);
     }
 }
 
@@ -856,17 +870,21 @@ NOEXPORT void transfer(CLI *c) {
 
         /****************************** hangups without read or write */
         if(!(sock_can_rd || sock_can_wr || ssl_can_rd || ssl_can_wr)) {
-            if(s_poll_hup(c->fds, c->sock_rfd->fd) ||
-                    s_poll_hup(c->fds, c->sock_wfd->fd)) {
+            if(s_poll_hup(c->fds, c->sock_wfd->fd)) {
                 if(c->ssl_ptr) {
                     s_log(LOG_ERR,
-                        "Socket closed (HUP) with %ld unsent byte(s)",
+                        "Write socket closed (HUP) with %ld unsent byte(s)",
                         (long)c->ssl_ptr);
                     throw_exception(c, 1); /* reset the sockets */
                 }
-                s_log(LOG_INFO, "Socket closed (HUP)");
-                sock_open_rd=sock_open_wr=0;
-            } else if(s_poll_hup(c->fds, c->ssl_rfd->fd) ||
+                s_log(LOG_INFO, "Write socket closed (HUP)");
+                sock_open_wr=0;
+            }
+            if(s_poll_hup(c->fds, c->sock_rfd->fd)) {
+                s_log(LOG_INFO, "Read socket closed (HUP)");
+                sock_open_rd=0;
+            }
+            if(s_poll_hup(c->fds, c->ssl_rfd->fd) ||
                     s_poll_hup(c->fds, c->ssl_wfd->fd)) {
                 if(c->sock_ptr) {
                     s_log(LOG_ERR,

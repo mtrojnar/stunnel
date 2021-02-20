@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -908,6 +908,21 @@ void ssl_putline(CLI *c, const char *line) { /* put newline-terminated string */
     s_ssl_write(c, tmpline, (int)len);
     str_free(tmpline);
     s_log(LOG_DEBUG, " -> %s", line);
+}
+
+void ssl_printf(CLI *c, const char *format, ...) {
+    va_list ap;
+    char *line;
+
+    va_start(ap, format);
+    line=str_vprintf(format, ap);
+    va_end(ap);
+    if(!line) {
+        s_log(LOG_ERR, "ssl_printf: str_vprintf failed");
+        throw_exception(c, 1);
+    }
+    ssl_putline(c, line);
+    str_free(line);
 }
 
 /**************************************** network helpers */

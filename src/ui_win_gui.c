@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -767,19 +767,6 @@ int ui_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
 }
 
 #ifndef OPENSSL_NO_ENGINE
-UI_METHOD *UI_stunnel() {
-    static UI_METHOD *ui_method=NULL;
-
-    if(ui_method) /* already initialized */
-        return ui_method;
-    ui_method=UI_create_method("stunnel WIN32 UI");
-    if(!ui_method) {
-        sslerror("UI_create_method");
-        return NULL;
-    }
-    UI_method_set_reader(ui_method, pin_cb);
-    return ui_method;
-}
 
 NOEXPORT int pin_cb(UI *ui, UI_STRING *uis) {
     if(!DialogBox(ghInst, TEXT("PassBox"), hwnd, (DLGPROC)pass_proc))
@@ -788,6 +775,23 @@ NOEXPORT int pin_cb(UI *ui, UI_STRING *uis) {
     memset(ui_pass, 0, sizeof ui_pass);
     return 1;
 }
+
+int (*ui_get_opener()) (UI *) {
+    return NULL;
+}
+
+int (*ui_get_writer()) (UI *, UI_STRING *) {
+    return NULL;
+}
+
+int (*ui_get_reader()) (UI *, UI_STRING *) {
+    return pin_cb;
+}
+
+int (*ui_get_closer()) (UI *) {
+    return NULL;
+}
+
 #endif
 
 /**************************************** log handling */

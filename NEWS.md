@@ -1,6 +1,38 @@
 # stunnel change log
 
 
+### Version 5.58, 2021.02.20, urgency: HIGH
+* Security bugfixes
+  - The "redirect" option was fixed to properly handle
+    unauthenticated requests (thx to Martin Stein).
+  - Fixed a double free with OpenSSL older than 1.1.0 (thx to
+    Petr Strukov).
+  - OpenSSL DLLs updated to version 1.1.1j.
+* New features
+  - New 'protocolHeader' service-level option to insert custom
+    'connect' protocol negotiation headers.  This feature can
+    be used to impersonate other software (e.g. web browsers).
+  - 'protocolHost' can also be used to control the client SMTP
+    protocol negotiation HELO/EHLO value.
+  - Initial FIPS 3.0 support.
+* Bugfixes
+  - X.509v3 extensions required by modern versions of OpenSSL
+    are added to generated self-signed test certificates.
+  - Fixed a tiny memory leak in configuration file reload
+    error handling (thx to Richard Könning).
+  - Merged Debian 05-typos.patch (thx to Peter Pentchev).
+  - Merged with minor changes Debian 06-hup-separate.patch
+    (thx to Peter Pentchev).
+  - Merged Debian 07-imap-capabilities.patch (thx to Ansgar).
+  - Merged Debian 08-addrconfig-workaround.patch (thx to Peter
+    Pentchev).
+  - Fixed tests on the WSL2 platform.
+  - NSIS installer updated to version 3.06 to fix a multiuser
+    installation bug on some platforms, including 64-bit XP.
+  - Fixed engine initialization (thx to Petr Strukov).
+  - FIPS TLS feature is reported when a provider or container
+    is available, and not when FIPS control API is available.
+
 ### Version 5.57, 2020.10.11, urgency: HIGH
 * Security bugfixes
   - The "redirect" option was fixed to properly

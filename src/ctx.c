@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -885,6 +885,23 @@ NOEXPORT int load_cert_engine(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 
+UI_METHOD *ui_stunnel() {
+    static UI_METHOD *ui_method=NULL;
+
+    if(ui_method) /* already initialized */
+        return ui_method;
+    ui_method=UI_create_method("stunnel UI");
+    if(!ui_method) {
+        sslerror("UI_create_method");
+        return NULL;
+    }
+    UI_method_set_opener(ui_method, ui_get_opener());
+    UI_method_set_writer(ui_method, ui_get_writer());
+    UI_method_set_reader(ui_method, ui_get_reader());
+    UI_method_set_closer(ui_method, ui_get_closer());
+    return ui_method;
+}
+
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
     int i;
     EVP_PKEY *pkey;
@@ -896,7 +913,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
 
     for(i=0; i<3; i++) {
         pkey=ENGINE_load_private_key(section->engine, section->key,
-            UI_stunnel(), NULL);
+            ui_stunnel(), NULL);
         if(!pkey) {
             if(i<2 && ui_retry()) { /* wrong PIN */
                 sslerror_queue(); /* dump the error queue */

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 1998-2020
+# by Michal Trojnara 1998-2021
 
 EXTRA_DIST = stunnel.pod.in stunnel.8.in stunnel.html.in en
 EXTRA_DIST += stunnel.pl.pod.in stunnel.pl.8.in stunnel.pl.html.in pl
@@ -20,7 +20,8 @@ SUFFIXES = .pod.in .8.in .html.in
 
 .pod.in.html.in:
 	pod2html --index --backlink --header \
-		--title "stunnel TLS Proxy" --infile=$< --outfile=$@
+		--title "stunnel TLS Proxy" --infile=$< | \
+		sed -e 's|&#x142;|ł|g' >$@
 	rm -f pod2htmd.tmp pod2htmi.tmp
 
 edit = sed \

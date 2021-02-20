@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Separate processing of POLLHUP for reader/writer.
+# It is possible to invoke stunnel in inetd mode with different
+# reader and writer sockets, e.g. starting it as a new process
+# with its standard input and standard output separate.
+# In that case, a "hangup" event on one of the sockets does not
+# necessarily imply that both should be closed.
+
+. $(dirname $0)/../test_library
+
+start_inetd() {
+  ../../src/stunnel -fd 9 9<<EOT
+  debug = debug
+  syslog = no
+  output = ${result_path}/stunnel.log
+  service = inetd client
+  client = yes
+  connect = www.example.com:443
+EOT
+}
+
+test_log_for "055_socket_close" "get_http" 2>> "stderr.log"
+exit $?

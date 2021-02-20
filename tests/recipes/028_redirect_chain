@@ -32,7 +32,7 @@ start() {
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
   execArgs = execute 028_redirect_chain_error
-  redirect = ${http2}
+  redirect = 127.0.0.1:${http2}
   cert = ${script_path}/certs/server_cert.pem
   verifyChain = yes
   CAfile = ${script_path}/certs/CACert.pem

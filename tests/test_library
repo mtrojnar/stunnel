@@ -795,6 +795,25 @@ resumption() {
   return $result
 }
 
+get_http() {
+  # $1 = test name
+
+  local result=0
+  cat ${script_path}/http_request | start_inetd > "http.log" 2>> "error.log" &
+  waiting_for "stunnel" "Service .* finished"
+  if [ -s "http.log" ]
+    then # file exists and is not empty
+      printf "%-35s\t%s\n" "test $1" "success" > "temp.log"
+      exit_code="ok"
+    else # file does not exist, or is empty
+      exit_code="failed"
+      result=1
+    fi
+  rm -f "http.log"
+  exit_logs "$1" "$exit_code"
+  return $result
+}
+
 myglobal() {
   # $1 = mynetcat name: "ncat" / "nc"
   # $2 = mynetstat name: "netstat" / "ss" / "lsof"
@@ -836,6 +855,7 @@ test_log_for() {
     "session") loop_session "$1" "$3";;
     "instances") two_instances "$1" "$3";;
     "resumption") resumption "$1" "$3";;
+    "get_http") get_http "$1";;
   esac
   result=$?
   clean_logs

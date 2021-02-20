@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -727,7 +727,10 @@ NOEXPORT char *smtp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         if(opt->protocol_username && opt->protocol_password) {
             char *line;
 
-            ssl_putline(c, "HELO localhost");
+            if(opt->protocol_host)
+                ssl_printf(c, "HELO %s", opt->protocol_host);
+            else
+                ssl_putline(c, "HELO localhost");
             line=ssl_getline(c); /* ignore the reply */
             str_free(line);
             if(!strcasecmp(c->opt->protocol_authentication, "LOGIN"))
@@ -754,7 +757,10 @@ NOEXPORT void smtp_client_negotiate(CLI *c) {
         fd_putline(c, c->local_wfd.fd, line);
     } while(is_prefix(line, "220-"));
 
-    fd_putline(c, c->remote_fd.fd, "EHLO localhost");
+    if(c->opt->protocol_host)
+        fd_printf(c, c->remote_fd.fd, "EHLO %s", c->opt->protocol_host);
+    else
+        fd_putline(c, c->remote_fd.fd, "EHLO localhost");
     do { /* skip multiline reply */
         str_free(line);
         line=fd_getline(c, c->remote_fd.fd);
@@ -990,9 +996,9 @@ NOEXPORT char *imap_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         str_free(line);
         throw_exception(c, 1);
     }
-    fd_putline(c, c->local_wfd.fd, line);
-    fd_putline(c, c->remote_fd.fd, "stunnel STARTTLS");
     str_free(line);
+    fd_putline(c, c->local_wfd.fd, "* OK Connected.");
+    fd_putline(c, c->remote_fd.fd, "stunnel STARTTLS");
     line=fd_getline(c, c->remote_fd.fd);
     if(!is_prefix(line, "stunnel OK")) {
         fd_putline(c, c->local_wfd.fd,
@@ -1182,9 +1188,11 @@ NOEXPORT char *connect_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 
 NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     char *line, *encoded;
+    NAME_LIST *ptr;
 
     if(phase!=PROTOCOL_MIDDLE)
         return NULL;
+
     if(!opt->protocol_host) {
         s_log(LOG_ERR, "protocolHost not specified");
         throw_exception(c, 1);
@@ -1214,7 +1222,10 @@ NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
             str_free(encoded);
         }
     }
+    for(ptr=opt->protocol_header; ptr; ptr=ptr->next)
+        fd_putline(c, c->remote_fd.fd, ptr->name); /* custom header */
     fd_putline(c, c->remote_fd.fd, ""); /* empty line */
+
     line=fd_getline(c, c->remote_fd.fd);
     if(!is_prefix(line, "HTTP/1.0 2") && !is_prefix(line, "HTTP/1.1 2")) {
         /* not "HTTP/1.x 2xx Connection established" */

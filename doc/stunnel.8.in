@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2020.05.14" "5.57" "stunnel TLS Proxy"
+.TH stunnel 8 "2020.11.13" "5.58" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -717,7 +717,7 @@ Based on
 Based on \s-1RFC 2449\s0 \- \fI\s-1POP3\s0 Extension Mechanism\fR
 .IP "\fIproxy\fR" 4
 .IX Item "proxy"
-Passing of the original client \s-1IP\s0 with HAProxy \s-1PROXY\s0 protocol version 1
+Passing of the original client \s-1IP\s0 address with HAProxy \s-1PROXY\s0 protocol version 1
 \&\fIhttps://www.haproxy.org/download/1.8/doc/proxy\-protocol.txt\fR
 .IP "\fIsmtp\fR" 4
 .IX Item "smtp"
@@ -757,16 +757,21 @@ The default 'smtp' authentication type is 'plain'.
 domain for the protocol negotiations
 .Sp
 Currently, this option is only supported in the client-side 'connect' protocol.
-.IP "\fBprotocolHost\fR = \s-1HOST:PORT\s0" 4
-.IX Item "protocolHost = HOST:PORT"
-destination address for the protocol negotiations
+.IP "\fBprotocolHeader\fR = \s-1HEADER\s0" 4
+.IX Item "protocolHeader = HEADER"
+header for the protocol negotiations
 .Sp
-\&\fIprotocolHost\fR specifies the final \s-1TLS\s0 server to be connected to by the proxy,
-and not the proxy server directly connected by \fBstunnel\fR.
-The proxy server should be specified with the 'connect' option.
+Currently, this option is only supported in the client-side 'connect' protocol.
+.IP "\fBprotocolHost\fR = \s-1ADDRESS\s0" 4
+.IX Item "protocolHost = ADDRESS"
+host address for the protocol negotiations
 .Sp
-Currently the protocol destination address only applies to the 'connect'
-protocol.
+For the 'connect' protocol negotiations, \fIprotocolHost\fR specifies \s-1HOST:PORT\s0 of
+the final \s-1TLS\s0 server to be connected to by the proxy.  The proxy server
+directly connected by \fBstunnel\fR must be specified with the \fIconnect\fR option.
+.Sp
+For the 'smtp' protocol negotiations, \fIprotocolHost\fR controls the client \s-1SMTP
+HELO/EHLO\s0 value.
 .IP "\fBprotocolPassword\fR = \s-1PASSWORD\s0" 4
 .IX Item "protocolPassword = PASSWORD"
 password for the protocol negotiations
@@ -1035,7 +1040,7 @@ capability, where the server-side caching is not required to maintain per
 session state.
 .Sp
 Combining \fIticketKeySecret\fR and \fIticketMacSecret\fR options allow to resume a
-negotiated session on other cluster nodes, or to resume resume a negotiated
+negotiated session on other cluster nodes, or to resume a negotiated
 session after server restart.
 .Sp
 The key is required to be either 16 or 32 bytes long, which implies exactly 32

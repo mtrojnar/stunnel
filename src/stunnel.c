@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2020 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -1020,7 +1020,16 @@ NOEXPORT char *signal_name(int signum) {
 
 /**************************************** log build details */
 
+static char *str_cat(char *dst, const char *src) {
+    dst=str_realloc(dst, strlen(dst) + strlen(src) + 1);
+    strcat(dst, src);
+    return dst;
+}
+
 void stunnel_info(int level) {
+    int tls_feature_found=0;
+    char *features;
+
     s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " platform");
     if(strcmp(OPENSSL_VERSION_TEXT, OpenSSL_version(OPENSSL_VERSION))) {
         s_log(level, "Compiled with " OPENSSL_VERSION_TEXT);
@@ -1036,89 +1045,80 @@ void stunnel_info(int level) {
         s_log(level, "Compiled/running with " OPENSSL_VERSION_TEXT);
     }
 
-    s_log(level,
-
-        "Threading:"
+    features=str_dup("Threading:");
 #ifdef USE_UCONTEXT
-        "UCONTEXT"
+    features=str_cat(features, "UCONTEXT");
 #endif
 #ifdef USE_PTHREAD
-        "PTHREAD"
+    features=str_cat(features, "PTHREAD");
 #endif
 #ifdef USE_WIN32
-        "WIN32"
+    features=str_cat(features, "WIN32");
 #endif
 #ifdef USE_FORK
-        "FORK"
+    features=str_cat(features, "FORK");
 #endif
 
-        " Sockets:"
+    features=str_cat(features, " Sockets:");
 #ifdef USE_POLL
-        "POLL"
+    features=str_cat(features, "POLL");
 #else /* defined(USE_POLL) */
-        "SELECT"
+    features=str_cat(features, "SELECT");
 #endif /* defined(USE_POLL) */
-        ",IPv%c"
-#ifdef USE_SYSTEMD
-        ",SYSTEMD"
-#endif /* defined(USE_SYSTEMD) */
-
-        " TLS:"
-#ifndef OPENSSL_NO_ENGINE
-#define TLS_FEATURE_FOUND
-        "ENGINE"
-#endif /* !defined(OPENSSL_NO_ENGINE) */
-#ifdef USE_FIPS
-#ifdef TLS_FEATURE_FOUND
-        ","
-#else
-#define TLS_FEATURE_FOUND
-#endif
-        "FIPS"
-#endif /* defined(USE_FIPS) */
-#ifndef OPENSSL_NO_OCSP
-#ifdef TLS_FEATURE_FOUND
-        ","
-#else
-#define TLS_FEATURE_FOUND
-#endif
-        "OCSP"
-#endif /* !defined(OPENSSL_NO_OCSP) */
-#ifndef OPENSSL_NO_PSK
-#ifdef TLS_FEATURE_FOUND
-        ","
-#else
-#define TLS_FEATURE_FOUND
-#endif
-        "PSK"
-#endif /* !defined(OPENSSL_NO_PSK) */
-#ifndef OPENSSL_NO_TLSEXT
-#ifdef TLS_FEATURE_FOUND
-        ","
-#else
-#define TLS_FEATURE_FOUND
-#endif
-        "SNI"
-#endif /* !defined(OPENSSL_NO_TLSEXT) */
-#ifndef TLS_FEATURE_FOUND
-        "NONE"
-#endif /* !defined(TLS_FEATURE_FOUND) */
-
-#ifdef USE_LIBWRAP
-        " Auth:LIBWRAP"
-#endif
-
-        , /* supported IP version parameter */
+    /* supported IP version parameter */
+    features=str_cat(features, ",IPv");
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
-        s_getaddrinfo ? '6' : '4'
+    features=str_cat(features, s_getaddrinfo ? "6" : "4");
 #else /* defined(USE_WIN32) */
 #if defined(USE_IPv6)
-        '6'
+    features=str_cat(features, "6");
 #else /* defined(USE_IPv6) */
-        '4'
+    features=str_cat(features, "4");
 #endif /* defined(USE_IPv6) */
 #endif /* defined(USE_WIN32) */
-        );
+#ifdef USE_SYSTEMD
+    features=str_cat(features, ",SYSTEMD");
+#endif /* defined(USE_SYSTEMD) */
+
+    features=str_cat(features, " TLS:");
+#ifndef OPENSSL_NO_ENGINE
+    features=str_cat(features, "ENGINE");
+    tls_feature_found=1;
+#endif /* !defined(OPENSSL_NO_ENGINE) */
+    if(fips_available()) {
+        if(tls_feature_found)
+            features=str_cat(features, ",");
+        features=str_cat(features, "FIPS");
+        tls_feature_found=1;
+    }
+#ifndef OPENSSL_NO_OCSP
+    if(tls_feature_found)
+        features=str_cat(features, ",");
+    features=str_cat(features, "OCSP");
+    tls_feature_found=1;
+#endif /* !defined(OPENSSL_NO_OCSP) */
+#ifndef OPENSSL_NO_PSK
+    if(tls_feature_found)
+        features=str_cat(features, ",");
+    features=str_cat(features, "PSK");
+    tls_feature_found=1;
+#endif /* !defined(OPENSSL_NO_PSK) */
+#ifndef OPENSSL_NO_TLSEXT
+    if(tls_feature_found)
+        features=str_cat(features, ",");
+    features=str_cat(features, "SNI");
+    tls_feature_found=1;
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
+    if(!tls_feature_found)
+        features=str_cat(features, "NONE");
+
+#ifdef USE_LIBWRAP
+    features=str_cat(features, " Auth:LIBWRAP");
+#endif
+
+    s_log(level, "%s", features);
+    str_free(features);
+
 #ifdef errno
 #define xstr(a) str(a)
 #define str(a) #a

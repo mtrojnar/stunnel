@@ -2,7 +2,7 @@
 
 # Redirect TLS client connections on certificate-based authentication failures.
 # [client_1] -> [server_1] -> [client_2] -> [server_2]
-# The success is expected because the client presents the *wrong* certificate
+# The success is expected because the client doesn't present any certificate
 # and the client connection is redirected.
 
 . $(dirname $0)/../test_library
@@ -18,9 +18,7 @@ start() {
   client = yes
   accept = 127.0.0.1:${http1}
   connect = 127.0.0.1:${https1}
-  ;cert = ${script_path}/certs/client_cert.pem
-;wrong certificate
-  cert = ${script_path}/certs/stunnel.pem
+;no certificate
 
   [client_2]
   client = yes
@@ -30,7 +28,7 @@ start() {
   [server_1]
   accept = 127.0.0.1:${https1}
   exec = ${script_path}/execute
-  execArgs = execute 033_redirect_exec_error
+  execArgs = execute 049_redirect_nocert_error
   redirect = 127.0.0.1:${http2}
   cert = ${script_path}/certs/server_cert.pem
   verifyPeer = yes
@@ -40,9 +38,9 @@ start() {
   accept = 127.0.0.1:${https2}
   cert = ${script_path}/certs/server_cert.pem
   exec = ${script_path}/execute
-  execArgs = execute 033_redirect_exec
+  execArgs = execute 049_redirect_nocert
 EOT
 }
 
-test_log_for "033_redirect_exec" "execute" "0" "$1" "$2" "$3" 2>> "stderr.log"
+test_log_for "049_redirect_nocert" "execute" "0" "$1" "$2" "$3" 2>> "stderr.log"
 exit $?

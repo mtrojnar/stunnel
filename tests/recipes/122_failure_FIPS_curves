@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # Checking FIPS mode.
+# The elliptic curve "sect163r1" is disabled if FIPS is enabled.
 
 . $(dirname $0)/../test_library
 
@@ -10,7 +11,9 @@ start() {
   syslog = no
   pid = ${result_path}/stunnel.pid
   output = ${result_path}/stunnel.log
+
   fips = yes
+  curves = sect163r1
 
   [client]
   client = yes
@@ -24,12 +27,12 @@ start() {
 EOT
 }
 
-if grep -q ",FIPS" results.log
+if grep -q ",FIPS" results.log && grep -q " OpenSSL 3" results.log
   then
-    test_log_for "021_FIPS" "success" "0" "$1" "$2" "$3" 2>> "stderr.log"
+    test_log_for "122_failure_FIPS_curves" "failure" "0" "$1" "$2" "$3" 2>> "stderr.log"
     exit $?
   else
-    exit_logs "021_FIPS" "skipped"
+    exit_logs "122_failure_FIPS_curves" "skipped"
     clean_logs
     exit 125
   fi

@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.57])
+AC_INIT([stunnel],[5.58])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -458,13 +458,14 @@ AC_DEFINE_UNQUOTED([SSLDIR], ["$SSLDIR"], [TLS directory])
 valid_CPPFLAGS="$CPPFLAGS"; CPPFLAGS="$CPPFLAGS -I$SSLDIR/include"
 valid_LIBS="$LIBS"; LIBS="$LIBS -L$SSLDIR/lib64 -L$SSLDIR/lib -lssl -lcrypto"
 
+AC_CHECK_FUNCS(FIPS_mode_set OSSL_PROVIDER_available)
 if test "x$use_fips" = "xauto"; then
-    AC_CHECK_FUNCS(FIPS_mode_set, [
+    if test "x$ac_cv_func_FIPS_mode_set" = "xyes" -o "x$ac_cv_func_OSSL_PROVIDER_available" = "xyes"; then
         AC_DEFINE([USE_FIPS], [1], [Define to 1 to enable OpenSSL FIPS support])
         AC_MSG_NOTICE([FIPS support enabled])
-    ], [
+    else
         AC_MSG_NOTICE([FIPS support not found])
-    ])
+    fi
 fi
 
 AC_MSG_CHECKING([whether DH parameters need to be updated])

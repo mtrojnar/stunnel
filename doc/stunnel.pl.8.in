@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2020.05.14" "5.57" "stunnel TLS Proxy"
+.TH stunnel 8 "2020.11.13" "5.58" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -772,17 +772,22 @@ Domyślnym rodzajem uwierzytelnienia protokołu 'smtp' jest 'plain'.
 .IX Item "protocolDomain = DOMENA"
 domena do negocjacji protokołu
 .Sp
-W obecnej wersji wybrana domena ma zastosowanie wyłącznie w protokole 'connect'.
-.IP "\fBprotocolHost\fR = \s-1HOST:PORT\s0" 4
-.IX Item "protocolHost = HOST:PORT"
-adres docelowy do negocjacji protokołu
+W obecnej wersji opcja ma zastosowanie wyłącznie w protokole 'connect'.
+.IP "\fBprotocolHeader\fR = NAGŁÓWEK" 4
+.IX Item "protocolHeader = NAGŁÓWEK"
+nagłówek do negocjacji protokołu
 .Sp
-\&\fIprotocolHost\fR określa docelowy serwer \s-1TLS,\s0 do którego połączyć ma się proxy.
-Nie jest to adres serwera proxy, do którego połączenie zestawia \fBstunnel\fR.
-Adres serwera proxy powinien być określony przy pomocy opcji 'connect'.
+W obecnej wersji opcja ma zastosowanie wyłącznie w protokole 'connect'.
+.IP "\fBprotocolHost\fR = \s-1ADRES\s0" 4
+.IX Item "protocolHost = ADRES"
+adres hosta do negocjacji protokołu
 .Sp
-W obecnej wersji adres docelowy protokołu ma zastosowanie wyłącznie w protokole
-\&'connect'.
+Dla protokołu 'connect', \fIprotocolHost\fR określa docelowy serwer \s-1TLS,\s0 do
+którego połączyć ma się proxy.  Adres serwera proxy, do którego łączy się
+\&\fBstunnel\fR, musi być określony przy pomocy opcji \fIconnect\fR.
+.Sp
+Dla protokołu 'smtp', \fIprotocolHost\fR określa wartość \s-1HELO/EHLO\s0 wysyłanego
+przy negocjacji klienta.
 .IP "\fBprotocolPassword\fR = HASŁO" 4
 .IX Item "protocolPassword = HASŁO"
 hasło do negocjacji protokołu

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 1998-2020
+# by Michal Trojnara 1998-2021
 
 EXTRA_DIST = maketestcert.sh openssltest.cnf
 EXTRA_DIST += CACertCRL.pem CACert.pem

@@ -78,6 +78,9 @@
 /* Define to 1 if you have the `openpty' function. */
 #undef HAVE_OPENPTY
 
+/* Define to 1 if you have the `OSSL_PROVIDER_available' function. */
+#undef HAVE_OSSL_PROVIDER_AVAILABLE
+
 /* Define to 1 if you have the `pipe2' function. */
 #undef HAVE_PIPE2
 
