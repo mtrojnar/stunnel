@@ -9,16 +9,37 @@
 
 . $(dirname $0)/../test_library
 
+start() {
+  ../../src/stunnel -fd 0 <<EOT
+  debug = debug
+  syslog = no
+  pid = ${result_path}/stunnel.pid
+  output = ${result_path}/stunnel.log
+
+  accept = 127.0.0.1:${https1}
+  connect = 127.0.0.1:${http2}
+  cert = ${script_path}/certs/server_cert.pem
+  [server]
+EOT
+}
+
 start_inetd() {
   ../../src/stunnel -fd 9 9<<EOT
   debug = debug
   syslog = no
-  output = ${result_path}/stunnel.log
+  output = ${result_path}/stunnel_inetd.log
   service = inetd client
   client = yes
-  connect = www.example.com:443
+  connect = 127.0.0.1:${https1}
 EOT
 }
 
-test_log_for "055_socket_close" "get_http" 2>> "stderr.log"
-exit $?
+# $4 = mypython name: "python3" / "python" / ""
+if [ "$4" != "" ]
+	then
+		test_log_for "055_socket_close" "get_http" "0" "$1" "$2" "$3" "$4" 2>> "stderr.log"
+		exit $?
+	else
+	    exit_logs "055_socket_close" "skipped"
+        exit 125
+  fi

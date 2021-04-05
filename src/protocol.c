@@ -64,6 +64,7 @@ NOEXPORT char *pop3_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *imap_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *imap_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *nntp_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *ldap_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *connect_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *connect_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 #ifndef OPENSSL_NO_MD4
@@ -113,6 +114,10 @@ char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         return opt->option.client ?
             nntp_client(c, opt, phase) :
             "The 'nntp' protocol is not supported in the server mode";
+    if(!strcasecmp(opt->protocol, "ldap"))
+        return opt->option.client ?
+            ldap_client(c, opt, phase) :
+            "The 'ldap' protocol is not supported in the server mode";
     if(!strcasecmp(opt->protocol, "connect"))
         return opt->option.client ?
             connect_client(c, opt, phase) :
@@ -1136,6 +1141,131 @@ NOEXPORT char *nntp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         throw_exception(c, 1);
     }
     str_free(line);
+    return NULL;
+}
+
+/**************************************** LDAP, RFC 2830 */
+
+uint8_t ldap_starttls_message[0x1d + 2] = {
+    0x30,   /* tag = UNIVERSAL SEQUENCE */
+    0x1d,   /* len = 29 */
+    0x02,   /*   tag = INTEGER (messageID) */
+    0x01,   /*   len = 1 */
+    0x01,   /*   val = 1 (this is messageID 1) */
+    0x77,   /*   tag = APPLICATION 23 (ExtendedRequest)
+             *     0b01xxxxxx =>  Class = Application
+             *     0bxx1xxxxx =>    P/C = Constructed
+             *     0bxxx10111 => Number = 23 */
+    0x18,   /*   len = 24 */
+    0x80,   /*     tag = CONTEXT-SPECIFIC 0 (requestName) */
+    0x16,   /*     len = 22 */
+            /*     val = LDAP_START_TLS_OID
+             *       OID: 1.3.6.1.4.1.1466.20037 */
+    '1', '.',
+    '3', '.',
+    '6', '.',
+    '1', '.',
+    '4', '.',
+    '1', '.',
+    '1', '4', '6', '6', '.',
+    '2', '0', '0', '3', '7'
+    /* no requestValue, as per RFC2830
+     * (section 2.1: "The requestValue field is absent") */
+};
+
+#define LDAP_UNIVERSAL_SEQUENCE                 0x30
+#define LDAP_WINLDAP_FOUR_BYTE_LEN_FLAG         0x84
+#define LDAP_RESPONSE_MSG_ID_TAG_INTEGER        0x02
+#define LDAP_RESPONSE_MSG_ID_LEN                0x01
+#define LDAP_RESPONSE_MSG_ID_VAL                0x01
+#define LDAP_RESPONSE_OP_APPLICATION_24         0x78
+#define LDAP_RESPONSE_RESULT_TAG_ENUMERATED     0x0a
+#define LDAP_RESPONSE_RESULT_LEN                0x01
+#define LDAP_RESPONSE_RESULT_VAL_SUCCESS        0x00
+
+/* also see:
+ * https://ldap.com/ldapv3-wire-protocol-reference-extended/
+ */
+
+NOEXPORT char *ldap_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+    uint8_t buffer_8;
+    uint32_t buffer_32;
+    size_t resp_len;
+    uint8_t ldap_response[128];
+    uint8_t *resp_ptr;
+
+    (void)opt; /* squash the unused parameter warning */
+
+    if(phase!=PROTOCOL_MIDDLE)
+        return NULL;
+
+    s_log(LOG_DEBUG, "Sending LDAP Start TLS request");
+    s_write(c, c->remote_fd.fd, ldap_starttls_message, sizeof(ldap_starttls_message));
+
+    s_log(LOG_DEBUG, "Receiving LDAP response tag");
+    s_read(c, c->remote_fd.fd, &buffer_8, 1);
+    if(buffer_8!=LDAP_UNIVERSAL_SEQUENCE) {
+        s_log(LOG_ERR, "LDAP response is not UNIVERSAL SEQUENCE");
+        throw_exception(c, 1);
+    }
+
+    s_log(LOG_DEBUG, "Receiving LDAP response length");
+    s_read(c, c->remote_fd.fd, &buffer_8, 1);
+    if(buffer_8==LDAP_WINLDAP_FOUR_BYTE_LEN_FLAG) { /* WinLDAP */
+        /* receive response length (4 bytes, network byte order) */
+        s_read(c, c->remote_fd.fd, &buffer_32, 4);
+        resp_len=ntohl(buffer_32);
+    } else {
+        resp_len=buffer_8;
+    }
+    if(resp_len>sizeof(ldap_response)) {
+        s_log(LOG_ERR, "LDAP response too long (%lu byte(s))",
+            (unsigned long)resp_len);
+        throw_exception(c, 1);
+    }
+
+    s_log(LOG_DEBUG, "Receiving LDAP response value (%lu byte(s))",
+        (unsigned long)resp_len);
+    memset(ldap_response, 0, sizeof(ldap_response)); /* prevent data leaks */
+    s_read(c, c->remote_fd.fd, ldap_response, resp_len);
+
+    s_log(LOG_DEBUG, "Decoding LDAP response value");
+    resp_ptr=ldap_response;
+    if(*resp_ptr++!=LDAP_RESPONSE_MSG_ID_TAG_INTEGER) {
+        s_log(LOG_ERR, "LDAP response has an incorrect message ID type");
+        throw_exception(c, 1);
+    }
+    if(*resp_ptr++!=LDAP_RESPONSE_MSG_ID_LEN) {
+        s_log(LOG_ERR, "LDAP response has an unexpected message ID length");
+        throw_exception(c, 1);
+    }
+    if(*resp_ptr++!=LDAP_RESPONSE_MSG_ID_VAL) {
+        s_log(LOG_ERR, "LDAP response has an unexpected message ID value");
+        throw_exception(c, 1);
+    }
+    if(*resp_ptr++!=LDAP_RESPONSE_OP_APPLICATION_24) {
+        s_log(LOG_ERR, "LDAP response protocol op is not ExtendedResponse");
+        throw_exception(c, 1);
+    }
+    /* we do not validate the protocol op sequence length */
+    if(*resp_ptr++==LDAP_WINLDAP_FOUR_BYTE_LEN_FLAG) { /* WinLDAP */
+        resp_ptr+=4; /* skip next 4 bytes */
+    }
+    if(*resp_ptr++!=LDAP_RESPONSE_RESULT_TAG_ENUMERATED) {
+        s_log(LOG_ERR, "LDAP response has an unexpected result code type");
+        throw_exception(c, 1);
+    }
+    if(*resp_ptr++!=LDAP_RESPONSE_RESULT_LEN) {
+        s_log(LOG_ERR, "LDAP response has an unexpected result code length");
+        throw_exception(c, 1);
+    }
+    if(*resp_ptr!=LDAP_RESPONSE_RESULT_VAL_SUCCESS) {
+        s_log(LOG_ERR, "LDAP response has indicated an error (%u)", *resp_ptr);
+        throw_exception(c, 1);
+    }
+    /* any remaining data is ignored */
+
+    s_log(LOG_INFO, "LDAP Start TLS successfully negotiated");
     return NULL;
 }
 

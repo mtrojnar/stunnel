@@ -309,7 +309,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = certs
-EXTRA_DIST = make_test test_library recipes execute execute_read execute_write
+EXTRA_DIST = make_test test_library recipes execute execute_read execute_write http_request server.py
 all: all-recursive
 
 .SUFFIXES:

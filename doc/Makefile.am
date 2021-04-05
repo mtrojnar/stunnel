@@ -27,6 +27,7 @@ SUFFIXES = .pod.in .8.in .html.in
 edit = sed \
 	-e 's|@bindir[@]|$(bindir)|g' \
 	-e 's|@sysconfdir[@]|$(sysconfdir)|g' \
+	-e 's|\\f(CI@sysconfdir\\fI@|$(sysconfdir)|g' \
 	-e '\|^<link rev="made" href="|d'
 
 $(man_MANS) $(doc_DATA): Makefile

@@ -667,10 +667,17 @@ NOEXPORT void session_cache_retrieve(CLI *c) {
 NOEXPORT void print_tmp_key(SSL *s) {
     EVP_PKEY *key;
 
+#ifdef SSL_CTRL_GET_PEER_TMP_KEY
     if (!SSL_get_peer_tmp_key(s, &key)) {
         sslerror("SSL_get_peer_tmp_key");
         return;
     }
+#else
+    if (!SSL_get_server_tmp_key(s, &key)) {
+        sslerror("SSL_get_server_tmp_key");
+        return;
+    }
+#endif
     switch (EVP_PKEY_id(key)) {
     case EVP_PKEY_RSA:
         s_log(LOG_INFO, "Peer temporary key: RSA, %d bits", EVP_PKEY_bits(key));

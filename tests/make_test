@@ -52,6 +52,15 @@ autodetection() {
       mybuffer=""
     fi
 
+  if [ -n "$(command -v python3)" ]
+    then
+      mypython=python3
+    elif [ -n "$(command -v python)" ] && python -V | grep -q "Python 3"
+      then
+        mypython=python
+    else
+      mypython=""
+    fi
   return $result
 }
 
@@ -73,7 +82,7 @@ if autodetection
       then
         for plik in ${script_path}/recipes/*
           do
-            /bin/sh $plik "$mynetcat" "$mynetstat" "$mybuffer"
+            /bin/sh $plik "$mynetcat" "$mynetstat" "$mybuffer" "$mypython"
             state=$?
             if [ "$state" -eq 0 ]
               then # $state=0

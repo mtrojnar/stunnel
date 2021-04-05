@@ -367,7 +367,7 @@ SUBDIRS = src doc tools tests
 doc_DATA = README.md TODO.md COPYING.md AUTHORS.md NEWS.md PORTS.md \
 	BUGS.md COPYRIGHT.md CREDITS.md INSTALL.W32.md INSTALL.WCE.md \
 	INSTALL.FIPS.md
-EXTRA_DIST = build-android.sh .travis.yml $(doc_DATA)
+EXTRA_DIST = .travis.yml $(doc_DATA)
 distcleancheck_listfiles = find -type f -exec sh -c 'test -f $(srcdir)/{} || echo {}' ';'
 all: all-recursive
 
@@ -602,9 +602,6 @@ distdir-am: $(DISTFILES)
 	      || exit 1; \
 	  fi; \
 	done
-	$(MAKE) $(AM_MAKEFLAGS) \
-	  top_distdir="$(top_distdir)" distdir="$(distdir)" \
-	  dist-hook
 	-test -n "$(am__skip_mode_fix)" \
 	|| find "$(distdir)" -type d ! -perm -755 \
 		-exec chmod u+rwx,go+rx {} \; -o \
@@ -851,20 +848,19 @@ uninstall-am: uninstall-docDATA
 .PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am \
 	am--refresh check check-am clean clean-cscope clean-generic \
 	clean-libtool cscope cscopelist-am ctags ctags-am dist \
-	dist-all dist-bzip2 dist-gzip dist-hook dist-lzip dist-shar \
-	dist-tarZ dist-xz dist-zip distcheck distclean \
-	distclean-generic distclean-libtool distclean-local \
-	distclean-tags distcleancheck distdir distuninstallcheck dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-data-hook install-docDATA \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-html install-html-am install-info install-info-am \
-	install-man install-pdf install-pdf-am install-ps \
-	install-ps-am install-strip installcheck installcheck-am \
-	installdirs installdirs-am maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am tags tags-am uninstall \
-	uninstall-am uninstall-docDATA
+	dist-all dist-bzip2 dist-gzip dist-lzip dist-shar dist-tarZ \
+	dist-xz dist-zip distcheck distclean distclean-generic \
+	distclean-libtool distclean-local distclean-tags \
+	distcleancheck distdir distuninstallcheck dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-data-hook install-docDATA install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	installdirs-am maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
+	ps ps-am tags tags-am uninstall uninstall-am uninstall-docDATA
 
 .PRECIOUS: Makefile
 
@@ -873,18 +869,6 @@ libtool: $(LIBTOOL_DEPS)
 
 distclean-local:
 	rm -rf autom4te.cache
-	rm -f $(distdir)-win64-installer.exe
-
-dist-hook:
-	$(MAKE) -C src mingw64
-	$(MAKE) -C doc stunnel.html
-	makensis -NOCD -DARCH=win64 -DVERSION=${VERSION} \
-		-DSTUNNEL_DIR=$(srcdir) \
-		-DDEST_DIR=. \
-		-DOPENSSL_DIR=/opt/openssl-mingw64 \
-		$(srcdir)/tools/stunnel.nsi
-	-$(srcdir)/sign/sign.sh $(distdir)-win64-installer.exe
-	-$(srcdir)/sign/verify.sh bin/win64/*.exe $(distdir)-win64-installer.exe
 
 sign:
 	cp -f $(distdir).tar.gz $(distdir)-win64-installer.exe $(distdir)-android.zip ../dist

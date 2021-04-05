@@ -44,11 +44,7 @@ BrandingText "Author: Michal Trojnara"
 !define /ifndef BIN_DIR ${ROOT_DIR}\${ARCH}
 !define /ifndef OPENSSL_DIR ${BIN_DIR}\openssl
 !define /ifndef OPENSSL_BIN_DIR ${OPENSSL_DIR}\bin
-!if ${ARCH} == win32
-!define /ifndef OPENSSL_ENGINES_DIR ${OPENSSL_DIR}\lib\engines
-!else
 !define /ifndef OPENSSL_ENGINES_DIR ${OPENSSL_DIR}\lib\engines-1_1
-!endif
 !define /ifndef ZLIB_DIR ${BIN_DIR}\zlib
 !define /ifndef REDIST_DIR ${BIN_DIR}\redist
 
@@ -325,14 +321,31 @@ Section "Core Files" sectionCORE
   File "${STUNNEL_TOOLS_DIR}\ca-certs.pem"
 
   # write new executables/libraries files
-  # we assume Visual C++ 2008 for win32, and MinGW for win64
   SetOutPath "$INSTDIR\bin"
   File "${STUNNEL_BIN_DIR}\stunnel.exe"
   !if ${ARCH} == win32
-  File "${OPENSSL_BIN_DIR}\libeay32.dll"
-  File "${OPENSSL_BIN_DIR}\ssleay32.dll"
-  File "${REDIST_DIR}\msvcr90.dll"
-  File "${REDIST_DIR}\Microsoft.VC90.CRT.Manifest"
+  # Visual C++ 2008
+  #File "${OPENSSL_BIN_DIR}\libeay32.dll"
+  #File "${OPENSSL_BIN_DIR}\ssleay32.dll"
+  #File "${REDIST_DIR}\msvcr90.dll"
+  #File "${REDIST_DIR}\Microsoft.VC90.CRT.Manifest"
+  File "${OPENSSL_BIN_DIR}\libcrypto-1_1.dll"
+  File "${OPENSSL_BIN_DIR}\libssl-1_1.dll"
+  !if /FileExists "/usr/i686-w64-mingw32/bin/libssp-0.dll"
+  File "/usr/i686-w64-mingw32/bin/libssp-0.dll"
+  !else
+  !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/10-win32/libssp-0.dll"
+  File "/usr/lib/gcc/i686-w64-mingw32/10-win32/libssp-0.dll"
+  !else
+  !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/9.3-win32/libssp-0.dll"
+  File "/usr/lib/gcc/i686-w64-mingw32/9.3-win32/libssp-0.dll"
+  !else
+  !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/8.3-win32/libssp-0.dll"
+  File "/usr/lib/gcc/i686-w64-mingw32/8.3-win32/libssp-0.dll"
+  !endif
+  !endif
+  !endif
+  !endif
   !else
   File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.dll"
   File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.dll"

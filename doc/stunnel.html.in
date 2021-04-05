@@ -628,7 +628,9 @@
 
 <p>debugging level</p>
 
-<p>Level is a one of the syslog level names or numbers emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6), or debug (7). All logs for the specified level and all levels numerically less than it will be shown. Use <i>debug = debug</i> or <i>debug = 7</i> for greatest debugging output. The default is notice (5).</p>
+<p>Level is a one of the syslog level names or numbers emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6), or debug (7). All logs for the specified level and all levels numerically less than it will be shown. The default is notice (5).</p>
+
+<p>While the <i>debug = debug</i> or <i>debug = 7</i> level generates the most verbose output, it is only intended to be used by stunnel developers. Please only use this value if you are a developer, or you intend to send your logs to our technical support. Otherwise, the generated logs <b>will</b> be confusing.</p>
 
 </dd>
 <dt id="delay-yes-no"><b>delay</b> = yes | no</dt>
@@ -835,6 +837,12 @@
 <dd>
 
 <p>Based on RFC 2595 - <i>Using TLS with IMAP, POP3 and ACAP</i></p>
+
+</dd>
+<dt id="ldap"><i>ldap</i></dt>
+<dd>
+
+<p>Based on RFC 2830 - <i>Lightweight Directory Access Protocol (v3): Extension for Transport Layer Security</i></p>
 
 </dd>
 <dt id="nntp"><i>nntp</i></dt>

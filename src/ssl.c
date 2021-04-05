@@ -54,7 +54,8 @@ NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, CRYPTO_EX_DATA *from,
 NOEXPORT void cb_free_addr(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
     int idx, long argl, void *argp);
 #ifndef OPENSSL_NO_COMP
-NOEXPORT int compression_init(GLOBAL_OPTIONS *);
+NOEXPORT void compression_init();
+NOEXPORT int compression_configure(GLOBAL_OPTIONS *);
 #endif
 NOEXPORT int prng_init(GLOBAL_OPTIONS *);
 NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
@@ -62,6 +63,9 @@ NOEXPORT void update_rand_file(const char *);
 
 int index_ssl_cli, index_ssl_ctx_opt;
 int index_session_authenticated, index_session_connect_address;
+#ifndef OPENSSL_NO_COMP
+NOEXPORT STACK_OF(SSL_COMP) *comp_methods[STUNNEL_COMPS];
+#endif
 
 int fips_available() { /* either FIPS provider or container is available */
 #ifdef USE_FIPS
@@ -113,6 +117,9 @@ int ssl_init(void) { /* init TLS before parsing configuration file */
         return 1;
     }
 #endif /* OPENSSL_NO_DH */
+#ifndef OPENSSL_NO_COMP
+    compression_init();
+#endif /* OPENSSL_NO_COMP */
     return 0;
 }
 
@@ -227,7 +234,7 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
 #endif /* USE_FIPS */
 
 #ifndef OPENSSL_NO_COMP
-    if(compression_init(global))
+    if(compression_configure(global))
         return 1;
 #endif /* OPENSSL_NO_COMP */
     if(prng_init(global))
@@ -265,52 +272,57 @@ NOEXPORT int SSL_COMP_get_id(const SSL_COMP *comp) {
 
 #endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 
-NOEXPORT int compression_init(GLOBAL_OPTIONS *global) {
+#if OPENSSL_VERSION_NUMBER<0x10002000L
+
+NOEXPORT void SSL_COMP_set0_compression_methods(STACK_OF(SSL_COMP) *new_meths) {
+    STACK_OF(SSL_COMP) *old_meths;
+    int num, i;
+
+    old_meths=SSL_COMP_get_compression_methods();
+    sk_SSL_COMP_zero(old_meths);
+
+    num=sk_SSL_COMP_num(new_meths);
+    for(i=0; i<num; ++i)
+        sk_SSL_COMP_push(old_meths, sk_SSL_COMP_value(new_meths, i));
+}
+
+#endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
+
+NOEXPORT void compression_init() {
+    STACK_OF(SSL_COMP) *methods;
+    COMP_METHOD *zlib;
+
+    memset(comp_methods, 0, sizeof comp_methods);
+
+    /* setup COMP_NONE */
+    comp_methods[COMP_NONE]=sk_SSL_COMP_new_null();
+
+    /* setup COMP_DEFLATE (RFC 1951) */
+    methods=SSL_COMP_get_compression_methods();
+    if(!methods || !sk_SSL_COMP_num(methods))
+        return;
+    comp_methods[COMP_DEFLATE]=sk_SSL_COMP_dup(methods);
+
+    /* setup COMP_ZLIB (DEFLATE + obsolete private id 0xe0) */
+    zlib=COMP_zlib();
+    if(!zlib || COMP_get_type(zlib)==NID_undef)
+        return;
+    if(SSL_COMP_add_compression_method(0xe0, zlib))
+        return;
+    comp_methods[COMP_ZLIB]=methods; /* reuse the memory */
+}
+
+NOEXPORT int compression_configure(GLOBAL_OPTIONS *global) {
     STACK_OF(SSL_COMP) *methods;
     int num_methods, i;
 
-    methods=SSL_COMP_get_compression_methods();
-    if(!methods) {
-        if(global->compression==COMP_NONE) {
-            s_log(LOG_NOTICE, "Failed to get compression methods");
-            return 0; /* ignore */
-        } else {
-            s_log(LOG_ERR, "Failed to get compression methods");
-            return 1;
-        }
-    }
-
-    if(global->compression==COMP_NONE) {
-        /* delete OpenSSL defaults (empty the SSL_COMP stack) */
-        /* cannot use sk_SSL_COMP_pop_free,
-         * as it also destroys the stack itself */
-        /* only leave the standard RFC 1951 (DEFLATE) algorithm,
-         * if any of the private algorithms is enabled */
-        while(sk_SSL_COMP_num(methods))
-            OPENSSL_free(sk_SSL_COMP_pop(methods));
-        s_log(LOG_DEBUG, "Compression disabled");
-        return 0; /* success */
-    }
-
-    if(!sk_SSL_COMP_num(methods)) {
-        s_log(LOG_ERR, "No compression method is available");
+    if(!comp_methods[global->compression]) {
+        s_log(LOG_ERR, "Configured compression is unsupported by OpenSSL");
         return 1;
     }
+    SSL_COMP_set0_compression_methods(comp_methods[global->compression]);
 
-    /* also insert the obsolete ZLIB algorithm */
-    if(global->compression==COMP_ZLIB) {
-        /* 224 - within the private range (193 to 255) */
-        COMP_METHOD *meth=COMP_zlib();
-        if(!meth || COMP_get_type(meth)==NID_undef) {
-            s_log(LOG_ERR, "ZLIB compression is not supported");
-            return 1;
-        }
-        if(SSL_COMP_add_compression_method(0xe0, meth)) {
-            sslerror("SSL_COMP_add_compression_method");
-            return 1;
-        }
-    }
-
+    methods=SSL_COMP_get_compression_methods();
     num_methods=sk_SSL_COMP_num(methods);
     s_log(LOG_INFO, "Compression enabled: %d method%s",
         num_methods, num_methods==1 ? "" : "s");

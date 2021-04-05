@@ -3,7 +3,7 @@
 
 SUBDIRS = certs
 
-EXTRA_DIST = make_test test_library recipes execute execute_read execute_write
+EXTRA_DIST = make_test test_library recipes execute execute_read execute_write http_request server.py
 
 check-local:
 	$(srcdir)/make_test

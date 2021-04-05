@@ -1,6 +1,18 @@
 # stunnel change log
 
 
+### Version 5.59, 2021.04.05, urgency: HIGH
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.1.1k.
+* New features
+  - Client-side "protocol = ldap" support (thx to Bart
+    Dopheide and Seth Grover).
+* Bugfixes
+  - The test suite fixed not to require external connectivity.
+  - Fixed paths in generated manuals (thx to Tatsuki Makino).
+  - Fixed configuration reload when compression is used.
+  - Fixed compilation with early releases of OpenSSL 1.1.1.
+
 ### Version 5.58, 2021.02.20, urgency: HIGH
 * Security bugfixes
   - The "redirect" option was fixed to properly handle

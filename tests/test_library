@@ -471,26 +471,11 @@ execute_connect() {
   local result=0
   check_ports "$1"
   start_stunnel "$1"
-  if [ "$1" = "042_inetd" ]
-    then # inetd test
-      mkfifo "nodata" 2>> "stderr_nc.log"
-      start_inetd > "temp.log" 2>> "error.log" &
-      pid_inetd=$!
-    fi
   if no_file "error.log"
     then
       waiting_for "stunnel" "Service .* finished"
-      if [ $1 = "042_inetd" ]
-        then # inetd test
-          close_process stunnel_inetd ${pid_inetd}
-        fi
-      finding_text "yes" "test $1.*success" "temp.log" "UNUSED PATTERN"
+      finding_text "yes" "test $1.*success" "temp.log"
       result=$?
-      if [ "$1" = "042_inetd" ]
-        then # inetd test
-          printf "%s\n" "*** inetd mode ***" >> "stunnel.log"
-          cat "stunnel_inetd.log" >> "stunnel.log"
-        fi
       if ! killing_stunnel stunnel
         then
           result=1
@@ -534,7 +519,7 @@ loop_prio() {
               result=$?
               if [ $result -eq 0 ] && ! finding_text "no" "$serv" "stunnel.log" "UNUSED PATTERN"
                 then # error - second server accepts a client
-		  result=1
+                  result=1
                 fi
             else # ncat (nc) failed
               result=1
@@ -795,21 +780,81 @@ resumption() {
   return $result
 }
 
+inetd() {
+  # $1 = test name
+
+  local result=0
+  check_ports "$1"
+  start_stunnel "$1"
+  if no_file "error.log"
+    then
+      start_inetd > "temp.log" 2>> "error.log" &
+      pid_inetd=$!
+      if no_file "error.log"
+        then
+          waiting_for "stunnel" "Service .* finished"
+          close_process stunnel_inetd ${pid_inetd}
+          finding_text "yes" "test $1.*success" "temp.log"
+          result=$?
+          printf "%s\n" "*** inetd mode ***" >> "stunnel.log"
+          cat "stunnel_inetd.log" >> "stunnel.log"
+          if ! killing_stunnel stunnel
+            then
+              result=1
+            fi
+        else # configuration failed
+          killing_stunnel stunnel
+          exit_code="configuration failed"
+          result=1
+        fi
+      rm -f "stunnel_inetd.log"
+    else # configuration failed
+      result=1
+    fi
+  if ! finding_text "no" "INTERNAL ERROR" "stunnel.log" "error.log"
+    then
+      result=1
+    fi
+  exit_logs "$1" "$exit_code"
+  return $result
+}
+
 get_http() {
   # $1 = test name
 
   local result=0
-  cat ${script_path}/http_request | start_inetd > "http.log" 2>> "error.log" &
-  waiting_for "stunnel" "Service .* finished"
-  if [ -s "http.log" ]
-    then # file exists and is not empty
-      printf "%-35s\t%s\n" "test $1" "success" > "temp.log"
-      exit_code="ok"
-    else # file does not exist, or is empty
-      exit_code="failed"
+  check_ports "$1"
+  start_stunnel "$1"
+  if no_file "error.log"
+    then
+      "$mypython" ${script_path}/server.py ${http2} 2>> "stderr_nc.log" 1>&2 &
+      pid_python=$!
+      waiting_for "stderr_nc" "HTTP server started"
+      cat ${script_path}/http_request | start_inetd >> "stderr_nc.log" 2>> "error.log" &
+      pid_inetd=$!
+      waiting_for "stunnel" "Service .* finished"
+      close_process stunnel_inetd ${pid_inetd}
+      kill -TERM ${pid_python} 2>> "stderr_nc.log"
+      if grep -q "200 OK" "stderr_nc.log"
+        then
+          printf "%-35s\t%s\n" "test $1" "success" > "temp.log"
+        fi
+      finding_text "yes" "test $1.*success" "temp.log"
+      result=$?
+      printf "%s\n" "*** inetd mode ***" >> "stunnel.log"
+      cat "stunnel_inetd.log" >> "stunnel.log"
+      if ! killing_stunnel stunnel
+        then
+          result=1
+        fi
+    else # configuration failed
       result=1
     fi
-  rm -f "http.log"
+  if ! finding_text "no" "INTERNAL ERROR" "stunnel.log" "error.log"
+    then
+      result=1
+    fi
+  rm -f "stunnel_inetd.log"
   exit_logs "$1" "$exit_code"
   return $result
 }
@@ -818,10 +863,12 @@ myglobal() {
   # $1 = mynetcat name: "ncat" / "nc"
   # $2 = mynetstat name: "netstat" / "ss" / "lsof"
   # $3 = mybuffer name: "stdbuf" / "unbuffer" / ""
+  # $4 = mypython name: "python3" / "python" / ""
 
   mynetcat="$1"
   mynetstat="$2"
   mybuffer="$3"
+  mypython="$4"
 
   case "$mynetstat" in
     "/mnt/c/Windows/System32/netstat.exe") opt_net="-a -n";;
@@ -843,8 +890,9 @@ test_log_for() {
   # $4 = mynetcat name: "ncat" / "nc"
   # $5 = mynetstat name: "netstat" / "ss" / "lsof"
   # $6 = mybuffer name: "stdbuf" / "unbuffer" / ""
+  # $7 = mypython name: "python3" / "python" / ""
 
-  myglobal "$4" "$5" "$6"
+  myglobal "$4" "$5" "$6" "$7"
   case "$2" in
     "success") expected_success "$1";;
     "failure") expected_failure "$1";;
@@ -855,6 +903,7 @@ test_log_for() {
     "session") loop_session "$1" "$3";;
     "instances") two_instances "$1" "$3";;
     "resumption") resumption "$1" "$3";;
+    "inetd") inetd "$1";;
     "get_http") get_http "$1";;
   esac
   result=$?

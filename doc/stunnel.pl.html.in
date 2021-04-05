@@ -240,7 +240,9 @@
 
 <p>szczeg&oacute;łowo&#x15B;&#x107; logowania</p>
 
-<p>Poziom logowania mo&#x17C;na okre&#x15B;li&#x107; przy pomocy jednej z nazw lub liczb: emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6) lub debug (7). Zapisywane s&#x105; komunikaty o poziomie ni&#x17C;szym (numerycznie) lub r&oacute;wnym podanemu. Do uzyskania najwy&#x17C;szego poziomu szczeg&oacute;łowo&#x15B;ci mo&#x17C;na u&#x17C;y&#x107; opcji <i>debug = debug</i> lub <i>debug = 7</i>. Domy&#x15B;lnym poziomem jest notice (5).</p>
+<p>Poziom logowania mo&#x17C;na okre&#x15B;li&#x107; przy pomocy jednej z nazw lub liczb: emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6) lub debug (7). Zapisywane s&#x105; komunikaty o poziomie ni&#x17C;szym (numerycznie) lub r&oacute;wnym podanemu. Domy&#x15B;lnym poziomem jest notice (5).</p>
+
+<p>Jakkolwiek u&#x17C;ycie <i>debug = debug</i> lub <i>debug = 7</i> zapewnia najbardziej szczeg&oacute;łowe logi, ich zawarto&#x15B;&#x107; jest u&#x17C;yteczna jedynie dla programist&oacute;w zajmuj&#x105;cych si&#x119; stunnelem. U&#x17C;yj tego poziomu logowania jedynie je&#x15B;li jeste&#x15B; programistk&#x105;/programist&#x105; stunnela, albo przygotowujesz szczeg&oacute;łowe informacje celem przesłania do wsparcia technicznego. W przeciwnym wypadku pr&oacute;ba analizy zawarto&#x15B;ci log&oacute;w <b>b&#x119;dzie</b> jedynie &#x17A;r&oacute;dłem dodatkowego zamieszania.</p>
 
 <p>O ile nie wyspecyfikowano podsystemu u&#x17C;yty b&#x119;dzie domy&#x15B;lny: daemon. Podsystemy nie s&#x105; wspierane przez platform&#x119; Win32.</p>
 
@@ -522,11 +524,11 @@
 
 <p>komenda konfiguracyjna <b>OpenSSL</b></p>
 
-<p>Komenda konfiguracyjna <b>OpenSSL</b> zostaje wykonana z podanym parametrem. Pozwala to na wydawanie komend konfiguracyjnych <b>OpenSSL</b> z pliku konfiguracyjnego stunnela. Dost&#x119;pne komendy opisane s&#x105; w manualu <i>SSL_CONF_cmd(3ssl)</i>.</p>
+<p>Komenda konfiguracyjna <b>OpenSSL</b> zostaje wykonana z podanym parametrem. Pozwala to na wydawanie komend konfiguracyjnych <b>OpenSSL</b> z pliku konfiguracyjnego stunnela. Dost&#x119;pne komendy opisane s&#x105; w podr&#x119;czniku <i>SSL_CONF_cmd(3ssl)</i>.</p>
 
 <p>Mo&#x17C;liwe jest wyspecyfikowanie wielu opcji <b>OpenSSL</b> przez wielokrotne u&#x17C;ycie komendy <b>config</b>.</p>
 
-<p>Zamiast wył&#x105;cza&#x107; <i>config = Curves:list_curves</i> u&#x17C;yj opcji <i>curves</i> w celu ustawnienia krzywych eliptycznych.</p>
+<p>Zamiast wył&#x105;cza&#x107; <i>config = Curves:list_curves</i> u&#x17C;yj opcji <i>curves</i> w celu ustawienia krzywych eliptycznych.</p>
 
 <p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
 
@@ -818,7 +820,7 @@
 <dt id="cifs"><i>cifs</i></dt>
 <dd>
 
-<p>Nieudokumentowane rozszerzenie protokołu CIFS wspierane przez serwer Samba. Wsparcie dla tego rozrzeczenia zostało zarzucone w wersji 3.0.0 serwera Samba.</p>
+<p>Nieudokumentowane rozszerzenie protokołu CIFS wspierane przez serwer Samba. Wsparcie dla tego rozszerzenia zostało zarzucone w wersji 3.0.0 serwera Samba.</p>
 
 </dd>
 <dt id="connect"><i>connect</i></dt>
@@ -833,6 +835,12 @@
 <dd>
 
 <p>Negocjacja RFC 2595 - <i>Using TLS with IMAP, POP3 and ACAP</i></p>
+
+</dd>
+<dt id="ldap"><i>ldap</i></dt>
+<dd>
+
+<p>Negocjacja RFC 2830 - <i>Lightweight Directory Access Protocol (v3): Extension for Transport Layer Security</i></p>
 
 </dd>
 <dt id="nntp"><i>nntp</i></dt>
@@ -963,7 +971,7 @@
 <dt id="pty-yes-no-tylko-Unix"><b>pty</b> = yes | no (tylko Unix)</dt>
 <dd>
 
-<p>alokuj pseudoterminal dla programu uruchamianego w opcji &#39;exec&#39;</p>
+<p>alokuj pseudo-terminal dla programu uruchamianego w opcji &#39;exec&#39;</p>
 
 </dd>
 <dt id="redirect-HOST:-PORT"><b>redirect</b> = [HOST:]PORT</dt>
@@ -985,7 +993,7 @@
 
 <p>http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html</p>
 
-<p>Warto zauwa&#x17C;y&#x107;, &#x17C;e zablokowanie renegocjacji TLS nie zebezpiecza w pełni przed opisanym problemem.</p>
+<p>Warto zauwa&#x17C;y&#x107;, &#x17C;e zablokowanie renegocjacji TLS nie zabezpiecza w pełni przed opisanym problemem.</p>
 
 <p>domy&#x15B;lnie: yes (o ile wspierane przez <b>OpenSSL</b>)</p>
 
@@ -1115,7 +1123,7 @@
 <dt id="sessiond-HOST:PORT"><b>sessiond</b> = HOST:PORT</dt>
 <dd>
 
-<p>adres sessiond - servera cache sesji TLS</p>
+<p>adres sessiond - serwera cache sesji TLS</p>
 
 </dd>
 <dt id="sni-NAZWA_USUGI:WZORZEC_NAZWY_SERWERA-tryb-serwera"><b>sni</b> = NAZWA_US&#x141;UGI:WZORZEC_NAZWY_SERWERA (tryb serwera)</dt>
@@ -1123,7 +1131,7 @@
 
 <p>U&#x17C;yj usługi jako podrz&#x119;dnej (virtualnego serwera) dla rozszerzenia TLS Server Name Indication (RFC 3546).</p>
 
-<p><i>NAZWA_US&#x141;UGI</i> wskazuje usług&#x119; nadrz&#x119;dn&#x105;, kt&oacute;ra odbiera poł&#x105;czenia od klient&oacute;w przy pomocy opcji <i>accept</i>. <i>WZORZEC_NAZWY_SERWERA</i> wskazuje nazw&#x119; serwera wirtualnego. Wzorzec mo&#x17C;e zaczyna&#x107; si&#x119; znakiem &#39;*&#39;, np. &#39;*.example.com&quot;. Z pojedy&#x144;cz&#x105; usług&#x105; nadrz&#x119;dn&#x105; powi&#x105;zane jest zwykle wiele usług podrz&#x119;dnych. Opcja <i>sni</i> mo&#x17C;e by&#x107; rownie&#x17C; u&#x17C;yta wielokrotnie w ramach jednej usługi podrz&#x119;dnej.</p>
+<p><i>NAZWA_US&#x141;UGI</i> wskazuje usług&#x119; nadrz&#x119;dn&#x105;, kt&oacute;ra odbiera poł&#x105;czenia od klient&oacute;w przy pomocy opcji <i>accept</i>. <i>WZORZEC_NAZWY_SERWERA</i> wskazuje nazw&#x119; serwera wirtualnego. Wzorzec mo&#x17C;e zaczyna&#x107; si&#x119; znakiem &#39;*&#39;, np. &#39;*.example.com&quot;. Z pojedyncz&#x105; usług&#x105; nadrz&#x119;dn&#x105; powi&#x105;zane jest zwykle wiele usług podrz&#x119;dnych. Opcja <i>sni</i> mo&#x17C;e by&#x107; r&oacute;wnie&#x17C; u&#x17C;yta wielokrotnie w ramach jednej usługi podrz&#x119;dnej.</p>
 
 <p>Zar&oacute;wno usługa nadrz&#x119;dna jak i podrz&#x119;dna nie mo&#x17C;e by&#x107; skonfigurowana w trybie klienckim.</p>
 
@@ -1297,7 +1305,7 @@
 <dt id="none"><b>none</b></dt>
 <dd>
 
-<p>Zablokuj wsparcie dla przezroczystago proxy. Jest to warto&#x15B;&#x107; domy&#x15B;lna.</p>
+<p>Zablokuj wsparcie dla przezroczystego proxy. Jest to warto&#x15B;&#x107; domy&#x15B;lna.</p>
 
 </dd>
 <dt id="source"><b>source</b></dt>
@@ -1353,7 +1361,7 @@
 
 <p>Oryginalny adres docelowy jest u&#x17C;ywany zamiast opcji <i>connect</i>.</p>
 
-<p>Przykładowana konfiguracja przezroczystego adresu docelowego:</p>
+<p>Przykładowa konfiguracja przezroczystego adresu docelowego:</p>
 
 <pre><code>    [transparent]
     client = yes
@@ -1385,7 +1393,7 @@
 </dd>
 </dl>
 
-<p>Dla zapewnienia kompatybilno&#x15B;ci z wcze&#x15B;niejszymim wersjami wspierane s&#x105; dwie dodatkowe opcje:</p>
+<p>Dla zapewnienia kompatybilno&#x15B;ci z wcze&#x15B;niejszymi wersjami wspierane s&#x105; dwie dodatkowe opcje:</p>
 
 <dl>
 
@@ -1724,7 +1732,7 @@
 
 <h2 id="PARAMETRY-DH">PARAMETRY DH</h2>
 
-<p>Pocz&#x105;wszy od wersji 4.40 <b>stunnel</b> zawiera w kodzie programu 2048-bitowe parametry DH. Od wersji 5.18 te pocz&#x105;tkowe warto&#x15B;ci parametr&oacute;w DH s&#x105; wymieniane na autogenerowane parametry tymczasowe. Wygenerowanie parametr&oacute;w DH mo&#x17C;e zaj&#x105;&#x107; nawet wiele minut.</p>
+<p>Pocz&#x105;wszy od wersji 4.40 <b>stunnel</b> zawiera w kodzie programu 2048-bitowe parametry DH. Od wersji 5.18 te pocz&#x105;tkowe warto&#x15B;ci parametr&oacute;w DH s&#x105; wymieniane na automatycznie generowane parametry tymczasowe. Wygenerowanie parametr&oacute;w DH mo&#x17C;e zaj&#x105;&#x107; nawet wiele minut.</p>
 
 <p>Alternatywnie parametry DH mo&#x17C;na umie&#x15B;ci&#x107; w pliku razem z certyfikatem, co wył&#x105;cza generowanie parametr&oacute;w tymczasowych:</p>
 

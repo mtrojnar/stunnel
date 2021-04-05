@@ -30,5 +30,5 @@ start_inetd() {
 EOT
 }
 
-test_log_for "042_inetd" "exe_con" "0" "$1" "$2" "$3" 2>> "stderr.log"
+test_log_for "042_inetd" "inetd" "0" "$1" "$2" "$3" 2>> "stderr.log"
 exit $?
