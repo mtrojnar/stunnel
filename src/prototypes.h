@@ -326,6 +326,7 @@ typedef struct service_options_struct {
 #endif
         unsigned local:1;               /* outgoing interface specified */
         unsigned retry:1;               /* loop remote+program */
+        unsigned session_resume:1;      /* enable session resumption */
         unsigned sessiond:1;
 #ifndef USE_WIN32
         unsigned pty:1;

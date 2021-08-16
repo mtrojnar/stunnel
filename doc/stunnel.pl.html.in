@@ -1120,6 +1120,14 @@
 <p>Parametr okre&#x15B;la czas w sekundach, po kt&oacute;rym sesja TLS zostanie usuni&#x119;ta z pami&#x119;ci podr&#x119;cznej.</p>
 
 </dd>
+<dt id="sessionResume-yes-no"><b>sessionResume</b> = yes | no</dt>
+<dd>
+
+<p>zezwalaj lub nie zezwalaj na wznawianie sesji</p>
+
+<p>domy&#x15B;lnie: yes</p>
+
+</dd>
 <dt id="sessiond-HOST:PORT"><b>sessiond</b> = HOST:PORT</dt>
 <dd>
 

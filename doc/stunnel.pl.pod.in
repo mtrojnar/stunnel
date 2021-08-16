@@ -1006,6 +1006,12 @@ przeterminowanie pamięci podręcznej sesji TLS
 Parametr określa czas w sekundach, po którym sesja TLS zostanie usunięta z
 pamięci podręcznej.
 
+=item B<sessionResume> = yes | no
+
+zezwalaj lub nie zezwalaj na wznawianie sesji
+
+domyślnie: yes
+
 =item B<sessiond> = HOST:PORT
 
 adres sessiond - serwera cache sesji TLS

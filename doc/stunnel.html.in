@@ -1122,6 +1122,14 @@
 <p>This is the number of seconds to keep cached TLS sessions.</p>
 
 </dd>
+<dt id="sessionResume-yes-no"><b>sessionResume</b> = yes | no</dt>
+<dd>
+
+<p>allow or disallow session resumption</p>
+
+<p>default: yes</p>
+
+</dd>
 <dt id="sessiond-HOST:PORT"><b>sessiond</b> = HOST:PORT</dt>
 <dd>
 

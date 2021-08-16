@@ -216,7 +216,7 @@ NOEXPORT int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx) {
     }
     if(verify_checks(c, preverify_ok, callback_ctx))
         return 1; /* accept */
-    if(c->opt->option.client || c->opt->protocol)
+    if(c->opt->option.connect_before_ssl)
         return 0; /* reject */
     if(c->opt->redirect_addr.names) {
         SSL_SESSION *sess=SSL_get1_session(c->ssl);

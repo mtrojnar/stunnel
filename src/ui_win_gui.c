@@ -425,7 +425,6 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         UINT message, WPARAM wParam, LPARAM lParam) {
     POINT pt;
     RECT rect;
-    PAINTSTRUCT ps;
 
 #if 0
     switch(message) {
@@ -483,8 +482,19 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         return 0;
 
     case WM_PAINT:
-        BeginPaint(hwnd, &ps);
-        EndPaint(hwnd, &ps);
+        {
+            PAINTSTRUCT ps;
+            BeginPaint(hwnd, &ps);
+            EndPaint(hwnd, &ps);
+        }
+        break;
+
+    case WM_GETMINMAXINFO:
+        {
+            LPMINMAXINFO minmaxinfo=(LPMINMAXINFO)lParam;
+            minmaxinfo->ptMinTrackSize.x=320;
+            minmaxinfo->ptMinTrackSize.y=200;
+        }
         break;
 
     case WM_CLOSE:

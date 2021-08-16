@@ -702,7 +702,7 @@ NOEXPORT char *pgsql_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     (void)opt; /* squash the unused parameter warning */
     if(phase!=PROTOCOL_EARLY)
         return NULL;
-    s_log(LOG_DEBUG, "Started server-side psql protcol negotiation");
+    s_log(LOG_DEBUG, "Started server-side psql protocol negotiation");
     memset(buffer, 0, sizeof buffer);
     s_read(c, c->local_rfd.fd, buffer, sizeof buffer);
     if(!safe_memcmp(buffer, gss_request, sizeof gss_request)) {
@@ -1192,7 +1192,7 @@ NOEXPORT char *ldap_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     uint32_t buffer_32;
     size_t resp_len;
     uint8_t ldap_response[128];
-    uint8_t *resp_ptr;
+    size_t resp_idx;
 
     (void)opt; /* squash the unused parameter warning */
 
@@ -1230,37 +1230,38 @@ NOEXPORT char *ldap_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     s_read(c, c->remote_fd.fd, ldap_response, resp_len);
 
     s_log(LOG_DEBUG, "Decoding LDAP response value");
-    resp_ptr=ldap_response;
-    if(*resp_ptr++!=LDAP_RESPONSE_MSG_ID_TAG_INTEGER) {
+    resp_idx=0;
+    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_MSG_ID_TAG_INTEGER) {
         s_log(LOG_ERR, "LDAP response has an incorrect message ID type");
         throw_exception(c, 1);
     }
-    if(*resp_ptr++!=LDAP_RESPONSE_MSG_ID_LEN) {
+    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_MSG_ID_LEN) {
         s_log(LOG_ERR, "LDAP response has an unexpected message ID length");
         throw_exception(c, 1);
     }
-    if(*resp_ptr++!=LDAP_RESPONSE_MSG_ID_VAL) {
+    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_MSG_ID_VAL) {
         s_log(LOG_ERR, "LDAP response has an unexpected message ID value");
         throw_exception(c, 1);
     }
-    if(*resp_ptr++!=LDAP_RESPONSE_OP_APPLICATION_24) {
+    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_OP_APPLICATION_24) {
         s_log(LOG_ERR, "LDAP response protocol op is not ExtendedResponse");
         throw_exception(c, 1);
     }
     /* we do not validate the protocol op sequence length */
-    if(*resp_ptr++==LDAP_WINLDAP_FOUR_BYTE_LEN_FLAG) { /* WinLDAP */
-        resp_ptr+=4; /* skip next 4 bytes */
+    if(ldap_response[resp_idx++]==LDAP_WINLDAP_FOUR_BYTE_LEN_FLAG) { /* WinLDAP */
+        resp_idx+=4; /* skip next 4 bytes */
     }
-    if(*resp_ptr++!=LDAP_RESPONSE_RESULT_TAG_ENUMERATED) {
+    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_RESULT_TAG_ENUMERATED) {
         s_log(LOG_ERR, "LDAP response has an unexpected result code type");
         throw_exception(c, 1);
     }
-    if(*resp_ptr++!=LDAP_RESPONSE_RESULT_LEN) {
+    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_RESULT_LEN) {
         s_log(LOG_ERR, "LDAP response has an unexpected result code length");
         throw_exception(c, 1);
     }
-    if(*resp_ptr!=LDAP_RESPONSE_RESULT_VAL_SUCCESS) {
-        s_log(LOG_ERR, "LDAP response has indicated an error (%u)", *resp_ptr);
+    if(ldap_response[resp_idx]!=LDAP_RESPONSE_RESULT_VAL_SUCCESS) {
+        s_log(LOG_ERR, "LDAP response has indicated an error (%u)",
+            ldap_response[resp_idx]);
         throw_exception(c, 1);
     }
     /* any remaining data is ignored */

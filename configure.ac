@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.59])
+AC_INIT([stunnel],[5.60])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -481,6 +481,9 @@ if test -f src/stunnel.c && ! grep -q " built for $PACKAGE_STRING " src/dhparam.
         echo '#endif /* OPENSSL_NO_DH */'
         echo "/* built for $PACKAGE_STRING */"
     ) > src/dhparam.c
+    # also update trusted CA certificates
+    curl 'https://ccadb-public.secure.force.com/mozilla/IncludedRootsPEMTxt?TrustBitsInclude=Websites' |
+        sed -e 's/\r//' -e 's/ $//' >tools/ca-certs.pem
 else
     AC_MSG_RESULT([no])
 fi

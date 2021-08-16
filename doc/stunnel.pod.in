@@ -990,6 +990,12 @@ session cache timeout
 
 This is the number of seconds to keep cached TLS sessions.
 
+=item B<sessionResume> = yes | no
+
+allow or disallow session resumption
+
+default: yes
+
 =item B<sessiond> = HOST:PORT
 
 address of sessiond TLS cache server

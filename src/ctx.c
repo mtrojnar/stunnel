@@ -213,6 +213,11 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 
     /* TLS options: configure the stunnel defaults first */
     SSL_CTX_set_options(section->ctx, SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
+    /* no session ticket gets sent to the client at all in TLSv1.2
+       and below, but a stateful ticket will be sent in TLSv1.3 */
+    if(!section->option.client && !section->option.session_resume) {
+        SSL_CTX_set_options(section->ctx, SSL_OP_NO_TICKET);
+    }
 #ifdef SSL_OP_NO_COMPRESSION
     /* we implemented a better way to disable compression if needed */
     SSL_CTX_clear_options(section->ctx, SSL_OP_NO_COMPRESSION);
@@ -268,14 +273,27 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
         unsigned servname_len=(unsigned)strlen(section->servname);
         if(servname_len>SSL_MAX_SSL_SESSION_ID_LENGTH)
             servname_len=SSL_MAX_SSL_SESSION_ID_LENGTH;
+#ifndef OPENSSL_NO_TLS1_3
+        /* suppress all tickets (stateful and stateless) in TLSv1.3 */
+        if(!section->option.session_resume && !SSL_CTX_set_num_tickets(section->ctx, 0)) {
+            sslerror("SSL_CTX_set_num_tickets");
+            return 1; /* FAILED */
+        }
+#endif /* TLS 1.3 */
         if(!SSL_CTX_set_session_id_context(section->ctx,
                 (unsigned char *)section->servname, servname_len)) {
             sslerror("SSL_CTX_set_session_id_context");
             return 1; /* FAILED */
         }
     }
-    SSL_CTX_set_session_cache_mode(section->ctx,
-        SSL_SESS_CACHE_BOTH | SSL_SESS_CACHE_NO_INTERNAL_STORE);
+    if(section->option.session_resume) {
+        SSL_CTX_set_session_cache_mode(section->ctx,
+            SSL_SESS_CACHE_BOTH | SSL_SESS_CACHE_NO_INTERNAL_STORE);
+    } else {
+        SSL_CTX_set_session_cache_mode(section->ctx, SSL_SESS_CACHE_OFF);
+    }
+    s_log(LOG_INFO, "Session resumption %s", section->option.session_resume
+        ? "enabled" : "disabled");
     SSL_CTX_sess_set_cache_size(section->ctx, section->session_size);
     SSL_CTX_set_timeout(section->ctx, section->session_timeout);
     SSL_CTX_sess_set_new_cb(section->ctx, sess_new_cb);
@@ -999,6 +1017,9 @@ NOEXPORT int ui_retry() {
         switch(ERR_GET_REASON(err)) {
         case UI_R_RESULT_TOO_LARGE:
         case UI_R_RESULT_TOO_SMALL:
+#ifdef UI_R_PROCESSING_ERROR
+        case UI_R_PROCESSING_ERROR:
+#endif
             return 1;
         default:
             return 0;

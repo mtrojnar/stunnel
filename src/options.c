@@ -222,6 +222,30 @@ static const SSL_OPTION ssl_opts[] = {
 #ifdef SSL_OP_PRIORITIZE_CHACHA
     {"PRIORITIZE_CHACHA", SSL_OP_PRIORITIZE_CHACHA},
 #endif
+#ifdef SSL_OP_ALLOW_CLIENT_RENEGOTIATION
+    {"ALLOW_CLIENT_RENEGOTIATION", SSL_OP_ALLOW_CLIENT_RENEGOTIATION},
+#endif
+#ifdef SSL_OP_BIT
+    {"BIT", SSL_OP_BIT},
+#endif
+#ifdef SSL_OP_CLEANSE_PLAINTEXT
+    {"CLEANSE_PLAINTEXT", SSL_OP_CLEANSE_PLAINTEXT},
+#endif
+#ifdef SSL_OP_DISABLE_TLSEXT_CA_NAMES
+    {"DISABLE_TLSEXT_CA_NAMES", SSL_OP_DISABLE_TLSEXT_CA_NAMES},
+#endif
+#ifdef SSL_OP_ENABLE_KTLS
+    {"ENABLE_KTLS", SSL_OP_ENABLE_KTLS},
+#endif
+#ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
+    {"IGNORE_UNEXPECTED_EOF", SSL_OP_IGNORE_UNEXPECTED_EOF},
+#endif
+#ifdef SSL_OP_NO_ANTI_REPLAY
+    {"NO_ANTI_REPLAY", SSL_OP_NO_ANTI_REPLAY},
+#endif
+#ifdef SSL_OP_NO_EXTENDED_MASTER_SECRET
+    {"NO_EXTENDED_MASTER_SECRET", SSL_OP_NO_EXTENDED_MASTER_SECRET},
+#endif
     {NULL, 0}
 };
 
@@ -3093,6 +3117,36 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
     case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = session cache timeout (in seconds)",
             "sessionCacheTimeout");
+        break;
+    }
+
+    /* sessionResume */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->option.session_resume=1; /* enabled by default */
+        break;
+    case CMD_SET_COPY:
+        section->option.session_resume=new_service_options.option.session_resume;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "sessionResume"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.session_resume=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.session_resume=0;
+        else
+            return "The argument needs to be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = yes|no enable session resumption",
+            "sessionResume");
         break;
     }
 
