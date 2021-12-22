@@ -68,6 +68,7 @@ struct sockaddr_un {
 };
 #endif
 
+NOEXPORT void terminate_threads();
 #if !defined(USE_WIN32) && !defined(USE_OS2)
 NOEXPORT void pid_status_nohang(const char *);
 NOEXPORT void status_info(int, int, const char *);
@@ -90,7 +91,9 @@ NOEXPORT char *signal_name(int);
 /**************************************** global variables */
 
 SOCKET signal_pipe[2]={INVALID_SOCKET, INVALID_SOCKET};
+#ifdef USE_TERMINATE_PIPE
 SOCKET terminate_pipe[2]={INVALID_SOCKET, INVALID_SOCKET};
+#endif /* USE_TERMINATE_PIPE */
 
 #ifndef USE_FORK
 int max_clients=0;
@@ -133,9 +136,11 @@ void main_init() { /* one-time initialization */
     if(pipe_init(signal_pipe, "signal_pipe"))
         fatal("Signal pipe initialization failed: "
             "check your personal firewall");
+#ifdef USE_TERMINATE_PIPE
     if(pipe_init(terminate_pipe, "terminate_pipe"))
         fatal("Terminate pipe initialization failed: "
             "check your personal firewall");
+#endif /* USE_TERMINATE_PIPE */
     stunnel_info(LOG_NOTICE);
     if(systemd_fds>0)
         s_log(LOG_INFO, "Systemd socket activation: %d descriptors received",
@@ -234,14 +239,26 @@ int drop_privileges(int critical) {
     return 0;
 }
 
+void main_cleanup() {
+    terminate_threads();
+    unbind_ports();
+    s_poll_free(fds);
+    fds=NULL;
+#if 0
+    str_stats(); /* main thread allocation tracking */
+#endif
+    log_flush(LOG_MODE_BUFFER); /* no more logs */
+    log_close(SINK_SYSLOG|SINK_OUTFILE);
+}
+
 #ifdef __GNUC__
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
 #endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
-void main_cleanup() {
-#ifdef USE_OS_THREADS
+NOEXPORT void terminate_threads() {
+#ifdef USE_TERMINATE_PIPE
     CLI *c;
     unsigned i, threads;
     THREAD_ID *thread_list;
@@ -263,7 +280,7 @@ void main_cleanup() {
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
 
     if(threads) {
-        s_log(LOG_NOTICE, "Terminating %u service thread(s)", threads);
+        s_log(LOG_INFO, "Terminating %u service thread(s)", threads);
         writesocket(terminate_pipe[1], "", 1);
         for(i=0; i<threads; ++i) { /* join client threads */
 #ifdef USE_PTHREAD
@@ -277,20 +294,11 @@ void main_cleanup() {
                 ioerror("CloseHandle");
 #endif
         }
-        s_log(LOG_NOTICE, "Service threads terminated");
+        s_log(LOG_INFO, "Service threads terminated");
     }
 
     str_free(thread_list);
-#endif /* USE_OS_THREADS */
-
-    unbind_ports();
-    s_poll_free(fds);
-    fds=NULL;
-#if 0
-    str_stats(); /* main thread allocation tracking */
-#endif
-    log_flush(LOG_MODE_BUFFER); /* no more logs */
-    log_close(SINK_SYSLOG|SINK_OUTFILE);
+#endif /* USE_TERMINATE_PIPE */
 }
 #ifdef __GNUC__
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
@@ -884,18 +892,20 @@ NOEXPORT void reload_config() {
 NOEXPORT int process_connections() {
 #ifndef USE_FORK
     CLI *c;
+    int n=0;
 
-    s_log(LOG_NOTICE, "Active connections:");
+    s_log(LOG_EMERG, "Active connections:");
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
     for(c=thread_head; c; c=c->thread_next) {
-        s_log(LOG_NOTICE, "Service [%s]: "
+        s_log(LOG_EMERG, "Active connection %d: Service [%s], "
             "%llu byte(s) sent to TLS, "
             "%llu byte(s) sent to socket",
-            c->opt->servname,
+            ++n, c->opt->servname,
             (unsigned long long)c->ssl_bytes,
             (unsigned long long)c->sock_bytes);
     }
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+    s_log(LOG_EMERG, "Listed %d active connection(s)", n);
 #endif /* USE_FORK */
     return 0; /* continue execution */
 }

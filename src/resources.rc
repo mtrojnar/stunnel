@@ -44,7 +44,7 @@ BEGIN
         MENUITEM "Reopen &Log File",        IDM_REOPEN_LOG, GRAYED
         MENUITEM "Co&nnections",            IDM_CONNECTIONS
         MENUITEM SEPARATOR
-        MENUITEM "E&xit",                   IDM_EXIT
+        MENUITEM "&Terminate",              IDM_EXIT
         MENUITEM SEPARATOR
         MENUITEM "&Close",                  IDM_CLOSE
     END
@@ -58,9 +58,9 @@ BEGIN
         MENUITEM "&Reload Configuration",   IDM_RELOAD_CONFIG
     END
 #ifdef _WIN32_WCE
-    POPUP "&Save Peer Certs"
+    POPUP "&Save Peer Cert",                GRAYED
 #else
-    POPUP "&Save Peer Certificate"
+    POPUP "&Save Peer Certificate",         GRAYED
 #endif
     BEGIN
         MENUITEM "dummy",                   0, GRAYED
@@ -86,7 +86,7 @@ BEGIN
         MENUITEM "&Edit Configuration",     IDM_EDIT_CONFIG
         MENUITEM "&Reload Configuration",   IDM_RELOAD_CONFIG
         MENUITEM SEPARATOR
-        POPUP "&Save Peer Certificate"
+        POPUP "&Save Peer Certificate",     GRAYED
         BEGIN
             MENUITEM "dummy",               0, GRAYED
         END
@@ -95,7 +95,7 @@ BEGIN
         MENUITEM "&Manual",                 IDM_MANPAGE
         MENUITEM "&About",                  IDM_ABOUT
         MENUITEM SEPARATOR
-        MENUITEM "E&xit",                   IDM_EXIT
+        MENUITEM "&Terminate",              IDM_EXIT
     END
 END
 

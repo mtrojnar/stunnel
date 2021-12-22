@@ -1,100 +1,96 @@
 Name:           stunnel
-Version:        5.60
+Version:        5.61
 Release:        1%{?dist}
 Summary:        An TLS-encrypting socket wrapper
 Group:          Applications/Internet
 License:        GPLv2
-URL:            http://www.stunnel.org/
+URL:            https://www.stunnel.org/
 Source0:        https://www.stunnel.org/downloads/stunnel-%{version}.tar.gz
-Source1:        %{name}.init
-Source2:        %{name}.logrotate
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  openssl-devel
-BuildRequires:  tcp_wrappers-devel
-Requires(pre):  shadow-utils
-Requires(post): chkconfig
-Requires(preun): chkconfig
-Requires(postun): initscripts
+# util-linux is needed for rename
+BuildRequires:  openssl-devel, util-linux
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
+BuildRequires:  systemd-units
+Requires(post): systemd-units
+Requires(preun): systemd-units
+Requires(postun): systemd-units
+%endif
 
 %description
 Stunnel is a socket wrapper which can provide TLS (Transport Layer Security) support to ordinary applications. For example, it can be used
 in conjunction with imapd to create an TLS secure IMAP server.
 
+# Do not generate provides for private libraries
+%global __provides_exclude_from ^%{_libdir}/stunnel/.*$
+
 %prep
 %setup -q
 
 %build
-%configure --enable-fips --enable-ipv6 --with-ssl=%{_prefix}\
-     --sysconfdir=%{_sysconfdir}\
-     CPPFLAGS="-UPIDFILE -DPIDFILE='\"%{_localstatedir}/lib/%{name}/%{name}.pid\"'"
-make LDADD="-pie -Wl,-z,defs,-z,relro,-z,now" %{?_smp_mflags}
-
-
+%configure --enable-fips --enable-ipv6 --with-ssl=%{_prefix} \
+    CPPFLAGS="-UPIDFILE -DPIDFILE='\"%{_localstatedir}/run/stunnel.pid\"'"
+make V=1
 
 %install
-rm -rf $RPM_BUILD_ROOT
-make install DESTDIR=$RPM_BUILD_ROOT
-%{__mv} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/%{name}.conf-sample\
-    $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/%{name}.conf
-%{__install} -d $RPM_BUILD_ROOT%{_initrddir}
-%{__install} -d $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig
-%{__install} -d $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d
-%{__install} -d $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/conf.d
-%{__install} -d $RPM_BUILD_ROOT%{_localstatedir}/log/%{name}
-%{__install} -d $RPM_BUILD_ROOT%{_localstatedir}/lib/%{name}
-%{__install} -p -m0755 %{SOURCE1} $RPM_BUILD_ROOT%{_initrddir}/%{name}
-%{__install} -p -m0644 %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d/%{name}
+make install DESTDIR=%{buildroot}
+# Move the translated man pages to the right subdirectories, and strip off the
+# language suffixes.
 for lang in pl ; do
-    mkdir -p $RPM_BUILD_ROOT/%{_mandir}/${lang}/man8
-    mv $RPM_BUILD_ROOT/%{_mandir}/man8/*.${lang}.8* $RPM_BUILD_ROOT/%{_mandir}/${lang}/man8/
-    rename ".${lang}" "" $RPM_BUILD_ROOT/%{_mandir}/${lang}/man8/*
+    mkdir -p %{buildroot}/%{_mandir}/${lang}/man8
+    mv %{buildroot}/%{_mandir}/man8/*.${lang}.8* %{buildroot}/%{_mandir}/${lang}/man8/
+    rename ".${lang}" "" %{buildroot}/%{_mandir}/${lang}/man8/*
 done
-echo "# %{name} options" > $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/%{name}
-
-%clean
-rm -rf $RPM_BUILD_ROOT
-
-%pre
-getent group %{name} >/dev/null || groupadd -f -r %{name}
-if ! getent passwd %{name} >/dev/null ; then
-   useradd -r -g %{name} -d %{_localstatedir}/lib/%{name} \
-      -s /sbin/nologin -c "%{name} user" %{name}
-fi
-exit 0
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
+mkdir -p %{buildroot}%{_unitdir}
+cp tools/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
+%endif
 
 %post
 /sbin/ldconfig
-/sbin/chkconfig --add %{name}
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
+%systemd_post %{name}.service
+%endif
+
+%preun
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
+%systemd_preun %{name}.service
+%endif
 
 %postun
 /sbin/ldconfig
-if [ "$1" -ge "1" ] ; then
-    /sbin/service %{name} restart >/dev/null 2>&1 || :
-fi
-
-%preun
-if [ $1 -eq 0 ] ; then
-    /sbin/service %{name} stop >/dev/null 2>&1
-    /sbin/chkconfig --del %{name}
-fi
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
+%systemd_postun_with_restart %{name}.service
+%endif
 
 %files
-%defattr(-,root,root,-)
-%doc COPYING.md COPYRIGHT.md README.md NEWS.md doc/stunnel.html
-%doc tools/ca.html tools/ca.pl tools/importCA.html tools/importCA.sh tools/openssl.cnf
-%{_bindir}/*
-%{_libdir}/%{name}
-%{_sysconfdir}/%{name}
-%{_initrddir}/%{name}
-%{_mandir}/man8/%{name}.*
-%{_mandir}/pl/man8/%{name}.*
-%config(noreplace) %{_sysconfdir}/sysconfig/%{name}
-%config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
-%config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
-%attr(0750,%{name},%{name}) %{_localstatedir}/lib/%{name}
-%attr(0750,%{name},%{name}) %{_localstatedir}/log/%{name}
+%{!?_licensedir:%global license %%doc}
+%doc COPYING.md COPYRIGHT.md README.md NEWS.md AUTHORS.md BUGS.md CREDITS.md PORTS.md TODO.md
+%license COPY*
+%lang(en) %doc doc/en/*
+%lang(pl) %doc doc/pl/*
+%{_bindir}/stunnel
+%exclude %{_bindir}/stunnel3
+%exclude %{_datadir}/doc/stunnel
+%{_libdir}/stunnel
+%exclude %{_libdir}/stunnel/libstunnel.la
+%{_mandir}/man8/stunnel.8*
+%lang(pl) %{_mandir}/pl/man8/stunnel.8*
+%dir %{_sysconfdir}/%{name}
+%config %{_sysconfdir}/%{name}/*-sample
+%exclude %{_sysconfdir}/%{name}/*.pem
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
+%{_unitdir}/%{name}*.service
+%endif
 
 %changelog
+* Fri Sep 24 2021 Michał Trojnara <Michal.Trojnara@stunnel.org>
+- Added systemd startup for Fedora >= 15 or RHEL >= 7
+- Removed obsolete init startup
+- Removed obsolete logrotate configuration (replaced with journalctl)
+- Removed obsolete tcp_wrappers-devel support
+- Removed creating a dedicated user
+- Simplified the .spec file
+
 * Wed Apr 27 2016 Andrew Colin Kissa <andrew@topdog.za.net> - 5.32-1
 - Added init script that actually works on Redhat
 - Lots of changes and cleanup to improve spec
@@ -111,7 +107,7 @@ fi
 * Wed Mar 17 2004 neeo <neeo@irc.pl>
 - updated for 4.05
 
-* Sun Jun 24 2000 Brian Hatch <bri@stunnel.org>
+* Sat Jun 24 2000 Brian Hatch <bri@stunnel.org>
 - updated for 3.8p3
 
 * Wed Jul 14 1999 Dirk O. Siebnich <dok@vossnet.de>

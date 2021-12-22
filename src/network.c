@@ -71,7 +71,12 @@ void s_poll_init(s_poll_set *fds, int main_thread) {
     fds->allocated=4; /* prealloc 4 file descriptors */
     s_poll_realloc(fds);
     fds->main_thread=main_thread;
+#ifdef USE_TERMINATE_PIPE
     s_poll_add(fds, main_thread ? signal_pipe[0] : terminate_pipe[0], 1, 0);
+#else
+    if(main_thread)
+        s_poll_add(fds, signal_pipe[0], 1, 0);
+#endif
 }
 
 void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
@@ -375,13 +380,11 @@ void s_poll_init(s_poll_set *fds, int main_thread) {
     FD_ZERO(fds->ixfds);
     fds->max=0; /* no file descriptors */
     fds->main_thread=main_thread;
-#ifdef USE_WIN32
-    /* there seems to be a deadlock in the Windows select() function when
-     * waiting for the same terminate_pipe socket in multiple threads */
+#ifdef USE_TERMINATE_PIPE
+    s_poll_add(fds, main_thread ? signal_pipe[0] : terminate_pipe[0], 1, 0);
+#else
     if(main_thread)
         s_poll_add(fds, signal_pipe[0], 1, 0);
-#else
-    s_poll_add(fds, main_thread ? signal_pipe[0] : terminate_pipe[0], 1, 0);
 #endif
 }
 
@@ -512,6 +515,7 @@ void s_poll_sleep(int sec, int msec) {
 
 #ifndef USE_UCONTEXT
 NOEXPORT void check_terminate(s_poll_set *fds) {
+#ifdef USE_TERMINATE_PIPE
     if(!fds->main_thread && s_poll_canread(fds, terminate_pipe[0])) {
 #ifdef USE_PTHREAD
         pthread_exit(NULL);
@@ -531,6 +535,9 @@ NOEXPORT void check_terminate(s_poll_set *fds) {
         exit(0);
 #endif /* USE_FORK */
     }
+#else /* USE_TERMINATE_PIPE */
+    (void)fds; /* squash the unused parameter warning */
+#endif /* USE_TERMINATE_PIPE */
 }
 #endif
 
@@ -681,38 +688,52 @@ void s_write(CLI *c, SOCKET fd, const void *buf, size_t len) {
     }
 }
 
-void s_read(CLI *c, SOCKET fd, void *ptr, size_t len) {
+size_t s_read_eof(CLI *c, SOCKET fd, void *ptr, size_t len) {
         /* simulate a blocking read */
-    ssize_t num;
+        /* return a value < len on EOF */
+    size_t total=0;
 
     while(len>0) {
+        ssize_t num;
+
         s_poll_init(c->fds, 0);
         s_poll_add(c->fds, fd, 1, 0); /* read */
         switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
         case -1:
-            sockerror("s_read: s_poll_wait");
+            sockerror("s_read_eof: s_poll_wait");
             throw_exception(c, 1); /* error */
         case 0:
-            s_log(LOG_INFO, "s_read: s_poll_wait:"
+            s_log(LOG_INFO, "s_read_eof: s_poll_wait:"
                 " TIMEOUTbusy exceeded: sending reset");
             throw_exception(c, 1); /* timeout */
         case 1:
             break; /* OK */
         default:
-            s_log(LOG_ERR, "s_read: s_poll_wait: unknown result");
+            s_log(LOG_ERR, "s_read_eof: s_poll_wait: unknown result");
             throw_exception(c, 1); /* error */
         }
-        num=readsocket(fd, ptr, len);
-        switch(num) {
-        case -1: /* error */
-            sockerror("readsocket (s_read)");
-            throw_exception(c, 1);
-        case 0: /* EOF */
-            s_log(LOG_ERR, "Unexpected socket close (s_read)");
+
+        num=readsocket(fd, (char *)ptr+total, len);
+        if(num<0) { /* error */
+            sockerror("readsocket (s_read_eof)");
             throw_exception(c, 1);
         }
-        ptr=(uint8_t *)ptr+num;
+        if(num==0) { /* EOF */
+            s_log(LOG_DEBUG, "Socket closed (s_read_eof)");
+            break;
+        }
+        total+=(size_t)num;
         len-=(size_t)num;
+    }
+    return total;
+}
+
+void s_read(CLI *c, SOCKET fd, void *ptr, size_t len) {
+        /* simulate a blocking read */
+        /* throw an exception on EOF */
+    if(s_read_eof(c, fd, ptr, len)!=len) {
+        s_log(LOG_ERR, "Unexpected socket close (s_read)");
+        throw_exception(c, 1);
     }
 }
 
@@ -804,11 +825,14 @@ void s_ssl_write(CLI *c, const void *buf, int len) {
     }
 }
 
-void s_ssl_read(CLI *c, void *ptr, int len) {
+size_t s_ssl_read_eof(CLI *c, void *ptr, int len) {
         /* simulate a blocking SSL_read */
-    int num;
+        /* return a value < len on EOF */
+    size_t total=0;
 
     while(len>0) {
+        int num;
+
         if(!SSL_pending(c->ssl)) {
             s_poll_init(c->fds, 0);
             s_poll_add(c->fds, c->ssl_rfd->fd, 1, 0); /* read */
@@ -827,17 +851,28 @@ void s_ssl_read(CLI *c, void *ptr, int len) {
                 throw_exception(c, 1); /* error */
             }
         }
-        num=SSL_read(c->ssl, ptr, len);
-        switch(num) {
-        case -1: /* error */
-            sockerror("SSL_read (s_ssl_read)");
-            throw_exception(c, 1);
-        case 0: /* EOF */
-            s_log(LOG_ERR, "Unexpected socket close (s_ssl_read)");
+
+        num=SSL_read(c->ssl, (char *)ptr+total, len);
+        if(num<0) { /* error */
+            sockerror("SSL_read (s_ssl_read_eof)");
             throw_exception(c, 1);
         }
-        ptr=(uint8_t *)ptr+num;
+        if(num==0) { /* EOF */
+            s_log(LOG_DEBUG, "Socket close (s_ssl_read_eof)");
+            break;
+        }
+        total+=(size_t)num;
         len-=num;
+    }
+    return total;
+}
+
+void s_ssl_read(CLI *c, void *ptr, int len) {
+        /* simulate a blocking SSL_read */
+        /* throw an exception on EOF */
+    if(s_ssl_read_eof(c, ptr, len)!=(size_t)len) {
+        s_log(LOG_ERR, "Unexpected socket close (s_ssl_read)");
+        throw_exception(c, 1);
     }
 }
 

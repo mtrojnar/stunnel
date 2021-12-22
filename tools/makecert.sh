@@ -8,10 +8,12 @@ fi
 
 if test -n "$2"; then
     OPENSSL="$2/bin/openssl"
-    LD_LIBRARY_PATH="$2/lib"
+    export LD_LIBRARY_PATH="$2/lib:$2/lib64"
 else
     OPENSSL=openssl
 fi
+
+$OPENSSL version
 
 if test -n "$3"; then
     RAND="$3"

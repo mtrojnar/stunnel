@@ -3,10 +3,15 @@
 
 SUBDIRS = certs
 
-EXTRA_DIST = make_test test_library recipes execute execute_read execute_write http_request server.py
+EXTRA_DIST = maketest.py plugin_collection.py reader.py error.py plugins
 
+# try to find a supported python version (>= 3.7) that works
 check-local:
-	$(srcdir)/make_test
+	for v in $$(seq 20 -1 7); do command -v python3.$$v && break; done || ( echo "Python 3.7 or later not found" && false )
+	for v in $$(seq 20 -1 7); do command -v python3.$$v && python3.$$v $(srcdir)/maketest.py --debug=10 && break; done
 
 distclean-local:
 	rm -f logs/*.log
+	rm -f certs/*.pem
+	rm -f certs/*.p12
+	rm -f certs/*.txt

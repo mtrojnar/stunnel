@@ -391,7 +391,7 @@ CLEANFILES = stunnel3
 
 # Red Hat "by design" bug #82369
 
-# Additional preprocesor definitions
+# Additional preprocessor definitions
 stunnel_CPPFLAGS = -I$(SYSROOT)/usr/kerberos/include \
 	-I$(SSLDIR)/include -DLIBDIR='"$(pkglibdir)"' \
 	-DCONFDIR='"$(sysconfdir)/stunnel"'

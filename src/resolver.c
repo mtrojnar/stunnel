@@ -350,8 +350,10 @@ char *s_ntop(SOCKADDR_UNION *addr, socklen_t addrlen) {
     if(err) {
         s_log(LOG_ERR, "getnameinfo: %s", s_gai_strerror(err));
         retval=str_dup("unresolvable address");
-    } else
-        retval=str_printf("%s:%s", host, port);
+    } else if(!*port && !*host)
+        retval=str_dup("unnamed socket");
+    else
+        retval=str_printf("%s%s%s", host, *host && *port ? ":" : "", port);
     str_free(host);
     str_free(port);
     return retval;

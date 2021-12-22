@@ -44,6 +44,14 @@
 #define USE_OS_THREADS
 #endif
 
+#ifdef USE_OS_THREADS
+#ifndef USE_WIN32
+    /* FIXME: waiting for a single terminate_pipe socket
+     * from multiple threads causes a deadlock on WIN32 */
+#define USE_TERMINATE_PIPE
+#endif /* USE_WIN32 */
+#endif /* USE_OS_THREADS */
+
 /**************************************** forward declarations */
 
 typedef struct tls_data_struct TLS_DATA;
@@ -246,9 +254,9 @@ typedef struct service_options_struct {
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     int security_level;
 #endif /* OpenSSL 1.1.0 or later */
-    long unsigned ssl_options_set;
+    uint64_t ssl_options_set;
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
-    long unsigned ssl_options_clear;
+    uint64_t ssl_options_clear;
 #endif /* OpenSSL 0.9.8m or later */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     int min_proto_version, max_proto_version;
@@ -486,7 +494,6 @@ void stunnel_info(int);
 
 /**************************************** prototypes for options.c */
 
-extern char *configuration_file;
 extern unsigned number_of_sections;
 
 int options_cmdline(char *, char *);
@@ -633,6 +640,7 @@ void throw_exception(CLI *, int) NORETURN;
 int get_socket_error(const SOCKET);
 int s_connect(CLI *, SOCKADDR_UNION *, socklen_t);
 void s_write(CLI *, SOCKET fd, const void *, size_t);
+size_t s_read_eof(CLI *, SOCKET fd, void *, size_t);
 void s_read(CLI *, SOCKET fd, void *, size_t);
 void fd_putline(CLI *, SOCKET, const char *);
 char *fd_getline(CLI *, SOCKET);
@@ -644,6 +652,7 @@ void fd_printf(CLI *, SOCKET, const char *, ...)
     ;
 #endif
 void s_ssl_write(CLI *, const void *, int);
+size_t s_ssl_read_eof(CLI *, void *, int);
 void s_ssl_read(CLI *, void *, int);
 char *ssl_getstring(CLI *c);
 char *ssl_getline(CLI *c);
@@ -663,6 +672,11 @@ typedef enum {
     PROTOCOL_MIDDLE,
     PROTOCOL_LATE
 } PHASE;
+
+#ifdef USE_WIN32
+extern HWND capwin_hwnd;
+extern LONG capwin_connectivity;
+#endif
 
 char *protocol(CLI *, SERVICE_OPTIONS *opt, const PHASE);
 

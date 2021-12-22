@@ -104,6 +104,7 @@ typedef __int64             ssize_t;
 typedef int                 ssize_t;
 #endif /* _WIN64 */
 #endif /* !__MINGW32__ */
+#define PRIX64 "I64X"
 #define USE_IPv6
 #define _CRT_SECURE_NO_DEPRECATE
 #define _CRT_NONSTDC_NO_DEPRECATE
@@ -242,6 +243,7 @@ typedef int                 ssize_t;
 #include <ws2tcpip.h>
 
 #include <windows.h>
+#include <windowsx.h>
 
 #include <process.h>     /* _beginthread */
 #include <shlobj.h>      /* SHGetFolderPath */
@@ -411,6 +413,9 @@ extern char *sys_errlist[];
 
 /**************************************** OpenSSL headers */
 
+/* TODO: remove this after migrating to the OpenSSL 3.0 API */
+#define OPENSSL_SUPPRESS_DEPRECATED
+
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>
 /* opensslv.h requires prior opensslconf.h to include -fips in version string */
@@ -529,6 +534,8 @@ STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #ifndef offsetof
 #define offsetof(T, F) ((unsigned)((char *)&((T *)0L)->F - (char *)0L))
 #endif
+
+#define is_prefix(a, b) (strncasecmp((a), (b), strlen(b))==0)
 
 #endif /* defined COMMON_H */
 

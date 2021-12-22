@@ -65,8 +65,12 @@ int main(int argc, char *argv[]) {
 #endif
     _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s\\engines"),
         stunnel_exe_path));
+    _tputenv(str_tprintf(TEXT("OPENSSL_MODULES=%s\\ossl-modules"),
+        stunnel_exe_path));
+    _tputenv(str_tprintf(TEXT("OPENSSL_CONF=%s\\config\\openssl.cnf"),
+        stunnel_exe_path));
 
-    if(WSAStartup(MAKEWORD(1, 1), &wsa_state))
+    if(WSAStartup(MAKEWORD(2, 2), &wsa_state))
         return 1;
     resolver_init();
     main_init();

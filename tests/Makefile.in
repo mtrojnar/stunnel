@@ -309,7 +309,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = certs
-EXTRA_DIST = make_test test_library recipes execute execute_read execute_write http_request server.py
+EXTRA_DIST = maketest.py plugin_collection.py reader.py error.py plugins
 all: all-recursive
 
 .SUFFIXES:
@@ -628,11 +628,16 @@ uninstall-am:
 .PRECIOUS: Makefile
 
 
+# try to find a supported python version (>= 3.7) that works
 check-local:
-	$(srcdir)/make_test
+	for v in $$(seq 20 -1 7); do command -v python3.$$v && break; done || ( echo "Python 3.7 or later not found" && false )
+	for v in $$(seq 20 -1 7); do command -v python3.$$v && python3.$$v $(srcdir)/maketest.py --debug=10 && break; done
 
 distclean-local:
 	rm -f logs/*.log
+	rm -f certs/*.pem
+	rm -f certs/*.p12
+	rm -f certs/*.txt
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

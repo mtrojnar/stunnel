@@ -823,6 +823,20 @@
 <p>Nieudokumentowane rozszerzenie protokołu CIFS wspierane przez serwer Samba. Wsparcie dla tego rozszerzenia zostało zarzucone w wersji 3.0.0 serwera Samba.</p>
 
 </dd>
+<dt id="capwin"><i>capwin</i></dt>
+<dd>
+
+<p>Wsparcie dla aplikacji http://www.capwin.org/</p>
+
+</dd>
+<dt id="capwinctrl"><i>capwinctrl</i></dt>
+<dd>
+
+<p>Wsparcie dla aplikacji http://www.capwin.org/</p>
+
+<p>Ten protok&oacute;ł jest wspierany wył&#x105;cznie w trybie klienckim.</p>
+
+</dd>
 <dt id="connect"><i>connect</i></dt>
 <dd>
 

@@ -1,6 +1,31 @@
 # stunnel change log
 
 
+### Version 5.61, 2021.12.22, urgency: LOW
+* New features sponsored by the University of Maryland
+  - Added new "protocol = capwin" and "protocol = capwinctrl"
+    configuration file options.
+* New features for the Windows platform
+  - Added client mode allowing authenticated users to view
+    logs, reconfigure and terminate running stunnel services.
+  - Added support for multiple GUI and service instances
+    distinguised by the location of stunnel.conf.
+  - Improved log window scrolling.
+  - Added a new 'Pause auto-scroll' GUI checkbox.
+  - Double click on the icon tray replaced with single click.
+  - OpenSSL DLLs updated to version 3.0.1.
+* Other new features
+  - Rewritten the testing framework in python (thx to
+    Peter Pentchev for inspiration and initial framework).
+  - Added support for missing SSL_set_options() values.
+  - Updated stunnel.spec to support RHEL8.
+* Bugfixes
+  - Fixed OpenSSL 3.0 build.
+  - Fixed reloading configuration with
+    "systemctl reload stunnel.service".
+  - Fixed incorrect messages logged for OpenSSL errors.
+  - Fixed printing IPv6 socket option defaults on FreeBSD.
+
 ### Version 5.60, 2021.08.16, urgency: LOW
 * New features
   - New 'sessionResume' service-level option to allow
@@ -13,7 +38,6 @@
   - Enforced minimum WIN32 log window size.
   - Fixed support for password-protected private keys with
     OpenSSL 3.0 (thx to Dmitry Belyavskiy).
-  - Added missing TLS options supported in OpenSSL 1.1.1k.
 
 ### Version 5.59, 2021.04.05, urgency: HIGH
 * Security bugfixes

@@ -38,7 +38,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-#define is_prefix(a, b) (strncasecmp((a), (b), strlen(b))==0)
+#define CAPWIN_BUFFER_SIZE 100
 
 /* protocol-specific function prototypes */
 NOEXPORT char *socks_client(CLI *, SERVICE_OPTIONS *, const PHASE);
@@ -71,9 +71,19 @@ NOEXPORT char *connect_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT void ntlm(CLI *, SERVICE_OPTIONS *);
 NOEXPORT char *ntlm1();
 NOEXPORT char *ntlm3(char *, char *, char *, char *);
-NOEXPORT void crypt_DES(DES_cblock, DES_cblock, DES_cblock);
+NOEXPORT void crypt_DES(DES_cblock, DES_cblock, unsigned char[7]);
 #endif
 NOEXPORT char *base64(int, const char *, int);
+NOEXPORT char *capwin_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *capwin_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT char *capwinctrl_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+
+/* global state */
+NOEXPORT char capwin_auth[CAPWIN_BUFFER_SIZE]={0};
+#ifdef USE_WIN32
+HWND capwin_hwnd=NULL;
+LONG capwin_connectivity=0;
+#endif
 
 /**************************************** framework */
 
@@ -122,6 +132,14 @@ char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         return opt->option.client ?
             connect_client(c, opt, phase) :
             connect_server(c, opt, phase);
+    if(!strcasecmp(opt->protocol, "capwin"))
+        return opt->option.client ?
+            capwin_client(c, opt, phase) :
+            capwin_server(c, opt, phase);
+    if(!strcasecmp(opt->protocol, "capwinctrl"))
+        return opt->option.client ?
+            capwinctrl_client(c, opt, phase) :
+            "The 'capwinctrl' protocol is not supported in the server mode";
     return "Protocol not supported";
 }
 
@@ -652,7 +670,7 @@ NOEXPORT char *cifs_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     (void)opt; /* squash the unused parameter warning */
     if(phase!=PROTOCOL_EARLY)
         return NULL;
-    s_read(c, c->local_rfd.fd, buffer, 4) ;/* NetBIOS header */
+    s_read(c, c->local_rfd.fd, buffer, 4); /* NetBIOS header */
     len=(uint16_t)(((uint16_t)(buffer[2])<<8)|buffer[3]);
     if(len>sizeof buffer-4) {
         s_log(LOG_ERR, "Received block too long");
@@ -1599,6 +1617,252 @@ NOEXPORT char *base64(int encode, const char *in, int len) {
     }
     BIO_free_all(bio);
     return out;
+}
+
+/**************************************** capwin authentication support */
+
+NOEXPORT int capwin_decode(const char *src,
+        char **cmd, char **user, char **pass, char **ctrl) {
+    char *us1, *us2, *us3, *fs;
+
+    us1=strchr(src, '\x1f');
+    if(!us1) {
+        s_log(LOG_ERR, "CapWIN: Malformed credentials (1)");
+        return 1; /* FAILED */
+    }
+    us2=strchr(us1 + 1, '\x1f');
+    if(!us2) {
+        s_log(LOG_ERR, "CapWIN: Malformed credentials (2)");
+        return 1; /* FAILED */
+    }
+    us3=strchr(us2 + 1, '\x1f');
+    if(!us3) {
+        s_log(LOG_ERR, "CapWIN: Malformed credentials (3)");
+        return 1; /* FAILED */
+    }
+    fs=strchr(us3 + 1, '\x1c');
+    if(!fs) {
+        s_log(LOG_ERR, "CapWIN: Malformed credentials (4)");
+        return 1; /* FAILED */
+    }
+    if(cmd) {
+        size_t len=(size_t)(us1 - src);
+        *cmd=str_alloc(len + 1);
+        memcpy(*cmd, src, len);
+    }
+    if(user) {
+        size_t len=(size_t)(us2 - us1) - 1;
+        *user=str_alloc(len + 1);
+        memcpy(*user, us1 + 1, len);
+    }
+    if(pass) {
+        size_t len=(size_t)(us3 - us2) - 1;
+        *pass=str_alloc(len + 1);
+        memcpy(*pass, us2 + 1, len);
+    }
+    if(ctrl) {
+        size_t len=(size_t)(fs - us3) - 1;
+        *ctrl=str_alloc(len + 1);
+        memcpy(*ctrl, us3 + 1, len);
+    }
+    return 0; /* SUCCESS */
+}
+
+NOEXPORT int ldap_auth(CLI *c, const char *dn, const char *pass) {
+    size_t dn_len, pass_len, req_len;
+    SOCKADDR_UNION addr;
+    int i;
+    unsigned char *req, resp[22];
+    const unsigned char resp_ok[22]=
+        "\x30\x84\x00\x00\x00\x10\x02\x01\x01\x61\x84"
+        "\x00\x00\x00\x07\x0a\x01\x00\x04\x00\x04\x00";
+
+    /* reject parameters too long for simple encoding */
+    dn_len=strlen(dn);
+    pass_len=strlen(pass);
+    req_len=dn_len + pass_len + 14;
+    if(req_len > 120) {
+        s_log(LOG_ERR, "LDAP: Request too long");
+        return 1; /* FAILED */
+    }
+
+    /* connect the configured LDAP server */
+    if(!name2addr(&addr, c->opt->protocol_host, 0)) {
+        s_log(LOG_ERR, "LDAP: Failed to resolve protocolHost");
+        return 1; /* FAILED */
+    }
+    c->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "LDAP socket");
+    if(c->fd==INVALID_SOCKET)
+        return 1; /* FAILED */
+    s_log(LOG_DEBUG, "LDAP: Connecting the server");
+    if(s_connect(c, &addr, addr_len(&addr))) {
+        closesocket(c->fd);
+        c->fd=INVALID_SOCKET; /* avoid double close on cleanup */
+        return 1; /* FAILED */
+    }
+
+    /* send BindRequest */
+    req=str_alloc(req_len);
+    i=0;
+    req[i++]=0x30; /* SEQUENCE */
+    req[i++]=(unsigned char)(dn_len + pass_len + 12);
+    req[i++]=0x02; /* INTEGER */
+    req[i++]=0x01; /* length */
+    req[i++]=0x01; /* MessageID */
+    req[i++]=0x60; /* [APPLICATION 0]: BindRequest */
+    req[i++]=(unsigned char)(dn_len + pass_len + 7);
+    req[i++]=0x02; /* INTEGER */
+    req[i++]=0x01; /* length */
+    req[i++]=0x03; /* LDAP protocol version */
+    req[i++]=0x04; /* OCTET STRING */
+    req[i++]=(unsigned char)dn_len;
+    memcpy(req + i, dn, dn_len);
+    i+=(int)dn_len;
+    req[i++]=0x80; /* [IMPLICIT 0]: simple authentication */
+    req[i++]=(unsigned char)pass_len;
+    memcpy(req + i, pass, pass_len);
+    s_log(LOG_DEBUG, "LDAP: Sending BindRequest");
+    s_write(c, c->fd, req, req_len);
+    str_free(req);
+
+    /* receive BindResponse */
+    s_log(LOG_DEBUG, "LDAP: Waiting for BindResponse");
+    s_read(c, c->fd, resp, sizeof resp);
+    closesocket(c->fd);
+    c->fd=INVALID_SOCKET; /* avoid double close on cleanup */
+    return memcmp(resp, resp_ok, sizeof resp);
+}
+
+NOEXPORT char *ldap_escape_dn(const char *src) {
+    int i=0, j=0;
+    char *dst=str_alloc(2 * strlen(src) + 1);
+
+    while(src[i]) {
+        if(strchr("+;,\\\"<>#", src[i]))
+            dst[j++]='\\';
+        dst[j++]=src[i++];
+    }
+    return dst;
+}
+
+NOEXPORT char *capwin_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+    char *buffer, *user, *pass, *esc_user, *dn;
+    const char *success="BINGO", *failure="FAILED";
+    int i;
+
+    (void)opt; /* squash the unused parameter warning */
+    switch(phase) {
+    case PROTOCOL_MIDDLE: /* TLS is established */
+        buffer=str_alloc(CAPWIN_BUFFER_SIZE);
+        for(i=0; i<CAPWIN_BUFFER_SIZE - 1; ++i) {
+            s_ssl_read(c, buffer+i, 1);
+            if(buffer[i] == '\x1c')
+                break;
+        }
+        if(capwin_decode(buffer, NULL, &user, &pass, NULL)) {
+            /* malformed request: reset instead of sending "FAILED" */
+            str_free(buffer);
+            throw_exception(c, 1);
+        }
+        str_free(buffer);
+        esc_user=ldap_escape_dn(user);
+        str_free(user);
+        dn=str_printf("uid=%s,ou=people,O=CAPWIN,C=US", esc_user);
+        str_free(esc_user);
+        if(ldap_auth(c, dn, pass)) {
+            str_free(dn);
+            str_free(pass);
+            s_log(LOG_ERR, "CapWIN: Authentication failed");
+            s_ssl_write(c, failure, (int)strlen(failure));
+            throw_exception(c, 2); /* don't reset */
+        }
+        str_free(dn);
+        str_free(pass);
+        s_log(LOG_NOTICE, "CapWIN: Authentication succeeded");
+        break;
+    case PROTOCOL_LATE: /* remote host is connected */
+        s_ssl_write(c, success, (int)strlen(success));
+        break;
+    default:
+        break;
+    }
+    return NULL;
+}
+
+NOEXPORT char *capwin_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+    char *cmd, *user, *pass, *ctrl, *req, resp[5];
+
+    (void)opt; /* squash the unused parameter warning */
+    if(phase!=PROTOCOL_LATE)
+        return NULL;
+
+    /* we extract the username and the password to work around a bug in the
+     * original server-side code that required unused units to be empty */
+    /* otherwise, we could simply forward capwin_auth directly */
+    if(!capwin_auth[0]) {
+        s_log(LOG_ERR, "CapWIN: No credentials set");
+        throw_exception(c, 1);
+    }
+    if(capwin_decode(capwin_auth, &cmd, &user, &pass, &ctrl))
+        throw_exception(c, 1);
+    if(strcmp(cmd, "AUTH")) {
+        s_log(LOG_ERR, "CapWIN: Invalid authentication request");
+        str_free(cmd);
+        str_free(user);
+        str_free(pass);
+        str_free(ctrl);
+        throw_exception(c, 1);
+    }
+    str_free(cmd);
+    req=str_printf("\x1f%s\x1f%s\x1f\x1c", user, pass);
+    str_free(user);
+    str_free(pass);
+#ifdef USE_WIN32
+    capwin_hwnd=(HWND)(uintptr_t)atoi(ctrl);
+#endif
+    str_free(ctrl);
+
+    s_log(LOG_DEBUG, "CapWIN: Sending credentials");
+    s_ssl_write(c, req, (int)strlen(req));
+    str_free(req);
+
+    s_log(LOG_DEBUG, "CapWIN: Waiting for response");
+    s_ssl_read(c, resp, sizeof resp);
+#ifdef USE_WIN32
+    /* we received a response, so network is up */
+    if(!InterlockedExchange(&capwin_connectivity, 1))
+        PostMessage(capwin_hwnd, WM_CAPWIN_NET_UP, 0, 0);
+#endif
+    if(memcmp(resp, "BINGO", sizeof resp)) {
+        s_log(LOG_ERR, "CapWIN: Authentication failed");
+#ifdef USE_WIN32
+        PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_FAIL, 0, 0);
+#endif
+        throw_exception(c, 1);
+    }
+    s_log(LOG_NOTICE, "CapWIN: Authentication succeeded");
+#ifdef USE_WIN32
+    PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_OK, 0, 0);
+#endif
+    return NULL;
+}
+
+NOEXPORT char *capwinctrl_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+    switch(phase) {
+    case PROTOCOL_CHECK:
+        opt->option.protocol_endpoint=1;
+        break;
+    case PROTOCOL_EARLY:
+        s_log(LOG_DEBUG, "CapWIN: Setting credentials");
+        memset(capwin_auth, 0, CAPWIN_BUFFER_SIZE);
+        s_read_eof(c, c->local_rfd.fd, capwin_auth, CAPWIN_BUFFER_SIZE - 1);
+        s_log(LOG_NOTICE, "CapWIN: Credentials set");
+        /* skip connecting a remote host */
+        throw_exception(c, 2); /* don't reset */
+    default:
+        break;
+    }
+    return NULL;
 }
 
 /* end of protocol.c */

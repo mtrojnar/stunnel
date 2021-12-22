@@ -2,6 +2,9 @@
 
 !define /ifndef VERSION testing
 !define /ifndef ARCH win32
+!define /ifndef LIB lib64
+!define /ifndef SUFFIX 3
+!define /ifndef ENABLE_FIPS 0
 
 !define REGKEY_INSTALL "Software\NSIS_stunnel"
 !define REGKEY_UNINST \
@@ -44,13 +47,18 @@ BrandingText "Author: Michal Trojnara"
 !define /ifndef BIN_DIR ${ROOT_DIR}\${ARCH}
 !define /ifndef OPENSSL_DIR ${BIN_DIR}\openssl
 !define /ifndef OPENSSL_BIN_DIR ${OPENSSL_DIR}\bin
-!define /ifndef OPENSSL_ENGINES_DIR ${OPENSSL_DIR}\lib\engines-1_1
+!define /ifndef OPENSSL_ENGINES_DIR ${OPENSSL_DIR}\${LIB}\engines-${SUFFIX}
+!if ${SUFFIX} == "3"
+!define /ifndef OPENSSL_OSSLMODULES_DIR ${OPENSSL_DIR}\${LIB}\ossl-modules
+!endif
 !define /ifndef ZLIB_DIR ${BIN_DIR}\zlib
 !define /ifndef REDIST_DIR ${BIN_DIR}\redist
 
 # additional plugins
-!addplugindir "${STUNNEL_TOOLS_DIR}/plugins/SimpleFC"
-!addplugindir "${STUNNEL_TOOLS_DIR}/plugins/ShellLink/Plugins"
+!addplugindir "${STUNNEL_TOOLS_DIR}/plugins/"
+!if ${ENABLE_FIPS}
+!include "${STUNNEL_TOOLS_DIR}/plugins/TextReplace.nsh"
+!endif
 
 !define MUI_ICON ${STUNNEL_SRC_DIR}\stunnel.ico
 
@@ -157,6 +165,7 @@ no_service_restart:
 !macro CleanupStunnelFiles
   # current versions
   Delete "$INSTDIR\config\openssl.cnf"
+  Delete "$INSTDIR\config\fipsmodule.cnf"
 
   Delete "$INSTDIR\bin\stunnel.exe"
   Delete "$INSTDIR\bin\stunnel.pdb"
@@ -172,10 +181,22 @@ no_service_restart:
   Delete "$INSTDIR\bin\zlib1.pdb"
   Delete "$INSTDIR\bin\msvcr90.dll"
   Delete "$INSTDIR\bin\Microsoft.VC90.CRT.Manifest"
+  Delete "$INSTDIR\bin\libcrypto-1_1.dll"
+  Delete "$INSTDIR\bin\libcrypto-1_1.pdb"
+  Delete "$INSTDIR\bin\libssl-1_1.dll"
+  Delete "$INSTDIR\bin\libssl-1_1.pdb"
   Delete "$INSTDIR\bin\libcrypto-1_1-x64.dll"
   Delete "$INSTDIR\bin\libcrypto-1_1-x64.pdb"
   Delete "$INSTDIR\bin\libssl-1_1-x64.dll"
   Delete "$INSTDIR\bin\libssl-1_1-x64.pdb"
+  Delete "$INSTDIR\bin\libcrypto-3.dll"
+  Delete "$INSTDIR\bin\libcrypto-3.pdb"
+  Delete "$INSTDIR\bin\libssl-3.dll"
+  Delete "$INSTDIR\bin\libssl-3.pdb"
+  Delete "$INSTDIR\bin\libcrypto-3-x64.dll"
+  Delete "$INSTDIR\bin\libcrypto-3-x64.pdb"
+  Delete "$INSTDIR\bin\libssl-3-x64.dll"
+  Delete "$INSTDIR\bin\libssl-3-x64.pdb"
   Delete "$INSTDIR\bin\vcruntime140.dll"
   Delete "$INSTDIR\bin\libssp-0.dll"
   RMDir "$INSTDIR\bin"
@@ -207,6 +228,12 @@ no_service_restart:
   Delete "$INSTDIR\engines\pkcs11.dll"
   Delete "$INSTDIR\engines\pkcs11.pdb"
   RMDir "$INSTDIR\engines"
+
+  Delete "$INSTDIR\ossl-modules\fips.dll"
+  Delete "$INSTDIR\ossl-modules\fips.pdb"
+  Delete "$INSTDIR\ossl-modules\legacy.dll"
+  Delete "$INSTDIR\ossl-modules\legacy.pdb"
+  RMDir "$INSTDIR\ossl-modules"
 
   Delete "$INSTDIR\doc\*.html"
   RMDir "$INSTDIR\doc"
@@ -329,8 +356,8 @@ Section "Core Files" sectionCORE
   #File "${OPENSSL_BIN_DIR}\ssleay32.dll"
   #File "${REDIST_DIR}\msvcr90.dll"
   #File "${REDIST_DIR}\Microsoft.VC90.CRT.Manifest"
-  File "${OPENSSL_BIN_DIR}\libcrypto-1_1.dll"
-  File "${OPENSSL_BIN_DIR}\libssl-1_1.dll"
+  File "${OPENSSL_BIN_DIR}\libcrypto-${SUFFIX}.dll"
+  File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}.dll"
   !if /FileExists "/usr/i686-w64-mingw32/bin/libssp-0.dll"
   File "/usr/i686-w64-mingw32/bin/libssp-0.dll"
   !else
@@ -342,13 +369,17 @@ Section "Core Files" sectionCORE
   !else
   !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/8.3-win32/libssp-0.dll"
   File "/usr/lib/gcc/i686-w64-mingw32/8.3-win32/libssp-0.dll"
+  !else
+  !if /FileExists "/usr/i686-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
+  File "/usr/i686-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
+  !endif
   !endif
   !endif
   !endif
   !endif
   !else
-  File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.dll"
-  File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.dll"
+  File "${OPENSSL_BIN_DIR}\libcrypto-${SUFFIX}-x64.dll"
+  File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}-x64.dll"
   !if /FileExists "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
   File "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
   !else
@@ -360,6 +391,10 @@ Section "Core Files" sectionCORE
   !else
   !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/8.3-win32/libssp-0.dll"
   File "/usr/lib/gcc/x86_64-w64-mingw32/8.3-win32/libssp-0.dll"
+  !else
+  !if /FileExists "/usr/x86_64-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
+  File "/usr/x86_64-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
+  !endif
   !endif
   !endif
   !endif
@@ -381,6 +416,15 @@ Section "Core Files" sectionCORE
   File "${OPENSSL_ENGINES_DIR}\capi.dll"
   File "${OPENSSL_ENGINES_DIR}\padlock.dll"
   File "${OPENSSL_ENGINES_DIR}\pkcs11.dll"
+
+  # write new provider libraries
+  !if ${SUFFIX} == "3"
+  SetOutPath "$INSTDIR\ossl-modules"
+  !if ${ENABLE_FIPS}
+  File "${OPENSSL_OSSLMODULES_DIR}\fips.dll"
+  !endif
+  File "${OPENSSL_OSSLMODULES_DIR}\legacy.dll"
+  !endif
 
   # write new documentation
   SetOutPath "$INSTDIR\doc"
@@ -434,6 +478,26 @@ Section "tstunnel.exe" sectionTSTUNNEL
 SectionEnd
 
 SectionGroupEnd
+
+!if ${ENABLE_FIPS}
+SectionGroup "Providers" groupPROVIDERS
+
+Section /o "FIPS" sectionFIPS
+  # create fipsmodule.cnf
+  ExecWait '"$INSTDIR\bin\openssl.exe" fipsinstall -module "$INSTDIR\ossl-modules\fips.dll" \
+    -out "$INSTDIR\config\fipsmodule.cnf" -provider_name fips'
+
+  # modify fipsmodule.cnf and openssl.cnf to enable FIPS mode
+  ${textreplace::ReplaceInFile} "$INSTDIR\config\fipsmodule.cnf" "$INSTDIR\config\fipsmodule.cnf" \
+    "activate = 1" "#activate = 1" "/S=1 /C=0 /AO=1" $0
+  ${textreplace::ReplaceInFile} "$INSTDIR\config\openssl.cnf" "$INSTDIR\config\openssl.cnf" \
+    "#.include" ".include" "/S=1 /C=0 /AO=1" $0
+  ${textreplace::ReplaceInFile} "$INSTDIR\config\openssl.cnf" "$INSTDIR\config\openssl.cnf" \
+    "#fips = fips_sect" "fips = fips_sect" "/S=1 /C=0 /AO=1" $0
+SectionEnd
+
+SectionGroupEnd
+!endif
 
 SectionGroup "Shortcuts" groupSHORTCUTS
 
@@ -530,8 +594,8 @@ Section /o "Debugging Symbols" sectionDEBUG
   File "${OPENSSL_BIN_DIR}\ssleay32.pdb"
   File "${ZLIB_DIR}\zlib1.pdb"
   !else
-  File "${OPENSSL_BIN_DIR}\libcrypto-1_1-x64.pdb"
-  File "${OPENSSL_BIN_DIR}\libssl-1_1-x64.pdb"
+  File "${OPENSSL_BIN_DIR}\libcrypto-${SUFFIX}-x64.pdb"
+  File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}-x64.pdb"
   !endif
 
   # optional tstunnel.exe
@@ -553,6 +617,11 @@ no_openssl_pdb:
   File "${OPENSSL_ENGINES_DIR}\capi.pdb"
   File "${OPENSSL_ENGINES_DIR}\padlock.pdb"
   File "${OPENSSL_ENGINES_DIR}\pkcs11.pdb"
+
+  # providers
+  SetOutPath "$INSTDIR\ossl-modules"
+  File "${OPENSSL_OSSLMODULES_DIR}\fips.pdb"
+  File "${OPENSSL_OSSLMODULES_DIR}\legacy.pdb"
   SetOutPath "$INSTDIR"
 SectionEnd
 */
@@ -591,6 +660,10 @@ LangString DESC_sectionMENU ${LANG_ENGLISH} \
   "Installs the Start Menu shortcuts for managing stunnel."
 LangString DESC_sectionDESKTOP ${LANG_ENGLISH} \
   "Installs the Desktop shortcut for stunnel."
+!if ${ENABLE_FIPS}
+LangString DESC_sectionFIPS ${LANG_ENGLISH} \
+  "Generates a FIPS module configuration file and loads FIPS provider to enable."
+!endif
 /*
 LangString DESC_sectionDEBUG ${LANG_ENGLISH} \
   "Installs the .PDB (program database) files for the executables and libraries."
@@ -599,6 +672,10 @@ LangString DESC_groupTOOLS ${LANG_ENGLISH} \
   "Installs optional (but useful) tools."
 LangString DESC_groupSHORTCUTS ${LANG_ENGLISH} \
   "Installs menu and desktop shortcuts."
+!if ${ENABLE_FIPS}
+LangString DESC_groupPROVIDERS ${LANG_ENGLISH} \
+  "Installs OpenSSL providers."
+!endif
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
     !insertmacro MUI_DESCRIPTION_TEXT ${sectionCORE} $(DESC_sectionCORE)
@@ -606,11 +683,17 @@ LangString DESC_groupSHORTCUTS ${LANG_ENGLISH} \
     !insertmacro MUI_DESCRIPTION_TEXT ${sectionTSTUNNEL} $(DESC_sectionTSTUNNEL)
     !insertmacro MUI_DESCRIPTION_TEXT ${sectionMENU} $(DESC_sectionMENU)
     !insertmacro MUI_DESCRIPTION_TEXT ${sectionDESKTOP} $(DESC_sectionDESKTOP)
+!if ${ENABLE_FIPS}
+    !insertmacro MUI_DESCRIPTION_TEXT ${sectionFIPS} $(DESC_sectionFIPS)
+!endif
 /*
     !insertmacro MUI_DESCRIPTION_TEXT ${sectionDEBUG} $(DESC_sectionDEBUG)
 */
     !insertmacro MUI_DESCRIPTION_TEXT ${groupTOOLS} $(DESC_groupTOOLS)
     !insertmacro MUI_DESCRIPTION_TEXT ${groupSHORTCUTS} $(DESC_groupSHORTCUTS)
+!if ${ENABLE_FIPS}
+    !insertmacro MUI_DESCRIPTION_TEXT ${groupPROVIDERS} $(DESC_groupPROVIDERS)
+!endif
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 # end of stunnel.nsi

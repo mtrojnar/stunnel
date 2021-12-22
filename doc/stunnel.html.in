@@ -825,6 +825,20 @@
 <p>Proprietary (undocummented) extension of CIFS protocol implemented in Samba. Support for this extension was dropped in Samba 3.0.0.</p>
 
 </dd>
+<dt id="capwin"><i>capwin</i></dt>
+<dd>
+
+<p>http://www.capwin.org/ application support</p>
+
+</dd>
+<dt id="capwinctrl"><i>capwinctrl</i></dt>
+<dd>
+
+<p>http://www.capwin.org/ application support</p>
+
+<p>This protocol is only supported in client mode.</p>
+
+</dd>
 <dt id="connect"><i>connect</i></dt>
 <dd>
 

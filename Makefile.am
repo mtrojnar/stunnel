@@ -16,7 +16,7 @@ doc_DATA += INSTALL.W32.md INSTALL.WCE.md INSTALL.FIPS.md
 
 EXTRA_DIST = .travis.yml $(doc_DATA)
 
-distcleancheck_listfiles = find -type f -exec sh -c 'test -f $(srcdir)/{} || echo {}' ';'
+distcleancheck_listfiles = find . -type f -exec sh -c 'test -f $(srcdir)/{} || echo {}' ';'
 
 distclean-local:
 	rm -rf autom4te.cache

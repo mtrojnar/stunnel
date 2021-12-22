@@ -1,11 +1,11 @@
 prefix=.
 DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DPACKAGE_TARNAME=\"stunnel\" \
-	-DPACKAGE_VERSION=\"5.60\" \
-	-DPACKAGE_STRING=\"stunnel\ 5.60\" \
+	-DPACKAGE_VERSION=\"5.61\" \
+	-DPACKAGE_STRING=\"stunnel\ 5.61\" \
 	-DPACKAGE_BUGREPORT=\"\" \
 	-DPACKAGE=\"stunnel\" \
-	-DVERSION=\"5.60\" \
+	-DVERSION=\"5.61\" \
 	-DSTDC_HEADERS=1 \
 	-DHAVE_SYS_TYPES_H=1 \
 	-DHAVE_SYS_STAT_H=1 \

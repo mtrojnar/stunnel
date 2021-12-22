@@ -139,10 +139,16 @@ typedef long SSL_OPTIONS_TYPE;
 int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     /* create a new TLS context */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
-    if(section->option.client)
-        section->ctx=SSL_CTX_new(TLS_client_method());
-    else /* server mode */
-        section->ctx=SSL_CTX_new(TLS_server_method());
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+    section->ctx=SSL_CTX_new_ex(NULL,
+        EVP_default_properties_is_fips_enabled(NULL) ?
+            "fips=yes" : "provider!=fips",
+        section->option.client ?
+            TLS_client_method() : TLS_server_method());
+#else /* OPENSSL_VERSION_NUMBER<0x30000000L */
+    section->ctx=SSL_CTX_new(section->option.client ?
+        TLS_client_method() : TLS_server_method());
+#endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
     if(!SSL_CTX_set_min_proto_version(section->ctx,
             section->min_proto_version)) {
         s_log(LOG_ERR, "Failed to set the minimum protocol version 0x%X",
@@ -233,11 +239,12 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 
     /* TLS options: log the configured values */
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
-    s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX, -0x%08lX)",
+    s_log(LOG_DEBUG,
+        "TLS options: 0x%" PRIX64 " (+0x%" PRIX64 ", -0x%" PRIX64 ")",
         SSL_CTX_get_options(section->ctx),
         section->ssl_options_set, section->ssl_options_clear);
 #else /* OpenSSL older than 0.9.8m */
-    s_log(LOG_DEBUG, "TLS options: 0x%08lX (+0x%08lX)",
+    s_log(LOG_DEBUG, "TLS options: 0x%" PRIX64 " (+0x%" PRIX64 ")",
         SSL_CTX_get_options(section->ctx), section->ssl_options_set);
 #endif /* OpenSSL 0.9.8m or later */
 
@@ -320,7 +327,8 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     dh_init(section); /* ignore the result (errors are not critical) */
 #endif /* OPENSSL_NO_DH */
 #ifndef OPENSSL_NO_ECDH
-    ecdh_init(section); /* ignore the result (errors are not critical) */
+    if(ecdh_init(section))
+        return 1; /* FAILED */
 #endif /* OPENSSL_NO_ECDH */
 
     return 0; /* OK */
@@ -519,9 +527,7 @@ NOEXPORT int SSL_CTX_set1_groups_list(SSL_CTX *ctx, char *list) {
 NOEXPORT int ecdh_init(SERVICE_OPTIONS *section) {
     s_log(LOG_DEBUG, "ECDH initialization");
     if(!SSL_CTX_set1_groups_list(section->ctx, section->curves)) {
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
-        sslerror("SSL_CTX_set1_groups_list");
-#endif /* OpenSSL version >= 1.1.1 */
+        s_log(LOG_ERR, "Invalid groups list in 'curves'");
         return 1; /* FAILED */
     }
     s_log(LOG_DEBUG, "ECDH initialized with curves %s", section->curves);

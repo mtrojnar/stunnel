@@ -756,6 +756,16 @@ Aktualnie wspierane protokoły:
 Nieudokumentowane rozszerzenie protokołu CIFS wspierane przez serwer Samba.
 Wsparcie dla tego rozszerzenia zostało zarzucone w wersji 3.0.0 serwera Samba.
 
+=item I<capwin>
+
+Wsparcie dla aplikacji http://www.capwin.org/
+
+=item I<capwinctrl>
+
+Wsparcie dla aplikacji http://www.capwin.org/
+
+Ten protokół jest wspierany wyłącznie w trybie klienckim.
+
 =item I<connect>
 
 Negocjacja RFC 2817 - I<Upgrading to TLS Within HTTP/1.1>, rozdział 5.2 - I<Requesting a Tunnel with CONNECT>

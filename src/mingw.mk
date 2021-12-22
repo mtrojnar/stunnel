@@ -14,19 +14,37 @@
 bindir = ../bin/$(win32_arch)
 objdir = ../obj/$(win32_arch)
 
-win32_ssl_dir = /opt/openssl-$(win32_mingw)
+ifeq ($(win32_ssl_dir),)
+win32_ssl_dir := /opt/openssl-$(win32_mingw)
+endif
 win32_cppflags = -I$(win32_ssl_dir)/include
 win32_cflags = -g -mthreads -O2
-#win32_cflags += -fstack-protector
-win32_cflags += -Wall -Wextra -Wpedantic -Wformat=2 -Wconversion -Wno-long-long
+win32_cflags += -fstack-protector
+win32_cflags += -Wall -Wextra -Wpedantic -Wconversion -Wno-long-long -ansi
 win32_cflags += -D_FORTIFY_SOURCE=2 -DUNICODE -D_UNICODE
-win32_ldflags = -g -mthreads
-#win32_ldflags += -fstack-protector
-# -fstack-protector is broken (at least in x86_64-w64-mingw32-gcc 8.2.0)
+win32_ldflags = -g -mthreads -pipe
+win32_ldflags += -fstack-protector
+win32_ldflags += -Wl,--dynamicbase,--nxcompat,--no-seh,--tsaware,--no-insert-timestamp
+ifeq ($(win32_arch),win64)
+win32_ldflags += -Wl,--high-entropy-va
+else
+win32_ldflags += -Wl,--large-address-aware
+endif
+
+# -fstack-protector was broken in x86_64-w64-mingw32-gcc 8.2.0
 
 # compiling with -D_FORTIFY_SOURCE=2 may require linking with -lssp
 win32_common_libs = -lws2_32 -lkernel32 -lssp
-win32_ssl_libs = -L$(win32_ssl_dir)/lib -lcrypto -lssl
+ifneq (,$(wildcard $(win32_ssl_dir)/lib64/libcrypto.dll.a))
+    # use OpenSSL 3.x.x mingw-generated library stubs if available
+    win32_ssl_libs = -L$(win32_ssl_dir)/lib64 -lcrypto -lssl
+else ifneq (,$(wildcard $(win32_ssl_dir)/lib/libcrypto.dll.a))
+    # use OpenSSL 1.x.x mingw-generated library stubs if available
+    win32_ssl_libs = -L$(win32_ssl_dir)/lib -lcrypto -lssl
+else
+    # directly import libeay32.dll and ssleay32.dll otherwise
+    win32_ssl_libs = -L$(win32_ssl_dir)/bin -llibeay32 -lssleay32
+endif
 win32_gui_libs = $(win32_common_libs) -lgdi32 -lpsapi $(win32_ssl_libs)
 win32_cli_libs = $(win32_common_libs) $(win32_ssl_libs)
 

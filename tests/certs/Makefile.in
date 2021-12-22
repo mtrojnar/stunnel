@@ -248,10 +248,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-EXTRA_DIST = maketestcert.sh openssltest.cnf CACertCRL.pem CACert.pem \
-	server_cert.pem server_cert.p12 client_cert.pem \
-	revoked_cert.pem stunnel.pem PeerCerts.pem psk1.txt psk2.txt \
-	secrets.txt
+EXTRA_DIST = maketestcert.sh openssltest.cnf
 all: all-am
 
 .SUFFIXES:

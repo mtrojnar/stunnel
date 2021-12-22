@@ -4,6 +4,7 @@ After=syslog.target network-online.target
 
 [Service]
 ExecStart=@bindir@/stunnel
+ExecReload=/bin/kill -HUP $MAINPID
 Type=forking
 
 [Install]

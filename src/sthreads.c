@@ -112,7 +112,7 @@ void thread_id_init(void) {
 #if OPENSSL_VERSION_NUMBER>=0x10000000L && OPENSSL_VERSION_NUMBER<0x10100000L
     CRYPTO_THREADID_set_callback(threadid_func);
 #endif
-#if OPENSSL_VERSION_NUMBER<0x10000000L || !defined(OPENSSL_NO_DEPRECATED)
+#if OPENSSL_VERSION_NUMBER<0x10000000L
     CRYPTO_set_id_callback(stunnel_thread_id);
 #endif
 }

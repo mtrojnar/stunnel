@@ -7,16 +7,17 @@ A sponsor could allocate my time to get them faster.
 
 * Add client certificate autoselection based on the list of accepted issuers:
   SSL_CTX_set_client_cert_cb(), SSL_get_client_CA_list().
-* Add an Apparmor profile.
-* Optional line-buffering of the log file.
-* Log rotation on Windows.
-* Configuration file option to limit the number of concurrent connections.
-* Command-line server control interface on both Unix and Windows.
-* Separate GUI process running as the current user on Windows.
-* An Android GUI.
 * OCSP stapling (tlsext_status).
 * Indirect CRL support (RFC 3280, section 5).
+* Add an Apparmor profile.
+* Log rotation on Windows.
+* Configuration file option to limit the number of concurrent connections.
+* Command-line server control interface on Unix.
+* An Android GUI.
 * MSI installer for Windows.
+* Add 'leastconn' failover strategy to order defined 'connect' targets
+  by the number of active connections.
+* Optional line-buffering of the log file.
 
 ### Low priority features
 These features will unlikely ever be supported.
@@ -27,10 +28,6 @@ These features will unlikely ever be supported.
 * Logging to NT EventLog on Windows.
 * Internationalization of logged messages (i18n).
 * Generic scripting engine instead or static protocol.c.
-* Add 'leastconn' failover strategy to order defined 'connect' targets
-  by the number of active connections.
-* Add '-status' command line option reporting the number of clients
-  connected to each service.
 
 ### Rejected features
 Features I will not support, unless convinced otherwise by a wealthy sponsor.

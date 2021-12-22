@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.60])
+AC_INIT([stunnel],[5.61])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -28,7 +28,7 @@ case "$host_os" in
     ;;
 esac
 
-AC_PROG_CC
+AC_PROG_CC([gcc clang cl cc])
 AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
@@ -299,7 +299,7 @@ AC_ARG_ENABLE(fips,
 [  --disable-fips          disable OpenSSL FIPS support],
     [
         case "$enableval" in
-            yes) AC_MSG_RESULT([no])
+            yes) AC_MSG_RESULT([yes])
                  use_fips="yes"
                  AC_DEFINE([USE_FIPS], [1],
                     [Define to 1 to enable OpenSSL FIPS support])

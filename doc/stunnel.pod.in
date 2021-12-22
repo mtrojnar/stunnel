@@ -739,6 +739,16 @@ Currently supported protocols:
 Proprietary (undocummented) extension of CIFS protocol implemented in Samba.
 Support for this extension was dropped in Samba 3.0.0.
 
+=item I<capwin>
+
+http://www.capwin.org/ application support
+
+=item I<capwinctrl>
+
+http://www.capwin.org/ application support
+
+This protocol is only supported in client mode.
+
 =item I<connect>
 
 Based on RFC 2817 - I<Upgrading to TLS Within HTTP/1.1>, section 5.2 - I<Requesting a Tunnel with CONNECT>

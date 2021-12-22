@@ -307,6 +307,10 @@ NOEXPORT void client_run(CLI *c) {
         "Connection %s: %llu byte(s) sent to TLS, %llu byte(s) sent to socket",
         rst ? "reset" : "closed",
         (unsigned long long)c->ssl_bytes, (unsigned long long)c->sock_bytes);
+#ifdef USE_WIN32
+    if(capwin_hwnd && err==1 && InterlockedExchange(&capwin_connectivity, 0))
+        PostMessage(capwin_hwnd, WM_CAPWIN_NET_DOWN, 0, 0);
+#endif
 
         /* cleanup temporary (e.g. IDENT) socket */
     if(c->fd!=INVALID_SOCKET)
@@ -413,15 +417,19 @@ NOEXPORT void local_start(CLI *c) {
     addr_len=sizeof(SOCKADDR_UNION);
     c->local_rfd.is_socket=!getpeername(c->local_rfd.fd, &addr.sa, &addr_len);
     if(c->local_rfd.is_socket) {
+        /* store the retrieved peer address */
         memcpy(&c->peer_addr.sa, &addr.sa, (size_t)addr_len);
         c->peer_addr_len=addr_len;
-        if(socket_options_set(c->opt, c->local_rfd.fd, 1))
+        if(
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+                addr.sa.sa_family!=AF_UNIX &&
+#endif
+                socket_options_set(c->opt, c->local_rfd.fd, 1)) {
             s_log(LOG_WARNING, "Failed to set local socket options");
-    } else {
-        if(get_last_socket_error()!=S_ENOTSOCK) {
-            sockerror("getpeerbyname (local_rfd)");
-            throw_exception(c, 1);
         }
+    } else if(get_last_socket_error()!=S_ENOTSOCK) {
+        sockerror("getpeerbyname (local_rfd)");
+        throw_exception(c, 1);
     }
 
     /* check if local_wfd is a socket and get peer address */
@@ -431,17 +439,21 @@ NOEXPORT void local_start(CLI *c) {
         addr_len=sizeof(SOCKADDR_UNION);
         c->local_wfd.is_socket=!getpeername(c->local_wfd.fd, &addr.sa, &addr_len);
         if(c->local_wfd.is_socket) {
-            if(!c->local_rfd.is_socket) { /* already retrieved */
+            if(!c->local_rfd.is_socket) { /* not retrieved from rfd? */
+                /* store the retrieved peer address */
                 memcpy(&c->peer_addr.sa, &addr.sa, (size_t)addr_len);
                 c->peer_addr_len=addr_len;
             }
-            if(socket_options_set(c->opt, c->local_wfd.fd, 1))
+            if(
+#ifdef HAVE_STRUCT_SOCKADDR_UN
+                    addr.sa.sa_family!=AF_UNIX &&
+#endif
+                    socket_options_set(c->opt, c->local_wfd.fd, 1)) {
                 s_log(LOG_WARNING, "Failed to set local socket options");
-        } else {
-            if(get_last_socket_error()!=S_ENOTSOCK) {
-                sockerror("getpeerbyname (local_wfd)");
-                throw_exception(c, 1);
             }
+        } else if(get_last_socket_error()!=S_ENOTSOCK) {
+            sockerror("getpeerbyname (local_wfd)");
+            throw_exception(c, 1);
         }
     }
 
@@ -565,10 +577,7 @@ NOEXPORT void ssl_start(CLI *c) {
             CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SSL]);
 #endif /* OpenSSL version < 1.1.0 */
 
-        if(c->opt->option.client)
-            i=SSL_connect(c->ssl);
-        else
-            i=SSL_accept(c->ssl);
+        i=c->opt->option.client ? SSL_connect(c->ssl) : SSL_accept(c->ssl);
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
         if(unsafe_openssl)
@@ -609,11 +618,10 @@ NOEXPORT void ssl_start(CLI *c) {
 #endif
                 continue;
             }
+            sockerror(c->opt->option.client ? "SSL_connect" : "SSL_accept");
+            throw_exception(c, 1);
         }
-        if(c->opt->option.client)
-            sslerror("SSL_connect");
-        else
-            sslerror("SSL_accept");
+        sslerror(c->opt->option.client ? "SSL_connect" : "SSL_accept");
         throw_exception(c, 1);
     }
     print_cipher(c);
@@ -774,16 +782,22 @@ NOEXPORT void transfer(CLI *c) {
         s_poll_init(c->fds, 0); /* initialize the structure */
         /* for plain socket open data strem = open file descriptor */
         /* make sure to add each open socket to receive exceptions! */
-        if(sock_open_rd) /* only poll if the read file descriptor is open */
-            s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
-        if(sock_open_wr) /* only poll if the write file descriptor is open */
-            s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr>0);
+        if(c->sock_rfd->fd==c->sock_wfd->fd) {
+            if(sock_open_rd || sock_open_wr)
+                s_poll_add(c->fds, c->sock_rfd->fd,
+                    sock_open_rd && c->sock_ptr<BUFFSIZE,
+                    sock_open_wr && c->ssl_ptr>0);
+        } else {
+            if(sock_open_rd) /* only poll if the read file descriptor is open */
+                s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
+            if(sock_open_wr) /* only poll if the write file descriptor is open */
+                s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr>0);
+        }
         /* poll TLS file descriptors unless TLS shutdown was completed */
         if(SSL_get_shutdown(c->ssl)!=
                 (SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN)) {
             s_poll_add(c->fds, c->ssl_rfd->fd,
-                read_wants_read || write_wants_read || shutdown_wants_read, 0);
-            s_poll_add(c->fds, c->ssl_wfd->fd, 0,
+                read_wants_read || write_wants_read || shutdown_wants_read,
                 read_wants_write || write_wants_write || shutdown_wants_write);
         }
 

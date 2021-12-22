@@ -108,92 +108,83 @@ typedef struct {
 } SSL_OPTION;
 
 static const SSL_OPTION ssl_opts[] = {
-    {"MICROSOFT_SESS_ID_BUG", SSL_OP_MICROSOFT_SESS_ID_BUG},
-    {"NETSCAPE_CHALLENGE_BUG", SSL_OP_NETSCAPE_CHALLENGE_BUG},
-#ifdef SSL_OP_LEGACY_SERVER_CONNECT
-    {"LEGACY_SERVER_CONNECT", SSL_OP_LEGACY_SERVER_CONNECT},
-#endif
-    {"NETSCAPE_REUSE_CIPHER_CHANGE_BUG",
-        SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG},
-#ifdef SSL_OP_TLSEXT_PADDING
-    {"TLSEXT_PADDING", SSL_OP_TLSEXT_PADDING},
-#endif
-    {"MICROSOFT_BIG_SSLV3_BUFFER", SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER},
-#ifdef SSL_OP_SAFARI_ECDHE_ECDSA_BUG
-    {"SAFARI_ECDHE_ECDSA_BUG", SSL_OP_SAFARI_ECDHE_ECDSA_BUG},
-#endif
-    {"SSLEAY_080_CLIENT_DH_BUG", SSL_OP_SSLEAY_080_CLIENT_DH_BUG},
-    {"TLS_D5_BUG", SSL_OP_TLS_D5_BUG},
-    {"TLS_BLOCK_PADDING_BUG", SSL_OP_TLS_BLOCK_PADDING_BUG},
-#ifdef SSL_OP_MSIE_SSLV2_RSA_PADDING
-    {"MSIE_SSLV2_RSA_PADDING", SSL_OP_MSIE_SSLV2_RSA_PADDING},
-#endif
-    {"SSLREF2_REUSE_CERT_TYPE_BUG", SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG},
-#ifdef SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
-    {"DONT_INSERT_EMPTY_FRAGMENTS", SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS},
-#endif
+#ifdef SSL_OP_ALL
     {"ALL", SSL_OP_ALL},
-#ifdef SSL_OP_NO_QUERY_MTU
-    {"NO_QUERY_MTU", SSL_OP_NO_QUERY_MTU},
 #endif
-#ifdef SSL_OP_COOKIE_EXCHANGE
-    {"COOKIE_EXCHANGE", SSL_OP_COOKIE_EXCHANGE},
+#ifdef SSL_OP_ALLOW_CLIENT_RENEGOTIATION
+    {"ALLOW_CLIENT_RENEGOTIATION", SSL_OP_ALLOW_CLIENT_RENEGOTIATION},
 #endif
-#ifdef SSL_OP_NO_TICKET
-    {"NO_TICKET", SSL_OP_NO_TICKET},
+#ifdef SSL_OP_ALLOW_NO_DHE_KEX
+    {"ALLOW_NO_DHE_KEX", SSL_OP_ALLOW_NO_DHE_KEX},
+#endif
+#ifdef SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
+    {"ALLOW_UNSAFE_LEGACY_RENEGOTIATION", SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION},
+#endif
+#ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
+    {"CIPHER_SERVER_PREFERENCE", SSL_OP_CIPHER_SERVER_PREFERENCE},
 #endif
 #ifdef SSL_OP_CISCO_ANYCONNECT
     {"CISCO_ANYCONNECT", SSL_OP_CISCO_ANYCONNECT},
 #endif
-#ifdef SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION
-    {"NO_SESSION_RESUMPTION_ON_RENEGOTIATION",
-        SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION},
+#ifdef SSL_OP_CLEANSE_PLAINTEXT
+    {"CLEANSE_PLAINTEXT", SSL_OP_CLEANSE_PLAINTEXT},
+#endif
+#ifdef SSL_OP_COOKIE_EXCHANGE
+    {"COOKIE_EXCHANGE", SSL_OP_COOKIE_EXCHANGE},
+#endif
+#ifdef SSL_OP_CRYPTOPRO_TLSEXT_BUG
+    {"CRYPTOPRO_TLSEXT_BUG", SSL_OP_CRYPTOPRO_TLSEXT_BUG},
+#endif
+#ifdef SSL_OP_DISABLE_TLSEXT_CA_NAMES
+    {"DISABLE_TLSEXT_CA_NAMES", SSL_OP_DISABLE_TLSEXT_CA_NAMES},
+#endif
+#ifdef SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+    {"DONT_INSERT_EMPTY_FRAGMENTS", SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS},
+#endif
+#ifdef SSL_OP_ENABLE_KTLS
+    {"ENABLE_KTLS", SSL_OP_ENABLE_KTLS},
+#endif
+#ifdef SSL_OP_ENABLE_MIDDLEBOX_COMPAT
+    {"ENABLE_MIDDLEBOX_COMPAT", SSL_OP_ENABLE_MIDDLEBOX_COMPAT},
+#endif
+#ifdef SSL_OP_EPHEMERAL_RSA
+    {"EPHEMERAL_RSA", SSL_OP_EPHEMERAL_RSA},
+#endif
+#ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
+    {"IGNORE_UNEXPECTED_EOF", SSL_OP_IGNORE_UNEXPECTED_EOF},
+#endif
+#ifdef SSL_OP_LEGACY_SERVER_CONNECT
+    {"LEGACY_SERVER_CONNECT", SSL_OP_LEGACY_SERVER_CONNECT},
+#endif
+#ifdef SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER
+    {"MICROSOFT_BIG_SSLV3_BUFFER", SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER},
+#endif
+#ifdef SSL_OP_MICROSOFT_SESS_ID_BUG
+    {"MICROSOFT_SESS_ID_BUG", SSL_OP_MICROSOFT_SESS_ID_BUG},
+#endif
+#ifdef SSL_OP_MSIE_SSLV2_RSA_PADDING
+    {"MSIE_SSLV2_RSA_PADDING", SSL_OP_MSIE_SSLV2_RSA_PADDING},
+#endif
+#ifdef SSL_OP_NETSCAPE_CA_DN_BUG
+    {"NETSCAPE_CA_DN_BUG", SSL_OP_NETSCAPE_CA_DN_BUG},
+#endif
+#ifdef SSL_OP_NETSCAPE_CHALLENGE_BUG
+    {"NETSCAPE_CHALLENGE_BUG", SSL_OP_NETSCAPE_CHALLENGE_BUG},
+#endif
+#ifdef SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG
+    {"NETSCAPE_DEMO_CIPHER_CHANGE_BUG", SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG},
+#endif
+#ifdef SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG
+    {"NETSCAPE_REUSE_CIPHER_CHANGE_BUG", SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG},
+#endif
+#ifdef SSL_OP_NO_ANTI_REPLAY
+    {"NO_ANTI_REPLAY", SSL_OP_NO_ANTI_REPLAY},
 #endif
 #ifdef SSL_OP_NO_COMPRESSION
     {"NO_COMPRESSION", SSL_OP_NO_COMPRESSION},
 #endif
-#ifdef SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
-    {"ALLOW_UNSAFE_LEGACY_RENEGOTIATION",
-        SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION},
-#endif
-#ifdef SSL_OP_SINGLE_ECDH_USE
-    {"SINGLE_ECDH_USE", SSL_OP_SINGLE_ECDH_USE},
-#endif
-    {"SINGLE_DH_USE", SSL_OP_SINGLE_DH_USE},
-    {"EPHEMERAL_RSA", SSL_OP_EPHEMERAL_RSA},
-#ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
-    {"CIPHER_SERVER_PREFERENCE", SSL_OP_CIPHER_SERVER_PREFERENCE},
-#endif
-    {"TLS_ROLLBACK_BUG", SSL_OP_TLS_ROLLBACK_BUG},
-    {"NO_SSLv2", SSL_OP_NO_SSLv2},
-    {"NO_SSLv3", SSL_OP_NO_SSLv3},
-    {"NO_TLSv1", SSL_OP_NO_TLSv1},
-#ifdef SSL_OP_NO_TLSv1_1
-    {"NO_TLSv1.1", SSL_OP_NO_TLSv1_1},
-#else /* ignore if unsupported by OpenSSL */
-    {"NO_TLSv1.1", 0},
-#endif
-#ifdef SSL_OP_NO_TLSv1_2
-    {"NO_TLSv1.2", SSL_OP_NO_TLSv1_2},
-#else /* ignore if unsupported by OpenSSL */
-    {"NO_TLSv1.2", 0},
-#endif
-#ifdef SSL_OP_NO_TLSv1_3
-    {"NO_TLSv1.3", SSL_OP_NO_TLSv1_3},
-    {"NO_TLSv1_3", SSL_OP_NO_TLSv1_3}, /* keep compatibility with our typo */
-#else /* ignore if unsupported by OpenSSL */
-    {"NO_TLSv1.3", 0},
-    {"NO_TLSv1_3", 0}, /* keep compatibility with our typo */
-#endif
-    {"PKCS1_CHECK_1", SSL_OP_PKCS1_CHECK_1},
-    {"PKCS1_CHECK_2", SSL_OP_PKCS1_CHECK_2},
-    {"NETSCAPE_CA_DN_BUG", SSL_OP_NETSCAPE_CA_DN_BUG},
-#ifdef SSL_OP_NON_EXPORT_FIRST
-    {"NON_EXPORT_FIRST", SSL_OP_NON_EXPORT_FIRST},
-#endif
-    {"NETSCAPE_DEMO_CIPHER_CHANGE_BUG", SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG},
-#ifdef SSL_OP_CRYPTOPRO_TLSEXT_BUG
-    {"CRYPTOPRO_TLSEXT_BUG", SSL_OP_CRYPTOPRO_TLSEXT_BUG},
+#ifdef SSL_OP_NO_DTLS_MASK
+    {"NO_DTLS_MASK", SSL_OP_NO_DTLS_MASK},
 #endif
 #ifdef SSL_OP_NO_DTLSv1
     {"NO_DTLSv1", SSL_OP_NO_DTLSv1},
@@ -201,50 +192,80 @@ static const SSL_OPTION ssl_opts[] = {
 #ifdef SSL_OP_NO_DTLSv1_2
     {"NO_DTLSv1_2", SSL_OP_NO_DTLSv1_2},
 #endif
-#ifdef SSL_OP_NO_SSL_MASK
-    {"NO_SSL_MASK", SSL_OP_NO_SSL_MASK},
-#endif
-#ifdef SSL_OP_NO_DTLS_MASK
-    {"NO_DTLS_MASK", SSL_OP_NO_DTLS_MASK},
-#endif
 #ifdef SSL_OP_NO_ENCRYPT_THEN_MAC
     {"NO_ENCRYPT_THEN_MAC", SSL_OP_NO_ENCRYPT_THEN_MAC},
 #endif
-#ifdef SSL_OP_ALLOW_NO_DHE_KEX
-    {"ALLOW_NO_DHE_KEX", SSL_OP_ALLOW_NO_DHE_KEX},
+#ifdef SSL_OP_NO_EXTENDED_MASTER_SECRET
+    {"NO_EXTENDED_MASTER_SECRET", SSL_OP_NO_EXTENDED_MASTER_SECRET},
 #endif
-#ifdef SSL_OP_ENABLE_MIDDLEBOX_COMPAT
-    {"ENABLE_MIDDLEBOX_COMPAT", SSL_OP_ENABLE_MIDDLEBOX_COMPAT},
+#ifdef SSL_OP_NO_QUERY_MTU
+    {"NO_QUERY_MTU", SSL_OP_NO_QUERY_MTU},
 #endif
 #ifdef SSL_OP_NO_RENEGOTIATION
     {"NO_RENEGOTIATION", SSL_OP_NO_RENEGOTIATION},
 #endif
+#ifdef SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION
+    {"NO_SESSION_RESUMPTION_ON_RENEGOTIATION", SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION},
+#endif
+#ifdef SSL_OP_NO_SSL_MASK
+    {"NO_SSL_MASK", SSL_OP_NO_SSL_MASK},
+#endif
+#ifdef SSL_OP_NO_SSLv2
+    {"NO_SSLv2", SSL_OP_NO_SSLv2},
+#endif
+#ifdef SSL_OP_NO_SSLv3
+    {"NO_SSLv3", SSL_OP_NO_SSLv3},
+#endif
+#ifdef SSL_OP_NO_TICKET
+    {"NO_TICKET", SSL_OP_NO_TICKET},
+#endif
+#ifdef SSL_OP_NO_TLSv1
+    {"NO_TLSv1", SSL_OP_NO_TLSv1},
+#endif
+#ifdef SSL_OP_NO_TLSv1_1
+    {"NO_TLSv1_1", SSL_OP_NO_TLSv1_1},
+#endif
+#ifdef SSL_OP_NO_TLSv1_2
+    {"NO_TLSv1_2", SSL_OP_NO_TLSv1_2},
+#endif
+#ifdef SSL_OP_NO_TLSv1_3
+    {"NO_TLSv1_3", SSL_OP_NO_TLSv1_3},
+#endif
+#ifdef SSL_OP_PKCS1_CHECK_1
+    {"PKCS1_CHECK_1", SSL_OP_PKCS1_CHECK_1},
+#endif
+#ifdef SSL_OP_PKCS1_CHECK_2
+    {"PKCS1_CHECK_2", SSL_OP_PKCS1_CHECK_2},
+#endif
 #ifdef SSL_OP_PRIORITIZE_CHACHA
     {"PRIORITIZE_CHACHA", SSL_OP_PRIORITIZE_CHACHA},
 #endif
-#ifdef SSL_OP_ALLOW_CLIENT_RENEGOTIATION
-    {"ALLOW_CLIENT_RENEGOTIATION", SSL_OP_ALLOW_CLIENT_RENEGOTIATION},
+#ifdef SSL_OP_SAFARI_ECDHE_ECDSA_BUG
+    {"SAFARI_ECDHE_ECDSA_BUG", SSL_OP_SAFARI_ECDHE_ECDSA_BUG},
 #endif
-#ifdef SSL_OP_BIT
-    {"BIT", SSL_OP_BIT},
+#ifdef SSL_OP_SINGLE_DH_USE
+    {"SINGLE_DH_USE", SSL_OP_SINGLE_DH_USE},
 #endif
-#ifdef SSL_OP_CLEANSE_PLAINTEXT
-    {"CLEANSE_PLAINTEXT", SSL_OP_CLEANSE_PLAINTEXT},
+#ifdef SSL_OP_SINGLE_ECDH_USE
+    {"SINGLE_ECDH_USE", SSL_OP_SINGLE_ECDH_USE},
 #endif
-#ifdef SSL_OP_DISABLE_TLSEXT_CA_NAMES
-    {"DISABLE_TLSEXT_CA_NAMES", SSL_OP_DISABLE_TLSEXT_CA_NAMES},
+#ifdef SSL_OP_SSLEAY_080_CLIENT_DH_BUG
+    {"SSLEAY_080_CLIENT_DH_BUG", SSL_OP_SSLEAY_080_CLIENT_DH_BUG},
 #endif
-#ifdef SSL_OP_ENABLE_KTLS
-    {"ENABLE_KTLS", SSL_OP_ENABLE_KTLS},
+#ifdef SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG
+    {"SSLREF2_REUSE_CERT_TYPE_BUG", SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG},
 #endif
-#ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
-    {"IGNORE_UNEXPECTED_EOF", SSL_OP_IGNORE_UNEXPECTED_EOF},
+#ifdef SSL_OP_TLS_BLOCK_PADDING_BUG
+    {"TLS_BLOCK_PADDING_BUG", SSL_OP_TLS_BLOCK_PADDING_BUG},
 #endif
-#ifdef SSL_OP_NO_ANTI_REPLAY
-    {"NO_ANTI_REPLAY", SSL_OP_NO_ANTI_REPLAY},
+#ifdef SSL_OP_TLS_D5_BUG
+    {"TLS_D5_BUG", SSL_OP_TLS_D5_BUG},
 #endif
-#ifdef SSL_OP_NO_EXTENDED_MASTER_SECRET
-    {"NO_EXTENDED_MASTER_SECRET", SSL_OP_NO_EXTENDED_MASTER_SECRET},
+#ifdef SSL_OP_TLSEXT_PADDING
+    {"TLSEXT_PADDING", SSL_OP_TLSEXT_PADDING},
+#endif
+#ifdef SSL_OP_TLS_ROLLBACK_BUG
+    {"TLS_ROLLBACK_BUG", SSL_OP_TLS_ROLLBACK_BUG},
 #endif
     {NULL, 0}
 };
@@ -288,7 +309,7 @@ NOEXPORT char **arg_dup(char **);
 NOEXPORT void arg_free(char **arg);
 #endif
 
-char *configuration_file=NULL;
+static char *configuration_file=NULL;
 
 GLOBAL_OPTIONS global_options;
 SERVICE_OPTIONS service_options;
@@ -682,6 +703,9 @@ void service_free(SERVICE_OPTIONS *section) {
 
 NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, char *arg) {
     void *tmp;
+#ifdef USE_FIPS
+    static int fips_default=-1;
+#endif /* USE_FIPS */
 
     if(cmd==CMD_PRINT_DEFAULTS || cmd==CMD_PRINT_HELP) {
         s_log(LOG_NOTICE, " ");
@@ -871,11 +895,14 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
     switch(cmd) {
     case CMD_SET_DEFAULTS:
 #ifdef USE_FIPS
+        if(fips_default==-1) { /* not initialized */
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-        options->option.fips=0;
+            fips_default=EVP_default_properties_is_fips_enabled(NULL);
 #else /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
-        options->option.fips=FIPS_mode()?1:0;
+            fips_default=FIPS_mode();
 #endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+        }
+        options->option.fips=fips_default?1:0;
 #endif /* USE_FIPS */
         break;
     case CMD_SET_COPY: /* not used for global options */
@@ -893,10 +920,8 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
 #endif /* USE_FIPS */
         } else if(!strcasecmp(arg, "no")) {
 #ifdef USE_FIPS
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-            if(FIPS_mode())
+            if(fips_default)
                 return "Failed to override system-wide FIPS mode";
-#endif /* OPENSSL_VERSION_NUMBER < 0x30000000L */
             options->option.fips=0;
 #endif /* USE_FIPS */
         } else {
@@ -907,13 +932,8 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
         break;
     case CMD_PRINT_DEFAULTS:
 #ifdef USE_FIPS
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
         if(fips_available())
-            s_log(LOG_NOTICE, "%-22s = %s", "fips", "no");
-#else /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
-        if(fips_available())
-            s_log(LOG_NOTICE, "%-22s = %s", "fips", FIPS_mode()?"yes":"no");
-#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+            s_log(LOG_NOTICE, "%-22s = %s", "fips", fips_default?"yes":"no");
 #endif /* USE_FIPS */
         break;
     case CMD_PRINT_HELP:
@@ -4417,13 +4437,6 @@ NOEXPORT void socket_options_free(SOCK_OPT *opt) {
 
 NOEXPORT int socket_options_print(void) {
     SOCK_OPT *opt, *ptr;
-    SOCKET fd;
-    socklen_t optlen;
-    OPT_UNION val;
-    char *ta, *tl, *tr, *td;
-
-    fd=socket(AF_INET, SOCK_STREAM, 0);
-    opt=socket_options_init();
 
     s_log(LOG_NOTICE, " ");
     s_log(LOG_NOTICE, "Socket option defaults:");
@@ -4431,8 +4444,21 @@ NOEXPORT int socket_options_print(void) {
         "    Option Name         |  Accept  |   Local  |  Remote  |OS default");
     s_log(LOG_NOTICE,
         "    --------------------+----------+----------+----------+----------");
+
+    opt=socket_options_init();
     for(ptr=opt; ptr->opt_str; ++ptr) {
+        SOCKET fd;
+        socklen_t optlen;
+        OPT_UNION val;
+        char *ta, *tl, *tr, *td;
+
         /* get OS default value */
+#if defined(AF_INET6) && defined(IPPROTO_IPV6)
+        if(ptr->opt_level==IPPROTO_IPV6)
+            fd=socket(AF_INET6, SOCK_STREAM, 0);
+        else
+#endif
+            fd=socket(AF_INET, SOCK_STREAM, 0);
         optlen=sizeof val;
         if(getsockopt(fd, ptr->opt_level,
                 ptr->opt_name, (void *)&val, &optlen)) {
@@ -4449,17 +4475,19 @@ NOEXPORT int socket_options_print(void) {
             }
         } else
             td=socket_option_text(ptr->opt_type, &val);
+        closesocket(fd);
+
         /* get stunnel default values */
         ta=socket_option_text(ptr->opt_type, ptr->opt_val[0]);
         tl=socket_option_text(ptr->opt_type, ptr->opt_val[1]);
         tr=socket_option_text(ptr->opt_type, ptr->opt_val[2]);
-        /* print collected data and fee the memory */
+
+        /* print collected data and free the allocated memory */
         s_log(LOG_NOTICE, "    %-20s|%10s|%10s|%10s|%10s",
             ptr->opt_str, ta, tl, tr, td);
         str_free(ta); str_free(tl); str_free(tr); str_free(td);
     }
     socket_options_free(opt);
-    closesocket(fd);
     return 0; /* OK */
 }
 

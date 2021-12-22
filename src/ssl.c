@@ -70,7 +70,11 @@ NOEXPORT STACK_OF(SSL_COMP) *comp_methods[STUNNEL_COMPS];
 int fips_available() { /* either FIPS provider or container is available */
 #ifdef USE_FIPS
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    return OSSL_PROVIDER_available(NULL, "fips");
+    static OSSL_PROVIDER *fips=NULL;
+
+    if(!fips)
+        fips=OSSL_PROVIDER_try_load(NULL, "fips", 1);
+    return fips && OSSL_PROVIDER_available(NULL, "fips");
 #else /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
     /* checking for OPENSSL_FIPS would be less precise, because it only
      * depends on the compiled, and not on the running OpenSSL version */
@@ -195,24 +199,27 @@ NOEXPORT void cb_free_addr(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
 int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
 #ifdef USE_FIPS
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    static OSSL_PROVIDER *prov=NULL;
-
     if(global->option.fips) {
-        if(!prov) { /* need to load */
+        if(!EVP_default_properties_is_fips_enabled(NULL)) {
             if(!fips_available()) {
-                s_log(LOG_ERR, "FIPS provider not available");
+                sslerror("FIPS PROVIDER");
                 return 1;
             }
-            prov=OSSL_PROVIDER_load(NULL, "fips");
-            if(!prov) {
-                sslerror("OSSL_PROVIDER_load");
+            if(!EVP_default_properties_enable_fips(NULL, 1) ||
+                    !EVP_default_properties_is_fips_enabled(NULL)) {
+                s_log(LOG_ERR, "Enabling FIPS provider failed");
                 return 1;
             }
+            s_log(LOG_NOTICE, "FIPS provider enabled");
         }
     } else {
-        if(prov) { /* need to unload */
-            OSSL_PROVIDER_unload(prov);
-            prov=NULL;
+        if(EVP_default_properties_is_fips_enabled(NULL)) {
+            if(!EVP_default_properties_enable_fips(NULL, 0) ||
+                    EVP_default_properties_is_fips_enabled(NULL)) {
+                s_log(LOG_ERR, "Disabling FIPS provider failed");
+                return 1;
+            }
+            s_log(LOG_NOTICE, "FIPS provider disabled");
         }
     }
 #else /* OPENSSL_VERSION_NUMBER >= 0x30000000L */

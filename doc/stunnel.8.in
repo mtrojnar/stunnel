@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2021.05.30" "5.60" "stunnel TLS Proxy"
+.TH stunnel 8 "2021.12.22" "5.61" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -700,6 +700,14 @@ Currently supported protocols:
 .IX Item "cifs"
 Proprietary (undocummented) extension of \s-1CIFS\s0 protocol implemented in Samba.
 Support for this extension was dropped in Samba 3.0.0.
+.IP "\fIcapwin\fR" 4
+.IX Item "capwin"
+http://www.capwin.org/ application support
+.IP "\fIcapwinctrl\fR" 4
+.IX Item "capwinctrl"
+http://www.capwin.org/ application support
+.Sp
+This protocol is only supported in client mode.
 .IP "\fIconnect\fR" 4
 .IX Item "connect"
 Based on \s-1RFC 2817\s0 \- \fIUpgrading to \s-1TLS\s0 Within \s-1HTTP/1.1\s0\fR, section 5.2 \- \fIRequesting a Tunnel with \s-1CONNECT\s0\fR
