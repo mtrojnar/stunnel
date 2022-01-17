@@ -1,5 +1,7 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 1998-2021
+# by Michal Trojnara 1998-2022
+
+AM_DISTCHECK_CONFIGURE_FLAGS = --with-bashcompdir='$$(datarootdir)/bash-completion/completions'
 
 ACLOCAL_AMFLAGS = -I m4
 

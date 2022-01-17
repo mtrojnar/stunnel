@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2021 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -782,22 +782,16 @@ NOEXPORT void transfer(CLI *c) {
         s_poll_init(c->fds, 0); /* initialize the structure */
         /* for plain socket open data strem = open file descriptor */
         /* make sure to add each open socket to receive exceptions! */
-        if(c->sock_rfd->fd==c->sock_wfd->fd) {
-            if(sock_open_rd || sock_open_wr)
-                s_poll_add(c->fds, c->sock_rfd->fd,
-                    sock_open_rd && c->sock_ptr<BUFFSIZE,
-                    sock_open_wr && c->ssl_ptr>0);
-        } else {
-            if(sock_open_rd) /* only poll if the read file descriptor is open */
-                s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
-            if(sock_open_wr) /* only poll if the write file descriptor is open */
-                s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr>0);
-        }
+        if(sock_open_rd) /* only poll if the read file descriptor is open */
+            s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
+        if(sock_open_wr) /* only poll if the write file descriptor is open */
+            s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr>0);
         /* poll TLS file descriptors unless TLS shutdown was completed */
         if(SSL_get_shutdown(c->ssl)!=
                 (SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN)) {
             s_poll_add(c->fds, c->ssl_rfd->fd,
-                read_wants_read || write_wants_read || shutdown_wants_read,
+                read_wants_read || write_wants_read || shutdown_wants_read, 0);
+            s_poll_add(c->fds, c->ssl_wfd->fd, 0,
                 read_wants_write || write_wants_write || shutdown_wants_write);
         }
 

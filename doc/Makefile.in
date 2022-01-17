@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 1998-2021
+# by Michal Trojnara 1998-2022
 
 VPATH = @srcdir@
 am__is_gnu_make = { \
@@ -216,6 +216,9 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -240,6 +243,7 @@ am__quote = @am__quote@
 am__tar = @am__tar@
 am__untar = @am__untar@
 ax_pthread_config = @ax_pthread_config@
+bashcompdir = @bashcompdir@
 bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
@@ -281,6 +285,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+with_bashcompdir = @with_bashcompdir@
 EXTRA_DIST = stunnel.pod.in stunnel.8.in stunnel.html.in en \
 	stunnel.pl.pod.in stunnel.pl.8.in stunnel.pl.html.in pl
 man_MANS = stunnel.8 stunnel.pl.8

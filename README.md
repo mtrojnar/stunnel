@@ -14,13 +14,13 @@
 
 ### License
 
-     See <COPYING.md> file.
+     See [COPYING](COPYING.md) file.
 
 ### Other files you should read
 
-     <NEWS.md> What I did
-     <TODO.md> What I'm going to do
+     [NEWS](NEWS.md) What I did
+     [TODO](TODO.md) What I'm going to do
 
 ### Reporting problems and other contacts
 
-     See <https://www.stunnel.org/faq.html>.
+     See the [FAQ](https://www.stunnel.org/faq.html).

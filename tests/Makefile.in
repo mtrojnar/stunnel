@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 1998-2021
+# by Michal Trojnara 1998-2022
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -243,6 +243,9 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -267,6 +270,7 @@ am__quote = @am__quote@
 am__tar = @am__tar@
 am__untar = @am__untar@
 ax_pthread_config = @ax_pthread_config@
+bashcompdir = @bashcompdir@
 bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
@@ -308,6 +312,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+with_bashcompdir = @with_bashcompdir@
 SUBDIRS = certs
 EXTRA_DIST = maketest.py plugin_collection.py reader.py error.py plugins
 all: all-recursive
@@ -506,6 +511,9 @@ distdir-am: $(DISTFILES)
 	      || exit 1; \
 	  fi; \
 	done
+	$(MAKE) $(AM_MAKEFLAGS) \
+	  top_distdir="$(top_distdir)" distdir="$(distdir)" \
+	  dist-hook
 check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) check-local
 check: check-recursive
@@ -613,17 +621,17 @@ uninstall-am:
 
 .PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am check \
 	check-am check-local clean clean-generic clean-libtool \
-	cscopelist-am ctags ctags-am distclean distclean-generic \
-	distclean-libtool distclean-local distclean-tags distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs installdirs-am \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am
+	cscopelist-am ctags ctags-am dist-hook distclean \
+	distclean-generic distclean-libtool distclean-local \
+	distclean-tags distdir dvi dvi-am html html-am info info-am \
+	install install-am install-data install-data-am install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	installdirs-am maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
+	ps ps-am tags tags-am uninstall uninstall-am
 
 .PRECIOUS: Makefile
 
@@ -632,6 +640,9 @@ uninstall-am:
 check-local:
 	for v in $$(seq 20 -1 7); do command -v python3.$$v && break; done || ( echo "Python 3.7 or later not found" && false )
 	for v in $$(seq 20 -1 7); do command -v python3.$$v && python3.$$v $(srcdir)/maketest.py --debug=10 && break; done
+
+dist-hook:
+	rm -rf __pycache__ plugins/__pycache__
 
 distclean-local:
 	rm -f logs/*.log

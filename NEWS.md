@@ -1,6 +1,12 @@
 # stunnel change log
 
 
+### Version 5.62, 2022.01.17, urgency: MEDIUM
+* New features
+  - Added a bash completion script.
+* Bugfixes
+  - Fixed a transfer() loop bug.
+
 ### Version 5.61, 2021.12.22, urgency: LOW
 * New features sponsored by the University of Maryland
   - Added new "protocol = capwin" and "protocol = capwinctrl"

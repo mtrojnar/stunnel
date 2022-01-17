@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 1998-2021
+# by Michal Trojnara 1998-2022
 
 VPATH = @srcdir@
 am__is_gnu_make = { \
@@ -98,7 +98,8 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
+DIST_COMMON = $(srcdir)/Makefile.am $(dist_bashcomp_DATA) \
+	$(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/src/config.h
 CONFIG_CLEAN_FILES =
@@ -149,8 +150,9 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(confdir)" "$(DESTDIR)$(examplesdir)"
-DATA = $(conf_DATA) $(examples_DATA)
+am__installdirs = "$(DESTDIR)$(confdir)" "$(DESTDIR)$(bashcompdir)" \
+	"$(DESTDIR)$(examplesdir)"
+DATA = $(conf_DATA) $(dist_bashcomp_DATA) $(examples_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -213,6 +215,9 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PTHREAD_CC = @PTHREAD_CC@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
@@ -237,6 +242,9 @@ am__quote = @am__quote@
 am__tar = @am__tar@
 am__untar = @am__untar@
 ax_pthread_config = @ax_pthread_config@
+
+# bash completion script
+bashcompdir = @bashcompdir@
 bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
@@ -278,6 +286,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+with_bashcompdir = @with_bashcompdir@
 EXTRA_DIST = ca.html ca.pl importCA.html importCA.sh script.sh \
 	makecert.sh openssl.cnf stunnel.nsi stunnel.license \
 	stunnel.conf stunnel.conf-sample.in stunnel.init.in \
@@ -289,6 +298,7 @@ examplesdir = $(docdir)/examples
 examples_DATA = stunnel.init stunnel.service stunnel.logrotate \
 	stunnel.rh.init stunnel.spec ca.html ca.pl importCA.html \
 	importCA.sh script.sh
+dist_bashcomp_DATA = stunnel.bash
 CLEANFILES = stunnel.conf-sample stunnel.init stunnel.service
 edit = sed \
 	-e 's|@prefix[@]|$(prefix)|g' \
@@ -356,6 +366,27 @@ uninstall-confDATA:
 	@list='$(conf_DATA)'; test -n "$(confdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	dir='$(DESTDIR)$(confdir)'; $(am__uninstall_files_from_dir)
+install-dist_bashcompDATA: $(dist_bashcomp_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(dist_bashcomp_DATA)'; test -n "$(bashcompdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(bashcompdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(bashcompdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(bashcompdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(bashcompdir)" || exit $$?; \
+	done
+
+uninstall-dist_bashcompDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_bashcomp_DATA)'; test -n "$(bashcompdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(bashcompdir)'; $(am__uninstall_files_from_dir)
 install-examplesDATA: $(examples_DATA)
 	@$(NORMAL_INSTALL)
 	@list='$(examples_DATA)'; test -n "$(examplesdir)" || list=; \
@@ -421,7 +452,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(confdir)" "$(DESTDIR)$(examplesdir)"; do \
+	for dir in "$(DESTDIR)$(confdir)" "$(DESTDIR)$(bashcompdir)" "$(DESTDIR)$(examplesdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -476,7 +507,7 @@ info: info-am
 info-am:
 
 install-data-am: install-confDATA install-data-local \
-	install-examplesDATA
+	install-dist_bashcompDATA install-examplesDATA
 
 install-dvi: install-dvi-am
 
@@ -520,7 +551,8 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-confDATA uninstall-examplesDATA
+uninstall-am: uninstall-confDATA uninstall-dist_bashcompDATA \
+	uninstall-examplesDATA
 
 .MAKE: install-am install-strip
 
@@ -528,14 +560,15 @@ uninstall-am: uninstall-confDATA uninstall-examplesDATA
 	cscopelist-am ctags-am distclean distclean-generic \
 	distclean-libtool distdir dvi dvi-am html html-am info info-am \
 	install install-am install-confDATA install-data \
-	install-data-am install-data-local install-dvi install-dvi-am \
-	install-examplesDATA install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags-am uninstall uninstall-am uninstall-confDATA \
+	install-data-am install-data-local install-dist_bashcompDATA \
+	install-dvi install-dvi-am install-examplesDATA install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags-am uninstall \
+	uninstall-am uninstall-confDATA uninstall-dist_bashcompDATA \
 	uninstall-examplesDATA
 
 .PRECIOUS: Makefile
