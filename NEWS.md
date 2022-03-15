@@ -1,6 +1,14 @@
 # stunnel change log
 
 
+### Version 5.63, 2022.03.15
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.0.2.
+* New features
+  - Updated stunnel.spec to support bash completion
+* Bugfixes
+  - Fixed possible PRNG initialization crash (thx to Gleydson Soares).
+
 ### Version 5.62, 2022.01.17, urgency: MEDIUM
 * New features
   - Added a bash completion script.

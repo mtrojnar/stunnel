@@ -1,5 +1,5 @@
 Name:           stunnel
-Version:        5.62
+Version:        5.63
 Release:        1%{?dist}
 Summary:        An TLS-encrypting socket wrapper
 Group:          Applications/Internet
@@ -81,8 +81,12 @@ cp tools/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 %{_unitdir}/%{name}*.service
 %endif
+%config(noreplace) %{_datarootdir}/bash-completion/*
 
 %changelog
+* Wed Mar 02 2022 Małgorzata Olszówka <Malgorzata.Olszowka@stunnel.org>
+- bash completion support
+
 * Fri Sep 24 2021 Michał Trojnara <Michal.Trojnara@stunnel.org>
 - Added systemd startup for Fedora >= 15 or RHEL >= 7
 - Removed obsolete init startup
