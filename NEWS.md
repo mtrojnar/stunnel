@@ -1,13 +1,22 @@
 # stunnel change log
 
 
-### Version 5.63, 2022.03.15
+### Version 5.64, 2022.05.06, urgency: MEDIUM
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.0.3.
+* New features
+  - Updated the pkcs11 engine for Windows.
+* Bugfixes
+  - Removed the SERVICE_INTERACTIVE_PROCESS flag in
+    "stunnel -install".
+
+### Version 5.63, 2022.03.15, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.0.2.
 * New features
-  - Updated stunnel.spec to support bash completion
+  - Updated stunnel.spec to support bash completion.
 * Bugfixes
-  - Fixed possible PRNG initialization crash (thx to Gleydson Soares).
+  - Fixed a PRNG initialization crash (thx to Gleydson Soares).
 
 ### Version 5.62, 2022.01.17, urgency: MEDIUM
 * New features

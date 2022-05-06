@@ -1620,8 +1620,7 @@ NOEXPORT int service_install() {
     service_path=str_tprintf(TEXT("\"%s\" -service %s"),
         stunnel_exe_path, params_get());
     service=CreateService(scm, SERVICE_NAME, SERVICE_DISPLAY_NAME,
-        SERVICE_ALL_ACCESS,
-        SERVICE_WIN32_OWN_PROCESS|SERVICE_INTERACTIVE_PROCESS,
+        SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS,
         SERVICE_AUTO_START, SERVICE_ERROR_NORMAL, service_path,
         NULL, NULL, TEXT("TCPIP\0"), NULL, NULL);
     if(!service) {
