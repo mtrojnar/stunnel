@@ -35,7 +35,6 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
 #ifdef HAVE_UTIL_H

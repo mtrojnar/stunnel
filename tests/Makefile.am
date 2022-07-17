@@ -8,7 +8,7 @@ EXTRA_DIST = maketest.py plugin_collection.py reader.py error.py plugins
 # try to find a supported python version (>= 3.7) that works
 check-local:
 	for v in $$(seq 20 -1 7); do command -v python3.$$v && break; done || ( echo "Python 3.7 or later not found" && false )
-	for v in $$(seq 20 -1 7); do command -v python3.$$v && python3.$$v $(srcdir)/maketest.py --debug=10 && break; done
+	for v in $$(seq 20 -1 7); do command -v python3.$$v && python3.$$v $(srcdir)/maketest.py --debug=10 --libs=$(SSLDIR)/lib64:$(SSLDIR)/lib && break; done
 
 dist-hook:
 	rm -rf __pycache__ plugins/__pycache__

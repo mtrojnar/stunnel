@@ -35,7 +35,6 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
 NOEXPORT void log_queue(SERVICE_OPTIONS *, int, char *, char *, char *);
@@ -307,7 +306,14 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
 #endif /* __GNUC__ */
 char *log_id(CLI *c) {
     const char table[62]=
-        "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        {'0', '1', '2', '3', '4', '5', '6', '7',
+         '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+         'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+         'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+         'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D',
+         'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+         'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
+         'U', 'V', 'W', 'X', 'Y', 'Z'};
     unsigned char rnd[22];
     char *uniq;
     size_t i;
@@ -357,7 +363,7 @@ char *log_id(CLI *c) {
 #pragma GCC diagnostic ignored "-Wunused-result"
 #endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
-void fatal_debug(char *txt, const char *file, int line) {
+void fatal_debug(const char *txt, const char *file, int line) {
     char msg[80];
 #ifdef USE_WIN32
     DWORD num;
@@ -546,7 +552,9 @@ NOEXPORT void safestring(char *c) {
 /* provide hex string corresponding to the input string
  * will be NULL terminated */
 void bin2hexstring(const unsigned char *in_data, size_t in_size, char *out_data, size_t out_size) {
-    const char hex[16]="0123456789ABCDEF";
+    const char hex[16]=
+        {'0', '1', '2', '3', '4', '5', '6', '7',
+         '8', '9' ,'A', 'B', 'C', 'D', 'E', 'F'};
     size_t i;
 
     for(i=0; i<in_size && 2*i+2<out_size; ++i) {

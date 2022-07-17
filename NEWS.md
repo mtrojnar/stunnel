@@ -1,6 +1,14 @@
 # stunnel change log
 
 
+### Version 5.65, 2022.07.11, urgency: HIGH
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.0.5.
+* Bugfixes
+  - Fixed handling globally enabled FIPS.
+  - Fixed the default openssl.cnf path in stunnel.exe.
+  - Fixed a number of MSVC warnings.
+
 ### Version 5.64, 2022.05.06, urgency: MEDIUM
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.0.3.

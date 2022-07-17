@@ -35,7 +35,6 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
 #if defined HAVE_PIPE2 && defined HAVE_ACCEPT4
@@ -49,7 +48,7 @@
 
 /**************************************** prototypes */
 
-NOEXPORT SOCKET setup_fd(SOCKET, int, char *);
+NOEXPORT SOCKET setup_fd(SOCKET, int, const char *);
 
 /**************************************** internal limit of file descriptors */
 
@@ -101,7 +100,7 @@ void get_limits(void) { /* set max_fds and max_clients */
 
 /**************************************** file descriptor validation */
 
-SOCKET s_socket(int domain, int type, int protocol, int nonblock, char *msg) {
+SOCKET s_socket(int domain, int type, int protocol, int nonblock, const char *msg) {
     SOCKET fd;
 
 #ifdef USE_NEW_LINUX_API
@@ -120,7 +119,7 @@ SOCKET s_socket(int domain, int type, int protocol, int nonblock, char *msg) {
 }
 
 SOCKET s_accept(SOCKET sockfd, struct sockaddr *addr, socklen_t *addrlen,
-        int nonblock, char *msg) {
+        int nonblock, const char *msg) {
     SOCKET fd;
 
 #ifdef USE_NEW_LINUX_API
@@ -137,7 +136,7 @@ SOCKET s_accept(SOCKET sockfd, struct sockaddr *addr, socklen_t *addrlen,
 #ifndef USE_WIN32
 
 int s_socketpair(int domain, int type, int protocol, SOCKET sv[2],
-        int nonblock, char *msg) {
+        int nonblock, const char *msg) {
 #ifdef USE_NEW_LINUX_API
     if(nonblock)
         type|=SOCK_NONBLOCK;
@@ -158,7 +157,7 @@ int s_socketpair(int domain, int type, int protocol, SOCKET sv[2],
     return 0;
 }
 
-int s_pipe(int pipefd[2], int nonblock, char *msg) {
+int s_pipe(int pipefd[2], int nonblock, const char *msg) {
     int retval;
 
 #ifdef USE_NEW_LINUX_API
@@ -186,7 +185,7 @@ int s_pipe(int pipefd[2], int nonblock, char *msg) {
 
 #endif /* USE_WIN32 */
 
-NOEXPORT SOCKET setup_fd(SOCKET fd, int nonblock, char *msg) {
+NOEXPORT SOCKET setup_fd(SOCKET fd, int nonblock, const char *msg) {
 #if !defined USE_NEW_LINUX_API && defined FD_CLOEXEC
     int err;
 #endif

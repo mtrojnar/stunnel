@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.64])
+AC_INIT([stunnel],[5.65])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -483,7 +483,7 @@ if test -f src/stunnel.c && ! grep -q " built for $PACKAGE_STRING " src/dhparam.
     AC_MSG_RESULT([yes])
     (
         echo '/* dhparam.c: initial DH parameters for stunnel */'
-        echo '#include "common.h"'
+        echo '#include "prototypes.h"'
         echo '#ifndef OPENSSL_NO_DH'
         echo '#define DN_new DH_new'
         openssl dhparam -noout -C 2048 | sed 's/static DH/DH/'

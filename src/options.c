@@ -35,7 +35,6 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
@@ -73,11 +72,11 @@ int scandir(const char *, struct dirent ***,
     int (*)(const struct dirent **, const struct dirent **));
 int alphasort(const struct dirent **, const struct dirent **);
 #endif
-NOEXPORT char *parse_global_option(CMD, GLOBAL_OPTIONS *, char *, char *);
-NOEXPORT char *parse_service_option(CMD, SERVICE_OPTIONS **, char *, char *);
+NOEXPORT const char *parse_global_option(CMD, GLOBAL_OPTIONS *, char *, char *);
+NOEXPORT const char *parse_service_option(CMD, SERVICE_OPTIONS **, char *, char *);
 
 #ifndef OPENSSL_NO_TLSEXT
-NOEXPORT char *sni_init(SERVICE_OPTIONS *);
+NOEXPORT const char *sni_init(SERVICE_OPTIONS *);
 NOEXPORT void sni_free(SERVICE_OPTIONS *);
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 
@@ -88,7 +87,7 @@ NOEXPORT char *tls_methods_set(SERVICE_OPTIONS *, const char *);
 NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *);
 #endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 
-NOEXPORT char *parse_debug_level(char *, SERVICE_OPTIONS *);
+NOEXPORT const char *parse_debug_level(char *, SERVICE_OPTIONS *);
 
 #ifndef OPENSSL_NO_PSK
 NOEXPORT PSK_KEYS *psk_read(char *);
@@ -97,13 +96,13 @@ NOEXPORT void psk_free(PSK_KEYS *);
 #endif /* !defined(OPENSSL_NO_PSK) */
 
 #if OPENSSL_VERSION_NUMBER>=0x10000000L
-NOEXPORT TICKET_KEY *key_read(char *, char *);
+NOEXPORT TICKET_KEY *key_read(char *, const char *);
 NOEXPORT TICKET_KEY *key_dup(TICKET_KEY *);
 NOEXPORT void key_free(TICKET_KEY *);
 #endif /* OpenSSL 1.0.0 or later */
 
 typedef struct {
-    char *name;
+    const char *name;
     long unsigned value;
 } SSL_OPTION;
 
@@ -274,7 +273,7 @@ NOEXPORT long unsigned parse_ssl_option(char *);
 NOEXPORT void print_ssl_options(void);
 
 NOEXPORT SOCK_OPT *socket_options_init(void);
-NOEXPORT void socket_option_set_int(SOCK_OPT *, char *, int, int);
+NOEXPORT void socket_option_set_int(SOCK_OPT *, const char *, int, int);
 NOEXPORT SOCK_OPT *socket_options_dup(SOCK_OPT *);
 NOEXPORT void socket_options_free(SOCK_OPT *);
 NOEXPORT int socket_options_print(void);
@@ -287,16 +286,16 @@ NOEXPORT unsigned long parse_ocsp_flag(char *);
 
 #ifndef OPENSSL_NO_ENGINE
 NOEXPORT void engine_reset_list(void);
-NOEXPORT char *engine_auto(void);
-NOEXPORT char *engine_open(const char *);
-NOEXPORT char *engine_ctrl(const char *, const char *);
-NOEXPORT char *engine_default(const char *);
-NOEXPORT char *engine_init(void);
+NOEXPORT const char *engine_auto(void);
+NOEXPORT const char *engine_open(const char *);
+NOEXPORT const char *engine_ctrl(const char *, const char *);
+NOEXPORT const char *engine_default(const char *);
+NOEXPORT const char *engine_init(void);
 NOEXPORT ENGINE *engine_get_by_id(const char *);
 NOEXPORT ENGINE *engine_get_by_num(const int);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
-NOEXPORT char *include_config(char *, SERVICE_OPTIONS **);
+NOEXPORT const char *include_config(char *, SERVICE_OPTIONS **);
 
 NOEXPORT void print_syntax(void);
 
@@ -318,14 +317,14 @@ unsigned number_of_sections=0;
 static GLOBAL_OPTIONS new_global_options;
 static SERVICE_OPTIONS new_service_options;
 
-static char *option_not_found=
+static const char *option_not_found=
     "Specified option name is not valid here";
 
-static char *stunnel_cipher_list=
+static const char *stunnel_cipher_list=
     "HIGH:!aNULL:!SSLv2:!DH:!kDHEPSK";
 
 #ifndef OPENSSL_NO_TLS1_3
-static char *stunnel_ciphersuites=
+static const char *stunnel_ciphersuites=
     "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256";
 #endif /* TLS 1.3 */
 
@@ -338,7 +337,7 @@ static char *stunnel_ciphersuites=
 */
 
 int options_cmdline(char *arg1, char *arg2) {
-    char *name;
+    const char *name;
     CONF_TYPE type;
 
 #ifdef USE_WIN32
@@ -440,9 +439,11 @@ int options_parse(CONF_TYPE type) {
 NOEXPORT int options_file(char *path, CONF_TYPE type,
         SERVICE_OPTIONS **section_ptr) {
     DISK_FILE *df;
-    char line_text[CONFLINELEN], *errstr;
+    char line_text[CONFLINELEN];
+    const char *errstr;
     char config_line[CONFLINELEN], *config_opt, *config_arg;
     int i, line_number=0;
+    const u_char utf8_bom[] = {0xef, 0xbb, 0xbf};
 #ifndef USE_WIN32
     int fd;
     char *tmp_str;
@@ -474,11 +475,9 @@ NOEXPORT int options_file(char *path, CONF_TYPE type,
         ++line_number;
         config_opt=config_line;
         if(line_number==1) {
-            if(config_opt[0]==(char)0xef &&
-                    config_opt[1]==(char)0xbb &&
-                    config_opt[2]==(char)0xbf) {
+            if(!memcmp(config_opt, utf8_bom, sizeof utf8_bom)) {
                 s_log(LOG_NOTICE, "UTF-8 byte order mark detected");
-                config_opt+=3;
+                config_opt+=sizeof utf8_bom;
             } else {
                 s_log(LOG_NOTICE, "UTF-8 byte order mark not detected");
             }
@@ -546,7 +545,7 @@ NOEXPORT int options_file(char *path, CONF_TYPE type,
 }
 
 NOEXPORT int init_section(int eof, SERVICE_OPTIONS **section_ptr) {
-    char *errstr;
+    const char *errstr;
 
 #ifndef USE_WIN32
     (*section_ptr)->option.log_stderr=new_global_options.option.log_stderr;
@@ -701,11 +700,8 @@ void service_free(SERVICE_OPTIONS *section) {
 
 /**************************************** global options */
 
-NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, char *arg) {
+NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, char *arg) {
     void *tmp;
-#ifdef USE_FIPS
-    static int fips_default=-1;
-#endif /* USE_FIPS */
 
     if(cmd==CMD_PRINT_DEFAULTS || cmd==CMD_PRINT_HELP) {
         s_log(LOG_NOTICE, " ");
@@ -895,14 +891,7 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
     switch(cmd) {
     case CMD_SET_DEFAULTS:
 #ifdef USE_FIPS
-        if(fips_default==-1) { /* not initialized */
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-            fips_default=EVP_default_properties_is_fips_enabled(NULL);
-#else /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
-            fips_default=FIPS_mode();
-#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
-        }
-        options->option.fips=fips_default?1:0;
+        options->option.fips=fips_default()?1:0;
 #endif /* USE_FIPS */
         break;
     case CMD_SET_COPY: /* not used for global options */
@@ -920,7 +909,7 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
 #endif /* USE_FIPS */
         } else if(!strcasecmp(arg, "no")) {
 #ifdef USE_FIPS
-            if(fips_default)
+            if(fips_default())
                 return "Failed to override system-wide FIPS mode";
             options->option.fips=0;
 #endif /* USE_FIPS */
@@ -933,7 +922,7 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
     case CMD_PRINT_DEFAULTS:
 #ifdef USE_FIPS
         if(fips_available())
-            s_log(LOG_NOTICE, "%-22s = %s", "fips", fips_default?"yes":"no");
+            s_log(LOG_NOTICE, "%-22s = %s", "fips", fips_default()?"yes":"no");
 #endif /* USE_FIPS */
         break;
     case CMD_PRINT_HELP:
@@ -995,7 +984,8 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "iconActive"))
             break;
-        if(!(options->icon[ICON_ACTIVE]=load_icon_file(arg)))
+        options->icon[ICON_ACTIVE]=load_icon_file(arg);
+        if(!options->icon[ICON_ACTIVE])
             return "Failed to load the specified icon";
         return NULL; /* OK */
     case CMD_INITIALIZE:
@@ -1020,7 +1010,8 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "iconError"))
             break;
-        if(!(options->icon[ICON_ERROR]=load_icon_file(arg)))
+        options->icon[ICON_ERROR]=load_icon_file(arg);
+        if(!options->icon[ICON_ERROR])
             return "Failed to load the specified icon";
         return NULL; /* OK */
     case CMD_INITIALIZE:
@@ -1045,7 +1036,8 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "iconIdle"))
             break;
-        if(!(options->icon[ICON_IDLE]=load_icon_file(arg)))
+        options->icon[ICON_IDLE]=load_icon_file(arg);
+        if(!options->icon[ICON_IDLE])
             return "Failed to load the specified icon";
         return NULL; /* OK */
     case CMD_INITIALIZE:
@@ -1334,7 +1326,7 @@ NOEXPORT char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char *opt, 
 
 /**************************************** service-level options */
 
-NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
+NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
         char *opt, char *arg) {
     SERVICE_OPTIONS *section;
     int endpoints=0;
@@ -2482,7 +2474,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
            section->option.connect_before_ssl
            section->option.protocol_endpoint */
         {
-            char *tmp_str=protocol(NULL, section, PROTOCOL_CHECK);
+            const char *tmp_str=protocol(NULL, section, PROTOCOL_CHECK);
             if(tmp_str)
                 return tmp_str;
         }
@@ -3229,7 +3221,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
         return NULL; /* OK */
     case CMD_INITIALIZE:
         {
-            char *tmp_str=sni_init(section);
+            const char *tmp_str=sni_init(section);
             if(tmp_str)
                 return tmp_str;
         }
@@ -3848,7 +3840,7 @@ NOEXPORT char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr,
 
 #ifndef OPENSSL_NO_TLSEXT
 
-NOEXPORT char *sni_init(SERVICE_OPTIONS *section) {
+NOEXPORT const char *sni_init(SERVICE_OPTIONS *section) {
     char *tmp_str;
     SERVICE_OPTIONS *tmpsrv;
 
@@ -4031,11 +4023,11 @@ NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *section) {
 /**************************************** facility/debug level */
 
 typedef struct {
-    char *name;
+    const char *name;
     int value;
 } facilitylevel;
 
-NOEXPORT char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
+NOEXPORT const char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
     facilitylevel *fl;
 
 /* facilities only make sense on unix */
@@ -4109,20 +4101,20 @@ NOEXPORT char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
 /**************************************** TLS options */
 
 NOEXPORT long unsigned parse_ssl_option(char *arg) {
-    SSL_OPTION *option;
+    const SSL_OPTION *option;
 
-    for(option=(SSL_OPTION *)ssl_opts; option->name; ++option)
+    for(option=ssl_opts; option->name; ++option)
         if(!strcasecmp(option->name, arg))
             return option->value;
     return INVALID_SSL_OPTION; /* FAILED */
 }
 
 NOEXPORT void print_ssl_options(void) {
-    SSL_OPTION *option;
+    const SSL_OPTION *option;
 
     s_log(LOG_NOTICE, " ");
     s_log(LOG_NOTICE, "Supported TLS options:");
-    for(option=(SSL_OPTION *)ssl_opts; option->name; ++option)
+    for(option=ssl_opts; option->name; ++option)
         s_log(LOG_NOTICE, "options = %s", option->name);
 }
 
@@ -4238,7 +4230,7 @@ NOEXPORT PSK_KEYS *psk_dup(PSK_KEYS *src) {
 NOEXPORT void psk_free(PSK_KEYS *head) {
     while(head) {
         PSK_KEYS *next=head->next;
-        str_free(head->identity);
+        str_free_const(head->identity);
         str_free(head->key_val);
         str_free(head);
         head=next;
@@ -4251,7 +4243,7 @@ NOEXPORT void psk_free(PSK_KEYS *head) {
 
 #if OPENSSL_VERSION_NUMBER>=0x10000000L
 
-NOEXPORT TICKET_KEY *key_read(char *arg, char *option) {
+NOEXPORT TICKET_KEY *key_read(char *arg, const char *option) {
     char *key_str;
     unsigned char *key_buf;
     long key_len;
@@ -4379,6 +4371,9 @@ NOEXPORT SOCK_OPT *socket_options_init(void) {
     memcpy(opt, sock_opts_def, sizeof sock_opts_def);
 
 #ifdef USE_WIN32
+#ifdef _MSC_VER
+#pragma warning(disable: 4996)
+#endif
     version=GetVersion();
     major=LOBYTE(LOWORD(version));
     minor=HIBYTE(LOWORD(version));
@@ -4394,7 +4389,7 @@ NOEXPORT SOCK_OPT *socket_options_init(void) {
     return opt;
 }
 
-NOEXPORT void socket_option_set_int(SOCK_OPT *opt, char *name, int type, int value) {
+NOEXPORT void socket_option_set_int(SOCK_OPT *opt, const char *name, int type, int value) {
     for(; opt->opt_str; ++opt) {
         if(!strcmp(name, opt->opt_str)) {
             opt->opt_val[type]=str_alloc_detached(sizeof(OPT_UNION));
@@ -4609,7 +4604,7 @@ NOEXPORT int socket_option_parse(SOCK_OPT *opt, char *arg) {
 
 NOEXPORT unsigned long parse_ocsp_flag(char *arg) {
     struct {
-        char *name;
+        const char *name;
         unsigned long value;
     } ocsp_opts[] = {
         {"NOCERTS", OCSP_NOCERTS},
@@ -4649,7 +4644,7 @@ NOEXPORT void engine_reset_list(void) {
     engine_initialized=1;
 }
 
-NOEXPORT char *engine_auto(void) {
+NOEXPORT const char *engine_auto(void) {
     ENGINE *e;
 
     s_log(LOG_INFO, "Enabling automatic engine support");
@@ -4667,7 +4662,7 @@ NOEXPORT char *engine_auto(void) {
     return NULL; /* OK */
 }
 
-NOEXPORT char *engine_open(const char *name) {
+NOEXPORT const char *engine_open(const char *name) {
     engine_init(); /* initialize the previous engine (if any) */
     if(++current_engine>=MAX_ENGINES)
         return "Too many open engines";
@@ -4690,7 +4685,7 @@ NOEXPORT char *engine_open(const char *name) {
     return NULL; /* OK */
 }
 
-NOEXPORT char *engine_ctrl(const char *cmd, const char *arg) {
+NOEXPORT const char *engine_ctrl(const char *cmd, const char *arg) {
     if(current_engine<0)
         return "No engine was defined";
     if(!strcasecmp(cmd, "INIT")) /* special control command */
@@ -4706,7 +4701,7 @@ NOEXPORT char *engine_ctrl(const char *cmd, const char *arg) {
     return NULL; /* OK */
 }
 
-NOEXPORT char *engine_default(const char *list) {
+NOEXPORT const char *engine_default(const char *list) {
     if(current_engine<0)
         return "No engine was defined";
     if(!ENGINE_set_default_string(engines[current_engine], list)) {
@@ -4718,7 +4713,7 @@ NOEXPORT char *engine_default(const char *list) {
     return NULL;
 }
 
-NOEXPORT char *engine_init(void) {
+NOEXPORT const char *engine_init(void) {
     if(engine_initialized) /* either first or already initialized */
         return NULL; /* OK */
     s_log(LOG_DEBUG, "Initializing engine #%d (%s)",
@@ -4765,7 +4760,7 @@ NOEXPORT ENGINE *engine_get_by_num(const int i) {
 
 /**************************************** include config directory */
 
-NOEXPORT char *include_config(char *directory, SERVICE_OPTIONS **section_ptr) {
+NOEXPORT const char *include_config(char *directory, SERVICE_OPTIONS **section_ptr) {
     struct dirent **namelist;
     int i, num, err=0;
 

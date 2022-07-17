@@ -186,7 +186,7 @@ typedef struct servername_list_struct SERVERNAME_LIST;/* forward declaration */
 
 #ifndef OPENSSL_NO_PSK
 typedef struct psk_keys_struct {
-    char *identity;
+    const char *identity;                  /* the OpenSSL API requires const */
     unsigned char *key_val;
     unsigned key_len;
     struct psk_keys_struct *next;
@@ -381,7 +381,7 @@ typedef union {
 } OPT_UNION;
 
 struct sock_opt_struct {
-    char *opt_str;
+    const char *opt_str;
     int  opt_level;
     int  opt_name;
     VAL_TYPE opt_type;
@@ -510,10 +510,10 @@ void service_free(SERVICE_OPTIONS *);
 #ifndef USE_FORK
 void get_limits(void); /* setup global max_clients and max_fds */
 #endif
-SOCKET s_socket(int, int, int, int, char *);
-int s_pipe(int[2], int, char *);
-int s_socketpair(int, int, int, SOCKET[2], int, char *);
-SOCKET s_accept(SOCKET, struct sockaddr *, socklen_t *, int, char *);
+SOCKET s_socket(int, int, int, int, const char *);
+int s_pipe(int[2], int, const char *);
+int s_socketpair(int, int, int, SOCKET[2], int, const char *);
+SOCKET s_accept(SOCKET, struct sockaddr *, socklen_t *, int, const char *);
 void set_nonblock(SOCKET, unsigned long);
 
 /**************************************** prototypes for log.c */
@@ -531,7 +531,7 @@ void s_log(int, const char *, ...)
     ;
 #endif
 char *log_id(CLI *);
-void fatal_debug(char *, const char *, int) NORETURN;
+void fatal_debug(const char *, const char *, int) NORETURN;
 #define fatal(a) fatal_debug((a), __FILE__, __LINE__)
 void ioerror(const char *);
 void sockerror(const char *);
@@ -560,7 +560,9 @@ int cron_init(void);
 extern int index_ssl_cli, index_ssl_ctx_opt;
 extern int index_session_authenticated, index_session_connect_address;
 
-int fips_available();
+int fips_default(void);
+int fips_available(void);
+void crypto_init(char *);
 int ssl_init(void);
 int ssl_configure(GLOBAL_OPTIONS *);
 
@@ -582,7 +584,7 @@ PSK_KEYS *psk_find(const PSK_TABLE *, const char *);
 UI_METHOD *ui_stunnel(void);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 void print_session_id(SSL_SESSION *);
-void sslerror(char *);
+void sslerror(const char *);
 
 /**************************************** prototypes for verify.c */
 
@@ -678,17 +680,18 @@ extern HWND capwin_hwnd;
 extern LONG capwin_connectivity;
 #endif
 
-char *protocol(CLI *, SERVICE_OPTIONS *opt, const PHASE);
+const char *protocol(CLI *, SERVICE_OPTIONS *opt, const PHASE);
 
 /**************************************** prototypes for resolver.c */
 
-void resolver_init();
+void resolver_init(void);
+int use_ipv6(void);
 
 unsigned name2addr(SOCKADDR_UNION *, char *, int);
-unsigned hostport2addr(SOCKADDR_UNION *, char *, char *, int);
+unsigned hostport2addr(SOCKADDR_UNION *, char *, const char *, int);
 
 unsigned name2addrlist(SOCKADDR_LIST *, char *);
-unsigned hostport2addrlist(SOCKADDR_LIST *, char *, char *);
+unsigned hostport2addrlist(SOCKADDR_LIST *, char *, const char *);
 
 void addrlist_clear(SOCKADDR_LIST *, int);
 unsigned addrlist_dup(SOCKADDR_LIST *, const SOCKADDR_LIST *);
@@ -708,21 +711,8 @@ const char *s_gai_strerror(int);
 #endif
 
 #ifdef USE_WIN32
-
 /* rename some locally shadowed declarations */
 #define getnameinfo     local_getnameinfo
-
-#ifndef _WIN32_WCE
-typedef int (CALLBACK * GETADDRINFO) (const char *,
-    const char *, const struct addrinfo *, struct addrinfo **);
-typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo *);
-typedef int (CALLBACK * GETNAMEINFO) (const struct sockaddr *, socklen_t,
-    char *, size_t, char *, size_t, int);
-extern GETADDRINFO s_getaddrinfo;
-extern FREEADDRINFO s_freeaddrinfo;
-extern GETNAMEINFO s_getnameinfo;
-#endif /* ! _WIN32_WCE */
-
 #endif /* USE_WIN32 */
 
 int getnameinfo(const struct sockaddr *, socklen_t,
@@ -845,18 +835,18 @@ LPSTR tstr2str(LPCTSTR);
 
 /**************************************** prototypes for libwrap.c */
 
-int libwrap_init();
+int libwrap_init(void);
 void libwrap_auth(CLI *);
 
 /**************************************** prototypes for tls.c */
 
 extern volatile int tls_initialized;
 
-void tls_init();
-TLS_DATA *tls_alloc(CLI *, TLS_DATA *, char *);
-void tls_cleanup();
+void tls_init(void);
+TLS_DATA *tls_alloc(CLI *, TLS_DATA *, const char *);
+void tls_cleanup(void);
 void tls_set(TLS_DATA *);
-TLS_DATA *tls_get();
+TLS_DATA *tls_get(void);
 
 /**************************************** prototypes for str.c */
 
@@ -868,7 +858,7 @@ struct tls_data_struct {
     size_t alloc_bytes, alloc_blocks;
     CLI *c;
     SERVICE_OPTIONS *opt;
-    char *id;
+    const char *id;
 };
 
 void str_init(TLS_DATA *);
@@ -888,21 +878,29 @@ char *str_printf(const char *, ...)
 LPTSTR str_tprintf(LPCTSTR, ...);
 #endif
 
-void str_canary_init();
-void str_stats();
+void str_canary_init(void);
+void str_stats(void);
+
 void *str_alloc_debug(size_t, const char *, int);
 #define str_alloc(a) str_alloc_debug((a), __FILE__, __LINE__)
 void *str_alloc_detached_debug(size_t, const char *, int);
 #define str_alloc_detached(a) str_alloc_detached_debug((a), __FILE__, __LINE__)
+
 void *str_realloc_debug(void *, size_t, const char *, int);
 #define str_realloc(a, b) str_realloc_debug((a), (b), __FILE__, __LINE__)
 void *str_realloc_detached_debug(void *, size_t, const char *, int);
 #define str_realloc_detached(a, b) str_realloc_detached_debug((a), (b), __FILE__, __LINE__)
+
 void str_detach_debug(void *, const char *, int);
 #define str_detach(a) str_detach_debug((a), __FILE__, __LINE__)
+void str_detach_const_debug(const void *, const char *, int);
+#define str_detach_const(a) str_detach_const_debug((a), __FILE__, __LINE__)
+
 void str_free_debug(void *, const char *, int);
 #define str_free(a) str_free_debug((a), __FILE__, __LINE__), (a)=NULL
 #define str_free_expression(a) str_free_debug((a), __FILE__, __LINE__)
+void str_free_const_debug(const void *, const char *, int);
+#define str_free_const(a) str_free_const_debug((a), __FILE__, __LINE__), (a)=NULL
 
 void leak_table_utilization(void);
 

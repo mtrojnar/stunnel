@@ -35,7 +35,6 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
 /* Uncomment to see allocation sources in core dumps */
@@ -61,6 +60,7 @@
 
 /* most platforms require allocations to be aligned */
 #ifdef _MSC_VER
+#pragma warning(disable: 4324)
 __declspec(align(16))
 #endif
 struct alloc_list_struct {
@@ -102,8 +102,8 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
 NOEXPORT void str_leak_debug(const ALLOC_LIST *, int);
 
 NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *);
-NOEXPORT void leak_report();
-NOEXPORT long leak_threshold();
+NOEXPORT void leak_report(void);
+NOEXPORT long leak_threshold(void);
 
 TLS_DATA *ui_tls;
 NOEXPORT uint8_t canary[10]; /* 80-bit canary value */
@@ -394,6 +394,19 @@ void str_detach_debug(void *ptr, const char *file, int line) {
     }
 }
 
+/* Here be dragons:
+ * this is an ugly hack to work around OpenSSL API that requires const
+ * function parameters -> use it with extreme caution */
+void str_detach_const_debug(const void *ptr, const char *file, int line) {
+    union {
+        const void *c;
+        void *v;
+    } u;
+
+    u.c=ptr;
+    str_detach_debug(u.v, file, line);
+}
+
 void str_free_debug(void *ptr, const char *file, int line) {
     ALLOC_LIST *alloc_list;
 
@@ -417,6 +430,19 @@ void str_free_debug(void *ptr, const char *file, int line) {
     alloc_list->magic=MAGIC_DEALLOCATED; /* detect double free attempts */
     memset(ptr, 0, alloc_list->size+sizeof canary); /* paranoia */
     system_free(alloc_list);
+}
+
+/* Here be dragons:
+ * this is an ugly hack to work around OpenSSL API that requires const
+ * function parameters -> use it with extreme caution */
+void str_free_const_debug(const void *ptr, const char *file, int line) {
+    union {
+        const void *c;
+        void *v;
+    } u;
+
+    u.c=ptr;
+    str_free_debug(u.v, file, line);
 }
 
 NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr, const char *file, int line) {
@@ -474,18 +500,18 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
 
     /* for performance we try to avoid calling CRYPTO_atomic_add() here */
 #ifdef USE_OS_THREADS
-#if defined(__GNUC__) && defined(__ATOMIC_ACQ_REL)
+#ifdef _MSC_VER
+    /* casting is safe, because sizeof(long)==sizeof(int) on Windows */
+    allocations=InterlockedExchangeAdd((long *)&entry->num, change)+change;
+#else /* defined(_MSC_VER) */
+#ifdef __ATOMIC_ACQ_REL
     if(__atomic_is_lock_free(sizeof entry->num, &entry->num))
         allocations=__atomic_add_fetch(&entry->num, change, __ATOMIC_ACQ_REL);
-    else
+    else /* atomic add not directly supported by the compiler */
+#endif /* defined(__ATOMIC_ACQ_REL) */
         CRYPTO_atomic_add(&entry->num, change, &allocations,
             stunnel_locks[LOCK_LEAK_HASH]);
-#elif defined(_MSC_VER)
-    allocations=InterlockedExchangeAdd(&entry->num, change)+change;
-#else /* atomic add not directly supported by the compiler */
-    CRYPTO_atomic_add(&entry->num, change, &allocations,
-        stunnel_locks[LOCK_LEAK_HASH]);
-#endif
+#endif /* defined(_MSC_VER) */
 #else /* USE_OS_THREADS */
     allocations=(entry->num+=change);
 #endif /* USE_OS_THREADS */
@@ -574,23 +600,24 @@ int safe_memcmp(const void *s1, const void *s2, size_t n) {
     typedef unsigned long TL;
 #endif
     typedef unsigned char TS;
-    TL r=0, *pl1, *pl2;
-    TS *ps1, *ps2;
+    TL r=0;
+    const TL *pl1, *pl2;
+    const TS *ps1, *ps2;
     int n1=(int)((uintptr_t)s1&(sizeof(TL)-1)); /* unaligned bytes in s1 */
     int n2=(int)((uintptr_t)s2&(sizeof(TL)-1)); /* unaligned bytes in s2 */
 
     if(n1 || n2) { /* either pointer unaligned */
-        ps1=(TS *)s1;
-        ps2=(TS *)s2;
+        ps1=(const TS *)s1;
+        ps2=(const TS *)s2;
     } else { /* both pointers aligned -> compare full words */
-        pl1=(TL *)s1;
-        pl2=(TL *)s2;
+        pl1=(const TL *)s1;
+        pl2=(const TL *)s2;
         while(n>=sizeof(TL)) {
             n-=sizeof(TL);
             r|=(*pl1++)^(*pl2++);
         }
-        ps1=(TS *)pl1;
-        ps2=(TS *)pl2;
+        ps1=(const TS *)pl1;
+        ps2=(const TS *)pl2;
     }
     while(n--)
         r|=(*ps1++)^(*ps2++);

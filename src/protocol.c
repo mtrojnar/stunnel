@@ -35,7 +35,6 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
 #define CAPWIN_BUFFER_SIZE 100
@@ -69,7 +68,7 @@ NOEXPORT char *connect_server(CLI *, SERVICE_OPTIONS *, const PHASE);
 NOEXPORT char *connect_client(CLI *, SERVICE_OPTIONS *, const PHASE);
 #ifndef OPENSSL_NO_MD4
 NOEXPORT void ntlm(CLI *, SERVICE_OPTIONS *);
-NOEXPORT char *ntlm1();
+NOEXPORT char *ntlm1(void);
 NOEXPORT char *ntlm3(char *, char *, char *, char *);
 NOEXPORT void crypt_DES(DES_cblock, DES_cblock, unsigned char[7]);
 #endif
@@ -87,7 +86,7 @@ LONG capwin_connectivity=0;
 
 /**************************************** framework */
 
-char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+const char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     if(phase==PROTOCOL_CHECK) /* default to be overridden by protocols */
         opt->option.connect_before_ssl=opt->option.client;
     if(!opt->protocol) /* no protocol specified */
@@ -588,7 +587,8 @@ NOEXPORT char *proxy_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     SOCKADDR_UNION addr;
     socklen_t addrlen;
     char src_host[IP_LEN], dst_host[IP_LEN];
-    char src_port[PORT_LEN], dst_port[PORT_LEN], *proto;
+    char src_port[PORT_LEN], dst_port[PORT_LEN];
+    const char *proto;
     int err;
 
     (void)opt; /* squash the unused parameter warning */
@@ -1674,8 +1674,9 @@ NOEXPORT int ldap_auth(CLI *c, const char *dn, const char *pass) {
     int i;
     unsigned char *req, resp[22];
     const unsigned char resp_ok[22]=
-        "\x30\x84\x00\x00\x00\x10\x02\x01\x01\x61\x84"
-        "\x00\x00\x00\x07\x0a\x01\x00\x04\x00\x04\x00";
+        {0x30, 0x84, 0x00, 0x00, 0x00, 0x10, 0x02, 0x01,
+         0x01, 0x61, 0x84, 0x00, 0x00, 0x00, 0x07, 0x0a,
+         0x01, 0x00, 0x04, 0x00, 0x04, 0x00};
 
     /* reject parameters too long for simple encoding */
     dn_len=strlen(dn);

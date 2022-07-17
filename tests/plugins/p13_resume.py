@@ -162,7 +162,7 @@ class ResumeCacheTLSv12(StunnelTest):
     debug = debug
     syslog = no
 
-    sslVersionMax = TLSv1.2
+    sslVersion = TLSv1.2
     options = NO_TICKET
 
     [{service}]

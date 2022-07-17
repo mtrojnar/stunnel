@@ -83,7 +83,8 @@ class FailureVerifyCRL(StunnelTest):
         self.params.context = 'load_revoked_cert'
         self.events.count = 1
         self.events.success = [
-            "certificate verify failed"
+            "certificate verify failed",
+            "certificate revoked"
         ]
         self.events.failure = [
             "peer did not return a certificate",

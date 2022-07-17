@@ -78,7 +78,8 @@ class FailureVerifyChain(StunnelTest):
         self.params.context = 'load_wrong_cert'
         self.events.count = 1
         self.events.success = [
-            "certificate verify failed"
+            "certificate verify failed",
+            "unknown CA"
         ]
         self.events.failure = [
             "peer did not return a certificate",

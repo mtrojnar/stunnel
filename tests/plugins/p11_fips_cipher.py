@@ -78,6 +78,7 @@ class FailureCipherFIPS(StunnelTest):
 class FailureCiphersuitesFIPS(StunnelTest):
     """Checking FIPS mode.
        The ciphersuite "TLS_CHACHA20_POLY1305_SHA256" is unavailable if FIPS is enabled.
+       This option requires OpenSSL 1.1.1 or later.
     """
 
     def __init__(self, cfg: Config, logger: logging.Logger):
@@ -86,7 +87,8 @@ class FailureCiphersuitesFIPS(StunnelTest):
         self.events.skip = [
             "FIPS provider not available",
             "fips mode not supported",
-            r"FIPS PROVIDER.*could not load the shared library"
+            r"FIPS PROVIDER.*could not load the shared library",
+            "Specified option name is not valid here"
         ]
         self.events.count = 1
         self.events.success = [

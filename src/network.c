@@ -40,7 +40,6 @@
 #define FD_SETSIZE 1000000
 #endif
 
-#include "common.h"
 #include "prototypes.h"
 
 /* #define DEBUG_UCONTEXT */
@@ -545,7 +544,7 @@ NOEXPORT void check_terminate(s_poll_set *fds) {
 
 int socket_options_set(SERVICE_OPTIONS *service, SOCKET s, int type) {
     SOCK_OPT *ptr;
-    static char *type_str[3]={"accept", "local", "remote"};
+    static const char *type_str[3]={"accept", "local", "remote"};
     socklen_t opt_size;
     int retval=0; /* no error found */
 
@@ -653,12 +652,11 @@ int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
         str_free(dst);
         return -1;
     }
-    return -1; /* should not be possible */
 }
 
 void s_write(CLI *c, SOCKET fd, const void *buf, size_t len) {
         /* simulate a blocking write */
-    uint8_t *ptr=(uint8_t *)buf;
+    const uint8_t *ptr=(const uint8_t *)buf;
     ssize_t num;
 
     while(len>0) {
@@ -678,7 +676,7 @@ void s_write(CLI *c, SOCKET fd, const void *buf, size_t len) {
             s_log(LOG_ERR, "s_write: s_poll_wait: unknown result");
             throw_exception(c, 1); /* error */
         }
-        num=writesocket(fd, (void *)ptr, len);
+        num=writesocket(fd, (const void *)ptr, len);
         if(num==-1) { /* error */
             sockerror("writesocket (s_write)");
             throw_exception(c, 1);
@@ -795,7 +793,7 @@ void fd_printf(CLI *c, SOCKET fd, const char *format, ...) {
 
 void s_ssl_write(CLI *c, const void *buf, int len) {
         /* simulate a blocking SSL_write */
-    uint8_t *ptr=(uint8_t *)buf;
+    const uint8_t *ptr=(const uint8_t *)buf;
     int num;
 
     while(len>0) {
@@ -815,7 +813,7 @@ void s_ssl_write(CLI *c, const void *buf, int len) {
             s_log(LOG_ERR, "s_write: s_poll_wait: unknown result");
             throw_exception(c, 1); /* error */
         }
-        num=SSL_write(c->ssl, (void *)ptr, len);
+        num=SSL_write(c->ssl, (const void *)ptr, len);
         if(num==-1) { /* error */
             sockerror("SSL_write (s_ssl_write)");
             throw_exception(c, 1);
@@ -1033,10 +1031,10 @@ int original_dst(const SOCKET fd, SOCKADDR_UNION *addr) {
     addrlen=sizeof(SOCKADDR_UNION);
 #ifdef SO_ORIGINAL_DST
 #ifdef USE_IPv6
-    if(!getsockopt(fd, SOL_IPV6, SO_ORIGINAL_DST, &addr->sa, &addrlen))
+    if(!getsockopt(fd, SOL_IPV6, SO_ORIGINAL_DST, (char *)&addr->sa, &addrlen))
         return 0; /* succeeded */
 #endif /* USE_IPv6 */
-    if(!getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, &addr->sa, &addrlen))
+    if(!getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, (char *)&addr->sa, &addrlen))
         return 0; /* succeeded */
     sockerror("getsockopt SO_ORIGINAL_DST");
 #else /* SO_ORIGINAL_DST */

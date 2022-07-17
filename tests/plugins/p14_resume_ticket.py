@@ -88,7 +88,7 @@ class ResumeTicketTLSv12(StunnelTest):
     debug = debug
     syslog = no
 
-    sslVersionMax = TLSv1.2
+    sslVersion = TLSv1.2
     sessionCacheSize = 1
     options = -NO_TICKET
 
@@ -118,6 +118,10 @@ class ResumeTicketTLSv13(StunnelTest):
         super().__init__(cfg, logger, path)
         self.params.description = '142. Stateless session ticket resumption with TLSv1.3'
         self.events.count = 2
+        self.events.skip = [
+            "Incorrect version of TLS protocol",
+            "Invalid protocol version"
+        ]
         self.events.success = [
             "TLS accepted: previous session reused"
         ]

@@ -35,7 +35,6 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
 /* http://www.openssl.org/support/faq.html#PROG2 */
@@ -68,7 +67,7 @@ struct sockaddr_un {
 };
 #endif
 
-NOEXPORT void terminate_threads();
+NOEXPORT void terminate_threads(void);
 #if !defined(USE_WIN32) && !defined(USE_OS2)
 NOEXPORT void pid_status_nohang(const char *);
 NOEXPORT void status_info(int, int, const char *);
@@ -82,9 +81,9 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *, int, unsigned);
 #ifdef HAVE_CHROOT
 NOEXPORT int change_root(void);
 #endif
-NOEXPORT int pipe_init(SOCKET [2], char *);
+NOEXPORT int pipe_init(SOCKET [2], const char *);
 NOEXPORT int signal_pipe_dispatch(void);
-NOEXPORT void reload_config();
+NOEXPORT void reload_config(void);
 NOEXPORT int process_connections(void);
 NOEXPORT char *signal_name(int);
 
@@ -123,7 +122,7 @@ void main_init() { /* one-time initialization */
 #endif
     /* basic initialization contains essential functions required for logging
      * subsystem to function properly, thus all errors here are fatal */
-    if(ssl_init()) /* initialize TLS library */
+    if(ssl_init()) /* initialize libssl */
         fatal("TLS initialization failed");
     if(sthreads_init()) /* initialize critical sections & TLS callbacks */
         fatal("Threads initialization failed");
@@ -712,7 +711,7 @@ NOEXPORT int change_root(void) {
 
 /**************************************** signal pipe handling */
 
-NOEXPORT int pipe_init(SOCKET socket_vector[2], char *name) {
+NOEXPORT int pipe_init(SOCKET socket_vector[2], const char *name) {
 #ifdef USE_WIN32
     (void)name; /* squash the unused parameter warning */
 
@@ -1076,16 +1075,7 @@ void stunnel_info(int level) {
     features=str_cat(features, "SELECT");
 #endif /* defined(USE_POLL) */
     /* supported IP version parameter */
-    features=str_cat(features, ",IPv");
-#if defined(USE_WIN32) && !defined(_WIN32_WCE)
-    features=str_cat(features, s_getaddrinfo ? "6" : "4");
-#else /* defined(USE_WIN32) */
-#if defined(USE_IPv6)
-    features=str_cat(features, "6");
-#else /* defined(USE_IPv6) */
-    features=str_cat(features, "4");
-#endif /* defined(USE_IPv6) */
-#endif /* defined(USE_WIN32) */
+    features=str_cat(features, use_ipv6() ? ",IPv6" : ",IPv4");
 #ifdef USE_SYSTEMD
     features=str_cat(features, ",SYSTEMD");
 #endif /* defined(USE_SYSTEMD) */

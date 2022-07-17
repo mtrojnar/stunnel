@@ -96,7 +96,8 @@ class FailurePSKSecrets(StunnelTest):
         self.params.description = '062. Failure test \"PSKsecrets\" option'
         self.events.count = 1
         self.events.success = [
-            "binder does not verify"
+            "binder does not verify",
+            "bad record mac"
         ]
         self.events.failure = [
             #"peer did not return a certificate",

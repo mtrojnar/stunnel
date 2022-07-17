@@ -35,14 +35,35 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
+
+#ifdef _MSC_VER
+/*
+ * Disable MSVC C4996 warning:
+ * warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead
+ * warning C4996: 'inet_ntoa': Use inet_ntop() or InetNtop() instead
+ * warning C4996: 'gethostbyname': Use getaddrinfo() or GetAddrInfoW() instead
+ */
+#pragma warning(disable: 4996)
+#endif
 
 /**************************************** prototypes */
 
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
+
+typedef int (CALLBACK * GETADDRINFO) (const char *,
+    const char *, const struct addrinfo *, struct addrinfo **);
+typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo *);
+typedef int (CALLBACK * GETNAMEINFO) (const struct sockaddr *, socklen_t,
+    char *, size_t, char *, size_t, int);
+extern GETADDRINFO s_getaddrinfo;
+extern FREEADDRINFO s_freeaddrinfo;
+extern GETNAMEINFO s_getnameinfo;
+
 NOEXPORT int get_ipv6(LPTSTR);
-#endif
+
+#endif /* defined(USE_WIN32) && !defined(_WIN32_WCE) */
+
 NOEXPORT void addrlist2addr(SOCKADDR_UNION *, SOCKADDR_LIST *);
 NOEXPORT void addrlist_reset(SOCKADDR_LIST *);
 
@@ -134,6 +155,18 @@ NOEXPORT int get_ipv6(LPTSTR file) {
 #endif /* __GNUC__ */
 #endif
 
+int use_ipv6() {
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+    return s_getaddrinfo != NULL;
+#else /* defined(USE_WIN32) && !defined(_WIN32_WCE) */
+#if defined(USE_IPv6)
+    return 1;
+#else /* defined(USE_IPv6) */
+    return 0;
+#endif /* defined(USE_IPv6) */
+#endif /* defined(USE_WIN32) && !defined(_WIN32_WCE) */
+}
+
 /**************************************** stunnel resolver API */
 
 unsigned name2addr(SOCKADDR_UNION *addr, char *name, int passive) {
@@ -151,7 +184,7 @@ unsigned name2addr(SOCKADDR_UNION *addr, char *name, int passive) {
 }
 
 unsigned hostport2addr(SOCKADDR_UNION *addr,
-        char *host_name, char *port_name, int passive) {
+        char *host_name, const char *port_name, int passive) {
     SOCKADDR_LIST *addr_list;
     unsigned num;
 
@@ -225,7 +258,7 @@ unsigned name2addrlist(SOCKADDR_LIST *addr_list, char *name) {
 }
 
 unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
-        char *host_name, char *port_name) {
+        char *host_name, const char *port_name) {
     struct addrinfo hints, *res, *cur;
     int err, retry=0;
     unsigned num;

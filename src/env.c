@@ -50,6 +50,8 @@
 #endif
 #undef getpeername
 
+int getpeername(int, struct sockaddr_in *, int *);
+
 int getpeername(int s, struct sockaddr_in *name, int *len) {
     char *value;
 

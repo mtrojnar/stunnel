@@ -35,8 +35,11 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
+
+#if defined(__GNUC__) && defined(USE_WIN32)
+#pragma GCC diagnostic ignored "-Wformat"
+#endif /* defined(__GNUC__) && defined(USE_WIN32) */
 
 SERVICE_OPTIONS *current_section=NULL;
 
@@ -88,7 +91,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
 NOEXPORT int cache_passwd_get_cb(char *, int, int, void *);
 NOEXPORT int cache_passwd_set_cb(char *, int, int, void *);
 NOEXPORT void set_prompt(const char *);
-NOEXPORT int ui_retry();
+NOEXPORT int ui_retry(void);
 
 /* session tickets */
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
@@ -126,7 +129,7 @@ NOEXPORT void cache_transfer(SSL_CTX *, const u_char, const long,
 NOEXPORT void info_callback(const SSL *, int, int);
 
 NOEXPORT void sslerror_queue(void);
-NOEXPORT void sslerror_log(unsigned long, const char *, int, char *);
+NOEXPORT void sslerror_log(unsigned long, const char *, int, const char *);
 
 /**************************************** initialize section->ctx */
 
@@ -221,9 +224,11 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     SSL_CTX_set_options(section->ctx, SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
     /* no session ticket gets sent to the client at all in TLSv1.2
        and below, but a stateful ticket will be sent in TLSv1.3 */
+#ifdef SSL_OP_NO_TICKET
     if(!section->option.client && !section->option.session_resume) {
         SSL_CTX_set_options(section->ctx, SSL_OP_NO_TICKET);
     }
+#endif
 #ifdef SSL_OP_NO_COMPRESSION
     /* we implemented a better way to disable compression if needed */
     SSL_CTX_clear_options(section->ctx, SSL_OP_NO_COMPRESSION);
@@ -720,7 +725,7 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
 }
 
 NOEXPORT int psk_compar(const void *a, const void *b) {
-    PSK_KEYS *x=*(PSK_KEYS **)a, *y=*(PSK_KEYS **)b;
+    const PSK_KEYS *x=*(PSK_KEYS *const*)a, *y=*(PSK_KEYS *const*)b;
 
 #if 0
     s_log(LOG_DEBUG, "PSK cmp: %s %s", x->identity, y->identity);
@@ -752,7 +757,7 @@ void psk_sort(PSK_TABLE *table, PSK_KEYS *head) {
 PSK_KEYS *psk_find(const PSK_TABLE *table, const char *identity) {
     PSK_KEYS key, *ptr=&key, **ret;
 
-    key.identity=(char *)identity;
+    key.identity=identity;
     ret=bsearch(&ptr,
         table->val, table->num, sizeof(PSK_KEYS *), psk_compar);
     return ret ? *ret : NULL;
@@ -1380,7 +1385,8 @@ NOEXPORT void cache_new(SSL *ssl, SSL_SESSION *sess) {
 
 NOEXPORT SSL_SESSION *cache_get(SSL *ssl,
         const unsigned char *key, int key_len) {
-    unsigned char *val=NULL, *val_tmp=NULL;
+    unsigned char *val=NULL;
+    const unsigned char *val_tmp=NULL;
     ssize_t val_len=0;
     SSL_SESSION *sess;
 
@@ -1389,11 +1395,7 @@ NOEXPORT SSL_SESSION *cache_get(SSL *ssl,
     if(!val)
         return NULL;
     val_tmp=val;
-    sess=d2i_SSL_SESSION(NULL,
-#if OPENSSL_VERSION_NUMBER>=0x0090707fL
-        (const unsigned char **)
-#endif /* OpenSSL version >= 0.9.7g */
-        &val_tmp, (long)val_len);
+    sess=d2i_SSL_SESSION(NULL, &val_tmp, (long)val_len);
     str_free(val);
     return sess;
 }
@@ -1500,8 +1502,9 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     len=recv(s, (void *)packet, sizeof(CACHE_PACKET), 0);
     closesocket(s);
     if(len<0) {
-        if(get_last_socket_error()==S_EWOULDBLOCK ||
-                get_last_socket_error()==S_EAGAIN)
+        int err=get_last_socket_error();
+
+        if(err==S_EWOULDBLOCK || (S_EWOULDBLOCK!=S_EAGAIN && err==S_EAGAIN))
             s_log(LOG_INFO, "cache_transfer: recv timeout");
         else
             sockerror("cache_transfer: recv");
@@ -1536,7 +1539,7 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
     SSL_CTX *ctx;
     const char *state_string;
 
-    c=SSL_get_ex_data((SSL *)ssl, index_ssl_cli);
+    c=SSL_get_ex_data(ssl, index_ssl_cli);
     if(c) {
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
         OSSL_HANDSHAKE_STATE state=SSL_get_state(ssl);
@@ -1554,13 +1557,13 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
 #else
         if(state==SSL3_ST_CR_CERT_REQ_A)
 #endif
-            print_client_CA_list(SSL_get_client_CA_list((SSL *)ssl));
+            print_client_CA_list(SSL_get_client_CA_list(ssl));
 #ifndef SSL3_ST_CR_SRVR_DONE_A
         if(state==TLS_ST_CR_SRVR_DONE)
 #else
         if(state==SSL3_ST_CR_SRVR_DONE_A)
 #endif
-            if(!SSL_get_client_CA_list((SSL *)ssl))
+            if(!SSL_get_client_CA_list(ssl))
                 s_log(LOG_INFO, "Client certificate not requested");
 
         /* prevent renegotiation DoS attack */
@@ -1600,7 +1603,7 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
             SSL_alert_type_string_long(ret),
             SSL_alert_desc_string_long(ret));
     } else if(where==SSL_CB_HANDSHAKE_DONE) {
-        ctx=SSL_get_SSL_CTX((SSL *)ssl);
+        ctx=SSL_get_SSL_CTX(ssl);
         if(c->opt->option.client) {
             s_log(LOG_DEBUG, "%6ld client connect(s) requested",
                 SSL_CTX_sess_connect(ctx));
@@ -1637,7 +1640,7 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
 
 /**************************************** TLS error reporting */
 
-void sslerror(char *txt) { /* OpenSSL error handler */
+void sslerror(const char *txt) { /* OpenSSL error handler */
     unsigned long err;
     const char *file;
     int line;
@@ -1664,7 +1667,7 @@ NOEXPORT void sslerror_queue(void) { /* recursive dump of the error queue */
 }
 
 NOEXPORT void sslerror_log(unsigned long err,
-        const char *file, int line, char *txt) {
+        const char *file, int line, const char *txt) {
     char *str;
 
     str=str_alloc(256);

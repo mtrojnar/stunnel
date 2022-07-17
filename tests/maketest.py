@@ -33,7 +33,6 @@ from plugin_collection import PluginCollection
 
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
-EXIT_SKIP = 125
 
 RESULT_PATH = os.getcwd()
 DEFAULT_PROG = os.path.join(RESULT_PATH, "../src/stunnel")
@@ -60,6 +59,10 @@ RE_OPENSSL_VERSION = re.compile(
 )
 
 RE_LINE_IDX = re.compile(r" ^ Hello \s+ (?P<idx> 0 | [1-9][0-9]* ) $ ", re.X)
+
+
+class UnsupportedOpenSSL(Exception):
+    """Unsupported version of OpenSSL"""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -346,7 +349,7 @@ class TestLogs(PrintLogs):
 
 
     async def check_version(self, cmd_str: str, p_err: str) -> None:
-        """Check the version of stunnel and openssl"""
+        """Check the version of python, stunnel and openssl"""
         tag = "check_version"
         lines = p_err.splitlines()
         if not lines:
@@ -361,9 +364,13 @@ class TestLogs(PrintLogs):
             if match:
                 openssl_version = match.group("version")
         if not openssl_version:
-            raise Exception("Stunnel was compiled and run with various OpenSSL versions")
-        if openssl_version < "1.0.2":
-            raise Exception(f"OpenSSL version {openssl_version} is deprecated and not supported")
+            raise Exception("Stunnel was compiled and run with different OpenSSL versions")
+        """TLSv1.1 and TLSv1.2 available only with OpenSSL version 1.0.1 and later"""
+        if openssl_version < "1.0.1":
+            raise UnsupportedOpenSSL(f"OpenSSL version {openssl_version} is deprecated and not supported")
+        if not (sys.version_info.major == 3 and sys.version_info.minor >= 7):
+            raise Exception("Python 3.7 or higher is required.\n"
+                + "You are using Python {}.{}.".format(sys.version_info.major, sys.version_info.minor))
         if not stunnel_version:
             raise Exception(
                 f"Could not find the version line in the `{cmd_str}` output:\n"
@@ -492,10 +499,7 @@ class TestResult():
                 if result == "UNKNOWN":
                     result = "succeeded"
                 break
-        dots = "."
-        for dummy in range(70):
-            dots = dots + "."
-        self.logger.info(dots + result)
+        self.logger.info("." * 70 + " " + result)
         return result
 
 
@@ -778,7 +782,7 @@ class TestSuite(TestResult):
                     log=f"[{tag}] {line}"
                 )
             )
-        for key, dummy in self.cfg.children.items():
+        for key, _ in self.cfg.children.items():
             os.kill(key.pid, signal.SIGHUP)
             await self.cfg.mainq.put(
                 LogEvent(
@@ -1552,7 +1556,7 @@ class ClientConnectExec(TestSuite):
 
     async def start_connections(self, cfgfile: pathlib.Path, port: int) -> None:
         """Wait for all the connections to complete."""
-        for dummy in range(self.params.conn_num):
+        for _ in range(self.params.conn_num):
             await self.expect_event(self.cfg.logsq, "connection_done_event")
         await self.expect_event(self.cfg.logsq, "all_connections_event")
 
@@ -1600,6 +1604,14 @@ def parse_args() -> Config:
         f"(default: {DEFAULT_LOGS})",
     )
     parser.add_argument(
+        "--libs",
+        type=pathlib.Path,
+        default="",
+        metavar="LIBRARY_PATH",
+        help="the path to the OpenSSL libraries "
+        "(default: NULL)",
+    )
+    parser.add_argument(
         "--debug",
         type=int,
         default=DEFAULT_LEVEL,
@@ -1609,7 +1621,10 @@ def parse_args() -> Config:
     )
     args = parser.parse_args()
     utf8_env = dict(os.environ)
-    utf8_env.update({"LC_ALL": "C.UTF-8", "LANGUAGE": ""})
+    utf8_env.update({
+        "LC_ALL": "C.UTF-8",
+        "LANGUAGE": "",
+        "LD_LIBRARY_PATH": args.libs})
     if not os.path.isdir(args.logs):
         os.mkdir(args.logs)
     with os.scandir(args.logs) as entries:
@@ -1637,13 +1652,10 @@ def parse_args() -> Config:
 
 async def main() -> None:
     """Main program: parse arguments, prepare an environment, run tests."""
-    if not (sys.version_info.major == 3 and sys.version_info.minor >= 7):
-        print("Python 3.7 or higher is required.\n"
-            + "You are using Python {}.{}.".format(sys.version_info.major, sys.version_info.minor))
-        sys.exit(EXIT_SKIP)
     tag = "main"
-    omitted = False
     with parse_args() as cfg:
+
+        # Initialize the event processing infrastructure.
         try:
             rlogs = TestLogs(cfg)
             formats = "%(levelname)s: %(asctime)s: %(message)s"
@@ -1653,6 +1665,14 @@ async def main() -> None:
             slogs = TestLogs(cfg)
             formats = "%(message)s"
             slogger = slogs.setup_logger("summary", formats, cfg.summary, DEFAULT_LEVEL)
+        except Exception as err:  # pylint: disable=broad-except
+            # Logging is not available at this point.
+            print(err)
+            print("Framework initalization failed")
+            sys.exit(EXIT_FAILURE)
+
+        # Execute the tests.
+        try:
             await slogs.get_version(slogger)
             slogs.transcript_logs("summary", formats)
 
@@ -1664,6 +1684,15 @@ async def main() -> None:
                     log=f"[{tag}] Stunnel tests completed"
                 )
             )
+        except UnsupportedOpenSSL as err:
+            await cfg.mainq.put(
+                LogEvent(
+                    etype="finish_event",
+                    level=30,
+                    log=f"[{tag}] Unsupported OpenSSL: {err}"
+                )
+            )
+            print(err)
         except Exception as err:  # pylint: disable=broad-except
             await cfg.mainq.put(
                 LogEvent(
@@ -1673,19 +1702,24 @@ async def main() -> None:
                 )
             )
             print(err)
-            omitted = True
 
-        finally:
-            evt = await cfg.logsq.get()
-            log_error = 0 if evt.etype == "finish_event" else 1
+        # Report the results.
+        evt = await cfg.logsq.get()
+        if evt.etype == "finish_event":
             succeeded, failed, skipped = task.result()
-            slogger.info("Stunnel tests skipped" if omitted else
-                 f"\nSummary:\n   success: {succeeded}\n   fail: {failed}\n   skipped: {skipped}\n"
-                 + f"\nFile {cfg.results} " "done" if not log_error else
-                 "failed (Expected 'finish_event')")
-            if omitted:
-                sys.exit(EXIT_SKIP)
-            sys.exit(EXIT_SUCCESS if not failed else EXIT_FAILURE)
+            slogger.info("\nSummary:")
+            slogger.info("\tsucceeded: %s", succeeded)
+            slogger.info("\tfailed: %s", failed)
+            slogger.info("\tskipped: %s", skipped)
+            slogger.info("\nTesting results: %s", cfg.results)
+            if evt.level < 40: # not an error
+                if failed == 0:
+                    sys.exit(EXIT_SUCCESS)
+            else:
+                slogger.errror("Failed (not all plugins were executed)")
+        else: # not synchronized -> stats may be misleading
+            slogger.errror("Failed (expected 'finish_event')")
+        sys.exit(EXIT_FAILURE)
 
 
 if __name__ == "__main__":

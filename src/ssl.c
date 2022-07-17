@@ -35,7 +35,6 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
     /* global OpenSSL initialization: compression, engine, entropy */
@@ -54,7 +53,7 @@ NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, CRYPTO_EX_DATA *from,
 NOEXPORT void cb_free_addr(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
     int idx, long argl, void *argp);
 #ifndef OPENSSL_NO_COMP
-NOEXPORT void compression_init();
+NOEXPORT void compression_init(void);
 NOEXPORT int compression_configure(GLOBAL_OPTIONS *);
 #endif
 NOEXPORT int prng_init(GLOBAL_OPTIONS *);
@@ -66,6 +65,21 @@ int index_session_authenticated, index_session_connect_address;
 #ifndef OPENSSL_NO_COMP
 NOEXPORT STACK_OF(SSL_COMP) *comp_methods[STUNNEL_COMPS];
 #endif
+
+#ifdef USE_FIPS
+int fips_default() {
+    static int cache=-1;
+
+    if(cache == -1) {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        cache=EVP_default_properties_is_fips_enabled(NULL);
+#else /* OPENSSL_VERSION_NUMBER < 0x30000000L */
+        cache=FIPS_mode();
+#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+    }
+    return cache;
+}
+#endif /* USE_FIPS */
 
 int fips_available() { /* either FIPS provider or container is available */
 #ifdef USE_FIPS
@@ -86,28 +100,53 @@ int fips_available() { /* either FIPS provider or container is available */
 #endif /* USE_FIPS */
 }
 
-int ssl_init(void) { /* init TLS before parsing configuration file */
+/* initialize libcrypto before invoking API functions that require it */
+void crypto_init(char *stunnel_dir) {
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     OPENSSL_INIT_SETTINGS *conf=OPENSSL_INIT_new();
 #ifdef USE_WIN32
-    OPENSSL_INIT_set_config_filename(conf, "..\\config\\openssl.cnf");
+    char *path;
+#else /* USE_WIN32 */
+    (void)stunnel_dir; /* squash the unused parameter warning */
+#endif /* USE_WIN32 */
+#ifdef USE_WIN32
+    if(!stunnel_dir) /* fail-safe */
+        stunnel_dir=str_dup("..");
+    path=str_printf("%s\\config\\openssl.cnf", stunnel_dir);
+    if(!OPENSSL_INIT_set_config_filename(conf, path)) {
+        s_log(LOG_ERR, "Failed to set OpenSSL configuration file name");
+    }
+    str_free(path);
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    path=str_printf("%s\\ossl-modules", stunnel_dir);
+    if(!OSSL_PROVIDER_set_default_search_path(NULL, path)) {
+        s_log(LOG_ERR, "Failed to set default ossl-modules path");
+    }
+    str_free(path);
+#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+    str_free(stunnel_dir);
 #endif /* USE_WIN32 */
     OPENSSL_init_crypto(
         OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_LOAD_CONFIG, conf);
     OPENSSL_INIT_free(conf);
-#else
+#else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
+    (void)stunnel_dir; /* squash the unused parameter warning */
     OPENSSL_config(NULL);
     SSL_load_error_strings();
     SSL_library_init();
-#endif
+#endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
+}
+
+/* initialize lbssl before parsing the configuration file */
+int ssl_init(void) {
     index_ssl_cli=SSL_get_ex_new_index(0,
-        "CLI pointer", NULL, NULL, NULL);
+        strdup("CLI pointer"), NULL, NULL, NULL);
     index_ssl_ctx_opt=SSL_CTX_get_ex_new_index(0,
-        "SERVICE_OPTIONS pointer", NULL, NULL, NULL);
+        strdup("SERVICE_OPTIONS pointer"), NULL, NULL, NULL);
     index_session_authenticated=SSL_SESSION_get_ex_new_index(0,
-        "session authenticated", cb_new_auth, NULL, NULL);
+        strdup("session authenticated"), cb_new_auth, NULL, NULL);
     index_session_connect_address=SSL_SESSION_get_ex_new_index(0,
-        "session connect address", NULL, cb_dup_addr, cb_free_addr);
+        strdup("session connect address"), NULL, cb_dup_addr, cb_free_addr);
     if(index_ssl_cli<0 || index_ssl_ctx_opt<0 ||
             index_session_authenticated<0 ||
             index_session_connect_address<0) {

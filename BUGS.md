@@ -1,4 +1,4 @@
 # stunnel known bugs
 
 
-* Shared library for transparent proxy does not support IPv6.
+* The shared library for transparent proxy does not support IPv6.

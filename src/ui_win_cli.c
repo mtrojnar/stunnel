@@ -35,7 +35,6 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
 int main(int argc, char *argv[]) {
@@ -69,6 +68,7 @@ int main(int argc, char *argv[]) {
         stunnel_exe_path));
     _tputenv(str_tprintf(TEXT("OPENSSL_CONF=%s\\config\\openssl.cnf"),
         stunnel_exe_path));
+    crypto_init(tstr2str(stunnel_exe_path)); /* initialize libcrypto */
 
     if(WSAStartup(MAKEWORD(2, 2), &wsa_state))
         return 1;

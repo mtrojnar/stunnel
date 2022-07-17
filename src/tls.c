@@ -35,12 +35,11 @@
  *   forward this exception.
  */
 
-#include "common.h"
 #include "prototypes.h"
 
 volatile int tls_initialized=0;
 
-NOEXPORT void tls_platform_init();
+NOEXPORT void tls_platform_init(void);
 #if OPENSSL_VERSION_NUMBER<0x10100000L
 NOEXPORT void free_function(void *);
 #endif
@@ -62,12 +61,12 @@ void tls_init() {
 }
 
 /* this has to be the first function called by a new thread */
-TLS_DATA *tls_alloc(CLI *c, TLS_DATA *inherited, char *txt) {
+TLS_DATA *tls_alloc(CLI *c, TLS_DATA *inherited, const char *txt) {
     TLS_DATA *tls_data;
 
     if(inherited) { /* reuse the thread-local storage after fork() */
         tls_data=inherited;
-        str_free(tls_data->id);
+        str_free_const(tls_data->id);
     } else {
         tls_data=calloc(1, sizeof(TLS_DATA));
         if(!tls_data)
@@ -84,10 +83,10 @@ TLS_DATA *tls_alloc(CLI *c, TLS_DATA *inherited, char *txt) {
     /* str.c functions can be used below this point */
     if(txt) {
         tls_data->id=str_dup(txt);
-        str_detach(tls_data->id); /* it is deallocated after str_stats() */
+        str_detach_const(tls_data->id); /* it is deallocated after str_stats() */
     } else if(c) {
         tls_data->id=log_id(c);
-        str_detach(tls_data->id); /* it is deallocated after str_stats() */
+        str_detach_const(tls_data->id); /* it is deallocated after str_stats() */
     }
 
     return tls_data;
@@ -101,7 +100,7 @@ void tls_cleanup() {
     if(!tls_data)
         return;
     str_cleanup(tls_data);
-    str_free(tls_data->id); /* detached allocation */
+    str_free_const(tls_data->id); /* detached allocation */
     tls_set(NULL);
     free(tls_data);
 }
