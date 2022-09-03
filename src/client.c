@@ -1399,7 +1399,7 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
 
 #else /* standard Unix version */
 
-#ifndef HAVE_UNISTD_H
+#if !defined(HAVE_UNISTD_H) || defined(__APPLE__)
 extern char **environ;
 #endif
 
