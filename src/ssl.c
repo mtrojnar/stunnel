@@ -54,7 +54,8 @@ NOEXPORT void cb_free_addr(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
     int idx, long argl, void *argp);
 #ifndef OPENSSL_NO_COMP
 NOEXPORT void compression_init(void);
-NOEXPORT int compression_configure(GLOBAL_OPTIONS *);
+NOEXPORT int compression_set(GLOBAL_OPTIONS *);
+NOEXPORT void compression_list(void);
 #endif
 NOEXPORT int prng_init(GLOBAL_OPTIONS *);
 NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
@@ -280,8 +281,9 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
 #endif /* USE_FIPS */
 
 #ifndef OPENSSL_NO_COMP
-    if(compression_configure(global))
+    if(compression_set(global))
         return 1;
+    compression_list();
 #endif /* OPENSSL_NO_COMP */
     if(prng_init(global))
         return 1;
@@ -358,32 +360,41 @@ NOEXPORT void compression_init() {
     comp_methods[COMP_ZLIB]=methods; /* reuse the memory */
 }
 
-NOEXPORT int compression_configure(GLOBAL_OPTIONS *global) {
-    STACK_OF(SSL_COMP) *methods;
-    int num_methods, i;
-
+NOEXPORT int compression_set(GLOBAL_OPTIONS *global) {
     if(!comp_methods[global->compression]) {
         s_log(LOG_ERR, "Configured compression is unsupported by OpenSSL");
         return 1;
     }
     SSL_COMP_set0_compression_methods(comp_methods[global->compression]);
+    return 0; /* success */
+}
+
+NOEXPORT void compression_list() {
+    STACK_OF(SSL_COMP) *methods;
+    int num_methods, i;
 
     methods=SSL_COMP_get_compression_methods();
     num_methods=sk_SSL_COMP_num(methods);
+    if(!num_methods) {
+        s_log(LOG_INFO, "Compression disabled");
+        return;
+    }
     s_log(LOG_INFO, "Compression enabled: %d method%s",
         num_methods, num_methods==1 ? "" : "s");
     for(i=0; i<num_methods; ++i) {
-        SSL_COMP *comp=sk_SSL_COMP_value(methods, i);
-        if(comp) {
-            const char *name=SSL_COMP_get0_name(comp);
-            /* see OpenSSL commit 847406923534dd791f73d0cda15d3f17f513f2a5 */
-            if(!name)
-                name="unknown";
-            s_log(LOG_INFO, "Compression id 0x%02x: %s",
-                SSL_COMP_get_id(comp), name);
-        }
+        SSL_COMP *comp;
+        const char *name;
+
+        comp=sk_SSL_COMP_value(methods, i);
+        if(!comp)
+            continue;
+        name=SSL_COMP_get0_name(comp);
+        /* see OpenSSL commit 847406923534dd791f73d0cda15d3f17f513f2a5 */
+        if(!name)
+            name="unknown";
+        s_log(LOG_INFO, "Compression id 0x%02x: %s",
+            SSL_COMP_get_id(comp), name);
     }
-    return 0; /* success */
 }
 #endif /* OPENSSL_NO_COMP */
 

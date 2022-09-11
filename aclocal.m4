@@ -1,6 +1,6 @@
-# generated automatically by aclocal 1.16.4 -*- Autoconf -*-
+# generated automatically by aclocal 1.16.3 -*- Autoconf -*-
 
-# Copyright (C) 1996-2021 Free Software Foundation, Inc.
+# Copyright (C) 1996-2020 Free Software Foundation, Inc.
 
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -287,24 +287,20 @@ AS_VAR_POPDEF([CACHEVAR])dnl
 #   flags that are needed. (The user can also force certain compiler
 #   flags/libs to be tested by setting these environment variables.)
 #
-#   Also sets PTHREAD_CC and PTHREAD_CXX to any special C compiler that is
-#   needed for multi-threaded programs (defaults to the value of CC
-#   respectively CXX otherwise). (This is necessary on e.g. AIX to use the
-#   special cc_r/CC_r compiler alias.)
+#   Also sets PTHREAD_CC to any special C compiler that is needed for
+#   multi-threaded programs (defaults to the value of CC otherwise). (This
+#   is necessary on AIX to use the special cc_r compiler alias.)
 #
 #   NOTE: You are assumed to not only compile your program with these flags,
 #   but also to link with them as well. For example, you might link with
 #   $PTHREAD_CC $CFLAGS $PTHREAD_CFLAGS $LDFLAGS ... $PTHREAD_LIBS $LIBS
-#   $PTHREAD_CXX $CXXFLAGS $PTHREAD_CFLAGS $LDFLAGS ... $PTHREAD_LIBS $LIBS
 #
 #   If you are only building threaded programs, you may wish to use these
 #   variables in your default LIBS, CFLAGS, and CC:
 #
 #     LIBS="$PTHREAD_LIBS $LIBS"
 #     CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
-#     CXXFLAGS="$CXXFLAGS $PTHREAD_CFLAGS"
 #     CC="$PTHREAD_CC"
-#     CXX="$PTHREAD_CXX"
 #
 #   In addition, if the PTHREAD_CREATE_JOINABLE thread-attribute constant
 #   has a nonstandard name, this macro defines PTHREAD_CREATE_JOINABLE to
@@ -332,7 +328,6 @@ AS_VAR_POPDEF([CACHEVAR])dnl
 #
 #   Copyright (c) 2008 Steven G. Johnson <stevenj@alum.mit.edu>
 #   Copyright (c) 2011 Daniel Richard G. <skunk@iSKUNK.ORG>
-#   Copyright (c) 2019 Marc Stevens <marc.stevens@cwi.nl>
 #
 #   This program is free software: you can redistribute it and/or modify it
 #   under the terms of the GNU General Public License as published by the
@@ -360,7 +355,7 @@ AS_VAR_POPDEF([CACHEVAR])dnl
 #   modified version of the Autoconf Macro, you may extend this special
 #   exception to the GPL to apply to your modified version as well.
 
-#serial 31
+#serial 24
 
 AU_ALIAS([ACX_PTHREAD], [AX_PTHREAD])
 AC_DEFUN([AX_PTHREAD], [
@@ -382,7 +377,6 @@ if test "x$PTHREAD_CFLAGS$PTHREAD_LIBS" != "x"; then
         ax_pthread_save_CFLAGS="$CFLAGS"
         ax_pthread_save_LIBS="$LIBS"
         AS_IF([test "x$PTHREAD_CC" != "x"], [CC="$PTHREAD_CC"])
-        AS_IF([test "x$PTHREAD_CXX" != "x"], [CXX="$PTHREAD_CXX"])
         CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
         LIBS="$PTHREAD_LIBS $LIBS"
         AC_MSG_CHECKING([for pthread_join using $CC $PTHREAD_CFLAGS $PTHREAD_LIBS])
@@ -402,12 +396,10 @@ fi
 # (e.g. DEC) have both -lpthread and -lpthreads, where one of the
 # libraries is broken (non-POSIX).
 
-# Create a list of thread flags to try. Items with a "," contain both
-# C compiler flags (before ",") and linker flags (after ","). Other items
-# starting with a "-" are C compiler flags, and remaining items are
-# library names, except for "none" which indicates that we try without
-# any flags at all, and "pthread-config" which is a program returning
-# the flags for the Pth emulation library.
+# Create a list of thread flags to try.  Items starting with a "-" are
+# C compiler flags, and other items are library names, except for "none"
+# which indicates that we try without any flags at all, and "pthread-config"
+# which is a program returning the flags for the Pth emulation library.
 
 ax_pthread_flags="pthreads none -Kthread -pthread -pthreads -mthreads pthread --thread-safe -mt pthread-config"
 
@@ -475,47 +467,14 @@ case $host_os in
         # that too in a future libc.)  So we'll check first for the
         # standard Solaris way of linking pthreads (-mt -lpthread).
 
-        ax_pthread_flags="-mt,-lpthread pthread $ax_pthread_flags"
+        ax_pthread_flags="-mt,pthread pthread $ax_pthread_flags"
         ;;
 esac
 
-# Are we compiling with Clang?
-
-AC_CACHE_CHECK([whether $CC is Clang],
-    [ax_cv_PTHREAD_CLANG],
-    [ax_cv_PTHREAD_CLANG=no
-     # Note that Autoconf sets GCC=yes for Clang as well as GCC
-     if test "x$GCC" = "xyes"; then
-        AC_EGREP_CPP([AX_PTHREAD_CC_IS_CLANG],
-            [/* Note: Clang 2.7 lacks __clang_[a-z]+__ */
-#            if defined(__clang__) && defined(__llvm__)
-             AX_PTHREAD_CC_IS_CLANG
-#            endif
-            ],
-            [ax_cv_PTHREAD_CLANG=yes])
-     fi
-    ])
-ax_pthread_clang="$ax_cv_PTHREAD_CLANG"
-
-
 # GCC generally uses -pthread, or -pthreads on some platforms (e.g. SPARC)
 
-# Note that for GCC and Clang -pthread generally implies -lpthread,
-# except when -nostdlib is passed.
-# This is problematic using libtool to build C++ shared libraries with pthread:
-# [1] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=25460
-# [2] https://bugzilla.redhat.com/show_bug.cgi?id=661333
-# [3] https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=468555
-# To solve this, first try -pthread together with -lpthread for GCC
-
 AS_IF([test "x$GCC" = "xyes"],
-      [ax_pthread_flags="-pthread,-lpthread -pthread -pthreads $ax_pthread_flags"])
-
-# Clang takes -pthread (never supported any other flag), but we'll try with -lpthread first
-
-AS_IF([test "x$ax_pthread_clang" = "xyes"],
-      [ax_pthread_flags="-pthread,-lpthread -pthread"])
-
+      [ax_pthread_flags="-pthread -pthreads $ax_pthread_flags"])
 
 # The presence of a feature test macro requesting re-entrant function
 # definitions is, on some systems, a strong hint that pthreads support is
@@ -538,6 +497,101 @@ AS_IF([test "x$ax_pthread_check_macro" = "x--"],
       [ax_pthread_check_cond=0],
       [ax_pthread_check_cond="!defined($ax_pthread_check_macro)"])
 
+# Are we compiling with Clang?
+
+AC_CACHE_CHECK([whether $CC is Clang],
+    [ax_cv_PTHREAD_CLANG],
+    [ax_cv_PTHREAD_CLANG=no
+     # Note that Autoconf sets GCC=yes for Clang as well as GCC
+     if test "x$GCC" = "xyes"; then
+        AC_EGREP_CPP([AX_PTHREAD_CC_IS_CLANG],
+            [/* Note: Clang 2.7 lacks __clang_[a-z]+__ */
+#            if defined(__clang__) && defined(__llvm__)
+             AX_PTHREAD_CC_IS_CLANG
+#            endif
+            ],
+            [ax_cv_PTHREAD_CLANG=yes])
+     fi
+    ])
+ax_pthread_clang="$ax_cv_PTHREAD_CLANG"
+
+ax_pthread_clang_warning=no
+
+# Clang needs special handling, because older versions handle the -pthread
+# option in a rather... idiosyncratic way
+
+if test "x$ax_pthread_clang" = "xyes"; then
+
+        # Clang takes -pthread; it has never supported any other flag
+
+        # (Note 1: This will need to be revisited if a system that Clang
+        # supports has POSIX threads in a separate library.  This tends not
+        # to be the way of modern systems, but it's conceivable.)
+
+        # (Note 2: On some systems, notably Darwin, -pthread is not needed
+        # to get POSIX threads support; the API is always present and
+        # active.  We could reasonably leave PTHREAD_CFLAGS empty.  But
+        # -pthread does define _REENTRANT, and while the Darwin headers
+        # ignore this macro, third-party headers might not.)
+
+        PTHREAD_CFLAGS="-pthread"
+        PTHREAD_LIBS=
+
+        ax_pthread_ok=yes
+
+        # However, older versions of Clang make a point of warning the user
+        # that, in an invocation where only linking and no compilation is
+        # taking place, the -pthread option has no effect ("argument unused
+        # during compilation").  They expect -pthread to be passed in only
+        # when source code is being compiled.
+        #
+        # Problem is, this is at odds with the way Automake and most other
+        # C build frameworks function, which is that the same flags used in
+        # compilation (CFLAGS) are also used in linking.  Many systems
+        # supported by AX_PTHREAD require exactly this for POSIX threads
+        # support, and in fact it is often not straightforward to specify a
+        # flag that is used only in the compilation phase and not in
+        # linking.  Such a scenario is extremely rare in practice.
+        #
+        # Even though use of the -pthread flag in linking would only print
+        # a warning, this can be a nuisance for well-run software projects
+        # that build with -Werror.  So if the active version of Clang has
+        # this misfeature, we search for an option to squash it.
+
+        AC_CACHE_CHECK([whether Clang needs flag to prevent "argument unused" warning when linking with -pthread],
+            [ax_cv_PTHREAD_CLANG_NO_WARN_FLAG],
+            [ax_cv_PTHREAD_CLANG_NO_WARN_FLAG=unknown
+             # Create an alternate version of $ac_link that compiles and
+             # links in two steps (.c -> .o, .o -> exe) instead of one
+             # (.c -> exe), because the warning occurs only in the second
+             # step
+             ax_pthread_save_ac_link="$ac_link"
+             ax_pthread_sed='s/conftest\.\$ac_ext/conftest.$ac_objext/g'
+             ax_pthread_link_step=`$as_echo "$ac_link" | sed "$ax_pthread_sed"`
+             ax_pthread_2step_ac_link="($ac_compile) && (echo ==== >&5) && ($ax_pthread_link_step)"
+             ax_pthread_save_CFLAGS="$CFLAGS"
+             for ax_pthread_try in '' -Qunused-arguments -Wno-unused-command-line-argument unknown; do
+                AS_IF([test "x$ax_pthread_try" = "xunknown"], [break])
+                CFLAGS="-Werror -Wunknown-warning-option $ax_pthread_try -pthread $ax_pthread_save_CFLAGS"
+                ac_link="$ax_pthread_save_ac_link"
+                AC_LINK_IFELSE([AC_LANG_SOURCE([[int main(void){return 0;}]])],
+                    [ac_link="$ax_pthread_2step_ac_link"
+                     AC_LINK_IFELSE([AC_LANG_SOURCE([[int main(void){return 0;}]])],
+                         [break])
+                    ])
+             done
+             ac_link="$ax_pthread_save_ac_link"
+             CFLAGS="$ax_pthread_save_CFLAGS"
+             AS_IF([test "x$ax_pthread_try" = "x"], [ax_pthread_try=no])
+             ax_cv_PTHREAD_CLANG_NO_WARN_FLAG="$ax_pthread_try"
+            ])
+
+        case "$ax_cv_PTHREAD_CLANG_NO_WARN_FLAG" in
+                no | unknown) ;;
+                *) PTHREAD_CFLAGS="$ax_cv_PTHREAD_CLANG_NO_WARN_FLAG $PTHREAD_CFLAGS" ;;
+        esac
+
+fi # $ax_pthread_clang = yes
 
 if test "x$ax_pthread_ok" = "xno"; then
 for ax_pthread_try_flag in $ax_pthread_flags; do
@@ -547,10 +601,10 @@ for ax_pthread_try_flag in $ax_pthread_flags; do
                 AC_MSG_CHECKING([whether pthreads work without any flags])
                 ;;
 
-                *,*)
-                PTHREAD_CFLAGS=`echo $ax_pthread_try_flag | sed "s/^\(.*\),\(.*\)$/\1/"`
-                PTHREAD_LIBS=`echo $ax_pthread_try_flag | sed "s/^\(.*\),\(.*\)$/\2/"`
-                AC_MSG_CHECKING([whether pthreads work with "$PTHREAD_CFLAGS" and "$PTHREAD_LIBS"])
+                -mt,pthread)
+                AC_MSG_CHECKING([whether pthreads work with -mt -lpthread])
+                PTHREAD_CFLAGS="-mt"
+                PTHREAD_LIBS="-lpthread"
                 ;;
 
                 -*)
@@ -590,13 +644,7 @@ for ax_pthread_try_flag in $ax_pthread_flags; do
 #                       if $ax_pthread_check_cond
 #                        error "$ax_pthread_check_macro must be defined"
 #                       endif
-                        static void *some_global = NULL;
-                        static void routine(void *a)
-                          {
-                             /* To avoid any unused-parameter or
-                                unused-but-set-parameter warning.  */
-                             some_global = a;
-                          }
+                        static void routine(void *a) { a = 0; }
                         static void *start_routine(void *a) { return a; }],
                        [pthread_t th; pthread_attr_t attr;
                         pthread_create(&th, 0, start_routine, 0);
@@ -617,80 +665,6 @@ for ax_pthread_try_flag in $ax_pthread_flags; do
         PTHREAD_CFLAGS=""
 done
 fi
-
-
-# Clang needs special handling, because older versions handle the -pthread
-# option in a rather... idiosyncratic way
-
-if test "x$ax_pthread_clang" = "xyes"; then
-
-        # Clang takes -pthread; it has never supported any other flag
-
-        # (Note 1: This will need to be revisited if a system that Clang
-        # supports has POSIX threads in a separate library.  This tends not
-        # to be the way of modern systems, but it's conceivable.)
-
-        # (Note 2: On some systems, notably Darwin, -pthread is not needed
-        # to get POSIX threads support; the API is always present and
-        # active.  We could reasonably leave PTHREAD_CFLAGS empty.  But
-        # -pthread does define _REENTRANT, and while the Darwin headers
-        # ignore this macro, third-party headers might not.)
-
-        # However, older versions of Clang make a point of warning the user
-        # that, in an invocation where only linking and no compilation is
-        # taking place, the -pthread option has no effect ("argument unused
-        # during compilation").  They expect -pthread to be passed in only
-        # when source code is being compiled.
-        #
-        # Problem is, this is at odds with the way Automake and most other
-        # C build frameworks function, which is that the same flags used in
-        # compilation (CFLAGS) are also used in linking.  Many systems
-        # supported by AX_PTHREAD require exactly this for POSIX threads
-        # support, and in fact it is often not straightforward to specify a
-        # flag that is used only in the compilation phase and not in
-        # linking.  Such a scenario is extremely rare in practice.
-        #
-        # Even though use of the -pthread flag in linking would only print
-        # a warning, this can be a nuisance for well-run software projects
-        # that build with -Werror.  So if the active version of Clang has
-        # this misfeature, we search for an option to squash it.
-
-        AC_CACHE_CHECK([whether Clang needs flag to prevent "argument unused" warning when linking with -pthread],
-            [ax_cv_PTHREAD_CLANG_NO_WARN_FLAG],
-            [ax_cv_PTHREAD_CLANG_NO_WARN_FLAG=unknown
-             # Create an alternate version of $ac_link that compiles and
-             # links in two steps (.c -> .o, .o -> exe) instead of one
-             # (.c -> exe), because the warning occurs only in the second
-             # step
-             ax_pthread_save_ac_link="$ac_link"
-             ax_pthread_sed='s/conftest\.\$ac_ext/conftest.$ac_objext/g'
-             ax_pthread_link_step=`AS_ECHO(["$ac_link"]) | sed "$ax_pthread_sed"`
-             ax_pthread_2step_ac_link="($ac_compile) && (echo ==== >&5) && ($ax_pthread_link_step)"
-             ax_pthread_save_CFLAGS="$CFLAGS"
-             for ax_pthread_try in '' -Qunused-arguments -Wno-unused-command-line-argument unknown; do
-                AS_IF([test "x$ax_pthread_try" = "xunknown"], [break])
-                CFLAGS="-Werror -Wunknown-warning-option $ax_pthread_try -pthread $ax_pthread_save_CFLAGS"
-                ac_link="$ax_pthread_save_ac_link"
-                AC_LINK_IFELSE([AC_LANG_SOURCE([[int main(void){return 0;}]])],
-                    [ac_link="$ax_pthread_2step_ac_link"
-                     AC_LINK_IFELSE([AC_LANG_SOURCE([[int main(void){return 0;}]])],
-                         [break])
-                    ])
-             done
-             ac_link="$ax_pthread_save_ac_link"
-             CFLAGS="$ax_pthread_save_CFLAGS"
-             AS_IF([test "x$ax_pthread_try" = "x"], [ax_pthread_try=no])
-             ax_cv_PTHREAD_CLANG_NO_WARN_FLAG="$ax_pthread_try"
-            ])
-
-        case "$ax_cv_PTHREAD_CLANG_NO_WARN_FLAG" in
-                no | unknown) ;;
-                *) PTHREAD_CFLAGS="$ax_cv_PTHREAD_CLANG_NO_WARN_FLAG $PTHREAD_CFLAGS" ;;
-        esac
-
-fi # $ax_pthread_clang = yes
-
-
 
 # Various other checks:
 if test "x$ax_pthread_ok" = "xyes"; then
@@ -737,8 +711,7 @@ if test "x$ax_pthread_ok" = "xyes"; then
         AC_CACHE_CHECK([for PTHREAD_PRIO_INHERIT],
             [ax_cv_PTHREAD_PRIO_INHERIT],
             [AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <pthread.h>]],
-                                             [[int i = PTHREAD_PRIO_INHERIT;
-                                               return i;]])],
+                                             [[int i = PTHREAD_PRIO_INHERIT;]])],
                             [ax_cv_PTHREAD_PRIO_INHERIT=yes],
                             [ax_cv_PTHREAD_PRIO_INHERIT=no])
             ])
@@ -760,28 +733,18 @@ if test "x$ax_pthread_ok" = "xyes"; then
                     [#handle absolute path differently from PATH based program lookup
                      AS_CASE(["x$CC"],
                          [x/*],
-                         [
-			   AS_IF([AS_EXECUTABLE_P([${CC}_r])],[PTHREAD_CC="${CC}_r"])
-			   AS_IF([test "x${CXX}" != "x"], [AS_IF([AS_EXECUTABLE_P([${CXX}_r])],[PTHREAD_CXX="${CXX}_r"])])
-			 ],
-                         [
-			   AC_CHECK_PROGS([PTHREAD_CC],[${CC}_r],[$CC])
-			   AS_IF([test "x${CXX}" != "x"], [AC_CHECK_PROGS([PTHREAD_CXX],[${CXX}_r],[$CXX])])
-			 ]
-                     )
-                    ])
+                         [AS_IF([AS_EXECUTABLE_P([${CC}_r])],[PTHREAD_CC="${CC}_r"])],
+                         [AC_CHECK_PROGS([PTHREAD_CC],[${CC}_r],[$CC])])])
                 ;;
             esac
         fi
 fi
 
 test -n "$PTHREAD_CC" || PTHREAD_CC="$CC"
-test -n "$PTHREAD_CXX" || PTHREAD_CXX="$CXX"
 
 AC_SUBST([PTHREAD_LIBS])
 AC_SUBST([PTHREAD_CFLAGS])
 AC_SUBST([PTHREAD_CC])
-AC_SUBST([PTHREAD_CXX])
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test "x$ax_pthread_ok" = "xyes"; then
@@ -832,283 +795,7 @@ AC_DEFUN([AX_REQUIRE_DEFINED], [dnl
   m4_ifndef([$1], [m4_fatal([macro ]$1[ is not defined; is a m4 file missing?])])
 ])dnl AX_REQUIRE_DEFINED
 
-# pkg.m4 - Macros to locate and utilise pkg-config.   -*- Autoconf -*-
-# serial 12 (pkg-config-0.29.2)
-
-dnl Copyright © 2004 Scott James Remnant <scott@netsplit.com>.
-dnl Copyright © 2012-2015 Dan Nicholson <dbn.lists@gmail.com>
-dnl
-dnl This program is free software; you can redistribute it and/or modify
-dnl it under the terms of the GNU General Public License as published by
-dnl the Free Software Foundation; either version 2 of the License, or
-dnl (at your option) any later version.
-dnl
-dnl This program is distributed in the hope that it will be useful, but
-dnl WITHOUT ANY WARRANTY; without even the implied warranty of
-dnl MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-dnl General Public License for more details.
-dnl
-dnl You should have received a copy of the GNU General Public License
-dnl along with this program; if not, write to the Free Software
-dnl Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-dnl 02111-1307, USA.
-dnl
-dnl As a special exception to the GNU General Public License, if you
-dnl distribute this file as part of a program that contains a
-dnl configuration script generated by Autoconf, you may include it under
-dnl the same distribution terms that you use for the rest of that
-dnl program.
-
-dnl PKG_PREREQ(MIN-VERSION)
-dnl -----------------------
-dnl Since: 0.29
-dnl
-dnl Verify that the version of the pkg-config macros are at least
-dnl MIN-VERSION. Unlike PKG_PROG_PKG_CONFIG, which checks the user's
-dnl installed version of pkg-config, this checks the developer's version
-dnl of pkg.m4 when generating configure.
-dnl
-dnl To ensure that this macro is defined, also add:
-dnl m4_ifndef([PKG_PREREQ],
-dnl     [m4_fatal([must install pkg-config 0.29 or later before running autoconf/autogen])])
-dnl
-dnl See the "Since" comment for each macro you use to see what version
-dnl of the macros you require.
-m4_defun([PKG_PREREQ],
-[m4_define([PKG_MACROS_VERSION], [0.29.2])
-m4_if(m4_version_compare(PKG_MACROS_VERSION, [$1]), -1,
-    [m4_fatal([pkg.m4 version $1 or higher is required but ]PKG_MACROS_VERSION[ found])])
-])dnl PKG_PREREQ
-
-dnl PKG_PROG_PKG_CONFIG([MIN-VERSION])
-dnl ----------------------------------
-dnl Since: 0.16
-dnl
-dnl Search for the pkg-config tool and set the PKG_CONFIG variable to
-dnl first found in the path. Checks that the version of pkg-config found
-dnl is at least MIN-VERSION. If MIN-VERSION is not specified, 0.9.0 is
-dnl used since that's the first version where most current features of
-dnl pkg-config existed.
-AC_DEFUN([PKG_PROG_PKG_CONFIG],
-[m4_pattern_forbid([^_?PKG_[A-Z_]+$])
-m4_pattern_allow([^PKG_CONFIG(_(PATH|LIBDIR|SYSROOT_DIR|ALLOW_SYSTEM_(CFLAGS|LIBS)))?$])
-m4_pattern_allow([^PKG_CONFIG_(DISABLE_UNINSTALLED|TOP_BUILD_DIR|DEBUG_SPEW)$])
-AC_ARG_VAR([PKG_CONFIG], [path to pkg-config utility])
-AC_ARG_VAR([PKG_CONFIG_PATH], [directories to add to pkg-config's search path])
-AC_ARG_VAR([PKG_CONFIG_LIBDIR], [path overriding pkg-config's built-in search path])
-
-if test "x$ac_cv_env_PKG_CONFIG_set" != "xset"; then
-	AC_PATH_TOOL([PKG_CONFIG], [pkg-config])
-fi
-if test -n "$PKG_CONFIG"; then
-	_pkg_min_version=m4_default([$1], [0.9.0])
-	AC_MSG_CHECKING([pkg-config is at least version $_pkg_min_version])
-	if $PKG_CONFIG --atleast-pkgconfig-version $_pkg_min_version; then
-		AC_MSG_RESULT([yes])
-	else
-		AC_MSG_RESULT([no])
-		PKG_CONFIG=""
-	fi
-fi[]dnl
-])dnl PKG_PROG_PKG_CONFIG
-
-dnl PKG_CHECK_EXISTS(MODULES, [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
-dnl -------------------------------------------------------------------
-dnl Since: 0.18
-dnl
-dnl Check to see whether a particular set of modules exists. Similar to
-dnl PKG_CHECK_MODULES(), but does not set variables or print errors.
-dnl
-dnl Please remember that m4 expands AC_REQUIRE([PKG_PROG_PKG_CONFIG])
-dnl only at the first occurence in configure.ac, so if the first place
-dnl it's called might be skipped (such as if it is within an "if", you
-dnl have to call PKG_CHECK_EXISTS manually
-AC_DEFUN([PKG_CHECK_EXISTS],
-[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
-if test -n "$PKG_CONFIG" && \
-    AC_RUN_LOG([$PKG_CONFIG --exists --print-errors "$1"]); then
-  m4_default([$2], [:])
-m4_ifvaln([$3], [else
-  $3])dnl
-fi])
-
-dnl _PKG_CONFIG([VARIABLE], [COMMAND], [MODULES])
-dnl ---------------------------------------------
-dnl Internal wrapper calling pkg-config via PKG_CONFIG and setting
-dnl pkg_failed based on the result.
-m4_define([_PKG_CONFIG],
-[if test -n "$$1"; then
-    pkg_cv_[]$1="$$1"
- elif test -n "$PKG_CONFIG"; then
-    PKG_CHECK_EXISTS([$3],
-                     [pkg_cv_[]$1=`$PKG_CONFIG --[]$2 "$3" 2>/dev/null`
-		      test "x$?" != "x0" && pkg_failed=yes ],
-		     [pkg_failed=yes])
- else
-    pkg_failed=untried
-fi[]dnl
-])dnl _PKG_CONFIG
-
-dnl _PKG_SHORT_ERRORS_SUPPORTED
-dnl ---------------------------
-dnl Internal check to see if pkg-config supports short errors.
-AC_DEFUN([_PKG_SHORT_ERRORS_SUPPORTED],
-[AC_REQUIRE([PKG_PROG_PKG_CONFIG])
-if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
-        _pkg_short_errors_supported=yes
-else
-        _pkg_short_errors_supported=no
-fi[]dnl
-])dnl _PKG_SHORT_ERRORS_SUPPORTED
-
-
-dnl PKG_CHECK_MODULES(VARIABLE-PREFIX, MODULES, [ACTION-IF-FOUND],
-dnl   [ACTION-IF-NOT-FOUND])
-dnl --------------------------------------------------------------
-dnl Since: 0.4.0
-dnl
-dnl Note that if there is a possibility the first call to
-dnl PKG_CHECK_MODULES might not happen, you should be sure to include an
-dnl explicit call to PKG_PROG_PKG_CONFIG in your configure.ac
-AC_DEFUN([PKG_CHECK_MODULES],
-[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
-AC_ARG_VAR([$1][_CFLAGS], [C compiler flags for $1, overriding pkg-config])dnl
-AC_ARG_VAR([$1][_LIBS], [linker flags for $1, overriding pkg-config])dnl
-
-pkg_failed=no
-AC_MSG_CHECKING([for $2])
-
-_PKG_CONFIG([$1][_CFLAGS], [cflags], [$2])
-_PKG_CONFIG([$1][_LIBS], [libs], [$2])
-
-m4_define([_PKG_TEXT], [Alternatively, you may set the environment variables $1[]_CFLAGS
-and $1[]_LIBS to avoid the need to call pkg-config.
-See the pkg-config man page for more details.])
-
-if test $pkg_failed = yes; then
-        AC_MSG_RESULT([no])
-        _PKG_SHORT_ERRORS_SUPPORTED
-        if test $_pkg_short_errors_supported = yes; then
-	        $1[]_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "$2" 2>&1`
-        else
-	        $1[]_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "$2" 2>&1`
-        fi
-	# Put the nasty error message in config.log where it belongs
-	echo "$$1[]_PKG_ERRORS" >&AS_MESSAGE_LOG_FD
-
-	m4_default([$4], [AC_MSG_ERROR(
-[Package requirements ($2) were not met:
-
-$$1_PKG_ERRORS
-
-Consider adjusting the PKG_CONFIG_PATH environment variable if you
-installed software in a non-standard prefix.
-
-_PKG_TEXT])[]dnl
-        ])
-elif test $pkg_failed = untried; then
-        AC_MSG_RESULT([no])
-	m4_default([$4], [AC_MSG_FAILURE(
-[The pkg-config script could not be found or is too old.  Make sure it
-is in your PATH or set the PKG_CONFIG environment variable to the full
-path to pkg-config.
-
-_PKG_TEXT
-
-To get pkg-config, see <http://pkg-config.freedesktop.org/>.])[]dnl
-        ])
-else
-	$1[]_CFLAGS=$pkg_cv_[]$1[]_CFLAGS
-	$1[]_LIBS=$pkg_cv_[]$1[]_LIBS
-        AC_MSG_RESULT([yes])
-	$3
-fi[]dnl
-])dnl PKG_CHECK_MODULES
-
-
-dnl PKG_CHECK_MODULES_STATIC(VARIABLE-PREFIX, MODULES, [ACTION-IF-FOUND],
-dnl   [ACTION-IF-NOT-FOUND])
-dnl ---------------------------------------------------------------------
-dnl Since: 0.29
-dnl
-dnl Checks for existence of MODULES and gathers its build flags with
-dnl static libraries enabled. Sets VARIABLE-PREFIX_CFLAGS from --cflags
-dnl and VARIABLE-PREFIX_LIBS from --libs.
-dnl
-dnl Note that if there is a possibility the first call to
-dnl PKG_CHECK_MODULES_STATIC might not happen, you should be sure to
-dnl include an explicit call to PKG_PROG_PKG_CONFIG in your
-dnl configure.ac.
-AC_DEFUN([PKG_CHECK_MODULES_STATIC],
-[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
-_save_PKG_CONFIG=$PKG_CONFIG
-PKG_CONFIG="$PKG_CONFIG --static"
-PKG_CHECK_MODULES($@)
-PKG_CONFIG=$_save_PKG_CONFIG[]dnl
-])dnl PKG_CHECK_MODULES_STATIC
-
-
-dnl PKG_INSTALLDIR([DIRECTORY])
-dnl -------------------------
-dnl Since: 0.27
-dnl
-dnl Substitutes the variable pkgconfigdir as the location where a module
-dnl should install pkg-config .pc files. By default the directory is
-dnl $libdir/pkgconfig, but the default can be changed by passing
-dnl DIRECTORY. The user can override through the --with-pkgconfigdir
-dnl parameter.
-AC_DEFUN([PKG_INSTALLDIR],
-[m4_pushdef([pkg_default], [m4_default([$1], ['${libdir}/pkgconfig'])])
-m4_pushdef([pkg_description],
-    [pkg-config installation directory @<:@]pkg_default[@:>@])
-AC_ARG_WITH([pkgconfigdir],
-    [AS_HELP_STRING([--with-pkgconfigdir], pkg_description)],,
-    [with_pkgconfigdir=]pkg_default)
-AC_SUBST([pkgconfigdir], [$with_pkgconfigdir])
-m4_popdef([pkg_default])
-m4_popdef([pkg_description])
-])dnl PKG_INSTALLDIR
-
-
-dnl PKG_NOARCH_INSTALLDIR([DIRECTORY])
-dnl --------------------------------
-dnl Since: 0.27
-dnl
-dnl Substitutes the variable noarch_pkgconfigdir as the location where a
-dnl module should install arch-independent pkg-config .pc files. By
-dnl default the directory is $datadir/pkgconfig, but the default can be
-dnl changed by passing DIRECTORY. The user can override through the
-dnl --with-noarch-pkgconfigdir parameter.
-AC_DEFUN([PKG_NOARCH_INSTALLDIR],
-[m4_pushdef([pkg_default], [m4_default([$1], ['${datadir}/pkgconfig'])])
-m4_pushdef([pkg_description],
-    [pkg-config arch-independent installation directory @<:@]pkg_default[@:>@])
-AC_ARG_WITH([noarch-pkgconfigdir],
-    [AS_HELP_STRING([--with-noarch-pkgconfigdir], pkg_description)],,
-    [with_noarch_pkgconfigdir=]pkg_default)
-AC_SUBST([noarch_pkgconfigdir], [$with_noarch_pkgconfigdir])
-m4_popdef([pkg_default])
-m4_popdef([pkg_description])
-])dnl PKG_NOARCH_INSTALLDIR
-
-
-dnl PKG_CHECK_VAR(VARIABLE, MODULE, CONFIG-VARIABLE,
-dnl [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
-dnl -------------------------------------------
-dnl Since: 0.28
-dnl
-dnl Retrieves the value of the pkg-config variable for the given module.
-AC_DEFUN([PKG_CHECK_VAR],
-[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
-AC_ARG_VAR([$1], [value of $3 for $2, overriding pkg-config])dnl
-
-_PKG_CONFIG([$1], [variable="][$3]["], [$2])
-AS_VAR_COPY([$1], [pkg_cv_][$1])
-
-AS_VAR_IF([$1], [""], [$5], [$4])dnl
-])dnl PKG_CHECK_VAR
-
-# Copyright (C) 2002-2021 Free Software Foundation, Inc.
+# Copyright (C) 2002-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1123,7 +810,7 @@ AC_DEFUN([AM_AUTOMAKE_VERSION],
 [am__api_version='1.16'
 dnl Some users find AM_AUTOMAKE_VERSION and mistake it for a way to
 dnl require some minimum version.  Point them to the right macro.
-m4_if([$1], [1.16.4], [],
+m4_if([$1], [1.16.3], [],
       [AC_FATAL([Do not call $0, use AM_INIT_AUTOMAKE([$1]).])])dnl
 ])
 
@@ -1139,14 +826,14 @@ m4_define([_AM_AUTOCONF_VERSION], [])
 # Call AM_AUTOMAKE_VERSION and AM_AUTOMAKE_VERSION so they can be traced.
 # This function is AC_REQUIREd by AM_INIT_AUTOMAKE.
 AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION],
-[AM_AUTOMAKE_VERSION([1.16.4])dnl
+[AM_AUTOMAKE_VERSION([1.16.3])dnl
 m4_ifndef([AC_AUTOCONF_VERSION],
   [m4_copy([m4_PACKAGE_VERSION], [AC_AUTOCONF_VERSION])])dnl
 _AM_AUTOCONF_VERSION(m4_defn([AC_AUTOCONF_VERSION]))])
 
 # AM_AUX_DIR_EXPAND                                         -*- Autoconf -*-
 
-# Copyright (C) 2001-2021 Free Software Foundation, Inc.
+# Copyright (C) 2001-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1198,7 +885,7 @@ am_aux_dir=`cd "$ac_aux_dir" && pwd`
 
 # AM_CONDITIONAL                                            -*- Autoconf -*-
 
-# Copyright (C) 1997-2021 Free Software Foundation, Inc.
+# Copyright (C) 1997-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1229,7 +916,7 @@ AC_CONFIG_COMMANDS_PRE(
 Usually this means the macro was only invoked conditionally.]])
 fi])])
 
-# Copyright (C) 1999-2021 Free Software Foundation, Inc.
+# Copyright (C) 1999-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1420,7 +1107,7 @@ _AM_SUBST_NOTMAKE([am__nodep])dnl
 
 # Generate code to set up dependency tracking.              -*- Autoconf -*-
 
-# Copyright (C) 1999-2021 Free Software Foundation, Inc.
+# Copyright (C) 1999-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1488,7 +1175,7 @@ AC_DEFUN([AM_OUTPUT_DEPENDENCY_COMMANDS],
 
 # Do all the work for Automake.                             -*- Autoconf -*-
 
-# Copyright (C) 1996-2021 Free Software Foundation, Inc.
+# Copyright (C) 1996-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1552,7 +1239,7 @@ m4_ifval([$3], [_AM_SET_OPTION([no-define])])dnl
 [_AM_SET_OPTIONS([$1])dnl
 dnl Diagnose old-style AC_INIT with new-style AM_AUTOMAKE_INIT.
 m4_if(
-  m4_ifset([AC_PACKAGE_NAME], [ok]):m4_ifset([AC_PACKAGE_VERSION], [ok]),
+  m4_ifdef([AC_PACKAGE_NAME], [ok]):m4_ifdef([AC_PACKAGE_VERSION], [ok]),
   [ok:ok],,
   [m4_fatal([AC_INIT should be called with package and version arguments])])dnl
  AC_SUBST([PACKAGE], ['AC_PACKAGE_TARNAME'])dnl
@@ -1604,20 +1291,6 @@ AC_PROVIDE_IFELSE([AC_PROG_OBJCXX],
 		  [m4_define([AC_PROG_OBJCXX],
 			     m4_defn([AC_PROG_OBJCXX])[_AM_DEPENDENCIES([OBJCXX])])])dnl
 ])
-# Variables for tags utilities; see am/tags.am
-if test -z "$CTAGS"; then
-  CTAGS=ctags
-fi
-AC_SUBST([CTAGS])
-if test -z "$ETAGS"; then
-  ETAGS=etags
-fi
-AC_SUBST([ETAGS])
-if test -z "$CSCOPE"; then
-  CSCOPE=cscope
-fi
-AC_SUBST([CSCOPE])
-
 AC_REQUIRE([AM_SILENT_RULES])dnl
 dnl The testsuite driver may need to know about EXEEXT, so add the
 dnl 'am__EXEEXT' conditional if _AM_COMPILER_EXEEXT was seen.  This
@@ -1699,7 +1372,7 @@ for _am_header in $config_headers :; do
 done
 echo "timestamp for $_am_arg" >`AS_DIRNAME(["$_am_arg"])`/stamp-h[]$_am_stamp_count])
 
-# Copyright (C) 2001-2021 Free Software Foundation, Inc.
+# Copyright (C) 2001-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1720,7 +1393,7 @@ if test x"${install_sh+set}" != xset; then
 fi
 AC_SUBST([install_sh])])
 
-# Copyright (C) 2003-2021 Free Software Foundation, Inc.
+# Copyright (C) 2003-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1741,7 +1414,7 @@ AC_SUBST([am__leading_dot])])
 
 # Check to see how 'make' treats includes.	            -*- Autoconf -*-
 
-# Copyright (C) 2001-2021 Free Software Foundation, Inc.
+# Copyright (C) 2001-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1784,7 +1457,7 @@ AC_SUBST([am__quote])])
 
 # Fake the existence of programs that GNU maintainers use.  -*- Autoconf -*-
 
-# Copyright (C) 1997-2021 Free Software Foundation, Inc.
+# Copyright (C) 1997-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1818,7 +1491,7 @@ fi
 
 # Helper functions for option handling.                     -*- Autoconf -*-
 
-# Copyright (C) 2001-2021 Free Software Foundation, Inc.
+# Copyright (C) 2001-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1847,7 +1520,7 @@ AC_DEFUN([_AM_SET_OPTIONS],
 AC_DEFUN([_AM_IF_OPTION],
 [m4_ifset(_AM_MANGLE_OPTION([$1]), [$2], [$3])])
 
-# Copyright (C) 1999-2021 Free Software Foundation, Inc.
+# Copyright (C) 1999-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1894,7 +1567,7 @@ AC_LANG_POP([C])])
 # For backward compatibility.
 AC_DEFUN_ONCE([AM_PROG_CC_C_O], [AC_REQUIRE([AC_PROG_CC])])
 
-# Copyright (C) 2001-2021 Free Software Foundation, Inc.
+# Copyright (C) 2001-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1913,7 +1586,7 @@ AC_DEFUN([AM_RUN_LOG],
 
 # Check to make sure that the build environment is sane.    -*- Autoconf -*-
 
-# Copyright (C) 1996-2021 Free Software Foundation, Inc.
+# Copyright (C) 1996-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1994,7 +1667,7 @@ AC_CONFIG_COMMANDS_PRE(
 rm -f conftest.file
 ])
 
-# Copyright (C) 2009-2021 Free Software Foundation, Inc.
+# Copyright (C) 2009-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -2054,7 +1727,7 @@ AC_SUBST([AM_BACKSLASH])dnl
 _AM_SUBST_NOTMAKE([AM_BACKSLASH])dnl
 ])
 
-# Copyright (C) 2001-2021 Free Software Foundation, Inc.
+# Copyright (C) 2001-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -2082,7 +1755,7 @@ fi
 INSTALL_STRIP_PROGRAM="\$(install_sh) -c -s"
 AC_SUBST([INSTALL_STRIP_PROGRAM])])
 
-# Copyright (C) 2006-2021 Free Software Foundation, Inc.
+# Copyright (C) 2006-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -2101,7 +1774,7 @@ AC_DEFUN([AM_SUBST_NOTMAKE], [_AM_SUBST_NOTMAKE($@)])
 
 # Check how to create a tarball.                            -*- Autoconf -*-
 
-# Copyright (C) 2004-2021 Free Software Foundation, Inc.
+# Copyright (C) 2004-2020 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,

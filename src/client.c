@@ -1399,10 +1399,6 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
 
 #else /* standard Unix version */
 
-#ifndef HAVE_UNISTD_H
-extern char **environ;
-#endif
-
 NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
     int fd[2], pid;
     char **env;
@@ -1464,6 +1460,7 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
 }
 
 char **env_alloc(CLI *c) {
+    extern char **environ;
     char **env=NULL, **p;
     unsigned n=0; /* (n+2) keeps the list NULL-terminated */
     char *name, host[40], port[6];

@@ -11,7 +11,7 @@ check-local:
 	for v in $$(seq 20 -1 7); do command -v python3.$$v && python3.$$v $(srcdir)/maketest.py --debug=10 --libs=$(SSLDIR)/lib64:$(SSLDIR)/lib && break; done
 
 dist-hook:
-	rm -rf __pycache__ plugins/__pycache__
+	rm -rf $(distdir)/__pycache__ $(distdir)/plugins/__pycache__
 
 distclean-local:
 	rm -f logs/*.log

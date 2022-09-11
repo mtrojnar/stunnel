@@ -491,7 +491,7 @@ extern char *sys_errlist[];
 #include <openssl/dh.h>
 #if OPENSSL_VERSION_NUMBER<0x10100000L
 int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
-#endif /* OpenSSL older than 1.1.0 */
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 #endif /* !defined(OPENSSL_NO_DH) */
 #ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
@@ -503,8 +503,12 @@ int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
 /* not defined in public headers before OpenSSL 0.9.8 */
 STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #endif /* !defined(OPENSSL_NO_COMP) */
+#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#include <openssl/storeerr.h>
+#endif /* OPENSSL_VERSION_NUMBER>=0x10101000L */
 #if OPENSSL_VERSION_NUMBER>=0x30000000L
 #include <openssl/provider.h>
+#include <openssl/proverr.h>
 #endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
 
 #ifndef OPENSSL_VERSION

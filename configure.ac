@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.65])
+AC_INIT([stunnel],[5.66])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -36,6 +36,9 @@ AC_PROG_MAKE_SET
 ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_MSG_NOTICE([**************************************** bash completion])
+# define a dummy PKG_CHECK_VAR if pkg-config is not installed
+m4_ifndef([PKG_CHECK_VAR], [AC_DEFUN([PKG_CHECK_VAR], [false])])
+
 AC_ARG_WITH([bashcompdir],
     AS_HELP_STRING([--with-bashcompdir=DIR], [directory for bash completions]), ,
     [PKG_CHECK_VAR([with_bashcompdir], [bash-completion], [completionsdir], ,
@@ -481,15 +484,7 @@ AC_MSG_CHECKING([whether DH parameters need to be updated])
 # only build src/dhparam.c if sources are located in the current directory
 if test -f src/stunnel.c && ! grep -q " built for $PACKAGE_STRING " src/dhparam.c; then
     AC_MSG_RESULT([yes])
-    (
-        echo '/* dhparam.c: initial DH parameters for stunnel */'
-        echo '#include "prototypes.h"'
-        echo '#ifndef OPENSSL_NO_DH'
-        echo '#define DN_new DH_new'
-        openssl dhparam -noout -C 2048 | sed 's/static DH/DH/'
-        echo '#endif /* OPENSSL_NO_DH */'
-        echo "/* built for $PACKAGE_STRING */"
-    ) > src/dhparam.c
+    $(dirname $0)/makedh.sh "$PACKAGE_STRING" >src/dhparam.c
     # also update trusted CA certificates
     curl 'https://ccadb-public.secure.force.com/mozilla/IncludedRootsPEMTxt?TrustBitsInclude=Websites' |
         sed -e 's/\r//' -e 's/ $//' >tools/ca-certs.pem
