@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2021.12.23" "5.62" "stunnel TLS Proxy"
+.TH stunnel 8 "2022.10.11" "5.67" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -198,13 +198,18 @@ Deflate is the standard compression method as described in \s-1RFC 1951.\s0
 .IX Item "debug = [FACILITY.]LEVEL"
 debugging level
 .Sp
-Level is one of the syslog level names or numbers
-emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
-info (6), or debug (7).  All logs for the specified level and
-all levels numerically less than it will be shown.  Use \fIdebug = debug\fR or
-\&\fIdebug = 7\fR for greatest debugging output.  The default is notice (5).
+Level is one of the syslog level names or numbers emerg (0), alert (1),
+crit (2), err (3), warning (4), notice (5), info (6), or debug (7).  All logs
+for the specified level and all levels numerically less than it will be shown.
 .Sp
-The syslog facility 'daemon' will be used unless a facility name is supplied.
+The \fIdebug = debug\fR (or the equivalent <debug = 7>) level produces for the
+most verbose log output.  This logging level is only meant to be understood by
+stunnel developers, and not by users.  Please either use the debug level when
+requested to do so by an stunnel developer, or when you intend to get confused.
+.Sp
+The default logging level is notice (5).
+.Sp
+The syslog 'daemon' facility will be used unless a facility name is supplied.
 (Facilities are not supported on Win32.)
 .Sp
 Case is ignored for both facilities and levels.
@@ -938,26 +943,26 @@ default: yes
 address of sessiond \s-1TLS\s0 cache server
 .IP "\fBsni\fR = \s-1SERVICE_NAME:SERVER_NAME_PATTERN\s0 (server mode)" 4
 .IX Item "sni = SERVICE_NAME:SERVER_NAME_PATTERN (server mode)"
-Use the service as a slave service (a name-based virtual server) for Server
+Use the service as a secondary service (a name-based virtual server) for Server
 Name Indication \s-1TLS\s0 extension (\s-1RFC 3546\s0).
 .Sp
-\&\fI\s-1SERVICE_NAME\s0\fR specifies the master service that accepts client connections
+\&\fI\s-1SERVICE_NAME\s0\fR specifies the primary service that accepts client connections
 with the \fIaccept\fR option.  \fI\s-1SERVER_NAME_PATTERN\s0\fR specifies the host name to
 be redirected.  The pattern may start with the '*' character, e.g.
-\&'*.example.com'.  Multiple slave services are normally specified for a single
-master service.  The \fIsni\fR option can also be specified more than once within
-a single slave service.
+\&'*.example.com'.  Multiple secondary services are normally specified for
+a single primary service.  The \fIsni\fR option can also be specified more than
+once within a single secondary service.
 .Sp
-This service, as well as the master service, may not be configured in client
+This service, as well as the primary service, may not be configured in client
 mode.
 .Sp
-The \fIconnect\fR option of the slave service is ignored when the \fIprotocol\fR
+The \fIconnect\fR option of the secondary service is ignored when the \fIprotocol\fR
 option is specified, as \fIprotocol\fR connects to the remote host before \s-1TLS\s0
 handshake.
 .Sp
-Libwrap checks (Unix only) are performed twice: with the master service name
-after \s-1TCP\s0 connection is accepted, and with the slave service name during the
-\&\s-1TLS\s0 handshake.
+Libwrap checks (Unix only) are performed twice: with the primary service name
+after \s-1TCP\s0 connection is accepted, and with the secondary service name during
+the \s-1TLS\s0 handshake.
 .Sp
 The \fIsni\fR option is only available when compiled with \fBOpenSSL 1.0.0\fR and
 later.
@@ -1376,19 +1381,19 @@ An example server mode \s-1SNI\s0 configuration:
 .PP
 .Vb 5
 \&    [virtual]
-\&    ; master service
+\&    ; primary service
 \&    accept = 443
 \&    cert =  default.pem
 \&    connect = default.internal.mydomain.com:8080
 \&
 \&    [sni1]
-\&    ; slave service 1
+\&    ; secondary service 1
 \&    sni = virtual:server1.mydomain.com
 \&    cert = server1.pem
 \&    connect = server1.internal.mydomain.com:8081
 \&
 \&    [sni2]
-\&    ; slave service 2
+\&    ; secondary service 2
 \&    sni = virtual:server2.mydomain.com
 \&    cert = server2.pem
 \&    connect = server2.internal.mydomain.com:8082

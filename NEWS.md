@@ -1,7 +1,18 @@
 # stunnel change log
 
 
-### Version 5.66, unreleased, urgency: MEDIUM
+### Version 5.67, 2022.11.01, urgency: HIGH
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.0.7.
+* New features
+  - Provided a logging callback to custom engines.
+* Bugfixes
+  - OpenSSL DLLs updated to version 3.0.6.
+  - Fixed "make cert" with OpenSSL older than 3.0.
+  - Fixed the code and the documentation to use concious
+    language for SNI servers (thx to Clemens Lang).
+
+### Version 5.66, 2022.09.11, urgency: MEDIUM
 * New features
   - OpenSSL 3.0 FIPS Provider support for Windows.
 * Bugfixes
@@ -265,7 +276,7 @@
   - Clarified port binding error logs.
   - Various "make test" improvements.
 * Bugfixes
-  - Fixed a crash on switching to SNI slave sections.
+  - Fixed a crash on switching to SNI secondary sections.
 
 ### Version 5.46, 2018.05.28, urgency: MEDIUM
 * New features
@@ -386,8 +397,8 @@
 ### Version 5.37, 2016.11.06, urgency: MEDIUM
 * Bugfixes
   - OpenSSL DLLs updated to version 1.0.2j (stops crashes).
-  - The default SNI target (not handled by any slave service)
-    is handled by the master service rather than rejected.
+  - The default SNI target (not handled by any secondary service)
+    is handled by the primary service rather than rejected.
   - Removed thread synchronization in the FORK threading model.
 
 ### Version 5.36, 2016.09.22, urgency: HIGH

@@ -84,13 +84,18 @@ struct alloc_list_struct {
 
 #define LEAK_TABLE_SIZE 997
 typedef struct {
+    int num, max;   /* current and highest number of allocations */
+    int64_t total; /* approximate total number of heap operations */
     const char *alloc_file;
     int alloc_line;
-    int num, max;
 } LEAK_ENTRY;
 NOEXPORT LEAK_ENTRY leak_hash_table[LEAK_TABLE_SIZE],
     *leak_results[LEAK_TABLE_SIZE];
 NOEXPORT int leak_result_num=0;
+
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+DEFINE_STACK_OF(LEAK_ENTRY)
+#endif /* OpenSSL version >= 1.1.1 */
 
 #ifdef USE_WIN32
 NOEXPORT LPTSTR str_vtprintf(LPCTSTR, va_list);
@@ -102,6 +107,7 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
 NOEXPORT void str_leak_debug(const ALLOC_LIST *, int);
 
 NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *);
+NOEXPORT int leak_cmp(const LEAK_ENTRY *const *, const LEAK_ENTRY *const *);
 NOEXPORT void leak_report(void);
 NOEXPORT long leak_threshold(void);
 
@@ -157,7 +163,7 @@ char *str_printf(const char *format, ...) {
 #endif /* __GNUC__ */
 char *str_vprintf(const char *format, va_list start_ap) {
     int n;
-    size_t size=32;
+    size_t size=96;
     char *p;
     va_list ap;
 
@@ -213,12 +219,16 @@ NOEXPORT LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
 
 /**************************************** memory allocation wrappers */
 
-void str_init(TLS_DATA *tls_data) {
+void str_init(void) {
+    memset(leak_hash_table, 0, sizeof leak_hash_table);
+}
+
+void str_thread_init(TLS_DATA *tls_data) {
     tls_data->alloc_head=NULL;
     tls_data->alloc_bytes=tls_data->alloc_blocks=0;
 }
 
-void str_cleanup(TLS_DATA *tls_data) {
+void str_thread_cleanup(TLS_DATA *tls_data) {
     /* free all attached allocations */
     while(tls_data->alloc_head) /* str_free macro requires an lvalue */
         str_free_expression(tls_data->alloc_head+1);
@@ -498,7 +508,11 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
         CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LEAK_HASH]);
     }
 
-    /* for performance we try to avoid calling CRYPTO_atomic_add() here */
+    /* for performance reasons, we ignore the race condition, as an approximate
+     * number of allocations is good enough to identify the most used entries */
+    entry->total++;
+
+    /* for performance reasons, we try to avoid calling CRYPTO_atomic_add() */
 #ifdef USE_OS_THREADS
 #ifdef _MSC_VER
     /* casting is safe, because sizeof(long)==sizeof(int) on Windows */
@@ -536,7 +550,7 @@ NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change) {
 /* O(1) hash table lookup */
 NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *alloc_list) {
     /* a trivial hash based on source file name *address* and line number */
-    unsigned i=((unsigned)(uintptr_t)alloc_list->alloc_file+
+    unsigned i=(1777*(unsigned)(uintptr_t)alloc_list->alloc_file+
         (unsigned)alloc_list->alloc_line)%LEAK_TABLE_SIZE;
 
     while(!(leak_hash_table[i].alloc_line==0 ||
@@ -548,18 +562,48 @@ NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *alloc_list) {
 
 void leak_table_utilization() {
     int i, utilization=0;
+    int64_t grand_total=0;
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+    STACK_OF(LEAK_ENTRY) *stats;
+#endif /* OpenSSL version >= 1.1.1 */
 
-    for(i=0; i<LEAK_TABLE_SIZE; ++i) {
-        if(leak_hash_table[i].alloc_line) {
+    /* leak_hash_table[] is only filled at the DEBUG logging level */
+    if(service_options.log_level<LOG_DEBUG)
+        return;
+
+    /* log total hash table utilization */
+    for(i=0; i<LEAK_TABLE_SIZE; ++i)
+        if(leak_hash_table[i].total) {
             ++utilization;
-#if 0
-            s_log(LOG_DEBUG, "Leak hash entry %d: %s:%d", i,
-                leak_hash_table[i].alloc_file, leak_hash_table[i].alloc_line);
-#endif
+            grand_total+=leak_hash_table[i].total;
         }
-    }
-    s_log(LOG_DEBUG, "Leak detection table utilization: %d/%d, %02.2f%%",
+    s_log(LOG_DEBUG, "Leak detection table utilization: %d/%d (%05.2f%%)",
         utilization, LEAK_TABLE_SIZE, 100.0*utilization/LEAK_TABLE_SIZE);
+
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+    /* log up to 5 most frequently used heap allocations */
+    stats=sk_LEAK_ENTRY_new_reserve(leak_cmp, utilization);
+    for(i=0; i<LEAK_TABLE_SIZE; ++i)
+        if(leak_hash_table[i].total)
+            sk_LEAK_ENTRY_push(stats, leak_hash_table + i);
+    sk_LEAK_ENTRY_sort(stats);
+    for(i=0; i<5 && sk_LEAK_ENTRY_num(stats); ++i) {
+        LEAK_ENTRY *entry=sk_LEAK_ENTRY_pop(stats);
+        s_log(LOG_DEBUG, "#%d: %05.2f%% of heap operations: %s:%d",
+            i+1, 100.0*(double)entry->total/(double)grand_total,
+            entry->alloc_file, entry->alloc_line);
+    }
+    sk_LEAK_ENTRY_free(stats);
+#endif /* OpenSSL version >= 1.1.1 */
+}
+
+NOEXPORT int leak_cmp(const LEAK_ENTRY *const *a, const LEAK_ENTRY *const *b) {
+    int64_t d = (*a)->total - (*b)->total;
+    if(d>0)
+        return 1;
+    if(d<0)
+        return -1;
+    return 0;
 }
 
 /* report identified leaks */

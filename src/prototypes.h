@@ -530,6 +530,7 @@ void s_log(int, const char *, ...)
 #else
     ;
 #endif
+void s_vlog(int, const char *, va_list);
 char *log_id(CLI *);
 void fatal_debug(const char *, const char *, int) NORETURN;
 #define fatal(a) fatal_debug((a), __FILE__, __LINE__)
@@ -861,8 +862,9 @@ struct tls_data_struct {
     const char *id;
 };
 
-void str_init(TLS_DATA *);
-void str_cleanup(TLS_DATA *);
+void str_init(void);
+void str_thread_init(TLS_DATA *);
+void str_thread_cleanup(TLS_DATA *);
 char *str_dup_debug(const char *, const char *, int);
 #define str_dup(a) str_dup_debug((a), __FILE__, __LINE__)
 char *str_dup_detached_debug(const char *, const char *, int);

@@ -30,6 +30,9 @@ BrandingText "Author: Michal Trojnara"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\bin\stunnel.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Start stunnel after installation"
 !define MUI_FINISHPAGE_RUN_NOTCHECKED
+!define MUI_FINISHPAGE_NOAUTOCLOSE
+!define MUI_UNFINISHPAGE_NOAUTOCLOSE
+
 !include "MUI2.nsh"
 # define SF_SELECTED
 !include "Sections.nsh"
@@ -54,11 +57,12 @@ BrandingText "Author: Michal Trojnara"
 !define /ifndef ZLIB_DIR ${BIN_DIR}\zlib
 !define /ifndef REDIST_DIR ${BIN_DIR}\redist
 
+!if ${SUFFIX} == "3"
+!include "${STUNNEL_TOOLS_DIR}/ReplaceInFile3.nsh"
+!endif
+
 # additional plugins
 !addplugindir "${STUNNEL_TOOLS_DIR}/plugins/"
-!if ${ENABLE_FIPS}
-!include "${STUNNEL_TOOLS_DIR}/plugins/TextReplace.nsh"
-!endif
 
 !define MUI_ICON ${STUNNEL_SRC_DIR}\stunnel.ico
 
@@ -453,8 +457,17 @@ SectionGroup "Tools" groupTOOLS
 Section "openssl.exe" sectionOPENSSL
   SetOutPath "$INSTDIR\bin"
   File "${OPENSSL_BIN_DIR}\openssl.exe"
+
   SetOutPath "$INSTDIR\config"
   File "${STUNNEL_TOOLS_DIR}\openssl.cnf"
+!if ${SUFFIX} == "3"
+  Push "#providers = provider_sect"     # text to be replaced
+  Push "providers = provider_sect"      # replace with
+  Push 1                                # start replacing at the 1st occurrence
+  Push 1                                # replace 1 occurrences onwards, in all
+  Push "$INSTDIR\config\openssl.cnf"    # file to replace in
+  Call AdvReplaceInFile
+!endif
 
 !if ${ENABLE_FIPS}
   # create fipsmodule.cnf
@@ -462,12 +475,26 @@ Section "openssl.exe" sectionOPENSSL
     -out "$INSTDIR\config\fipsmodule.cnf" -provider_name fips'
 
   # modify fipsmodule.cnf and openssl.cnf to enable FIPS mode
-  ${textreplace::ReplaceInFile} "$INSTDIR\config\fipsmodule.cnf" "$INSTDIR\config\fipsmodule.cnf" \
-    "activate = 1" "#activate = 1" "/S=1 /C=0 /AO=1" $0
-  ${textreplace::ReplaceInFile} "$INSTDIR\config\openssl.cnf" "$INSTDIR\config\openssl.cnf" \
-    "#.include" ".include" "/S=1 /C=0 /AO=1" $0
-  ${textreplace::ReplaceInFile} "$INSTDIR\config\openssl.cnf" "$INSTDIR\config\openssl.cnf" \
-    "#fips = fips_sect" "fips = fips_sect" "/S=1 /C=0 /AO=1" $0
+  Push "activate = 1"                   # text to be replaced
+  Push "#activate = 1"                  # replace with
+  Push 1                                # start replacing at the 1st occurrence
+  Push 1                                # replace 1 occurrences onwards, in all
+  Push "$INSTDIR\config\fipsmodule.cnf" # file to replace in
+  Call AdvReplaceInFile
+
+  Push "#.include"                      # text to be replaced
+  Push ".include"                       # replace with
+  Push 1                                # start replacing at the 1st occurrence
+  Push 1                                # replace 1 occurrences onwards, in all
+  Push "$INSTDIR\config\openssl.cnf"    # file to replace in
+  Call AdvReplaceInFile
+
+  Push "#fips = fips_sect"              # text to be replaced
+  Push "fips = fips_sect"               # replace with
+  Push 1                                # start replacing at the 1st occurrence
+  Push 1                                # replace 1 occurrences onwards, in all
+  Push "$INSTDIR\config\openssl.cnf"    # file to replace in
+  Call AdvReplaceInFile
 !endif
 
   # create stunnel.pem

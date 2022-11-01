@@ -139,6 +139,13 @@ void log_close(int sink) {
 
 void s_log(int level, const char *format, ...) {
     va_list ap;
+
+    va_start(ap, format);
+    s_vlog(level, format, ap);
+    va_end(ap);
+}
+
+void s_vlog(int level, const char *format, va_list ap) {
     char *text, *stamp, *id;
 #ifdef USE_WIN32
     DWORD libc_error;
@@ -152,6 +159,7 @@ void s_log(int level, const char *format, ...) {
     struct tm timestruct;
 #endif
     TLS_DATA *tls_data;
+    size_t i;
 
     libc_error=get_last_error();
     socket_error=get_last_socket_error();
@@ -178,9 +186,10 @@ void s_log(int level, const char *format, ...) {
         id=str_printf("LOG%d[%s]", level, tls_data->id);
 
         /* format the text to be logged */
-        va_start(ap, format);
         text=str_vprintf(format, ap);
-        va_end(ap);
+        i=strlen(text);
+        while(i>0 && text[i-1]=='\n')
+            text[--i]='\0'; /* strip trailing newlines */
         safestring(text);
 
         /* either log or queue for logging */

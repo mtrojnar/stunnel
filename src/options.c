@@ -3231,7 +3231,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     case CMD_PRINT_DEFAULTS:
         break;
     case CMD_PRINT_HELP:
-        s_log(LOG_NOTICE, "%-22s = master_service:host_name for an SNI virtual service",
+        s_log(LOG_NOTICE, "%-22s = primary_service:host_name for an SNI virtual service",
             "sni");
         break;
     }
@@ -3335,7 +3335,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     /* sslVersionMin */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
-        section->min_proto_version=TLS1_VERSION;
+        section->min_proto_version=0; /* lowest supported */
         break;
     case CMD_SET_COPY:
         section->min_proto_version=new_service_options.min_proto_version;
@@ -3856,7 +3856,7 @@ NOEXPORT const char *sni_init(SERVICE_OPTIONS *section) {
         if(!tmpsrv)
             return "SNI section name not found";
         if(tmpsrv->option.client)
-            return "SNI master service is a TLS client";
+            return "SNI primary service is a TLS client";
         if(tmpsrv->servername_list_tail) {
             tmpsrv->servername_list_tail->next=str_alloc_detached(sizeof(SERVERNAME_LIST));
             tmpsrv->servername_list_tail=tmpsrv->servername_list_tail->next;
@@ -3867,7 +3867,7 @@ NOEXPORT const char *sni_init(SERVICE_OPTIONS *section) {
             tmpsrv->ssl_options_set|=
                 SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
         }
-        /* a slave section reference is needed to prevent a race condition
+        /* a secondary section reference is needed to prevent a race condition
            while switching to a section after configuration file reload */
         service_up_ref(section);
         tmpsrv->servername_list_tail->servername=str_dup_detached(tmp_str);
@@ -3904,7 +3904,7 @@ NOEXPORT void sni_free(SERVICE_OPTIONS *section) {
     while(curr) {
         SERVERNAME_LIST *next=curr->next;
         str_free(curr->servername);
-        service_free(curr->opt); /* free the slave section */
+        service_free(curr->opt); /* free the secondary section */
         str_free(curr);
         curr=next;
     }
@@ -4663,25 +4663,43 @@ NOEXPORT const char *engine_auto(void) {
 }
 
 NOEXPORT const char *engine_open(const char *name) {
+    ENGINE *e;
+    struct {
+        void (*vlog)(int, const char *, va_list);
+    } vlog_callback;
+
     engine_init(); /* initialize the previous engine (if any) */
     if(++current_engine>=MAX_ENGINES)
         return "Too many open engines";
+
     s_log(LOG_DEBUG, "Enabling support for engine \"%s\"", name);
-    engines[current_engine]=ENGINE_by_id(name);
-    if(!engines[current_engine]) {
+    e=ENGINE_by_id(name);
+    if(!e) {
         sslerror("ENGINE_by_id");
         return "Failed to open the engine";
     }
     engine_initialized=0;
-    if(ENGINE_ctrl(engines[current_engine], ENGINE_CTRL_SET_USER_INTERFACE,
-            0, ui_stunnel(), NULL)) {
+
+    vlog_callback.vlog=&s_vlog;
+    if(ENGINE_ctrl_cmd(e, "VLOG_A", 0, &vlog_callback, NULL, 0)) {
+        s_log(LOG_NOTICE, "Logging initialized on engine #%d (%s)",
+            current_engine+1, ENGINE_get_id(e));
+    } else {
+        ERR_clear_error();
+        s_log(LOG_INFO, "Logging not supported by engine #%d (%s)",
+            current_engine+1, ENGINE_get_id(e));
+    }
+
+    if(ENGINE_ctrl(e, ENGINE_CTRL_SET_USER_INTERFACE, 0, ui_stunnel(), NULL)) {
         s_log(LOG_NOTICE, "UI set for engine #%d (%s)",
-            current_engine+1, ENGINE_get_id(engines[current_engine]));
+            current_engine+1, ENGINE_get_id(e));
     } else {
         ERR_clear_error();
         s_log(LOG_INFO, "UI not supported by engine #%d (%s)",
-            current_engine+1, ENGINE_get_id(engines[current_engine]));
+            current_engine+1, ENGINE_get_id(e));
     }
+
+    engines[current_engine]=e;
     return NULL; /* OK */
 }
 

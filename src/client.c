@@ -673,19 +673,18 @@ NOEXPORT void session_cache_retrieve(CLI *c) {
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
 NOEXPORT void print_tmp_key(SSL *s) {
     EVP_PKEY *key;
+    long tmp_key_found;
 
 #ifdef SSL_CTRL_GET_PEER_TMP_KEY
-    if (!SSL_get_peer_tmp_key(s, &key)) {
-        sslerror("SSL_get_peer_tmp_key");
-        return;
-    }
+    tmp_key_found=SSL_get_peer_tmp_key(s, &key);
 #else
-    if (!SSL_get_server_tmp_key(s, &key)) {
-        sslerror("SSL_get_server_tmp_key");
+    tmp_key_found=SSL_get_server_tmp_key(s, &key);
+#endif
+    if(!tmp_key_found) {
+        s_log(LOG_INFO, "No peer temporary key received");
         return;
     }
-#endif
-    switch (EVP_PKEY_id(key)) {
+    switch(EVP_PKEY_id(key)) {
     case EVP_PKEY_RSA:
         s_log(LOG_INFO, "Peer temporary key: RSA, %d bits", EVP_PKEY_bits(key));
         break;

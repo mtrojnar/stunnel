@@ -186,13 +186,18 @@ Deflate is the standard compression method as described in RFC 1951.
 
 debugging level
 
-Level is one of the syslog level names or numbers
-emerg (0), alert (1), crit (2), err (3), warning (4), notice (5),
-info (6), or debug (7).  All logs for the specified level and
-all levels numerically less than it will be shown.  Use I<debug = debug> or
-I<debug = 7> for greatest debugging output.  The default is notice (5).
+Level is one of the syslog level names or numbers emerg (0), alert (1),
+crit (2), err (3), warning (4), notice (5), info (6), or debug (7).  All logs
+for the specified level and all levels numerically less than it will be shown.
 
-The syslog facility 'daemon' will be used unless a facility name is supplied.
+The I<debug = debug> (or the equivalent <debug = 7>) level produces for the
+most verbose log output.  This logging level is only meant to be understood by
+stunnel developers, and not by users.  Please either use the debug level when
+requested to do so by an stunnel developer, or when you intend to get confused.
+
+The default logging level is notice (5).
+
+The syslog 'daemon' facility will be used unless a facility name is supplied.
 (Facilities are not supported on Win32.)
 
 Case is ignored for both facilities and levels.
@@ -1012,26 +1017,26 @@ address of sessiond TLS cache server
 
 =item B<sni> = SERVICE_NAME:SERVER_NAME_PATTERN (server mode)
 
-Use the service as a slave service (a name-based virtual server) for Server
+Use the service as a secondary service (a name-based virtual server) for Server
 Name Indication TLS extension (RFC 3546).
 
-I<SERVICE_NAME> specifies the master service that accepts client connections
+I<SERVICE_NAME> specifies the primary service that accepts client connections
 with the I<accept> option.  I<SERVER_NAME_PATTERN> specifies the host name to
 be redirected.  The pattern may start with the '*' character, e.g.
-'*.example.com'.  Multiple slave services are normally specified for a single
-master service.  The I<sni> option can also be specified more than once within
-a single slave service.
+'*.example.com'.  Multiple secondary services are normally specified for
+a single primary service.  The I<sni> option can also be specified more than
+once within a single secondary service.
 
-This service, as well as the master service, may not be configured in client
+This service, as well as the primary service, may not be configured in client
 mode.
 
-The I<connect> option of the slave service is ignored when the I<protocol>
+The I<connect> option of the secondary service is ignored when the I<protocol>
 option is specified, as I<protocol> connects to the remote host before TLS
 handshake.
 
-Libwrap checks (Unix only) are performed twice: with the master service name
-after TCP connection is accepted, and with the slave service name during the
-TLS handshake.
+Libwrap checks (Unix only) are performed twice: with the primary service name
+after TCP connection is accepted, and with the secondary service name during
+the TLS handshake.
 
 The I<sni> option is only available when compiled with B<OpenSSL 1.0.0> and
 later.
@@ -1479,19 +1484,19 @@ Now test your configuration on the client machine with:
 An example server mode SNI configuration:
 
     [virtual]
-    ; master service
+    ; primary service
     accept = 443
     cert =  default.pem
     connect = default.internal.mydomain.com:8080
 
     [sni1]
-    ; slave service 1
+    ; secondary service 1
     sni = virtual:server1.mydomain.com
     cert = server1.pem
     connect = server1.internal.mydomain.com:8081
 
     [sni2]
-    ; slave service 2
+    ; secondary service 2
     sni = virtual:server2.mydomain.com
     cert = server2.pem
     connect = server2.internal.mydomain.com:8082

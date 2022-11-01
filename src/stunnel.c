@@ -588,7 +588,7 @@ NOEXPORT int bind_ports(void) {
             s_log(LOG_DEBUG, "Skipped exec+connect service [%s]", opt->servname);
 #ifndef OPENSSL_NO_TLSEXT
         } else if(!opt->option.client && opt->sni) {
-            s_log(LOG_DEBUG, "Skipped SNI slave service [%s]", opt->servname);
+            s_log(LOG_DEBUG, "Skipped SNI secondary service [%s]", opt->servname);
 #endif
         } else { /* each service must define two endpoints */
             s_log(LOG_ERR, "Invalid service [%s]", opt->servname);

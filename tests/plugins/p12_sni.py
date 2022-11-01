@@ -19,9 +19,9 @@ class StunnelTest(StunnelAcceptConnect):
 
 
 class SNITest(StunnelTest):
-    """Use the service as a slave service (a name-based virtual server)
+    """Use the service as a secondary service (a name-based virtual server)
        for Server Name Indication TLS extension.
-       SERVICE_NAME (server_virtual) specifies the master service that
+       SERVICE_NAME (server_virtual) specifies the primary service that
        accepts client connections with the accept option.
        SERVER_NAME_PATTERN (*.mydomain.com) specifies the host name to be redirected.
        The success is expected because the client presents the sni pattern (sni.mydomain.com)
@@ -98,9 +98,9 @@ class SNITest(StunnelTest):
 
 
 class FailureSNITest(StunnelTest):
-    """Use the service as a slave service (a name-based virtual server)
+    """Use the service as a secondary service (a name-based virtual server)
        for Server Name Indication TLS extension.
-       SERVICE_NAME (server_virtual) specifies the master service that
+       SERVICE_NAME (server_virtual) specifies the primary service that
        accepts client connections with the accept option.
        SERVER_NAME_PATTERN sni.mydomain.com) specifies the host name to be redirected.
        The success is expected because the client doesn't present any sni pattern.
