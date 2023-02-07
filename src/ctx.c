@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -895,24 +895,19 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
 #ifndef OPENSSL_NO_ENGINE
 
 NOEXPORT int load_cert_engine(SERVICE_OPTIONS *section) {
-    struct {
-        const char *id;
-        X509 *cert;
-    } parms;
+    X509 *cert;
 
     s_log(LOG_INFO, "Loading certificate from engine ID: %s", section->cert);
-    parms.id=section->cert;
-    parms.cert=NULL;
-    ENGINE_ctrl_cmd(section->engine, "LOAD_CERT_CTRL", 0, &parms, NULL, 1);
-    if(!parms.cert) {
-        sslerror("ENGINE_ctrl_cmd");
+    cert=engine_get_cert(section->engine, section->cert);
+    if(!cert)
         return 1; /* FAILED */
-    }
-    if(!SSL_CTX_use_certificate(section->ctx, parms.cert)) {
+    if(!SSL_CTX_use_certificate(section->ctx, cert)) {
         sslerror("SSL_CTX_use_certificate");
+        X509_free(cert);
         return 1; /* FAILED */
     }
     s_log(LOG_INFO, "Certificate loaded from engine ID: %s", section->cert);
+    X509_free(cert);
     return 0; /* OK */
 }
 
@@ -1578,57 +1573,65 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
     CLI *c;
     SSL_CTX *ctx;
     const char *state_string;
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    OSSL_HANDSHAKE_STATE state=SSL_get_state(ssl);
+#else
+    int state=SSL_get_state((SSL *)ssl);
+#endif
 
     c=SSL_get_ex_data(ssl, index_ssl_cli);
-    if(c) {
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
-        OSSL_HANDSHAKE_STATE state=SSL_get_state(ssl);
-#else
-        int state=SSL_get_state((SSL *)ssl);
+    if(!c) {
+        s_log(LOG_ERR,
+            "INTERNAL ERROR: info_callback() called without CLI, state = %x",
+            state);
+        return;
+    }
+#if 0
+    s_log(LOG_DEBUG, "state = %x", state);
 #endif
 
-#if 0
-        s_log(LOG_DEBUG, "state = %x", state);
-#endif
+        /* do not reset the TLS socket after a fatal alert */
+    if(where & SSL_CB_ALERT && !strcmp(SSL_alert_type_string(ret), "F"))
+        c->fatal_alert=1;
 
         /* log the client certificate request (if received) */
 #ifndef SSL3_ST_CR_CERT_REQ_A
-        if(state==TLS_ST_CR_CERT_REQ)
+    if(state==TLS_ST_CR_CERT_REQ)
 #else
-        if(state==SSL3_ST_CR_CERT_REQ_A)
+    if(state==SSL3_ST_CR_CERT_REQ_A)
 #endif
-            print_client_CA_list(SSL_get_client_CA_list(ssl));
+        print_CA_list("Received trusted client CA",
+            SSL_get_client_CA_list(ssl));
 #ifndef SSL3_ST_CR_SRVR_DONE_A
-        if(state==TLS_ST_CR_SRVR_DONE)
+    if(state==TLS_ST_CR_SRVR_DONE)
 #else
-        if(state==SSL3_ST_CR_SRVR_DONE_A)
+    if(state==SSL3_ST_CR_SRVR_DONE_A)
 #endif
-            if(!SSL_get_client_CA_list(ssl))
-                s_log(LOG_INFO, "Client certificate not requested");
+        if(!SSL_get_client_CA_list(ssl))
+            s_log(LOG_INFO, "Client certificate not requested");
 
-        /* prevent renegotiation DoS attack */
-        if((where&SSL_CB_HANDSHAKE_DONE)
-                && c->reneg_state==RENEG_INIT) {
-            /* first (initial) handshake was completed, remember this,
-             * so that further renegotiation attempts can be detected */
-            c->reneg_state=RENEG_ESTABLISHED;
-        } else if((where&SSL_CB_ACCEPT_LOOP)
-                && c->reneg_state==RENEG_ESTABLISHED) {
+    /* prevent renegotiation DoS attack */
+    if((where&SSL_CB_HANDSHAKE_DONE)
+            && c->reneg_state==RENEG_INIT) {
+        /* first (initial) handshake was completed, remember this,
+         * so that further renegotiation attempts can be detected */
+        c->reneg_state=RENEG_ESTABLISHED;
+    } else if((where&SSL_CB_ACCEPT_LOOP)
+            && c->reneg_state==RENEG_ESTABLISHED) {
 #ifndef SSL3_ST_SR_CLNT_HELLO_A
-            if(state==TLS_ST_SR_CLNT_HELLO) {
+        if(state==TLS_ST_SR_CLNT_HELLO) {
 #else
-            if(state==SSL3_ST_SR_CLNT_HELLO_A
-                    || state==SSL23_ST_SR_CLNT_HELLO_A) {
+        if(state==SSL3_ST_SR_CLNT_HELLO_A
+                || state==SSL23_ST_SR_CLNT_HELLO_A) {
 #endif
-                /* client hello received after initial handshake,
-                 * this means renegotiation -> mark it */
-                c->reneg_state=RENEG_DETECTED;
-            }
+            /* client hello received after initial handshake,
+             * this means renegotiation -> mark it */
+            c->reneg_state=RENEG_DETECTED;
         }
-
-        if(c->opt->log_level<LOG_DEBUG) /* performance optimization */
-            return;
     }
+
+    if(c->opt->log_level<LOG_DEBUG)
+        return; /* performance optimization: skip logging debug info */
 
     if(where & SSL_CB_LOOP) {
         state_string=SSL_state_string_long(ssl);

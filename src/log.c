@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -145,8 +145,16 @@ void s_log(int level, const char *format, ...) {
     va_end(ap);
 }
 
+#ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic push
+#endif /* __GNUC__>=4.6 */
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#endif /* __GNUC__ */
 void s_vlog(int level, const char *format, va_list ap) {
-    char *text, *stamp, *id;
+    va_list aq;
+    char stamp[72], id[72], *text;
+    int len;
 #ifdef USE_WIN32
     DWORD libc_error;
 #else
@@ -159,7 +167,6 @@ void s_vlog(int level, const char *format, va_list ap) {
     struct tm timestruct;
 #endif
     TLS_DATA *tls_data;
-    size_t i;
 
     libc_error=get_last_error();
     socket_error=get_last_socket_error();
@@ -180,16 +187,25 @@ void s_vlog(int level, const char *format, va_list ap) {
 #else
         timeptr=localtime(&gmt);
 #endif
-        stamp=str_printf("%04d.%02d.%02d %02d:%02d:%02d",
+        snprintf(stamp, sizeof stamp, "%04d.%02d.%02d %02d:%02d:%02d",
             timeptr->tm_year+1900, timeptr->tm_mon+1, timeptr->tm_mday,
             timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec);
-        id=str_printf("LOG%d[%s]", level, tls_data->id);
+        snprintf(id, sizeof id, "LOG%d[%s]", level, tls_data->id);
 
         /* format the text to be logged */
-        text=str_vprintf(format, ap);
-        i=strlen(text);
-        while(i>0 && text[i-1]=='\n')
-            text[--i]='\0'; /* strip trailing newlines */
+        va_copy(aq, ap);
+        len=vsnprintf(NULL, 0, format, ap);
+        if(len>1024)
+            len=1024;
+#ifdef USE_WIN32
+        text=_alloca((size_t)len+1);
+#else
+        text=alloca((size_t)len+1);
+#endif
+        len=vsnprintf(text, (size_t)len+1, format, aq);
+        va_end(aq);
+        while(len>0 && text[len-1]=='\n')
+            text[--len]='\0'; /* strip trailing newlines */
         safestring(text);
 
         /* either log or queue for logging */
@@ -204,6 +220,11 @@ void s_vlog(int level, const char *format, va_list ap) {
     set_last_error(libc_error);
     set_last_socket_error(socket_error);
 }
+#ifdef __GNUC__
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#pragma GCC diagnostic pop
+#endif /* __GNUC__>=4.6 */
+#endif /* __GNUC__ */
 
 NOEXPORT void log_queue(SERVICE_OPTIONS *opt,
         int level, char *stamp, char *id, char *text) {
@@ -214,12 +235,9 @@ NOEXPORT void log_queue(SERVICE_OPTIONS *opt,
     tmp->next=NULL;
     tmp->opt=opt;
     tmp->level=level;
-    tmp->stamp=stamp;
-    str_detach(tmp->stamp);
-    tmp->id=id;
-    str_detach(tmp->id);
-    tmp->text=text;
-    str_detach(tmp->text);
+    tmp->stamp=str_dup_detached(stamp);
+    tmp->id=str_dup_detached(id);
+    tmp->text=str_dup_detached(text);
 
     /* append the new element to the list */
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
@@ -245,6 +263,9 @@ void log_flush(LOG_MODE new_mode) {
             struct LIST *tmp=head;
             head=head->next;
             log_raw(tmp->opt, tmp->level, tmp->stamp, tmp->id, tmp->text);
+            str_free(tmp->stamp);
+            str_free(tmp->id);
+            str_free(tmp->text);
             str_free(tmp);
         }
         head=tail=NULL;
@@ -257,6 +278,7 @@ void log_flush(LOG_MODE new_mode) {
 NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
         int level, char *stamp, char *id, char *text) {
     char *line;
+    size_t size;
 
     /* NOTE: opt->log_level may have changed since s_log().
      * It is important to use the new value and not the old one. */
@@ -264,32 +286,39 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
     /* build the line and log it to syslog/file if configured */
     switch(log_mode) {
     case LOG_MODE_CONFIGURED:
-        line=str_printf("%s %s: %s", stamp, id, text);
+        size=strlen(stamp)+strlen(id)+strlen(text)+4;
+#ifdef USE_WIN32
+        line=_alloca(size);
+#else
+        line=alloca(size);
+#endif
+        snprintf(line, size, "%s %s: %s", stamp, id, text);
         if(level<=opt->log_level) {
 #if !defined(USE_WIN32) && !defined(__vms)
             if(global_options.option.log_syslog)
                 syslog(level, "%s: %s", id, text);
 #endif /* USE_WIN32, __vms */
             if(outfile)
-                file_putline(outfile, line);
+                file_putline_newline(outfile, line);
         }
         break;
     case LOG_MODE_ERROR:
         /* don't log the id or the time stamp */
+        size=strlen(text)+5;
+#ifdef USE_WIN32
+        line=_alloca(size);
+#else
+        line=alloca(size);
+#endif
         if(level>=0 && level<=7) /* just in case */
-            line=str_printf("[%c] %s", "***!:.  "[level], text);
+            snprintf(line, size, "[%c] %s", "***!:.  "[level], text);
         else
-            line=str_printf("[?] %s", text);
+            snprintf(line, size, "[?] %s", text);
         break;
     default: /* LOG_MODE_INFO */
         /* don't log the level, the id or the time stamp */
-        line=str_dup(text);
+        line=text;
     }
-
-    /* free the memory */
-    str_free(stamp);
-    str_free(id);
-    str_free(text);
 
     /* log the line to the UI (GUI, stderr, etc.) */
     if(log_mode==LOG_MODE_ERROR ||
@@ -302,8 +331,6 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
 #endif
             )
         ui_new_log(line);
-
-    str_free(line);
 }
 
 #ifdef __GNUC__
@@ -375,7 +402,6 @@ char *log_id(CLI *c) {
 void fatal_debug(const char *txt, const char *file, int line) {
     char msg[80];
 #ifdef USE_WIN32
-    DWORD num;
 #ifdef UNICODE
     TCHAR tmsg[80];
 #endif
@@ -384,15 +410,8 @@ void fatal_debug(const char *txt, const char *file, int line) {
     snprintf(msg, sizeof msg, /* with newline */
         "INTERNAL ERROR: %s at %s, line %d\n", txt, file, line);
 
-    if(outfile) {
-#ifdef USE_WIN32
-        WriteFile(outfile->fh, msg, (DWORD)strlen(msg), &num, NULL);
-#else /* USE_WIN32 */
-        /* no file -> write to stderr */
-        /* no meaningful way here to handle the result */
-        write(outfile ? outfile->fd : 2, msg, strlen(msg));
-#endif /* USE_WIN32 */
-    }
+    if(outfile)
+        file_putline_nonewline(outfile, msg);
 
 #ifndef USE_WIN32
     if(log_mode!=LOG_MODE_CONFIGURED || global_options.option.log_stderr) {

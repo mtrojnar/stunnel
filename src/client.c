@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -261,7 +261,8 @@ NOEXPORT void exec_connect_once(CLI *fresh_c) {
 #endif /* __GNUC__ */
 NOEXPORT void client_run(CLI *c) {
     jmp_buf exception_buffer, *exception_backup;
-    int err, rst;
+    int err, rst_remote, rst_local;
+    char *close_status;
 #ifndef USE_FORK
     int num;
 #endif
@@ -301,13 +302,27 @@ NOEXPORT void client_run(CLI *c) {
     }
     c->exception_pointer=exception_backup;
 
-    rst=err==1 && c->opt->option.reset;
+    /* plain socket is remote in the server mode */
+    rst_remote=err==1 && c->opt->option.reset &&
+        (!c->fatal_alert || !c->opt->option.client);
+    /* plain socket is local in the client mode */
+    rst_local=err==1 && c->opt->option.reset &&
+        (!c->fatal_alert || c->opt->option.client);
+    if(rst_remote && rst_local)
+        close_status="reset";
+    else if(rst_remote)
+        close_status="reset/closed";
+    else if(rst_local)
+        close_status="closed/reset";
+    else
+        close_status="closed";
     s_log(LOG_NOTICE,
         "Connection %s: %llu byte(s) sent to TLS, %llu byte(s) sent to socket",
-        rst ? "reset" : "closed",
+        close_status,
         (unsigned long long)c->ssl_bytes, (unsigned long long)c->sock_bytes);
 #ifdef USE_WIN32
-    if(capwin_hwnd && err==1 && InterlockedExchange(&capwin_connectivity, 0))
+    if(capwin_hwnd && (rst_remote || rst_local)
+            && InterlockedExchange(&capwin_connectivity, 0))
         PostMessage(capwin_hwnd, WM_CAPWIN_NET_DOWN, 0, 0);
 #endif
 
@@ -338,8 +353,11 @@ NOEXPORT void client_run(CLI *c) {
 
         /* cleanup the remote socket */
     if(c->remote_fd.fd!=INVALID_SOCKET) { /* remote socket initialized */
-        if(rst && c->remote_fd.is_socket) /* reset */
-            reset(c->remote_fd.fd, "linger (remote)");
+        if(rst_remote && c->remote_fd.is_socket) /* reset */
+            reset(c->remote_fd.fd, "remote_fd");
+#ifndef USE_UCONTEXT
+        set_nonblock(c->remote_fd.fd, 0);
+#endif
         closesocket(c->remote_fd.fd);
         s_log(LOG_DEBUG, "Remote descriptor (FD=%ld) closed",
             (long)c->remote_fd.fd);
@@ -349,16 +367,19 @@ NOEXPORT void client_run(CLI *c) {
         /* cleanup the local socket */
     if(c->local_rfd.fd!=INVALID_SOCKET) { /* local socket initialized */
         if(c->local_rfd.fd==c->local_wfd.fd) {
-            if(rst && c->local_rfd.is_socket)
-                reset(c->local_rfd.fd, "linger (local)");
+            if(rst_local && c->local_rfd.is_socket)
+                reset(c->local_rfd.fd, "local_rfd/local_wfd");
+#ifndef USE_UCONTEXT
+            set_nonblock(c->local_rfd.fd, 0);
+#endif
             closesocket(c->local_rfd.fd);
             s_log(LOG_DEBUG, "Local descriptor (FD=%ld) closed",
                 (long)c->local_rfd.fd);
         } else { /* stdin/stdout */
-            if(rst && c->local_rfd.is_socket)
-                reset(c->local_rfd.fd, "linger (local_rfd)");
-            if(rst && c->local_wfd.is_socket)
-                reset(c->local_wfd.fd, "linger (local_wfd)");
+            if(rst_local && c->local_rfd.is_socket)
+                reset(c->local_rfd.fd, "local_rfd");
+            if(rst_local && c->local_wfd.is_socket)
+                reset(c->local_wfd.fd, "local_wfd");
         }
         c->local_rfd.fd=c->local_wfd.fd=INVALID_SOCKET;
     }
@@ -1019,14 +1040,14 @@ NOEXPORT void transfer(CLI *c) {
             case SSL_ERROR_NONE:
                 if(num==0) { /* nothing was written: ignore */
                     s_log(LOG_DEBUG, "SSL_write returned 0");
-                    break; /* do not reset the watchdog */
+                } else {
+                    memmove(c->sock_buff, c->sock_buff+num,
+                        c->sock_ptr-(size_t)num);
+                    c->sock_ptr-=(size_t)num;
+                    memset(c->sock_buff+c->sock_ptr, 0, (size_t)num); /* PPD */
+                    c->ssl_bytes+=(size_t)num;
+                    watchdog=0; /* data transferred -> reset the watchdog */
                 }
-                memmove(c->sock_buff, c->sock_buff+num,
-                    c->sock_ptr-(size_t)num);
-                c->sock_ptr-=(size_t)num;
-                memset(c->sock_buff+c->sock_ptr, 0, (size_t)num); /* paranoia */
-                c->ssl_bytes+=(size_t)num;
-                watchdog=0; /* reset the watchdog */
                 break;
             case SSL_ERROR_WANT_WRITE: /* buffered data? */
                 s_log(LOG_DEBUG, "SSL_write returned WANT_WRITE: retrying");
@@ -1077,10 +1098,10 @@ NOEXPORT void transfer(CLI *c) {
             case SSL_ERROR_NONE:
                 if(num==0) { /* nothing was read: ignore */
                     s_log(LOG_DEBUG, "SSL_read returned 0");
-                    break; /* do not reset the watchdog */
+                } else {
+                    c->ssl_ptr+=(size_t)num;
+                    watchdog=0; /* data transferred -> reset the watchdog */
                 }
-                c->ssl_ptr+=(size_t)num;
-                watchdog=0; /* reset the watchdog */
                 break;
             case SSL_ERROR_WANT_WRITE:
                 s_log(LOG_DEBUG, "SSL_read returned WANT_WRITE: retrying");
@@ -1796,10 +1817,15 @@ NOEXPORT void print_bound_address(CLI *c) {
 NOEXPORT void reset(SOCKET fd, const char *txt) { /* set lingering on a socket */
     struct linger l;
 
+    s_log(LOG_DEBUG, "%s reset (FD=%ld)", txt, (long)fd);
     l.l_onoff=1;
     l.l_linger=0;
-    if(setsockopt(fd, SOL_SOCKET, SO_LINGER, (void *)&l, sizeof l))
-        log_error(LOG_DEBUG, get_last_socket_error(), txt);
+    if(setsockopt(fd, SOL_SOCKET, SO_LINGER, (void *)&l, sizeof l)) {
+        int err=get_last_socket_error();
+        char *message=str_printf("setsockopt(SO_LINGER) on %s", txt);
+        log_error(LOG_INFO, err, message);
+        str_free(message);
+    }
 }
 
 void throw_exception(CLI *c, int v) {

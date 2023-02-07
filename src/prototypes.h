@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -230,10 +230,13 @@ typedef struct service_options_struct {
     SOCK_OPT *sock_opts;
 
         /* service-specific data for verify.c */
-    char *ca_dir;                              /* directory for hashed certs */
-    char *ca_file;                       /* file containing bunches of certs */
-    char *crl_dir;                              /* directory for hashed CRLs */
-    char *crl_file;                       /* file containing bunches of CRLs */
+#ifndef OPENSSL_NO_ENGINE
+    NAME_LIST *ca_engine;  /* engine-specific CA certificate identifier list */
+#endif
+    char *ca_dir;                    /* directory containing hashed CA certs */
+    char *ca_file;                  /* file containing concatenated CA certs */
+    char *crl_dir;                       /* directory containing hashed CRLs */
+    char *crl_file;                     /* file containing concatenated CRLs */
 #ifndef OPENSSL_NO_OCSP
     char *ocsp_url;
     unsigned long ocsp_flags;
@@ -413,7 +416,7 @@ typedef struct disk_file {
 #ifdef USE_WIN32
     HANDLE fh;
 #else
-    int fd;
+    FILE *f;
 #endif
     /* the interface is prepared to easily implement buffering if needed */
 } DISK_FILE;
@@ -455,6 +458,7 @@ typedef struct client_data_struct {
     FD remote_fd;                                  /* remote file descriptor */
     unsigned long pid;                           /* PID of the local process */
     SOCKET fd;                                  /* temporary file descriptor */
+    int fatal_alert;                               /* received a fatal alert */
     RENEG_STATE reneg_state;         /* used to track renegotiation attempts */
     unsigned long long seq;          /* sequential thread number for logging */
     unsigned rr;    /* per-client sequential number for round-robin failover */
@@ -563,7 +567,7 @@ extern int index_session_authenticated, index_session_connect_address;
 
 int fips_default(void);
 int fips_available(void);
-void crypto_init(char *);
+void crypto_init(void);
 int ssl_init(void);
 int ssl_configure(GLOBAL_OPTIONS *);
 
@@ -590,7 +594,10 @@ void sslerror(const char *);
 /**************************************** prototypes for verify.c */
 
 int verify_init(SERVICE_OPTIONS *);
-void print_client_CA_list(const STACK_OF(X509_NAME) *);
+#ifndef OPENSSL_NO_ENGINE
+X509 *engine_get_cert(ENGINE *, const char *);
+#endif
+void print_CA_list(const char *, const STACK_OF(X509_NAME) *);
 char *X509_NAME2text(X509_NAME *);
 
 /**************************************** prototypes for network.c */
@@ -821,12 +828,13 @@ void ignore_value(void *);
 /**************************************** prototypes for file.c */
 
 #ifndef USE_WIN32
-DISK_FILE *file_fdopen(int);
+DISK_FILE *file_fdopen(int, FILE_MODE mode);
 #endif
 DISK_FILE *file_open(char *, FILE_MODE mode);
 void file_close(DISK_FILE *);
 ssize_t file_getline(DISK_FILE *, char *, int);
-ssize_t file_putline(DISK_FILE *, char *);
+ssize_t file_putline_nonewline(DISK_FILE *, char *);
+ssize_t file_putline_newline(DISK_FILE *, char *);
 int file_permissions(const char *);
 
 #ifdef USE_WIN32

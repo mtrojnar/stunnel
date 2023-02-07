@@ -625,9 +625,12 @@ class TestSuite(TestResult):
                         LogEvent(
                             etype="log",
                             level=20,
-                            log=f"[{tag}] Done with task '{service} output'"
+                            log=f"[{tag}] Waiting for an EOF on the '{service}_output' reader socket"
                         )
                     )
+                    line = await p_out.read(1)
+                    if line:
+                        raise Exception(f"Did not expect to read {line!r}")
                     return
 
                 line = data.decode("UTF-8").rstrip("\r\n")
@@ -648,6 +651,16 @@ class TestSuite(TestResult):
                             log=f"[{tag}] {text}",
                             service=service,
                             port=port
+                        )
+                    )
+                elif re.search("Accepting new connections", line):
+                    await self.cfg.mainq.put(
+                        StunnelEvent(
+                            etype="stunnel_event",
+                            level=10,
+                            log=f"[{tag}] Accepting new connections",
+                            service=service,
+                            port=0
                         )
                     )
                 elif re.search(r"Service \[inetd\] started", line):
@@ -677,7 +690,7 @@ class TestSuite(TestResult):
                             level=30,
                             log=f"[{tag}] Stunnel '{service}' configuration failed",
                             service=service,
-                            port=0
+                            port=-1
                         )
                     )
 
@@ -713,13 +726,13 @@ class TestSuite(TestResult):
             )
         )
         self.cfg.children[Keys(pid=proc.pid, service=service)] = proc
-        asyncio.create_task(self.stunnel_output(proc.stderr, service))
+        self.cfg.tasks[f"{service}_output"] = asyncio.create_task(self.stunnel_output(proc.stderr, service))
 
 
     async def check_listening_port(self, port:int, service: str) -> int:
         """Raise exception if configuration failed."""
         tag = "check_listening_port"
-        if port == 0:
+        if port == -1:
             raise Exception(f"stunnel \'{service}\' failed")
         await self.cfg.mainq.put(
             LogEvent(
@@ -728,6 +741,13 @@ class TestSuite(TestResult):
                 log=f"[{tag}] '{service}' is listening on port {port}"
             )
         )
+
+
+    async def accepting_connections(self, port:int, service: str) -> int:
+        """If stunnel bound, expect log: Accepting new connections."""
+        await self.check_listening_port(port, service)
+        if int(port) > 0:
+            await self.expect_event(self.cfg.logsq, "stunnel_event")
 
 
     async def start_stunnel(self, cfgfile: pathlib.Path, service: str) -> int:
@@ -757,7 +777,7 @@ class TestSuite(TestResult):
             )
         )
         evt = await self.expect_event(self.cfg.logsq, "stunnel_event")
-        await self.check_listening_port(evt.port, evt.service)
+        await self.accepting_connections(evt.port, evt.service)
         return evt.port
 
 
@@ -962,17 +982,27 @@ class TestSuite(TestResult):
                             log=f"[{tag}] Closing down the server writer socket"
                         )
                     )
-                    server_writer.close()
-                    await server_writer.wait_closed()
-                    await self.cfg.mainq.put(
-                        ListenerClientEvent(
-                            etype="client_done",
-                            level=10,
-                            log=f"[{tag}] The 'listener' task closed a connection to the client",
-                            peer=peer,
-                            conns=self.conns
+                    try:
+                        server_writer.close()
+                        await server_writer.wait_closed()
+                    except ConnectionResetError as err:
+                        await self.cfg.mainq.put(
+                            LogEvent(
+                                etype="log",
+                                level=20,
+                                log=f"[{tag}] Handling {peer}: {err}"
+                            )
                         )
-                    )
+                    finally:
+                        await self.cfg.mainq.put(
+                            ListenerClientEvent(
+                                etype="client_done",
+                                level=10,
+                                log=f"[{tag}] The 'listener' task closed a connection to the client",
+                                peer=peer,
+                                conns=self.conns
+                            )
+                        )
 
 
     async def start_listener(self) -> int:
@@ -1101,7 +1131,7 @@ class TestSuite(TestResult):
             for key in children:
                 self.cfg.children.pop(key)
 
-            wait_res = await asyncio.gather(*waiters)
+            wait_res = await asyncio.gather(*waiters, return_exceptions=True)
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="log",
@@ -1152,7 +1182,7 @@ class TestSuite(TestResult):
                                 log=f"[{tag}] - {err!r}"
                             )
                         )
-                    wait_res = await asyncio.gather(proc.wait())
+                    wait_res = await asyncio.gather(proc.wait(), return_exceptions=True)
                     await self.cfg.mainq.put(
                         LogEvent(
                             etype="log",
@@ -1378,7 +1408,7 @@ class StunnelAcceptConnect(TestSuite):
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="fatal_event",
-                    level=20,
+                    level=30,
                     log=f"[{tag}] {err}",
                 )
             )
@@ -1403,6 +1433,10 @@ class ExpectedConfigurationFailure(StunnelAcceptConnect):
     async def check_listening_port(self, port:int, service: str) -> int:
         """Configuration failed as expected."""
 
+    async def accepting_connections(self, port:int, service: str) -> int:
+        """If stunnel bound, expect log: Accepting new connections."""
+        if int(port) > 0:
+            await self.expect_event(self.cfg.logsq, "stunnel_event")
 
 class ClientInetd(StunnelAcceptConnect):
     """Base class for inetd mode tests.
@@ -1418,6 +1452,12 @@ class ClientInetd(StunnelAcceptConnect):
 
     async def check_listening_port(self, port:int, service: str) -> int:
         """You do not want stunnel to have any accept option."""
+
+
+    async def accepting_connections(self, port:int, service: str) -> int:
+        """If stunnel bound, expect log: Accepting new connections."""
+        if int(port) > 0:
+            await self.expect_event(self.cfg.logsq, "stunnel_event")
 
 
     async def run_stunnel(self, cfgfile: pathlib.Path, service: str) -> int:
@@ -1442,7 +1482,7 @@ class ClientInetd(StunnelAcceptConnect):
             )
         )
         self.cfg.children[Keys(pid=proc.pid, service=service)] = proc
-        asyncio.create_task(self.stunnel_output(proc.stderr, service))
+        self.cfg.tasks[f"{service}_output"] = asyncio.create_task(self.stunnel_output(proc.stderr, service))
 
 
     async def get_io_stream(
@@ -1465,7 +1505,15 @@ class ClientConnectExec(TestSuite):
 
 
     async def check_listening_port(self, port:int, service: str) -> int:
-        """You do not want stunnel to have any accept option."""
+        """Raise exception if configuration failed."""
+        if port == -1:
+            raise Exception(f"stunnel \'{service}\' failed")
+
+
+    async def accepting_connections(self, port:int, service: str) -> int:
+        """Expect log: Accepting new connections."""
+        await self.check_listening_port(port, service)
+        await self.expect_event(self.cfg.logsq, "stunnel_event")
 
 
     async def socket_connected_cb(
@@ -1621,10 +1669,11 @@ def parse_args() -> Config:
     )
     args = parser.parse_args()
     utf8_env = dict(os.environ)
+    # environment can only contain strings
     utf8_env.update({
         "LC_ALL": "C.UTF-8",
         "LANGUAGE": "",
-        "LD_LIBRARY_PATH": args.libs})
+        "LD_LIBRARY_PATH": str(args.libs)})
     if not os.path.isdir(args.logs):
         os.mkdir(args.logs)
     with os.scandir(args.logs) as entries:
@@ -1716,9 +1765,9 @@ async def main() -> None:
                 if failed == 0:
                     sys.exit(EXIT_SUCCESS)
             else:
-                slogger.errror("Failed (not all plugins were executed)")
+                slogger.error("Failed (not all plugins were executed)")
         else: # not synchronized -> stats may be misleading
-            slogger.errror("Failed (expected 'finish_event')")
+            slogger.error("Failed (expected 'finish_event')")
         sys.exit(EXIT_FAILURE)
 
 

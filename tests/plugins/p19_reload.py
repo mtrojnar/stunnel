@@ -33,7 +33,7 @@ class ReloadTest(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            "Connection reset by peer",
+            "\[Errno 104\] Connection reset by peer",
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -48,7 +48,6 @@ class ReloadTest(StunnelTest):
         """Create a configuration file for a stunnel client."""
         contents = f"""
     ;client doesn't present any certificate
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -60,7 +59,6 @@ class ReloadTest(StunnelTest):
     """
         reload_contents = f"""
     ;client presents a certificate
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no

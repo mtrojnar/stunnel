@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -102,15 +102,54 @@ int fips_available() { /* either FIPS provider or container is available */
 }
 
 /* initialize libcrypto before invoking API functions that require it */
-void crypto_init(char *stunnel_dir) {
+void crypto_init() {
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
-    OPENSSL_INIT_SETTINGS *conf=OPENSSL_INIT_new();
+    OPENSSL_INIT_SETTINGS *conf;
+#endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 #ifdef USE_WIN32
-    char *path;
-#else /* USE_WIN32 */
-    (void)stunnel_dir; /* squash the unused parameter warning */
+    TCHAR stunnel_exe_path[MAX_PATH];
+    LPTSTR c;
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    char *stunnel_dir, *path;
+#endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
+
+    /* identify stunnel_exe_path */
+    GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
+    c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* last backslash */
+    if(c) { /* found */
+        *c=TEXT('\0'); /* truncate the program name */
+        c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* previous backslash */
+        if(c && !_tcscmp(c+1, TEXT("bin")))
+            *c=TEXT('\0'); /* truncate "bin" */
+    }
+
+    /* set current working directory */
+#ifndef _WIN32_WCE
+    if(!SetCurrentDirectory(stunnel_exe_path)) {
+        LPTSTR errmsg=str_tprintf(TEXT("Cannot set directory to %s"),
+            stunnel_exe_path);
+        message_box(errmsg, MB_ICONERROR);
+        str_free(errmsg);
+        exit(1);
+    }
+    /* try to enter the "config" subdirectory, ignore the result */
+    SetCurrentDirectory(TEXT("config"));
+#endif
+
+    /* setup the environment */
+    _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s\\engines"),
+        stunnel_exe_path));
+    _tputenv(str_tprintf(TEXT("OPENSSL_MODULES=%s\\ossl-modules"),
+        stunnel_exe_path));
+    _tputenv(str_tprintf(TEXT("OPENSSL_CONF=%s\\config\\openssl.cnf"),
+        stunnel_exe_path));
 #endif /* USE_WIN32 */
+
+    /* initialize OpenSSL */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    conf=OPENSSL_INIT_new();
 #ifdef USE_WIN32
+    stunnel_dir=tstr2str(stunnel_exe_path);
     if(!stunnel_dir) /* fail-safe */
         stunnel_dir=str_dup("..");
     path=str_printf("%s\\config\\openssl.cnf", stunnel_dir);
@@ -118,24 +157,30 @@ void crypto_init(char *stunnel_dir) {
         s_log(LOG_ERR, "Failed to set OpenSSL configuration file name");
     }
     str_free(path);
+#endif /* USE_WIN32 */
+    OPENSSL_init_crypto(
+        OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_LOAD_CONFIG, conf);
+    OPENSSL_INIT_free(conf);
+#else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
+    OPENSSL_config(NULL);
+    SSL_load_error_strings();
+    SSL_library_init();
+#endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
+
+#ifdef USE_WIN32
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    /* setup the default search path for providers */
+    /* WARNING: OpenSSL needs to already be initialized */
     path=str_printf("%s\\ossl-modules", stunnel_dir);
     if(!OSSL_PROVIDER_set_default_search_path(NULL, path)) {
         s_log(LOG_ERR, "Failed to set default ossl-modules path");
     }
     str_free(path);
 #endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
     str_free(stunnel_dir);
-#endif /* USE_WIN32 */
-    OPENSSL_init_crypto(
-        OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_LOAD_CONFIG, conf);
-    OPENSSL_INIT_free(conf);
-#else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
-    (void)stunnel_dir; /* squash the unused parameter warning */
-    OPENSSL_config(NULL);
-    SSL_load_error_strings();
-    SSL_library_init();
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
+#endif /* USE_WIN32 */
 }
 
 /* initialize lbssl before parsing the configuration file */

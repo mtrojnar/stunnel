@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -361,6 +361,7 @@ void daemon_loop(void) {
         s_log(LOG_CRIT, "Failed to start exec+connect services");
         exit(1);
     }
+    s_log(LOG_INFO, "Accepting new connections");
     while(1) {
         int temporary_lack_of_resources=0;
         int num=s_poll_wait(fds, -1, -1);

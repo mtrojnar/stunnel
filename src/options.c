@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -459,7 +459,7 @@ NOEXPORT int options_file(char *path, CONF_TYPE type,
             print_syntax();
             return 1;
         }
-        df=file_fdopen(fd);
+        df=file_fdopen(fd, FILE_MODE_READ);
     } else
 #endif
         df=file_open(path, FILE_MODE_READ);
@@ -967,6 +967,34 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
             "foreground");
         break;
     }
+#else
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        break;
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "foreground"))
+            break;
+        if(!strcasecmp(arg, "yes")) {
+            /* ignore */
+        } else if(!strcasecmp(arg, "quiet")) {
+            /* ignore */
+        } else if(!strcasecmp(arg, "no")) {
+            return "The argument needs to be 'yes' or 'quiet'";
+        } else
+            return "The argument needs to be 'yes' or 'quiet'";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = foreground mode", "foreground");
+        break;
+    }
 #endif
 
 #ifdef ICON_IMAGE
@@ -1268,6 +1296,29 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
             "syslog");
         break;
     }
+#else
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        break;
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "syslog"))
+            break;
+        if(strcasecmp(arg, "no"))
+            return "The argument needs to be 'no'";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = unused syslog",
+            "syslog");
+        break;
+    }
 #endif
 
     /* taskbar */
@@ -1398,6 +1449,35 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             "accept");
         break;
     }
+
+#ifndef OPENSSL_NO_ENGINE
+    /* CAengine */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->ca_engine=NULL;
+        break;
+    case CMD_SET_COPY:
+        name_list_dup(&section->ca_engine,
+            new_service_options.ca_engine);
+        break;
+    case CMD_FREE:
+        name_list_free(section->ca_engine);
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "CAengine"))
+            break;
+        name_list_append(&section->ca_engine, arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = engine-specific CA certificate identifier for 'verify' option",
+            "CAengine");
+        break;
+    }
+#endif /* !OPENSSL_NO_ENGINE */
 
     /* CApath */
     switch(cmd) {
@@ -3702,9 +3782,15 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         }
         return NULL; /* OK */
     case CMD_INITIALIZE:
+#ifndef OPENSSL_NO_ENGINE
+        if((section->option.verify_chain || section->option.verify_peer) &&
+                !section->ca_engine && !section->ca_file && !section->ca_dir)
+            return "Either \"CAengine\", \"CAfile\" or \"CApath\" has to be configured";
+#else
         if((section->option.verify_chain || section->option.verify_peer) &&
                 !section->ca_file && !section->ca_dir)
             return "Either \"CAfile\" or \"CApath\" has to be configured";
+#endif
         break;
     case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = none", "verify");

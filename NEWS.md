@@ -1,15 +1,31 @@
 # stunnel change log
 
 
+### Version 5.68, 2023.02.07, urgency: HIGH
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.0.8.
+* New features
+  - Added the new 'CAengine' service-level option
+    to load a trusted CA certificate from an engine.
+  - Added requesting client certificates in server
+    mode with 'CApath' besides 'CAfile'.
+* Bugfixes
+  - Fixed EWOULDBLOCK errors in protocol negotiation.
+  - Fixed handling TLS errors in protocol negotiation.
+  - Prevented following fatal TLS alerts with TCP resets.
+  - Improved OpenSSL initialization on WIN32.
+  - Improved testing suite stability.
+  - Improved file read performance.
+  - Improved logging performance.
+
 ### Version 5.67, 2022.11.01, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.0.7.
 * New features
   - Provided a logging callback to custom engines.
 * Bugfixes
-  - OpenSSL DLLs updated to version 3.0.6.
   - Fixed "make cert" with OpenSSL older than 3.0.
-  - Fixed the code and the documentation to use concious
+  - Fixed the code and the documentation to use conscious
     language for SNI servers (thx to Clemens Lang).
 
 ### Version 5.66, 2022.09.11, urgency: MEDIUM

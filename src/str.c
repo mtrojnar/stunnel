@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -116,14 +116,6 @@ NOEXPORT uint8_t canary[10]; /* 80-bit canary value */
 NOEXPORT volatile uint64_t canary_initialized=CANARY_UNINTIALIZED;
 
 /**************************************** string manipulation functions */
-
-#ifndef va_copy
-#ifdef __va_copy
-#define va_copy(dst, src) __va_copy((dst), (src))
-#else /* __va_copy */
-#define va_copy(dst, src) memcpy(&(dst), &(src), sizeof(va_list))
-#endif /* __va_copy */
-#endif /* va_copy */
 
 char *str_dup_debug(const char *str, const char *file, int line) {
     char *retval;

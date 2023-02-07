@@ -32,7 +32,7 @@ class InetdMode(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            "Connection reset by peer",
+            "\[Errno 104\] Connection reset by peer",
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -47,7 +47,6 @@ class InetdMode(StunnelTest):
     ) -> (pathlib.Path, pathlib.Path):
         """Create a configuration file for a stunnel client."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no

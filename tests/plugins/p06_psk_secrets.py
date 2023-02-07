@@ -34,7 +34,7 @@ class PSKSecrets(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            "Connection reset by peer",
+            "\[Errno 104\] Connection reset by peer",
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -48,7 +48,6 @@ class PSKSecrets(StunnelTest):
     ) -> (pathlib.Path, pathlib.Path):
         """Create a configuration file for a stunnel client."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -69,7 +68,6 @@ class PSKSecrets(StunnelTest):
     ) -> pathlib.Path:
         """Create a configuration file for a stunnel server."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -97,7 +95,8 @@ class FailurePSKSecrets(StunnelTest):
         self.events.count = 1
         self.events.success = [
             "binder does not verify",
-            "bad record mac"
+            "bad record mac",
+            "\[Errno 104\] Connection reset by peer"
         ]
         self.events.failure = [
             #"peer did not return a certificate",
@@ -106,7 +105,7 @@ class FailurePSKSecrets(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            #"Connection reset by peer",
+            #"\[Errno 104\] Connection reset by peer",
             #"Connection lost",
             #"Client received unexpected message",
             "Server received unexpected message",
@@ -120,7 +119,6 @@ class FailurePSKSecrets(StunnelTest):
     ) -> (pathlib.Path, pathlib.Path):
         """Create a configuration file for a stunnel client."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -141,7 +139,6 @@ class FailurePSKSecrets(StunnelTest):
     ) -> pathlib.Path:
         """Create a configuration file for a stunnel server."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no

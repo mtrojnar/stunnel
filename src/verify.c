@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -40,11 +40,11 @@
 /**************************************** prototypes */
 
 /* verify initialization */
-NOEXPORT void set_client_CA_list(SERVICE_OPTIONS *section);
-NOEXPORT void auth_warnings(SERVICE_OPTIONS *);
-NOEXPORT int crl_init(SERVICE_OPTIONS *section);
+NOEXPORT int init_ca(SERVICE_OPTIONS *section);
+NOEXPORT int init_crl(SERVICE_OPTIONS *section);
 NOEXPORT int load_file_lookup(X509_STORE *, char *);
 NOEXPORT int add_dir_lookup(X509_STORE *, char *);
+NOEXPORT void auth_warnings(SERVICE_OPTIONS *);
 
 /* verify callback */
 NOEXPORT int verify_callback(int, X509_STORE_CTX *);
@@ -72,21 +72,11 @@ NOEXPORT void log_time(const int, const char *, ASN1_TIME *);
 int verify_init(SERVICE_OPTIONS *section) {
     int verify_mode=0;
 
-    /* CA initialization */
-    if(section->ca_file || section->ca_dir) {
-        if(!SSL_CTX_load_verify_locations(section->ctx,
-                section->ca_file, section->ca_dir)) {
-            sslerror("SSL_CTX_load_verify_locations");
+    if(init_ca(section))
+        if(section->option.verify_chain || section->option.verify_peer)
             return 1; /* FAILED */
-        }
-    }
-    if(section->ca_file && !section->option.client)
-        set_client_CA_list(section); /* only performed on the server */
-
-    /* CRL initialization */
-    if(section->crl_file || section->crl_dir)
-        if(crl_init(section))
-            return 1; /* FAILED */
+    if(init_crl(section))
+        return 1; /* FAILED */
 
     /* verify callback setup */
     if(section->option.request_cert) {
@@ -95,23 +85,71 @@ int verify_init(SERVICE_OPTIONS *section) {
             verify_mode|=SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
     }
     SSL_CTX_set_verify(section->ctx, verify_mode, verify_callback);
+
     auth_warnings(section);
 
     return 0; /* OK */
 }
 
-/* trusted CA names sent to clients for client cert selection */
-NOEXPORT void set_client_CA_list(SERVICE_OPTIONS *section) {
-    STACK_OF(X509_NAME) *ca_dn;
+NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
+    STACK_OF(X509_NAME) *ca_dn=NULL;
+#ifndef OPENSSL_NO_ENGINE
+    NAME_LIST *ptr;
+#endif
 
-    s_log(LOG_DEBUG, "Client CA list: %s", section->ca_file);
-    ca_dn=SSL_load_client_CA_file(section->ca_file);
-    SSL_CTX_set_client_CA_list(section->ctx, ca_dn);
-    print_client_CA_list(ca_dn);
+    ca_dn=sk_X509_NAME_new_null();
+
+#ifndef OPENSSL_NO_ENGINE
+    /* CA and client CA list initialization with the engine */
+    for(ptr=section->ca_engine; ptr; ptr=ptr->next) {
+        X509 *cert=engine_get_cert(section->engine, ptr->name);
+        if(cert) {
+            X509_STORE_add_cert(SSL_CTX_get_cert_store(section->ctx), cert);
+            sk_X509_NAME_push(ca_dn,
+                X509_NAME_dup(X509_get_subject_name(cert)));
+            X509_free(cert);
+        } else {
+            s_log(LOG_ERR, "CAengine failed to retrieve \"%s\"", ptr->name);
+        }
+    }
+#endif
+
+    /* client CA list initialization with the file and/or directory */
+    if(section->ca_file)
+        SSL_add_file_cert_subjects_to_stack(ca_dn, section->ca_file);
+    if(section->ca_dir)
+        SSL_add_dir_cert_subjects_to_stack(ca_dn, section->ca_dir);
+
+    if(!sk_X509_NAME_num(ca_dn)) {
+        s_log(LOG_ERR, "No trusted certificates found");
+        sk_X509_NAME_pop_free(ca_dn, X509_NAME_free);
+        return 1; /* FAILED */
+    }
+
+    if(section->option.client) {
+        print_CA_list("Configured trusted server CA", ca_dn);
+        sk_X509_NAME_pop_free(ca_dn, X509_NAME_free);
+    } else { /* only set the client CA list on the server */
+        print_CA_list("Configured trusted client CA", ca_dn);
+        SSL_CTX_set_client_CA_list(section->ctx, ca_dn);
+    }
+
+    /* CA initialization with the file and/or directory */
+    if(section->ca_file || section->ca_dir) {
+        if(!SSL_CTX_load_verify_locations(section->ctx,
+                section->ca_file, section->ca_dir)) {
+            sslerror("SSL_CTX_load_verify_locations");
+        }
+    }
+
+    return 0; /* OK */
 }
 
-NOEXPORT int crl_init(SERVICE_OPTIONS *section) {
+NOEXPORT int init_crl(SERVICE_OPTIONS *section) {
     X509_STORE *store;
+
+    if(!section->crl_file && !section->crl_dir)
+        return 0; /* OK (nothing to initialize) */
 
     store=SSL_CTX_get_cert_store(section->ctx);
     if(section->crl_file) {
@@ -736,22 +774,40 @@ NOEXPORT void log_time(const int level, const char *txt, ASN1_TIME *t) {
 
 #endif /* !defined(OPENSSL_NO_OCSP) */
 
-void print_client_CA_list(const STACK_OF(X509_NAME) *ca_dn) {
+#ifndef OPENSSL_NO_ENGINE
+
+X509 *engine_get_cert(ENGINE *engine, const char *id) {
+    struct {
+        const char *id;
+        X509 *cert;
+    } parms;
+
+    parms.id=id;
+    parms.cert=NULL;
+    ENGINE_ctrl_cmd(engine, "LOAD_CERT_CTRL", 0, &parms, NULL, 1);
+    if(!parms.cert)
+        sslerror("ENGINE_ctrl_cmd");
+    return parms.cert;
+}
+
+#endif
+
+void print_CA_list(const char *type, const STACK_OF(X509_NAME) *ca_dn) {
     char *ca_name;
     int n, i;
 
     if(!ca_dn) {
-        s_log(LOG_INFO, "No client CA list");
+        s_log(LOG_INFO, "%s list not found", type);
         return;
     }
     n=sk_X509_NAME_num(ca_dn);
     if(n==0) {
-        s_log(LOG_INFO, "Empty client CA list");
+        s_log(LOG_INFO, "%s list is empty", type);
         return;
     }
     for(i=0; i<n; ++i) {
         ca_name=X509_NAME2text(sk_X509_NAME_value(ca_dn, i));
-        s_log(LOG_INFO, "Client CA: %s", ca_name);
+        s_log(LOG_INFO, "%s: %s", type, ca_name);
         str_free(ca_name);
     }
 }

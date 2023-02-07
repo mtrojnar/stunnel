@@ -29,7 +29,8 @@ class FIPSTest(StunnelTest):
         self.events.skip = [
             "FIPS provider not available",
             "fips mode not supported",
-            r"FIPS PROVIDER.*could not load the shared library"
+            r"FIPS PROVIDER.*could not load the shared library",
+            r"FIPS PROVIDER.*missing config data"
         ]
         self.events.failure = [
             "peer did not return a certificate",
@@ -38,7 +39,7 @@ class FIPSTest(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            "Connection reset by peer",
+            "\[Errno 104\] Connection reset by peer",
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -52,7 +53,6 @@ class FIPSTest(StunnelTest):
     ) -> (pathlib.Path, pathlib.Path):
         """Create a configuration file for a stunnel client."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -74,7 +74,6 @@ class FIPSTest(StunnelTest):
     ) -> pathlib.Path:
         """Create a configuration file for a stunnel server."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no

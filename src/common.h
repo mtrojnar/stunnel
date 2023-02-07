@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -243,6 +243,8 @@ typedef int                 ssize_t;
 
 #include <windows.h>
 #include <windowsx.h>
+
+#include <malloc.h>      /* _alloca */
 
 #include <process.h>     /* _beginthread */
 #include <shlobj.h>      /* SHGetFolderPath */
@@ -543,6 +545,14 @@ STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #endif
 
 #define is_prefix(a, b) (strncasecmp((a), (b), strlen(b))==0)
+
+#ifndef va_copy
+#ifdef __va_copy
+#define va_copy(dst, src) __va_copy((dst), (src))
+#else /* __va_copy */
+#define va_copy(dst, src) memcpy(&(dst), &(src), sizeof(va_list))
+#endif /* __va_copy */
+#endif /* va_copy */
 
 #endif /* defined COMMON_H */
 

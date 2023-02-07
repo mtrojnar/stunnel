@@ -1,5 +1,5 @@
 # bash completion for stunnel                              -*- shell-script -*-
-# by Michal Trojnara 1998-2022
+# by Michal Trojnara 1998-2023
 
 _comp_cmd_stunnel()
 {

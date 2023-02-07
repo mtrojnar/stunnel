@@ -1,4 +1,4 @@
-# vc.mak by Michal Trojnara 1998-2022
+# vc.mak by Michal Trojnara 1998-2023
 # with help of David Gillingham <dgillingham@gmail.com>
 # with help of Pierre Delaage <delaage.pierre@free.fr>
 

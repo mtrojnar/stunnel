@@ -214,25 +214,25 @@ B<OpenSSL>.
 
 =item B<engine> = auto | IDENTYFIKATOR_URZĄDZENIA
 
-wybór sprzętowego urządzenia kryptograficznego
+wybór silnika kryptograficznego
 
-domyślnie: bez wykorzystania urządzeń kryptograficznych
+domyślnie: bez wykorzystania silników kryptograficznych
 
 Sekcja PRZYKŁADY zawiera przykładowe konfiguracje wykorzystujące
-urządzenia kryptograficzne.
+silniki kryptograficzne.
 
 =item B<engineCtrl> = KOMENDA[:PARAMETR]
 
-konfiguracja urządzenia kryptograficznego
+konfiguracja silnika kryptograficznego
 
 =item B<engineDefault> = LISTA_ZADAŃ
 
-lista zadań OpenSSL oddelegowanych do bieżącego urządzenia
+lista zadań OpenSSL oddelegowanych do bieżącego silnika
 
 Parametrem jest lista oddzielonych przecinkami zadań OpenSSL, które mają
-zostać oddelegowane do bieżącego urządzenia kryptograficznego.
+zostać oddelegowane do bieżącego silnika kryptograficznego.
 
-W zależności od konkretnego urządzenia dostępne mogą być następujące zadania:
+W zależności od konkretnego silnika dostępne mogą być następujące zadania:
 ALL, RSA, DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO,
 PKEY_ASN1.
 
@@ -367,9 +367,20 @@ Aby nasłuchiwać na wszystkich adresach IPv6 należy użyć:
 
     accept = :::port
 
+=item B<CAengine> = IDENTYFIKATOR_CA_W_ENGINE
+
+ładuje zaufane certyfikaty Centrum certyfikacji z silnika
+
+Opcja pozwala określić położenie pliku zawierającego certyfikaty używane
+przez opcję I<verifyChain> lub I<verifyPeer>.
+
+Opcja może być użyta wielokrotnie w pojedynczej sekcji.
+
+Aktualnie wspierane silniki: pkcs11, cng.
+
 =item B<CApath> = KATALOG_CA
 
-katalog Centrum Certyfikacji
+ładuje zaufane certyfikaty Centrum certyfikacji z katalogu
 
 Opcja określa katalog, w którym B<stunnel> będzie szukał certyfikatów, jeżeli
 użyta została opcja I<verifyChain> lub I<verifyPeer>.  Pliki z certyfikatami
@@ -384,7 +395,7 @@ względem tego katalogu.
 
 =item B<CAfile> = PLIK_CA
 
-plik Centrum Certyfikacji
+ładuje zaufane certyfikaty Centrum certyfikacji z pliku
 
 Opcja pozwala określić położenie pliku zawierającego certyfikaty używane
 przez opcję I<verifyChain> lub I<verifyPeer>.
@@ -402,7 +413,7 @@ Obsługiwane są pliki w formacie PEM lub P12.
 Certyfikat jest konieczny, aby używać programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
 
-Jeżeli używane jest sprzętowe urządzenie kryptograficzne, to opcja B<cert>
+Jeżeli używany jest silnik kryptograficzny, to opcja B<cert>
 pozwala wybrać identyfikator używanego certyfikatu.
 
 =item B<checkEmail> = EMAIL
@@ -593,11 +604,11 @@ domyślnie: no
 
 =item B<engineId> = NUMER_URZĄDZENIA
 
-wybierz urządzenie dla usługi
+wybierz silnik kryptograficzny dla usługi
 
 =item B<engineNum> = NUMER_URZĄDZENIA
 
-wybierz urządzenie dla usługi
+wybierz silnik kryptograficzny dla usługi
 
 Urządzenia są numerowane od 1 w górę.
 
@@ -667,8 +678,8 @@ komendą:
 
     chmod 600 keyfile
 
-Jeżeli używane jest sprzętowe urządzenie kryptograficzne, to opcja B<key>
-pozwala wybrać identyfikator używanego klucza prywatnego.
+Jeżeli używany jest silnik kryptograficzny, to opcja B<key> pozwala wybrać
+identyfikator używanego klucza prywatnego.
 
 domyślnie: wartość opcji I<cert>
 
@@ -1514,10 +1525,7 @@ Przykładowa konfiguracja serwera SNI:
     CAfile = server2-allowed-clients.pem
 
 Przykładowa konfiguracja umożliwiająca uwierzytelnienie z użyciem klucza prywatnego
-przechowywanego w Windows Certificate Store (tylko Windows).
-W przypadku użycia silnika CAPI, nie należy ustawiać opcji cert, gdyż klucz klienta
-zostanie automatycznie pobrany z Certificate Store na podstawie zaufanych certyfikatów
-CA przedstawionych przez serwer.
+przechowywanego w Windows Certificate Store (tylko Windows):
 
     engine = capi
 
@@ -1527,8 +1535,12 @@ CA przedstawionych przez serwer.
     accept = 127.0.0.1:8080
     connect = example.com:8443
 
+W przypadku użycia silnika CAPI, nie należy ustawiać opcji cert, gdyż klucz klienta
+zostanie automatycznie pobrany z Certificate Store na podstawie zaufanych certyfikatów
+CA przedstawionych przez serwer.
+
 Przykładowa konfiguracja umożliwiająca użycie certyfikatu i klucza prywatnego z
-urządzenia zgodnego z pkcs11:
+urządzenia obsługiwanego przez silnik pkcs11:
 
     engine = pkcs11
     engineCtrl = MODULE_PATH:opensc-pkcs11.so
@@ -1543,7 +1555,7 @@ urządzenia zgodnego z pkcs11:
     key = pkcs11:token=MyToken;object=MyKey
 
 Przykładowa konfiguracja umożliwiająca użycie certyfikatu i klucza prywatnego
-umieszczonego na tokenie SoftHSM
+umieszczonego na tokenie SoftHSM:
 
     engine = pkcs11
     engineCtrl = MODULE_PATH:softhsm2.dll

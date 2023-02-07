@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2022 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -39,37 +39,9 @@
 
 int main(int argc, char *argv[]) {
     static struct WSAData wsa_state;
-    TCHAR *c, stunnel_exe_path[MAX_PATH];
 
     tls_init(); /* initialize thread-local storage */
-
-    /* set current working directory and engine path */
-    GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
-    c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* last backslash */
-    if(c) { /* found */
-        *c=TEXT('\0'); /* truncate the program name */
-        c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* previous backslash */
-        if(c && !_tcscmp(c+1, TEXT("bin")))
-            *c=TEXT('\0'); /* truncate "bin" */
-    }
-#ifndef _WIN32_WCE
-    if(!SetCurrentDirectory(stunnel_exe_path)) {
-        /* log to stderr, as s_log() is not initialized */
-        _ftprintf(stderr, TEXT("Cannot set directory to %s"),
-            stunnel_exe_path);
-        return 1;
-    }
-    /* try to enter the "config" subdirectory, ignore the result */
-    SetCurrentDirectory(TEXT("config"));
-#endif
-    _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s\\engines"),
-        stunnel_exe_path));
-    _tputenv(str_tprintf(TEXT("OPENSSL_MODULES=%s\\ossl-modules"),
-        stunnel_exe_path));
-    _tputenv(str_tprintf(TEXT("OPENSSL_CONF=%s\\config\\openssl.cnf"),
-        stunnel_exe_path));
-    crypto_init(tstr2str(stunnel_exe_path)); /* initialize libcrypto */
-
+    crypto_init(); /* initialize libcrypto */
     if(WSAStartup(MAKEWORD(2, 2), &wsa_state))
         return 1;
     resolver_init();

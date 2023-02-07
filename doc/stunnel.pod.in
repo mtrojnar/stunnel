@@ -362,26 +362,38 @@ To listen on all IPv6 addresses use:
 
     accept = :::PORT
 
-=item B<CApath> = DIRECTORY
+=item B<CAengine> = ENGINE-SPECIFIC_CA_CERTIFICATE_IDENTIFIER
 
-Certificate Authority directory
+load a trusted CA certificate from an engine
 
-This is the directory in which B<stunnel> will look for certificates when using
-the I<verifyChain> or I<verifyPeer> options.  Note that the certificates in
-this directory should be named XXXXXXXX.0 where XXXXXXXX is the hash value of
-the DER encoded subject of the cert.
+The loaded CA certificates will be used with the I<verifyChain> and
+I<verifyPeer> options.
+
+Multiple I<CAengine> options are allowed in a single service section.
+
+Currently supported engines: pkcs11, cng.
+
+=item B<CApath> = CA_DIRECTORY
+
+load trusted CA certificates from a directory
+
+The loaded CA certificates will be used with the I<verifyChain> and
+I<verifyPeer> options.
+Note that the certificates in this directory should be named XXXXXXXX.0 where
+XXXXXXXX is the hash value of the DER encoded subject of the cert.
 
 The hash algorithm has been changed in B<OpenSSL 1.0.0>.  It is required to
-c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>.
+c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>
+or later.
 
 I<CApath> path is relative to the I<chroot> directory if specified.
 
 =item B<CAfile> = CA_FILE
 
-Certificate Authority file
+load trusted CA certificates from a file
 
-This file contains multiple CA certificates, to be used with the I<verifyChain>
-and I<verifyPeer> options.
+The loaded CA certificates will be used with the I<verifyChain> and
+I<verifyPeer> options.
 
 =item B<cert> = CERT_FILE
 
@@ -402,10 +414,11 @@ engine is enabled.
 
 email address of the peer certificate subject
 
-Multiple I<checkEmail> options are allowed in a single service section.
 Certificates are accepted if no subject checks were specified, or the email
 address of the peer certificate matches any of the email addresses specified
 with I<checkEmail>.
+
+Multiple I<checkEmail> options are allowed in a single service section.
 
 This option requires OpenSSL 1.0.2 or later.
 
@@ -413,9 +426,10 @@ This option requires OpenSSL 1.0.2 or later.
 
 host of the peer certificate subject
 
-Multiple I<checkHost> options are allowed in a single service section.
 Certificates are accepted if no subject checks were specified, or the host name
 of the peer certificate matches any of the hosts specified with I<checkHost>.
+
+Multiple I<checkHost> options are allowed in a single service section.
 
 This option requires OpenSSL 1.0.2 or later.
 
@@ -423,10 +437,11 @@ This option requires OpenSSL 1.0.2 or later.
 
 IP address of the peer certificate subject
 
-Multiple I<checkIP> options are allowed in a single service section.
 Certificates are accepted if no subject checks were specified, or the IP
 address of the peer certificate matches any of the IP addresses specified with
 I<checkIP>.
+
+Multiple I<checkIP> options are allowed in a single service section.
 
 This option requires OpenSSL 1.0.2 or later.
 
@@ -477,7 +492,6 @@ connect to a remote address
 If no host is specified, the host defaults to localhost.
 
 Multiple I<connect> options are allowed in a single service section.
-
 If host resolves to multiple addresses and/or if multiple I<connect>
 options are specified, then the remote address is chosen using a
 round-robin algorithm.

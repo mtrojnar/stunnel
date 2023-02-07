@@ -44,7 +44,7 @@ class ResumePSK(StunnelTest):
             "unsupported protocol",
             #"TLS accepted: previous session reused",
             "Redirecting connection",
-            "Connection reset by peer",
+            "\[Errno 104\] Connection reset by peer",
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -58,7 +58,6 @@ class ResumePSK(StunnelTest):
     ) -> (pathlib.Path, pathlib.Path):
         """Create a configuration file for a stunnel client."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -79,7 +78,6 @@ class ResumePSK(StunnelTest):
     ) -> pathlib.Path:
         """Create a configuration file for a stunnel server."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -122,7 +120,7 @@ class ResumeCacheTLSv12(StunnelTest):
             "unsupported protocol",
             #"TLS accepted: previous session reused",
             "Redirecting connection",
-            "Connection reset by peer",
+            "\[Errno 104\] Connection reset by peer",
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -136,7 +134,6 @@ class ResumeCacheTLSv12(StunnelTest):
     ) -> (pathlib.Path, pathlib.Path):
         """Create a configuration file for a stunnel client."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -157,7 +154,6 @@ class ResumeCacheTLSv12(StunnelTest):
     ) -> pathlib.Path:
         """Create a configuration file for a stunnel server."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -199,7 +195,7 @@ class SessionResume(StunnelTest):
             "unsupported protocol",
             #"TLS accepted: previous session reused",
             "Redirecting connection",
-            "Connection reset by peer",
+            "\[Errno 104\] Connection reset by peer",
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -213,7 +209,6 @@ class SessionResume(StunnelTest):
     ) -> (pathlib.Path, pathlib.Path):
         """Create a configuration file for a stunnel client."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -234,7 +229,6 @@ class SessionResume(StunnelTest):
     ) -> pathlib.Path:
         """Create a configuration file for a stunnel server."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -271,7 +265,7 @@ class NoSessionResume(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            "Connection reset by peer",
+            "\[Errno 104\] Connection reset by peer",
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -285,7 +279,6 @@ class NoSessionResume(StunnelTest):
     ) -> (pathlib.Path, pathlib.Path):
         """Create a configuration file for a stunnel client."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no
@@ -306,7 +299,6 @@ class NoSessionResume(StunnelTest):
     ) -> pathlib.Path:
         """Create a configuration file for a stunnel server."""
         contents = f"""
-    pid = {cfg.tempd}/stunnel_{service}.pid
     foreground = yes
     debug = debug
     syslog = no

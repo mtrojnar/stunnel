@@ -260,27 +260,27 @@
 <dt id="engine-auto-IDENTYFIKATOR_URZDZENIA"><b>engine</b> = auto | IDENTYFIKATOR_URZ&#x104;DZENIA</dt>
 <dd>
 
-<p>wyb&oacute;r sprz&#x119;towego urz&#x105;dzenia kryptograficznego</p>
+<p>wyb&oacute;r silnika kryptograficznego</p>
 
-<p>domy&#x15B;lnie: bez wykorzystania urz&#x105;dze&#x144; kryptograficznych</p>
+<p>domy&#x15B;lnie: bez wykorzystania silnik&oacute;w kryptograficznych</p>
 
-<p>Sekcja PRZYK&#x141;ADY zawiera przykładowe konfiguracje wykorzystuj&#x105;ce urz&#x105;dzenia kryptograficzne.</p>
+<p>Sekcja PRZYK&#x141;ADY zawiera przykładowe konfiguracje wykorzystuj&#x105;ce silniki kryptograficzne.</p>
 
 </dd>
 <dt id="engineCtrl-KOMENDA-:PARAMETR"><b>engineCtrl</b> = KOMENDA[:PARAMETR]</dt>
 <dd>
 
-<p>konfiguracja urz&#x105;dzenia kryptograficznego</p>
+<p>konfiguracja silnika kryptograficznego</p>
 
 </dd>
 <dt id="engineDefault-LISTA_ZADA"><b>engineDefault</b> = LISTA_ZADA&#x143;</dt>
 <dd>
 
-<p>lista zada&#x144; OpenSSL oddelegowanych do bie&#x17C;&#x105;cego urz&#x105;dzenia</p>
+<p>lista zada&#x144; OpenSSL oddelegowanych do bie&#x17C;&#x105;cego silnika</p>
 
-<p>Parametrem jest lista oddzielonych przecinkami zada&#x144; OpenSSL, kt&oacute;re maj&#x105; zosta&#x107; oddelegowane do bie&#x17C;&#x105;cego urz&#x105;dzenia kryptograficznego.</p>
+<p>Parametrem jest lista oddzielonych przecinkami zada&#x144; OpenSSL, kt&oacute;re maj&#x105; zosta&#x107; oddelegowane do bie&#x17C;&#x105;cego silnika kryptograficznego.</p>
 
-<p>W zale&#x17C;no&#x15B;ci od konkretnego urz&#x105;dzenia dost&#x119;pne mog&#x105; by&#x107; nast&#x119;puj&#x105;ce zadania: ALL, RSA, DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.</p>
+<p>W zale&#x17C;no&#x15B;ci od konkretnego silnika dost&#x119;pne mog&#x105; by&#x107; nast&#x119;puj&#x105;ce zadania: ALL, RSA, DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.</p>
 
 </dd>
 <dt id="fips-yes-no"><b>fips</b> = yes | no</dt>
@@ -424,13 +424,25 @@
 
 <p>Aby nasłuchiwa&#x107; na wszystkich adresach IPv6 nale&#x17C;y u&#x17C;y&#x107;:</p>
 
-<pre><code>    accept = :::port</code></pre>
+<pre><code>accept = :::port</code></pre>
+
+</dd>
+<dt id="CAengine-IDENTYFIKATOR_CA_W_ENGINE"><b>CAengine</b> = IDENTYFIKATOR_CA_W_ENGINE</dt>
+<dd>
+
+<p>ładuje zaufane certyfikaty Centrum certyfikacji z silnika</p>
+
+<p>Opcja pozwala okre&#x15B;li&#x107; poło&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez opcj&#x119; <i>verifyChain</i> lub <i>verifyPeer</i>.</p>
+
+<p>Opcja mo&#x17C;e by&#x107; u&#x17C;yta wielokrotnie w pojedynczej sekcji.</p>
+
+<p>Aktualnie wspierane silniki: pkcs11, cng.</p>
 
 </dd>
 <dt id="CApath-KATALOG_CA"><b>CApath</b> = KATALOG_CA</dt>
 <dd>
 
-<p>katalog Centrum Certyfikacji</p>
+<p>ładuje zaufane certyfikaty Centrum certyfikacji z katalogu</p>
 
 <p>Opcja okre&#x15B;la katalog, w kt&oacute;rym <b>stunnel</b> b&#x119;dzie szukał certyfikat&oacute;w, je&#x17C;eli u&#x17C;yta została opcja <i>verifyChain</i> lub <i>verifyPeer</i>. Pliki z certyfikatami musz&#x105; posiada&#x107; specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skr&oacute;tem kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu.</p>
 
@@ -442,7 +454,7 @@
 <dt id="CAfile-PLIK_CA"><b>CAfile</b> = PLIK_CA</dt>
 <dd>
 
-<p>plik Centrum Certyfikacji</p>
+<p>ładuje zaufane certyfikaty Centrum certyfikacji z pliku</p>
 
 <p>Opcja pozwala okre&#x15B;li&#x107; poło&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez opcj&#x119; <i>verifyChain</i> lub <i>verifyPeer</i>.</p>
 
@@ -456,7 +468,7 @@
 
 <p>Certyfikat jest konieczny, aby u&#x17C;ywa&#x107; programu w trybie serwera. W trybie klienta certyfikat jest opcjonalny.</p>
 
-<p>Je&#x17C;eli u&#x17C;ywane jest sprz&#x119;towe urz&#x105;dzenie kryptograficzne, to opcja <b>cert</b> pozwala wybra&#x107; identyfikator u&#x17C;ywanego certyfikatu.</p>
+<p>Je&#x17C;eli u&#x17C;ywany jest silnik kryptograficzny, to opcja <b>cert</b> pozwala wybra&#x107; identyfikator u&#x17C;ywanego certyfikatu.</p>
 
 </dd>
 <dt id="checkEmail-EMAIL"><b>checkEmail</b> = EMAIL</dt>
@@ -572,13 +584,13 @@
 
 <p>List&#x119; dost&#x119;pnych krzywych mo&#x17C;na uzyska&#x107; poleceniem:</p>
 
-<pre><code>    openssl ecparam -list_curves</code></pre>
+<pre><code>openssl ecparam -list_curves</code></pre>
 
 <p>domy&#x15B;lnie:</p>
 
-<pre><code>    X25519:P-256:X448:P-521:P-384 (pocz&#x105;wszy od OpenSSL 1.1.1)
+<pre><code>X25519:P-256:X448:P-521:P-384 (pocz&#x105;wszy od OpenSSL 1.1.1)
 
-    prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
+prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
 
 </dd>
 <dt id="logId-TYP"><b>logId</b> = TYP</dt>
@@ -646,13 +658,13 @@
 <dt id="engineId-NUMER_URZDZENIA"><b>engineId</b> = NUMER_URZ&#x104;DZENIA</dt>
 <dd>
 
-<p>wybierz urz&#x105;dzenie dla usługi</p>
+<p>wybierz silnik kryptograficzny dla usługi</p>
 
 </dd>
 <dt id="engineNum-NUMER_URZDZENIA"><b>engineNum</b> = NUMER_URZ&#x104;DZENIA</dt>
 <dd>
 
-<p>wybierz urz&#x105;dzenie dla usługi</p>
+<p>wybierz silnik kryptograficzny dla usługi</p>
 
 <p>Urz&#x105;dzenia s&#x105; numerowane od 1 w g&oacute;r&#x119;.</p>
 
@@ -714,13 +726,13 @@
 
 <p>dla opcji globalnych:</p>
 
-<pre><code>        00-global.conf</code></pre>
+<pre><code>00-global.conf</code></pre>
 
 <p>dla lokalnych opcji usług:</p>
 
-<pre><code>        01-service.conf
+<pre><code>01-service.conf
 
-        02-service.conf</code></pre>
+02-service.conf</code></pre>
 
 </dd>
 <dt id="key-PLIK_KLUCZA"><b>key</b> = PLIK_KLUCZA</dt>
@@ -730,9 +742,9 @@
 
 <p>Klucz prywatny jest potrzebny do uwierzytelnienia wła&#x15B;ciciela certyfikatu. Poniewa&#x17C; powinien on by&#x107; zachowany w tajemnicy, prawa do jego odczytu powinien mie&#x107; wył&#x105;cznie wła&#x15B;ciciel pliku. W systemie Unix mo&#x17C;na to osi&#x105;gn&#x105;&#x107; komend&#x105;:</p>
 
-<pre><code>    chmod 600 keyfile</code></pre>
+<pre><code>chmod 600 keyfile</code></pre>
 
-<p>Je&#x17C;eli u&#x17C;ywane jest sprz&#x119;towe urz&#x105;dzenie kryptograficzne, to opcja <b>key</b> pozwala wybra&#x107; identyfikator u&#x17C;ywanego klucza prywatnego.</p>
+<p>Je&#x17C;eli u&#x17C;ywany jest silnik kryptograficzny, to opcja <b>key</b> pozwala wybra&#x107; identyfikator u&#x17C;ywanego klucza prywatnego.</p>
 
 <p>domy&#x15B;lnie: warto&#x15B;&#x107; opcji <i>cert</i></p>
 
@@ -796,12 +808,12 @@
 
 <p>Na przykład, dla zachowania kompatybilno&#x15B;ci z bł&#x119;dami implementacji TLS w programie Eudora, mo&#x17C;na u&#x17C;y&#x107; opcji:</p>
 
-<pre><code>    options = DONT_INSERT_EMPTY_FRAGMENTS</code></pre>
+<pre><code>options = DONT_INSERT_EMPTY_FRAGMENTS</code></pre>
 
 <p>domy&#x15B;lnie:</p>
 
-<pre><code>    options = NO_SSLv2
-    options = NO_SSLv3</code></pre>
+<pre><code>options = NO_SSLv2
+options = NO_SSLv3</code></pre>
 
 <p>Pocz&#x105;wszy od <b>OpenSSL 1.1.0</b>, zamiast wył&#x105;cza&#x107; okre&#x15B;lone wersje protokoł&oacute;w TLS u&#x17C;yj opcji <i>sslVersionMax</i> lub <i>sslVersionMin</i>.</p>
 
@@ -977,7 +989,7 @@
 
 <p>Ka&#x17C;da linia pliku jest w nast&#x119;puj&#x105;cym formacie:</p>
 
-<pre><code>    TO&#x17B;SAMO&#x15A;&#x106;:KLUCZ</code></pre>
+<pre><code>TO&#x17B;SAMO&#x15A;&#x106;:KLUCZ</code></pre>
 
 <p>Szesnastkowe klucze s&#x105; automatycznie konwertowane do postaci binarnej. Klucz musi by&#x107; mie&#x107; przynajmniej 16 bajt&oacute;w, co w przypadku kluczy szesnastkowych przekłada si&#x119; na przynajmniej 32 znaki. Nale&#x17C;y ograniczy&#x107; dost&#x119;p do czytania lub pisania do tego pliku.</p>
 
@@ -1183,19 +1195,19 @@
 
 <p>Przykłady:</p>
 
-<pre><code>    socket = l:SO_LINGER=1:60
-        ustaw jednominutowe przeterminowanie
-        przy zamykaniu lokalnego gniazda
-    socket = r:SO_OOBINLINE=yes
-        umie&#x15B;&#x107; dane pozapasmowe (out-of-band)
-        bezpo&#x15B;rednio w strumieniu danych
-        wej&#x15B;ciowych dla zdalnych gniazd
-    socket = a:SO_REUSEADDR=no
-        zablokuj ponowne u&#x17C;ywanie portu
-        (domy&#x15B;lnie wł&#x105;czone)
-    socket = a:SO_BINDTODEVICE=lo
-        przyjmuj poł&#x105;czenia wył&#x105;cznie na
-        interfejsie zwrotnym (ang. loopback)</code></pre>
+<pre><code>socket = l:SO_LINGER=1:60
+    ustaw jednominutowe przeterminowanie
+    przy zamykaniu lokalnego gniazda
+socket = r:SO_OOBINLINE=yes
+    umie&#x15B;&#x107; dane pozapasmowe (out-of-band)
+    bezpo&#x15B;rednio w strumieniu danych
+    wej&#x15B;ciowych dla zdalnych gniazd
+socket = a:SO_REUSEADDR=no
+    zablokuj ponowne u&#x17C;ywanie portu
+    (domy&#x15B;lnie wł&#x105;czone)
+socket = a:SO_BINDTODEVICE=lo
+    przyjmuj poł&#x105;czenia wył&#x105;cznie na
+    interfejsie zwrotnym (ang. loopback)</code></pre>
 
 </dd>
 <dt id="sslVersion-WERSJA_SSL"><b>sslVersion</b> = WERSJA_SSL</dt>
@@ -1211,12 +1223,12 @@
 
 <p>Pocz&#x105;wszy od <b>OpenSSL 1.1.0</b>, ustawienie</p>
 
-<pre><code>    sslVersion = WERSJA_SSL</code></pre>
+<pre><code>sslVersion = WERSJA_SSL</code></pre>
 
 <p>jest r&oacute;wnowa&#x17C;ne opcjom</p>
 
-<pre><code>    sslVersionMax = WERSJA_SSL
-    sslVersionMin = WERSJA_SSL</code></pre>
+<pre><code>sslVersionMax = WERSJA_SSL
+sslVersionMin = WERSJA_SSL</code></pre>
 
 </dd>
 <dt id="sslVersionMax-WERSJA_SSL"><b>sslVersionMax</b> = WERSJA_SSL</dt>
@@ -1344,13 +1356,13 @@
 
 <p>Konfiguracja wymaga nast&#x119;puj&#x105;cych ustawie&#x144; iptables oraz routingu (na przykład w pliku /etc/rc.local lub analogicznym):</p>
 
-<pre><code>    iptables -t mangle -N DIVERT
-    iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
-    iptables -t mangle -A DIVERT -j MARK --set-mark 1
-    iptables -t mangle -A DIVERT -j ACCEPT
-    ip rule add fwmark 1 lookup 100
-    ip route add local 0.0.0.0/0 dev lo table 100
-    echo 0 &gt;/proc/sys/net/ipv4/conf/lo/rp_filter</code></pre>
+<pre><code>iptables -t mangle -N DIVERT
+iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
+iptables -t mangle -A DIVERT -j MARK --set-mark 1
+iptables -t mangle -A DIVERT -j ACCEPT
+ip rule add fwmark 1 lookup 100
+ip route add local 0.0.0.0/0 dev lo table 100
+echo 0 &gt;/proc/sys/net/ipv4/conf/lo/rp_filter</code></pre>
 
 <p>Konfiguracja ta wymaga, aby <b>stunnel</b> był wykonywany jako root i bez opcji <i>setuid</i>.</p>
 
@@ -1385,24 +1397,24 @@
 
 <p>Przykładowa konfiguracja przezroczystego adresu docelowego:</p>
 
-<pre><code>    [transparent]
-    client = yes
-    accept = &lt;port_stunnela&gt;
-    transparent = destination</code></pre>
+<pre><code>[transparent]
+client = yes
+accept = &lt;port_stunnela&gt;
+transparent = destination</code></pre>
 
 <p>Konfiguracja wymaga ustawie&#x144; iptables, na przykład w pliku /etc/rc.local lub analogicznym.</p>
 
 <p>W przypadku docelowej usługi umieszczonej na tej samej maszynie:</p>
 
-<pre><code>    /sbin/iptables -t nat -I OUTPUT -p tcp --dport &lt;port_przekierowany&gt; \
-        -m ! --uid-owner &lt;identyfikator_u&#x17C;ytkownika_stunnela&gt; \
-        -j DNAT --to-destination &lt;lokalne_ip&gt;:&lt;lokalny_port&gt;</code></pre>
+<pre><code>/sbin/iptables -t nat -I OUTPUT -p tcp --dport &lt;port_przekierowany&gt; \
+    -m ! --uid-owner &lt;identyfikator_u&#x17C;ytkownika_stunnela&gt; \
+    -j DNAT --to-destination &lt;lokalne_ip&gt;:&lt;lokalny_port&gt;</code></pre>
 
 <p>W przypadku docelowej usługi umieszczonej na zdalnej maszynie:</p>
 
-<pre><code>    /sbin/iptables -I INPUT -i eth0 -p tcp --dport &lt;port_stunnela&gt; -j ACCEPT
-    /sbin/iptables -t nat -I PREROUTING -p tcp --dport &lt;port_przekierowany&gt; \
-        -i eth0 -j DNAT --to-destination &lt;lokalne_ip&gt;:&lt;port_stunnela&gt;</code></pre>
+<pre><code>/sbin/iptables -I INPUT -i eth0 -p tcp --dport &lt;port_stunnela&gt; -j ACCEPT
+/sbin/iptables -t nat -I PREROUTING -p tcp --dport &lt;port_przekierowany&gt; \
+    -i eth0 -j DNAT --to-destination &lt;lokalne_ip&gt;:&lt;port_stunnela&gt;</code></pre>
 
 <p>Przezroczysty adres docelowy jest aktualnie wspierany wył&#x105;cznie w systemie Linux.</p>
 
@@ -1573,116 +1585,118 @@
 
 <p>Szyfrowanie poł&#x105;cze&#x144; do lokalnego serwera <i>imapd</i> mo&#x17C;na u&#x17C;y&#x107;:</p>
 
-<pre><code>    [imapd]
-    accept = 993
-    exec = /usr/sbin/imapd
-    execArgs = imapd</code></pre>
+<pre><code>[imapd]
+accept = 993
+exec = /usr/sbin/imapd
+execArgs = imapd</code></pre>
 
 <p>albo w trybie zdalnym:</p>
 
-<pre><code>    [imapd]
-    accept = 993
-    connect = 143</code></pre>
+<pre><code>[imapd]
+accept = 993
+connect = 143</code></pre>
 
 <p>Aby umo&#x17C;liwi&#x107; lokalnemu klientowi poczty elektronicznej korzystanie z serwera <i>imapd</i> przez TLS nale&#x17C;y skonfigurowa&#x107; pobieranie poczty z adresu localhost i portu 119, oraz u&#x17C;y&#x107; nast&#x119;puj&#x105;cej konfiguracji:</p>
 
-<pre><code>    [imap]
-    client = yes
-    accept = 143
-    connect = serwer:993</code></pre>
+<pre><code>[imap]
+client = yes
+accept = 143
+connect = serwer:993</code></pre>
 
 <p>W poł&#x105;czeniu z programem <i>pppd</i> <b>stunnel</b> pozwala zestawi&#x107; prosty VPN. Po stronie serwera nasłuchuj&#x105;cego na porcie 2020 jego konfiguracja mo&#x17C;e wygl&#x105;da&#x107; nast&#x119;puj&#x105;co:</p>
 
-<pre><code>    [vpn]
-    accept = 2020
-    exec = /usr/sbin/pppd
-    execArgs = pppd local
-    pty = yes</code></pre>
+<pre><code>[vpn]
+accept = 2020
+exec = /usr/sbin/pppd
+execArgs = pppd local
+pty = yes</code></pre>
 
 <p>Poni&#x17C;szy plik konfiguracyjny mo&#x17C;e by&#x107; wykorzystany do uruchomienia programu <b>stunnel</b> w trybie <i>inetd</i>. Warto zauwa&#x17C;y&#x107;, &#x17C;e w pliku konfiguracyjnym nie ma sekcji <i>[nazwa_usługi]</i>.</p>
 
-<pre><code>    exec = /usr/sbin/imapd
-    execArgs = imapd</code></pre>
+<pre><code>exec = /usr/sbin/imapd
+execArgs = imapd</code></pre>
 
 <p>Aby skonfigurowa&#x107; VPN mo&#x17C;na u&#x17C;y&#x107; nast&#x119;puj&#x105;cej konfiguracji klienta:</p>
 
-<pre><code>    [socks_client]
-    client = yes
-    accept = 127.0.0.1:1080
-    connect = vpn_server:9080
-    verifyPeer = yes
-    CAfile = stunnel.pem</code></pre>
+<pre><code>[socks_client]
+client = yes
+accept = 127.0.0.1:1080
+connect = vpn_server:9080
+verifyPeer = yes
+CAfile = stunnel.pem</code></pre>
 
 <p>Odpowiadaj&#x105;ca jej konfiguracja serwera vpn_server:</p>
 
-<pre><code>    [socks_server]
-    protocol = socks
-    accept = 9080
-    cert = stunnel.pem
-    key = stunnel.key</code></pre>
+<pre><code>[socks_server]
+protocol = socks
+accept = 9080
+cert = stunnel.pem
+key = stunnel.key</code></pre>
 
 <p>Do przetestowania konfiguracji mo&#x17C;na wyda&#x107; na maszynie klienckiej komend&#x119;:</p>
 
-<pre><code>    curl --socks4a localhost http://www.example.com/</code></pre>
+<pre><code>curl --socks4a localhost http://www.example.com/</code></pre>
 
 <p>Przykładowa konfiguracja serwera SNI:</p>
 
-<pre><code>    [virtual]
-    ; usługa nadrz&#x119;dna
-    accept = 443
-    cert =  default.pem
-    connect = default.internal.mydomain.com:8080
+<pre><code>[virtual]
+; usługa nadrz&#x119;dna
+accept = 443
+cert =  default.pem
+connect = default.internal.mydomain.com:8080
 
-    [sni1]
-    ; usługa podrz&#x119;dna 1
-    sni = virtual:server1.mydomain.com
-    cert = server1.pem
-    connect = server1.internal.mydomain.com:8081
+[sni1]
+; usługa podrz&#x119;dna 1
+sni = virtual:server1.mydomain.com
+cert = server1.pem
+connect = server1.internal.mydomain.com:8081
 
-    [sni2]
-    ; usługa podrz&#x119;dna 2
-    sni = virtual:server2.mydomain.com
-    cert = server2.pem
-    connect = server2.internal.mydomain.com:8082
-    verifyPeer = yes
-    CAfile = server2-allowed-clients.pem</code></pre>
+[sni2]
+; usługa podrz&#x119;dna 2
+sni = virtual:server2.mydomain.com
+cert = server2.pem
+connect = server2.internal.mydomain.com:8082
+verifyPeer = yes
+CAfile = server2-allowed-clients.pem</code></pre>
 
-<p>Przykładowa konfiguracja umo&#x17C;liwiaj&#x105;ca uwierzytelnienie z u&#x17C;yciem klucza prywatnego przechowywanego w Windows Certificate Store (tylko Windows). W przypadku u&#x17C;ycia silnika CAPI, nie nale&#x17C;y ustawia&#x107; opcji cert, gdy&#x17C; klucz klienta zostanie automatycznie pobrany z Certificate Store na podstawie zaufanych certyfikat&oacute;w CA przedstawionych przez serwer.</p>
+<p>Przykładowa konfiguracja umo&#x17C;liwiaj&#x105;ca uwierzytelnienie z u&#x17C;yciem klucza prywatnego przechowywanego w Windows Certificate Store (tylko Windows):</p>
 
-<pre><code>    engine = capi
+<pre><code>engine = capi
 
-    [service]
-    engineId = capi
-    client = yes
-    accept = 127.0.0.1:8080
-    connect = example.com:8443</code></pre>
+[service]
+engineId = capi
+client = yes
+accept = 127.0.0.1:8080
+connect = example.com:8443</code></pre>
 
-<p>Przykładowa konfiguracja umo&#x17C;liwiaj&#x105;ca u&#x17C;ycie certyfikatu i klucza prywatnego z urz&#x105;dzenia zgodnego z pkcs11:</p>
+<p>W przypadku u&#x17C;ycia silnika CAPI, nie nale&#x17C;y ustawia&#x107; opcji cert, gdy&#x17C; klucz klienta zostanie automatycznie pobrany z Certificate Store na podstawie zaufanych certyfikat&oacute;w CA przedstawionych przez serwer.</p>
 
-<pre><code>    engine = pkcs11
-    engineCtrl = MODULE_PATH:opensc-pkcs11.so
-    engineCtrl = PIN:123456
+<p>Przykładowa konfiguracja umo&#x17C;liwiaj&#x105;ca u&#x17C;ycie certyfikatu i klucza prywatnego z urz&#x105;dzenia obsługiwanego przez silnik pkcs11:</p>
 
-    [service]
-    engineId = pkcs11
-    client = yes
-    accept = 127.0.0.1:8080
-    connect = example.com:843
-    cert = pkcs11:token=MyToken;object=MyCert
-    key = pkcs11:token=MyToken;object=MyKey</code></pre>
+<pre><code>engine = pkcs11
+engineCtrl = MODULE_PATH:opensc-pkcs11.so
+engineCtrl = PIN:123456
 
-<p>Przykładowa konfiguracja umo&#x17C;liwiaj&#x105;ca u&#x17C;ycie certyfikatu i klucza prywatnego umieszczonego na tokenie SoftHSM</p>
+[service]
+engineId = pkcs11
+client = yes
+accept = 127.0.0.1:8080
+connect = example.com:843
+cert = pkcs11:token=MyToken;object=MyCert
+key = pkcs11:token=MyToken;object=MyKey</code></pre>
 
-<pre><code>    engine = pkcs11
-    engineCtrl = MODULE_PATH:softhsm2.dll
-    engineCtrl = PIN:12345
+<p>Przykładowa konfiguracja umo&#x17C;liwiaj&#x105;ca u&#x17C;ycie certyfikatu i klucza prywatnego umieszczonego na tokenie SoftHSM:</p>
 
-    [service]
-    engineId = pkcs11
-    client = yes
-    accept = 127.0.0.1:8080
-    connect = example.com:843
-    cert = pkcs11:token=MyToken;object=KeyCert</code></pre>
+<pre><code>engine = pkcs11
+engineCtrl = MODULE_PATH:softhsm2.dll
+engineCtrl = PIN:12345
+
+[service]
+engineId = pkcs11
+client = yes
+accept = 127.0.0.1:8080
+connect = example.com:843
+cert = pkcs11:token=MyToken;object=KeyCert</code></pre>
 
 <a href="#_podtop_"><h1 id="NOTKI">NOTKI</h1></a>
 
@@ -1696,8 +1710,8 @@
 
 <p>Przykładowa linia pliku /etc/inetd.conf mo&#x17C;e wygl&#x105;da&#x107; tak:</p>
 
-<pre><code>    imaps stream tcp nowait root @bindir@/stunnel
-        stunnel @sysconfdir@/stunnel/imaps.conf</code></pre>
+<pre><code>imaps stream tcp nowait root @bindir@/stunnel
+    stunnel @sysconfdir@/stunnel/imaps.conf</code></pre>
 
 <p>Poniewa&#x17C; w takich przypadkach poł&#x105;czenie na zdefiniowanym porcie (tutaj <i>imaps</i>) nawi&#x105;zuje osobny program (tutaj <i>inetd</i>), <b>stunnel</b> nie mo&#x17C;e u&#x17C;ywa&#x107; opcji <i>accept</i>. W pliku konfiguracyjnym nie mo&#x17C;e by&#x107; r&oacute;wnie&#x17C; zdefiniowana &#x17C;adna usługa (<i>[nazwa_usługi]</i>), poniewa&#x17C; konfiguracja taka pozwala na nawi&#x105;zanie tylko jednego poł&#x105;czenia. Wszystkie <i>OPCJE US&#x141;UG</i> powinny by&#x107; umieszczone razem z opcjami globalnymi. Przykład takiej konfiguracji znajduje si&#x119; w sekcji <i>PRZYK&#x141;ADY</i>.</p>
 
@@ -1707,12 +1721,12 @@
 
 <p>Plik <i>.pem</i> powinien zawiera&#x107; klucz prywatny oraz podpisany certyfikat (nie &#x17C;&#x105;danie certyfikatu). Otrzymany plik powinien mie&#x107; nast&#x119;puj&#x105;c&#x105; posta&#x107;:</p>
 
-<pre><code>    -----BEGIN RSA PRIVATE KEY-----
-    [zakodowany klucz]
-    -----END RSA PRIVATE KEY-----
-    -----BEGIN CERTIFICATE-----
-    [zakodowany certyfikat]
-    -----END CERTIFICATE-----</code></pre>
+<pre><code>-----BEGIN RSA PRIVATE KEY-----
+[zakodowany klucz]
+-----END RSA PRIVATE KEY-----
+-----BEGIN CERTIFICATE-----
+[zakodowany certyfikat]
+-----END CERTIFICATE-----</code></pre>
 
 <h2 id="LOSOWO">LOSOWO&#x15A;&#x106;</h2>
 
@@ -1758,7 +1772,7 @@
 
 <p>Alternatywnie parametry DH mo&#x17C;na umie&#x15B;ci&#x107; w pliku razem z certyfikatem, co wył&#x105;cza generowanie parametr&oacute;w tymczasowych:</p>
 
-<pre><code>    openssl dhparam 2048 &gt;&gt; stunnel.pem</code></pre>
+<pre><code>openssl dhparam 2048 &gt;&gt; stunnel.pem</code></pre>
 
 <a href="#_podtop_"><h1 id="PLIKI">PLIKI</h1></a>
 
