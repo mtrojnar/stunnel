@@ -2,7 +2,7 @@
 
 import logging
 import pathlib
-from plugin_collection import Plugin
+from plugin_collection import Plugin, ERR_CONN_RESET
 from maketest import (
     Config,
     StunnelAcceptConnect
@@ -37,7 +37,7 @@ class RedirectProxyWrongPeerCert(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             #"Redirecting connection",
-            "\[Errno 104\] Connection reset by peer",
+            ERR_CONN_RESET,
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -90,7 +90,7 @@ class RedirectProxyNoPeerCert(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             #"Redirecting connection",
-            "\[Errno 104\] Connection reset by peer",
+            ERR_CONN_RESET,
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -140,7 +140,7 @@ class NoRedirectProxyCorrectPeerCert(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            "\[Errno 104\] Connection reset by peer",
+            ERR_CONN_RESET,
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",

@@ -266,15 +266,19 @@ NOEXPORT void terminate_threads() {
     threads=0;
     for(c=thread_head; c; c=c->thread_next) /* count client threads */
         threads++;
-    thread_list=str_alloc((threads+1)*sizeof(THREAD_ID));
+    thread_list=str_alloc((threads+2)*sizeof(THREAD_ID));
     i=0;
     for(c=thread_head; c; c=c->thread_next) { /* copy client threads */
         thread_list[i++]=c->thread_id;
         s_log(LOG_DEBUG, "Terminating a thread for [%s]", c->opt->servname);
     }
-    if(cron_thread_id) { /* append cron_thread_id if used */
-        thread_list[threads++]=cron_thread_id;
-        s_log(LOG_DEBUG, "Terminating the cron thread");
+    if(per_second_thread_id) { /* append per_second_thread_id if used */
+        thread_list[threads++]=per_second_thread_id;
+        s_log(LOG_DEBUG, "Terminating the per-second thread");
+    }
+    if(per_day_thread_id) { /* append per_day_thread_id if used */
+        thread_list[threads++]=per_day_thread_id;
+        s_log(LOG_DEBUG, "Terminating the per-day thread");
     }
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
 

@@ -37,27 +37,33 @@
 
 #include "prototypes.h"
 
+/* run the per-day job every 24 hours */
+#define PER_DAY_PERIOD (24*60*60)
+
 #ifdef USE_OS_THREADS
-THREAD_ID cron_thread_id=(THREAD_ID)0;
+THREAD_ID per_second_thread_id=(THREAD_ID)0, per_day_thread_id=(THREAD_ID)0;
 #endif
 
 #ifdef USE_PTHREAD
-NOEXPORT void *cron_thread(void *arg);
+NOEXPORT void *per_second_thread(void *arg);
+NOEXPORT void *per_day_thread(void *arg);
 #endif
 
 #ifdef USE_WIN32
-NOEXPORT unsigned __stdcall cron_thread(void *arg);
+NOEXPORT unsigned __stdcall per_second_thread(void *arg);
+NOEXPORT unsigned __stdcall per_day_thread(void *arg);
 #endif
 
 #ifdef USE_OS_THREADS
-NOEXPORT void cron_worker(void);
+NOEXPORT void per_second_worker(void);
+NOEXPORT void per_day_worker(void);
 #ifndef OPENSSL_NO_DH
 #if OPENSSL_VERSION_NUMBER>=0x0090800fL
-NOEXPORT void cron_dh_param(BN_GENCB *);
-NOEXPORT BN_GENCB *cron_bn_gencb(void);
+NOEXPORT void per_day_dh_param(BN_GENCB *);
+NOEXPORT BN_GENCB *per_day_bn_gencb(void);
 NOEXPORT int bn_callback(int, int, BN_GENCB *);
 #else /* OpenSSL older than 0.9.8 */
-NOEXPORT void cron_dh_param(void);
+NOEXPORT void per_day_dh_param(void);
 NOEXPORT void dh_callback(int, int, void *);
 #endif /* OpenSSL 0.9.8 or later */
 #endif /* OPENSSL_NO_DH */
@@ -75,7 +81,9 @@ int cron_init() {
     pthread_sigmask(SIG_SETMASK, &new_set, &old_set); /* block signals */
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
-    if(pthread_create(&cron_thread_id, NULL, cron_thread, NULL))
+    if(pthread_create(&per_second_thread_id, NULL, per_second_thread, NULL))
+        ioerror("pthread_create");
+    if(pthread_create(&per_day_thread_id, NULL, per_day_thread, NULL))
         ioerror("pthread_create");
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
@@ -84,19 +92,26 @@ int cron_init() {
     return 0;
 }
 
-NOEXPORT void *cron_thread(void *arg) {
+NOEXPORT void *per_second_thread(void *arg) {
+    (void)arg; /* squash the unused parameter warning */
+    tls_alloc(NULL, NULL, "per-second");
+    per_second_worker();
+    return NULL; /* it should never be executed */
+}
+
+NOEXPORT void *per_day_thread(void *arg) {
 #ifdef SCHED_BATCH
     struct sched_param param;
 #endif
 
     (void)arg; /* squash the unused parameter warning */
-    tls_alloc(NULL, NULL, "cron");
+    tls_alloc(NULL, NULL, "per-day");
 #ifdef SCHED_BATCH
     param.sched_priority=0;
     if(pthread_setschedparam(pthread_self(), SCHED_BATCH, &param))
         ioerror("pthread_getschedparam");
 #endif
-    cron_worker();
+    per_day_worker();
     return NULL; /* it should never be executed */
 }
 
@@ -104,22 +119,32 @@ NOEXPORT void *cron_thread(void *arg) {
 
 int cron_init() {
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
-    cron_thread_id=(HANDLE)_beginthreadex(NULL, 0, cron_thread, NULL, 0, NULL);
+    per_second_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_second_thread, NULL, 0, NULL);
+    per_day_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_day_thread, NULL, 0, NULL);
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
-    if(!cron_thread_id) {
+    if(!per_day_thread_id || !per_day_thread_id) {
         ioerror("_beginthreadex");
         return 1;
     }
     return 0;
 }
 
-NOEXPORT unsigned __stdcall cron_thread(void *arg) {
+NOEXPORT unsigned __stdcall per_second_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
 
-    tls_alloc(NULL, NULL, "cron");
+    tls_alloc(NULL, NULL, "per-second");
+    per_second_worker();
+    _endthreadex(0); /* it should never be executed */
+    return 0;
+}
+
+NOEXPORT unsigned __stdcall per_day_thread(void *arg) {
+    (void)arg; /* squash the unused parameter warning */
+
+    tls_alloc(NULL, NULL, "per-day");
     if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST))
         ioerror("SetThreadPriority");
-    cron_worker();
+    per_day_worker();
     _endthreadex(0); /* it should never be executed */
     return 0;
 }
@@ -133,40 +158,47 @@ int cron_init() {
 
 #endif
 
-/* run the cron job every 24 hours */
-#define CRON_PERIOD (24*60*60)
-
 #ifdef USE_OS_THREADS
 
-NOEXPORT void cron_worker(void) {
+NOEXPORT void per_second_worker(void) {
+    s_log(LOG_DEBUG, "Per-second thread initialized");
+    for(;;) {
+        s_poll_sleep(1, 0); /* 1 second */
+        CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LOG_MODE]);
+        file_flush(outfile);
+        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
+    }
+}
+
+NOEXPORT void per_day_worker(void) {
     time_t now, then;
     int delay;
 #if !defined(OPENSSL_NO_DH) && OPENSSL_VERSION_NUMBER>=0x0090800fL
     BN_GENCB *bn_gencb;
 #endif
 
-    s_log(LOG_DEBUG, "Cron thread initialized");
+    s_log(LOG_DEBUG, "Per-day thread initialized");
 #if !defined(OPENSSL_NO_DH) && OPENSSL_VERSION_NUMBER>=0x0090800fL
-    bn_gencb=cron_bn_gencb();
+    bn_gencb=per_day_bn_gencb();
 #endif
     time(&then);
     for(;;) {
-        s_log(LOG_INFO, "Executing cron jobs");
+        s_log(LOG_INFO, "Executing per-day jobs");
 #ifndef OPENSSL_NO_DH
 #if OPENSSL_VERSION_NUMBER>=0x0090800fL
-        cron_dh_param(bn_gencb);
+        per_day_dh_param(bn_gencb);
 #else /* OpenSSL older than 0.9.8 */
-        cron_dh_param();
+        per_day_dh_param();
 #endif /* OpenSSL 0.9.8 or later */
 #endif /* OPENSSL_NO_DH */
         time(&now);
-        s_log(LOG_INFO, "Cron jobs completed in %d seconds", (int)(now-then));
-        then+=CRON_PERIOD;
+        s_log(LOG_INFO, "Per-day jobs completed in %d seconds", (int)(now-then));
+        then+=PER_DAY_PERIOD;
         if(then>now) {
             delay=(int)(then-now);
         } else {
-            s_log(LOG_NOTICE, "Cron backlog cleared (possible hibernation)");
-            delay=CRON_PERIOD-(int)(now-then)%CRON_PERIOD;
+            s_log(LOG_NOTICE, "Per-day backlog cleared (possible hibernation)");
+            delay=PER_DAY_PERIOD-(int)(now-then)%PER_DAY_PERIOD;
             then=now+delay;
         }
         s_log(LOG_DEBUG, "Waiting %d seconds", delay);
@@ -183,9 +215,9 @@ NOEXPORT void cron_worker(void) {
 #ifndef OPENSSL_NO_DH
 
 #if OPENSSL_VERSION_NUMBER>=0x0090800fL
-NOEXPORT void cron_dh_param(BN_GENCB *bn_gencb) {
+NOEXPORT void per_day_dh_param(BN_GENCB *bn_gencb) {
 #else /* OpenSSL older than 0.9.8 */
-NOEXPORT void cron_dh_param(void) {
+NOEXPORT void per_day_dh_param(void) {
 #endif /* OpenSSL 0.9.8 or later */
     SERVICE_OPTIONS *opt;
     DH *dh;
@@ -231,7 +263,7 @@ NOEXPORT void cron_dh_param(void) {
 
 #if OPENSSL_VERSION_NUMBER>=0x0090800fL
 
-NOEXPORT BN_GENCB *cron_bn_gencb(void) {
+NOEXPORT BN_GENCB *per_day_bn_gencb(void) {
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     BN_GENCB *bn_gencb;
 

@@ -2,7 +2,7 @@
 
 import logging
 import pathlib
-from plugin_collection import Plugin
+from plugin_collection import Plugin, ERR_CONN_RESET
 from maketest import (
     Config,
     StunnelAcceptConnect
@@ -37,7 +37,7 @@ class VerifyCRL(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            "\[Errno 104\] Connection reset by peer",
+            ERR_CONN_RESET,
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -84,7 +84,7 @@ class FailureVerifyCRL(StunnelTest):
         self.events.success = [
             "certificate verify failed",
             "certificate revoked",
-            "\[Errno 104\] Connection reset by peer"
+            ERR_CONN_RESET
         ]
         self.events.failure = [
             "peer did not return a certificate",
@@ -93,7 +93,7 @@ class FailureVerifyCRL(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            #"\[Errno 104\] Connection reset by peer",
+            #ERR_CONN_RESET,
             #"Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",

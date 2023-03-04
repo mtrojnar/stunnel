@@ -3,7 +3,7 @@
 import logging
 import os
 import pathlib
-from plugin_collection import Plugin
+from plugin_collection import Plugin, ERR_CONN_RESET
 from maketest import (
     Config,
     StunnelAcceptConnect
@@ -34,7 +34,7 @@ class PSKSecrets(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            "\[Errno 104\] Connection reset by peer",
+            ERR_CONN_RESET,
             "Connection lost",
             "Client received unexpected message",
             "Server received unexpected message",
@@ -96,7 +96,7 @@ class FailurePSKSecrets(StunnelTest):
         self.events.success = [
             "binder does not verify",
             "bad record mac",
-            "\[Errno 104\] Connection reset by peer"
+            ERR_CONN_RESET
         ]
         self.events.failure = [
             #"peer did not return a certificate",
@@ -105,7 +105,7 @@ class FailurePSKSecrets(StunnelTest):
             "unsupported protocol",
             "TLS accepted: previous session reused",
             "Redirecting connection",
-            #"\[Errno 104\] Connection reset by peer",
+            #ERR_CONN_RESET,
             #"Connection lost",
             #"Client received unexpected message",
             "Server received unexpected message",

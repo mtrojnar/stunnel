@@ -37,49 +37,6 @@
 
 #include "prototypes.h"
 
-#ifdef USE_WIN32
-
-DISK_FILE *file_open(char *name, FILE_MODE mode) {
-    DISK_FILE *df;
-    LPTSTR tname;
-    HANDLE fh;
-    DWORD desired_access, creation_disposition;
-
-    /* open file */
-    switch(mode) {
-    case FILE_MODE_READ:
-        desired_access=GENERIC_READ;
-        creation_disposition=OPEN_EXISTING;
-        break;
-    case FILE_MODE_APPEND:
-            /* reportedly more compatible than FILE_APPEND_DATA */
-        desired_access=GENERIC_WRITE;
-        creation_disposition=OPEN_ALWAYS; /* keep the data */
-        break;
-    case FILE_MODE_OVERWRITE:
-        desired_access=GENERIC_WRITE;
-        creation_disposition=CREATE_ALWAYS; /* remove the data */
-        break;
-    default: /* invalid mode */
-        return NULL;
-    }
-    tname=str2tstr(name);
-    fh=CreateFile(tname, desired_access, FILE_SHARE_READ, NULL,
-        creation_disposition, FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
-    str_free(tname); /* str_free() overwrites GetLastError() value */
-    if(fh==INVALID_HANDLE_VALUE)
-        return NULL;
-    if(mode==FILE_MODE_APPEND) /* workaround for FILE_APPEND_DATA */
-        SetFilePointer(fh, 0, NULL, FILE_END);
-
-    /* setup df structure */
-    df=str_alloc(sizeof(DISK_FILE));
-    df->fh=fh;
-    return df;
-}
-
-#else /* USE_WIN32 */
-
 DISK_FILE *file_fdopen(int fd, FILE_MODE file_mode) {
     DISK_FILE *df;
     FILE *f;
@@ -139,46 +96,32 @@ DISK_FILE *file_open(char *name, FILE_MODE file_mode) {
     flags|=O_CLOEXEC;
 #endif /* O_CLOEXEC */
     /* don't fopen() directly to prevent O_CLOEXEC race condition */
+#ifdef USE_WIN32
+    fd=_open(name, flags, _S_IREAD|_S_IWRITE);
+#else /* USE_WIN32 */
     fd=open(name, flags, 0640);
-    if(fd==INVALID_SOCKET)
+#endif /* USE_WIN32 */
+    if(fd<0)
         return NULL;
     return file_fdopen(fd, file_mode);
 }
 
-#endif /* USE_WIN32 */
-
 void file_close(DISK_FILE *df) {
     if(!df) /* nothing to do */
         return;
-#ifdef USE_WIN32
-    CloseHandle(df->fh);
-#else /* USE_WIN32 */
     if(fileno(df->f)>2) /* never close stdin/stdout/stder */
         fclose(df->f);
-#endif /* USE_WIN32 */
     str_free(df);
 }
 
 ssize_t file_getline(DISK_FILE *df, char *line, int len) {
     ssize_t i;
-#ifdef USE_WIN32
-    DWORD num;
-#else /* USE_WIN32 */
     int c;
-#endif /* USE_WIN32 */
 
     if(!df) /* not opened */
         return -1;
 
     for(i=0; i<len-1; i++) {
-#ifdef USE_WIN32
-        ReadFile(df->fh, line+i, 1, &num, NULL);
-        if(num!=1) { /* EOF */
-            if(!i) /* no previously retrieved data */
-                return -1;
-            break; /* MSDOS-style last file line */
-        }
-#else /* USE_WIN32 */
         c=getc(df->f);
         if(c==EOF) {
             if(!i) /* no previously retrieved data */
@@ -186,7 +129,6 @@ ssize_t file_getline(DISK_FILE *df, char *line, int len) {
             break; /* MSDOS-style last file line */
         }
         line[i]=(char)c;
-#endif /* USE_WIN32 */
         if(line[i]=='\n') /* LF */
             break;
         if(line[i]=='\r') /* CR */
@@ -198,19 +140,11 @@ ssize_t file_getline(DISK_FILE *df, char *line, int len) {
 
 ssize_t file_putline_nonewline(DISK_FILE *df, char *line) {
     /* used for fatal_debug() -> no str.c functions are allowed */
-#ifdef USE_WIN32
-    DWORD num;
-
-    if(df)
-        WriteFile(df->fh, line, (DWORD)strlen(line), &num, NULL);
-#else /* USE_WIN32 */
     FILE *f;
     int num;
 
     f=df ? df->f : stderr; /* no file -> write to stderr */
-    num=fputs(line, f);
-    fflush(f);
-#endif /* USE_WIN32 */
+    num=fputs(line, f); /* automatically converts LF->CRLF on Windows */
     return (ssize_t)num;
 }
 
@@ -220,16 +154,17 @@ ssize_t file_putline_newline(DISK_FILE *df, char *line) {
     ssize_t num;
 
     len=strlen(line);
-    buff=str_alloc(len+3); /* +3 for CR+LF+NUL */
+    buff=str_alloc(len+3); /* +2 for LF+NUL */
     strcpy(buff, line);
-#ifdef USE_WIN32
-    buff[len++]='\r'; /* CR */
-#endif /* USE_WIN32 */
     buff[len++]='\n'; /* LF */
     buff[len]='\0'; /* NUL */
     num=file_putline_nonewline(df, buff);
     str_free(buff);
     return num;
+}
+
+int file_flush(DISK_FILE *df) {
+    return fflush(df ? df->f : stderr); /* no file -> flush stderr */
 }
 
 int file_permissions(const char *file_name) {
@@ -246,6 +181,7 @@ int file_permissions(const char *file_name) {
             "Insecure file permissions on %s", file_name);
 #else
     (void)file_name; /* squash the unused parameter warning */
+    /* not (yet) implemented */
 #endif
     return 0;
 }

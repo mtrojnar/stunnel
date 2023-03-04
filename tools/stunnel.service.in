@@ -3,6 +3,7 @@ Description=TLS tunnel for network daemons
 After=syslog.target network-online.target
 
 [Service]
+LimitNOFILE=20480
 ExecStart=@bindir@/stunnel
 ExecReload=/bin/kill -HUP $MAINPID
 Type=forking

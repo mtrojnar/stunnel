@@ -412,13 +412,9 @@ typedef struct {
     int main_thread;
 } s_poll_set;
 
-typedef struct disk_file {
-#ifdef USE_WIN32
-    HANDLE fh;
-#else
+typedef struct {
+    /* stdio is currently used, but alternative implementations can be added */
     FILE *f;
-#endif
-    /* the interface is prepared to easily implement buffering if needed */
 } DISK_FILE;
 
     /* definitions for client.c */
@@ -525,6 +521,8 @@ void set_nonblock(SOCKET, unsigned long);
 #define SINK_SYSLOG 1
 #define SINK_OUTFILE 2
 
+extern DISK_FILE *outfile;
+
 int log_open(int);
 void log_close(int);
 void log_flush(LOG_MODE);
@@ -555,7 +553,8 @@ DH *get_dh2048(void);
 /**************************************** prototypes for cron.c */
 
 #ifdef USE_OS_THREADS
-extern THREAD_ID cron_thread_id;
+extern THREAD_ID per_second_thread_id;
+extern THREAD_ID per_day_thread_id;
 #endif
 
 int cron_init(void);
@@ -835,6 +834,7 @@ void file_close(DISK_FILE *);
 ssize_t file_getline(DISK_FILE *, char *, int);
 ssize_t file_putline_nonewline(DISK_FILE *, char *);
 ssize_t file_putline_newline(DISK_FILE *, char *);
+int file_flush(DISK_FILE *);
 int file_permissions(const char *);
 
 #ifdef USE_WIN32

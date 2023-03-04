@@ -1,5 +1,5 @@
 Name:           stunnel
-Version:        5.68
+Version:        5.69
 Release:        1%{?dist}
 Summary:        An TLS-encrypting socket wrapper
 Group:          Applications/Internet
@@ -43,6 +43,8 @@ done
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 mkdir -p %{buildroot}%{_unitdir}
 cp tools/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
+mkdir -p %{buildroot}%{_datadir}/bash-completion/completions
+cp tools/%{name}.bash %{buildroot}%{_datadir}/bash-completion/completions/%{name}.bash
 %endif
 
 %post
@@ -77,13 +79,16 @@ cp tools/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
 %lang(pl) %{_mandir}/pl/man8/stunnel.8*
 %dir %{_sysconfdir}/%{name}
 %config %{_sysconfdir}/%{name}/*-sample
-%exclude %{_sysconfdir}/%{name}/*.pem
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 %{_unitdir}/%{name}*.service
 %endif
 %config(noreplace) %{_datarootdir}/bash-completion/*
 
 %changelog
+* Fri Feb 24 2023 Małgorzata Olszówka <Malgorzata.Olszowka@stunnel.org>
+- Fixed bash completion support
+- Removed excluding pem files
+
 * Wed Mar 02 2022 Małgorzata Olszówka <Malgorzata.Olszowka@stunnel.org>
 - bash completion support
 

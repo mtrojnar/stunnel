@@ -322,6 +322,8 @@ static const char *option_not_found=
 
 static const char *stunnel_cipher_list=
     "HIGH:!aNULL:!SSLv2:!DH:!kDHEPSK";
+static const char *fips_cipher_list=
+    "FIPS:!DH:!kDHEPSK";
 
 #ifndef OPENSSL_NO_TLS1_3
 static const char *stunnel_ciphersuites=
@@ -1703,7 +1705,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
              * section->cipher_list is no longer NULL in sections */
 #ifdef USE_FIPS
             if(new_global_options.option.fips)
-                section->cipher_list=str_dup_detached("FIPS");
+                section->cipher_list=str_dup_detached(fips_cipher_list);
             else
 #endif /* USE_FIPS */
                 section->cipher_list=str_dup_detached(stunnel_cipher_list);
@@ -1712,7 +1714,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     case CMD_PRINT_DEFAULTS:
         if(fips_available()) {
             s_log(LOG_NOTICE, "%-22s = %s %s", "ciphers",
-                "FIPS", "(with \"fips = yes\")");
+                fips_cipher_list, "(with \"fips = yes\")");
             s_log(LOG_NOTICE, "%-22s = %s %s", "ciphers",
                 stunnel_cipher_list, "(with \"fips = no\")");
         } else {

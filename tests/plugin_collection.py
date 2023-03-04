@@ -1,9 +1,20 @@
 """A plugin structure"""
 
 import dataclasses
+import errno
 import inspect
 import os
+import posix
 import pkgutil
+
+
+def err_msg(err: int) -> str:
+    """Build the message to expect when an OS error occurs."""
+    raw = str(OSError(err, posix.strerror(err)))
+    return raw.replace("[", "\\[").replace("]", "\\]")
+
+
+ERR_CONN_RESET = err_msg(errno.ECONNRESET)
 
 
 @dataclasses.dataclass(frozen=True)

@@ -41,7 +41,8 @@ NOEXPORT void log_queue(SERVICE_OPTIONS *, int, char *, char *, char *);
 NOEXPORT void log_raw(SERVICE_OPTIONS *, int, char *, char *, char *);
 NOEXPORT void safestring(char *);
 
-static DISK_FILE *outfile=NULL;
+DISK_FILE *outfile=NULL;
+
 static struct LIST { /* single-linked list of log lines */
     struct LIST *next;
     SERVICE_OPTIONS *opt;
@@ -298,8 +299,12 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
             if(global_options.option.log_syslog)
                 syslog(level, "%s: %s", id, text);
 #endif /* USE_WIN32, __vms */
-            if(outfile)
+            if(outfile) {
                 file_putline_newline(outfile, line);
+#ifndef USE_OS_THREADS
+                file_flush(outfile);
+#endif /* !USE_OS_THREADS */
+            }
         }
         break;
     case LOG_MODE_ERROR:
@@ -410,8 +415,10 @@ void fatal_debug(const char *txt, const char *file, int line) {
     snprintf(msg, sizeof msg, /* with newline */
         "INTERNAL ERROR: %s at %s, line %d\n", txt, file, line);
 
-    if(outfile)
+    if(outfile) {
         file_putline_nonewline(outfile, msg);
+        file_flush(outfile);
+    }
 
 #ifndef USE_WIN32
     if(log_mode!=LOG_MODE_CONFIGURED || global_options.option.log_stderr) {

@@ -1,6 +1,20 @@
 # stunnel change log
 
 
+### Version 5.69, 2023.03.04, urgency: MEDIUM
+* New features
+  - Improved logging performance with the "output" option.
+  - Improved file read performance on the WIN32 platform.
+  - DH and kDHEPSK ciphersuites removed from FIPS defaults.
+  - Set the LimitNOFILE ulimit in stunnel.service to allow
+    for up to 10,000 concurrent clients.
+* Bugfixes
+  - Fixed the "CApath" option on the WIN32 platform by
+    applying https://github.com/openssl/openssl/pull/20312.
+  - Fixed stunnel.spec used for building rpm packages.
+  - Fixed tests on some OSes and architectures by merging
+    Debian 07-tests-errmsg.patch (thx to Peter Pentchev).
+
 ### Version 5.68, 2023.02.07, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.0.8.
@@ -9,14 +23,14 @@
     to load a trusted CA certificate from an engine.
   - Added requesting client certificates in server
     mode with 'CApath' besides 'CAfile'.
+  - Improved file read performance.
+  - Improved logging performance.
 * Bugfixes
   - Fixed EWOULDBLOCK errors in protocol negotiation.
   - Fixed handling TLS errors in protocol negotiation.
   - Prevented following fatal TLS alerts with TCP resets.
   - Improved OpenSSL initialization on WIN32.
   - Improved testing suite stability.
-  - Improved file read performance.
-  - Improved logging performance.
 
 ### Version 5.67, 2022.11.01, urgency: HIGH
 * Security bugfixes
