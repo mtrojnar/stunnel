@@ -177,11 +177,11 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
         section->ctx=SSL_CTX_new(section->client_method);
     else /* server mode */
         section->ctx=SSL_CTX_new(section->server_method);
-#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
     if(!section->ctx) {
         sslerror("SSL_CTX_new");
         return 1; /* FAILED */
     }
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 
     /* allow callbacks to access their SERVICE_OPTIONS structure */
     if(!SSL_CTX_set_ex_data(section->ctx, index_ssl_ctx_opt, section)) {
