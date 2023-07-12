@@ -60,7 +60,6 @@ NOEXPORT void print_tmp_key(SSL *s);
 #endif
 NOEXPORT void print_cipher(CLI *);
 NOEXPORT void transfer(CLI *);
-NOEXPORT int parse_socket_error(CLI *, const char *);
 
 NOEXPORT void auth_user(CLI *);
 NOEXPORT SOCKET connect_local(CLI *);
@@ -176,7 +175,7 @@ void ignore_value(void *ptr) {
 void client_main(CLI *c) {
     s_log(LOG_DEBUG, "Service [%s] started", c->opt->servname);
     if(c->opt->exec_name && c->opt->connect_addr.names) {
-        if(c->opt->option.retry)
+        if(c->opt->retry >= 0)
             exec_connect_loop(c);
         else
             exec_connect_once(c);
@@ -202,7 +201,7 @@ void client_free(CLI *c) {
 NOEXPORT void exec_connect_loop(CLI *c) {
     unsigned long long seq=0;
     const char *fresh_id=c->tls->id;
-    unsigned retry;
+    long retry;
 
     do {
         /* make sure c->tls->id is valid in str_printf() */
@@ -213,19 +212,20 @@ NOEXPORT void exec_connect_loop(CLI *c) {
         exec_connect_once(c);
         /* retry is asynchronously changed in the main thread,
          * so we make sure to use the same value for both checks */
-        retry=c->opt->option.retry;
-        if(retry) {
+        retry=c->opt->retry;
+        if(retry >= 0) {
             s_log(LOG_INFO, "Retrying an exec+connect section");
             /* c and id are detached, so it is safe to call str_stats() */
             str_stats(); /* client thread allocation tracking */
-            s_poll_sleep(1, 0);
+            if(retry)
+                s_poll_sleep((int)(retry/1000), (int)(retry%1000));
             c->rr++;
         }
 
         /* make sure c->tls->id is valid in str_free() */
         c->tls->id=fresh_id;
         str_free(id);
-    } while(retry); /* retry is disabled on config reload */
+    } while(retry >= 0); /* retry is disabled on config reload */
 }
 #ifdef __GNUC__
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
@@ -415,17 +415,21 @@ NOEXPORT void client_run(CLI *c) {
 
 NOEXPORT void client_try(CLI *c) {
     local_start(c);
-    protocol(c, c->opt, PROTOCOL_EARLY);
+    if(c->opt->protocol_early)
+        c->opt->protocol_early(c);
     if(c->opt->option.connect_before_ssl) {
         remote_start(c);
-        protocol(c, c->opt, PROTOCOL_MIDDLE);
+        if(c->opt->protocol_middle)
+            c->opt->protocol_middle(c);
         ssl_start(c);
     } else {
         ssl_start(c);
-        protocol(c, c->opt, PROTOCOL_MIDDLE);
+        if(c->opt->protocol_middle)
+            c->opt->protocol_middle(c);
         remote_start(c);
     }
-    protocol(c, c->opt, PROTOCOL_LATE);
+    if(c->opt->protocol_late)
+        c->opt->protocol_late(c);
     transfer(c);
 }
 
@@ -682,7 +686,7 @@ NOEXPORT void session_cache_retrieve(CLI *c) {
         if(c->opt->connect_session) {
             sess=c->opt->connect_session[c->idx];
         } else {
-            s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized client session cache");
+            s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized client session cache (retrieve)");
             sess=NULL;
         }
     }
@@ -751,7 +755,7 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
         SSL_session_reused(c->ssl) && !c->flag.psk ?
             "previous session reused" : "new session negotiated");
 
-    cipher=SSL_get_current_cipher(c->ssl);
+    cipher=(SSL_CIPHER *)SSL_get_current_cipher(c->ssl);
     s_log(LOG_INFO, "%s ciphersuite: %s (%d-bit encryption)",
         SSL_get_version(c->ssl), SSL_CIPHER_get_name(cipher),
         SSL_CIPHER_get_bits(cipher, NULL));
@@ -971,7 +975,7 @@ NOEXPORT void transfer(CLI *c) {
                 shutdown_wants_read=shutdown_wants_write=0;
                 break;
             case SSL_ERROR_SYSCALL: /* socket error */
-                if(parse_socket_error(c, "SSL_shutdown"))
+                if(socket_needs_retry(c, "transfer: SSL_shutdown"))
                     break; /* a non-critical error: retry */
                 SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 shutdown_wants_read=shutdown_wants_write=0;
@@ -987,7 +991,7 @@ NOEXPORT void transfer(CLI *c) {
             ssize_t num=writesocket(c->sock_wfd->fd, c->ssl_buff, c->ssl_ptr);
             switch(num) {
             case -1: /* error */
-                if(parse_socket_error(c, "writesocket"))
+                if(socket_needs_retry(c, "transfer: writesocket"))
                     break; /* a non-critical error: retry */
                 sock_open_rd=sock_open_wr=0;
                 break;
@@ -1009,7 +1013,7 @@ NOEXPORT void transfer(CLI *c) {
                 c->sock_buff+c->sock_ptr, BUFFSIZE-c->sock_ptr);
             switch(num) {
             case -1:
-                if(parse_socket_error(c, "readsocket"))
+                if(socket_needs_retry(c, "transfer: readsocket"))
                     break; /* a non-critical error: retry */
                 sock_open_rd=sock_open_wr=0;
                 break;
@@ -1067,7 +1071,7 @@ NOEXPORT void transfer(CLI *c) {
             case SSL_ERROR_ZERO_RETURN: /* a buffered close_notify alert */
                 /* fall through */
             case SSL_ERROR_SYSCALL: /* socket error */
-                if(parse_socket_error(c, "SSL_write") && num) /* always log the error */
+                if(socket_needs_retry(c, "transfer: SSL_write") && num)
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
                  * TLS socket closed without close_notify alert */
@@ -1118,6 +1122,24 @@ NOEXPORT void transfer(CLI *c) {
                     "SSL_read returned WANT_X509_LOOKUP: retrying");
                 break;
             case SSL_ERROR_SSL:
+#ifdef SSL_R_UNEXPECTED_EOF_WHILE_READING
+                /* OpenSSL 3.0 changed the method of reporting socket EOF */
+                if(ERR_GET_REASON(ERR_peek_error())==
+                        SSL_R_UNEXPECTED_EOF_WHILE_READING) {
+                    /* EOF -> buggy (e.g. Microsoft) peer:
+                    * TLS socket closed without close_notify alert */
+                    if(c->sock_ptr || write_wants_write) {
+                        s_log(LOG_ERR,
+                            "TLS socket closed (SSL_read) with %ld unsent byte(s)",
+                            (long)c->sock_ptr);
+                        throw_exception(c, 1); /* reset the sockets */
+                    }
+                    s_log(LOG_INFO, "TLS socket closed (SSL_read)");
+                    SSL_set_shutdown(c->ssl,
+                        SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                    break;
+                }
+#endif /* SSL_R_UNEXPECTED_EOF_WHILE_READING */
                 sslerror("SSL_read");
                 throw_exception(c, 1);
             case SSL_ERROR_ZERO_RETURN: /* received a close_notify alert */
@@ -1127,7 +1149,7 @@ NOEXPORT void transfer(CLI *c) {
                         SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_SYSCALL:
-                if(parse_socket_error(c, "SSL_read") && num) /* always log the error */
+                if(socket_needs_retry(c, "transfer: SSL_read") && num)
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
                  * TLS socket closed without close_notify alert */
@@ -1257,48 +1279,6 @@ NOEXPORT void transfer(CLI *c) {
 
     } while(sock_open_wr || !(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN) ||
         shutdown_wants_read || shutdown_wants_write);
-}
-
-    /* returns 0 on close and 1 on non-critical errors */
-NOEXPORT int parse_socket_error(CLI *c, const char *text) {
-    switch(get_last_socket_error()) {
-        /* http://tangentsoft.net/wskfaq/articles/bsd-compatibility.html */
-    case 0: /* close on read, or close on write on WIN32 */
-        /* fall through */
-#ifndef USE_WIN32
-    case EPIPE: /* close on write on Unix */
-        /* fall through */
-#endif
-    case S_ECONNABORTED:
-        s_log(LOG_INFO, "%s: Socket is closed", text);
-        return 0;
-    case S_EINTR:
-        s_log(LOG_DEBUG, "%s: Interrupted by a signal: retrying", text);
-        return 1;
-    case S_EWOULDBLOCK:
-        s_log(LOG_NOTICE, "%s: Would block: retrying", text);
-        s_poll_sleep(1, 0); /* Microsoft bug KB177346 */
-        return 1;
-#if S_EAGAIN!=S_EWOULDBLOCK
-    case S_EAGAIN:
-        s_log(LOG_DEBUG,
-            "%s: Temporary lack of resources: retrying", text);
-        return 1;
-#endif
-#ifdef USE_WIN32
-    case S_ECONNRESET:
-        /* dying "exec" processes on Win32 cause reset instead of close */
-        if(c->opt->exec_name) {
-            s_log(LOG_INFO, "%s: Socket is closed (exec)", text);
-            return 0;
-        }
-#endif
-        /* fall through */
-    default:
-        sockerror(text);
-        throw_exception(c, 1);
-        return -1; /* some C compilers require a return value */
-    }
 }
 
 NOEXPORT void auth_user(CLI *c) {

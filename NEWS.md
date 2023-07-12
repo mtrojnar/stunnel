@@ -1,6 +1,19 @@
 # stunnel change log
 
 
+### Version 5.70, 2023.07.12, urgency: HIGH
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.0.9.
+  - OpenSSL FIPS Provider updated to version 3.0.8.
+* Bugfixes
+  - Fixed TLS socket EOF handling with OpenSSL 3.x.
+    This bug caused major interoperability issues between
+    stunnel built with OpenSSL 3.x and Microsoft's
+    Schannel Security Support Provider (SSP).
+  - Fixed reading certificate chains from PKCS#12 files.
+* Features
+  - Added configurable delay for the "retry" option.
+
 ### Version 5.69, 2023.03.04, urgency: MEDIUM
 * New features
   - Improved logging performance with the "output" option.

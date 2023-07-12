@@ -107,7 +107,9 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *, const char *, int);
 NOEXPORT void str_leak_debug(const ALLOC_LIST *, int);
 
 NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *);
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
 NOEXPORT int leak_cmp(const LEAK_ENTRY *const *, const LEAK_ENTRY *const *);
+#endif /* OpenSSL version >= 1.1.1 */
 NOEXPORT void leak_report(void);
 NOEXPORT long leak_threshold(void);
 
@@ -589,6 +591,7 @@ void leak_table_utilization() {
 #endif /* OpenSSL version >= 1.1.1 */
 }
 
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
 NOEXPORT int leak_cmp(const LEAK_ENTRY *const *a, const LEAK_ENTRY *const *b) {
     int64_t d = (*a)->total - (*b)->total;
     if(d>0)
@@ -597,6 +600,7 @@ NOEXPORT int leak_cmp(const LEAK_ENTRY *const *a, const LEAK_ENTRY *const *b) {
         return -1;
     return 0;
 }
+#endif /* OpenSSL version >= 1.1.1 */
 
 /* report identified leaks */
 NOEXPORT void leak_report() {

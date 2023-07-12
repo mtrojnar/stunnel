@@ -38,8 +38,13 @@
 #include "prototypes.h"
 
     /* global OpenSSL initialization: compression, engine, entropy */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
 NOEXPORT void cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
         int idx, long argl, void *argp);
+#else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
+NOEXPORT int cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+        int idx, long argl, void *argp);
+#endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 #if OPENSSL_VERSION_NUMBER>=0x30000000L
 NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
     void **from_d, int idx, long argl, void *argp);
@@ -232,8 +237,13 @@ int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g) {
 #endif
 #endif
 
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
 NOEXPORT void cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
         int idx, long argl, void *argp) {
+#else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
+NOEXPORT int cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+        int idx, long argl, void *argp) {
+#endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
     (void)parent; /* squash the unused parameter warning */
     (void)ptr; /* squash the unused parameter warning */
     (void)argl; /* squash the unused parameter warning */
@@ -241,6 +251,9 @@ NOEXPORT void cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
         (char *)argp);
     if(!CRYPTO_set_ex_data(ad, idx, (void *)(-1)))
         sslerror("CRYPTO_set_ex_data");
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+    return 1; /* success */
+#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 }
 
 #if OPENSSL_VERSION_NUMBER>=0x30000000L

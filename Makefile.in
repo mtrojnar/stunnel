@@ -192,8 +192,8 @@ am__DIST_COMMON = $(srcdir)/Makefile.in $(top_srcdir)/auto/compile \
 	$(top_srcdir)/auto/config.guess $(top_srcdir)/auto/config.sub \
 	$(top_srcdir)/auto/install-sh $(top_srcdir)/auto/ltmain.sh \
 	$(top_srcdir)/auto/missing AUTHORS.md NEWS.md README.md \
-	auto/compile auto/config.guess auto/config.sub auto/install-sh \
-	auto/ltmain.sh auto/missing
+	auto/compile auto/config.guess auto/config.sub auto/depcomp \
+	auto/install-sh auto/ltmain.sh auto/missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)

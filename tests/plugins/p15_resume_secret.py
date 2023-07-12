@@ -61,7 +61,7 @@ class ResumeTicketSecret(StunnelTest):
     debug = debug
     syslog = no
 
-    retry = yes
+    retry = 10
 
     [{service}]
     client = yes

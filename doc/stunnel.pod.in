@@ -932,9 +932,12 @@ This option is not supported on some platforms.
 
 default: yes
 
-=item B<retry> = yes | no
+=item B<retry> = yes | no | DELAY
 
 reconnect a connect+exec section after it was disconnected
+
+The DELAY value specifies the number of milliseconds before retrying.
+"retry = yes" has the same effect as "retry = 1000".
 
 default: no
 

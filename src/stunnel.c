@@ -506,7 +506,7 @@ NOEXPORT void unbind_ports(void) {
             /* FIXME: this is just a crude workaround   */
             /*        is it better to kill the service? */
             /* FIXME: this won't work with FORK threads */
-            opt->option.retry=0;
+            opt->retry=-1; /* disable */
         }
 
         s_log(LOG_DEBUG, "Service [%s] closed", opt->servname);

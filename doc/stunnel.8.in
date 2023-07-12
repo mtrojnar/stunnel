@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2023.02.07" "5.69" "stunnel TLS Proxy"
+.TH stunnel 8 "2023.07.08" "5.70" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -872,9 +872,12 @@ attempt to use the \s-1TCP RST\s0 flag to indicate an error
 This option is not supported on some platforms.
 .Sp
 default: yes
-.IP "\fBretry\fR = yes | no" 4
-.IX Item "retry = yes | no"
+.IP "\fBretry\fR = yes | no | \s-1DELAY\s0" 4
+.IX Item "retry = yes | no | DELAY"
 reconnect a connect+exec section after it was disconnected
+.Sp
+The \s-1DELAY\s0 value specifies the number of milliseconds before retrying.
+\&\*(L"retry = yes\*(R" has the same effect as \*(L"retry = 1000\*(R".
 .Sp
 default: no
 .IP "\fBsecurityLevel\fR = \s-1LEVEL\s0" 4

@@ -1044,10 +1044,12 @@ options = NO_SSLv3</code></pre>
 <p>default: yes</p>
 
 </dd>
-<dt id="retry-yes-no"><b>retry</b> = yes | no</dt>
+<dt id="retry-yes-no-DELAY"><b>retry</b> = yes | no | DELAY</dt>
 <dd>
 
 <p>reconnect a connect+exec section after it was disconnected</p>
+
+<p>The DELAY value specifies the number of milliseconds before retrying. &quot;retry = yes&quot; has the same effect as &quot;retry = 1000&quot;.</p>
 
 <p>default: no</p>
 

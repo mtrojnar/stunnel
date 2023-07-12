@@ -40,42 +40,63 @@
 #define CAPWIN_BUFFER_SIZE 100
 
 /* protocol-specific function prototypes */
-NOEXPORT char *socks_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT void socks_client_late(CLI *);
 NOEXPORT void socks5_client_method(CLI *);
 NOEXPORT void socks5_client_address(CLI *);
-NOEXPORT char *socks_server(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT const char *socks_server_init(SERVICE_OPTIONS *);
+NOEXPORT void socks_server_middle(CLI *);
+NOEXPORT void socks_server_late(CLI *);
 NOEXPORT void socks4_server(CLI *);
 NOEXPORT void socks5_server_method(CLI *);
 NOEXPORT void socks5_server(CLI *);
-NOEXPORT int validate(CLI *);
-NOEXPORT char *proxy_server(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *cifs_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *cifs_server(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *pgsql_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *pgsql_server(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *smtp_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT int validate_connect_addr(CLI *);
+
+NOEXPORT void proxy_server_late(CLI *);
+
+NOEXPORT void cifs_client_middle(CLI *);
+NOEXPORT void cifs_server_early(CLI *);
+
+NOEXPORT void pgsql_client_middle(CLI *);
+NOEXPORT void pgsql_server_early(CLI *);
+
+NOEXPORT void smtp_client_middle(CLI *);
+NOEXPORT void smtp_client_late(CLI *);
 NOEXPORT void smtp_client_negotiate(CLI *);
 NOEXPORT void smtp_client_plain(CLI *, const char *, const char *);
 NOEXPORT void smtp_client_login(CLI *, const char *, const char *);
-NOEXPORT char *smtp_server(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *pop3_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *pop3_server(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *imap_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *imap_server(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *nntp_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *ldap_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *connect_server(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *connect_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+NOEXPORT const char *smtp_server_init(SERVICE_OPTIONS *);
+NOEXPORT void smtp_server_middle(CLI *);
+
+NOEXPORT void pop3_client_middle(CLI *);
+NOEXPORT const char *pop3_server_init(SERVICE_OPTIONS *);
+NOEXPORT void pop3_server_middle(CLI *);
+
+NOEXPORT void imap_client_middle(CLI *);
+NOEXPORT const char *imap_server_init(SERVICE_OPTIONS *);
+NOEXPORT void imap_server_middle(CLI *);
+
+NOEXPORT void nntp_client_middle(CLI *);
+
+NOEXPORT void ldap_client_middle(CLI *);
+
+NOEXPORT void connect_server_early(CLI *);
+NOEXPORT void connect_client_middle(CLI *);
 #ifndef OPENSSL_NO_MD4
-NOEXPORT void ntlm(CLI *, SERVICE_OPTIONS *);
+NOEXPORT void ntlm(CLI *);
 NOEXPORT char *ntlm1(void);
 NOEXPORT char *ntlm3(char *, char *, char *, char *);
-NOEXPORT void crypt_DES(DES_cblock, DES_cblock, unsigned char[7]);
+NOEXPORT void crypt_DES(DES_cblock, const_DES_cblock, unsigned char[7]);
 #endif
 NOEXPORT char *base64(int, const char *, int);
-NOEXPORT char *capwin_server(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *capwin_client(CLI *, SERVICE_OPTIONS *, const PHASE);
-NOEXPORT char *capwinctrl_client(CLI *, SERVICE_OPTIONS *, const PHASE);
+
+NOEXPORT void capwin_server_middle(CLI *);
+NOEXPORT void capwin_server_late(CLI *);
+NOEXPORT void capwin_client_late(CLI *);
+NOEXPORT const char *capwinctrl_client_init(SERVICE_OPTIONS *);
+NOEXPORT void capwinctrl_client_early(CLI *);
+NOEXPORT int capwin_decode(const char *, char **, char **, char **, char **);
+NOEXPORT int ldap_auth(CLI *, const char *, const char *);
+NOEXPORT char *ldap_escape_dn(const char *);
 
 /* global state */
 NOEXPORT char capwin_auth[CAPWIN_BUFFER_SIZE]={0};
@@ -84,61 +105,86 @@ HWND capwin_hwnd=NULL;
 LONG capwin_connectivity=0;
 #endif
 
-/**************************************** framework */
+/**************************************** public interface */
 
-const char *protocol(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    if(phase==PROTOCOL_CHECK) /* default to be overridden by protocols */
-        opt->option.connect_before_ssl=opt->option.client;
-    if(!opt->protocol) /* no protocol specified */
-        return NULL; /* skip further actions */
-    if(!strcasecmp(opt->protocol, "socks"))
-        return opt->option.client ?
-            socks_client(c, opt, phase) :
-            socks_server(c, opt, phase);
-    if(!strcasecmp(opt->protocol, "proxy"))
-        return opt->option.client ?
-            "The 'proxy' protocol is not supported in the client mode" :
-            proxy_server(c, opt, phase);
-    if(!strcasecmp(opt->protocol, "cifs"))
-        return opt->option.client ?
-            cifs_client(c, opt, phase) :
-            cifs_server(c, opt, phase);
-    if(!strcasecmp(opt->protocol, "pgsql"))
-        return opt->option.client ?
-            pgsql_client(c, opt, phase) :
-            pgsql_server(c, opt, phase);
-    if(!strcasecmp(opt->protocol, "smtp"))
-        return opt->option.client ?
-            smtp_client(c, opt, phase) :
-            smtp_server(c, opt, phase);
-    if(!strcasecmp(opt->protocol, "pop3"))
-        return opt->option.client ?
-            pop3_client(c, opt, phase) :
-            pop3_server(c, opt, phase);
-    if(!strcasecmp(opt->protocol, "imap"))
-        return opt->option.client ?
-            imap_client(c, opt, phase) :
-            imap_server(c, opt, phase);
-    if(!strcasecmp(opt->protocol, "nntp"))
-        return opt->option.client ?
-            nntp_client(c, opt, phase) :
-            "The 'nntp' protocol is not supported in the server mode";
-    if(!strcasecmp(opt->protocol, "ldap"))
-        return opt->option.client ?
-            ldap_client(c, opt, phase) :
-            "The 'ldap' protocol is not supported in the server mode";
-    if(!strcasecmp(opt->protocol, "connect"))
-        return opt->option.client ?
-            connect_client(c, opt, phase) :
-            connect_server(c, opt, phase);
-    if(!strcasecmp(opt->protocol, "capwin"))
-        return opt->option.client ?
-            capwin_client(c, opt, phase) :
-            capwin_server(c, opt, phase);
-    if(!strcasecmp(opt->protocol, "capwinctrl"))
-        return opt->option.client ?
-            capwinctrl_client(c, opt, phase) :
-            "The 'capwinctrl' protocol is not supported in the server mode";
+const char *protocol_init(SERVICE_OPTIONS *opt) {
+    typedef struct {
+        const char *(*init)(SERVICE_OPTIONS *);
+        void (*early)(CLI *);
+        void (*middle)(CLI *);
+        void (*late)(CLI *);
+    } MODE;
+    typedef struct {
+        const char *name;
+        MODE client, server;
+    } PROTOCOLS;
+    const PROTOCOLS protocols[] = {
+        {.name="socks",
+            .client={.late=socks_client_late},
+            .server={.init=socks_server_init, .middle=socks_server_middle, .late=socks_server_late}},
+        {.name="proxy",
+            .server={.late=proxy_server_late}},
+        {.name="cifs",
+            .client={.middle=cifs_client_middle},
+            .server={.early=cifs_server_early}},
+        {.name="pgsql",
+            .client={.middle=pgsql_client_middle},
+            .server={.early=pgsql_server_early}},
+        {.name="smtp",
+            .client={.middle=smtp_client_middle, .late=smtp_client_late},
+            .server={.init=smtp_server_init, .middle=smtp_server_middle}},
+        {.name="pop3",
+            .client={.middle=pop3_client_middle},
+            .server={.init=pop3_server_init, .middle=pop3_server_middle}},
+        {.name="imap",
+            .client={.middle=imap_client_middle},
+            .server={.init=imap_server_init, .middle=imap_server_middle}},
+        {.name="nntp",
+            .client={.middle=nntp_client_middle}},
+        {.name="ldap",
+            .client={.middle=ldap_client_middle}},
+        {.name="connect",
+            .client={.middle=connect_client_middle},
+            .server={.early=connect_server_early}},
+        {.name="capwin",
+            .client={.late=capwin_client_late},
+            .server={.middle=capwin_server_middle, .late=capwin_server_late}},
+        {.name="capwinctrl",
+            .client={.init=capwinctrl_client_init, .early=capwinctrl_client_early}},
+        {.name=NULL}
+    }, *p;
+
+    /* the default value to be overridden in protocol initialization */
+    opt->option.connect_before_ssl=opt->option.client;
+
+    if(!opt->protocol) { /* no protocol specified */
+        opt->protocol_early=NULL;
+        opt->protocol_middle=NULL;
+        opt->protocol_late=NULL;
+        return NULL;
+    }
+
+    for(p=protocols; p->name; p++) {
+        if(!strcasecmp(p->name, opt->protocol)) {
+            const MODE *m=opt->option.client ? &p->client : &p->server;
+            if(!m->init && !m->early && !m->middle && !m->late) {
+                if(opt->option.client)
+                    return "The configured protocol is not supported in the client mode";
+                else
+                    return "The configured protocol is not supported in the server mode";
+            }
+            if(m->init) {
+                const char *err=m->init(opt);
+                if(err)
+                    return err;
+            }
+            opt->protocol_early=m->early;
+            opt->protocol_middle=m->middle;
+            opt->protocol_late=m->late;
+            return NULL; /* success */
+        }
+    }
+
     return "Protocol not supported";
 }
 
@@ -161,13 +207,9 @@ typedef union {
     } v6;
 } SOCKS5_UNION;
 
-NOEXPORT char *socks_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_LATE)
-        return NULL;
+NOEXPORT void socks_client_late(CLI *c) {
     socks5_client_method(c);
     socks5_client_address(c);
-    return NULL;
 }
 
 NOEXPORT void socks5_client_method(CLI *c) {
@@ -276,38 +318,35 @@ NOEXPORT void socks5_client_address(CLI *c) {
     throw_exception(c, 2); /* don't reset */
 }
 
-NOEXPORT char *socks_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT const char *socks_server_init(SERVICE_OPTIONS *opt) {
+    opt->option.protocol_endpoint=1;
+    return NULL;
+}
+
+NOEXPORT void socks_server_middle(CLI *c) {
     uint8_t version;
 
-    switch(phase) {
-    case PROTOCOL_CHECK:
-        opt->option.protocol_endpoint=1;
+    s_log(LOG_DEBUG, "Waiting for the SOCKS request");
+    s_ssl_read(c, &version, sizeof version);
+    switch(version) {
+    case 4:
+        socks4_server(c);
         break;
-    case PROTOCOL_MIDDLE:
-        s_log(LOG_DEBUG, "Waiting for the SOCKS request");
-        s_ssl_read(c, &version, sizeof version);
-        switch(version) {
-        case 4:
-            socks4_server(c);
-            break;
-        case 5:
-            socks5_server_method(c);
-            socks5_server(c);
-            break;
-        default:
-            s_log(LOG_ERR, "Unsupported SOCKS version 0x%02x", version);
-            throw_exception(c, 1);
-        }
-        break;
-    case PROTOCOL_LATE:
-        /* TODO: send the SOCKS reply *after* the target is connected */
-        /* FIXME: the SOCKS replies do not report CONNECT failures */
-        /* FIXME: the SOCKS replies do not contain the bound IP address */
+    case 5:
+        socks5_server_method(c);
+        socks5_server(c);
         break;
     default:
-        break;
+        s_log(LOG_ERR, "Unsupported SOCKS version 0x%02x", version);
+        throw_exception(c, 1);
     }
-    return NULL;
+}
+
+NOEXPORT void socks_server_late(CLI *c) {
+    (void)c; /* squash the unused parameter warning */
+    /* TODO: send the SOCKS reply *after* the target is connected */
+    /* FIXME: the SOCKS replies do not report CONNECT failures */
+    /* FIXME: the SOCKS replies do not contain the bound IP address */
 }
 
 /* SOCKS4 or SOCKS4a */
@@ -339,7 +378,7 @@ NOEXPORT void socks4_server(CLI *c) {
             if(c->connect_addr.num) {
                 s_log(LOG_INFO, "SOCKS4a resolved \"%s\" to %u host(s)",
                     host_name, c->connect_addr.num);
-                if(validate(c)) {
+                if(validate_connect_addr(c)) {
                     socks.cd=90; /* access granted */
                     close_connection=0;
                 } else {
@@ -357,7 +396,7 @@ NOEXPORT void socks4_server(CLI *c) {
             c->connect_addr.addr[0].in.sin_port=socks.sin_port;
             c->connect_addr.addr[0].in.sin_addr.s_addr=socks.sin_addr.s_addr;
             s_log(LOG_INFO, "SOCKS4 address received");
-            if(validate(c)) {
+            if(validate_connect_addr(c)) {
                 socks.cd=90; /* access granted */
                 close_connection=0;
             } else {
@@ -435,7 +474,7 @@ NOEXPORT void socks5_server(CLI *c) {
             memcpy(&c->connect_addr.addr[0].in.sin_addr, &socks.v4.addr, 4);
             memcpy(&c->connect_addr.addr[0].in.sin_port, &socks.v4.port, 2);
             s_log(LOG_INFO, "SOCKS5 IPv4 address received");
-            if(validate(c)) {
+            if(validate_connect_addr(c)) {
                 socks.resp.rep=0x00; /* succeeded */
                 close_connection=0;
             } else {
@@ -453,7 +492,7 @@ NOEXPORT void socks5_server(CLI *c) {
             if(c->connect_addr.num) {
                 s_log(LOG_INFO, "SOCKS5 resolved \"%s\" to %u host(s)",
                     host_name, c->connect_addr.num);
-                if(validate(c)) {
+                if(validate_connect_addr(c)) {
                     socks.resp.rep=0x00; /* succeeded */
                     close_connection=0;
                 } else {
@@ -473,7 +512,7 @@ NOEXPORT void socks5_server(CLI *c) {
             memcpy(&c->connect_addr.addr[0].in6.sin6_addr, &socks.v6.addr, 16);
             memcpy(&c->connect_addr.addr[0].in6.sin6_port, &socks.v6.port, 2);
             s_log(LOG_INFO, "SOCKS5 IPv6 address received");
-            if(validate(c)) {
+            if(validate_connect_addr(c)) {
                 socks.resp.rep=0x00; /* succeeded */
                 close_connection=0;
             } else {
@@ -535,7 +574,7 @@ NOEXPORT void socks5_server(CLI *c) {
 }
 
 /* validate the allocated address */
-NOEXPORT int validate(CLI *c) {
+NOEXPORT int validate_connect_addr(CLI *c) {
 #ifdef USE_IPv6
     const unsigned char ipv6_loopback[16]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
 #endif
@@ -583,7 +622,7 @@ NOEXPORT int validate(CLI *c) {
 #define IP_LEN 40
 #define PORT_LEN 6
 
-NOEXPORT char *proxy_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void proxy_server_late(CLI *c) {
     SOCKADDR_UNION addr;
     socklen_t addrlen;
     char src_host[IP_LEN], dst_host[IP_LEN];
@@ -591,9 +630,6 @@ NOEXPORT char *proxy_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     const char *proto;
     int err;
 
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_LATE)
-        return NULL;
     addrlen=sizeof addr;
     if(getpeername(c->local_rfd.fd, &addr.sa, &addrlen)) {
         sockerror("getpeername");
@@ -632,18 +668,14 @@ NOEXPORT char *proxy_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     }
     fd_printf(c, c->remote_fd.fd, "PROXY %s %s %s %s %s",
         proto, src_host, dst_host, src_port, dst_port);
-    return NULL;
 }
 
 /**************************************** cifs */
 
-NOEXPORT char *cifs_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void cifs_client_middle(CLI *c) {
     uint8_t buffer[5];
     uint8_t request_dummy[4] = {0x81, 0, 0, 0}; /* a zero-length request */
 
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
     s_write(c, c->remote_fd.fd, request_dummy, 4);
     s_read(c, c->remote_fd.fd, buffer, 5);
     if(buffer[0]!=0x83) { /* NB_SSN_NEGRESP */
@@ -658,18 +690,14 @@ NOEXPORT char *cifs_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         s_log(LOG_ERR, "Remote server does not require TLS");
         throw_exception(c, 1);
     }
-    return NULL;
 }
 
-NOEXPORT char *cifs_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void cifs_server_early(CLI *c) {
     uint8_t buffer[128];
     uint8_t response_access_denied[5] = {0x83, 0, 0, 1, 0x81};
     uint8_t response_use_ssl[5] = {0x83, 0, 0, 1, 0x8e};
     uint16_t len;
 
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_EARLY)
-        return NULL;
     s_read(c, c->local_rfd.fd, buffer, 4); /* NetBIOS header */
     len=(uint16_t)(((uint16_t)(buffer[2])<<8)|buffer[3]);
     if(len>sizeof buffer-4) {
@@ -683,7 +711,6 @@ NOEXPORT char *cifs_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         throw_exception(c, 1);
     }
     s_write(c, c->local_wfd.fd, response_use_ssl, 5);
-    return NULL;
 }
 
 /**************************************** pgsql */
@@ -691,12 +718,9 @@ NOEXPORT char *cifs_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 /* http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982 */
 static const uint8_t ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
 
-NOEXPORT char *pgsql_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void pgsql_client_middle(CLI *c) {
     uint8_t buffer[1];
 
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
     s_write(c, c->remote_fd.fd, ssl_request, sizeof ssl_request);
     s_read(c, c->remote_fd.fd, buffer, 1);
     /* S - accepted, N - rejected, non-TLS preferred */
@@ -704,10 +728,9 @@ NOEXPORT char *pgsql_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         s_log(LOG_ERR, "PostgreSQL server rejected TLS");
         throw_exception(c, 1);
     }
-    return NULL;
 }
 
-NOEXPORT char *pgsql_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void pgsql_server_early(CLI *c) {
     uint8_t buffer[8], ssl_ok[1]={'S'};
     /* https://www.postgresql.org/docs/current/protocol-message-formats.html */
     static const uint8_t gss_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x30};
@@ -717,9 +740,6 @@ NOEXPORT char *pgsql_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         ' ', 'b', 'u', 't', ' ', 'n', 'o', 't', ' ', 'r', 'e', 'q', 'u', 'e', 's', 't',
         'e', 'd', ' ', 'b', 'y', ' ', 'c', 'l', 'i', 'e', 'n', 't', 0, 0};
 
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_EARLY)
-        return NULL;
     s_log(LOG_DEBUG, "Started server-side psql protocol negotiation");
     memset(buffer, 0, sizeof buffer);
     s_read(c, c->local_rfd.fd, buffer, sizeof buffer);
@@ -735,39 +755,31 @@ NOEXPORT char *pgsql_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     }
     s_log(LOG_DEBUG, "SSLRequest received");
     s_write(c, c->local_wfd.fd, ssl_ok, sizeof ssl_ok);
-    return NULL;
 }
 
 /**************************************** smtp */
 
-NOEXPORT char *smtp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    (void)opt; /* squash the unused parameter warning */
-    switch(phase) {
-    case PROTOCOL_MIDDLE:
-        smtp_client_negotiate(c);
-        break;
-    case PROTOCOL_LATE:
-        if(opt->protocol_username && opt->protocol_password) {
-            char *line;
+NOEXPORT void smtp_client_middle(CLI *c) {
+    smtp_client_negotiate(c);
+}
 
-            if(opt->protocol_host)
-                ssl_printf(c, "HELO %s", opt->protocol_host);
-            else
-                ssl_putline(c, "HELO localhost");
-            line=ssl_getline(c); /* ignore the reply */
-            str_free(line);
-            if(!strcasecmp(c->opt->protocol_authentication, "LOGIN"))
-                smtp_client_login(c,
-                    opt->protocol_username, opt->protocol_password);
-            else /* use PLAIN by default */
-                smtp_client_plain(c,
-                    opt->protocol_username, opt->protocol_password);
-        }
-        break;
-    default:
-        break;
+NOEXPORT void smtp_client_late(CLI *c) {
+    if(c->opt->protocol_username && c->opt->protocol_password) {
+        char *line;
+
+        if(c->opt->protocol_host)
+            ssl_printf(c, "HELO %s", c->opt->protocol_host);
+        else
+            ssl_putline(c, "HELO localhost");
+        line=ssl_getline(c); /* ignore the reply */
+        str_free(line);
+        if(!strcasecmp(c->opt->protocol_authentication, "LOGIN"))
+            smtp_client_login(c,
+                c->opt->protocol_username, c->opt->protocol_password);
+        else /* use PLAIN by default */
+            smtp_client_plain(c,
+                c->opt->protocol_username, c->opt->protocol_password);
     }
-    return NULL;
 }
 
 NOEXPORT void smtp_client_negotiate(CLI *c) {
@@ -877,13 +889,13 @@ NOEXPORT void smtp_client_login(CLI *c, const char *user, const char *pass) {
     str_free(line);
 }
 
-NOEXPORT char *smtp_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    char *line, *domain, *greeting;
+NOEXPORT const char *smtp_server_init(SERVICE_OPTIONS *opt) {
+    opt->option.connect_before_ssl=1; /* c->remote_fd needed */
+    return NULL;
+}
 
-    if(phase==PROTOCOL_CHECK)
-        opt->option.connect_before_ssl=1; /* c->remote_fd needed */
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
+NOEXPORT void smtp_server_middle(CLI *c) {
+    char *line, *domain, *greeting;
 
     /* detect RFC 2487 */
     s_poll_init(c->fds, 0);
@@ -894,7 +906,7 @@ NOEXPORT char *smtp_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         break;
     case 1: /* fd ready to read */
         s_log(LOG_DEBUG, "RFC 2487 not detected");
-        return NULL; /* return if RFC 2487 is not used */
+        return; /* return if RFC 2487 is not used */
     default: /* -1 */
         sockerror("RFC2487 (s_poll_wait)");
         throw_exception(c, 1);
@@ -946,18 +958,13 @@ NOEXPORT char *smtp_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     }
     fd_putline(c, c->local_wfd.fd, "220 Go ahead");
     str_free(line);
-
-    return NULL;
 }
 
 /**************************************** pop3 */
 
-NOEXPORT char *pop3_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void pop3_client_middle(CLI *c) {
     char *line;
 
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
     line=fd_getline(c, c->remote_fd.fd);
     if(!is_prefix(line, "+OK ")) {
         s_log(LOG_ERR, "Unknown server welcome");
@@ -974,17 +981,15 @@ NOEXPORT char *pop3_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         throw_exception(c, 1);
     }
     str_free(line);
+}
+
+NOEXPORT const char *pop3_server_init(SERVICE_OPTIONS *opt) {
+    opt->option.connect_before_ssl=1; /* c->remote_fd needed */
     return NULL;
 }
 
-NOEXPORT char *pop3_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    char *line;
-
-    if(phase==PROTOCOL_CHECK)
-        opt->option.connect_before_ssl=1; /* c->remote_fd needed */
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
-    line=fd_getline(c, c->remote_fd.fd);
+NOEXPORT void pop3_server_middle(CLI *c) {
+    char *line=fd_getline(c, c->remote_fd.fd);
     fd_printf(c, c->local_wfd.fd, "%s + stunnel", line);
     str_free(line);
     line=fd_getline(c, c->local_rfd.fd);
@@ -1002,18 +1007,12 @@ NOEXPORT char *pop3_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     }
     str_free(line);
     fd_putline(c, c->local_wfd.fd, "+OK Stunnel starts TLS negotiation");
-    return NULL;
 }
 
 /**************************************** imap */
 
-NOEXPORT char *imap_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    char *line;
-
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
-    line=fd_getline(c, c->remote_fd.fd);
+NOEXPORT void imap_client_middle(CLI *c) {
+    char *line=fd_getline(c, c->remote_fd.fd);
     if(!is_prefix(line, "* OK")) {
         s_log(LOG_ERR, "Unknown server welcome");
         str_free(line);
@@ -1031,16 +1030,16 @@ NOEXPORT char *imap_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         throw_exception(c, 2); /* don't reset */
     }
     str_free(line);
+}
+
+NOEXPORT const char *imap_server_init(SERVICE_OPTIONS *opt) {
+    opt->option.connect_before_ssl=1; /* c->remote_fd needed */
     return NULL;
 }
 
-NOEXPORT char *imap_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void imap_server_middle(CLI *c) {
     char *line, *id, *tail, *capa;
 
-    if(phase==PROTOCOL_CHECK)
-        opt->option.connect_before_ssl=1; /* c->remote_fd needed */
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
     s_poll_init(c->fds, 0);
     s_poll_add(c->fds, c->local_rfd.fd, 1, 0);
     switch(s_poll_wait(c->fds, 0, 200)) {
@@ -1049,7 +1048,7 @@ NOEXPORT char *imap_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         break;
     case 1: /* fd ready to read */
         s_log(LOG_DEBUG, "RFC 2595 not detected");
-        return NULL; /* return if RFC 2595 is not used */
+        return; /* return if RFC 2595 is not used */
     default: /* -1 */
         sockerror("RFC2595 (s_poll_wait)");
         throw_exception(c, 1);
@@ -1086,7 +1085,7 @@ NOEXPORT char *imap_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
                 "%s OK Begin TLS negotiation now", id);
             str_free(line);
             str_free(id);
-            return NULL; /* success */
+            return; /* success */
         } else if(is_prefix(tail, "CAPABILITY")) {
             fd_putline(c, c->remote_fd.fd, line); /* send it to server */
             str_free(line);
@@ -1132,18 +1131,12 @@ NOEXPORT char *imap_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     }
     str_free(line);
     throw_exception(c, 2); /* don't reset */
-    return NULL; /* some C compilers require a return value */
 }
 
 /**************************************** nntp */
 
-NOEXPORT char *nntp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    char *line;
-
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
-    line=fd_getline(c, c->remote_fd.fd);
+NOEXPORT void nntp_client_middle(CLI *c) {
+    char *line=fd_getline(c, c->remote_fd.fd);
     if(!is_prefix(line, "200 ") && !is_prefix(line, "201 ")) {
         s_log(LOG_ERR, "Unknown server welcome");
         str_free(line);
@@ -1159,7 +1152,6 @@ NOEXPORT char *nntp_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         throw_exception(c, 1);
     }
     str_free(line);
-    return NULL;
 }
 
 /**************************************** LDAP, RFC 2830 */
@@ -1205,17 +1197,12 @@ uint8_t ldap_starttls_message[0x1d + 2] = {
  * https://ldap.com/ldapv3-wire-protocol-reference-extended/
  */
 
-NOEXPORT char *ldap_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void ldap_client_middle(CLI *c) {
     uint8_t buffer_8;
     uint32_t buffer_32;
     size_t resp_len;
     uint8_t ldap_response[128];
     size_t resp_idx;
-
-    (void)opt; /* squash the unused parameter warning */
-
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
 
     s_log(LOG_DEBUG, "Sending LDAP Start TLS request");
     s_write(c, c->remote_fd.fd, ldap_starttls_message, sizeof(ldap_starttls_message));
@@ -1285,17 +1272,13 @@ NOEXPORT char *ldap_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     /* any remaining data is ignored */
 
     s_log(LOG_INFO, "LDAP Start TLS successfully negotiated");
-    return NULL;
 }
 
 /**************************************** connect */
 
-NOEXPORT char *connect_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void connect_server_early(CLI *c) {
     char *request, *proto, *header;
 
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_EARLY)
-        return NULL;
     request=fd_getline(c, c->local_rfd.fd);
     if(!is_prefix(request, "CONNECT ")) {
         fd_putline(c, c->local_wfd.fd, "HTTP/1.0 400 Bad Request Method");
@@ -1332,34 +1315,30 @@ NOEXPORT char *connect_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
     fd_putline(c, c->local_wfd.fd, "HTTP/1.0 200 OK");
     fd_putline(c, c->local_wfd.fd, "Server: stunnel/" STUNNEL_VERSION);
     fd_putline(c, c->local_wfd.fd, "");
-    return NULL;
 }
 
-NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
+NOEXPORT void connect_client_middle(CLI *c) {
     char *line, *encoded;
     NAME_LIST *ptr;
 
-    if(phase!=PROTOCOL_MIDDLE)
-        return NULL;
-
-    if(!opt->protocol_host) {
+    if(!c->opt->protocol_host) {
         s_log(LOG_ERR, "protocolHost not specified");
         throw_exception(c, 1);
     }
     fd_printf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1",
-        opt->protocol_host);
-    fd_printf(c, c->remote_fd.fd, "Host: %s", opt->protocol_host);
-    if(opt->protocol_username && opt->protocol_password) {
-        if(!strcasecmp(opt->protocol_authentication, "ntlm")) {
+        c->opt->protocol_host);
+    fd_printf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
+    if(c->opt->protocol_username && c->opt->protocol_password) {
+        if(!strcasecmp(c->opt->protocol_authentication, "ntlm")) {
 #ifndef OPENSSL_NO_MD4
-            ntlm(c, opt);
+            ntlm(c);
 #else
             s_log(LOG_ERR, "NTLM authentication is not available");
             throw_exception(c, 1);
 #endif
         } else { /* basic authentication */
             line=str_printf("%s:%s",
-                opt->protocol_username, opt->protocol_password);
+                c->opt->protocol_username, c->opt->protocol_password);
             encoded=base64(1, line, (int)strlen(line));
             str_free(line);
             if(!encoded) {
@@ -1371,7 +1350,7 @@ NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
             str_free(encoded);
         }
     }
-    for(ptr=opt->protocol_header; ptr; ptr=ptr->next)
+    for(ptr=c->opt->protocol_header; ptr; ptr=ptr->next)
         fd_putline(c, c->remote_fd.fd, ptr->name); /* custom header */
     fd_putline(c, c->remote_fd.fd, ""); /* empty line */
 
@@ -1392,7 +1371,6 @@ NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
         line=fd_getline(c, c->remote_fd.fd); /* read all headers */
     } while(*line);
     str_free(line);
-    return NULL;
 }
 
 #ifndef OPENSSL_NO_MD4
@@ -1405,7 +1383,7 @@ NOEXPORT char *connect_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
 
 #define s_min(a, b) ((a)>(b)?(b):(a))
 
-NOEXPORT void ntlm(CLI *c, SERVICE_OPTIONS *opt) {
+NOEXPORT void ntlm(CLI *c) {
     char *line, buf[BUFSIZ], *ntlm1_txt, *ntlm2_txt, *ntlm3_txt, *tmpstr;
     long content_length=0; /* no HTTP content */
 
@@ -1463,10 +1441,10 @@ NOEXPORT void ntlm(CLI *c, SERVICE_OPTIONS *opt) {
     }
 
     /* send Proxy-Authorization (phase 3) */
-    fd_printf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1", opt->protocol_host);
-    fd_printf(c, c->remote_fd.fd, "Host: %s", opt->protocol_host);
-    ntlm3_txt=ntlm3(opt->protocol_domain,
-        opt->protocol_username, opt->protocol_password, ntlm2_txt);
+    fd_printf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1", c->opt->protocol_host);
+    fd_printf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
+    ntlm3_txt=ntlm3(c->opt->protocol_domain,
+        c->opt->protocol_username, c->opt->protocol_password, ntlm2_txt);
     str_free(ntlm2_txt);
     if(!ntlm3_txt) {
         s_log(LOG_ERR, "Proxy-Authenticate: Failed to build NTLM response");
@@ -1621,6 +1599,111 @@ NOEXPORT char *base64(int encode, const char *in, int len) {
 
 /**************************************** capwin authentication support */
 
+NOEXPORT void capwin_server_middle(CLI *c) {
+    char *buffer, *user, *pass, *esc_user, *dn;
+    const char *failure="FAILED";
+    int i;
+
+    buffer=str_alloc(CAPWIN_BUFFER_SIZE);
+    for(i=0; i<CAPWIN_BUFFER_SIZE - 1; ++i) {
+        s_ssl_read(c, buffer+i, 1);
+        if(buffer[i] == '\x1c')
+            break;
+    }
+    if(capwin_decode(buffer, NULL, &user, &pass, NULL)) {
+        /* malformed request: reset instead of sending "FAILED" */
+        str_free(buffer);
+        throw_exception(c, 1);
+    }
+    str_free(buffer);
+    esc_user=ldap_escape_dn(user);
+    str_free(user);
+    dn=str_printf("uid=%s,ou=people,O=CAPWIN,C=US", esc_user);
+    str_free(esc_user);
+    if(ldap_auth(c, dn, pass)) {
+        str_free(dn);
+        str_free(pass);
+        s_log(LOG_ERR, "CapWIN: Authentication failed");
+        s_ssl_write(c, failure, (int)strlen(failure));
+        throw_exception(c, 2); /* don't reset */
+    }
+    str_free(dn);
+    str_free(pass);
+    s_log(LOG_NOTICE, "CapWIN: Authentication succeeded");
+}
+
+NOEXPORT void capwin_server_late(CLI *c) {
+    const char *success="BINGO";
+    s_ssl_write(c, success, (int)strlen(success));
+}
+
+NOEXPORT void capwin_client_late(CLI *c) {
+    char *cmd, *user, *pass, *ctrl, *req, resp[5];
+
+    /* we extract the username and the password to work around a bug in the
+     * original server-side code that required unused units to be empty */
+    /* otherwise, we could simply forward capwin_auth directly */
+    if(!capwin_auth[0]) {
+        s_log(LOG_ERR, "CapWIN: No credentials set");
+        throw_exception(c, 1);
+    }
+    if(capwin_decode(capwin_auth, &cmd, &user, &pass, &ctrl))
+        throw_exception(c, 1);
+    if(strcmp(cmd, "AUTH")) {
+        s_log(LOG_ERR, "CapWIN: Invalid authentication request");
+        str_free(cmd);
+        str_free(user);
+        str_free(pass);
+        str_free(ctrl);
+        throw_exception(c, 1);
+    }
+    str_free(cmd);
+    req=str_printf("\x1f%s\x1f%s\x1f\x1c", user, pass);
+    str_free(user);
+    str_free(pass);
+#ifdef USE_WIN32
+    capwin_hwnd=(HWND)(uintptr_t)atoi(ctrl);
+#endif
+    str_free(ctrl);
+
+    s_log(LOG_DEBUG, "CapWIN: Sending credentials");
+    s_ssl_write(c, req, (int)strlen(req));
+    str_free(req);
+
+    s_log(LOG_DEBUG, "CapWIN: Waiting for response");
+    s_ssl_read(c, resp, sizeof resp);
+#ifdef USE_WIN32
+    /* we received a response, so network is up */
+    if(!InterlockedExchange(&capwin_connectivity, 1))
+        PostMessage(capwin_hwnd, WM_CAPWIN_NET_UP, 0, 0);
+#endif
+    if(memcmp(resp, "BINGO", sizeof resp)) {
+        s_log(LOG_ERR, "CapWIN: Authentication failed");
+#ifdef USE_WIN32
+        PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_FAIL, 0, 0);
+#endif
+        throw_exception(c, 1);
+    }
+    s_log(LOG_NOTICE, "CapWIN: Authentication succeeded");
+#ifdef USE_WIN32
+    PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_OK, 0, 0);
+#endif
+}
+
+NOEXPORT const char *capwinctrl_client_init(SERVICE_OPTIONS *opt) {
+    opt->option.protocol_endpoint=1;
+    return NULL;
+}
+
+NOEXPORT void capwinctrl_client_early(CLI *c) {
+    s_log(LOG_DEBUG, "CapWIN: Setting credentials");
+    memset(capwin_auth, 0, CAPWIN_BUFFER_SIZE);
+    s_read_eof(c, c->local_rfd.fd, capwin_auth, CAPWIN_BUFFER_SIZE - 1);
+    s_log(LOG_NOTICE, "CapWIN: Credentials set");
+    /* skip connecting a remote host */
+    throw_exception(c, 2); /* don't reset */
+}
+
 NOEXPORT int capwin_decode(const char *src,
         char **cmd, char **user, char **pass, char **ctrl) {
     char *us1, *us2, *us3, *fs;
@@ -1744,126 +1827,6 @@ NOEXPORT char *ldap_escape_dn(const char *src) {
         dst[j++]=src[i++];
     }
     return dst;
-}
-
-NOEXPORT char *capwin_server(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    char *buffer, *user, *pass, *esc_user, *dn;
-    const char *success="BINGO", *failure="FAILED";
-    int i;
-
-    (void)opt; /* squash the unused parameter warning */
-    switch(phase) {
-    case PROTOCOL_MIDDLE: /* TLS is established */
-        buffer=str_alloc(CAPWIN_BUFFER_SIZE);
-        for(i=0; i<CAPWIN_BUFFER_SIZE - 1; ++i) {
-            s_ssl_read(c, buffer+i, 1);
-            if(buffer[i] == '\x1c')
-                break;
-        }
-        if(capwin_decode(buffer, NULL, &user, &pass, NULL)) {
-            /* malformed request: reset instead of sending "FAILED" */
-            str_free(buffer);
-            throw_exception(c, 1);
-        }
-        str_free(buffer);
-        esc_user=ldap_escape_dn(user);
-        str_free(user);
-        dn=str_printf("uid=%s,ou=people,O=CAPWIN,C=US", esc_user);
-        str_free(esc_user);
-        if(ldap_auth(c, dn, pass)) {
-            str_free(dn);
-            str_free(pass);
-            s_log(LOG_ERR, "CapWIN: Authentication failed");
-            s_ssl_write(c, failure, (int)strlen(failure));
-            throw_exception(c, 2); /* don't reset */
-        }
-        str_free(dn);
-        str_free(pass);
-        s_log(LOG_NOTICE, "CapWIN: Authentication succeeded");
-        break;
-    case PROTOCOL_LATE: /* remote host is connected */
-        s_ssl_write(c, success, (int)strlen(success));
-        break;
-    default:
-        break;
-    }
-    return NULL;
-}
-
-NOEXPORT char *capwin_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    char *cmd, *user, *pass, *ctrl, *req, resp[5];
-
-    (void)opt; /* squash the unused parameter warning */
-    if(phase!=PROTOCOL_LATE)
-        return NULL;
-
-    /* we extract the username and the password to work around a bug in the
-     * original server-side code that required unused units to be empty */
-    /* otherwise, we could simply forward capwin_auth directly */
-    if(!capwin_auth[0]) {
-        s_log(LOG_ERR, "CapWIN: No credentials set");
-        throw_exception(c, 1);
-    }
-    if(capwin_decode(capwin_auth, &cmd, &user, &pass, &ctrl))
-        throw_exception(c, 1);
-    if(strcmp(cmd, "AUTH")) {
-        s_log(LOG_ERR, "CapWIN: Invalid authentication request");
-        str_free(cmd);
-        str_free(user);
-        str_free(pass);
-        str_free(ctrl);
-        throw_exception(c, 1);
-    }
-    str_free(cmd);
-    req=str_printf("\x1f%s\x1f%s\x1f\x1c", user, pass);
-    str_free(user);
-    str_free(pass);
-#ifdef USE_WIN32
-    capwin_hwnd=(HWND)(uintptr_t)atoi(ctrl);
-#endif
-    str_free(ctrl);
-
-    s_log(LOG_DEBUG, "CapWIN: Sending credentials");
-    s_ssl_write(c, req, (int)strlen(req));
-    str_free(req);
-
-    s_log(LOG_DEBUG, "CapWIN: Waiting for response");
-    s_ssl_read(c, resp, sizeof resp);
-#ifdef USE_WIN32
-    /* we received a response, so network is up */
-    if(!InterlockedExchange(&capwin_connectivity, 1))
-        PostMessage(capwin_hwnd, WM_CAPWIN_NET_UP, 0, 0);
-#endif
-    if(memcmp(resp, "BINGO", sizeof resp)) {
-        s_log(LOG_ERR, "CapWIN: Authentication failed");
-#ifdef USE_WIN32
-        PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_FAIL, 0, 0);
-#endif
-        throw_exception(c, 1);
-    }
-    s_log(LOG_NOTICE, "CapWIN: Authentication succeeded");
-#ifdef USE_WIN32
-    PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_OK, 0, 0);
-#endif
-    return NULL;
-}
-
-NOEXPORT char *capwinctrl_client(CLI *c, SERVICE_OPTIONS *opt, const PHASE phase) {
-    switch(phase) {
-    case PROTOCOL_CHECK:
-        opt->option.protocol_endpoint=1;
-        break;
-    case PROTOCOL_EARLY:
-        s_log(LOG_DEBUG, "CapWIN: Setting credentials");
-        memset(capwin_auth, 0, CAPWIN_BUFFER_SIZE);
-        s_read_eof(c, c->local_rfd.fd, capwin_auth, CAPWIN_BUFFER_SIZE - 1);
-        s_log(LOG_NOTICE, "CapWIN: Credentials set");
-        /* skip connecting a remote host */
-        throw_exception(c, 2); /* don't reset */
-    default:
-        break;
-    }
-    return NULL;
 }
 
 /* end of protocol.c */

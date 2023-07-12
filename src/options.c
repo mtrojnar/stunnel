@@ -2552,11 +2552,11 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         section->protocol=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_INITIALIZE:
-        /* PROTOCOL_CHECK also initializes:
+        /* protocol_init() also initializes:
            section->option.connect_before_ssl
            section->option.protocol_endpoint */
         {
-            const char *tmp_str=protocol(NULL, section, PROTOCOL_CHECK);
+            const char *tmp_str=protocol_init(section);
             if(tmp_str)
                 return tmp_str;
         }
@@ -2993,22 +2993,26 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     /* retry */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
-        section->option.retry=0;
+        section->retry=-1;
         break;
     case CMD_SET_COPY:
-        section->option.retry=new_service_options.option.retry;
+        section->retry=new_service_options.retry;
         break;
     case CMD_FREE:
         break;
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "retry"))
             break;
-        if(!strcasecmp(arg, "yes"))
-            section->option.retry=1;
-        else if(!strcasecmp(arg, "no"))
-            section->option.retry=0;
-        else
-            return "The argument needs to be either 'yes' or 'no'";
+        if(!strcasecmp(arg, "yes")) {
+            section->retry=1000; /* 1 second */
+        } else if(!strcasecmp(arg, "no")) {
+            section->retry=-1; /* disabled */
+        } else {
+            char *tmp_str;
+            section->retry=(long)strtol(arg, &tmp_str, 10);
+            if(tmp_str==arg || *tmp_str || section->retry < 0)
+                return "Illegal retry delay";
+        }
         return NULL; /* OK */
     case CMD_INITIALIZE:
         break;

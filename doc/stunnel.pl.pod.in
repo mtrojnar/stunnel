@@ -937,9 +937,13 @@ Opcja nie jest wspierana na niektórych platformach.
 
 domyślnie: yes
 
-=item B<retry> = yes | no
+=item B<retry> = yes | no | OPÓŹNIENIE
 
 połącz ponownie sekcję connect+exec po rozłączeniu
+
+Wartość parametru OPÓŹNIENIE określa liczbę milisekund oczekiwania
+przed wykonaniem ponownego połączenia.
+"retry = yes" jest synonimem dla "retry = 1000".
 
 domyślnie: no
 

@@ -1034,10 +1034,12 @@ options = NO_SSLv3</code></pre>
 <p>domy&#x15B;lnie: yes</p>
 
 </dd>
-<dt id="retry-yes-no"><b>retry</b> = yes | no</dt>
+<dt id="retry-yes-no-OPNIENIE"><b>retry</b> = yes | no | OP&Oacute;&#x179;NIENIE</dt>
 <dd>
 
 <p>poł&#x105;cz ponownie sekcj&#x119; connect+exec po rozł&#x105;czeniu</p>
+
+<p>Warto&#x15B;&#x107; parametru OP&Oacute;&#x179;NIENIE okre&#x15B;la liczb&#x119; milisekund oczekiwania przed wykonaniem ponownego poł&#x105;czenia. &quot;retry = yes&quot; jest synonimem dla &quot;retry = 1000&quot;.</p>
 
 <p>domy&#x15B;lnie: no</p>
 

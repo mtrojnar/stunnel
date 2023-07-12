@@ -713,7 +713,13 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     c=SSL_get_ex_data(ssl, index_ssl_cli);
     found=psk_find(&c->opt->psk_sorted, identity);
     if(!found) {
-        s_log(LOG_INFO, "PSK identity not found (session resumption?)");
+        const char *c=identity;
+        while(*c && isprint(*c))
+            c++;
+        if(*c)
+            s_log(LOG_INFO, "PSK identity not found (session resumption?)");
+        else
+            s_log(LOG_INFO, "PSK identity not found: %s", identity);
         return 0;
     }
     if(found->key_len>max_psk_len) {
@@ -841,6 +847,21 @@ NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section) {
         sslerror("SSL_CTX_use_PrivateKey");
         return 1; /* FAILED */
     }
+#if OPENSSL_VERSION_NUMBER>=0x10002000L
+    if(!SSL_CTX_set0_chain(section->ctx, ca)) {
+        sslerror("SSL_CTX_set0_chain");
+        return 1; /* FAILED */
+    }
+#else /* OPENSSL_VERSION_NUMBER>=0x10002000L */
+    /* FIXME: implement for OpenSSL older than 1.0.2 */
+#if 0
+    /* struct cert_st is private, so the following code won't build */
+    if(section->ctx->cert->key->chain)
+        sk_X509_pop_free(section->ctx->cert->key->chain, X509_free);
+    section->ctx->cert->key->chain=ca;
+#endif
+    sk_X509_pop_free(ca, X509_free); /* just free the memory */
+#endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
     s_log(LOG_INFO, "Certificate and private key loaded from file: %s",
         section->cert);
     return 0; /* OK */
@@ -1359,7 +1380,7 @@ NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess) {
             old=c->opt->connect_session[c->idx];
             c->opt->connect_session[c->idx]=sess;
         } else {
-            s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized client session cache");
+            s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized client session cache (save)");
             old=NULL;
         }
     }

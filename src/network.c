@@ -679,22 +679,13 @@ void s_write(CLI *c, SOCKET fd, const void *buf, size_t len) {
         }
 
         num=writesocket(fd, (const void *)ptr, len);
-        if(num==-1) { /* error */
-            int error=get_last_socket_error();
-            if(error==S_EINPROGRESS) {
-                s_log(LOG_DEBUG, "s_write: EINPROGRESS: Retrying");
-                continue; /* retry */
-            }
-            if(error==S_EWOULDBLOCK) {
-                s_log(LOG_DEBUG, "s_write: EWOULDBLOCK: Retrying");
-                continue; /* retry */
-            }
-            s_log(LOG_ERR, "s_write: writesocket: %s (%d)",
-                s_strerror(error), error);
-            throw_exception(c, 1);
+        if(num>=0) {
+            ptr+=(size_t)num;
+            len-=(size_t)num;
+        } else { /* error */
+            if(!socket_needs_retry(c, "s_write: writesocket"))
+                throw_exception(c, 1);
         }
-        ptr+=(size_t)num;
-        len-=(size_t)num;
     }
 }
 
@@ -724,26 +715,16 @@ size_t s_read_eof(CLI *c, SOCKET fd, void *ptr, size_t len) {
         }
 
         num=readsocket(fd, (char *)ptr+total, len);
-        if(num==-1) { /* error */
-            int error=get_last_socket_error();
-            if(error==S_EINPROGRESS) {
-                s_log(LOG_DEBUG, "s_read_eof: EINPROGRESS: Retrying");
-                continue; /* retry */
-            }
-            if(error==S_EWOULDBLOCK) {
-                s_log(LOG_DEBUG, "s_ssl_eof: EWOULDBLOCK: Retrying");
-                continue; /* retry */
-            }
-            s_log(LOG_ERR, "s_read_eof: readsocket: %s (%d)",
-                s_strerror(error), error);
-            throw_exception(c, 1);
-        }
-        if(num==0) { /* EOF */
+        if(num>0) {
+            total+=(size_t)num;
+            len-=(size_t)num;
+        } else if(num==0) { /* EOF */
             s_log(LOG_DEBUG, "s_read_eof: EOF");
-            break;
+            break; /* EOF */
+        } else { /* error */
+            if(!socket_needs_retry(c, "s_read_eof: readsocket"))
+                break; /* EOF */
         }
-        total+=(size_t)num;
-        len-=(size_t)num;
     }
     return total;
 }
@@ -751,8 +732,10 @@ size_t s_read_eof(CLI *c, SOCKET fd, void *ptr, size_t len) {
 void s_read(CLI *c, SOCKET fd, void *ptr, size_t len) {
         /* simulate a blocking read */
         /* throw an exception on EOF */
-    if(s_read_eof(c, fd, ptr, len)!=len) {
-        s_log(LOG_ERR, "s_read: Unexpected socket close");
+    size_t received=s_read_eof(c, fd, ptr, len);
+    if(received!=len) {
+        s_log(LOG_ERR, "s_read: Received %llu out of requested %llu byte(s)",
+            (unsigned long long)received, (unsigned long long)len);
         throw_exception(c, 1);
     }
 }
@@ -848,18 +831,11 @@ void s_ssl_write(CLI *c, const void *buf, int len) {
             sslerror("s_ssl_write: SSL_write");
             throw_exception(c, 1);
         } else if(err==SSL_ERROR_SYSCALL) {
-            int error=get_last_socket_error();
-            if(error==S_EINPROGRESS) {
-                s_log(LOG_DEBUG, "s_ssl_write: EINPROGRESS: Retrying");
-                continue; /* retry */
+            if(!socket_needs_retry(c, "s_ssl_write: SSL_write")) {
+                SSL_set_shutdown(c->ssl,
+                    SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                break; /* EOF */
             }
-            if(error==S_EWOULDBLOCK) {
-                s_log(LOG_DEBUG, "s_ssl_write: EWOULDBLOCK: Retrying");
-                continue; /* retry */
-            }
-            s_log(LOG_ERR, "s_ssl_write: SSL_write: %s (%d)",
-                s_strerror(error), error);
-            throw_exception(c, 1);
         } else {
             s_log(LOG_ERR, "s_ssl_write: Unhandled error %d", err);
             throw_exception(c, 1);
@@ -905,21 +881,26 @@ size_t s_ssl_read_eof(CLI *c, void *ptr, int len) {
         } else if(err==SSL_ERROR_WANT_READ) {
             s_log(LOG_DEBUG, "s_ssl_read_eof: SSL_ERROR_WANT_READ: Retrying");
         } else if(err==SSL_ERROR_SSL) {
+#ifdef SSL_R_UNEXPECTED_EOF_WHILE_READING
+            /* OpenSSL 3.0 changed the method of reporting socket EOF */
+            if(ERR_GET_REASON(ERR_peek_error())==
+                    SSL_R_UNEXPECTED_EOF_WHILE_READING) {
+                /* EOF -> buggy (e.g. Microsoft) peer:
+                 * TLS socket closed without close_notify alert */
+                s_log(LOG_DEBUG, "s_ssl_read_eof: TLS socket closed");
+                SSL_set_shutdown(c->ssl,
+                    SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                break; /* EOF */
+            }
+#endif /* SSL_R_UNEXPECTED_EOF_WHILE_READING */
             sslerror("s_ssl_read_eof: SSL_read");
             throw_exception(c, 1);
         } else if(err==SSL_ERROR_SYSCALL) {
-            int error=get_last_socket_error();
-            if(error==S_EINPROGRESS) {
-                s_log(LOG_DEBUG, "s_ssl_read_eof: EINPROGRESS: Retrying");
-                continue; /* retry */
+            if(!socket_needs_retry(c, "s_ssl_read_eof: SSL_read")) {
+                SSL_set_shutdown(c->ssl,
+                    SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                break; /* EOF */
             }
-            if(error==S_EWOULDBLOCK) {
-                s_log(LOG_DEBUG, "s_ssl_read_eof: EWOULDBLOCK: Retrying");
-                continue; /* retry */
-            }
-            s_log(LOG_ERR, "s_ssl_read_eof: SSL_read: %s (%d)",
-                s_strerror(error), error);
-            throw_exception(c, 1);
         } else {
             s_log(LOG_ERR, "s_ssl_read_oef: Unhandled error %d", err);
             throw_exception(c, 1);
@@ -931,8 +912,10 @@ size_t s_ssl_read_eof(CLI *c, void *ptr, int len) {
 void s_ssl_read(CLI *c, void *ptr, int len) {
         /* simulate a blocking SSL_read */
         /* throw an exception on EOF */
-    if(s_ssl_read_eof(c, ptr, len)!=(size_t)len) {
-        s_log(LOG_ERR, "s_ssl_read: Unexpected socket close");
+    size_t received=s_ssl_read_eof(c, ptr, len);
+    if(received!=(size_t)len) {
+        s_log(LOG_ERR, "s_ssl_read: Received %llu out of requested %d byte(s)",
+            (unsigned long long)received, len);
         throw_exception(c, 1);
     }
 }
@@ -1106,6 +1089,48 @@ int original_dst(const SOCKET fd, SOCKADDR_UNION *addr) {
     sockerror("getsockname");
 #endif /* SO_ORIGINAL_DST */
     return -1; /* failed */
+}
+
+    /* returns 0 on close and 1 on non-critical errors */
+int socket_needs_retry(CLI *c, const char *text) {
+    switch(get_last_socket_error()) {
+        /* http://tangentsoft.net/wskfaq/articles/bsd-compatibility.html */
+    case 0: /* close on read, or close on write on WIN32 */
+        /* fall through */
+#ifndef USE_WIN32
+    case EPIPE: /* close on write on Unix */
+        /* fall through */
+#endif
+    case S_ECONNABORTED:
+        s_log(LOG_INFO, "%s: Socket is closed", text);
+        return 0;
+    case S_EINTR:
+        s_log(LOG_DEBUG, "%s: Interrupted by a signal: retrying", text);
+        return 1;
+    case S_EWOULDBLOCK:
+        s_log(LOG_NOTICE, "%s: Would block: retrying", text);
+        s_poll_sleep(1, 0); /* Microsoft bug KB177346 */
+        return 1;
+#if S_EAGAIN!=S_EWOULDBLOCK
+    case S_EAGAIN:
+        s_log(LOG_DEBUG,
+            "%s: Temporary lack of resources: retrying", text);
+        return 1;
+#endif
+#ifdef USE_WIN32
+    case S_ECONNRESET:
+        /* dying "exec" processes on Win32 cause reset instead of close */
+        if(c->opt->exec_name) {
+            s_log(LOG_INFO, "%s: Socket is closed (exec)", text);
+            return 0;
+        }
+#endif
+        /* fall through */
+    default:
+        sockerror(text);
+        throw_exception(c, 1);
+        return -1; /* some C compilers require a return value */
+    }
 }
 
 /* end of network.c */

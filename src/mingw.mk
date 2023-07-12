@@ -20,7 +20,7 @@ endif
 win32_cppflags = -I$(win32_ssl_dir)/include
 win32_cflags = -g -mthreads -O2
 win32_cflags += -fstack-protector
-win32_cflags += -Wall -Wextra -Wpedantic -Wconversion -Wno-long-long -ansi
+win32_cflags += -Wall -Wextra -Wpedantic -Wconversion -std=c99
 win32_cflags += -D_FORTIFY_SOURCE=2 -DUNICODE -D_UNICODE
 win32_ldflags = -g -mthreads -pipe
 win32_ldflags += -fstack-protector

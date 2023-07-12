@@ -70,7 +70,7 @@ class RetryDelay(StunnelTest):
     syslog = no
 
     delay = yes
-    retry = yes
+    retry = 10
 
     [{service}]
     client = yes
@@ -151,7 +151,7 @@ class RetryNoDelay(StunnelTest):
 
     delay = no
     failover = rr
-    retry = yes
+    retry = 10
 
     [{service}]
     client = yes

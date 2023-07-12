@@ -1,6 +1,11 @@
 # stunnel TODO
 
 
+### Updated defaults planned for stunnel 6.xx
+More secure defaults planned for the next major version.
+
+* OCSPaia = yes
+
 ### High priority features
 These features will likely be supported some day.
 A sponsor could allocate my time to get them faster.

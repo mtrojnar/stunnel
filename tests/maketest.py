@@ -1099,6 +1099,8 @@ class TestSuite(TestResult):
                     log=f"[{tag}] About to kill and wait for {num} stunnel process(es)"
                 )
             )
+            await self.cleanup_stunnel("client")
+
             waiters = [asyncio.create_task(proc.wait()) for proc in self.cfg.children.values()]
             children = []
             for key, proc in self.cfg.children.items():
@@ -1151,9 +1153,10 @@ class TestSuite(TestResult):
 
 
     async def cleanup_stunnel(self, service: str) -> None:
-        """Terminate and remove a stunnel processe."""
+        """Terminate and remove a stunnel process."""
         tag = f"cleanup_stunnel {service}"
         try:
+            children = []
             for key, proc in self.cfg.children.items():
                 if key.service is service:
                     await self.cfg.mainq.put(
@@ -1163,7 +1166,7 @@ class TestSuite(TestResult):
                         log=f"[{tag}] Waiting for the '{key.service}' PID {key.pid} to exit..."
                         )
                     )
-                    finished = key
+                    children.append(key)
                     try:
                         proc.terminate()
                     except ProcessLookupError:
@@ -1190,7 +1193,8 @@ class TestSuite(TestResult):
                             log=f"[{tag}] Got stunnel processes' exit status: {wait_res!r}",
                         )
                     )
-            self.cfg.children.pop(finished)
+            for key in children:
+                self.cfg.children.pop(key)
 
         except Exception as err:  # pylint: disable=broad-except
             await self.cfg.mainq.put(
@@ -1521,6 +1525,18 @@ class ClientConnectExec(TestSuite):
     ) -> None:
         """Handle a socket connection."""
         tag = f"socket_connected_cb #{self.idx}"
+        if self.idx >= self.params.conn_num:
+            await self.cfg.mainq.put(
+                LogEvent(
+                    etype="log",
+                    level=10,
+                    log=f"[{tag}] Skipping test connection #{self.idx}"
+                )
+            )
+            writer.close()
+            await writer.wait_closed()
+            return
+
         conn = TestConnection(idx=self.idx, port=0, peer=None)
         self.conns.by_id[self.idx] = conn
         line = f"Hello {self.idx}\n".encode("UTF-8")

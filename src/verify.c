@@ -72,9 +72,13 @@ NOEXPORT void log_time(const int, const char *, ASN1_TIME *);
 int verify_init(SERVICE_OPTIONS *section) {
     int verify_mode=0;
 
-    if(init_ca(section))
-        if(section->option.verify_chain || section->option.verify_peer)
+    if(init_ca(section)) {
+        if(section->option.verify_chain || section->option.verify_peer) {
+            s_log(LOG_ERR, "No trusted certificates found");
             return 1; /* FAILED */
+        }
+        s_log(LOG_INFO, "No trusted certificates found");
+    }
     if(init_crl(section))
         return 1; /* FAILED */
 
@@ -96,6 +100,14 @@ NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
 #ifndef OPENSSL_NO_ENGINE
     NAME_LIST *ptr;
 #endif
+
+    /* CA initialization with the file and/or directory */
+    if(section->ca_file || section->ca_dir) {
+        if(!SSL_CTX_load_verify_locations(section->ctx,
+                section->ca_file, section->ca_dir)) {
+            sslerror("SSL_CTX_load_verify_locations");
+        }
+    }
 
     ca_dn=sk_X509_NAME_new_null();
 
@@ -121,7 +133,6 @@ NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
         SSL_add_dir_cert_subjects_to_stack(ca_dn, section->ca_dir);
 
     if(!sk_X509_NAME_num(ca_dn)) {
-        s_log(LOG_ERR, "No trusted certificates found");
         sk_X509_NAME_pop_free(ca_dn, X509_NAME_free);
         return 1; /* FAILED */
     }
@@ -132,14 +143,6 @@ NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
     } else { /* only set the client CA list on the server */
         print_CA_list("Configured trusted client CA", ca_dn);
         SSL_CTX_set_client_CA_list(section->ctx, ca_dn);
-    }
-
-    /* CA initialization with the file and/or directory */
-    if(section->ca_file || section->ca_dir) {
-        if(!SSL_CTX_load_verify_locations(section->ctx,
-                section->ca_file, section->ca_dir)) {
-            sslerror("SSL_CTX_load_verify_locations");
-        }
     }
 
     return 0; /* OK */

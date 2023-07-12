@@ -63,7 +63,7 @@ class ResumeTicketTLSv12(StunnelTest):
     debug = debug
     syslog = no
 
-    retry = yes
+    retry = 10
 
     [{service}]
     client = yes
@@ -149,7 +149,7 @@ class ResumeTicketTLSv13(StunnelTest):
     debug = debug
     syslog = no
 
-    retry = yes
+    retry = 10
 
     [{service}]
     client = yes

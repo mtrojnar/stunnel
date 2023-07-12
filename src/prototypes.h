@@ -56,6 +56,12 @@
 
 typedef struct tls_data_struct TLS_DATA;
 typedef struct sock_opt_struct SOCK_OPT;
+typedef struct client_data_struct CLI;
+typedef struct global_options_struct GLOBAL_OPTIONS;
+typedef struct service_options_struct SERVICE_OPTIONS;
+#ifndef OPENSSL_NO_TLSEXT
+typedef struct servername_list_struct SERVERNAME_LIST;
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
 
 /**************************************** data structures */
 
@@ -133,7 +139,7 @@ typedef enum {
 } COMP_TYPE;
 #endif /* !defined(OPENSSL_NO_COMP) */
 
-typedef struct {
+struct global_options_struct {
         /* some data for TLS initialization in ssl.c */
 #ifndef OPENSSL_NO_COMP
     COMP_TYPE compression;                               /* compression type */
@@ -176,13 +182,9 @@ typedef struct {
         unsigned fips:1;                           /* enable FIPS 140-2 mode */
 #endif
     } option;
-} GLOBAL_OPTIONS;
+};
 
 extern GLOBAL_OPTIONS global_options;
-
-#ifndef OPENSSL_NO_TLSEXT
-typedef struct servername_list_struct SERVERNAME_LIST;/* forward declaration */
-#endif /* !defined(OPENSSL_NO_TLSEXT) */
 
 #ifndef OPENSSL_NO_PSK
 typedef struct psk_keys_struct {
@@ -204,7 +206,7 @@ typedef struct ticket_key_struct {
 } TICKET_KEY;
 #endif /* OpenSSL 1.0.0 or later */
 
-typedef struct service_options_struct {
+struct service_options_struct {
     struct service_options_struct *next;   /* next node in the services list */
     SSL_CTX *ctx;                                            /*  TLS context */
     char *servname;        /* service name for logging & permission checking */
@@ -305,10 +307,14 @@ typedef struct service_options_struct {
     int timeout_idle;                        /* maximum idle connection time */
     enum {FAILOVER_RR, FAILOVER_PRIO} failover;         /* failover strategy */
     unsigned rr;   /* per-service sequential number for round-robin failover */
-    char *username;
+    char *username;                                 /* ident client username */
+    long retry;     /* retry delay for remote+program loop or -1 if disabled */
 
         /* service-specific data for protocol.c */
     char *protocol;
+    void (*protocol_early)(CLI *);
+    void (*protocol_middle)(CLI *);
+    void (*protocol_late)(CLI *);
     NAME_LIST *protocol_header;
     char *protocol_host;
     char *protocol_domain;
@@ -336,7 +342,6 @@ typedef struct service_options_struct {
         unsigned libwrap:1;
 #endif
         unsigned local:1;               /* outgoing interface specified */
-        unsigned retry:1;               /* loop remote+program */
         unsigned session_resume:1;      /* enable session resumption */
         unsigned sessiond:1;
 #ifndef USE_WIN32
@@ -359,7 +364,7 @@ typedef struct service_options_struct {
         unsigned log_stderr:1;          /* a copy of the global switch */
 #endif /* USE_WIN32 */
     } option;
-} SERVICE_OPTIONS;
+};
 
 extern SERVICE_OPTIONS service_options;
 
@@ -430,7 +435,7 @@ typedef enum {
     RENEG_DETECTED /* renegotiation detected */
 } RENEG_STATE;
 
-typedef struct client_data_struct {
+struct client_data_struct {
     jmp_buf *exception_pointer;
 
     SSL *ssl;                                              /* TLS connection */
@@ -470,7 +475,7 @@ typedef struct client_data_struct {
     struct {
         unsigned psk:1;                            /* PSK identity was found */
     } flag;
-} CLI;
+};
 
 /**************************************** prototypes for stunnel.c */
 
@@ -630,6 +635,7 @@ void s_poll_sleep(int, int);
 int socket_options_set(SERVICE_OPTIONS *, SOCKET, int);
 int make_sockets(SOCKET[2]);
 int original_dst(const SOCKET, SOCKADDR_UNION *);
+int socket_needs_retry(CLI *, const char *);
 
 /**************************************** prototypes for client.c */
 
@@ -675,19 +681,12 @@ void ssl_printf(CLI *, const char *, ...)
 
 /**************************************** prototype for protocol.c */
 
-typedef enum {
-    PROTOCOL_CHECK,
-    PROTOCOL_EARLY,
-    PROTOCOL_MIDDLE,
-    PROTOCOL_LATE
-} PHASE;
-
 #ifdef USE_WIN32
 extern HWND capwin_hwnd;
 extern LONG capwin_connectivity;
 #endif
 
-const char *protocol(CLI *, SERVICE_OPTIONS *opt, const PHASE);
+const char *protocol_init(SERVICE_OPTIONS *);
 
 /**************************************** prototypes for resolver.c */
 

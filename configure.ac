@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.69])
+AC_INIT([stunnel],[5.70])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -95,7 +95,6 @@ if test "$GCC" = yes; then
     AX_APPEND_COMPILE_FLAGS([-Wpedantic])
     AX_APPEND_COMPILE_FLAGS([-Wformat=2])
     AX_APPEND_COMPILE_FLAGS([-Wconversion])
-    AX_APPEND_COMPILE_FLAGS([-Wno-long-long])
     AX_APPEND_COMPILE_FLAGS([-Wno-deprecated-declarations])
     AX_APPEND_COMPILE_FLAGS([-fPIE])
     case "${host}" in
@@ -485,9 +484,6 @@ AC_MSG_CHECKING([whether DH parameters need to be updated])
 if test -f src/stunnel.c && ! grep -q " built for $PACKAGE_STRING " src/dhparam.c; then
     AC_MSG_RESULT([yes])
     $(dirname $0)/makedh.sh "$PACKAGE_STRING" >src/dhparam.c
-    # also update trusted CA certificates
-    curl 'https://ccadb-public.secure.force.com/mozilla/IncludedRootsPEMTxt?TrustBitsInclude=Websites' |
-        sed -e 's/\r//' -e 's/ $//' >tools/ca-certs.pem
 else
     AC_MSG_RESULT([no])
 fi
