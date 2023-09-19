@@ -22,6 +22,8 @@ A sponsor could allocate my time to get them faster.
 * MSI installer for Windows.
 * Add 'leastconn' failover strategy to order defined 'connect' targets
   by the number of active connections.
+* MariaDB (formerly MySQL) protocol negotiation:
+  [MariaDB Handshake Protocol](https://mariadb.com/kb/en/connection/)
 
 ### Low priority features
 These features will unlikely ever be supported.

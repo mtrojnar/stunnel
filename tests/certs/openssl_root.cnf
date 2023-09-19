@@ -6,20 +6,31 @@ default_ca                      = CA_default
 [ CA_default ]
 # Directory and file locations.
 dir                             = .
-certs                           = $dir/demoCA
-crl_dir                         = $dir/demoCA
-new_certs_dir                   = $dir/demoCA
-database                        = $dir/demoCA/index.txt
-serial                          = $dir/demoCA/serial
+certs                           = $dir/CA
+crl_dir                         = $dir/CA
+new_certs_dir                   = $dir/CA
+database                        = $dir/CA/index.txt
+serial                          = $dir/CA/serial
+rand_serial                     = yes
+private_key                     = $dir/CA/CA.key
+certificate                     = $dir/tmp/CACert.pem
 crl_extensions                  = crl_ext
 default_md                      = sha256
 preserve                        = no
 policy                          = policy_match
-x509_extensions                 = usr_cert
-private_key                     = $dir/demoCA/CA.key
-certificate                     = $dir/tmp/CACert.pem
+default_days                    = 3000
+x509_extensions                 = v3_intermediate_ca
+
+[ crl_ext ]
+authorityKeyIdentifier          = keyid:always
+
+[ v3_OCSP ]
+basicConstraints                = CA:FALSE
+keyUsage                        = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage                = OCSPSigning
 
 [ req ]
+# Options for the `req` tool
 encrypt_key                     = no
 default_bits                    = 2048
 default_md                      = sha256
@@ -27,19 +38,20 @@ string_mask                     = utf8only
 x509_extensions                 = ca_extensions
 distinguished_name              = req_distinguished_name
 
-[ crl_ext ]
-authorityKeyIdentifier          = keyid:always
-
-[ usr_cert ]
-basicConstraints                = CA:FALSE
-subjectKeyIdentifier            = hash
-authorityKeyIdentifier          = keyid, issuer
-
 [ ca_extensions ]
+# Extension to add when the -x509 option is used
 basicConstraints                = critical, CA:true
 subjectKeyIdentifier            = hash
 authorityKeyIdentifier          = keyid:always,issuer
 keyUsage                        = critical, digitalSignature, cRLSign, keyCertSign
+
+[ v3_intermediate_ca ]
+# Extensions for a typical intermediate CA (`man x509v3_config`)
+basicConstraints                = critical, CA:true, pathlen:0
+subjectKeyIdentifier            = hash
+authorityKeyIdentifier          = keyid:always,issuer
+keyUsage                        = critical, digitalSignature, cRLSign, keyCertSign
+authorityInfoAccess             = OCSP;URI:http://127.0.0.1:19254/ocsp
 
 [ policy_match ]
 countryName                     = match

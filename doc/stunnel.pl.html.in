@@ -768,7 +768,7 @@ prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
 <dt id="OCSP-URL"><b>OCSP</b> = URL</dt>
 <dd>
 
-<p>responder OCSP do weryfikacji certyfikat&oacute;w</p>
+<p>responder OCSP do weryfikacji certyfikatu drugiej strony poł&#x105;czenia</p>
 
 </dd>
 <dt id="OCSPaia-yes-no"><b>OCSPaia</b> = yes | no</dt>
@@ -795,6 +795,22 @@ prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
 <p>wysyłaj i weryfikuj OCSP nonce</p>
 
 <p>Opcja <b>OCSPnonce</b> zabezpiecza protok&oacute;ł OCSP przed atakami powt&oacute;rzeniowymi. Ze wzgl&#x119;du na zło&#x17C;ono&#x15B;&#x107; obliczeniow&#x105; rozszerzenie nonce jest zwykle wspierane jedynie przez wewn&#x119;trzne (np. korporacyjne), a nie przez publiczne respondery OCSP.</p>
+
+</dd>
+<dt id="OCSPrequire-yes-no"><b>OCSPrequire</b> = yes | no</dt>
+<dd>
+
+<p>wymagaj rozstrzygaj&#x105;cej odpowiedzi respondera OCSP</p>
+
+</dd>
+<dt id="OCSPrequire-yes-no1"><b>OCSPrequire</b> = yes | no</dt>
+<dd>
+
+<p>Wył&#x105;czenie tej opcji pozwala na zaakceptowanie poł&#x105;czenia pomimo braku otrzymania rozstrzygaj&#x105;cej odpowiedzi OCSP ze staplingu i bezpo&#x15B;redniego &#x17C;&#x105;dania wysłanego do respondera.</p>
+
+<p>default: yes</p>
+
+<p>domy&#x15B;lnie: yes</p>
 
 </dd>
 <dt id="options-OPCJE_SSL"><b>options</b> = OPCJE_SSL</dt>
@@ -1327,6 +1343,12 @@ sslVersionMin = WERSJA_SSL</code></pre>
 <dd>
 
 <p>maksymalny czas utrzymywania bezczynnego poł&#x105;czenia</p>
+
+</dd>
+<dt id="TIMEOUTocsp-LICZBA_SEKUND"><b>TIMEOUTocsp</b> = LICZBA_SEKUND</dt>
+<dd>
+
+<p>czas oczekiwania na nawi&#x105;zanie poł&#x105;czenia z serwerem OCSP</p>
 
 </dd>
 <dt id="transparent-none-source-destination-both-tylko-Unix"><b>transparent</b> = none | source | destination | both (tylko Unix)</dt>

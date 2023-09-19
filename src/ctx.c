@@ -140,6 +140,8 @@ typedef long SSL_OPTIONS_TYPE;
 #endif
 
 int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
+    s_log(LOG_DEBUG, "Initializing context [%s]", section->servname);
+
     /* create a new TLS context */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
 #if OPENSSL_VERSION_NUMBER>=0x30000000L
@@ -325,6 +327,12 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     if(verify_init(section))
         return 1; /* FAILED */
 
+    /* OCSP stapling */
+#ifndef OPENSSL_NO_OCSP
+    if(ocsp_init(section))
+        return 1; /* FAILED */
+#endif /* OPENSSL_NO_OCSP */
+
     /* initialize the DH/ECDH key agreement */
 #ifndef OPENSSL_NO_TLSEXT
     if(!section->option.client)
@@ -339,6 +347,25 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 #endif /* OPENSSL_NO_ECDH */
 
     return 0; /* OK */
+}
+
+/**************************************** cleanup TLS context */
+
+/*
+ * free anything allocate from context_init() and callbacks
+ * also free any cached data allocated in client.c
+ */
+void context_cleanup(SERVICE_OPTIONS *section) {
+    s_log(LOG_DEBUG, "Cleaning up context [%s]", section->servname);
+
+#ifndef OPENSSL_NO_OCSP
+    ocsp_cleanup(section);
+#endif /* !defined(OPENSSL_NO_OCSP) */
+    str_free(section->chain);
+    if(section->session)
+        SSL_SESSION_free(section->session);
+    if(section->ctx)
+        SSL_CTX_free(section->ctx);
 }
 
 /**************************************** SNI callback */

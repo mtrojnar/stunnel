@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import contextlib
 import dataclasses
+import http.client
 import logging
 import os
 import pathlib
@@ -17,6 +18,7 @@ import ssl
 import subprocess
 import sys
 import tempfile
+import threading
 
 from typing import (
     Any,
@@ -28,7 +30,13 @@ from typing import (
     Optional,
     TypeVar
 )
-
+from datetime import datetime, timedelta, timezone
+from functools import partial
+from urllib.parse import urlparse
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.x509 import load_pem_x509_certificate, ocsp, ReasonFlags
+from cryptography.x509 import SubjectKeyIdentifier, ExtensionNotFound, OCSPNonce
 from plugin_collection import PluginCollection
 
 EXIT_SUCCESS = 0
@@ -39,6 +47,8 @@ DEFAULT_PROG = os.path.join(RESULT_PATH, "../src/stunnel")
 DEFAULT_CERTS = os.path.join(RESULT_PATH, "certs")
 DEFAULT_LOGS = os.path.join(RESULT_PATH, "logs")
 DEFAULT_LEVEL = logging.INFO
+DEFAULT_PORT = 19254
+OCSP_INDEX=os.path.join(DEFAULT_CERTS, "index.txt")
 
 RE_STUNNEL_VERSION = re.compile(
     r""" ^
@@ -61,8 +71,18 @@ RE_OPENSSL_VERSION = re.compile(
 RE_LINE_IDX = re.compile(r" ^ Hello \s+ (?P<idx> 0 | [1-9][0-9]* ) $ ", re.X)
 
 
-class UnsupportedOpenSSL(Exception):
-    """Unsupported version of OpenSSL"""
+class UnsupportedVersion(Exception):
+    """Unsupported version"""
+
+
+class OutputError(Exception):
+    """Output error
+       Logging: Something went wrong
+    """
+
+
+class UnexpectedWarning(Exception):
+    """Unexpected warning"""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -73,7 +93,7 @@ class LogEvent():
     log: str
 
 
-TLogEvent = TypeVar("TEvent", bound=LogEvent)
+TypeLogEvent = TypeVar("TypeLogEvent", bound=LogEvent)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -175,6 +195,7 @@ class Config(NamedTuple):
     results: pathlib.Path
     summary: pathlib.Path
     debug: int
+    port: int
 
 
 class TestConnections(NamedTuple):
@@ -245,17 +266,17 @@ class TestLogs(PrintLogs):
                 if evt.etype == "client_send_data":
                     conn = conns.by_id.get(evt.idx)
                     if conn is None:
-                        raise Exception("Listener reported unknown connection")
+                        raise OutputError("Listener reported unknown connection")
                     if conn.peer is not None:
-                        raise Exception(f"Listener reported bad conn {conn!r}")
+                        raise OutputError(f"Listener reported bad conn {conn!r}")
                     conn.peer = peer
                 return
 
             if evt.etype != "client_connected":
-                raise Exception(f"Expected 'client connected' first, got {evt.etype}")
+                raise OutputError(f"Expected 'client connected' first, got {evt.etype}")
             conns.pending[peer] = [evt]
 
-        except Exception as err:  # pylint: disable=broad-except
+        except OutputError as err:
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="fatal_event",
@@ -272,7 +293,7 @@ class TestLogs(PrintLogs):
             conns = evt.conns
             conn = conns.by_id.get(evt.idx)
             if conn is None:
-                raise Exception("No connection")
+                raise OutputError("No connection")
             del conns.by_id[evt.idx]
             if conn.peer is None:
                 await self.cfg.mainq.put(
@@ -305,7 +326,7 @@ class TestLogs(PrintLogs):
                 )
             return num
 
-        except Exception as err:  # pylint: disable=broad-except
+        except OutputError as err:
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="fatal_event",
@@ -326,14 +347,11 @@ class TestLogs(PrintLogs):
         while True:
             evt = await self.cfg.mainq.get()
             self.log_event(evt, logger)
-            if  evt.etype == "cleanup_event" or evt.etype == "output_event" \
-                or evt.etype == "fatal_event":
+            if  evt.etype in ["cleanup_event", "output_event", "fatal_event"]:
                 await self.cfg.resq.put(evt)
-            elif evt.etype == "stunnel_event" or evt.etype == "result_event" \
-                or evt.etype == "all_connections_event":
+            elif evt.etype in ["stunnel_event", "result_event", "all_connections_event"]:
                 await self.cfg.logsq.put(evt)
-            elif evt.etype == "client_connected" or evt.etype == "client_send_data" \
-                or evt.etype == "client_done":
+            elif evt.etype in ["client_connected", "client_send_data", "client_done"]:
                 await self.process_client(evt)
             elif evt.etype == "connection_done_event":
                 await self.cfg.logsq.put(evt)
@@ -353,7 +371,7 @@ class TestLogs(PrintLogs):
         tag = "check_version"
         lines = p_err.splitlines()
         if not lines:
-            raise Exception(f"Expected at least one line of output from `{cmd_str}`")
+            raise OutputError(f"Expected at least one line of output from `{cmd_str}`")
         openssl_version = None
         stunnel_version = None
         for line in lines:
@@ -364,15 +382,16 @@ class TestLogs(PrintLogs):
             if match:
                 openssl_version = match.group("version")
         if not openssl_version:
-            raise Exception("Stunnel was compiled and run with different OpenSSL versions")
-        """TLSv1.1 and TLSv1.2 available only with OpenSSL version 1.0.1 and later"""
+            raise UnsupportedVersion("Stunnel was compiled and run with different OpenSSL versions")
+        #TLSv1.1 and TLSv1.2 available only with OpenSSL version 1.0.1 and later
         if openssl_version < "1.0.1":
-            raise UnsupportedOpenSSL(f"OpenSSL version {openssl_version} is deprecated and not supported")
+            raise UnsupportedVersion(
+                f"OpenSSL version {openssl_version} is deprecated and not supported")
         if not (sys.version_info.major == 3 and sys.version_info.minor >= 7):
-            raise Exception("Python 3.7 or higher is required.\n"
-                + "You are using Python {}.{}.".format(sys.version_info.major, sys.version_info.minor))
+            raise UnsupportedVersion("Python 3.7 or higher is required.\n"
+                + "You are using Python {sys.version_info.major}.{sys.version_info.minor}.")
         if not stunnel_version:
-            raise Exception(
+            raise UnsupportedVersion(
                 f"Could not find the version line in the `{cmd_str}` output:\n"
                 + "\n".join(lines)
             )
@@ -422,16 +441,16 @@ class TestLogs(PrintLogs):
         )
         b_out, b_err = await proc.communicate()
         if b_out is None or b_err is None:
-            raise Exception("proc.communicate() failed")
+            raise OutputError("proc.communicate() failed")
         p_out, p_err = b_out.decode("UTF-8"), b_err.decode("UTF-8")
         logger.info(p_err)
         rcode = await proc.wait()
         if rcode != 0:
             print(b_out.decode("UTF-8"))
             print(b_err.decode("UTF-8"), file=sys.stderr)
-            raise Exception(f"`{cmd_str}` exited with code {rcode}")
+            raise OutputError(f"`{cmd_str}` exited with code {rcode}")
         if p_out:
-            raise Exception(f"`{cmd_str}` produced output on its stdout stream:\n{p_out}")
+            raise OutputError(f"`{cmd_str}` produced output on its stdout stream:\n{p_out}")
         await self.check_version(cmd_str, p_err)
         await self.cfg.mainq.put(
             LogEvent(
@@ -479,7 +498,7 @@ class TestResult():
         result = "UNKNOWN"
         while True:
             evt = await self.cfg.resq.get()
-            if evt.etype == "output_event" or evt.etype == "fatal_event":
+            if evt.etype in ["output_event", "fatal_event"]:
                 if result != "skipped":
                     parsed = await self.parse_event(evt)
                 if result == "UNKNOWN":
@@ -523,11 +542,11 @@ class TestSuite(TestResult):
         )
 
 
-    async def expect_event(self, msgq: asyncio.Queue[LogEvent], pattern: str) -> TLogEvent:
+    async def expect_event(self, msgq: asyncio.Queue[LogEvent], pattern: str) -> TypeLogEvent:
         """Make sure the next event in the logsq queue is of that etype."""
         evt = await msgq.get()
         if evt.etype != pattern:
-            raise Exception(f"Expected {pattern}, got {evt.etype}")
+            raise OutputError(f"Expected {pattern}, got {evt.etype}")
         return evt
 
 
@@ -559,8 +578,9 @@ class TestSuite(TestResult):
 
     async def test_stunnel(self, cfg: Config) -> None:
         """Make a single test of the given stunnel configuration"""
+        tag = "test_stunnel"
+        task = None
         try:
-            tag = "test_stunnel"
             self.logger.info(self.params.description)
             await self.cfg.mainq.put(LogEvent(etype="log", level=30, log=""))
             await self.cfg.mainq.put(
@@ -585,17 +605,25 @@ class TestSuite(TestResult):
                     if cfgnew is not os.devnull:
                         port = await self.reload_stunnel(cfgfile, cfgnew)
                 else:
-                    raise Exception(f"Unknown '{service}' service")
+                    raise OutputError(f"Unknown '{service}' service")
 
             cfgfile = await self.prepare_additional_server_cfgfile(cfg, ports, lport)
             await self.start_connections(cfgfile, port)
 
-        except Exception as err:  # pylint: disable=broad-except
+        except OutputError as err:
             await cfg.mainq.put(
                 LogEvent(
                     etype="fatal_event",
                     level=50,
                     log=f"[{tag}] Something went wrong: {err}"
+                )
+            )
+        except asyncio.CancelledError:
+            await cfg.mainq.put(
+                LogEvent(
+                    etype="fatal_event",
+                    level=50,
+                    log=f"[{tag}] Something went wrong: Cancelled task"
                 )
             )
         finally:
@@ -625,12 +653,12 @@ class TestSuite(TestResult):
                         LogEvent(
                             etype="log",
                             level=20,
-                            log=f"[{tag}] Waiting for an EOF on the '{service}_output' reader socket"
+                            log=f"[{tag}] Waiting for an EOF on the '{service}_output' reader"
                         )
                     )
                     line = await p_out.read(1)
                     if line:
-                        raise Exception(f"Did not expect to read {line!r}")
+                        raise OutputError(f"Did not expect to read {line!r}")
                     return
 
                 line = data.decode("UTF-8").rstrip("\r\n")
@@ -694,7 +722,15 @@ class TestSuite(TestResult):
                         )
                     )
 
-        except Exception as err:  # pylint: disable=broad-except
+        except OutputError as err:
+            await self.cfg.mainq.put(
+                LogEvent(
+                    etype="fatal_event",
+                    level=50,
+                    log=f"[{tag}] Something went wrong: {err}"
+                )
+            )
+        except OSError as err:
             await self.cfg.mainq.put(
                 StunnelEvent(
                     etype="stunnel_event",
@@ -726,14 +762,15 @@ class TestSuite(TestResult):
             )
         )
         self.cfg.children[Keys(pid=proc.pid, service=service)] = proc
-        self.cfg.tasks[f"{service}_output"] = asyncio.create_task(self.stunnel_output(proc.stderr, service))
+        self.cfg.tasks[f"{service}_output"] = asyncio.create_task(
+            self.stunnel_output(proc.stderr, service))
 
 
     async def check_listening_port(self, port:int, service: str) -> int:
         """Raise exception if configuration failed."""
         tag = "check_listening_port"
         if port == -1:
-            raise Exception(f"stunnel \'{service}\' failed")
+            raise OutputError(f"stunnel \'{service}\' failed")
         await self.cfg.mainq.put(
             LogEvent(
                 etype="log",
@@ -944,7 +981,7 @@ class TestSuite(TestResult):
                 try:
                     match = RE_LINE_IDX.match(line.decode("UTF-8"))
                     if not match:
-                        raise Exception(f"Server received unexpected message: {line!r}")
+                        raise OutputError(f"Server received unexpected message: {line!r}")
                     idx = int(match.group("idx"))
                     await self.cfg.mainq.put(
                         ClientSendDataEvent(
@@ -966,7 +1003,15 @@ class TestSuite(TestResult):
                             log=f"[{tag}] The server sent data to the client #{idx}: {line!r}",
                         )
                     )
-                except Exception as err:  # pylint: disable=broad-except
+                except OutputError as err:
+                    await self.cfg.mainq.put(
+                        LogEvent(
+                            etype="fatal_event",
+                            level=50,
+                            log=f"[{tag}] Something went wrong: {err}"
+                        )
+                    )
+                except OSError as err:
                     await self.cfg.mainq.put(
                         LogEvent(
                             etype="fatal_event",
@@ -998,7 +1043,7 @@ class TestSuite(TestResult):
                             ListenerClientEvent(
                                 etype="client_done",
                                 level=10,
-                                log=f"[{tag}] The 'listener' task closed a connection to the client",
+                                log=f"[{tag}] The 'listener' task closed a connection",
                                 peer=peer,
                                 conns=self.conns
                             )
@@ -1020,9 +1065,9 @@ class TestSuite(TestResult):
         )
         srv = await self.start_socket_server(self.client_connected_cb)
         if not srv:
-            raise Exception(f"The listening {protocol} socket server failed")
+            raise OutputError(f"The listening {protocol} socket server failed")
         if not srv.sockets:
-            raise Exception(f"Expected a listening socket, got {srv.sockets!r}")
+            raise OutputError(f"Expected a listening socket, got {srv.sockets!r}")
         hostname, port = srv.sockets[0].getsockname()[:2]
         await self.cfg.mainq.put(
             LogEvent(
@@ -1077,12 +1122,12 @@ class TestSuite(TestResult):
                 )
             )
 
-        except Exception as err:  # pylint: disable=broad-except
+        except asyncio.CancelledError:
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="cleanup_event",
                     level=20,
-                    log=f"[{tag}] Cleanup '{name}' task failed: {err}"
+                    log=f"[{tag}] Cleanup '{name}' task failed: Cancelled task"
                 )
             )
 
@@ -1122,7 +1167,7 @@ class TestSuite(TestResult):
                             log=f"[{tag}] PID {key.pid} already finished"
                         )
                     )
-                except Exception as err:  # pylint: disable=broad-except
+                except OSError as err:
                     await self.cfg.mainq.put(
                         LogEvent(
                             etype="log",
@@ -1142,7 +1187,7 @@ class TestSuite(TestResult):
                 )
             )
 
-        except Exception as err:  # pylint: disable=broad-except
+        except asyncio.CancelledError as err:
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="fatal_event",
@@ -1177,7 +1222,7 @@ class TestSuite(TestResult):
                                 log=f"[{tag}] - already finished, it seems"
                             )
                         )
-                    except Exception as err:  # pylint: disable=broad-except
+                    except OSError as err:
                         await self.cfg.mainq.put(
                             LogEvent(
                                 etype="log",
@@ -1196,7 +1241,7 @@ class TestSuite(TestResult):
             for key in children:
                 self.cfg.children.pop(key)
 
-        except Exception as err:  # pylint: disable=broad-except
+        except OSError as err:
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="fatal_event",
@@ -1328,7 +1373,7 @@ class StunnelAcceptConnect(TestSuite):
 
             return await asyncio.open_connection('127.0.0.1', conn.port, ssl=ctx)
 
-        except OSError as err:  # pylint: disable=broad-except
+        except OSError as err:
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="log",
@@ -1345,7 +1390,7 @@ class StunnelAcceptConnect(TestSuite):
         """Start a network connection and return a pair of (reader, writer) objects."""
         client_reader, client_writer = await self.establish_connection(conn)
         if not client_reader or not client_writer:
-            raise Exception("Establish connection failed")
+            raise OutputError("Establish connection failed")
         return client_reader, client_writer
 
 
@@ -1364,7 +1409,7 @@ class StunnelAcceptConnect(TestSuite):
             )
             client_reader, client_writer = await self.get_io_stream(conn)
             if client_writer.is_closing():
-                raise Exception("Client writer is closing")
+                raise UnexpectedWarning("Client writer is closing")
 
             line = f"Hello {conn.idx}\n".encode("UTF-8")
             await self.cfg.mainq.put(
@@ -1386,7 +1431,7 @@ class StunnelAcceptConnect(TestSuite):
                 )
             )
             if line != "There!\n".encode("UTF-8"):
-                raise Exception(f"Client received unexpected message: {line!r}")
+                raise UnexpectedWarning(f"Client received unexpected message: {line!r}")
 
             await self.cfg.mainq.put(
                 LogEvent(
@@ -1406,14 +1451,22 @@ class StunnelAcceptConnect(TestSuite):
             )
             line = await client_reader.read(1)
             if line:
-                raise Exception(f"Did not expect to read {line!r}")
+                raise UnexpectedWarning(f"Did not expect to read {line!r}")
 
-        except Exception as err:  # pylint: disable=broad-except
+        except UnexpectedWarning as err:
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="fatal_event",
                     level=30,
-                    log=f"[{tag}] {err}",
+                    log=f"[{tag}] Warning: {err}"
+                )
+            )
+        except OSError as err:
+            await self.cfg.mainq.put(
+                LogEvent(
+                    etype="fatal_event",
+                    level=30,
+                    log=f"[{tag}] Warning: {err}",
                 )
             )
         finally:
@@ -1486,7 +1539,8 @@ class ClientInetd(StunnelAcceptConnect):
             )
         )
         self.cfg.children[Keys(pid=proc.pid, service=service)] = proc
-        self.cfg.tasks[f"{service}_output"] = asyncio.create_task(self.stunnel_output(proc.stderr, service))
+        self.cfg.tasks[f"{service}_output"] = asyncio.create_task(
+            self.stunnel_output(proc.stderr, service))
 
 
     async def get_io_stream(
@@ -1511,7 +1565,7 @@ class ClientConnectExec(TestSuite):
     async def check_listening_port(self, port:int, service: str) -> int:
         """Raise exception if configuration failed."""
         if port == -1:
-            raise Exception(f"stunnel \'{service}\' failed")
+            raise OutputError(f"stunnel \'{service}\' failed")
 
 
     async def accepting_connections(self, port:int, service: str) -> int:
@@ -1559,7 +1613,7 @@ class ClientConnectExec(TestSuite):
                 )
             )
             if line != "There!\n".encode("UTF-8"):
-                raise Exception(f"Client received unexpected message: {line!r}")
+                raise UnexpectedWarning(f"Client received unexpected message: {line!r}")
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="log",
@@ -1578,14 +1632,22 @@ class ClientConnectExec(TestSuite):
             )
             line = await reader.read(1)
             if line:
-                raise Exception(f"Did not expect to read {line!r}")
+                raise UnexpectedWarning(f"Did not expect to read {line!r}")
 
-        except Exception as err:  # pylint: disable=broad-except
+        except UnexpectedWarning as err:
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="fatal_event",
-                    level=20,
-                    log=f"[{tag}] {err}",
+                    level=30,
+                    log=f"[{tag}] Warning: {err}"
+                )
+            )
+        except IOError as err:
+            await self.cfg.mainq.put(
+                LogEvent(
+                    etype="fatal_event",
+                    level=30,
+                    log=f"[{tag}] Warning: {err}"
                 )
             )
         finally:
@@ -1640,6 +1702,237 @@ class ServerReopen(ClientConnectExec):
             await self.start_stunnel(cfgfile, service)
 
 
+class OcspResponder():
+    """Base class for OCSP responder"""
+
+    def __init__(self, cfg: Config):
+        self.cfg = cfg
+
+
+    async def start_responder(self):
+        """Start OCSP responder"""
+        tag = "start_responder"
+        try:
+            server=HttpServerThread(self.cfg)
+            await server.start_server()
+        except OSError as err:
+            await self.cfg.mainq.put(
+                LogEvent(
+                    etype="fatal_event",
+                    level=50,
+                    log=f"[{tag}] Something went wrong: {err}"
+                )
+            )
+
+
+    async def stop_responder(self):
+        """Stop OCSP responder"""
+        tag = "stop_responder"
+        conn = http.client.HTTPConnection('localhost', self.cfg.port)
+        conn.request('POST', '/kill_server')
+        response = conn.getresponse()
+        await self.cfg.mainq.put(
+            LogEvent(
+                etype="log",
+                level=10,
+                log=f"[{tag}] HTTP status code: '{response.getcode()}'"
+            )
+        )
+        try:
+            text = response.read().decode('UTF-8')
+            await self.cfg.mainq.put(
+                LogEvent(
+                    etype="log",
+                    level=10,
+                    log=f"[{tag}] HTTP status code: '{text}'"
+                )
+            )
+        except OSError as err:
+            await self.cfg.mainq.put(
+                LogEvent(
+                    etype="fatal_event",
+                    level=50,
+                    log=f"[{tag}] Something went wrong: {err}"
+                )
+            )
+        conn.close()
+
+
+class OCSPHandler(SimpleHTTPRequestHandler):
+    """Handle the HTTP POST request that arrive at the server"""
+
+    def __init__(self, cfg, database, request, client_address, server):
+        #pylint: disable=too-many-arguments
+        self.cfg=cfg
+        self.database = database
+        self.server=server
+        SimpleHTTPRequestHandler.__init__(self, request, client_address, server)
+
+
+    def log_message(self, format, *args):
+        """"Override log_message method to log to a file rather than to sys.stderr"""
+        # pylint: disable=redefined-builtin
+        with open(self.cfg.results, mode="a", encoding="utf-8", buffering=1) as file:
+            file.write(f"do_POST: {self.log_date_time_string()}:"
+                +f"{self.client_address[0]}: {format%args}\n")
+
+
+    def do_POST(self): # pylint: disable=invalid-name
+        """"Serves the POST request type"""
+        try:
+            url=urlparse(self.path)
+            if url.path == "/kill_server":
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(bytes('Shutting down HTTP server', 'utf-8'))
+                self.server.shutdown()
+            elif url.path == "/ocsp":
+                content_length=int(self.headers['Content-Length'])
+                request_data=self.rfile.read(content_length)
+                request=ocsp.load_der_ocsp_request(request_data)
+                self.process_ocsp_request(request)
+
+        except Exception as err: # pylint: disable=broad-except
+            self.send_error(404, f"{err}")
+
+
+    def process_ocsp_request(self, request: ocsp.OCSPRequest):
+        """Process OCSP request data"""
+        response=None
+        this_update=datetime.now(timezone.utc)
+        try:
+            issuer = self.database.get(request.issuer_key_hash)
+            if issuer is None:
+                response=ocsp.OCSPResponseBuilder.build_unsuccessful(
+                    ocsp.OCSPResponseStatus.UNAUTHORIZED)
+            else:
+                serial=request.serial_number
+                subject_cert = issuer.get('certificates').get(serial)
+                if subject_cert is None:
+                    response=ocsp.OCSPResponseBuilder.build_unsuccessful(
+                        ocsp.OCSPResponseStatus.UNAUTHORIZED)
+                else:
+                    ocsp_cert=issuer.get('ocsp_cert')
+                    cert_info=issuer.get('revocations').get(serial)
+                    revoked=cert_info is not None
+                    if revoked:
+                        cert_status=ocsp.OCSPCertStatus.REVOKED
+                    else:
+                        cert_status=ocsp.OCSPCertStatus.GOOD
+
+                    # create a OCSPResponse object
+                    builder=ocsp.OCSPResponseBuilder()
+
+                    # add status information about the certificate that was requested
+                    builder=builder.add_response(
+                        cert=subject_cert,
+                        issuer=ocsp_cert,
+                        algorithm=request.hash_algorithm,
+                        cert_status=cert_status,
+                        this_update=this_update,
+                        next_update=this_update + timedelta(seconds=60),
+                        revocation_time=cert_info['revocation_time'] if revoked else None,
+                        revocation_reason=ReasonFlags.unspecified if revoked else None)
+
+                    # set the responderID on the OCSP response
+                    # encode the X.509 NAME of the certificate or HASH of the public key
+                    builder=builder.responder_id(ocsp.OCSPResponderEncoding.NAME, ocsp_cert)
+
+                    # add OCSP nonce if present
+                    try:
+                        nonce = request.extensions.get_extension_for_class(OCSPNonce)
+                        builder = builder.add_extension(nonce.value, critical=nonce.critical)
+                    except ExtensionNotFound:
+                        pass
+
+                    # create the SUCCESSFUL response that can then be serialized and sent
+                    response=builder.sign(issuer.get('ocsp_key'), hashes.SHA256())
+
+        except Exception: # pylint: disable=broad-except
+            response=ocsp.OCSPResponseBuilder.build_unsuccessful(
+                ocsp.OCSPResponseStatus.INTERNAL_ERROR)
+
+        self.send_response(200)
+        self.end_headers()
+        # only DER encoding is supported
+        self.wfile.write(response.public_bytes(serialization.Encoding.DER))
+
+
+class HttpServerThread():
+    """HTTP server thread handler"""
+
+    def __init__(self, cfg: Config):
+        self.cfg = cfg
+        self.server=None
+        self.server_thread=None
+
+    async def start_server(self) -> (int):
+        """Starting HTTP server on localhost and a given port"""
+        tag = "start_server"
+        database=self.load_database()
+        ocsp_handler = partial(OCSPHandler, self.cfg, database)
+        self.server=ThreadingHTTPServer(('localhost', self.cfg.port), ocsp_handler)
+        self.server_thread=threading.Thread(target=self.server.serve_forever)
+        self.server_thread.start()
+        hostname, port=self.server.server_address[:2]
+        await self.cfg.mainq.put(
+            LogEvent(
+                etype="log",
+                level=10,
+                log=f"[{tag}] OCSP responder started, URL http://'{hostname}':'{port}'"
+            )
+        )
+        return port
+
+
+    def load_database(self):
+        """Create an in memory database of issuer/certificates and issuer/revocations"""
+        database = {}
+        for ca_cert, certs in [("CA_ocsp.pem", ["intermediateCA.pem"]),
+            ("interCA_ocsp.pem", ["server_cert.pem", "client_cert.pem", "revoked_cert.pem"])]:
+            path = os.path.join(DEFAULT_CERTS, ca_cert)
+            ocsp_cert = self.load_certificate(path)
+            ocsp_sha1 = ocsp_cert.extensions.get_extension_for_class(
+                SubjectKeyIdentifier).value.digest
+            database[ocsp_sha1] = {}
+            database[ocsp_sha1]['ocsp_cert'] = ocsp_cert
+            database[ocsp_sha1]['ocsp_key'] = self.load_private_key(path)
+
+            certificates = {}
+            for filename in certs:
+                path = os.path.join(DEFAULT_CERTS, filename)
+                cert = self.load_certificate(path)
+                certificates[cert.serial_number] = cert
+            database[ocsp_sha1]['certificates'] = certificates
+
+            with open(OCSP_INDEX, mode="r", encoding="utf-8") as index:
+                revocations = {}
+                for line in index.readlines():
+                    tokens = line.split('\t')
+                    if tokens[0] == 'R':
+                        certinfo = {
+                            "revocation_time": datetime.strptime(tokens[2], "%y%m%d%H%M%S%z"),
+                            "serial_number": int(tokens[3], 16),
+                        }
+                        revocations[certinfo["serial_number"]] = certinfo
+                database[ocsp_sha1]['revocations'] = revocations
+
+        return database
+
+
+    def load_certificate(self, path):
+        """Deserialize a certificate from PEM encoded data"""
+        with open(path, mode="rb") as file:
+            return load_pem_x509_certificate(file.read())
+
+
+    def load_private_key(self, path, password=None):
+        """Deserialize a private key from PEM encoded data"""
+        with open(path, mode="rb") as file:
+            return serialization.load_pem_private_key(file.read(), password)
+
+
 @contextlib.contextmanager
 def parse_args() -> Config:
     """Parse the command-line arguments."""
@@ -1683,6 +1976,14 @@ def parse_args() -> Config:
         help="the logging level "
         "(default: INFO)",
     )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_PORT,
+        metavar="PORT",
+        help="OCSP responder port number"
+        f"(default: {DEFAULT_PORT})"
+    )
     args = parser.parse_args()
     utf8_env = dict(os.environ)
     # environment can only contain strings
@@ -1711,7 +2012,8 @@ def parse_args() -> Config:
             utf8_env=utf8_env,
             results=os.path.join(args.logs, "results.log"),
             summary=os.path.join(args.logs, "summary.log"),
-            debug=args.debug
+            debug=args.debug,
+            port=args.port
         )
 
 
@@ -1730,7 +2032,7 @@ async def main() -> None:
             slogs = TestLogs(cfg)
             formats = "%(message)s"
             slogger = slogs.setup_logger("summary", formats, cfg.summary, DEFAULT_LEVEL)
-        except Exception as err:  # pylint: disable=broad-except
+        except asyncio.CancelledError as err:
             # Logging is not available at this point.
             print(err)
             print("Framework initalization failed")
@@ -1741,7 +2043,15 @@ async def main() -> None:
             await slogs.get_version(slogger)
             slogs.transcript_logs("summary", formats)
 
+            # Start OCSP responder.
+            responder = OcspResponder(cfg)
+            await responder.start_responder()
+
+            # Check plugins.
             await PluginCollection(cfg, slogger, 'plugins')
+
+            # Stop OCSP responder.
+            await responder.stop_responder()
             await cfg.mainq.put(
                 LogEvent(
                     etype="finish_event",
@@ -1749,16 +2059,26 @@ async def main() -> None:
                     log=f"[{tag}] Stunnel tests completed"
                 )
             )
-        except UnsupportedOpenSSL as err:
+
+        except UnsupportedVersion as err:
             await cfg.mainq.put(
                 LogEvent(
                     etype="finish_event",
                     level=30,
-                    log=f"[{tag}] Unsupported OpenSSL: {err}"
+                    log=f"[{tag}] Unsupported version: {err}"
                 )
             )
             print(err)
-        except Exception as err:  # pylint: disable=broad-except
+        except OutputError as err:
+            await cfg.mainq.put(
+                LogEvent(
+                    etype="finish_event",
+                    level=50,
+                    log=f"[{tag}] Something went wrong: {err}"
+                )
+            )
+            print(err)
+        except OSError as err:
             await cfg.mainq.put(
                 LogEvent(
                     etype="finish_event",

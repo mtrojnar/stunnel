@@ -879,7 +879,7 @@ libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status libtool
 
 distclean-local:
-	rm -rf autom4te.cache
+	rm -rf autom4te.cache version.txt
 
 sign:
 	cp -f $(distdir).tar.gz $(distdir)-win64-installer.exe $(distdir)-android.zip ../dist

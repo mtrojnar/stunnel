@@ -72,6 +72,55 @@ typedef struct servername_list_struct SERVERNAME_LIST;
     typedef HANDLE THREAD_ID;
 #endif
 
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+
+#ifdef USE_OS_THREADS
+
+struct CRYPTO_dynlock_value {
+#ifdef USE_PTHREAD
+    pthread_rwlock_t rwlock;
+#endif
+#ifdef USE_WIN32
+    CRITICAL_SECTION critical_section;
+#endif
+#ifdef DEBUG_LOCKS
+    const char *init_file, *read_lock_file, *write_lock_file,
+        *unlock_file, *destroy_file;
+    int init_line, read_lock_line, write_lock_line, unlock_line, destroy_line;
+#endif
+};
+
+typedef struct CRYPTO_dynlock_value CRYPTO_RWLOCK;
+
+#else /* USE_OS_THREADS */
+
+typedef void CRYPTO_RWLOCK;
+
+#endif /* USE_OS_THREADS */
+
+#endif /* OPENSSL_VERSION_NUMBER<0x10100004L */
+
+typedef enum {
+    LOCK_THREAD_LIST,                       /* sthreads.c */
+    LOCK_SESSION, LOCK_ADDR,
+    LOCK_CLIENTS, LOCK_SSL,                 /* client.c */
+    LOCK_REF,                               /* options.c */
+    LOCK_INET,                              /* resolver.c */
+#ifndef USE_WIN32
+    LOCK_LIBWRAP,                           /* libwrap.c */
+#endif
+    LOCK_LOG_BUFFER, LOCK_LOG_MODE,         /* log.c */
+    LOCK_LEAK_HASH, LOCK_LEAK_RESULTS,      /* str.c */
+#ifndef OPENSSL_NO_DH
+    LOCK_DH,                                /* ctx.c */
+#endif /* OPENSSL_NO_DH */
+#ifdef USE_WIN32
+    LOCK_WIN_LOG,                           /* ui_win_gui.c */
+#endif
+    LOCK_SECTIONS,                          /* traversing section list */
+    STUNNEL_LOCKS                           /* number of locks */
+} LOCK_TYPE;
+
 #if defined (USE_WIN32)
 #define ICON_IMAGE HICON
 #elif defined(__APPLE__)
@@ -130,6 +179,7 @@ typedef struct sockaddr_list {                          /* list of addresses */
     NAME_LIST *names;                          /* a list of unresolved names */
 } SOCKADDR_LIST;
 
+extern GLOBAL_OPTIONS global_options;
 #ifndef OPENSSL_NO_COMP
 typedef enum {
     COMP_NONE,                           /* empty compression algorithms set */
@@ -183,8 +233,6 @@ struct global_options_struct {
 #endif
     } option;
 };
-
-extern GLOBAL_OPTIONS global_options;
 
 #ifndef OPENSSL_NO_PSK
 typedef struct psk_keys_struct {
@@ -242,6 +290,11 @@ struct service_options_struct {
 #ifndef OPENSSL_NO_OCSP
     char *ocsp_url;
     unsigned long ocsp_flags;
+    CRYPTO_RWLOCK *ocsp_response_lock;    /* protect the OCSP response cache */
+    unsigned char *ocsp_response_der;                  /* OCSP response data */
+    int ocsp_response_len;                           /* OCSP response length */
+    unsigned stapling_cb_flag:1;          /* OCSP stapling callback executed */
+    unsigned verify_cb_flag:1;        /* verify callback executed at depth 0 */
 #endif /* !defined(OPENSSL_NO_OCSP) */
 #if OPENSSL_VERSION_NUMBER>=0x10002000L
     NAME_LIST *check_host, *check_email, *check_ip;   /* cert subject checks */
@@ -303,8 +356,9 @@ struct service_options_struct {
     SSL_SESSION *session;    /* previous client session for delayed resolver */
     int timeout_busy;                       /* maximum waiting for data time */
     int timeout_close;                          /* maximum close_notify time */
-    int timeout_connect;                           /* maximum connect() time */
+    int timeout_connect;                         /* maximum s_connect() time */
     int timeout_idle;                        /* maximum idle connection time */
+    int timeout_ocsp;                   /* maximum s_connect() time for OCSP */
     enum {FAILOVER_RR, FAILOVER_PRIO} failover;         /* failover strategy */
     unsigned rr;   /* per-service sequential number for round-robin failover */
     char *username;                                 /* ident client username */
@@ -356,6 +410,7 @@ struct service_options_struct {
 #ifndef OPENSSL_NO_OCSP
         unsigned aia:1;                 /* Authority Information Access */
         unsigned nonce:1;               /* send and verify OCSP nonce */
+        unsigned ocsp_require:1;        /* require a conclusive OCSP response */
 #endif /* !defined(OPENSSL_NO_OCSP) */
 #ifndef OPENSSL_NO_DH
         unsigned dh_temp_params:1;
@@ -585,6 +640,7 @@ extern int dh_temp_params;
 #endif /* OPENSSL_NO_DH */
 
 int context_init(SERVICE_OPTIONS *);
+void context_cleanup(SERVICE_OPTIONS *);
 #ifndef OPENSSL_NO_PSK
 void psk_sort(PSK_TABLE *, PSK_KEYS *);
 PSK_KEYS *psk_find(const PSK_TABLE *, const char *);
@@ -603,6 +659,14 @@ X509 *engine_get_cert(ENGINE *, const char *);
 #endif
 void print_CA_list(const char *, const STACK_OF(X509_NAME) *);
 char *X509_NAME2text(X509_NAME *);
+
+/**************************************** prototypes for ocsp.c */
+
+#ifndef OPENSSL_NO_OCSP
+int ocsp_check(CLI *, X509_STORE_CTX *);      /* OCSP client-driven checking */
+int ocsp_init(SERVICE_OPTIONS *);            /* OCSP stapling initialization */
+void ocsp_cleanup(SERVICE_OPTIONS *);
+#endif /* !defined(OPENSSL_NO_OCSP) */
 
 /**************************************** prototypes for network.c */
 
@@ -653,7 +717,7 @@ void throw_exception(CLI *, int) NORETURN;
 /**************************************** prototypes for network.c */
 
 int get_socket_error(const SOCKET);
-int s_connect(CLI *, SOCKADDR_UNION *, socklen_t);
+int s_connect(CLI *, SOCKADDR_UNION *, socklen_t, int);
 void s_write(CLI *, SOCKET fd, const void *, size_t);
 size_t s_read_eof(CLI *, SOCKET fd, void *, size_t);
 void s_read(CLI *, SOCKET fd, void *, size_t);
@@ -731,55 +795,6 @@ int getnameinfo(const struct sockaddr *, socklen_t,
 #ifndef USE_FORK
 extern CLI *thread_head;
 #endif
-
-#if OPENSSL_VERSION_NUMBER<0x10100004L
-
-#ifdef USE_OS_THREADS
-
-struct CRYPTO_dynlock_value {
-#ifdef USE_PTHREAD
-    pthread_rwlock_t rwlock;
-#endif
-#ifdef USE_WIN32
-    CRITICAL_SECTION critical_section;
-#endif
-#ifdef DEBUG_LOCKS
-    const char *init_file, *read_lock_file, *write_lock_file,
-        *unlock_file, *destroy_file;
-    int init_line, read_lock_line, write_lock_line, unlock_line, destroy_line;
-#endif
-};
-
-typedef struct CRYPTO_dynlock_value CRYPTO_RWLOCK;
-
-#else /* USE_OS_THREADS */
-
-typedef void CRYPTO_RWLOCK;
-
-#endif /* USE_OS_THREADS */
-
-#endif /* OPENSSL_VERSION_NUMBER<0x10100004L */
-
-typedef enum {
-    LOCK_THREAD_LIST,                       /* sthreads.c */
-    LOCK_SESSION, LOCK_ADDR,
-    LOCK_CLIENTS, LOCK_SSL,                 /* client.c */
-    LOCK_REF,                               /* options.c */
-    LOCK_INET,                              /* resolver.c */
-#ifndef USE_WIN32
-    LOCK_LIBWRAP,                           /* libwrap.c */
-#endif
-    LOCK_LOG_BUFFER, LOCK_LOG_MODE,         /* log.c */
-    LOCK_LEAK_HASH, LOCK_LEAK_RESULTS,      /* str.c */
-#ifndef OPENSSL_NO_DH
-    LOCK_DH,                                /* ctx.c */
-#endif /* OPENSSL_NO_DH */
-#ifdef USE_WIN32
-    LOCK_WIN_LOG,                           /* ui_win_gui.c */
-#endif
-    LOCK_SECTIONS,                          /* traversing section list */
-    STUNNEL_LOCKS                           /* number of locks */
-} LOCK_TYPE;
 
 extern CRYPTO_RWLOCK *stunnel_locks[STUNNEL_LOCKS];
 

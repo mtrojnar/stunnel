@@ -478,9 +478,9 @@
 <dt id="checkEmail-EMAIL"><b>checkEmail</b> = EMAIL</dt>
 <dd>
 
-<p>email address of the peer certificate subject</p>
+<p>verify the email address of the end-entity (leaf) peer certificate subject</p>
 
-<p>Certificates are accepted if no subject checks were specified, or the email address of the peer certificate matches any of the email addresses specified with <i>checkEmail</i>.</p>
+<p>Certificates are accepted if no subject checks were specified, or the email address of the end-entity (leaf) peer certificate matches any of the email addresses specified with <i>checkEmail</i>.</p>
 
 <p>Multiple <i>checkEmail</i> options are allowed in a single service section.</p>
 
@@ -490,9 +490,9 @@
 <dt id="checkHost-HOST"><b>checkHost</b> = HOST</dt>
 <dd>
 
-<p>host of the peer certificate subject</p>
+<p>verify the host of the end-entity (leaf) peer certificate subject</p>
 
-<p>Certificates are accepted if no subject checks were specified, or the host name of the peer certificate matches any of the hosts specified with <i>checkHost</i>.</p>
+<p>Certificates are accepted if no subject checks were specified, or the host name of the end-entity (leaf) peer certificate matches any of the hosts specified with <i>checkHost</i>.</p>
 
 <p>Multiple <i>checkHost</i> options are allowed in a single service section.</p>
 
@@ -502,9 +502,9 @@
 <dt id="checkIP-IP"><b>checkIP</b> = IP</dt>
 <dd>
 
-<p>IP address of the peer certificate subject</p>
+<p>verify the IP address of the end-entity (leaf) peer certificate subject</p>
 
-<p>Certificates are accepted if no subject checks were specified, or the IP address of the peer certificate matches any of the IP addresses specified with <i>checkIP</i>.</p>
+<p>Certificates are accepted if no subject checks were specified, or the IP address of the end-entity (leaf) peer certificate matches any of the IP addresses specified with <i>checkIP</i>.</p>
 
 <p>Multiple <i>checkIP</i> options are allowed in a single service section.</p>
 
@@ -778,7 +778,7 @@ prime256v1 (OpenSSL older than 1.1.1)</code></pre>
 <dt id="OCSP-URL"><b>OCSP</b> = URL</dt>
 <dd>
 
-<p>select OCSP responder for certificate verification</p>
+<p>select OCSP responder for the end-entity (leaf) peer certificate verification</p>
 
 </dd>
 <dt id="OCSPaia-yes-no"><b>OCSPaia</b> = yes | no</dt>
@@ -805,6 +805,16 @@ prime256v1 (OpenSSL older than 1.1.1)</code></pre>
 <p>send and verify the OCSP nonce extension</p>
 
 <p>This option protects the OCSP protocol against replay attacks. Due to its computational overhead, the nonce extension is usually only supported on internal (e.g. corporate) responders, and not on public OCSP responders.</p>
+
+</dd>
+<dt id="OCSPrequire-yes-no"><b>OCSPrequire</b> = yes | no</dt>
+<dd>
+
+<p>require a conclusive OCSP response</p>
+
+<p>Disable this option to allow a connection even though no conclusive OCSP response was retrieved from stapling and a direct request to the OCSP responder.</p>
+
+<p>default: yes</p>
 
 </dd>
 <dt id="options-SSL_OPTIONS"><b>options</b> = SSL_OPTIONS</dt>
@@ -1328,13 +1338,19 @@ sslVersionMin = SSL_VERSION</code></pre>
 <dt id="TIMEOUTconnect-SECONDS"><b>TIMEOUTconnect</b> = SECONDS</dt>
 <dd>
 
-<p>time to wait to connect to a remote host</p>
+<p>time to wait to connect a remote host</p>
 
 </dd>
 <dt id="TIMEOUTidle-SECONDS"><b>TIMEOUTidle</b> = SECONDS</dt>
 <dd>
 
 <p>time to keep an idle connection</p>
+
+</dd>
+<dt id="TIMEOUTocsp-SECONDS"><b>TIMEOUTocsp</b> = SECONDS</dt>
+<dd>
+
+<p>time to wait to connect an OCSP responder</p>
 
 </dd>
 <dt id="transparent-none-source-destination-both-Unix-only"><b>transparent</b> = none | source | destination | both (Unix only)</dt>
@@ -1470,31 +1486,31 @@ transparent = destination</code></pre>
 <dt id="level-01">level 0</dt>
 <dd>
 
-<p>Request and ignore the peer certificate.</p>
+<p>Request and ignore the peer certificate chain.</p>
 
 </dd>
 <dt id="level-11">level 1</dt>
 <dd>
 
-<p>Verify the peer certificate if present.</p>
+<p>Verify the peer certificate chain if present.</p>
 
 </dd>
 <dt id="level-21">level 2</dt>
 <dd>
 
-<p>Verify the peer certificate.</p>
+<p>Verify the peer certificate chain.</p>
 
 </dd>
 <dt id="level-31">level 3</dt>
 <dd>
 
-<p>Verify the peer against a locally installed certificate.</p>
+<p>Verify the peer certificate chain and the end-entity (leaf) peer certificate against a locally installed certificate.</p>
 
 </dd>
 <dt id="level-41">level 4</dt>
 <dd>
 
-<p>Ignore the chain and only verify the peer certificate.</p>
+<p>Ignore the peer certificate chain and only verify the end-entity (leaf) peer certificate against a locally installed certificate.</p>
 
 </dd>
 <dt id="default">default</dt>
@@ -1521,9 +1537,9 @@ transparent = destination</code></pre>
 <dt id="verifyPeer-yes-no"><b>verifyPeer</b> = yes | no</dt>
 <dd>
 
-<p>verify the peer certificate</p>
+<p>verify the end-entity (leaf) peer certificate</p>
 
-<p>The peer certificate needs to be stored either in the file specified with <i>CAfile</i>, or in the directory specified with <i>CApath</i>.</p>
+<p>The end-entity (leaf) peer certificate needs to be stored either in the file specified with <i>CAfile</i>, or in the directory specified with <i>CApath</i>.</p>
 
 <p>default: no</p>
 

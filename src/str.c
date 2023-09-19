@@ -165,6 +165,7 @@ char *str_vprintf(const char *format, va_list start_ap) {
     for(;;) {
         va_copy(ap, start_ap);
         n=vsnprintf(p, size, format, ap);
+        va_end(ap);
         if(n>-1 && n<(int)size)
             return p;
         if(n>-1)                /* glibc 2.1 */

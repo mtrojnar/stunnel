@@ -553,6 +553,12 @@ NOEXPORT void ssl_start(CLI *c) {
     }
     if(c->opt->option.client) {
 #ifndef OPENSSL_NO_TLSEXT
+#ifndef OPENSSL_NO_OCSP
+        if(!SSL_set_tlsext_status_type(c->ssl, TLSEXT_STATUSTYPE_ocsp)) {
+            sslerror("OCSP: SSL_set_tlsext_status_type");
+            throw_exception(c, 1);
+        }
+#endif /* !defined(OPENSSL_NO_OCSP) */
         /* c->opt->sni should always be initialized at this point,
          * either explicitly with "sni"
          * or implicitly with "protocolHost" or "connect" */
@@ -1312,7 +1318,7 @@ NOEXPORT void auth_user(CLI *c) {
         s_log(LOG_WARNING, "Unknown service 'auth': using default 113");
         ident.in.sin_port=htons(113);
     }
-    if(s_connect(c, &ident, addr_len(&ident)))
+    if(s_connect(c, &ident, addr_len(&ident), c->opt->timeout_connect))
         throw_exception(c, 1);
     s_log(LOG_DEBUG, "IDENT server connected");
     remote_port=ntohs(c->peer_addr.in.sin_port);
@@ -1548,7 +1554,8 @@ NOEXPORT SOCKET connect_remote(CLI *c) {
         c->idx=(idx_start+idx_try)%c->connect_addr.num;
         if(!connect_init(c, c->connect_addr.addr[c->idx].sa.sa_family) &&
                 !s_connect(c, &c->connect_addr.addr[c->idx],
-                    addr_len(&c->connect_addr.addr[c->idx]))) {
+                    addr_len(&c->connect_addr.addr[c->idx]),
+                    c->opt->timeout_connect)) {
             if(c->ssl) {
                 SSL_SESSION *sess=SSL_get1_session(c->ssl);
                 if(sess) {

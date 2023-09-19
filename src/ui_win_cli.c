@@ -93,8 +93,8 @@ void ui_new_log(const char *line) {
     RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
 #else
     /* use UTF-16 or native codepage rather than UTF-8 */
-    _ftprintf(stderr, TEXT("%s\r\n"), tstr);
-    fflush(stderr);
+    _putts(tstr);
+    fflush(stdout);
 #endif
     str_free(tstr);
 }

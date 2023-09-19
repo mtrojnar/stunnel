@@ -136,7 +136,8 @@ A port number.
 
 =item *
 
-A colon-separated pair of IP address (either IPv4, IPv6, or domain name) and port number.
+A colon-separated pair of IP address (either IPv4, IPv6, or domain name) and
+port number.
 
 =item *
 
@@ -156,7 +157,8 @@ B<chroot> keeps B<stunnel> in a chrooted jail.  I<CApath>, I<CRLpath>, I<pid>
 and I<exec> are located inside the jail and the patches have to be relative
 to the directory specified with B<chroot>.
 
-Several functions of the operating system also need their files to be located within the chroot jail, e.g.:
+Several functions of the operating system also need their files to be located
+within the chroot jail, e.g.:
 
 =over 4
 
@@ -215,7 +217,8 @@ select hardware or software cryptographic engine
 
 default: software-only cryptography
 
-See Examples section for an engine configuration to use the certificate and the corresponding private key from a cryptographic device.
+See Examples section for an engine configuration to use the certificate and the
+corresponding private key from a cryptographic device.
 
 =item B<engineCtrl> = COMMAND[:PARAMETER]
 
@@ -276,8 +279,8 @@ pixel image.
 
 log file handling
 
-This option allows you to choose whether the log file (specified with the I<output>
-option) is appended or overwritten when opened or re-opened.
+This option allows you to choose whether the log file (specified with the
+I<output> option) is appended or overwritten when opened or re-opened.
 
 default: append
 
@@ -412,11 +415,11 @@ engine is enabled.
 
 =item B<checkEmail> = EMAIL
 
-email address of the peer certificate subject
+verify the email address of the end-entity (leaf) peer certificate subject
 
 Certificates are accepted if no subject checks were specified, or the email
-address of the peer certificate matches any of the email addresses specified
-with I<checkEmail>.
+address of the end-entity (leaf) peer certificate matches any of the email
+addresses specified with I<checkEmail>.
 
 Multiple I<checkEmail> options are allowed in a single service section.
 
@@ -424,10 +427,11 @@ This option requires OpenSSL 1.0.2 or later.
 
 =item B<checkHost> = HOST
 
-host of the peer certificate subject
+verify the host of the end-entity (leaf) peer certificate subject
 
 Certificates are accepted if no subject checks were specified, or the host name
-of the peer certificate matches any of the hosts specified with I<checkHost>.
+of the end-entity (leaf) peer certificate matches any of the hosts specified
+with I<checkHost>.
 
 Multiple I<checkHost> options are allowed in a single service section.
 
@@ -435,11 +439,11 @@ This option requires OpenSSL 1.0.2 or later.
 
 =item B<checkIP> = IP
 
-IP address of the peer certificate subject
+verify the IP address of the end-entity (leaf) peer certificate subject
 
 Certificates are accepted if no subject checks were specified, or the IP
-address of the peer certificate matches any of the IP addresses specified with
-I<checkIP>.
+address of the end-entity (leaf) peer certificate matches any of the IP
+addresses specified with I<checkIP>.
 
 Multiple I<checkIP> options are allowed in a single service section.
 
@@ -481,7 +485,8 @@ I<SSL_CONF_cmd(3ssl)> manual page.
 
 Several I<config> lines can be used to specify multiple configuration commands.
 
-Use I<curves> option instead of enabling I<config = Curves:list_curves> to support elliptic curves.
+Use I<curves> option instead of enabling I<config = Curves:list_curves> to
+support elliptic curves.
 
 This option requires OpenSSL 1.0.2 or later.
 
@@ -648,7 +653,8 @@ use IDENT (RFC 1413) username checking
 
 include all configuration file parts located in DIRECTORY
 
-The files are included in the ascending alphabetical order of their names. The recommended filename convention is
+The files are included in the ascending alphabetical order of their names. The
+recommended filename convention is
 
 for global options:
 
@@ -688,7 +694,7 @@ remote connections.  Use this option to bind a static local IP address instead.
 
 =item B<OCSP> = URL
 
-select OCSP responder for certificate verification
+select OCSP responder for the end-entity (leaf) peer certificate verification
 
 =item B<OCSPaia> = yes | no
 
@@ -715,6 +721,16 @@ This option protects the OCSP protocol against replay attacks.  Due to its
 computational overhead, the nonce extension is usually only supported on
 internal (e.g. corporate) responders, and not on public OCSP responders.
 
+=item B<OCSPrequire> = yes | no
+
+require a conclusive OCSP response
+
+Disable this option to allow a connection even though no conclusive OCSP
+response was retrieved from stapling and a direct request to the OCSP
+responder.
+
+default: yes
+
 =item B<options> = SSL_OPTIONS
 
 B<OpenSSL> library options
@@ -738,8 +754,8 @@ default:
     options = NO_SSLv2
     options = NO_SSLv3
 
-Use I<sslVersionMax> or I<sslVersionMin> option instead of disabling specific TLS protocol
-versions when compiled with B<OpenSSL 1.1.0> or later.
+Use I<sslVersionMax> or I<sslVersionMin> option instead of disabling specific
+TLS protocol versions when compiled with B<OpenSSL 1.1.0> or later.
 
 =item B<protocol> = PROTO
 
@@ -955,23 +971,39 @@ Everything is permitted.
 
 =item level 1
 
-The security level corresponds to a minimum of 80 bits of security. Any parameters offering below 80 bits of security are excluded. As a result RSA, DSA and DH keys shorter than 1024 bits and ECC keys shorter than 160 bits are prohibited. All export cipher suites are prohibited since they all offer less than 80 bits of security. SSL version 2 is prohibited. Any cipher suite using MD5 for the MAC is also prohibited.
+The security level corresponds to a minimum of 80 bits of security. Any
+parameters offering below 80 bits of security are excluded. As a result RSA,
+DSA and DH keys shorter than 1024 bits and ECC keys shorter than 160 bits are
+prohibited. All export cipher suites are prohibited since they all offer less
+than 80 bits of security. SSL version 2 is prohibited. Any cipher suite using
+MD5 for the MAC is also prohibited.
 
 =item level 2
 
-Security level set to 112 bits of security. As a result RSA, DSA and DH keys shorter than 2048 bits and ECC keys shorter than 224 bits are prohibited. In addition to the level 1 exclusions any cipher suite using RC4 is also prohibited. SSL version 3 is also not allowed. Compression is disabled.
+Security level set to 112 bits of security. As a result RSA, DSA and DH keys
+shorter than 2048 bits and ECC keys shorter than 224 bits are prohibited. In
+addition to the level 1 exclusions any cipher suite using RC4 is also
+prohibited. SSL version 3 is also not allowed. Compression is disabled.
 
 =item level 3
 
-Security level set to 128 bits of security. As a result RSA, DSA and DH keys shorter than 3072 bits and ECC keys shorter than 256 bits are prohibited. In addition to the level 2 exclusions cipher suites not offering forward secrecy are prohibited. TLS versions below 1.1 are not permitted. Session tickets are disabled.
+Security level set to 128 bits of security. As a result RSA, DSA and DH keys
+shorter than 3072 bits and ECC keys shorter than 256 bits are prohibited. In
+addition to the level 2 exclusions cipher suites not offering forward secrecy
+are prohibited. TLS versions below 1.1 are not permitted. Session tickets are
+disabled.
 
 =item level 4
 
-Security level set to 192 bits of security. As a result RSA, DSA and DH keys shorter than 7680 bits and ECC keys shorter than 384 bits are prohibited. Cipher suites using SHA1 for the MAC are prohibited. TLS versions below 1.2 are not permitted.
+Security level set to 192 bits of security. As a result RSA, DSA and DH keys
+shorter than 7680 bits and ECC keys shorter than 384 bits are prohibited.
+Cipher suites using SHA1 for the MAC are prohibited. TLS versions below 1.2 are
+not permitted.
 
 =item level 5
 
-Security level set to 256 bits of security. As a result RSA, DSA and DH keys shorter than 15360 bits and ECC keys shorter than 512 bits are prohibited.
+Security level set to 256 bits of security. As a result RSA, DSA and DH keys
+shorter than 15360 bits and ECC keys shorter than 512 bits are prohibited.
 
 =item default: 2
 
@@ -994,9 +1026,11 @@ default: no
 
 Unix group id
 
-As a global option: setgid() to the specified group in daemon mode and clear all other groups.
+As a global option: setgid() to the specified group in daemon mode and clear
+all other groups.
 
-As a service-level option: set the group of the Unix socket specified with "accept".
+As a service-level option: set the group of the Unix socket specified with
+"accept".
 
 =item B<setuid> = USER (Unix only)
 
@@ -1004,7 +1038,8 @@ Unix user id
 
 As a global option: setuid() to the specified user in daemon mode.
 
-As a service-level option: set the owner of the Unix socket specified with "accept".
+As a service-level option: set the owner of the Unix socket specified with
+"accept".
 
 =item B<sessionCacheSize> = NUM_ENTRIES
 
@@ -1121,7 +1156,8 @@ linked OpenSSL library.
 
 Availability of specific protocols depends on the linked OpenSSL library.
 
-The I<sslVersionMax> option is only available when compiled with B<OpenSSL 1.1.0> and later.
+The I<sslVersionMax> option is only available when compiled with
+B<OpenSSL 1.1.0> and later.
 
 default: all
 
@@ -1136,7 +1172,8 @@ linked OpenSSL library.
 
 Availability of specific protocols depends on the linked OpenSSL library.
 
-The I<sslVersionMin> option is only available when compiled with B<OpenSSL 1.1.0> and later.
+The I<sslVersionMin> option is only available when compiled with
+B<OpenSSL 1.1.0> and later.
 
 default: TLSv1
 
@@ -1197,11 +1234,15 @@ time to wait for close_notify (set to 0 for buggy MSIE)
 
 =item B<TIMEOUTconnect> = SECONDS
 
-time to wait to connect to a remote host
+time to wait to connect a remote host
 
 =item B<TIMEOUTidle> = SECONDS
 
 time to keep an idle connection
+
+=item B<TIMEOUTocsp> = SECONDS
+
+time to wait to connect an OCSP responder
 
 =item B<transparent> = none | source | destination | both (Unix only)
 
@@ -1323,23 +1364,25 @@ and I<verifyPeer> options.
 
 =item level 0
 
-Request and ignore the peer certificate.
+Request and ignore the peer certificate chain.
 
 =item level 1
 
-Verify the peer certificate if present.
+Verify the peer certificate chain if present.
 
 =item level 2
 
-Verify the peer certificate.
+Verify the peer certificate chain.
 
 =item level 3
 
-Verify the peer against a locally installed certificate.
+Verify the peer certificate chain and the end-entity (leaf) peer certificate
+against a locally installed certificate.
 
 =item level 4
 
-Ignore the chain and only verify the peer certificate.
+Ignore the peer certificate chain and only verify the end-entity (leaf) peer
+certificate against a locally installed certificate.
 
 =item default
 
@@ -1361,9 +1404,9 @@ default: no
 
 =item B<verifyPeer> = yes | no
 
-verify the peer certificate
+verify the end-entity (leaf) peer certificate
 
-The peer certificate needs to be stored either in the file
+The end-entity (leaf) peer certificate needs to be stored either in the file
 specified with I<CAfile>, or in the directory specified with I<CApath>.
 
 default: no
@@ -1533,7 +1576,8 @@ The client key is automatically selected based on the list of CAs trusted by the
     accept = 127.0.0.1:8080
     connect = example.com:8443
 
-An example of advanced engine configuration to use the certificate and the corresponding private key from a pkcs11 engine:
+An example of advanced engine configuration to use the certificate and the
+corresponding private key from a pkcs11 engine:
 
     engine = pkcs11
     engineCtrl = MODULE_PATH:opensc-pkcs11.so
@@ -1547,7 +1591,8 @@ An example of advanced engine configuration to use the certificate and the corre
     cert = pkcs11:token=MyToken;object=MyCert
     key = pkcs11:token=MyToken;object=MyKey
 
-An example of advanced engine configuration to use the certificate and the corresponding private key from a SoftHSM token:
+An example of advanced engine configuration to use the certificate and the
+corresponding private key from a SoftHSM token:
 
     engine = pkcs11
     engineCtrl = MODULE_PATH:softhsm2.dll

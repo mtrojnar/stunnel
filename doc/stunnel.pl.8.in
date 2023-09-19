@@ -71,7 +71,7 @@
 .\" ========================================================================
 .\"
 .IX Title "stunnel 8"
-.TH stunnel 8 "2023.07.08" "5.70" "stunnel TLS Proxy"
+.TH stunnel 8 "2023.08.14" "5.71" "stunnel TLS Proxy"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -664,7 +664,7 @@ Domyślnie używane jest \s-1IP\s0 najbardziej zewnętrznego interfejsu w stron�
 serwera, do którego nawiązywane jest połączenie.
 .IP "\fB\s-1OCSP\s0\fR = \s-1URL\s0" 4
 .IX Item "OCSP = URL"
-responder \s-1OCSP\s0 do weryfikacji certyfikatów
+responder \s-1OCSP\s0 do weryfikacji certyfikatu drugiej strony połączenia
 .IP "\fBOCSPaia\fR = yes | no" 4
 .IX Item "OCSPaia = yes | no"
 weryfikuj certyfikaty przy użyciu respondertów \s-1AIA\s0
@@ -687,6 +687,18 @@ Opcja \fBOCSPnonce\fR zabezpiecza protokół \s-1OCSP\s0 przed atakami powtórze
 Ze względu na złożoność obliczeniową rozszerzenie nonce jest zwykle wspierane
 jedynie przez wewnętrzne (np. korporacyjne), a nie przez publiczne respondery
 \&\s-1OCSP.\s0
+.IP "\fBOCSPrequire\fR = yes | no" 4
+.IX Item "OCSPrequire = yes | no"
+wymagaj  rozstrzygającej odpowiedzi respondera \s-1OCSP\s0
+.IP "\fBOCSPrequire\fR = yes | no" 4
+.IX Item "OCSPrequire = yes | no"
+Wyłączenie tej opcji pozwala na zaakceptowanie połączenia pomimo braku
+otrzymania rozstrzygającej odpowiedzi \s-1OCSP\s0 ze staplingu i bezpośredniego
+żądania wysłanego do respondera.
+.Sp
+default: yes
+.Sp
+domyślnie: yes
 .IP "\fBoptions\fR = \s-1OPCJE_SSL\s0" 4
 .IX Item "options = OPCJE_SSL"
 opcje biblioteki \fBOpenSSL\fR
@@ -1132,6 +1144,9 @@ czas oczekiwania na nawiązanie połączenia
 .IP "\fBTIMEOUTidle\fR = \s-1LICZBA_SEKUND\s0" 4
 .IX Item "TIMEOUTidle = LICZBA_SEKUND"
 maksymalny czas utrzymywania bezczynnego połączenia
+.IP "\fBTIMEOUTocsp\fR = \s-1LICZBA_SEKUND\s0" 4
+.IX Item "TIMEOUTocsp = LICZBA_SEKUND"
+czas oczekiwania na nawiązanie połączenia z serwerem \s-1OCSP\s0
 .IP "\fBtransparent\fR = none | source | destination | both (tylko Unix)" 4
 .IX Item "transparent = none | source | destination | both (tylko Unix)"
 tryb przezroczystego proxy na wspieranych platformach

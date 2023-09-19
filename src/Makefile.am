@@ -8,7 +8,7 @@
 common_headers = common.h prototypes.h version.h
 common_sources = tls.c str.c file.c client.c log.c options.c protocol.c
 common_sources += network.c resolver.c ssl.c ctx.c verify.c sthreads.c
-common_sources += fd.c dhparam.c cron.c stunnel.c
+common_sources += ocsp.c fd.c dhparam.c cron.c stunnel.c
 unix_sources = pty.c libwrap.c ui_unix.c
 shared_sources = env.c
 win32_gui_sources = ui_win_gui.c resources.h resources.rc
@@ -37,12 +37,14 @@ stunnel_CPPFLAGS += -DCONFDIR='"$(sysconfdir)/stunnel"'
 # TLS library
 stunnel_LDFLAGS = -L$(SSLDIR)/lib64 -L$(SSLDIR)/lib -lssl -lcrypto
 
-# stunnel3 script
+# Apply substitutions
 edit = sed \
-	-e 's|@bindir[@]|$(bindir)|g'
-stunnel3: Makefile
+	-e 's|@bindir[@]|$(bindir)|g' \
+	-e 's|@PACKAGE_VERSION[@]|$(PACKAGE_VERSION)|g'
+stunnel3 os2.mak: Makefile
 	$(edit) '$(srcdir)/$@.in' >$@
 stunnel3: $(srcdir)/stunnel3.in
+os2.mak: $(srcdir)/os2.mak.in
 
 # Unix shared library
 pkglib_LTLIBRARIES = libstunnel.la
@@ -64,7 +66,14 @@ mingw64:
 clean-local:
 	rm -rf ../obj ../bin
 
-# Remaining files to be included
+###############################################################################
+# Remaining files to be included                                              #
+###############################################################################
+
+dist_noinst_DATA = os2.mak
+EXTRA_DIST += os2.mak.in
+CLEANFILES += os2.mak
+
 EXTRA_DIST += $(win32_gui_sources) $(win32_cli_sources)
 EXTRA_DIST += make.bat makece.bat makew32.bat
-EXTRA_DIST += mingw.mk mingw.mak evc.mak vc.mak os2.mak
+EXTRA_DIST += mingw.mk mingw.mak evc.mak vc.mak

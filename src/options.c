@@ -39,8 +39,14 @@
 
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
 #define DEFAULT_CURVES "X25519:P-256:X448:P-521:P-384"
+#ifdef SSL_SYSTEM_DEFAULT_CIPHER_LIST /* Red Hat OpenSSL */
+#define DEFAULT_CURVES_FIPS "P-256:P-521:P-384"
+#else /* standard OpenSSL */
+#define DEFAULT_CURVES_FIPS DEFAULT_CURVES
+#endif /* Red Hat OpenSSL */
 #else /* OpenSSL version < 1.1.1 */
 #define DEFAULT_CURVES "prime256v1"
+#define DEFAULT_CURVES_FIPS DEFAULT_CURVES
 #endif /* OpenSSL version >= 1.1.1 */
 
 #if defined(_WIN32_WCE) && !defined(CONFDIR)
@@ -696,8 +702,9 @@ void service_free(SERVICE_OPTIONS *section) {
 #endif
     if(ref<0)
         fatal("Negative section reference counter");
-    if(ref==0)
+    if(ref==0) {
         parse_service_option(CMD_FREE, &section, NULL, NULL);
+    }
 }
 
 /**************************************** global options */
@@ -1929,7 +1936,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     /* curves */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
-        section->curves=str_dup_detached(DEFAULT_CURVES);
+        section->curves = NULL;
         break;
     case CMD_SET_COPY:
         section->curves=str_dup_detached(new_service_options.curves);
@@ -1944,9 +1951,26 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         section->curves=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_INITIALIZE:
+        if(!section->curves) {
+            /* this is only executed for global options, because
+             * section->curves is no longer NULL in sections */
+#ifdef USE_FIPS
+            if(new_global_options.option.fips)
+                section->curves=str_dup_detached(DEFAULT_CURVES_FIPS);
+            else
+#endif /* USE_FIPS */
+                section->curves=str_dup_detached(DEFAULT_CURVES);
+        }
         break;
     case CMD_PRINT_DEFAULTS:
-        s_log(LOG_NOTICE, "%-22s = %s", "curves", DEFAULT_CURVES);
+        if(fips_available()) {
+            s_log(LOG_NOTICE, "%-22s = %s %s", "curves",
+                DEFAULT_CURVES_FIPS, "(with \"fips = yes\")");
+            s_log(LOG_NOTICE, "%-22s = %s %s", "curves",
+                DEFAULT_CURVES, "(with \"fips = no\")");
+        } else {
+            s_log(LOG_NOTICE, "%-22s = %s", "curves", DEFAULT_CURVES);
+        }
         break;
     case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = ECDH curve names", "curves");
@@ -2387,6 +2411,9 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         section->ocsp_url=str_dup_detached(arg);
         return NULL; /* OK */
     case CMD_INITIALIZE:
+        if((section->ocsp_url || section->option.aia) &&
+                !section->option.verify_chain)
+            return "\"verifyChain\" has to be enabled for OCSP support";
         break;
     case CMD_PRINT_DEFAULTS:
         break;
@@ -2483,6 +2510,37 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         s_log(LOG_NOTICE,
             "%-22s = yes|no send and verify the OCSP nonce extension",
             "OCSPnonce");
+        break;
+    }
+
+    /* OCSPrequire */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->option.ocsp_require=1; /* enabled by default */
+        break;
+    case CMD_SET_COPY:
+        section->option.ocsp_require=new_service_options.option.ocsp_require;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "OCSPrequire"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.ocsp_require=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.ocsp_require=0;
+        else
+            return "The argument needs to be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE,
+            "%-22s = yes|no require a conclusive OCSP response",
+            "OCSPrequire");
         break;
     }
 
@@ -3718,6 +3776,36 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         break;
     }
 
+    /* TIMEOUTocsp */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->timeout_ocsp=5; /* 5 seconds */
+        break;
+    case CMD_SET_COPY:
+        section->timeout_ocsp=new_service_options.timeout_ocsp;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "TIMEOUTocsp"))
+            break;
+        {
+            char *tmp_str;
+            section->timeout_ocsp=(int)strtol(arg, &tmp_str, 5);
+            if(tmp_str==arg || *tmp_str) /* not a number */
+                return "Illegal OCSP connect timeout";
+        }
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        s_log(LOG_NOTICE, "%-22s = %d seconds", "TIMEOUTocsp", 5);
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = seconds to connect OCSP responder", "TIMEOUTocsp");
+        break;
+    }
+
     /* transparent */
 #ifndef USE_WIN32
     switch(cmd) {
@@ -3880,11 +3968,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     case CMD_SET_COPY:
         break;
     case CMD_FREE:
-        str_free(section->chain);
-        if(section->session)
-            SSL_SESSION_free(section->session);
-        if(section->ctx)
-            SSL_CTX_free(section->ctx);
+        context_cleanup(section);
         str_free(section->servname);
         if(section==&service_options || section==&new_service_options)
             memset(section, 0, sizeof(SERVICE_OPTIONS));

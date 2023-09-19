@@ -597,7 +597,7 @@ int get_socket_error(const SOCKET fd) {
 
 /**************************************** simulate blocking I/O */
 
-int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
+int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen, int timeout) {
     int error;
     char *dst;
 
@@ -618,11 +618,11 @@ int s_connect(CLI *c, SOCKADDR_UNION *addr, socklen_t addrlen) {
     }
 
     s_log(LOG_DEBUG, "s_connect: s_poll_wait %s: waiting %d seconds",
-        dst, c->opt->timeout_connect);
+        dst, timeout);
     s_poll_init(c->fds, 0);
     s_poll_add(c->fds, c->fd, 1, 1);
     s_poll_dump(c->fds, LOG_DEBUG);
-    switch(s_poll_wait(c->fds, c->opt->timeout_connect, 0)) {
+    switch(s_poll_wait(c->fds, timeout, 0)) {
     case -1:
         error=get_last_socket_error();
         s_log(LOG_ERR, "s_connect: s_poll_wait %s: %s (%d)",

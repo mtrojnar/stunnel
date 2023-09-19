@@ -43,7 +43,7 @@ SHAREDOBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj \
 	$(OBJ)\protocol.obj $(OBJ)\sthreads.obj $(OBJ)\log.obj \
 	$(OBJ)\options.obj $(OBJ)\network.obj $(OBJ)\resolver.obj \
 	$(OBJ)\str.obj $(OBJ)\tls.obj $(OBJ)\fd.obj $(OBJ)\dhparam.obj \
-	$(OBJ)\cron.obj
+	$(OBJ)\cron.obj $(OBJ)\ocsp.obj
 GUIOBJS=$(OBJ)\ui_win_gui.obj $(OBJ)\resources.res
 CLIOBJS=$(OBJ)\ui_win_cli.obj
 

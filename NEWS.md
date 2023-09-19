@@ -1,6 +1,23 @@
 # stunnel change log
 
 
+### Version 5.71, 2023.09.19, urgency: MEDIUM
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.1.3.
+* Bugfixes
+  - Fixed the console output of tstunnel.exe.
+* Features sponsored by SAE IT-systems
+  - OCSP stapling is requested and verified in the client mode.
+  - Using "verifyChain" automatically enables OCSP
+    stapling in the client mode.
+  - OCSP stapling is always available in the server mode.
+  - An inconclusive OCSP verification breaks TLS negotiation.
+    This can be disabled with "OCSPrequire = no".
+  - Added the "TIMEOUTocsp" option to control the maximum
+    time allowed for connecting an OCSP responder.
+* Features
+  - Added support for Red Hat OpenSSL 3.x patches.
+
 ### Version 5.70, 2023.07.12, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.0.9.

@@ -50,7 +50,7 @@ win32_cli_libs = $(win32_common_libs) $(win32_ssl_libs)
 
 common_headers = common.h prototypes.h version.h
 win32_common = tls str file client log options protocol network resolver
-win32_common += ssl ctx verify sthreads fd dhparam cron stunnel
+win32_common += ssl ctx verify ocsp sthreads fd dhparam cron stunnel
 win32_gui = ui_win_gui resources
 win32_cli = ui_win_cli
 win32_common_objs = $(addsuffix .o, $(addprefix $(objdir)/, $(win32_common)))

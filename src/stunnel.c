@@ -450,7 +450,6 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt, unsigned i) {
 #endif
     if(create_client(fd, s, alloc_client_session(opt, s, s))) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
-        closesocket(s);
 #ifndef USE_FORK
         service_free(opt);
 #endif

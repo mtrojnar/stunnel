@@ -154,8 +154,9 @@ const char *protocol_init(SERVICE_OPTIONS *opt) {
         {.name=NULL}
     }, *p;
 
-    /* the default value to be overridden in protocol initialization */
+    /* the default values to be overridden in protocol initialization */
     opt->option.connect_before_ssl=opt->option.client;
+    opt->option.protocol_endpoint=0;
 
     if(!opt->protocol) { /* no protocol specified */
         opt->protocol_early=NULL;
@@ -1779,7 +1780,7 @@ NOEXPORT int ldap_auth(CLI *c, const char *dn, const char *pass) {
     if(c->fd==INVALID_SOCKET)
         return 1; /* FAILED */
     s_log(LOG_DEBUG, "LDAP: Connecting the server");
-    if(s_connect(c, &addr, addr_len(&addr))) {
+    if(s_connect(c, &addr, addr_len(&addr), c->opt->timeout_connect)) {
         closesocket(c->fd);
         c->fd=INVALID_SOCKET; /* avoid double close on cleanup */
         return 1; /* FAILED */

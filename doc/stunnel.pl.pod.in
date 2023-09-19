@@ -698,7 +698,7 @@ serwera, do którego nawiązywane jest połączenie.
 
 =item B<OCSP> = URL
 
-responder OCSP do weryfikacji certyfikatów
+responder OCSP do weryfikacji certyfikatu drugiej strony połączenia
 
 =item B<OCSPaia> = yes | no
 
@@ -724,6 +724,20 @@ Opcja B<OCSPnonce> zabezpiecza protokół OCSP przed atakami powtórzeniowymi.
 Ze względu na złożoność obliczeniową rozszerzenie nonce jest zwykle wspierane
 jedynie przez wewnętrzne (np. korporacyjne), a nie przez publiczne respondery
 OCSP.
+
+=item B<OCSPrequire> = yes | no
+
+wymagaj  rozstrzygającej odpowiedzi respondera OCSP
+
+=item B<OCSPrequire> = yes | no
+
+Wyłączenie tej opcji pozwala na zaakceptowanie połączenia pomimo braku
+otrzymania rozstrzygającej odpowiedzi OCSP ze staplingu i bezpośredniego
+żądania wysłanego do respondera.
+
+default: yes
+
+domyślnie: yes
 
 =item B<options> = OPCJE_SSL
 
@@ -1211,6 +1225,10 @@ czas oczekiwania na nawiązanie połączenia
 =item B<TIMEOUTidle> = LICZBA_SEKUND
 
 maksymalny czas utrzymywania bezczynnego połączenia
+
+=item B<TIMEOUTocsp> = LICZBA_SEKUND
+
+czas oczekiwania na nawiązanie połączenia z serwerem OCSP
 
 =item B<transparent> = none | source | destination | both (tylko Unix)
 
