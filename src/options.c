@@ -2391,6 +2391,32 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         break;
     }
 
+    /* ALPNS */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->alpn=NULL;
+        break;
+    case CMD_SET_COPY:
+        section->alpn=str_dup_detached(new_service_options.alpn);
+        break;
+    case CMD_FREE:
+        str_free(section->alpn);
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "alpn"))
+            break;
+        str_free(section->alpn);
+        section->alpn=str_dup_detached(arg);
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = List of alpns", "alpn");
+        break;
+    }
+
 #ifndef OPENSSL_NO_OCSP
 
     /* OCSP */

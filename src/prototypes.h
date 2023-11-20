@@ -289,6 +289,7 @@ struct service_options_struct {
     char *crl_file;                     /* file containing concatenated CRLs */
 #ifndef OPENSSL_NO_OCSP
     char *ocsp_url;
+    char *alpn;                              /* list of OpenSSL alpn options */
     unsigned long ocsp_flags;
     CRYPTO_RWLOCK *ocsp_response_lock;    /* protect the OCSP response cache */
     unsigned char *ocsp_response_der;                  /* OCSP response data */

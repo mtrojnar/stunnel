@@ -139,6 +139,53 @@ typedef long unsigned SSL_OPTIONS_TYPE;
 typedef long SSL_OPTIONS_TYPE;
 #endif
 
+unsigned char *next_protos_parse(size_t *outlen, const char *in)
+{
+    size_t len;
+    unsigned char *out;
+    size_t i, start = 0;
+    size_t skipped = 0;
+
+    len = strlen(in);
+    if (len == 0 || len >= 65535)
+        return NULL;
+
+    out = OPENSSL_malloc(len + 1);
+    for (i = 0; i <= len; ++i) {
+        if (i == len || in[i] == ',') {
+            /*
+             * Zero-length ALPN elements are invalid on the wire, we could be
+             * strict and reject the entire string, but just ignoring extra
+             * commas seems harmless and more friendly.
+             *
+             * Every comma we skip in this way puts the input buffer another
+             * byte ahead of the output buffer, so all stores into the output
+             * buffer need to be decremented by the number commas skipped.
+             */
+            if (i == start) {
+                ++start;
+                ++skipped;
+                continue;
+            }
+            if (i - start > 255) {
+                OPENSSL_free(out);
+                return NULL;
+            }
+            out[start-skipped] = (unsigned char)(i - start);
+            start = i + 1;
+        } else {
+            out[i + 1 - skipped] = in[i];
+        }
+    }
+
+    if (len <= skipped) {
+        OPENSSL_free(out);
+        return NULL;
+    }
+
+    *outlen = len + 1 - skipped;
+    return out;
+}
 int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     s_log(LOG_DEBUG, "Initializing context [%s]", section->servname);
 
@@ -233,6 +280,23 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
         SSL_CTX_set_options(section->ctx, SSL_OP_NO_TICKET);
     }
 #endif
+    if (section->alpn) {
+        size_t alpn_len;
+        s_log(LOG_NOTICE, "Alpn is set");
+        unsigned char *alpn = next_protos_parse(&alpn_len, section->alpn);
+
+        if (alpn == NULL) {
+            sslerror("SSL_CTX_set_alpn_parse");
+            return 1;
+        }
+        /* Returns 0 on success! */
+        if (SSL_CTX_set_alpn_protos(section->ctx, alpn, alpn_len) != 0) {
+            sslerror("SSL_CTX_set_alpn");
+            return 1;
+        }
+        s_log(LOG_NOTICE, "Setting alpn is ok");
+        OPENSSL_free(alpn);
+    }
 #ifdef SSL_OP_NO_COMPRESSION
     /* we implemented a better way to disable compression if needed */
     SSL_CTX_clear_options(section->ctx, SSL_OP_NO_COMPRESSION);
@@ -348,7 +412,6 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 
     return 0; /* OK */
 }
-
 /**************************************** cleanup TLS context */
 
 /*
