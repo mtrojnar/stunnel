@@ -109,12 +109,16 @@ int ocsp_init(SERVICE_OPTIONS *section) {
         s_log(LOG_DEBUG, "OCSP: Client OCSP stapling enabled");
     } else {
 #if OPENSSL_VERSION_NUMBER>=0x10002000L
+#ifndef OPENSSL_NO_PSK
         if(!section->psk_keys) {
+#endif
             if(SSL_CTX_set_tlsext_status_cb(section->ctx, ocsp_server_cb)==TLSEXT_STATUSTYPE_ocsp)
                 s_log(LOG_DEBUG, "OCSP: Server OCSP stapling enabled");
+#ifndef OPENSSL_NO_PSK
         } else {
             s_log(LOG_NOTICE, "OCSP: Server OCSP stapling is incompatible with PSK");
         }
+#endif
 #else /* OpenSSL version 1.0.2 or later */
         s_log(LOG_NOTICE, "OCSP: Server OCSP stapling not supported");
 #endif /* OpenSSL version 1.0.2 or later */
