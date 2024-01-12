@@ -154,20 +154,6 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     section->ctx=SSL_CTX_new(section->option.client ?
         TLS_client_method() : TLS_server_method());
 #endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
-    if(section->min_proto_version &&
-            !SSL_CTX_set_min_proto_version(section->ctx,
-            section->min_proto_version)) {
-        s_log(LOG_ERR, "Failed to set the minimum protocol version 0x%X",
-            section->min_proto_version);
-        return 1; /* FAILED */
-    }
-    if(section->max_proto_version &&
-            !SSL_CTX_set_max_proto_version(section->ctx,
-            section->max_proto_version)) {
-        s_log(LOG_ERR, "Failed to set the maximum protocol version 0x%X",
-            section->max_proto_version);
-        return 1; /* FAILED */
-    }
 #else /* OPENSSL_VERSION_NUMBER<0x10100000L */
     if(section->option.client)
         section->ctx=SSL_CTX_new(section->client_method);
@@ -187,6 +173,21 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     current_section=section; /* setup current section for callbacks */
 
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
+    if(section->min_proto_version &&
+            !SSL_CTX_set_min_proto_version(section->ctx,
+            section->min_proto_version)) {
+        s_log(LOG_ERR, "Failed to set the minimum protocol version 0x%X",
+            section->min_proto_version);
+        return 1; /* FAILED */
+    }
+    if(section->max_proto_version &&
+            !SSL_CTX_set_max_proto_version(section->ctx,
+            section->max_proto_version)) {
+        s_log(LOG_ERR, "Failed to set the maximum protocol version 0x%X",
+            section->max_proto_version);
+        return 1; /* FAILED */
+    }
+
     /* set the security level */
     if(section->security_level>=0) {
         /* set the user-specified value */
