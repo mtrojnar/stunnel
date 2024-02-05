@@ -22,6 +22,7 @@ class StunnelTest(StunnelAcceptConnect):
 class VerifyOCSPStapling(StunnelTest):
     """ Checking OCSP stapling certificate verification.
         OCSP stapling is always available in the server mode.
+        Server OCSP stapling is supported in OpenSSL version 1.0.2 or later.
         Using "verifyChain" automatically enables OCSP stapling in the client mode.
         The success is expected because the server presents a valid certificate.
     """
@@ -29,6 +30,9 @@ class VerifyOCSPStapling(StunnelTest):
     def __init__(self, cfg: Config, logger: logging.Logger):
         super().__init__(cfg, logger)
         self.params.description = '271. Test OCSP stapling'
+        self.events.skip = [
+            "Server OCSP stapling not supported"
+        ]
         self.events.count = 1
         self.events.success = [
             r"OCSP: Accepted \(good\)"
@@ -164,6 +168,7 @@ class VerifyOCSPClientDriven(StunnelTest):
 class FailureVerifyOCSPStapling(StunnelTest):
     """ Checking OCSP stapling certificate verification.
         OCSP stapling is always available in the server mode.
+        Server OCSP stapling is supported in OpenSSL version 1.0.2 or later.
         Using "verifyChain" automatically enables OCSP stapling in the client mode.
         The failure is expected because the server presents a revoked certificate.
     """
@@ -171,6 +176,9 @@ class FailureVerifyOCSPStapling(StunnelTest):
     def __init__(self, cfg: Config, logger: logging.Logger):
         super().__init__(cfg, logger)
         self.params.description = '273. Failure test OCSP stapling'
+        self.events.skip = [
+            "Server OCSP stapling not supported"
+        ]
         self.events.count = 1
         self.events.success = [
             r"OCSP: Rejected \(revoked\)"

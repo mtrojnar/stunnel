@@ -1,4 +1,4 @@
-# NSIS stunnel installer by Michal Trojnara 1998-2023
+# NSIS stunnel installer by Michal Trojnara 1998-2024
 
 !define /ifndef VERSION testing
 !define /ifndef ARCH win32
@@ -365,6 +365,9 @@ Section "Core Files" sectionCORE
   !if /FileExists "/usr/i686-w64-mingw32/bin/libssp-0.dll"
   File "/usr/i686-w64-mingw32/bin/libssp-0.dll"
   !else
+  !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/12-win32/libssp-0.dll"
+  File "/usr/lib/gcc/i686-w64-mingw32/12-win32/libssp-0.dll"
+  !else
   !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/10-win32/libssp-0.dll"
   File "/usr/lib/gcc/i686-w64-mingw32/10-win32/libssp-0.dll"
   !else
@@ -376,6 +379,9 @@ Section "Core Files" sectionCORE
   !else
   !if /FileExists "/usr/i686-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
   File "/usr/i686-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
+  !else
+  !error "32-bit libssp-0.dll not found"
+  !endif
   !endif
   !endif
   !endif
@@ -386,6 +392,9 @@ Section "Core Files" sectionCORE
   File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}-x64.dll"
   !if /FileExists "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
   File "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
+  !else
+  !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/12-win32/libssp-0.dll"
+  File "/usr/lib/gcc/x86_64-w64-mingw32/12-win32/libssp-0.dll"
   !else
   !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll"
   File "/usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll"
@@ -398,6 +407,9 @@ Section "Core Files" sectionCORE
   !else
   !if /FileExists "/usr/x86_64-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
   File "/usr/x86_64-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
+  !else
+  !error "64-bit libssp-0.dll not found"
+  !endif
   !endif
   !endif
   !endif

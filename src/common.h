@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -249,6 +249,10 @@ typedef int                 ssize_t;
 #include <process.h>     /* _beginthread */
 #include <shlobj.h>      /* SHGetFolderPath */
 #include <tchar.h>
+
+#ifndef alloca
+#define alloca _alloca
+#endif
 
 #include "resources.h"
 

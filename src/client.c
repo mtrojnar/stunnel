@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -669,7 +669,7 @@ NOEXPORT void ssl_start(CLI *c) {
             }
         }
         if(SSL_session_reused(c->ssl)) {
-            print_session_id(sess);
+            print_session_id(sess); /* otherwise printed from sess_new_cb() */
         } else { /* a new session was negotiated */
             /* SSL_SESS_CACHE_NO_INTERNAL_STORE prevented automatic caching */
             if(!c->opt->option.client)
@@ -756,10 +756,19 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
     if(c->opt->log_level<LOG_INFO) /* performance optimization */
         return;
 
-    s_log(LOG_INFO, "TLS %s: %s",
-        c->opt->option.client ? "connected" : "accepted",
-        SSL_session_reused(c->ssl) && !c->flag.psk ?
-            "previous session reused" : "new session negotiated");
+#ifndef OPENSSL_NO_PSK
+    if(c->flag.psk_found) {
+        if(c->opt->option.client) {
+            s_log(LOG_ERR, "INTERNAL ERROR: PSK found on a client");
+        } else {
+            s_log(LOG_INFO, "TLS accepted: PSK");
+        }
+    } else
+#endif /* !defined(OPENSSL_NO_PSK) */
+        s_log(LOG_INFO, "TLS %s: %s",
+            c->opt->option.client ? "connected" : "accepted",
+            SSL_session_reused(c->ssl) ?
+                "previous session reused" : "new session negotiated");
 
     cipher=(SSL_CIPHER *)SSL_get_current_cipher(c->ssl);
     s_log(LOG_INFO, "%s ciphersuite: %s (%d-bit encryption)",

@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -527,9 +527,11 @@ struct client_data_struct {
     FD *ssl_rfd, *ssl_wfd;                 /* read and write TLS descriptors */
     uint64_t sock_bytes, ssl_bytes;       /* bytes written to socket and TLS */
     s_poll_set *fds;                                     /* file descriptors */
+#ifndef OPENSSL_NO_PSK
     struct {
-        unsigned psk:1;                            /* PSK identity was found */
+        unsigned psk_found:1;                      /* PSK identity was found */
     } flag;
+#endif /* !defined(OPENSSL_NO_PSK) */
 };
 
 /**************************************** prototypes for stunnel.c */

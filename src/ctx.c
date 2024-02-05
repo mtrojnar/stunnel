@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -143,17 +143,26 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     s_log(LOG_DEBUG, "Initializing context [%s]", section->servname);
 
     /* create a new TLS context */
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
 #if OPENSSL_VERSION_NUMBER>=0x30000000L
     section->ctx=SSL_CTX_new_ex(NULL,
         EVP_default_properties_is_fips_enabled(NULL) ?
             "fips=yes" : "provider!=fips",
         section->option.client ?
             TLS_client_method() : TLS_server_method());
-#else /* OPENSSL_VERSION_NUMBER<0x30000000L */
+#elif OPENSSL_VERSION_NUMBER>=0x10100000L
     section->ctx=SSL_CTX_new(section->option.client ?
         TLS_client_method() : TLS_server_method());
-#endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
+#else /* OPENSSL_VERSION_NUMBER<0x10100000L */
+    section->ctx=SSL_CTX_new(section->option.client ?
+        section->client_method : section->server_method);
+#endif
+    if(!section->ctx) {
+        sslerror("SSL_CTX_new");
+        return 1; /* FAILED */
+    }
+
+    /* set supported protocol versions */
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
     if(section->min_proto_version &&
             !SSL_CTX_set_min_proto_version(section->ctx,
             section->min_proto_version)) {
@@ -168,16 +177,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
             section->max_proto_version);
         return 1; /* FAILED */
     }
-#else /* OPENSSL_VERSION_NUMBER<0x10100000L */
-    if(section->option.client)
-        section->ctx=SSL_CTX_new(section->client_method);
-    else /* server mode */
-        section->ctx=SSL_CTX_new(section->server_method);
-#endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
-    if(!section->ctx) {
-        sslerror("SSL_CTX_new");
-        return 1; /* FAILED */
-    }
+#endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 
     /* allow callbacks to access their SERVICE_OPTIONS structure */
     if(!SSL_CTX_set_ex_data(section->ctx, index_ssl_ctx_opt, section)) {
@@ -755,7 +755,7 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     }
     memcpy(psk, found->key_val, found->key_len);
     s_log(LOG_NOTICE, "Key configured for PSK identity \"%s\"", identity);
-    c->flag.psk=1;
+    c->flag.psk_found=1;
     return found->key_len;
 }
 

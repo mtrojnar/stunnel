@@ -1,6 +1,16 @@
 # stunnel change log
 
 
+### Version 5.72, 2024.02.04, urgency: MEDIUM
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.2.1.
+* Bugfixes
+  - Fixed SSL_CTX_new() errors handling.
+  - Fixed OPENSSL_NO_PSK builds.
+  - Android build updated for NDK r23c.
+  - stunnel.nsi updated for Debian 12.
+  - Fixed tests with OpenSSL older than 1.0.2.
+
 ### Version 5.71, 2023.09.19, urgency: MEDIUM
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.1.3.

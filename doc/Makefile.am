@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# by Michal Trojnara 1998-2023
+# by Michal Trojnara 1998-2024
 
 EXTRA_DIST = stunnel.pod.in stunnel.8.in stunnel.html.in en
 EXTRA_DIST += stunnel.pl.pod.in stunnel.pl.8.in stunnel.pl.html.in pl

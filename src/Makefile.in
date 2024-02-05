@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# by Michal Trojnara 1998-2023
+# by Michal Trojnara 1998-2024
 
 ###############################################################################
 # File lists                                                                  #
@@ -278,6 +278,7 @@ EGREP = @EGREP@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FILECMD = @FILECMD@
 GREP = @GREP@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@

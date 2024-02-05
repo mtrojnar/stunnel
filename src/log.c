@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2023 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -198,11 +198,7 @@ void s_vlog(int level, const char *format, va_list ap) {
         len=vsnprintf(NULL, 0, format, ap);
         if(len>1024)
             len=1024;
-#ifdef USE_WIN32
-        text=_alloca((size_t)len+1);
-#else
         text=alloca((size_t)len+1);
-#endif
         len=vsnprintf(text, (size_t)len+1, format, aq);
         va_end(aq);
         while(len>0 && text[len-1]=='\n')
@@ -288,11 +284,7 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
     switch(log_mode) {
     case LOG_MODE_CONFIGURED:
         size=strlen(stamp)+strlen(id)+strlen(text)+4;
-#ifdef USE_WIN32
-        line=_alloca(size);
-#else
         line=alloca(size);
-#endif
         snprintf(line, size, "%s %s: %s", stamp, id, text);
         if(level<=opt->log_level) {
 #if !defined(USE_WIN32) && !defined(__vms)
@@ -310,11 +302,7 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
     case LOG_MODE_ERROR:
         /* don't log the id or the time stamp */
         size=strlen(text)+5;
-#ifdef USE_WIN32
-        line=_alloca(size);
-#else
         line=alloca(size);
-#endif
         if(level>=0 && level<=7) /* just in case */
             snprintf(line, size, "[%c] %s", "***!:.  "[level], text);
         else
