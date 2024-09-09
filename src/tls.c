@@ -47,7 +47,7 @@ NOEXPORT void free_function(void *);
 /**************************************** thread local storage */
 
 /* this has to be the first function called from ui_*.c */
-void tls_init() {
+void tls_init(void) {
     tls_platform_init();
     tls_initialized=1;
     ui_tls=tls_alloc(NULL, NULL, "ui");
@@ -94,7 +94,7 @@ TLS_DATA *tls_alloc(CLI *c, TLS_DATA *inherited, const char *txt) {
 }
 
 /* per-thread thread-local storage cleanup */
-void tls_cleanup() {
+void tls_cleanup(void) {
     TLS_DATA *tls_data;
 
     tls_data=tls_get();
@@ -110,7 +110,7 @@ void tls_cleanup() {
 
 static TLS_DATA *global_tls=NULL;
 
-NOEXPORT void tls_platform_init() {
+NOEXPORT void tls_platform_init(void) {
 }
 
 void tls_set(TLS_DATA *tls_data) {
@@ -120,7 +120,7 @@ void tls_set(TLS_DATA *tls_data) {
         global_tls=tls_data;
 }
 
-TLS_DATA *tls_get() {
+TLS_DATA *tls_get(void) {
     if(ready_head)
         return ready_head->tls;
     else /* ucontext threads not initialized */
@@ -133,14 +133,14 @@ TLS_DATA *tls_get() {
 
 static TLS_DATA *global_tls=NULL;
 
-NOEXPORT void tls_platform_init() {
+NOEXPORT void tls_platform_init(void) {
 }
 
 void tls_set(TLS_DATA *tls_data) {
     global_tls=tls_data;
 }
 
-TLS_DATA *tls_get() {
+TLS_DATA *tls_get(void) {
     return global_tls;
 }
 
@@ -150,7 +150,7 @@ TLS_DATA *tls_get() {
 
 static pthread_key_t pthread_key;
 
-NOEXPORT void tls_platform_init() {
+NOEXPORT void tls_platform_init(void) {
     pthread_key_create(&pthread_key, NULL);
 }
 
@@ -158,7 +158,7 @@ void tls_set(TLS_DATA *tls_data) {
     pthread_setspecific(pthread_key, tls_data);
 }
 
-TLS_DATA *tls_get() {
+TLS_DATA *tls_get(void) {
     return pthread_getspecific(pthread_key);
 }
 
@@ -168,7 +168,7 @@ TLS_DATA *tls_get() {
 
 static DWORD tls_index;
 
-NOEXPORT void tls_platform_init() {
+NOEXPORT void tls_platform_init(void) {
     tls_index=TlsAlloc();
 }
 
@@ -176,7 +176,7 @@ void tls_set(TLS_DATA *tls_data) {
     TlsSetValue(tls_index, tls_data);
 }
 
-TLS_DATA *tls_get() {
+TLS_DATA *tls_get(void) {
     return TlsGetValue(tls_index);
 }
 

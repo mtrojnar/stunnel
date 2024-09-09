@@ -52,13 +52,16 @@ BrandingText "Author: Michal Trojnara"
 !define /ifndef OPENSSL_BIN_DIR ${OPENSSL_DIR}\bin
 !define /ifndef OPENSSL_ENGINES_DIR ${OPENSSL_DIR}\${LIB}\engines-${SUFFIX}
 !if ${SUFFIX} == "3"
-!define /ifndef OPENSSL_OSSLMODULES_DIR ${OPENSSL_DIR}\${LIB}\ossl-modules
+  !define /ifndef OPENSSL_OSSLMODULES_DIR ${OPENSSL_DIR}\${LIB}\ossl-modules
+!endif
+!ifdef MIMALLOC_DIR
+  !define /ifndef MIMALLOC_BIN_DIR ${MIMALLOC_DIR}\bin
 !endif
 !define /ifndef ZLIB_DIR ${BIN_DIR}\zlib
 !define /ifndef REDIST_DIR ${BIN_DIR}\redist
 
 !if ${SUFFIX} == "3"
-!include "${STUNNEL_TOOLS_DIR}/ReplaceInFile3.nsh"
+  !include "${STUNNEL_TOOLS_DIR}/ReplaceInFile3.nsh"
 !endif
 
 # additional plugins
@@ -77,6 +80,29 @@ BrandingText "Author: Michal Trojnara"
 !insertmacro MUI_UNPAGE_INSTFILES
 
 !insertmacro MUI_LANGUAGE "English"
+
+!if "${ARCH}" == "win32"
+  !define CPU i686
+!else
+  !define CPU x86_64
+!endif
+
+!macro RunTime name
+  !if /FileExists /usr/${CPU}-w64-mingw32/sys-root/mingw/bin/${name}
+    # Fedora-based distros
+    File /usr/${CPU}-w64-mingw32/sys-root/mingw/bin/${name}
+  !else if /FileExists /usr/${CPU}-w64-mingw32/bin/${name}
+    # Arch-based distros
+    File /usr/${CPU}-w64-mingw32/bin/${name}
+  !else
+    # Debian-based distros
+    !tempfile tmp
+    !system 'echo File /usr/lib/gcc/${CPU}-w64-mingw32/*-win32/${name} >"${tmp}"'
+    !include "${tmp}"
+    !delfile "${tmp}"
+    !undef tmp
+  !endif
+!macroend
 
 !macro MoveFiles src dst pattern
 FindFirst $0 $1 "${src}\${pattern}"
@@ -203,6 +229,11 @@ no_service_restart:
   Delete "$INSTDIR\bin\libssl-3-x64.pdb"
   Delete "$INSTDIR\bin\vcruntime140.dll"
   Delete "$INSTDIR\bin\libssp-0.dll"
+  Delete "$INSTDIR\bin\libmimalloc.dll"
+  Delete "$INSTDIR\bin\mimalloc-redirect.dll"
+  Delete "$INSTDIR\bin\mimalloc-redirect32.dll"
+  Delete "$INSTDIR\bin\libgcc_s_seh-1.dll"
+  Delete "$INSTDIR\bin\libgcc_s_dw2-1.dll"
   RMDir "$INSTDIR\bin"
 
   Delete "$INSTDIR\engines\4758cca.dll"
@@ -354,77 +385,39 @@ Section "Core Files" sectionCORE
   # write new executables/libraries files
   SetOutPath "$INSTDIR\bin"
   File "${STUNNEL_BIN_DIR}\stunnel.exe"
+  !insertmacro RunTime "libssp-0.dll"
   !if ${ARCH} == win32
-  # Visual C++ 2008
-  #File "${OPENSSL_BIN_DIR}\libeay32.dll"
-  #File "${OPENSSL_BIN_DIR}\ssleay32.dll"
-  #File "${REDIST_DIR}\msvcr90.dll"
-  #File "${REDIST_DIR}\Microsoft.VC90.CRT.Manifest"
-  File "${OPENSSL_BIN_DIR}\libcrypto-${SUFFIX}.dll"
-  File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}.dll"
-  !if /FileExists "/usr/i686-w64-mingw32/bin/libssp-0.dll"
-  File "/usr/i686-w64-mingw32/bin/libssp-0.dll"
+    !insertmacro RunTime "libgcc_s_dw2-1.dll"
+    # Visual C++ 2008
+    #File "${OPENSSL_BIN_DIR}\libeay32.dll"
+    #File "${OPENSSL_BIN_DIR}\ssleay32.dll"
+    #File "${REDIST_DIR}\msvcr90.dll"
+    #File "${REDIST_DIR}\Microsoft.VC90.CRT.Manifest"
+    File "${OPENSSL_BIN_DIR}\libcrypto-${SUFFIX}.dll"
+    File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}.dll"
+    !ifdef MIMALLOC_BIN_DIR
+      File "${MIMALLOC_BIN_DIR}\mimalloc-redirect32.dll"
+    !endif
   !else
-  !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/12-win32/libssp-0.dll"
-  File "/usr/lib/gcc/i686-w64-mingw32/12-win32/libssp-0.dll"
-  !else
-  !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/10-win32/libssp-0.dll"
-  File "/usr/lib/gcc/i686-w64-mingw32/10-win32/libssp-0.dll"
-  !else
-  !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/9.3-win32/libssp-0.dll"
-  File "/usr/lib/gcc/i686-w64-mingw32/9.3-win32/libssp-0.dll"
-  !else
-  !if /FileExists "/usr/lib/gcc/i686-w64-mingw32/8.3-win32/libssp-0.dll"
-  File "/usr/lib/gcc/i686-w64-mingw32/8.3-win32/libssp-0.dll"
-  !else
-  !if /FileExists "/usr/i686-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
-  File "/usr/i686-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
-  !else
-  !error "32-bit libssp-0.dll not found"
+    !insertmacro RunTime "libgcc_s_seh-1.dll"
+    File "${OPENSSL_BIN_DIR}\libcrypto-${SUFFIX}-x64.dll"
+    File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}-x64.dll"
+    #SetOutPath "$INSTDIR"
+    #ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+    #${If} $0 == 1
+    #  DetailPrint "VC 2017 Redistributable already installed"
+    #${Else}
+    #  DetailPrint "Installing VC 2017 Redistributable"
+    #  File "${REDIST_DIR}\VC_redist.x64.exe"
+    #  ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet'
+    #  Delete "$INSTDIR\VC_redist.x64.exe"
+    #${EndIf}
+    !ifdef MIMALLOC_BIN_DIR
+      File "${MIMALLOC_BIN_DIR}\mimalloc-redirect.dll"
+    !endif
   !endif
-  !endif
-  !endif
-  !endif
-  !endif
-  !endif
-  !else
-  File "${OPENSSL_BIN_DIR}\libcrypto-${SUFFIX}-x64.dll"
-  File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}-x64.dll"
-  !if /FileExists "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
-  File "/usr/x86_64-w64-mingw32/bin/libssp-0.dll"
-  !else
-  !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/12-win32/libssp-0.dll"
-  File "/usr/lib/gcc/x86_64-w64-mingw32/12-win32/libssp-0.dll"
-  !else
-  !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll"
-  File "/usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll"
-  !else
-  !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/9.3-win32/libssp-0.dll"
-  File "/usr/lib/gcc/x86_64-w64-mingw32/9.3-win32/libssp-0.dll"
-  !else
-  !if /FileExists "/usr/lib/gcc/x86_64-w64-mingw32/8.3-win32/libssp-0.dll"
-  File "/usr/lib/gcc/x86_64-w64-mingw32/8.3-win32/libssp-0.dll"
-  !else
-  !if /FileExists "/usr/x86_64-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
-  File "/usr/x86_64-w64-mingw32/sys-root/mingw/bin/libssp-0.dll"
-  !else
-  !error "64-bit libssp-0.dll not found"
-  !endif
-  !endif
-  !endif
-  !endif
-  !endif
-  !endif
-  #SetOutPath "$INSTDIR"
-  #ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
-  #${If} $0 == 1
-  #  DetailPrint "VC 2017 Redistributable already installed"
-  #${Else}
-  #  DetailPrint "Installing VC 2017 Redistributable"
-  #  File "${REDIST_DIR}\VC_redist.x64.exe"
-  #  ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet'
-  #  Delete "$INSTDIR\VC_redist.x64.exe"
-  #${EndIf}
+  !ifdef MIMALLOC_BIN_DIR
+    File "${MIMALLOC_BIN_DIR}\libmimalloc.dll"
   !endif
 
   # write new engine libraries
@@ -435,11 +428,11 @@ Section "Core Files" sectionCORE
 
   # write new provider libraries
   !if ${SUFFIX} == "3"
-  SetOutPath "$INSTDIR\ossl-modules"
-  !if ${ENABLE_FIPS}
-  File "${OPENSSL_OSSLMODULES_DIR}\fips.dll"
-  !endif
-  File "${OPENSSL_OSSLMODULES_DIR}\legacy.dll"
+    SetOutPath "$INSTDIR\ossl-modules"
+    !if ${ENABLE_FIPS}
+      File "${OPENSSL_OSSLMODULES_DIR}\fips.dll"
+    !endif
+    File "${OPENSSL_OSSLMODULES_DIR}\legacy.dll"
   !endif
 
   # write new documentation
@@ -472,42 +465,42 @@ Section "openssl.exe" sectionOPENSSL
 
   SetOutPath "$INSTDIR\config"
   File "${STUNNEL_TOOLS_DIR}\openssl.cnf"
-!if ${SUFFIX} == "3"
-  Push "#providers = provider_sect"     # text to be replaced
-  Push "providers = provider_sect"      # replace with
-  Push 1                                # start replacing at the 1st occurrence
-  Push 1                                # replace 1 occurrences onwards, in all
-  Push "$INSTDIR\config\openssl.cnf"    # file to replace in
-  Call AdvReplaceInFile
-!endif
+  !if ${SUFFIX} == "3"
+    Push "#providers = provider_sect"     # text to be replaced
+    Push "providers = provider_sect"      # replace with
+    Push 1                                # start replacing at the 1st occurrence
+    Push 1                                # replace 1 occurrences onwards, in all
+    Push "$INSTDIR\config\openssl.cnf"    # file to replace in
+    Call AdvReplaceInFile
+  !endif
 
-!if ${ENABLE_FIPS}
-  # create fipsmodule.cnf
-  ExecWait '"$INSTDIR\bin\openssl.exe" fipsinstall -module "$INSTDIR\ossl-modules\fips.dll" \
-    -out "$INSTDIR\config\fipsmodule.cnf" -provider_name fips'
+  !if ${ENABLE_FIPS}
+    # create fipsmodule.cnf
+    ExecWait '"$INSTDIR\bin\openssl.exe" fipsinstall -module "$INSTDIR\ossl-modules\fips.dll" \
+      -out "$INSTDIR\config\fipsmodule.cnf" -provider_name fips'
 
-  # modify fipsmodule.cnf and openssl.cnf to enable FIPS mode
-  Push "activate = 1"                   # text to be replaced
-  Push "#activate = 1"                  # replace with
-  Push 1                                # start replacing at the 1st occurrence
-  Push 1                                # replace 1 occurrences onwards, in all
-  Push "$INSTDIR\config\fipsmodule.cnf" # file to replace in
-  Call AdvReplaceInFile
+    # modify fipsmodule.cnf and openssl.cnf to enable FIPS mode
+    Push "activate = 1"                   # text to be replaced
+    Push "#activate = 1"                  # replace with
+    Push 1                                # start replacing at the 1st occurrence
+    Push 1                                # replace 1 occurrences onwards, in all
+    Push "$INSTDIR\config\fipsmodule.cnf" # file to replace in
+    Call AdvReplaceInFile
 
-  Push "#.include"                      # text to be replaced
-  Push ".include"                       # replace with
-  Push 1                                # start replacing at the 1st occurrence
-  Push 1                                # replace 1 occurrences onwards, in all
-  Push "$INSTDIR\config\openssl.cnf"    # file to replace in
-  Call AdvReplaceInFile
+    Push "#.include"                      # text to be replaced
+    Push ".include"                       # replace with
+    Push 1                                # start replacing at the 1st occurrence
+    Push 1                                # replace 1 occurrences onwards, in all
+    Push "$INSTDIR\config\openssl.cnf"    # file to replace in
+    Call AdvReplaceInFile
 
-  Push "#fips = fips_sect"              # text to be replaced
-  Push "fips = fips_sect"               # replace with
-  Push 1                                # start replacing at the 1st occurrence
-  Push 1                                # replace 1 occurrences onwards, in all
-  Push "$INSTDIR\config\openssl.cnf"    # file to replace in
-  Call AdvReplaceInFile
-!endif
+    Push "#fips = fips_sect"              # text to be replaced
+    Push "fips = fips_sect"               # replace with
+    Push 1                                # start replacing at the 1st occurrence
+    Push 1                                # replace 1 occurrences onwards, in all
+    Push "$INSTDIR\config\openssl.cnf"    # file to replace in
+    Call AdvReplaceInFile
+  !endif
 
   # create stunnel.pem
   IfSilent no_new_pem
@@ -623,12 +616,12 @@ Section /o "Debugging Symbols" sectionDEBUG
   # core components
   File "${STUNNEL_BIN_DIR}\stunnel.pdb"
   !if ${ARCH} == win32
-  File "${OPENSSL_BIN_DIR}\libeay32.pdb"
-  File "${OPENSSL_BIN_DIR}\ssleay32.pdb"
-  File "${ZLIB_DIR}\zlib1.pdb"
+    File "${OPENSSL_BIN_DIR}\libeay32.pdb"
+    File "${OPENSSL_BIN_DIR}\ssleay32.pdb"
+    File "${ZLIB_DIR}\zlib1.pdb"
   !else
-  File "${OPENSSL_BIN_DIR}\libcrypto-${SUFFIX}-x64.pdb"
-  File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}-x64.pdb"
+    File "${OPENSSL_BIN_DIR}\libcrypto-${SUFFIX}-x64.pdb"
+    File "${OPENSSL_BIN_DIR}\libssl-${SUFFIX}-x64.pdb"
   !endif
 
   # optional tstunnel.exe

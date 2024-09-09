@@ -277,19 +277,19 @@ int ui_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
 
 #ifndef OPENSSL_NO_ENGINE
 
-int (*ui_get_opener()) (UI *) {
+int (*ui_get_opener(void)) (UI *) {
     return UI_method_get_opener(UI_OpenSSL());
 }
 
-int (*ui_get_writer()) (UI *, UI_STRING *) {
+int (*ui_get_writer(void)) (UI *, UI_STRING *) {
     return UI_method_get_writer(UI_OpenSSL());
 }
 
-int (*ui_get_reader()) (UI *, UI_STRING *) {
+int (*ui_get_reader(void)) (UI *, UI_STRING *) {
     return UI_method_get_reader(UI_OpenSSL());
 }
 
-int (*ui_get_closer()) (UI *) {
+int (*ui_get_closer(void)) (UI *) {
     return UI_method_get_closer(UI_OpenSSL());
 }
 

@@ -53,7 +53,7 @@ NOEXPORT void check_terminate(s_poll_set *);
 
 #ifdef USE_POLL
 
-s_poll_set *s_poll_alloc() {
+s_poll_set *s_poll_alloc(void) {
     /* it needs to be filled with zeros */
     return str_alloc(sizeof(s_poll_set));
 }
@@ -352,7 +352,7 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
 
 #else /* select */
 
-s_poll_set *s_poll_alloc() {
+s_poll_set *s_poll_alloc(void) {
     /* it needs to be filled with zeros */
     return str_alloc(sizeof(s_poll_set));
 }

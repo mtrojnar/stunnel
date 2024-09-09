@@ -109,6 +109,9 @@ NOEXPORT int ssl_tlsext_ticket_key_cb(SSL *, unsigned char *,
 NOEXPORT int sess_new_cb(SSL *, SSL_SESSION *);
 NOEXPORT void new_chain(CLI *);
 NOEXPORT void session_cache_save(CLI *, SSL_SESSION *);
+#if OPENSSL_VERSION_NUMBER<0x10101000L
+NOEXPORT SSL_SESSION *SSL_SESSION_dup(SSL_SESSION *);
+#endif
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *,
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     const
@@ -130,6 +133,11 @@ NOEXPORT void info_callback(const SSL *, int, int);
 
 NOEXPORT void sslerror_queue(void);
 NOEXPORT void sslerror_log(unsigned long, const char *, int, const char *);
+
+#ifndef OPENSSL_NO_TLS1_3
+NOEXPORT char *compare_cipher_lists(STACK_OF(SSL_CIPHER) *, STACK_OF(SSL_CIPHER) *);
+NOEXPORT char *get_tls13_cipher_list(STACK_OF(SSL_CIPHER) *);
+#endif /* TLS 1.3 */
 
 /**************************************** initialize section->ctx */
 
@@ -216,10 +224,23 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 #ifndef OPENSSL_NO_TLS1_3
     /* ciphersuites */
     if(section->ciphersuites) {
-        s_log(LOG_DEBUG, "TLSv1.3 ciphersuites: %s", section->ciphersuites);
+        STACK_OF(SSL_CIPHER) *cipher_list, *tmp_cipher_list;
+        char *tls12_cipher_list, *tls13_cipher_list;
+
+        tmp_cipher_list=sk_SSL_CIPHER_dup(SSL_CTX_get_ciphers(section->ctx));
         if(!SSL_CTX_set_ciphersuites(section->ctx, section->ciphersuites)) {
             sslerror("SSL_CTX_set_ciphersuites");
             return 1; /* FAILED */
+        }
+        cipher_list=SSL_CTX_get_ciphers(section->ctx);
+        tls12_cipher_list=compare_cipher_lists(tmp_cipher_list, cipher_list);
+        sk_SSL_CIPHER_free(tmp_cipher_list);
+        if(tls12_cipher_list) {
+            s_log(LOG_DEBUG, "TLSv1.2 and below ciphers: %s", tls12_cipher_list);
+        }
+        tls13_cipher_list=get_tls13_cipher_list(cipher_list);
+        if(tls13_cipher_list) {
+            s_log(LOG_DEBUG, "TLSv1.3 ciphersuites: %s", tls13_cipher_list);
         }
     }
 #endif /* TLS 1.3 */
@@ -741,7 +762,7 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     found=psk_find(&c->opt->psk_sorted, identity);
     if(!found) {
         const char *c=identity;
-        while(*c && isprint(*c))
+        while(*c && isprint((unsigned char)*c))
             c++;
         if(*c)
             s_log(LOG_INFO, "PSK identity not found (session resumption?)");
@@ -959,7 +980,7 @@ NOEXPORT int load_cert_engine(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 
-UI_METHOD *ui_stunnel() {
+UI_METHOD *ui_stunnel(void) {
     static UI_METHOD *ui_method=NULL;
 
     if(ui_method) /* already initialized */
@@ -1042,7 +1063,7 @@ NOEXPORT void set_prompt(const char *name) {
     str_free(prompt);
 }
 
-NOEXPORT int ui_retry() {
+NOEXPORT int ui_retry(void) {
     unsigned long err=ERR_peek_error();
 
     switch(ERR_GET_LIB(err)) {
@@ -1311,13 +1332,12 @@ NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess) {
 
     new_chain(c); /* new session -> we may have a new peer certificate chain */
 
-    if(c->opt->option.client)
-        session_cache_save(c, sess);
+    session_cache_save(c, sess);
 
     if(c->opt->option.sessiond)
         cache_new(ssl, sess);
 
-    print_session_id(sess);
+    print_session_id("Session id", sess);
 
     return 0; /* the OpenSSL's manual is really bad -> use the source here */
 }
@@ -1331,7 +1351,7 @@ NOEXPORT const unsigned char *SSL_SESSION_get_id(const SSL_SESSION *s,
 }
 #endif
 
-void print_session_id(SSL_SESSION *sess) {
+void print_session_id(const char *txt, SSL_SESSION *sess) {
     const unsigned char *session_id;
     unsigned int session_id_length;
     char session_id_txt[2*SSL_MAX_SSL_SESSION_ID_LENGTH+1];
@@ -1339,7 +1359,7 @@ void print_session_id(SSL_SESSION *sess) {
     session_id=SSL_SESSION_get_id(sess, &session_id_length);
     bin2hexstring(session_id, session_id_length,
         session_id_txt, sizeof session_id_txt);
-    s_log(LOG_INFO, "Session id: %s", session_id_txt);
+    s_log(LOG_INFO, "%s: %s", txt, session_id_txt);
 }
 
 NOEXPORT void new_chain(CLI *c) {
@@ -1390,32 +1410,55 @@ NOEXPORT void new_chain(CLI *c) {
 
 /* cache client sessions */
 NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess) {
-    SSL_SESSION *old;
+    if(!c->opt->option.client || !sess)
+        return;
 
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
-    SSL_SESSION_up_ref(sess);
-#else
-    sess=SSL_get1_session(c->ssl);
+#if OPENSSL_VERSION_NUMBER>=0x10101000L
+    if(!SSL_SESSION_is_resumable(sess))
+        return;
 #endif
 
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
-    if(c->opt->option.delayed_lookup) {
-        old=c->opt->session;
-        c->opt->session=sess;
-    } else { /* per-destination client cache */
-        if(c->opt->connect_session) {
-            old=c->opt->connect_session[c->idx];
-            c->opt->connect_session[c->idx]=sess;
-        } else {
-            s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized client session cache (save)");
-            old=NULL;
-        }
-    }
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SESSION]);
 
-    if(old)
-        SSL_SESSION_free(old);
+    /* save per-destination client session */
+    if(c->opt->connect_session) {
+        if(c->opt->connect_session[c->idx])
+            SSL_SESSION_free(c->opt->connect_session[c->idx]);
+        c->opt->connect_session[c->idx]=SSL_SESSION_dup(sess);
+    }
+
+    /* save fallback client session */
+    if(c->opt->session)
+        SSL_SESSION_free(c->opt->session);
+    c->opt->session=SSL_SESSION_dup(sess);
+
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SESSION]);
 }
+
+#if OPENSSL_VERSION_NUMBER<0x10101000L
+NOEXPORT SSL_SESSION *SSL_SESSION_dup(SSL_SESSION *src) {
+    int der_len;
+    unsigned char *der_data;
+    unsigned char *tmp;
+    const unsigned char *const_tmp;
+    SSL_SESSION *dst;
+
+    der_len=i2d_SSL_SESSION(src, NULL);
+    if(der_len<=0)
+        return NULL;
+    der_data=str_alloc((size_t)der_len);
+    tmp=der_data;
+    der_len=i2d_SSL_SESSION(src, &tmp);
+    if(der_len<=0) {
+        str_free(der_data);
+        return NULL;
+    }
+    const_tmp=der_data;
+    dst=d2i_SSL_SESSION(NULL, &const_tmp, der_len);
+    str_free(der_data);
+    return dst;
+}
+#endif
 
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
@@ -1767,4 +1810,66 @@ NOEXPORT void sslerror_log(unsigned long err,
     str_free(str);
 }
 
+/**************************************** ciphersuites */
+#ifndef OPENSSL_NO_TLS1_3
+NOEXPORT char *compare_cipher_lists(STACK_OF(SSL_CIPHER) *list1, STACK_OF(SSL_CIPHER) *list2) {
+    char *result=NULL;
+    size_t result_len=0;
+    int i;
+
+    for(i=0; i<sk_SSL_CIPHER_num(list2); i++) {
+        const SSL_CIPHER *cipher2=sk_SSL_CIPHER_value(list2, i);
+        const char *cipher2_name=SSL_CIPHER_get_name(cipher2);
+        int found=0;
+
+        for(int j=0; j<sk_SSL_CIPHER_num(list1); j++) {
+            const SSL_CIPHER *cipher1=sk_SSL_CIPHER_value(list1, j);
+            const char *cipher1_name=SSL_CIPHER_get_name(cipher1);
+
+            if(!strcmp(cipher2_name, cipher1_name)) {
+                found=1;
+                break;
+            }
+        }
+        if(!found) {
+            size_t name_len=strlen(cipher2_name);
+
+            result=realloc(result, result_len + name_len + 2); /* +2 for ':' and '\0' */
+            if(result_len == 0) {
+                strcpy(result, cipher2_name);
+            } else {
+                strcat(result, ":");
+                strcat(result, cipher2_name);
+            }
+            result_len+=name_len + 1; /* +1 for ':' */
+        }
+    }
+    return result;
+}
+
+NOEXPORT char *get_tls13_cipher_list(STACK_OF(SSL_CIPHER) *list) {
+    char *result=NULL;
+    size_t result_len=0;
+    int i;
+
+    for(i=0; i<sk_SSL_CIPHER_num(list); i++) {
+        const SSL_CIPHER *cipher=sk_SSL_CIPHER_value(list, i);
+
+        if(!strcmp(SSL_CIPHER_get_version(cipher), "TLSv1.3")) {
+            const char *cipher_name=SSL_CIPHER_get_name(cipher);
+            size_t name_len=strlen(cipher_name);
+
+            result=realloc(result, result_len + name_len + 2); /* +2 for ':' and '\0' */
+            if(result_len == 0) {
+                strcpy(result, cipher_name);
+            } else {
+                strcat(result, ":");
+                strcat(result, cipher_name);
+            }
+            result_len+=name_len + 1; /* +1 for ':' */
+        }
+    }
+    return result;
+}
+#endif /* TLS 1.3 */
 /* end of ctx.c */

@@ -40,10 +40,15 @@
 /* Uncomment to see allocation sources in core dumps */
 /* #define DEBUG_PADDING 64 */
 
+#ifdef HAVE_MIMALLOC_H
+#include <mimalloc.h>
+#define system_malloc(n) mi_malloc(n)
+#define system_realloc(p,n) mi_realloc((p),(n))
+#define system_free(p) mi_free(p)
+#elif defined(USE_WIN32)
 /* reportedly, malloc does not always return 16-byte aligned addresses
  * for 64-bit targets as specified by
  * https://msdn.microsoft.com/en-us/library/6ewkz86d.aspx */
-#ifdef USE_WIN32
 #define system_malloc(n) _aligned_malloc((n),16)
 #define system_realloc(p,n) _aligned_realloc((p),(n),16)
 #define system_free(p) _aligned_free(p)
@@ -229,7 +234,7 @@ void str_thread_cleanup(TLS_DATA *tls_data) {
         str_free_expression(tls_data->alloc_head+1);
 }
 
-void str_canary_init() {
+void str_canary_init(void) {
     if(canary_initialized!=CANARY_UNINTIALIZED)
         return; /* prevent double initialization on config reload */
     RAND_bytes(canary, (int)sizeof canary);
@@ -238,7 +243,7 @@ void str_canary_init() {
     canary_initialized=CANARY_INITIALIZED; /* after RAND_bytes */
 }
 
-void str_stats() {
+void str_stats(void) {
     TLS_DATA *tls_data;
     ALLOC_LIST *alloc_list;
     int i=0;
@@ -555,7 +560,7 @@ NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *alloc_list) {
     return leak_hash_table+i;
 }
 
-void leak_table_utilization() {
+void leak_table_utilization(void) {
     int i, utilization=0;
     int64_t grand_total=0;
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
@@ -604,7 +609,7 @@ NOEXPORT int leak_cmp(const LEAK_ENTRY *const *a, const LEAK_ENTRY *const *b) {
 #endif /* OpenSSL version >= 1.1.1 */
 
 /* report identified leaks */
-NOEXPORT void leak_report() {
+NOEXPORT void leak_report(void) {
     int i;
     long limit;
 
@@ -620,7 +625,7 @@ NOEXPORT void leak_report() {
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LEAK_RESULTS]);
 }
 
-NOEXPORT long leak_threshold() {
+NOEXPORT long leak_threshold(void) {
     long limit;
 
     limit=10000*((int)number_of_sections+1);

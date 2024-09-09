@@ -5,6 +5,7 @@
 More secure defaults planned for the next major version.
 
 * OCSPaia = yes
+* verifyPeer = yes (on the client)
 
 ### High priority features
 These features will likely be supported some day.

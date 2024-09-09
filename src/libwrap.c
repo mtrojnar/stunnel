@@ -64,7 +64,7 @@ static int *ipc_socket, *busy;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
 #endif /* __GNUC__ */
-int libwrap_init() {
+int libwrap_init(void) {
 #ifdef USE_LIBWRAP_POOL
     unsigned i, j;
     int rfd;

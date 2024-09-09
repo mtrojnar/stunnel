@@ -564,7 +564,7 @@ void options_defaults(void);
 void options_apply(void);
 void options_free(int);
 
-void service_up_ref(SERVICE_OPTIONS *);
+SERVICE_OPTIONS *service_up_ref(SERVICE_OPTIONS *);
 void service_free(SERVICE_OPTIONS *);
 
 /**************************************** prototypes for fd.c */
@@ -650,7 +650,7 @@ PSK_KEYS *psk_find(const PSK_TABLE *, const char *);
 #ifndef OPENSSL_NO_ENGINE
 UI_METHOD *ui_stunnel(void);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
-void print_session_id(SSL_SESSION *);
+void print_session_id(const char *, SSL_SESSION *);
 void sslerror(const char *);
 
 /**************************************** prototypes for verify.c */
@@ -668,6 +668,9 @@ char *X509_NAME2text(X509_NAME *);
 int ocsp_check(CLI *, X509_STORE_CTX *);      /* OCSP client-driven checking */
 int ocsp_init(SERVICE_OPTIONS *);            /* OCSP stapling initialization */
 void ocsp_cleanup(SERVICE_OPTIONS *);
+#if OPENSSL_VERSION_NUMBER>=0x10002000L
+int ocsp_stapling(SERVICE_OPTIONS *);
+#endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
 #endif /* !defined(OPENSSL_NO_OCSP) */
 
 /**************************************** prototypes for network.c */

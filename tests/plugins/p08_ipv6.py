@@ -25,6 +25,9 @@ class IPv6Test(StunnelTest):
     def __init__(self, cfg: Config, logger: logging.Logger):
         super().__init__(cfg, logger)
         self.params.description = '081. Test IPv6 support'
+        self.events.skip = [
+            r"Binding service \[.*\] failed"
+        ]
         self.events.failure = [
             "peer did not return a certificate",
             "bad certificate",

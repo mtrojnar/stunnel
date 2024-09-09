@@ -385,6 +385,9 @@ I<verifyPeer> options.
 Note that the certificates in this directory should be named XXXXXXXX.0 where
 XXXXXXXX is the hash value of the DER encoded subject of the cert.
 
+This parameter can also be used to provide the root CA certificate needed to
+validate OCSP stapling in server mode.
+
 The hash algorithm has been changed in B<OpenSSL 1.0.0>.  It is required to
 c_rehash the directory on upgrade from B<OpenSSL 0.x.x> to B<OpenSSL 1.x.x>
 or later.
@@ -397,6 +400,9 @@ load trusted CA certificates from a file
 
 The loaded CA certificates will be used with the I<verifyChain> and
 I<verifyPeer> options.
+
+This parameter can also be used to provide the root CA certificate needed to
+validate OCSP stapling in server mode.
 
 =item B<cert> = CERT_FILE
 
@@ -463,6 +469,8 @@ for example DES-CBC3-SHA:IDEA-CBC-MD5.
 select permitted TLSv1.3 ciphersuites
 
 A colon-delimited list of TLSv1.3 ciphersuites names in order of preference.
+
+The I<ciphersuites> option ignores unknown ciphers when compiled with B<OpenSSL 3.0.0> or later.
 
 This option requires OpenSSL 1.1.1 or later.
 

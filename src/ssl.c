@@ -73,7 +73,7 @@ NOEXPORT STACK_OF(SSL_COMP) *comp_methods[STUNNEL_COMPS];
 #endif
 
 #ifdef USE_FIPS
-int fips_default() {
+int fips_default(void) {
     static int cache=-1;
 
     if(cache == -1) {
@@ -87,7 +87,7 @@ int fips_default() {
 }
 #endif /* USE_FIPS */
 
-int fips_available() { /* either FIPS provider or container is available */
+int fips_available(void) { /* either FIPS provider or container is available */
 #ifdef USE_FIPS
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     static OSSL_PROVIDER *fips=NULL;
@@ -107,7 +107,7 @@ int fips_available() { /* either FIPS provider or container is available */
 }
 
 /* initialize libcrypto before invoking API functions that require it */
-void crypto_init() {
+void crypto_init(void) {
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     OPENSSL_INIT_SETTINGS *conf;
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
@@ -394,7 +394,7 @@ NOEXPORT void SSL_COMP_set0_compression_methods(STACK_OF(SSL_COMP) *new_meths) {
 
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
 
-NOEXPORT void compression_init() {
+NOEXPORT void compression_init(void) {
     STACK_OF(SSL_COMP) *methods;
     COMP_METHOD *zlib;
 
@@ -427,7 +427,7 @@ NOEXPORT int compression_set(GLOBAL_OPTIONS *global) {
     return 0; /* success */
 }
 
-NOEXPORT void compression_list() {
+NOEXPORT void compression_list(void) {
     STACK_OF(SSL_COMP) *methods;
     int num_methods, i;
 

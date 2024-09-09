@@ -387,6 +387,9 @@ użyta została opcja I<verifyChain> lub I<verifyPeer>.  Pliki z certyfikatami
 muszą posiadać specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skrótem
 kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu.
 
+Ta opcja może być również użyta do dostarczenia certyfikatu root CA, który jest
+niezbędny do prawidłowej weryfikacji OCSP stapling w trybie serwera.
+
 Funkcja skrótu została zmieniona w B<OpenSSL 1.0.0>.
 Należy wykonać c_rehash przy zmianie B<OpenSSL 0.x.x> na B<1.x.x>.
 
@@ -399,6 +402,9 @@ względem tego katalogu.
 
 Opcja pozwala określić położenie pliku zawierającego certyfikaty używane
 przez opcję I<verifyChain> lub I<verifyPeer>.
+
+Ta opcja może być również użyta do dostarczenia certyfikatu root CA, który jest
+niezbędny do prawidłowej weryfikacji OCSP stapling w trybie serwera.
 
 =item B<cert> = PLIK_CERT
 
@@ -463,6 +469,8 @@ otwieraniu nowych połączeń TLS, np.:  DES-CBC3-SHA:IDEA-CBC-MD5
 lista dozwolonych parametrów kryptograficznych dla protokołu TLSv1.3
 
 Parametrem tej opcji są listy parametrów kryptograficznych w kolejności ich preferowania.
+
+Począwszy od B<OpenSSL 3.0.0> opcja I<ciphersuites> ignoruje nieznane szyfry.
 
 Opcja I<ciphersuites> jest dostępna począwszy od B<OpenSSL 1.1.1>.
 

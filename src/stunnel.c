@@ -105,7 +105,7 @@ int listen_fds_start; /* base for systemd-provided file descriptors */
 
 /**************************************** startup */
 
-void main_init() { /* one-time initialization */
+void main_init(void) { /* one-time initialization */
 #ifdef USE_SYSTEMD
     int i;
 
@@ -238,7 +238,7 @@ int drop_privileges(int critical) {
     return 0;
 }
 
-void main_cleanup() {
+void main_cleanup(void) {
     terminate_threads();
     unbind_ports();
     s_poll_free(fds);
@@ -256,7 +256,7 @@ void main_cleanup() {
 #pragma GCC diagnostic ignored "-Wunused-result"
 #endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
-NOEXPORT void terminate_threads() {
+NOEXPORT void terminate_threads(void) {
 #ifdef USE_TERMINATE_PIPE
     CLI *c;
     unsigned i, threads;
@@ -842,7 +842,7 @@ NOEXPORT int signal_pipe_dispatch(void) {
     }
 }
 
-NOEXPORT void reload_config() {
+NOEXPORT void reload_config(void) {
     static int delay=10; /* default of 10ms */
 #ifdef HAVE_CHROOT
     struct stat sb;
@@ -892,7 +892,7 @@ NOEXPORT void reload_config() {
 #pragma GCC diagnostic ignored "-Wformat"
 #pragma GCC diagnostic ignored "-Wformat-extra-args"
 #endif /* __GNUC__ */
-NOEXPORT int process_connections() {
+NOEXPORT int process_connections(void) {
 #ifndef USE_FORK
     CLI *c;
     int n=0;

@@ -28,7 +28,7 @@ class FailureCipherFIPS(StunnelTest):
         super().__init__(cfg, logger)
         self.params.description = '111. Failure FIPS mode with unavailable cipher'
         self.events.skip = [
-            "FIPS provider not available",
+            "FIPS.*not available",
             "fips mode not supported",
             r"FIPS PROVIDER.*could not load the shared library",
             r"FIPS PROVIDER.*missing config data"
@@ -85,7 +85,7 @@ class FailureCiphersuitesFIPS(StunnelTest):
         super().__init__(cfg, logger)
         self.params.description = '112. Failure FIPS mode with unavailable ciphersuite'
         self.events.skip = [
-            "FIPS provider not available",
+            "FIPS.*not available",
             "fips mode not supported",
             r"FIPS PROVIDER.*could not load the shared library",
             "Specified option name is not valid here",
@@ -145,7 +145,7 @@ class FailureEllipticCurveFIPS(StunnelTest):
         super().__init__(cfg, logger)
         self.params.description = '113. Failure FIPS mode with unavailable elliptic curve'
         self.events.skip = [
-            "FIPS provider not available",
+            "FIPS.*not available",
             "fips mode not supported",
             r"FIPS PROVIDER.*could not load the shared library",
             r"FIPS PROVIDER.*missing config data"

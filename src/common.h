@@ -47,7 +47,11 @@
 #define LIBWRAP_CLIENTS 5
 
 /* CPU stack size */
+#if defined(__ILP32__) && !defined(__NetBSD__)
 #define DEFAULT_STACK_SIZE 65536
+#else
+#define DEFAULT_STACK_SIZE 131072
+#endif
 /* #define DEBUG_STACK_SIZE */
 
 /* I/O buffer size: 18432 (0x4800) is the maximum size of TLS record payload */

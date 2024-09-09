@@ -446,6 +446,8 @@
 
 <p>Opcja okre&#x15B;la katalog, w kt&oacute;rym <b>stunnel</b> b&#x119;dzie szukał certyfikat&oacute;w, je&#x17C;eli u&#x17C;yta została opcja <i>verifyChain</i> lub <i>verifyPeer</i>. Pliki z certyfikatami musz&#x105; posiada&#x107; specjalne nazwy XXXXXXXX.0, gdzie XXXXXXXX jest skr&oacute;tem kryptograficznym reprezentacji DER nazwy podmiotu certyfikatu.</p>
 
+<p>Ta opcja mo&#x17C;e by&#x107; r&oacute;wnie&#x17C; u&#x17C;yta do dostarczenia certyfikatu root CA, kt&oacute;ry jest niezb&#x119;dny do prawidłowej weryfikacji OCSP stapling w trybie serwera.</p>
+
 <p>Funkcja skr&oacute;tu została zmieniona w <b>OpenSSL 1.0.0</b>. Nale&#x17C;y wykona&#x107; c_rehash przy zmianie <b>OpenSSL 0.x.x</b> na <b>1.x.x</b>.</p>
 
 <p>Je&#x17C;eli zdefiniowano katalog <i>chroot</i>, to &#x15B;cie&#x17C;ka do <i>CApath</i> jest okre&#x15B;lona wzgl&#x119;dem tego katalogu.</p>
@@ -457,6 +459,8 @@
 <p>ładuje zaufane certyfikaty Centrum certyfikacji z pliku</p>
 
 <p>Opcja pozwala okre&#x15B;li&#x107; poło&#x17C;enie pliku zawieraj&#x105;cego certyfikaty u&#x17C;ywane przez opcj&#x119; <i>verifyChain</i> lub <i>verifyPeer</i>.</p>
+
+<p>Ta opcja mo&#x17C;e by&#x107; r&oacute;wnie&#x17C; u&#x17C;yta do dostarczenia certyfikatu root CA, kt&oacute;ry jest niezb&#x119;dny do prawidłowej weryfikacji OCSP stapling w trybie serwera.</p>
 
 </dd>
 <dt id="cert-PLIK_CERT"><b>cert</b> = PLIK_CERT</dt>
@@ -517,6 +521,8 @@
 <p>lista dozwolonych parametr&oacute;w kryptograficznych dla protokołu TLSv1.3</p>
 
 <p>Parametrem tej opcji s&#x105; listy parametr&oacute;w kryptograficznych w kolejno&#x15B;ci ich preferowania.</p>
+
+<p>Pocz&#x105;wszy od <b>OpenSSL 3.0.0</b> opcja <i>ciphersuites</i> ignoruje nieznane szyfry.</p>
 
 <p>Opcja <i>ciphersuites</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.1.1</b>.</p>
 

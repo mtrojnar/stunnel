@@ -80,6 +80,7 @@ NOEXPORT void nntp_client_middle(CLI *);
 NOEXPORT void ldap_client_middle(CLI *);
 
 NOEXPORT void connect_server_early(CLI *);
+NOEXPORT const char *connect_client_init(SERVICE_OPTIONS *);
 NOEXPORT void connect_client_middle(CLI *);
 #ifndef OPENSSL_NO_MD4
 NOEXPORT void ntlm(CLI *);
@@ -144,7 +145,7 @@ const char *protocol_init(SERVICE_OPTIONS *opt) {
         {.name="ldap",
             .client={.middle=ldap_client_middle}},
         {.name="connect",
-            .client={.middle=connect_client_middle},
+            .client={.init=connect_client_init, .middle=connect_client_middle},
             .server={.early=connect_server_early}},
         {.name="capwin",
             .client={.late=capwin_client_late},
@@ -768,11 +769,13 @@ NOEXPORT void smtp_client_late(CLI *c) {
     if(c->opt->protocol_username && c->opt->protocol_password) {
         char *line;
 
-        if(c->opt->protocol_host)
-            ssl_printf(c, "HELO %s", c->opt->protocol_host);
-        else
-            ssl_putline(c, "HELO localhost");
+        ssl_printf(c, "EHLO %s",
+            c->opt->protocol_host ? c->opt->protocol_host : "localhost");
         line=ssl_getline(c); /* ignore the reply */
+        while(is_prefix(line, "250-")) {
+	        str_free(line);
+	        line=ssl_getline(c);
+        }
         str_free(line);
         if(!strcasecmp(c->opt->protocol_authentication, "LOGIN"))
             smtp_client_login(c,
@@ -793,10 +796,8 @@ NOEXPORT void smtp_client_negotiate(CLI *c) {
         fd_putline(c, c->local_wfd.fd, line);
     } while(is_prefix(line, "220-"));
 
-    if(c->opt->protocol_host)
-        fd_printf(c, c->remote_fd.fd, "EHLO %s", c->opt->protocol_host);
-    else
-        fd_putline(c, c->remote_fd.fd, "EHLO localhost");
+    fd_printf(c, c->remote_fd.fd, "EHLO %s",
+        c->opt->protocol_host ? c->opt->protocol_host : "localhost");
     do { /* skip multiline reply */
         str_free(line);
         line=fd_getline(c, c->remote_fd.fd);
@@ -1318,14 +1319,16 @@ NOEXPORT void connect_server_early(CLI *c) {
     fd_putline(c, c->local_wfd.fd, "");
 }
 
+NOEXPORT const char *connect_client_init(SERVICE_OPTIONS *opt) {
+    if(!opt->protocol_host)
+        return "protocolHost not specified";
+    return NULL;
+}
+
 NOEXPORT void connect_client_middle(CLI *c) {
     char *line, *encoded;
     NAME_LIST *ptr;
 
-    if(!c->opt->protocol_host) {
-        s_log(LOG_ERR, "protocolHost not specified");
-        throw_exception(c, 1);
-    }
     fd_printf(c, c->remote_fd.fd, "CONNECT %s HTTP/1.1",
         c->opt->protocol_host);
     fd_printf(c, c->remote_fd.fd, "Host: %s", c->opt->protocol_host);
@@ -1455,7 +1458,7 @@ NOEXPORT void ntlm(CLI *c) {
     str_free(ntlm3_txt);
 }
 
-NOEXPORT char *ntlm1() {
+NOEXPORT char *ntlm1(void) {
     char phase1[32];
 
     memset(phase1, 0, sizeof phase1);

@@ -308,7 +308,10 @@ NOEXPORT int cert_check(CLI *c, X509_STORE_CTX *callback_ctx,
                 err!=X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY &&
                 err!=X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE &&
                 err!=X509_V_ERR_CERT_UNTRUSTED)) {
-            s_log(LOG_WARNING, "CERT: Pre-verification error: %s",
+            s_log(LOG_WARNING, "CERT: Pre-verification error: %s%s",
+                err == X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN ||
+                err == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT ?
+                "certificate not found in local repository: " : "",
                 X509_verify_cert_error_string(err));
             /* retain the STORE_CTX error produced by pre-verification */
             return 0; /* reject */

@@ -41,21 +41,27 @@
 #define PER_DAY_PERIOD (24*60*60)
 
 #ifdef USE_OS_THREADS
-THREAD_ID per_second_thread_id=(THREAD_ID)0, per_day_thread_id=(THREAD_ID)0;
+THREAD_ID per_second_thread_id=(THREAD_ID)0;
+THREAD_ID per_minute_thread_id=(THREAD_ID)0;
+THREAD_ID per_day_thread_id=(THREAD_ID)0;
 #endif
 
 #ifdef USE_PTHREAD
 NOEXPORT void *per_second_thread(void *arg);
+NOEXPORT void *per_minute_thread(void *arg);
 NOEXPORT void *per_day_thread(void *arg);
 #endif
 
 #ifdef USE_WIN32
 NOEXPORT unsigned __stdcall per_second_thread(void *arg);
+NOEXPORT unsigned __stdcall per_minute_thread(void *arg);
 NOEXPORT unsigned __stdcall per_day_thread(void *arg);
 #endif
 
 #ifdef USE_OS_THREADS
 NOEXPORT void per_second_worker(void);
+NOEXPORT void per_minute_worker(void);
+NOEXPORT void per_minute_stapling_update(void);
 NOEXPORT void per_day_worker(void);
 #ifndef OPENSSL_NO_DH
 #if OPENSSL_VERSION_NUMBER>=0x0090800fL
@@ -71,7 +77,7 @@ NOEXPORT void dh_callback(int, int, void *);
 
 #if defined(USE_PTHREAD)
 
-int cron_init() {
+int cron_init(void) {
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
     sigset_t new_set, old_set;
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
@@ -82,6 +88,8 @@ int cron_init() {
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
     if(pthread_create(&per_second_thread_id, NULL, per_second_thread, NULL))
+        ioerror("pthread_create");
+    if(pthread_create(&per_minute_thread_id, NULL, per_minute_thread, NULL))
         ioerror("pthread_create");
     if(pthread_create(&per_day_thread_id, NULL, per_day_thread, NULL))
         ioerror("pthread_create");
@@ -96,6 +104,13 @@ NOEXPORT void *per_second_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
     tls_alloc(NULL, NULL, "per-second");
     per_second_worker();
+    return NULL; /* it should never be executed */
+}
+
+NOEXPORT void *per_minute_thread(void *arg) {
+    (void)arg; /* squash the unused parameter warning */
+    tls_alloc(NULL, NULL, "per-minute");
+    per_minute_worker();
     return NULL; /* it should never be executed */
 }
 
@@ -117,9 +132,10 @@ NOEXPORT void *per_day_thread(void *arg) {
 
 #elif defined(USE_WIN32)
 
-int cron_init() {
+int cron_init(void) {
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
     per_second_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_second_thread, NULL, 0, NULL);
+    per_minute_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_minute_thread, NULL, 0, NULL);
     per_day_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_day_thread, NULL, 0, NULL);
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
     if(!per_day_thread_id || !per_day_thread_id) {
@@ -138,6 +154,15 @@ NOEXPORT unsigned __stdcall per_second_thread(void *arg) {
     return 0;
 }
 
+NOEXPORT unsigned __stdcall per_minute_thread(void *arg) {
+    (void)arg; /* squash the unused parameter warning */
+
+    tls_alloc(NULL, NULL, "per-minute");
+    per_minute_worker();
+    _endthreadex(0); /* it should never be executed */
+    return 0;
+}
+
 NOEXPORT unsigned __stdcall per_day_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
 
@@ -151,7 +176,7 @@ NOEXPORT unsigned __stdcall per_day_thread(void *arg) {
 
 #else /* USE_OS_THREADS */
 
-int cron_init() {
+int cron_init(void) {
     /* not implemented for now */
     return 0;
 }
@@ -164,10 +189,42 @@ NOEXPORT void per_second_worker(void) {
     s_log(LOG_DEBUG, "Per-second thread initialized");
     for(;;) {
         s_poll_sleep(1, 0); /* 1 second */
+
         CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LOG_MODE]);
         file_flush(outfile);
         CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
     }
+}
+
+NOEXPORT void per_minute_worker(void) {
+    s_log(LOG_DEBUG, "Per-minute thread initialized");
+    for(;;) {
+        s_poll_sleep(60, 0); /* 1 minute */
+
+        per_minute_stapling_update();
+    }
+}
+
+NOEXPORT void per_minute_stapling_update(void) {
+#if !defined(OPENSSL_NO_OCSP) && OPENSSL_VERSION_NUMBER>=0x10002000L
+    SERVICE_OPTIONS **srv, *opt;
+    int num=0;
+
+    /* acquire references of server sections */
+    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SECTIONS]);
+    srv=str_alloc(number_of_sections*sizeof(SERVICE_OPTIONS *));
+    for(opt=service_options.next; opt; opt=opt->next)
+        if(!opt->option.client)
+            srv[num++]=service_up_ref(opt);
+    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
+
+    /* update stapling caches and release the references */
+    while(num--) {
+        ocsp_stapling(srv[num]);
+        service_free(srv[num]);
+    }
+    str_free(srv);
+#endif /* !OPENSSL_NO_OCSP && OPENSSL_VERSION_NUMBER>=0x10002000L */
 }
 
 NOEXPORT void per_day_worker(void) {

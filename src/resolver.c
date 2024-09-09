@@ -116,7 +116,7 @@ FREEADDRINFO s_freeaddrinfo;
 GETNAMEINFO s_getnameinfo;
 #endif
 
-void resolver_init() {
+void resolver_init(void) {
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
     if(get_ipv6(TEXT("ws2_32.dll"))) /* IPv6 in Windows XP or higher */
         return;
@@ -155,7 +155,7 @@ NOEXPORT int get_ipv6(LPTSTR file) {
 #endif /* __GNUC__ */
 #endif
 
-int use_ipv6() {
+int use_ipv6(void) {
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
     return s_getaddrinfo != NULL;
 #else /* defined(USE_WIN32) && !defined(_WIN32_WCE) */

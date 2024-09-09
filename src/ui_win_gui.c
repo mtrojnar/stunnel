@@ -1160,19 +1160,19 @@ NOEXPORT int pin_cb(UI *ui, UI_STRING *uis) {
     return 1;
 }
 
-int (*ui_get_opener()) (UI *) {
+int (*ui_get_opener(void)) (UI *) {
     return NULL;
 }
 
-int (*ui_get_writer()) (UI *, UI_STRING *) {
+int (*ui_get_writer(void)) (UI *, UI_STRING *) {
     return NULL;
 }
 
-int (*ui_get_reader()) (UI *, UI_STRING *) {
+int (*ui_get_reader(void)) (UI *, UI_STRING *) {
     return hwnd ? pin_cb : NULL; /* only allow for UI in GUI mode */
 }
 
-int (*ui_get_closer()) (UI *) {
+int (*ui_get_closer(void)) (UI *) {
     return NULL;
 }
 

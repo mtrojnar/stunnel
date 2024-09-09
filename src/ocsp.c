@@ -79,6 +79,7 @@ typedef struct {
 NOEXPORT int ocsp_client_cb(SSL *, void *);
 #if OPENSSL_VERSION_NUMBER>=0x10002000L
 NOEXPORT int ocsp_server_cb(SSL *, void *);
+NOEXPORT int ocsp_set_stapling_response(CLI *);
 #endif /* OpenSSL version 1.0.2 or later */
 
 /**************************************** OCSP utility functions */
@@ -86,12 +87,12 @@ NOEXPORT int ocsp_server_cb(SSL *, void *);
 NOEXPORT void ocsp_params_free(OCSP_PARAMS *);
 NOEXPORT void ocsp_params_cleanup(OCSP_PARAMS *);
 NOEXPORT int ocsp_verify(CLI *, OCSP_PARAMS *);
-NOEXPORT int check_aia(CLI *, OCSP_PARAMS *);
-NOEXPORT int ocsp_request(CLI *, OCSP_PARAMS *);
-NOEXPORT int ocsp_get_response(CLI *, OCSP_PARAMS *);
-NOEXPORT int ocsp_response_validate(CLI *, OCSP_PARAMS *);
+NOEXPORT int check_aia(SERVICE_OPTIONS *, OCSP_PARAMS *);
+NOEXPORT int ocsp_request(SERVICE_OPTIONS *, OCSP_PARAMS *);
+NOEXPORT int ocsp_get_response(SERVICE_OPTIONS *, OCSP_PARAMS *);
+NOEXPORT int ocsp_response_validate(SERVICE_OPTIONS *, OCSP_PARAMS *);
 NOEXPORT void ocsp_params_setup_cert_id(OCSP_PARAMS *);
-NOEXPORT int ocsp_params_append_root_ca(CLI *, OCSP_PARAMS *);
+NOEXPORT int ocsp_params_append_root_ca(SERVICE_OPTIONS *, OCSP_PARAMS *);
 NOEXPORT void log_time(const int, const char *, ASN1_GENERALIZEDTIME *);
 #if OPENSSL_VERSION_NUMBER>=0x10101000L
 NOEXPORT time_t time_t_get_asn1_time(const ASN1_TIME *);
@@ -112,8 +113,12 @@ int ocsp_init(SERVICE_OPTIONS *section) {
 #if !defined(OPENSSL_NO_PSK)
         if(!section->psk_keys) {
 #endif /* !defined(OPENSSL_NO_PSK) */
-            if(SSL_CTX_set_tlsext_status_cb(section->ctx, ocsp_server_cb)==TLSEXT_STATUSTYPE_ocsp)
+            if(SSL_CTX_set_tlsext_status_cb(section->ctx, ocsp_server_cb)) {
+                ocsp_stapling(section);
                 s_log(LOG_DEBUG, "OCSP: Server OCSP stapling enabled");
+            } else {
+                s_log(LOG_NOTICE, "OCSP: Server OCSP stapling not supported");
+            }
 #if !defined(OPENSSL_NO_PSK)
         } else {
             s_log(LOG_NOTICE, "OCSP: Server OCSP stapling is incompatible with PSK");
@@ -163,7 +168,7 @@ NOEXPORT void ocsp_params_cleanup(OCSP_PARAMS *params) {
 
 void ocsp_cleanup(SERVICE_OPTIONS *section) {
     if(section->ocsp_response_len) {
-        OPENSSL_free(section->ocsp_response_der);
+        str_free(section->ocsp_response_der);
         section->ocsp_response_len=0;
     }
     if(section->ocsp_response_lock)
@@ -208,7 +213,7 @@ int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
         s_log(LOG_ERR, "OCSP: sk_X509_dup");
         goto cleanup;
     }
-    ocsp_params_append_root_ca(c, &params); /* ignore failures */
+    ocsp_params_append_root_ca(c->opt, &params); /* ignore failures */
 
     ret=ocsp_verify(c, &params);
 
@@ -272,8 +277,7 @@ NOEXPORT int ocsp_client_cb(SSL *ssl, void *arg) {
         s_log(LOG_ERR, "OCSP: sk_X509_dup");
         goto cleanup;
     }
-    ocsp_params_append_root_ca(c, &params); /* ignore failures */
-
+    ocsp_params_append_root_ca(c->opt, &params); /* ignore failures */
     ret=ocsp_verify(c, &params);
 
 cleanup:
@@ -284,6 +288,7 @@ cleanup:
 /**************************************** OCSP stapling server callback */
 
 #if OPENSSL_VERSION_NUMBER>=0x10002000L
+
 /*
  * This is called when a client includes a certificate status request extension.
  * The response is either obtained from a cache, or from an OCSP responder.
@@ -294,6 +299,30 @@ cleanup:
  */
 NOEXPORT int ocsp_server_cb(SSL *ssl, void *arg) {
     CLI *c;
+    int ret;
+
+    (void)arg; /* squash the unused parameter warning */
+    s_log(LOG_DEBUG, "OCSP stapling: Server callback called");
+
+    c=SSL_get_ex_data(ssl, index_ssl_cli);
+#ifdef USE_OS_THREADS /* use the stapling cached by a cron thread */
+    ret=ocsp_set_stapling_response(c);
+#else /* attempt to fetch a stapling each time */
+    ret=ocsp_stapling(c->opt);
+    if(ret==SSL_TLSEXT_ERR_OK)
+        ret=ocsp_set_stapling_response(c);
+#endif /* USE_OS_THREADS */
+    return ret;
+}
+
+/*
+ * Validate the stapling cache and update it if needed.
+ * Returns one of:
+ * SSL_TLSEXT_ERR_OK - the OCSP response that has been set should be returned
+ * SSL_TLSEXT_ERR_NOACK - the OCSP response should not be returned
+ * SSL_TLSEXT_ERR_ALERT_FATAL - a fatal error has occurred
+ */
+int ocsp_stapling(SERVICE_OPTIONS *opt) {
     OCSP_PARAMS params;
     X509 *cert;
     STACK_OF(X509) *chain=NULL;
@@ -301,11 +330,6 @@ NOEXPORT int ocsp_server_cb(SSL *ssl, void *arg) {
     const unsigned char *response_tmp;
     int response_len=0, ret=SSL_TLSEXT_ERR_ALERT_FATAL;
     int ocsp_status=V_OCSP_CERTSTATUS_UNKNOWN;
-
-    (void)arg; /* squash the unused parameter warning */
-    s_log(LOG_DEBUG, "OCSP stapling: Server callback called");
-
-    c=SSL_get_ex_data(ssl, index_ssl_cli);
 
     /* initialize the OCSP_PARAMS structure */
     memset(&params, 0, sizeof(OCSP_PARAMS));
@@ -319,12 +343,12 @@ NOEXPORT int ocsp_server_cb(SSL *ssl, void *arg) {
     params.url=NULL; /* to be set in check_aia() */
 
     /* get the server certificate chain */
-    cert=SSL_get_certificate(ssl);
+    cert=SSL_CTX_get0_certificate(opt->ctx);
     if(!cert) {
         s_log(LOG_ERR, "OCSP: SSL_get_certificate");
         goto cleanup;
     }
-    if(!SSL_CTX_get0_chain_certs(c->opt->ctx, &chain)) {
+    if(!SSL_CTX_get0_chain_certs(opt->ctx, &chain)) {
         s_log(LOG_ERR, "OCSP: SSL_CTX_get0_chain_certs");
         goto cleanup;
     }
@@ -346,16 +370,16 @@ NOEXPORT int ocsp_server_cb(SSL *ssl, void *arg) {
         s_log(LOG_ERR, "OCSP: sk_X509_unshift");
         goto cleanup;
     }
-    ocsp_params_append_root_ca(c, &params); /* ignore failures */
+    ocsp_params_append_root_ca(opt, &params); /* ignore failures */
 
     /* retrieve the cached response */
-    CRYPTO_THREAD_read_lock(c->opt->ocsp_response_lock);
-    if(c->opt->ocsp_response_len) {
-        response_len=c->opt->ocsp_response_len;
-        response_der=OPENSSL_malloc((size_t)response_len);
-        memcpy(response_der, c->opt->ocsp_response_der, (size_t)response_len);
+    CRYPTO_THREAD_read_lock(opt->ocsp_response_lock);
+    if(opt->ocsp_response_len) {
+        response_len=opt->ocsp_response_len;
+        response_der=str_alloc((size_t)response_len);
+        memcpy(response_der, opt->ocsp_response_der, (size_t)response_len);
     }
-    CRYPTO_THREAD_unlock(c->opt->ocsp_response_lock);
+    CRYPTO_THREAD_unlock(opt->ocsp_response_lock);
 
     if(response_len) { /* found a cached response */
         /* decode */
@@ -363,23 +387,35 @@ NOEXPORT int ocsp_server_cb(SSL *ssl, void *arg) {
         params.response=d2i_OCSP_RESPONSE(NULL, &response_tmp, response_len);
 
         /* validate */
-        ocsp_status=ocsp_response_validate(c, &params);
-        if(ocsp_status!=V_OCSP_CERTSTATUS_UNKNOWN) {
-            s_log(LOG_DEBUG, "OCSP: Use the cached OCSP response");
-            goto success;
-        }
+        ocsp_status=ocsp_response_validate(opt, &params);
 
         /* cleanup */
         ERR_clear_error(); /* silence any cached errors */
         if(response_der) {
-            OPENSSL_free(response_der);
+            str_free(response_der);
             response_der=NULL;
         }
         response_len=0;
+
+        /* skip fetching if we have a conclusive status */
+        if(ocsp_status!=V_OCSP_CERTSTATUS_UNKNOWN) {
+            s_log(LOG_DEBUG, "OCSP: Use the cached OCSP response");
+            ret=SSL_TLSEXT_ERR_OK;
+            goto cleanup;
+        }
     }
 
+    /* invalidate the cache */
+    CRYPTO_THREAD_write_lock(opt->ocsp_response_lock);
+    if(opt->ocsp_response_len) {
+        opt->ocsp_response_len=0;
+        str_free(opt->ocsp_response_der);
+        opt->ocsp_response_der=NULL;
+    }
+    CRYPTO_THREAD_unlock(opt->ocsp_response_lock);
+
     /* try fetching response from the OCSP responder */
-    ocsp_status=check_aia(c, &params);
+    ocsp_status=check_aia(opt, &params);
     if(ocsp_status==V_OCSP_CERTSTATUS_UNKNOWN) { /* no useful response */
         s_log(LOG_INFO, "OCSP: No OCSP stapling response to send");
         ret=SSL_TLSEXT_ERR_NOACK;
@@ -389,27 +425,56 @@ NOEXPORT int ocsp_server_cb(SSL *ssl, void *arg) {
     /* encode */
     response_len=i2d_OCSP_RESPONSE(params.response, &response_der);
 
+    /* update the cache */
     if(params.next_update) {
         /* cache the newly fetched OCSP response */
-        CRYPTO_THREAD_write_lock(c->opt->ocsp_response_lock);
-        if(c->opt->ocsp_response_len)
-            OPENSSL_free(c->opt->ocsp_response_der);
-        c->opt->ocsp_response_len=response_len;
-        c->opt->ocsp_response_der=OPENSSL_malloc((size_t)response_len);
-        memcpy(c->opt->ocsp_response_der, response_der, (size_t)response_len);
-        CRYPTO_THREAD_unlock(c->opt->ocsp_response_lock);
+        CRYPTO_THREAD_write_lock(opt->ocsp_response_lock);
+        opt->ocsp_response_len=response_len;
+        opt->ocsp_response_der=str_alloc((size_t)response_len);
+        memcpy(opt->ocsp_response_der, response_der, (size_t)response_len);
+        CRYPTO_THREAD_unlock(opt->ocsp_response_lock);
         s_log(LOG_DEBUG, "OCSP: Response cached");
     }
 
-success:
-    SSL_set_tlsext_status_ocsp_resp(ssl, response_der, response_len);
-    s_log(LOG_DEBUG, "OCSP stapling: OCSP response sent back");
+    OPENSSL_free(response_der);
     ret=SSL_TLSEXT_ERR_OK;
 
 cleanup:
     ocsp_params_free(&params);
     return ret;
 }
+
+/* Set the stapling response based on our cache.
+ * Returns one of:
+ * SSL_TLSEXT_ERR_OK - the OCSP response that has been set should be returned
+ * SSL_TLSEXT_ERR_NOACK - the OCSP response should not be returned
+ * SSL_TLSEXT_ERR_ALERT_FATAL - a fatal error has occurred
+ */
+NOEXPORT int ocsp_set_stapling_response(CLI *c) {
+    int ret=SSL_TLSEXT_ERR_NOACK;
+
+    if(!c->opt->ocsp_response_len) /* performance optimization */
+        return ret; /* return without locking */
+
+    CRYPTO_THREAD_read_lock(c->opt->ocsp_response_lock);
+    if(c->opt->ocsp_response_len) {
+        unsigned char *response_der=
+            OPENSSL_malloc((size_t)c->opt->ocsp_response_len);
+
+        memcpy(response_der, c->opt->ocsp_response_der,
+            (size_t)c->opt->ocsp_response_len);
+        /* SSL_set_tlsext_status_ocsp_resp requires *us* to allocate the
+         * response with OPENSSL_malloc(), but it will free it for us */
+        SSL_set_tlsext_status_ocsp_resp(c->ssl,
+            response_der, c->opt->ocsp_response_len);
+        ret=SSL_TLSEXT_ERR_OK;
+    }
+    CRYPTO_THREAD_unlock(c->opt->ocsp_response_lock);
+    if(ret==SSL_TLSEXT_ERR_OK)
+        s_log(LOG_DEBUG, "OCSP stapling: OCSP response sent back");
+    return ret;
+}
+
 #endif /* OpenSSL version 1.0.2 or later */
 
 /**************************************** OCSP utility functions */
@@ -441,7 +506,7 @@ NOEXPORT int ocsp_verify(CLI *c, OCSP_PARAMS *params) {
                 params->response=d2i_OCSP_RESPONSE(NULL, &resp_der, resp_der_len);
 
                 /* validate */
-                ocsp_status=ocsp_response_validate(c, params);
+                ocsp_status=ocsp_response_validate(c->opt, params);
                 if(ocsp_status!=V_OCSP_CERTSTATUS_UNKNOWN) {
                     params->requested=1;
                     goto cleanup;
@@ -454,34 +519,32 @@ NOEXPORT int ocsp_verify(CLI *c, OCSP_PARAMS *params) {
         if(params->url) { /* a responder URL was configured */
             s_log(LOG_NOTICE, "OCSP: Connecting the configured responder \"%s\"",
                 params->url);
-            ocsp_status=ocsp_request(c, params);
+            ocsp_status=ocsp_request(c->opt, params);
             if(ocsp_status!=V_OCSP_CERTSTATUS_UNKNOWN)
                 goto cleanup;
         }
     }
 
     /* client-driven checks (configured url, aia) */
-    ocsp_status=check_aia(c, params);
+    ocsp_status=check_aia(c->opt, params);
 
 cleanup:
-    if(!params->requested) /* neither url or aia verification was needed */
+    if(!params->requested) { /* neither url or aia verification was needed */
         return 1; /* accept */
-    switch(ocsp_status) {
-    case V_OCSP_CERTSTATUS_GOOD:
+    } else if(ocsp_status==V_OCSP_CERTSTATUS_GOOD) {
         s_log(LOG_NOTICE, "OCSP: Accepted (good)");
         return 1; /* accept */
-    case V_OCSP_CERTSTATUS_REVOKED:
+    } else if(ocsp_status==V_OCSP_CERTSTATUS_REVOKED) {
         s_log(LOG_ERR, "OCSP: Rejected (revoked)");
         return 0; /* reject */
-    default: /* V_OCSP_CERTSTATUS_UNKNOWN */
-        if(c->opt->option.ocsp_require) {
-            s_log(LOG_ERR, "OCSP: Rejected (OCSPrequire = yes)");
-            return 0; /* reject */
-        } else {
-            s_log(LOG_NOTICE, "OCSP: Accepted (OCSPrequire = no)");
-            return 1; /* accept */
-        }
+    } else /* V_OCSP_CERTSTATUS_UNKNOWN */ if(c->opt->option.ocsp_require) {
+        s_log(LOG_ERR, "OCSP: Rejected (OCSPrequire = yes)");
+        return 0; /* reject */
+    } else {
+        s_log(LOG_NOTICE, "OCSP: Accepted (OCSPrequire = no)");
+        return 1; /* accept */
     }
+    return 0; /* reject (for the dumb gcc warning) */
 }
 
 /*
@@ -491,7 +554,7 @@ cleanup:
  *  - V_OCSP_CERTSTATUS_REVOKED
  *  - V_OCSP_CERTSTATUS_UNKNOWN
  */
-NOEXPORT int check_aia(CLI *c, OCSP_PARAMS *params) {
+NOEXPORT int check_aia(SERVICE_OPTIONS *opt, OCSP_PARAMS *params) {
     int ocsp_status=V_OCSP_CERTSTATUS_UNKNOWN;
     STACK_OF(OPENSSL_STRING) *aia;
     int i, num;
@@ -511,7 +574,7 @@ NOEXPORT int check_aia(CLI *c, OCSP_PARAMS *params) {
     for(i=0; i<num; i++) {
         params->url=sk_OPENSSL_STRING_value(aia, i);
         s_log(LOG_NOTICE, "OCSP: Connecting the AIA responder \"%s\"", params->url);
-        ocsp_status=ocsp_request(c, params);
+        ocsp_status=ocsp_request(opt, params);
         if(ocsp_status!=V_OCSP_CERTSTATUS_UNKNOWN)
             break; /* we received a definitive response */
     }
@@ -528,7 +591,7 @@ cleanup:
  *  - V_OCSP_CERTSTATUS_REVOKED
  *  - V_OCSP_CERTSTATUS_UNKNOWN
  */
-NOEXPORT int ocsp_request(CLI *c, OCSP_PARAMS *params) {
+NOEXPORT int ocsp_request(SERVICE_OPTIONS *opt, OCSP_PARAMS *params) {
     int ocsp_status=V_OCSP_CERTSTATUS_UNKNOWN;
 
     /* prepare params for reuse */
@@ -554,12 +617,12 @@ NOEXPORT int ocsp_request(CLI *c, OCSP_PARAMS *params) {
     }
 
     /* send the request and get a response */
-    if(!ocsp_get_response(c, params)) {
+    if(!ocsp_get_response(opt, params)) {
         goto cleanup;
     }
 
     /* validate */
-    ocsp_status=ocsp_response_validate(c, params);
+    ocsp_status=ocsp_response_validate(opt, params);
     if(ocsp_status==V_OCSP_CERTSTATUS_REVOKED)
         params->callback_ctx_error=X509_V_ERR_CERT_REVOKED;
 
@@ -567,16 +630,30 @@ cleanup:
     return ocsp_status;
 }
 
-/*
- * Sends the OCSP request to the specified URL and retrieves the OCSP response.
- * Returns 0 on error or 1 if response received.
- */
-NOEXPORT int ocsp_get_response(CLI *c, OCSP_PARAMS *params) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclobbered"
+NOEXPORT int ocsp_get_response(SERVICE_OPTIONS *opt, OCSP_PARAMS *params) {
     BIO *bio=NULL;
     OCSP_REQ_CTX *req_ctx=NULL;
     char *host=NULL, *port=NULL, *path=NULL;
     SOCKADDR_UNION addr;
     int ssl, ret=0;
+    CLI *c; /* TODO */
+    jmp_buf exception_buffer; /* TODO */
+
+    /* fake a CLI structure only for the socket API */
+    /* TODO: rewrite the network.c API:
+     * - move c->fd, c->fds, and c->exception_pointer into a separate structure
+     * - put this new structure inside CLI and here
+     * - rewrite the network.c interface to use this structure */
+    c=str_alloc(sizeof(CLI));
+    c->fds=s_poll_alloc();
+    c->exception_pointer=&exception_buffer;
+    if(setjmp(exception_buffer)) {
+        s_poll_free(c->fds);
+        str_free(c);
+        return 0;
+    }
 
     /* parse the OCSP URL */
     if(!OCSP_parse_url(params->url, &host, &port, &path, &ssl)) {
@@ -597,7 +674,7 @@ NOEXPORT int ocsp_get_response(CLI *c, OCSP_PARAMS *params) {
     c->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "OCSP: socket");
     if(c->fd==INVALID_SOCKET)
         goto cleanup;
-    if(s_connect(c, &addr, addr_len(&addr), c->opt->timeout_ocsp))
+    if(s_connect(c, &addr, addr_len(&addr), opt->timeout_ocsp))
         goto cleanup;
     bio=BIO_new_socket((int)c->fd, BIO_NOCLOSE);
     if(!bio) {
@@ -638,7 +715,7 @@ NOEXPORT int ocsp_get_response(CLI *c, OCSP_PARAMS *params) {
     while(OCSP_sendreq_nbio(&params->response, req_ctx)==-1) {
         s_poll_init(c->fds, 0);
         s_poll_add(c->fds, c->fd, BIO_should_read(bio), BIO_should_write(bio));
-        switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
+        switch(s_poll_wait(c->fds, opt->timeout_busy, 0)) {
         case -1:
             sockerror("OCSP: s_poll_wait");
             goto cleanup;
@@ -676,8 +753,11 @@ cleanup:
         OPENSSL_free(port);
     if(path)
         OPENSSL_free(path);
+    s_poll_free(c->fds); /* TODO */
+    str_free(c); /* TODO */
     return ret;
 }
+#pragma GCC diagnostic pop
 
 /*
  * Validates the cached or fetched OCSP response.
@@ -686,7 +766,7 @@ cleanup:
  *  - V_OCSP_CERTSTATUS_REVOKED
  *  - V_OCSP_CERTSTATUS_UNKNOWN
  */
-NOEXPORT int ocsp_response_validate(CLI *c, OCSP_PARAMS *params) {
+NOEXPORT int ocsp_response_validate(SERVICE_OPTIONS *opt, OCSP_PARAMS *params) {
     int response_status, reason;
     OCSP_BASICRESP *basic_response=NULL;
     int ocsp_status=V_OCSP_CERTSTATUS_UNKNOWN;
@@ -713,7 +793,7 @@ NOEXPORT int ocsp_response_validate(CLI *c, OCSP_PARAMS *params) {
         goto cleanup;
     }
     if(OCSP_basic_verify(basic_response, params->chain_to_verify,
-        SSL_CTX_get_cert_store(c->opt->ctx), params->flags)<=0) {
+        SSL_CTX_get_cert_store(opt->ctx), params->flags)<=0) {
         sslerror("OCSP: OCSP_basic_verify");
         goto cleanup;
     }
@@ -784,7 +864,8 @@ NOEXPORT void ocsp_params_setup_cert_id(OCSP_PARAMS *params) {
 #define X509_OBJECT_get0_X509(x) ((x)->data.x509)
 #endif /* OpenSSL older than 1.1.0 */
 
-NOEXPORT int ocsp_params_append_root_ca(CLI *c, OCSP_PARAMS *params) {
+NOEXPORT int ocsp_params_append_root_ca(SERVICE_OPTIONS *opt,
+        OCSP_PARAMS *params) {
     int chain_len;
     X509 *cert;
     X509_STORE_CTX *store_ctx=NULL;
@@ -803,7 +884,7 @@ NOEXPORT int ocsp_params_append_root_ca(CLI *c, OCSP_PARAMS *params) {
         goto cleanup;
     }
     if(!X509_STORE_CTX_init(store_ctx,
-            SSL_CTX_get_cert_store(c->opt->ctx), NULL, NULL)) {
+            SSL_CTX_get_cert_store(opt->ctx), NULL, NULL)) {
         s_log(LOG_ERR, "OCSP: X509_STORE_CTX_init");
         goto cleanup;
     }

@@ -308,6 +308,7 @@ NOEXPORT void print_syntax(void);
 NOEXPORT void name_list_append(NAME_LIST **, char *);
 NOEXPORT void name_list_dup(NAME_LIST **, NAME_LIST *);
 NOEXPORT void name_list_free(NAME_LIST *);
+NOEXPORT void connect_session_free(SERVICE_OPTIONS *);
 #ifndef USE_WIN32
 NOEXPORT char **arg_alloc(char *);
 NOEXPORT char **arg_dup(char **);
@@ -634,7 +635,7 @@ int alphasort(const struct dirent **a, const struct dirent **b) {
 
 #endif
 
-void options_defaults() {
+void options_defaults(void) {
     SERVICE_OPTIONS *service;
 
     /* initialize globals *before* opening the config file */
@@ -647,7 +648,7 @@ void options_defaults() {
     parse_service_option(CMD_SET_DEFAULTS, &service, NULL, NULL);
 }
 
-void options_apply() { /* apply default/validated configuration */
+void options_apply(void) { /* apply default/validated configuration */
     unsigned num=0;
     SERVICE_OPTIONS *section;
 
@@ -682,7 +683,7 @@ void options_free(int current) {
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
 }
 
-void service_up_ref(SERVICE_OPTIONS *section) {
+SERVICE_OPTIONS *service_up_ref(SERVICE_OPTIONS *section) {
 #ifdef USE_OS_THREADS
     int ref;
 
@@ -690,6 +691,7 @@ void service_up_ref(SERVICE_OPTIONS *section) {
 #else
     ++(section->ref);
 #endif
+    return section;
 }
 
 void service_free(SERVICE_OPTIONS *section) {
@@ -1842,7 +1844,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     case CMD_FREE:
         name_list_free(section->connect_addr.names);
         str_free(section->connect_addr.addr);
-        str_free(section->connect_session);
+        connect_session_free(section);
         break;
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "connect"))
@@ -1859,7 +1861,9 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
                 section->redirect_addr.num=0;
                 section->option.delayed_lookup=1;
             }
-            if(section->option.client)
+            if(!section->option.delayed_lookup &&
+                    section->option.client &&
+                    section->connect_addr.num>1)
                 section->connect_session=
                     str_alloc_detached(section->connect_addr.num*sizeof(SSL_SESSION *));
             ++endpoints;
@@ -3791,7 +3795,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            section->timeout_ocsp=(int)strtol(arg, &tmp_str, 5);
+            section->timeout_ocsp=(int)strtol(arg, &tmp_str, 10);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal OCSP connect timeout";
         }
@@ -5047,6 +5051,18 @@ NOEXPORT void name_list_free(NAME_LIST *ptr) {
         str_free(ptr);
         ptr=next;
     }
+}
+
+NOEXPORT void connect_session_free(SERVICE_OPTIONS *section) {
+    unsigned i;
+
+    if(!section->connect_session)
+        return;
+    for(i=0; i<section->connect_addr.num; i++)
+        if(section->connect_session[i])
+            SSL_SESSION_free(section->connect_session[i]);
+    str_free(section->connect_session);
+    section->connect_session=NULL;
 }
 
 #ifndef USE_WIN32

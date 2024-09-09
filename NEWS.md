@@ -1,6 +1,28 @@
 # stunnel change log
 
 
+### Version 5.73, 2024.09.09, urgency: MEDIUM
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.3.2.
+  - OpenSSL FIPS Provider updated to version 3.0.9.
+* Bugfixes
+  - Fixed a memory leak while reloading stunnel.conf
+    sections with "client=yes" and "delay=no".
+  - Fixed TIMEOUTocsp with values greater than 4.
+  - Fix the IPv6 test on a non-IPv6 machine.
+* Features
+  - HELO replaced with EHLO in the post-STARTTLS SMTP
+    protocol negotiation (thx to Peter Pentchev).
+  - OCSP stapling fetches moved away from server threads.
+  - Improved client-side session resumption.
+  - Added support for the mimalloc allocator.
+  - Check for protocolHost moved to configuration file
+    processing for the client-side CONNECT protocol.
+  - Clarified some confusing OpenSSL's certificate
+    verification error messages.
+  - stunnel.nsi updated for Debian 13 and Fedora.
+  - Improved NetBSD compatibility.
+
 ### Version 5.72, 2024.02.04, urgency: MEDIUM
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.2.1.

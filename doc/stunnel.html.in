@@ -450,6 +450,8 @@
 
 <p>The loaded CA certificates will be used with the <i>verifyChain</i> and <i>verifyPeer</i> options. Note that the certificates in this directory should be named XXXXXXXX.0 where XXXXXXXX is the hash value of the DER encoded subject of the cert.</p>
 
+<p>This parameter can also be used to provide the root CA certificate needed to validate OCSP stapling in server mode.</p>
+
 <p>The hash algorithm has been changed in <b>OpenSSL 1.0.0</b>. It is required to c_rehash the directory on upgrade from <b>OpenSSL 0.x.x</b> to <b>OpenSSL 1.x.x</b> or later.</p>
 
 <p><i>CApath</i> path is relative to the <i>chroot</i> directory if specified.</p>
@@ -461,6 +463,8 @@
 <p>load trusted CA certificates from a file</p>
 
 <p>The loaded CA certificates will be used with the <i>verifyChain</i> and <i>verifyPeer</i> options.</p>
+
+<p>This parameter can also be used to provide the root CA certificate needed to validate OCSP stapling in server mode.</p>
 
 </dd>
 <dt id="cert-CERT_FILE"><b>cert</b> = CERT_FILE</dt>
@@ -527,6 +531,8 @@
 <p>select permitted TLSv1.3 ciphersuites</p>
 
 <p>A colon-delimited list of TLSv1.3 ciphersuites names in order of preference.</p>
+
+<p>The <i>ciphersuites</i> option ignores unknown ciphers when compiled with <b>OpenSSL 3.0.0</b> or later.</p>
 
 <p>This option requires OpenSSL 1.1.1 or later.</p>
 

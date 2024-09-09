@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.72])
+AC_INIT([stunnel],[5.73])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -96,12 +96,15 @@ if test "${GCC}" = yes; then
     AX_APPEND_COMPILE_FLAGS([-Wformat=2])
     AX_APPEND_COMPILE_FLAGS([-Wconversion])
     AX_APPEND_COMPILE_FLAGS([-Wno-deprecated-declarations])
+    AX_APPEND_COMPILE_FLAGS([-Wno-unused-command-line-argument])
     AX_APPEND_COMPILE_FLAGS([-fPIE])
     case "${host}" in
         avr-*.* | powerpc-*-aix* | rl78-*.* | visium-*.*)
             ;;
         *)
-            AX_APPEND_COMPILE_FLAGS([-fstack-protector])
+            AX_APPEND_COMPILE_FLAGS([-fstack-protector-strong])
+            AX_APPEND_COMPILE_FLAGS([-fcf-protection=full])
+            AX_APPEND_COMPILE_FLAGS([-fstack-clash-protection])
             ;;
     esac
     AX_APPEND_LINK_FLAGS([-fPIE -pie])
@@ -210,6 +213,7 @@ AC_CHECK_HEADERS([linux/netfilter_ipv4.h], , ,
 #include <sys/socket.h>
 #include <netdb.h>
     ])
+AC_CHECK_HEADERS([mimalloc.h])
 
 AC_MSG_NOTICE([**************************************** libraries])
 # Checks for standard libraries
@@ -220,6 +224,8 @@ AC_SEARCH_LIBS([openpty], [util])
 # Checks for dynamic loader needed by OpenSSL
 AC_SEARCH_LIBS([dlopen], [dl])
 AC_SEARCH_LIBS([shl_load], [dld])
+# Checks for optional libraries
+AC_SEARCH_LIBS([mi_malloc], [mimalloc])
 
 # Add BeOS libraries
 if test "x${host_os}" = "xbeos"; then
@@ -500,5 +506,5 @@ AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile tests/Makefil
 AC_OUTPUT
 
 AC_MSG_NOTICE([**************************************** success])
-# vim:ft=automake
+# vim: ft=automake ts=4 expandtab
 # End of configure.ac

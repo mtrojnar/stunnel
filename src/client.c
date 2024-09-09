@@ -669,7 +669,8 @@ NOEXPORT void ssl_start(CLI *c) {
             }
         }
         if(SSL_session_reused(c->ssl)) {
-            print_session_id(sess); /* otherwise printed from sess_new_cb() */
+            /* otherwise printed from sess_new_cb() */
+            print_session_id("Session id", sess);
         } else { /* a new session was negotiated */
             /* SSL_SESS_CACHE_NO_INTERNAL_STORE prevented automatic caching */
             if(!c->opt->option.client)
@@ -683,22 +684,21 @@ NOEXPORT void ssl_start(CLI *c) {
 }
 
 NOEXPORT void session_cache_retrieve(CLI *c) {
-    SSL_SESSION *sess;
+    SSL_SESSION *sess=NULL;
 
     CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SESSION]);
-    if(c->opt->option.delayed_lookup) {
-        sess=c->opt->session;
-    } else { /* per-destination client cache */
-        if(c->opt->connect_session) {
-            sess=c->opt->connect_session[c->idx];
-        } else {
-            s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized client session cache (retrieve)");
-            sess=NULL;
-        }
-    }
+    if(c->opt->connect_session) /* per-destination client session */
+        sess=c->opt->connect_session[c->idx];
+    if(!sess) /* either no per-destination cache or no session cached */
+        sess=c->opt->session; /* fallback session */
     if(sess)
         SSL_set_session(c->ssl, sess);
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SESSION]);
+
+    if(sess)
+        print_session_id("Attempting to resume", sess);
+    else
+        s_log(LOG_DEBUG, "No previous session to resume");
 }
 
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L

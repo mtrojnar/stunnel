@@ -721,6 +721,16 @@ class TestSuite(TestResult):
                             port=-1
                         )
                     )
+                elif re.search(r"Binding service \[.*\] failed", line):
+                    await self.cfg.mainq.put(
+                        StunnelEvent(
+                            etype="stunnel_event",
+                            level=30,
+                            log=f"[{tag}] Stunnel '{service}' port binding failed",
+                            service=service,
+                            port=-1
+                        )
+                    )
 
         except OutputError as err:
             await self.cfg.mainq.put(
