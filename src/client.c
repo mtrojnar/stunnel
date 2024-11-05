@@ -424,8 +424,8 @@ NOEXPORT void client_try(CLI *c) {
         ssl_start(c);
     } else {
         ssl_start(c);
-        if(c->opt->protocol_middle)
-            c->opt->protocol_middle(c);
+        if(c->opt->protocol_middle && !redirect(c))
+           	c->opt->protocol_middle(c);
         remote_start(c);
     }
     if(c->opt->protocol_late)
@@ -1777,19 +1777,31 @@ NOEXPORT int connect_init(CLI *c, int domain) {
 }
 
 NOEXPORT int redirect(CLI *c) {
+    if (c->redirect_called)
+        return c->redirect_last_status;
+
     SSL_SESSION *sess;
     void *ex_data;
 
     if(!c->opt->redirect_addr.names)
-        return 0; /* redirect not configured */
-    if(!c->ssl)
-        return 1; /* TLS not established -> always redirect */
-    sess=SSL_get1_session(c->ssl);
-    if(!sess)
-        return 1; /* no TLS session -> always redirect */
-    ex_data=SSL_SESSION_get_ex_data(sess, index_session_authenticated);
-    SSL_SESSION_free(sess);
-    return ex_data == NULL;
+        c->redirect_last_status = 0; /* redirect not configured */
+    else if(!c->ssl)
+        c->redirect_last_status = 1; /* TLS not established -> always redirect */
+    else {
+        sess=SSL_get1_session(c->ssl);
+        if(!sess)
+            c->redirect_last_status = 1; /* no TLS session -> always redirect */
+        else {
+            ex_data=SSL_SESSION_get_ex_data(sess, index_session_authenticated);
+            SSL_SESSION_free(sess);
+
+            c->redirect_last_status = ex_data == NULL;
+        }
+    }
+
+    c->redirect_called = 1;
+
+    return c->redirect_last_status;
 }
 
 NOEXPORT void print_bound_address(CLI *c) {

@@ -519,6 +519,9 @@ struct client_data_struct {
     unsigned long long seq;          /* sequential thread number for logging */
     unsigned rr;    /* per-client sequential number for round-robin failover */
 
+    uint8_t redirect_called;
+    uint8_t redirect_last_status;
+
     /* data for transfer() function */
     char sock_buff[BUFFSIZE];                          /* socket read buffer */
     char ssl_buff[BUFFSIZE];                              /* TLS read buffer */
