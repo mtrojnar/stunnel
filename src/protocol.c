@@ -51,6 +51,11 @@ NOEXPORT void socks5_server_method(CLI *);
 NOEXPORT void socks5_server(CLI *);
 NOEXPORT int validate_connect_addr(CLI *);
 
+NOEXPORT const char *direct_client_init(SERVICE_OPTIONS *);
+NOEXPORT void direct_client_late(CLI *);
+NOEXPORT const char *direct_server_init(SERVICE_OPTIONS *);
+NOEXPORT void direct_server_middle(CLI *);
+
 NOEXPORT void proxy_server_late(CLI *);
 
 NOEXPORT void cifs_client_middle(CLI *);
@@ -123,6 +128,9 @@ const char *protocol_init(SERVICE_OPTIONS *opt) {
         {.name="socks",
             .client={.late=socks_client_late},
             .server={.init=socks_server_init, .middle=socks_server_middle, .late=socks_server_late}},
+        {.name="direct",
+            .client={.init=direct_client_init, .late=direct_client_late},
+            .server={.init=direct_server_init, .middle=direct_server_middle}},
         {.name="proxy",
             .server={.late=proxy_server_late}},
         {.name="cifs",
@@ -608,6 +616,49 @@ NOEXPORT int validate_connect_addr(CLI *c) {
         }
     }
     return 1;
+}
+
+/**************************************** direct */
+
+/* Uses protocolHost as a direct host (supports domain and IP) */
+
+NOEXPORT const char *direct_client_init(SERVICE_OPTIONS *opt) {
+    if(!opt->protocol_host)
+        return "protocolHost not specified";
+
+    return NULL;
+}
+
+NOEXPORT void direct_client_late(CLI *c) {
+    s_log(LOG_INFO, "Sending direct host \"%s\"", c->opt->protocol_host);
+
+    int length = (int)strlen(c->opt->protocol_host);
+
+    s_ssl_write(c, &length, 1);
+    s_ssl_write(c, c->opt->protocol_host, length);
+}
+
+NOEXPORT const char *direct_server_init(SERVICE_OPTIONS *opt) {
+    opt->option.protocol_endpoint=1;
+    return NULL;
+}
+
+NOEXPORT void direct_server_middle(CLI *c) {
+    uint8_t host_len;
+    char *host_name;
+
+    s_ssl_read(c, &host_len, sizeof host_len);
+    host_name=str_alloc((size_t)host_len+1);
+    s_ssl_read(c, host_name, host_len);
+
+    name2addrlist(&c->connect_addr, host_name);
+
+    if(c->connect_addr.num)
+        s_log(LOG_INFO, "direct: resolved \"%s\" to %u host(s)", host_name, c->connect_addr.num);
+    else
+        s_log(LOG_ERR, "direct: failed to resolve \"%s\"", host_name);
+
+    str_free(host_name);
 }
 
 /**************************************** proxy */
