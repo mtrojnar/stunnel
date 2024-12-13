@@ -527,11 +527,12 @@ struct client_data_struct {
     FD *ssl_rfd, *ssl_wfd;                 /* read and write TLS descriptors */
     uint64_t sock_bytes, ssl_bytes;       /* bytes written to socket and TLS */
     s_poll_set *fds;                                     /* file descriptors */
-#ifndef OPENSSL_NO_PSK
     struct {
+        unsigned redirect:1;                     /* redirect the destination */
+#ifndef OPENSSL_NO_PSK
         unsigned psk_found:1;                      /* PSK identity was found */
-    } flag;
 #endif /* !defined(OPENSSL_NO_PSK) */
+    } flag;
 };
 
 /**************************************** prototypes for stunnel.c */

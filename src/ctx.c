@@ -131,9 +131,6 @@ NOEXPORT void cache_transfer(SSL_CTX *, const u_char, const long,
 /* info callbacks */
 NOEXPORT void info_callback(const SSL *, int, int);
 
-NOEXPORT void sslerror_queue(void);
-NOEXPORT void sslerror_log(unsigned long, const char *, int, const char *);
-
 #ifndef OPENSSL_NO_TLS1_3
 NOEXPORT char *compare_cipher_lists(STACK_OF(SSL_CIPHER) *, STACK_OF(SSL_CIPHER) *);
 NOEXPORT char *get_tls13_cipher_list(STACK_OF(SSL_CIPHER) *);
@@ -869,7 +866,7 @@ NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section) {
         if(i==0) { /* silence the cached attempt */
             ERR_clear_error();
         } else {
-            sslerror_queue(); /* dump the error queue */
+            sslerror(NULL); /* dump the error queue */
             s_log(LOG_ERR, "Wrong passphrase: retrying");
         }
         /* invoke the UI on subsequent calls */
@@ -947,7 +944,7 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
         if(i==0) { /* silence the cached attempt */
             ERR_clear_error();
         } else {
-            sslerror_queue(); /* dump the error queue */
+            sslerror(NULL); /* dump the error queue */
             s_log(LOG_ERR, "Wrong passphrase: retrying");
         }
         success=SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
@@ -1011,7 +1008,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
             ui_stunnel(), NULL);
         if(!pkey) {
             if(i<2 && ui_retry()) { /* wrong PIN */
-                sslerror_queue(); /* dump the error queue */
+                sslerror(NULL); /* dump the error queue */
                 s_log(LOG_ERR, "Wrong PIN: retrying");
                 continue;
             }
@@ -1064,92 +1061,53 @@ NOEXPORT void set_prompt(const char *name) {
 }
 
 NOEXPORT int ui_retry(void) {
-    unsigned long err=ERR_peek_error();
-
-    switch(ERR_GET_LIB(err)) {
-    case ERR_LIB_EVP: /* 6 */
-        switch(ERR_GET_REASON(err)) {
-        case EVP_R_BAD_DECRYPT:
-            return 1;
-        default:
-            s_log(LOG_ERR, "Unhandled ERR_LIB_EVP error reason: %d",
-                ERR_GET_REASON(err));
-            return 0;
-        }
-    case ERR_LIB_PEM: /* 9 */
-        switch(ERR_GET_REASON(err)) {
-        case PEM_R_BAD_PASSWORD_READ:
-        case PEM_R_BAD_DECRYPT:
-            return 1;
-        default:
-            s_log(LOG_ERR, "Unhandled ERR_LIB_PEM error reason: %d",
-                ERR_GET_REASON(err));
-            return 0;
-        }
-    case ERR_LIB_ASN1: /* 13 */
-        return 1;
-    case ERR_LIB_PKCS12: /* 35 */
-        switch(ERR_GET_REASON(err)) {
-        case PKCS12_R_MAC_VERIFY_FAILURE:
-            return 1;
-        default:
-            s_log(LOG_ERR, "Unhandled ERR_LIB_PKCS12 error reason: %d",
-                ERR_GET_REASON(err));
-            return 0;
-        }
-#ifdef ERR_LIB_DSO /* 37 */
-    case ERR_LIB_DSO:
-        return 1;
+    typedef struct {
+        int lib;
+        int reason;
+    } retriable;
+    const retriable retriables[]={
+        {ERR_LIB_EVP /* 6 */, EVP_R_BAD_DECRYPT},
+        {ERR_LIB_PEM /* 9 */, PEM_R_BAD_PASSWORD_READ},
+        {ERR_LIB_PEM /* 9 */, PEM_R_BAD_DECRYPT},
+        {ERR_LIB_ASN1 /* 13 */, -1},
+        {ERR_LIB_PKCS12 /* 35 */, PKCS12_R_MAC_VERIFY_FAILURE},
+#ifdef ERR_LIB_DSO
+        {ERR_LIB_DSO /* 37 */, -1},
 #endif
-    case ERR_LIB_UI: /* 40 */
-        switch(ERR_GET_REASON(err)) {
-        case UI_R_RESULT_TOO_LARGE:
-        case UI_R_RESULT_TOO_SMALL:
+        {ERR_LIB_UI /* 40 */, UI_R_RESULT_TOO_LARGE},
+        {ERR_LIB_UI /* 40 */, UI_R_RESULT_TOO_SMALL},
 #ifdef UI_R_PROCESSING_ERROR
-        case UI_R_PROCESSING_ERROR:
+        {ERR_LIB_UI /* 40 */, UI_R_PROCESSING_ERROR},
 #endif
-            return 1;
-        default:
-            s_log(LOG_ERR, "Unhandled ERR_LIB_UI error reason: %d",
-                ERR_GET_REASON(err));
-            return 0;
-        }
-#ifdef ERR_LIB_OSSL_STORE
-    case ERR_LIB_OSSL_STORE: /* 44 - added in OpenSSL 1.1.1 */
-        switch(ERR_GET_REASON(err)) {
-        case OSSL_STORE_R_BAD_PASSWORD_READ:
-            return 1;
-        default:
-            s_log(LOG_ERR, "Unhandled ERR_LIB_OSSL_STORE error reason: %d",
-                ERR_GET_REASON(err));
-            return 0;
-        }
+#ifdef ERR_LIB_OSSL_STORE /* OpenSSL 1.1.1 */
+        {ERR_LIB_OSSL_STORE /* 44 */, OSSL_STORE_R_BAD_PASSWORD_READ},
 #endif
-#ifdef ERR_LIB_PROV
-    case ERR_LIB_PROV: /* 57 - added in OpenSSL 3.0 */
-        switch(ERR_GET_REASON(err)) {
-        case PROV_R_BAD_DECRYPT:
-            return 1;
-        default:
-            s_log(LOG_ERR, "Unhandled ERR_LIB_PROV error reason: %d",
-                ERR_GET_REASON(err));
-            return 0;
-        }
+#ifdef ERR_LIB_PROV /* OpenSSL 3.0 */
+        {ERR_LIB_PROV /* 57 */, PROV_R_BAD_DECRYPT},
 #endif
-    case ERR_LIB_USER: /* 128 - PKCS#11 hacks */
-        switch(ERR_GET_REASON(err)) {
-        case 7UL: /* CKR_ARGUMENTS_BAD */
-        case 0xa0UL: /* CKR_PIN_INCORRECT */
-            return 1;
-        default:
-            s_log(LOG_ERR, "Unhandled ERR_LIB_USER error reason: %d",
-                ERR_GET_REASON(err));
-            return 0;
-        }
-    default:
-        s_log(LOG_ERR, "Unhandled error library: %d", ERR_GET_LIB(err));
+        /* libp11 hacks */
+        {ERR_LIB_USER /* 128 */, 7 /* CKR_ARGUMENTS_BAD */},
+        {ERR_LIB_USER /* 128 */, 0xa0 /* CKR_PIN_INCORRECT */},
+        {0, 0}
+    }, *r;
+    unsigned long err;
+    int lib, reason;
+
+    err=ERR_peek_error();
+    if(!err) { /* there is no error in the queue */
+        s_log(LOG_DEBUG, "UI giving up: No error");
         return 0;
     }
+    lib=ERR_GET_LIB(err);
+    reason=ERR_GET_REASON(err);
+    for(r=retriables; r->lib && r->reason; r++) {
+        if(r->lib==lib && (r->reason==reason || r->reason==-1)) {
+            s_log(LOG_DEBUG, "UI retrying on lib=%d reason=%d", lib, reason);
+            return 1;
+        }
+    }
+    s_log(LOG_DEBUG, "UI giving up on lib=%d reason=%d", lib, reason);
+    return 0;
 }
 
 /**************************************** session tickets */
@@ -1774,40 +1732,47 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
 
 /**************************************** TLS error reporting */
 
+#define MAX_ERRORS 10
+#define MAX_ERROR_LEN 256
+
 void sslerror(const char *txt) { /* OpenSSL error handler */
-    unsigned long err;
-    const char *file;
-    int line;
+    char *errors[MAX_ERRORS];
+    char *error_string;
+    int i;
 
-    err=ERR_get_error_line(&file, &line);
-    if(err) {
-        sslerror_queue();
-        sslerror_log(err, file, line, txt);
-    } else {
-        s_log(LOG_ERR, "%s: Peer suddenly disconnected", txt);
+    error_string=str_alloc(MAX_ERROR_LEN);
+    for(i=0; i<MAX_ERRORS; i++) {
+        unsigned long err=0;
+        const char *file=NULL, *func=NULL, *data=NULL;
+        int line=0, flags=0;
+
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+        err=ERR_get_error_all(&file, &line, &func, &data, &flags);
+#else
+        err=ERR_get_error_line(&file, &line);
+#endif
+        if(!err) {
+            if(txt && i==0)
+                errors[i++]=str_printf("%s: Peer suddenly disconnected", txt);
+            break;
+        }
+
+        ERR_error_string_n(err, error_string, MAX_ERROR_LEN);
+        errors[i]=str_printf("%s: %s%s%s:%d: %s%s%s",
+            txt && i==0 ? txt : "error queue",
+            func && *func ? func : "",
+            func && *func ? "@" : "",
+            file, line, error_string,
+            flags&ERR_TXT_STRING && data && *data ? ": " : "",
+            flags&ERR_TXT_STRING && data && *data ? data : "");
     }
-}
+    str_free(error_string);
+    ERR_clear_error();
 
-NOEXPORT void sslerror_queue(void) { /* recursive dump of the error queue */
-    unsigned long err;
-    const char *file;
-    int line;
-
-    err=ERR_get_error_line(&file, &line);
-    if(err) {
-        sslerror_queue();
-        sslerror_log(err, file, line, "error queue");
+    while(i-->0) {
+        s_log(LOG_ERR, "%s", errors[i]);
+        str_free(errors[i]);
     }
-}
-
-NOEXPORT void sslerror_log(unsigned long err,
-        const char *file, int line, const char *txt) {
-    char *str;
-
-    str=str_alloc(256);
-    ERR_error_string_n(err, str, 256);
-    s_log(LOG_ERR, "%s: %s:%d: %s", txt, file, line, str);
-    str_free(str);
 }
 
 /**************************************** ciphersuites */

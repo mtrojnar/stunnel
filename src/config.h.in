@@ -6,13 +6,13 @@
 /* Entropy Gathering Daemon socket path */
 #undef EGD_SOCKET
 
-/* Define to 1 if you have the `accept4' function. */
+/* Define to 1 if you have the 'accept4' function. */
 #undef HAVE_ACCEPT4
 
-/* Define to 1 if you have the `chroot' function. */
+/* Define to 1 if you have the 'chroot' function. */
 #undef HAVE_CHROOT
 
-/* Define to 1 if you have the `daemon' function. */
+/* Define to 1 if you have the 'daemon' function. */
 #undef HAVE_DAEMON
 
 /* Define to 1 if you have '/dev/ptmx' device. */
@@ -24,25 +24,25 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
-/* Define to 1 if you have the `endhostent' function. */
+/* Define to 1 if you have the 'endhostent' function. */
 #undef HAVE_ENDHOSTENT
 
-/* Define to 1 if you have the `FIPS_mode_set' function. */
+/* Define to 1 if you have the 'FIPS_mode_set' function. */
 #undef HAVE_FIPS_MODE_SET
 
 /* Define to 1 if you have 'getaddrinfo' function. */
 #undef HAVE_GETADDRINFO
 
-/* Define to 1 if you have the `getcontext' function. */
+/* Define to 1 if you have the 'getcontext' function. */
 #undef HAVE_GETCONTEXT
 
-/* Define to 1 if you have the `gethostbyname2' function. */
+/* Define to 1 if you have the 'gethostbyname2' function. */
 #undef HAVE_GETHOSTBYNAME2
 
-/* Define to 1 if you have the `getnameinfo' function. */
+/* Define to 1 if you have the 'getnameinfo' function. */
 #undef HAVE_GETNAMEINFO
 
-/* Define to 1 if you have the `getrlimit' function. */
+/* Define to 1 if you have the 'getrlimit' function. */
 #undef HAVE_GETRLIMIT
 
 /* Define to 1 if you have the <grp.h> header file. */
@@ -63,7 +63,7 @@
 /* Define to 1 if you have the <linux/sched.h> header file. */
 #undef HAVE_LINUX_SCHED_H
 
-/* Define to 1 if you have the `localtime_r' function. */
+/* Define to 1 if you have the 'localtime_r' function. */
 #undef HAVE_LOCALTIME_R
 
 /* Define to 1 if you have the <malloc.h> header file. */
@@ -75,16 +75,16 @@
 /* Define to 1 if you have 'msghdr.msg_control' structure. */
 #undef HAVE_MSGHDR_MSG_CONTROL
 
-/* Define to 1 if you have the `openpty' function. */
+/* Define to 1 if you have the 'openpty' function. */
 #undef HAVE_OPENPTY
 
-/* Define to 1 if you have the `OSSL_PROVIDER_available' function. */
+/* Define to 1 if you have the 'OSSL_PROVIDER_available' function. */
 #undef HAVE_OSSL_PROVIDER_AVAILABLE
 
-/* Define to 1 if you have the `pipe2' function. */
+/* Define to 1 if you have the 'pipe2' function. */
 #undef HAVE_PIPE2
 
-/* Define to 1 if you have the `poll' function. */
+/* Define to 1 if you have the 'poll' function. */
 #undef HAVE_POLL
 
 /* Define to 1 if you have the <poll.h> header file. */
@@ -99,22 +99,22 @@
 /* Have PTHREAD_PRIO_INHERIT. */
 #undef HAVE_PTHREAD_PRIO_INHERIT
 
-/* Define to 1 if you have the `pthread_sigmask' function. */
+/* Define to 1 if you have the 'pthread_sigmask' function. */
 #undef HAVE_PTHREAD_SIGMASK
 
 /* Define to 1 if you have the <pty.h> header file. */
 #undef HAVE_PTY_H
 
-/* Define to 1 if you have the `realpath' function. */
+/* Define to 1 if you have the 'realpath' function. */
 #undef HAVE_REALPATH
 
-/* Define to 1 if you have the `setgroups' function. */
+/* Define to 1 if you have the 'setgroups' function. */
 #undef HAVE_SETGROUPS
 
-/* Define to 1 if you have the `setsid' function. */
+/* Define to 1 if you have the 'setsid' function. */
 #undef HAVE_SETSID
 
-/* Define to 1 if you have the `snprintf' function. */
+/* Define to 1 if you have the 'snprintf' function. */
 #undef HAVE_SNPRINTF
 
 /* Define to 1 if you have the <stdint.h> header file. */
@@ -135,16 +135,16 @@
 /* Define to 1 if you have the <stropts.h> header file. */
 #undef HAVE_STROPTS_H
 
-/* Define to 1 if the system has the type `struct addrinfo'. */
+/* Define to 1 if the system has the type 'struct addrinfo'. */
 #undef HAVE_STRUCT_ADDRINFO
 
-/* Define to 1 if `msg_control' is a member of `struct msghdr'. */
+/* Define to 1 if 'msg_control' is a member of 'struct msghdr'. */
 #undef HAVE_STRUCT_MSGHDR_MSG_CONTROL
 
-/* Define to 1 if the system has the type `struct sockaddr_un'. */
+/* Define to 1 if the system has the type 'struct sockaddr_un'. */
 #undef HAVE_STRUCT_SOCKADDR_UN
 
-/* Define to 1 if you have the `sysconf' function. */
+/* Define to 1 if you have the 'sysconf' function. */
 #undef HAVE_SYSCONF
 
 /* Define to 1 if you have the <systemd/sd-daemon.h> header file. */
@@ -198,19 +198,19 @@
 /* Define to 1 if you have the <util.h> header file. */
 #undef HAVE_UTIL_H
 
-/* Define to 1 if you have the `vsnprintf' function. */
+/* Define to 1 if you have the 'vsnprintf' function. */
 #undef HAVE_VSNPRINTF
 
-/* Define to 1 if you have the `wait4' function. */
+/* Define to 1 if you have the 'wait4' function. */
 #undef HAVE_WAIT4
 
-/* Define to 1 if you have the `waitpid' function. */
+/* Define to 1 if you have the 'waitpid' function. */
 #undef HAVE_WAITPID
 
-/* Define to 1 if you have the `_getpty' function. */
+/* Define to 1 if you have the '_getpty' function. */
 #undef HAVE__GETPTY
 
-/* Define to 1 if you have the `__makecontext_v2' function. */
+/* Define to 1 if you have the '__makecontext_v2' function. */
 #undef HAVE___MAKECONTEXT_V2
 
 /* Host description */
@@ -250,7 +250,7 @@
 /* TLS directory */
 #undef SSLDIR
 
-/* Define to 1 if all of the C90 standard headers exist (not just the ones
+/* Define to 1 if all of the C89 standard headers exist (not just the ones
    required in a freestanding environment). This macro is provided for
    backward compatibility; new code need not use it. */
 #undef STDC_HEADERS
@@ -288,8 +288,11 @@
 /* Use GNU source */
 #undef _GNU_SOURCE
 
-/* Define for large files, on AIX-style hosts. */
+/* Define to 1 on platforms where this makes off_t a 64-bit type. */
 #undef _LARGE_FILES
+
+/* Number of bits in time_t, on hosts where this is settable. */
+#undef _TIME_BITS
 
 /* Define for Solaris 2.5.1 so the uint32_t typedef from <sys/synch.h>,
    <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the
@@ -309,7 +312,10 @@
 /* Use X/Open 5 with POSIX 1995 */
 #undef _XOPEN_SOURCE
 
-/* Define to `int' if <sys/types.h> doesn't define. */
+/* Define to 1 on platforms where this makes time_t a 64-bit type. */
+#undef __MINGW_USE_VC2005_COMPAT
+
+/* Define as 'int' if <sys/types.h> doesn't define. */
 #undef gid_t
 
 /* Define to the type of a signed integer type of width exactly 16 bits if
@@ -328,16 +334,16 @@
    a type exists and the standard includes do not define it. */
 #undef int8_t
 
-/* Define to `unsigned int' if <sys/types.h> does not define. */
+/* Define as 'unsigned int' if <stddef.h> doesn't define. */
 #undef size_t
 
 /* Type of socklen_t */
 #undef socklen_t
 
-/* Define to `int' if <sys/types.h> does not define. */
+/* Define as 'int' if <sys/types.h> doesn't define. */
 #undef ssize_t
 
-/* Define to `int' if <sys/types.h> doesn't define. */
+/* Define as 'int' if <sys/types.h> doesn't define. */
 #undef uid_t
 
 /* Define to the type of an unsigned integer type of width exactly 16 bits if

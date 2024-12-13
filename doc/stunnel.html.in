@@ -532,7 +532,7 @@
 
 <p>A colon-delimited list of TLSv1.3 ciphersuites names in order of preference.</p>
 
-<p>The <i>ciphersuites</i> option ignores unknown ciphers when compiled with <b>OpenSSL 3.0.0</b> or later.</p>
+<p>The <i>ciphersuites</i> option ignores unknown ciphers when compiled with <b>OpenSSL 3.0</b> or later.</p>
 
 <p>This option requires OpenSSL 1.1.1 or later.</p>
 
@@ -1088,25 +1088,25 @@ options = NO_SSLv3</code></pre>
 <dt id="level-1">level 1</dt>
 <dd>
 
-<p>The security level corresponds to a minimum of 80 bits of security. Any parameters offering below 80 bits of security are excluded. As a result RSA, DSA and DH keys shorter than 1024 bits and ECC keys shorter than 160 bits are prohibited. All export cipher suites are prohibited since they all offer less than 80 bits of security. SSL version 2 is prohibited. Any cipher suite using MD5 for the MAC is also prohibited.</p>
+<p>The security level corresponds to a minimum of 80 bits of security. Any parameters offering below 80 bits of security are excluded. As a result RSA, DSA and DH keys shorter than 1024 bits and ECC keys shorter than 160 bits are prohibited. All export cipher suites are prohibited since they all offer less than 80 bits of security. SSL version 2 is prohibited. Any cipher suite using MD5 for the MAC is also prohibited. Additionally, SSLv3, TLS 1.0, TLS 1.1 are all disabled for OpenSSL 3.0 and later.</p>
 
 </dd>
 <dt id="level-2">level 2</dt>
 <dd>
 
-<p>Security level set to 112 bits of security. As a result RSA, DSA and DH keys shorter than 2048 bits and ECC keys shorter than 224 bits are prohibited. In addition to the level 1 exclusions any cipher suite using RC4 is also prohibited. SSL version 3 is also not allowed. Compression is disabled.</p>
+<p>Security level set to 112 bits of security. As a result RSA, DSA and DH keys shorter than 2048 bits and ECC keys shorter than 224 bits are prohibited. In addition to the level 1 exclusions any cipher suite using RC4 is also prohibited. Compression is disabled. SSL version 3 is also not allowed for OpenSSL older than 3.0.</p>
 
 </dd>
 <dt id="level-3">level 3</dt>
 <dd>
 
-<p>Security level set to 128 bits of security. As a result RSA, DSA and DH keys shorter than 3072 bits and ECC keys shorter than 256 bits are prohibited. In addition to the level 2 exclusions cipher suites not offering forward secrecy are prohibited. TLS versions below 1.1 are not permitted. Session tickets are disabled.</p>
+<p>Security level set to 128 bits of security. As a result RSA, DSA and DH keys shorter than 3072 bits and ECC keys shorter than 256 bits are prohibited. In addition to the level 2 exclusions cipher suites not offering forward secrecy are prohibited. Session tickets are disabled. TLS versions below 1.1 are not permitted for OpenSSL older than 3.0.</p>
 
 </dd>
 <dt id="level-4">level 4</dt>
 <dd>
 
-<p>Security level set to 192 bits of security. As a result RSA, DSA and DH keys shorter than 7680 bits and ECC keys shorter than 384 bits are prohibited. Cipher suites using SHA1 for the MAC are prohibited. TLS versions below 1.2 are not permitted.</p>
+<p>Security level set to 192 bits of security. As a result RSA, DSA and DH keys shorter than 7680 bits and ECC keys shorter than 384 bits are prohibited. Cipher suites using SHA1 for the MAC are prohibited. TLS versions below 1.2 are not permitted for OpenSSL older than 3.0.</p>
 
 </dd>
 <dt id="level-5">level 5</dt>

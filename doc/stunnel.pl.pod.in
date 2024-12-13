@@ -470,7 +470,7 @@ lista dozwolonych parametrów kryptograficznych dla protokołu TLSv1.3
 
 Parametrem tej opcji są listy parametrów kryptograficznych w kolejności ich preferowania.
 
-Począwszy od B<OpenSSL 3.0.0> opcja I<ciphersuites> ignoruje nieznane szyfry.
+Począwszy od B<OpenSSL 3.0> opcja I<ciphersuites> ignoruje nieznane szyfry.
 
 Opcja I<ciphersuites> jest dostępna począwszy od B<OpenSSL 1.1.1>.
 
@@ -983,23 +983,44 @@ Wszystko jest dozwolone.
 
 =item poziom 1
 
-Poziom bezpieczeństwa zapewniający minimum 80 bitów bezpieczeństwa. Żadne parametry kryptograficzne oferujące poziom bezpieczeństwa poniżej 80 bitów nie mogą zostać użyte. W związku z tym RSA, DSA oraz klucze DH krótsze niż 1024 bity, a także klucze ECC krótsze niż 160 bitów i wszystkie eksportowe zestawy szyfrów są niedozwolone. Użycie SSLv2 jest zabronione. Wszelkie listy parametrów kryptograficznych używające MD5 do MAC są zabronione.
+Poziom bezpieczeństwa zapewniający minimum 80 bitów bezpieczeństwa. Żadne
+parametry kryptograficzne oferujące poziom bezpieczeństwa poniżej 80 bitów nie
+mogą zostać użyte. W związku z tym RSA, DSA oraz klucze DH krótsze niż 1024
+bity, a także klucze ECC krótsze niż 160 bitów i wszystkie eksportowe zestawy
+szyfrów są niedozwolone. Użycie SSLv2 jest zabronione. Wszelkie listy parametrów
+kryptograficznych używające MD5 do MAC są zabronione. Począwszy od OpenSSL 3.0
+wersje TLS starsze niż 1.2 są wyłączone.
 
 =item poziom 2
 
-Poziom bezpieczeństwa zapewniający 112 bitów bezpieczeństwa. W związku z tym RSA, DSA oraz klucze DH krótsze niż 2048 bitów, a także klucze ECC krótsze niż 224 bity są niedozwolone. Oprócz wyłączeń z poziomu 1 zabronione jest także korzystanie z zestawów szyfrów używających RC4. Użycie SSLv3 jest zabronione. Kompresja jest wyłączona.
+Poziom bezpieczeństwa zapewniający 112 bitów bezpieczeństwa. W związku z tym
+RSA, DSA oraz klucze DH krótsze niż 2048 bitów, a także klucze ECC krótsze niż
+224 bity są niedozwolone. Oprócz wyłączeń z poziomu 1 zabronione jest także
+korzystanie z zestawów szyfrów używających RC4. Kompresja jest wyłączona. Użycie
+SSLv3 jest zabronione dla wersji OpenSSL starszych niż 3.0.
 
 =item poziom 3
 
-Poziom bezpieczeństwa zapewniający 128 bitów bezpieczeństwa. W związku z tym RSA, DSA oraz klucze DH krótsze niż 3072 bity, a także klucze ECC krótsze niż 256 bitów są niedozwolone. Oprócz wyłączeń z poziomu 2  zabronione jest także korzystanie z zestawów szyfrów nie zapewniających utajniania z wyprzedzeniem (forward secrecy).  Wersje TLS starsze niż 1.1 są zabronione. Bilety sesji są wyłączone.
+Poziom bezpieczeństwa zapewniający 128 bitów bezpieczeństwa. W związku z tym
+RSA, DSA oraz klucze DH krótsze niż 3072 bity, a także klucze ECC krótsze niż
+256 bitów są niedozwolone. Oprócz wyłączeń z poziomu 2 zabronione jest także
+korzystanie z zestawów szyfrów nie zapewniających utajniania z wyprzedzeniem
+(forward secrecy). Bilety sesji są wyłączone. Wersje TLS starsze niż 1.1 są
+zabronione dla wersji OpenSSL starszych niż 3.0.
 
 =item poziom 4
 
-Poziom bezpieczeństwa zapewniający 192 bity bezpieczeństwa. W związku z tym RSA, DSA oraz klucze DH krótsze niż 7680 bitów, a także klucze ECC krótsze niż 384 bity są niedozwolone. Listy parametrów kryptograficznych używających SHA1 do MAC są zabronione. Wersje TLS starsze niż 1.2 są zabronione.
+Poziom bezpieczeństwa zapewniający 192 bity bezpieczeństwa. W związku z tym RSA,
+DSA oraz klucze DH krótsze niż 7680 bitów, a także klucze ECC krótsze niż 384
+bity są niedozwolone. Listy parametrów kryptograficznych używających SHA1 do MAC
+są zabronione. Wersje TLS starsze niż 1.2 są zabronione dla wersji OpenSSL
+starszych niż 3.0.
 
 =item poziom 5
 
-Poziom bezpieczeństwa zapewniający 256 bitów bezpieczeństwa. W związku z tym RSA, DSA oraz klucze DH krótsze niż 15360 bitów, a także klucze ECC krótsze niż 512 bitów są niedozwolone.
+Poziom bezpieczeństwa zapewniający 256 bitów bezpieczeństwa. W związku z tym RSA,
+DSA oraz klucze DH krótsze niż 15360 bitów, a także klucze ECC krótsze niż 512
+bitów są niedozwolone.
 
 =item domyślnie: 2
 

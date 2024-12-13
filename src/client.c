@@ -414,6 +414,7 @@ NOEXPORT void client_run(CLI *c) {
 #endif /* __GNUC__ */
 
 NOEXPORT void client_try(CLI *c) {
+    c->flag.redirect=0;
     local_start(c);
     if(c->opt->protocol_early)
         c->opt->protocol_early(c);
@@ -424,11 +425,11 @@ NOEXPORT void client_try(CLI *c) {
         ssl_start(c);
     } else {
         ssl_start(c);
-        if(c->opt->protocol_middle)
+        if(c->opt->protocol_middle && !c->flag.redirect)
             c->opt->protocol_middle(c);
         remote_start(c);
     }
-    if(c->opt->protocol_late)
+    if(c->opt->protocol_late && !c->flag.redirect)
         c->opt->protocol_late(c);
     transfer(c);
 }
@@ -515,7 +516,7 @@ NOEXPORT void remote_start(CLI *c) {
         c->bind_addr=NULL; /* don't bind */
 
     /* setup c->remote_fd, now */
-    if(c->opt->exec_name && !c->opt->connect_addr.names && !redirect(c))
+    if(c->opt->exec_name && !c->opt->connect_addr.names && !c->flag.redirect)
         c->remote_fd.fd=connect_local(c); /* not for exec+connect targets */
     else
         c->remote_fd.fd=connect_remote(c);
@@ -681,6 +682,7 @@ NOEXPORT void ssl_start(CLI *c) {
         s_log(LOG_ERR, "No session available for redirection");
         throw_exception(c, 1);
     }
+    c->flag.redirect=(unsigned)redirect(c)&1;
 }
 
 NOEXPORT void session_cache_retrieve(CLI *c) {
@@ -1663,7 +1665,7 @@ NOEXPORT unsigned idx_cache_retrieve(CLI *c) {
 }
 
 NOEXPORT void connect_setup(CLI *c) {
-    if(redirect(c)) { /* process "redirect" first */
+    if(c->flag.redirect) { /* process "redirect" first */
         s_log(LOG_NOTICE, "Redirecting connection");
         /* c->connect_addr.addr may be allocated in protocol negotiations */
         str_free(c->connect_addr.addr);

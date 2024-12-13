@@ -522,7 +522,7 @@
 
 <p>Parametrem tej opcji s&#x105; listy parametr&oacute;w kryptograficznych w kolejno&#x15B;ci ich preferowania.</p>
 
-<p>Pocz&#x105;wszy od <b>OpenSSL 3.0.0</b> opcja <i>ciphersuites</i> ignoruje nieznane szyfry.</p>
+<p>Pocz&#x105;wszy od <b>OpenSSL 3.0</b> opcja <i>ciphersuites</i> ignoruje nieznane szyfry.</p>
 
 <p>Opcja <i>ciphersuites</i> jest dost&#x119;pna pocz&#x105;wszy od <b>OpenSSL 1.1.1</b>.</p>
 
@@ -1084,25 +1084,25 @@ options = NO_SSLv3</code></pre>
 <dt id="poziom-1">poziom 1</dt>
 <dd>
 
-<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy minimum 80 bit&oacute;w bezpiecze&#x144;stwa. &#x17B;adne parametry kryptograficzne oferuj&#x105;ce poziom bezpiecze&#x144;stwa poni&#x17C;ej 80 bit&oacute;w nie mog&#x105; zosta&#x107; u&#x17C;yte. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 1024 bity, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 160 bit&oacute;w i wszystkie eksportowe zestawy szyfr&oacute;w s&#x105; niedozwolone. U&#x17C;ycie SSLv2 jest zabronione. Wszelkie listy parametr&oacute;w kryptograficznych u&#x17C;ywaj&#x105;ce MD5 do MAC s&#x105; zabronione.</p>
+<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy minimum 80 bit&oacute;w bezpiecze&#x144;stwa. &#x17B;adne parametry kryptograficzne oferuj&#x105;ce poziom bezpiecze&#x144;stwa poni&#x17C;ej 80 bit&oacute;w nie mog&#x105; zosta&#x107; u&#x17C;yte. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 1024 bity, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 160 bit&oacute;w i wszystkie eksportowe zestawy szyfr&oacute;w s&#x105; niedozwolone. U&#x17C;ycie SSLv2 jest zabronione. Wszelkie listy parametr&oacute;w kryptograficznych u&#x17C;ywaj&#x105;ce MD5 do MAC s&#x105; zabronione. Pocz&#x105;wszy od OpenSSL 3.0 wersje TLS starsze ni&#x17C; 1.2 s&#x105; wył&#x105;czone.</p>
 
 </dd>
 <dt id="poziom-2">poziom 2</dt>
 <dd>
 
-<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 112 bit&oacute;w bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 2048 bit&oacute;w, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 224 bity s&#x105; niedozwolone. Opr&oacute;cz wył&#x105;cze&#x144; z poziomu 1 zabronione jest tak&#x17C;e korzystanie z zestaw&oacute;w szyfr&oacute;w u&#x17C;ywaj&#x105;cych RC4. U&#x17C;ycie SSLv3 jest zabronione. Kompresja jest wył&#x105;czona.</p>
+<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 112 bit&oacute;w bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 2048 bit&oacute;w, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 224 bity s&#x105; niedozwolone. Opr&oacute;cz wył&#x105;cze&#x144; z poziomu 1 zabronione jest tak&#x17C;e korzystanie z zestaw&oacute;w szyfr&oacute;w u&#x17C;ywaj&#x105;cych RC4. Kompresja jest wył&#x105;czona. U&#x17C;ycie SSLv3 jest zabronione dla wersji OpenSSL starszych ni&#x17C; 3.0.</p>
 
 </dd>
 <dt id="poziom-3">poziom 3</dt>
 <dd>
 
-<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 128 bit&oacute;w bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 3072 bity, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 256 bit&oacute;w s&#x105; niedozwolone. Opr&oacute;cz wył&#x105;cze&#x144; z poziomu 2 zabronione jest tak&#x17C;e korzystanie z zestaw&oacute;w szyfr&oacute;w nie zapewniaj&#x105;cych utajniania z wyprzedzeniem (forward secrecy). Wersje TLS starsze ni&#x17C; 1.1 s&#x105; zabronione. Bilety sesji s&#x105; wył&#x105;czone.</p>
+<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 128 bit&oacute;w bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 3072 bity, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 256 bit&oacute;w s&#x105; niedozwolone. Opr&oacute;cz wył&#x105;cze&#x144; z poziomu 2 zabronione jest tak&#x17C;e korzystanie z zestaw&oacute;w szyfr&oacute;w nie zapewniaj&#x105;cych utajniania z wyprzedzeniem (forward secrecy). Bilety sesji s&#x105; wył&#x105;czone. Wersje TLS starsze ni&#x17C; 1.1 s&#x105; zabronione dla wersji OpenSSL starszych ni&#x17C; 3.0.</p>
 
 </dd>
 <dt id="poziom-4">poziom 4</dt>
 <dd>
 
-<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 192 bity bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 7680 bit&oacute;w, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 384 bity s&#x105; niedozwolone. Listy parametr&oacute;w kryptograficznych u&#x17C;ywaj&#x105;cych SHA1 do MAC s&#x105; zabronione. Wersje TLS starsze ni&#x17C; 1.2 s&#x105; zabronione.</p>
+<p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 192 bity bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 7680 bit&oacute;w, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 384 bity s&#x105; niedozwolone. Listy parametr&oacute;w kryptograficznych u&#x17C;ywaj&#x105;cych SHA1 do MAC s&#x105; zabronione. Wersje TLS starsze ni&#x17C; 1.2 s&#x105; zabronione dla wersji OpenSSL starszych ni&#x17C; 3.0.</p>
 
 </dd>
 <dt id="poziom-5">poziom 5</dt>

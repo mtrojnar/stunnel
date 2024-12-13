@@ -430,7 +430,7 @@ int ocsp_stapling(SERVICE_OPTIONS *opt) {
         /* cache the newly fetched OCSP response */
         CRYPTO_THREAD_write_lock(opt->ocsp_response_lock);
         opt->ocsp_response_len=response_len;
-        opt->ocsp_response_der=str_alloc((size_t)response_len);
+        opt->ocsp_response_der=str_alloc_detached((size_t)response_len);
         memcpy(opt->ocsp_response_der, response_der, (size_t)response_len);
         CRYPTO_THREAD_unlock(opt->ocsp_response_lock);
         s_log(LOG_DEBUG, "OCSP: Response cached");

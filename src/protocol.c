@@ -205,6 +205,9 @@ typedef union {
         uint8_t ver, code, rsv, atyp, addr[4], port[2];
     } v4;
     struct {
+        uint8_t ver, code, rsv, atyp, len, data[255+2]; /* data: name+port */
+    } host;
+    struct {
         uint8_t ver, code, rsv, atyp, addr[16], port[2];
     } v6;
 } SOCKS5_UNION;
@@ -240,31 +243,85 @@ NOEXPORT void socks5_client_address(CLI *c) {
     SOCKADDR_UNION addr;
     SOCKS5_UNION socks;
 
-    if(original_dst(c->local_rfd.fd, &addr))
-        throw_exception(c, 2); /* don't reset */
     memset(&socks, 0, sizeof socks);
     socks.req.ver=5; /* SOCKS5 */
     socks.req.cmd=0x01; /* CONNECT */
-    switch(addr.sa.sa_family) {
-    case AF_INET:
-        socks.req.atyp=0x01; /* IP v4 address */
-        memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
-        memcpy(&socks.v4.port, &addr.in.sin_port, 2);
-        s_log(LOG_INFO, "Sending SOCKS5 IPv4 address");
-        s_ssl_write(c, &socks, sizeof socks.v4);
-        break;
-#ifdef USE_IPv6
-    case AF_INET6:
-        socks.req.atyp=0x04; /* IP v6 address */
-        memcpy(&socks.v6.addr, &addr.in6.sin6_addr, 16);
-        memcpy(&socks.v6.port, &addr.in6.sin6_port, 2);
-        s_log(LOG_INFO, "Sending SOCKS5 IPv6 address");
-        s_ssl_write(c, &socks, sizeof socks.v6);
-        break;
+
+    if(c->opt->protocol_host) { /* explicit destination */
+        char *tmp_str, *host_str, *port_str;
+        size_t host_len, offset;
+        u_short port_num;
+        struct addrinfo hints, *result=NULL;
+        int error;
+
+        /* parse c->opt->protocol_host */
+        socks.req.atyp=0x03; /* DOMAINNAME */
+        tmp_str=strrchr(c->opt->protocol_host, ':');
+        if(tmp_str) {
+            host_str=c->opt->protocol_host;
+            host_len=(size_t)(tmp_str - host_str);
+            port_str=tmp_str+1;
+        } else {
+            host_str="localhost";
+            host_len=strlen(host_str);
+            port_str=c->opt->protocol_host;
+        }
+
+        /* set the host name */
+        if(host_len > 0xff) {
+            s_log(LOG_ERR, "protocolHost too long");
+            throw_exception(c, 2); /* don't reset */
+        }
+        socks.host.len=(uint8_t)host_len;
+        memcpy(socks.host.data, host_str, host_len);
+        offset=host_len;
+
+        /* set the port number */
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family=AF_UNSPEC; /* both IPv4 and IPv6 */
+        hints.ai_socktype=SOCK_STREAM; /* TCP */
+        error=getaddrinfo(NULL, port_str, &hints, &result);
+        if(error || !result) {
+            s_log(LOG_ERR, "Invalid port: %s (error: %s)", port_str,
+#ifdef USE_WIN32
+                gai_strerrorA(error)
+#else
+                gai_strerror(error)
 #endif
-    default:
-        s_log(LOG_ERR, "Unsupported address type 0x%02x", addr.sa.sa_family);
-        throw_exception(c, 2); /* don't reset */
+                );
+            throw_exception(c, 2); /* don't reset */
+        }
+        port_num=ntohs(((struct sockaddr_in *)result->ai_addr)->sin_port);
+        freeaddrinfo(result);
+        socks.host.data[offset++]=(uint8_t)(port_num>>8); /* MSB */
+        socks.host.data[offset++]=(uint8_t)(port_num&0xff); /* LSB */
+
+        s_log(LOG_INFO, "Sending SOCKS5 DOMAINNAME");
+        s_ssl_write(c, &socks, (int)(offsetof(SOCKS5_UNION, host.data)+offset));
+    } else { /* transparent destination */
+        if(original_dst(c->local_rfd.fd, &addr))
+            throw_exception(c, 2); /* don't reset */
+        switch(addr.sa.sa_family) {
+        case AF_INET:
+            socks.req.atyp=0x01; /* IP v4 address */
+            memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
+            memcpy(&socks.v4.port, &addr.in.sin_port, 2);
+            s_log(LOG_INFO, "Sending SOCKS5 IPv4 address");
+            s_ssl_write(c, &socks, sizeof socks.v4);
+            break;
+#ifdef USE_IPv6
+        case AF_INET6:
+            socks.req.atyp=0x04; /* IP v6 address */
+            memcpy(&socks.v6.addr, &addr.in6.sin6_addr, 16);
+            memcpy(&socks.v6.port, &addr.in6.sin6_port, 2);
+            s_log(LOG_INFO, "Sending SOCKS5 IPv6 address");
+            s_ssl_write(c, &socks, sizeof socks.v6);
+            break;
+#endif
+        default:
+            s_log(LOG_ERR, "Unsupported address type 0x%02x", addr.sa.sa_family);
+            throw_exception(c, 2); /* don't reset */
+        }
     }
 
     s_ssl_read(c, &socks, sizeof socks.resp);

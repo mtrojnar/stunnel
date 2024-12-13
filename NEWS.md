@@ -1,6 +1,14 @@
 # stunnel change log
 
 
+### Version 5.74, 2024.12.13, urgency: HIGH
+* Bugfixes
+  - Fixed a stapling cache deallocation crash.
+  - Fixed "redirect" with protocol negotiation.
+* Features
+  - "protocolHost" support for "socks" protocol clients.
+  - More detailed logs in OpenSSL 3.0 or later.
+
 ### Version 5.73, 2024.09.09, urgency: MEDIUM
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.3.2.
