@@ -3780,6 +3780,8 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         break;
     }
 
+#ifndef OPENSSL_NO_OCSP
+
     /* TIMEOUTocsp */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
@@ -3809,6 +3811,8 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         s_log(LOG_NOTICE, "%-22s = seconds to connect OCSP responder", "TIMEOUTocsp");
         break;
     }
+
+#endif /* !defined(OPENSSL_NO_OCSP) */
 
     /* transparent */
 #ifndef USE_WIN32
