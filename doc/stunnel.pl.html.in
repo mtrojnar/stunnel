@@ -18,18 +18,18 @@
 
 <ul id="index">
   <li><a href="#NAZWA">NAZWA</a></li>
-  <li><a href="#SKADNIA">SK&#x141;ADNIA</a></li>
+  <li><a href="#SK-ADNIA">SK&#x141;ADNIA</a></li>
   <li><a href="#OPIS">OPIS</a></li>
   <li><a href="#OPCJE">OPCJE</a></li>
   <li><a href="#PLIK-KONFIGURACYJNY">PLIK KONFIGURACYJNY</a>
     <ul>
       <li><a href="#OPCJE-GLOBALNE">OPCJE GLOBALNE</a></li>
-      <li><a href="#OPCJE-USUG">OPCJE US&#x141;UG</a></li>
+      <li><a href="#OPCJE-US-UG">OPCJE US&#x141;UG</a></li>
     </ul>
   </li>
   <li><a href="#ZWRACANA-WARTO">ZWRACANA WARTO&#x15A;&#x106;</a></li>
-  <li><a href="#SIGNAY">SIGNA&#x141;Y</a></li>
-  <li><a href="#PRZYKADY">PRZYK&#x141;ADY</a></li>
+  <li><a href="#SIGNA-Y">SIGNA&#x141;Y</a></li>
+  <li><a href="#PRZYK-ADY">PRZYK&#x141;ADY</a></li>
   <li><a href="#NOTKI">NOTKI</a>
     <ul>
       <li><a href="#OGRANICZENIA">OGRANICZENIA</a></li>
@@ -40,8 +40,8 @@
     </ul>
   </li>
   <li><a href="#PLIKI">PLIKI</a></li>
-  <li><a href="#BDY">B&#x141;&#x118;DY</a></li>
-  <li><a href="#ZOBACZ-RWNIE">ZOBACZ R&Oacute;WNIE&#x17B;</a></li>
+  <li><a href="#B-DY">B&#x141;&#x118;DY</a></li>
+  <li><a href="#ZOBACZ-R-WNIE">ZOBACZ R&Oacute;WNIE&#x17B;</a></li>
   <li><a href="#AUTOR">AUTOR</a></li>
 </ul>
 
@@ -49,7 +49,7 @@
 
 <p>stunnel - uniwersalny tunel protokołu TLS</p>
 
-<a href="#_podtop_"><h1 id="SKADNIA">SK&#x141;ADNIA</h1></a>
+<a href="#_podtop_"><h1 id="SK-ADNIA">SK&#x141;ADNIA</h1></a>
 
 <dl>
 
@@ -249,7 +249,7 @@
 <p>Wielko&#x15B;&#x107; liter jest ignorowana zar&oacute;wno dla poziomu jak podsystemu.</p>
 
 </dd>
-<dt id="EGD-CIEKA_DO_EGD-tylko-Unix"><b>EGD</b> = &#x15A;CIE&#x17B;KA_DO_EGD (tylko Unix)</dt>
+<dt id="EGD-CIE-KA_DO_EGD-tylko-Unix"><b>EGD</b> = &#x15A;CIE&#x17B;KA_DO_EGD (tylko Unix)</dt>
 <dd>
 
 <p>&#x15B;cie&#x17C;ka do gniazda programu Entropy Gathering Daemon</p>
@@ -257,7 +257,7 @@
 <p>Opcja pozwala okre&#x15B;li&#x107; &#x15B;cie&#x17C;k&#x119; do gniazda programu Entropy Gathering Daemon u&#x17C;ywanego do zainicjalizowania generatora ci&#x105;g&oacute;w pseudolosowych biblioteki <b>OpenSSL</b>.</p>
 
 </dd>
-<dt id="engine-auto-IDENTYFIKATOR_URZDZENIA"><b>engine</b> = auto | IDENTYFIKATOR_URZ&#x104;DZENIA</dt>
+<dt id="engine-auto-IDENTYFIKATOR_URZ-DZENIA"><b>engine</b> = auto | IDENTYFIKATOR_URZ&#x104;DZENIA</dt>
 <dd>
 
 <p>wyb&oacute;r silnika kryptograficznego</p>
@@ -357,7 +357,23 @@
 <p>Je&#x17C;eli zdefiniowano katalog <i>chroot</i>, to &#x15B;cie&#x17C;ka do <i>pid</i> jest okre&#x15B;lona wzgl&#x119;dem tego katalogu.</p>
 
 </dd>
-<dt id="RNDbytes-LICZBA_BAJTW"><b>RNDbytes</b> = LICZBA_BAJT&Oacute;W</dt>
+<dt id="provider-PROVIDER_ID"><b>provider</b> = PROVIDER_ID</dt>
+<dd>
+
+<p>Okre&#x15B;la identyfikator dostawcy (provider), kt&oacute;ry ma by&#x107; u&#x17C;ywany. PROVIDER_ID to unikalny identyfikator wskazuj&#x105;cy na konkretnego dostawc&#x119; usług kryptograficznych.</p>
+
+<p>Opcja ta wymaga biblioteki OpenSSL w wersji 3.0 lub nowszej.</p>
+
+</dd>
+<dt id="providerParameter-PROVIDER_ID:PARAMETER-VALUE"><b>providerParameter</b> = PROVIDER_ID:PARAMETER=VALUE</dt>
+<dd>
+
+<p>Ustawia okre&#x15B;lony parametr dla wskazanego dostawcy. PROVIDER_ID identyfikuje dostawc&#x119;, PARAMETER to nazwa parametru, a VALUE to jego warto&#x15B;&#x107;. Ta opcja pozwala na dostosowanie konfiguracji wybranego dostawcy usług kryptograficznych.</p>
+
+<p>Opcja ta wymaga biblioteki OpenSSL w wersji 3.5 lub nowszej.</p>
+
+</dd>
+<dt id="RNDbytes-LICZBA_BAJT-W"><b>RNDbytes</b> = LICZBA_BAJT&Oacute;W</dt>
 <dd>
 
 <p>liczba bajt&oacute;w do zainicjowania generatora pseudolosowego</p>
@@ -389,6 +405,12 @@
 <p>domy&#x15B;lnie: stunnel</p>
 
 </dd>
+<dt id="setEnv-VAR_NAME-VALUE"><b>setEnv</b> = VAR_NAME=VALUE</dt>
+<dd>
+
+<p>Zmienia lub dodaje zmienn&#x105; &#x15B;rodowiskow&#x105; dla proces&oacute;w potomnych. Je&#x15B;li VAR_NAME ju&#x17C; istnieje, jej warto&#x15B;&#x107; zostanie zaktualizowana; w przeciwnym razie zostanie utworzona nowa zmienna. Modyfikacja dotyczy tylko uruchamianych proces&oacute;w potomnych i nie wpływa na bie&#x17C;&#x105;ce &#x15B;rodowisko.</p>
+
+</dd>
 <dt id="syslog-yes-no-tylko-Unix"><b>syslog</b> = yes | no (tylko Unix)</dt>
 <dd>
 
@@ -407,7 +429,7 @@
 </dd>
 </dl>
 
-<h2 id="OPCJE-USUG">OPCJE US&#x141;UG</h2>
+<h2 id="OPCJE-US-UG">OPCJE US&#x141;UG</h2>
 
 <p>Ka&#x17C;da sekcja konfiguracji usługi zaczyna si&#x119; jej nazw&#x105; uj&#x119;t&#x105; w nawias kwadratowy. Nazwa usługi u&#x17C;ywana jest do kontroli dost&#x119;pu przez bibliotek&#x119; libwrap (TCP wrappers) oraz pozwala rozr&oacute;&#x17C;ni&#x107; poszczeg&oacute;lne usługi w logach.</p>
 
@@ -463,7 +485,19 @@
 <p>Ta opcja mo&#x17C;e by&#x107; r&oacute;wnie&#x17C; u&#x17C;yta do dostarczenia certyfikatu root CA, kt&oacute;ry jest niezb&#x119;dny do prawidłowej weryfikacji OCSP stapling w trybie serwera.</p>
 
 </dd>
-<dt id="cert-PLIK_CERT"><b>cert</b> = PLIK_CERT</dt>
+<dt id="CAstore-URI_CA"><b>CAstore</b> = URI_CA</dt>
+<dd>
+
+<p>ładuje zaufane certyfikaty Centrum certyfikacji z zasobu wskazanego przez URI</p>
+
+<p>Opcja umo&#x17C;liwia załadowanie certyfikat&oacute;w CA z zewn&#x119;trznego magazynu obsługiwanego przez mechanizm <i>OSSL_STORE</i>, takiego jak moduł PKCS#11 (np. token sprz&#x119;towy), systemowy magazyn certyfikat&oacute;w lub zas&oacute;b sieciowy.</p>
+
+<p>Opcja mo&#x17C;e by&#x107; stosowana niezale&#x17C;nie od <i>CAfile</i> i <i>CAdir</i>, analogicznie słu&#x17C;y do walidacji ła&#x144;cucha certyfikat&oacute;w przy u&#x17C;yciu opcji <i>verifyChain</i> lub <i>verifyPeer</i>, a tak&#x17C;e do weryfikacji OCSP stapling po stronie serwera.</p>
+
+<p>Opcja ta wymaga biblioteki OpenSSL w wersji 3.0 lub nowszej.</p>
+
+</dd>
+<dt id="cert-PLIK_CERT-URI"><b>cert</b> = PLIK_CERT | URI</dt>
 <dd>
 
 <p>plik z ła&#x144;cuchem certyfikat&oacute;w</p>
@@ -472,7 +506,9 @@
 
 <p>Certyfikat jest konieczny, aby u&#x17C;ywa&#x107; programu w trybie serwera. W trybie klienta certyfikat jest opcjonalny.</p>
 
-<p>Je&#x17C;eli u&#x17C;ywany jest silnik kryptograficzny, to opcja <b>cert</b> pozwala wybra&#x107; identyfikator u&#x17C;ywanego certyfikatu.</p>
+<p>Je&#x17C;eli u&#x17C;ywany jest silnik kryptograficzny lub provider, to opcja <b>cert</b> pozwala wybra&#x107; identyfikator (PKCS#11 URI) u&#x17C;ywanego certyfikatu.</p>
+
+<p>Uwaga: provider wymaga OpenSSL 3.0 lub nowszego</p>
 
 </dd>
 <dt id="checkEmail-EMAIL"><b>checkEmail</b> = EMAIL</dt>
@@ -505,7 +541,7 @@
 <p>Opcja ta wymaga biblioteki OpenSSL w wersji 1.0.2 lub nowszej.</p>
 
 </dd>
-<dt id="ciphers-LISTA_SZYFRW"><b>ciphers</b> = LISTA_SZYFR&Oacute;W</dt>
+<dt id="ciphers-LISTA_SZYFR-W"><b>ciphers</b> = LISTA_SZYFR&Oacute;W</dt>
 <dd>
 
 <p>lista dozwolonych szyfr&oacute;w dla protokoł&oacute;w SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
@@ -515,7 +551,7 @@
 <p>Parametrem tej opcji jest lista szyfr&oacute;w, kt&oacute;re b&#x119;d&#x105; u&#x17C;yte przy otwieraniu nowych poł&#x105;cze&#x144; TLS, np.: DES-CBC3-SHA:IDEA-CBC-MD5</p>
 
 </dd>
-<dt id="ciphersuites-LISTA_PARAMETRW_KRYPTOGRAFICZNYCH"><b>ciphersuites</b> = LISTA_PARAMETR&Oacute;W_KRYPTOGRAFICZNYCH</dt>
+<dt id="ciphersuites-LISTA_PARAMETR-W_KRYPTOGRAFICZNYCH"><b>ciphersuites</b> = LISTA_PARAMETR&Oacute;W_KRYPTOGRAFICZNYCH</dt>
 <dd>
 
 <p>lista dozwolonych parametr&oacute;w kryptograficznych dla protokołu TLSv1.3</p>
@@ -661,13 +697,13 @@ prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
 <p>domy&#x15B;lnie: no</p>
 
 </dd>
-<dt id="engineId-NUMER_URZDZENIA"><b>engineId</b> = NUMER_URZ&#x104;DZENIA</dt>
+<dt id="engineId-NUMER_URZ-DZENIA"><b>engineId</b> = NUMER_URZ&#x104;DZENIA</dt>
 <dd>
 
 <p>wybierz silnik kryptograficzny dla usługi</p>
 
 </dd>
-<dt id="engineNum-NUMER_URZDZENIA"><b>engineNum</b> = NUMER_URZ&#x104;DZENIA</dt>
+<dt id="engineNum-NUMER_URZ-DZENIA"><b>engineNum</b> = NUMER_URZ&#x104;DZENIA</dt>
 <dd>
 
 <p>wybierz silnik kryptograficzny dla usługi</p>
@@ -675,7 +711,7 @@ prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
 <p>Urz&#x105;dzenia s&#x105; numerowane od 1 w g&oacute;r&#x119;.</p>
 
 </dd>
-<dt id="exec-CIEKA_DO_PROGRAMU"><b>exec</b> = &#x15A;CIE&#x17B;KA_DO_PROGRAMU</dt>
+<dt id="exec-CIE-KA_DO_PROGRAMU"><b>exec</b> = &#x15A;CIE&#x17B;KA_DO_PROGRAMU</dt>
 <dd>
 
 <p>wykonaj lokalny program przystosowany do pracy z superdemonem inetd</p>
@@ -717,7 +753,7 @@ prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
 <p>domy&#x15B;lnie: prio</p>
 
 </dd>
-<dt id="ident-NAZWA_UYTKOWNIKA"><b>ident</b> = NAZWA_U&#x17B;YTKOWNIKA</dt>
+<dt id="ident-NAZWA_U-YTKOWNIKA"><b>ident</b> = NAZWA_U&#x17B;YTKOWNIKA</dt>
 <dd>
 
 <p>weryfikuj nazw&#x119; zdalnego u&#x17C;ytkownika korzystaj&#x105;c z protokołu IDENT (RFC 1413)</p>
@@ -741,7 +777,7 @@ prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
 02-service.conf</code></pre>
 
 </dd>
-<dt id="key-PLIK_KLUCZA"><b>key</b> = PLIK_KLUCZA</dt>
+<dt id="key-PLIK_KLUCZA-URI"><b>key</b> = PLIK_KLUCZA | URI</dt>
 <dd>
 
 <p>klucz prywatny do certyfikatu podanego w opcji <i>cert</i></p>
@@ -750,7 +786,9 @@ prime256v1 (OpenSSL starszy ni&#x17C; 1.1.1)</code></pre>
 
 <pre><code>chmod 600 keyfile</code></pre>
 
-<p>Je&#x17C;eli u&#x17C;ywany jest silnik kryptograficzny, to opcja <b>key</b> pozwala wybra&#x107; identyfikator u&#x17C;ywanego klucza prywatnego.</p>
+<p>Je&#x17C;eli u&#x17C;ywany jest silnik kryptograficzny lub provider, to opcja <b>key</b> pozwala wybra&#x107; identyfikator (PKCS#11 URI) u&#x17C;ywanego klucza prywatnego.</p>
+
+<p>Uwaga: provider wymaga OpenSSL 3.0 lub nowszego</p>
 
 <p>domy&#x15B;lnie: warto&#x15B;&#x107; opcji <i>cert</i></p>
 
@@ -960,7 +998,7 @@ options = NO_SSLv3</code></pre>
 <p>W obecnej wersji opcja ma zastosowanie wył&#x105;cznie w protokole &#39;connect&#39;.</p>
 
 </dd>
-<dt id="protocolHeader-NAGWEK"><b>protocolHeader</b> = NAG&#x141;&Oacute;WEK</dt>
+<dt id="protocolHeader-NAG-WEK"><b>protocolHeader</b> = NAG&#x141;&Oacute;WEK</dt>
 <dd>
 
 <p>nagł&oacute;wek do negocjacji protokołu</p>
@@ -978,7 +1016,7 @@ options = NO_SSLv3</code></pre>
 <p>Dla protokołu &#39;smtp&#39;, <i>protocolHost</i> okre&#x15B;la warto&#x15B;&#x107; HELO/EHLO wysyłanego przy negocjacji klienta.</p>
 
 </dd>
-<dt id="protocolPassword-HASO"><b>protocolPassword</b> = HAS&#x141;O</dt>
+<dt id="protocolPassword-HAS-O"><b>protocolPassword</b> = HAS&#x141;O</dt>
 <dd>
 
 <p>hasło do negocjacji protokołu</p>
@@ -986,7 +1024,7 @@ options = NO_SSLv3</code></pre>
 <p>Opcja ta jest wspierana wył&#x105;cznie w klienckich protokołach &#39;connect&#39; i &#39;smtp&#39;.</p>
 
 </dd>
-<dt id="protocolUsername-UYTKOWNIK"><b>protocolUsername</b> = U&#x17B;YTKOWNIK</dt>
+<dt id="protocolUsername-U-YTKOWNIK"><b>protocolUsername</b> = U&#x17B;YTKOWNIK</dt>
 <dd>
 
 <p>nazwa u&#x17C;ytkownika do negocjacji protokołu</p>
@@ -994,7 +1032,7 @@ options = NO_SSLv3</code></pre>
 <p>Opcja ta jest wspierana wył&#x105;cznie w klienckich protokołach &#39;connect&#39; i &#39;smtp&#39;.</p>
 
 </dd>
-<dt id="PSKidentity-TOSAMO"><b>PSKidentity</b> = TO&#x17B;SAMO&#x15A;&#x106;</dt>
+<dt id="PSKidentity-TO-SAMO"><b>PSKidentity</b> = TO&#x17B;SAMO&#x15A;&#x106;</dt>
 <dd>
 
 <p>to&#x17C;samo&#x15B;&#x107; klienta PSK</p>
@@ -1056,7 +1094,7 @@ options = NO_SSLv3</code></pre>
 <p>domy&#x15B;lnie: yes</p>
 
 </dd>
-<dt id="retry-yes-no-OPNIENIE"><b>retry</b> = yes | no | OP&Oacute;&#x179;NIENIE</dt>
+<dt id="retry-yes-no-OP-NIENIE"><b>retry</b> = yes | no | OP&Oacute;&#x179;NIENIE</dt>
 <dd>
 
 <p>poł&#x105;cz ponownie sekcj&#x119; connect+exec po rozł&#x105;czeniu</p>
@@ -1111,7 +1149,7 @@ options = NO_SSLv3</code></pre>
 <p>Poziom bezpiecze&#x144;stwa zapewniaj&#x105;cy 256 bit&oacute;w bezpiecze&#x144;stwa. W zwi&#x105;zku z tym RSA, DSA oraz klucze DH kr&oacute;tsze ni&#x17C; 15360 bit&oacute;w, a tak&#x17C;e klucze ECC kr&oacute;tsze ni&#x17C; 512 bit&oacute;w s&#x105; niedozwolone.</p>
 
 </dd>
-<dt id="domylnie:-2">domy&#x15B;lnie: 2</dt>
+<dt id="domy-lnie:-2">domy&#x15B;lnie: 2</dt>
 <dd>
 
 </dd>
@@ -1142,7 +1180,7 @@ options = NO_SSLv3</code></pre>
 <p>Jako opcja usługi: grupa gniazda Unix utworzonego przy pomocy opcji &quot;accept&quot;.</p>
 
 </dd>
-<dt id="setuid-IDENTYFIKATOR_UYTKOWNIKA-tylko-Unix"><b>setuid</b> = IDENTYFIKATOR_U&#x17B;YTKOWNIKA (tylko Unix)</dt>
+<dt id="setuid-IDENTYFIKATOR_U-YTKOWNIKA-tylko-Unix"><b>setuid</b> = IDENTYFIKATOR_U&#x17B;YTKOWNIKA (tylko Unix)</dt>
 <dd>
 
 <p>identyfikator u&#x17C;ytkownika Unix</p>
@@ -1184,7 +1222,7 @@ options = NO_SSLv3</code></pre>
 <p>adres sessiond - serwera cache sesji TLS</p>
 
 </dd>
-<dt id="sni-NAZWA_USUGI:WZORZEC_NAZWY_SERWERA-tryb-serwera"><b>sni</b> = NAZWA_US&#x141;UGI:WZORZEC_NAZWY_SERWERA (tryb serwera)</dt>
+<dt id="sni-NAZWA_US-UGI:WZORZEC_NAZWY_SERWERA-tryb-serwera"><b>sni</b> = NAZWA_US&#x141;UGI:WZORZEC_NAZWY_SERWERA (tryb serwera)</dt>
 <dd>
 
 <p>U&#x17C;yj usługi jako podrz&#x119;dnej (virtualnego serwera) dla rozszerzenia TLS Server Name Indication (RFC 3546).</p>
@@ -1287,7 +1325,7 @@ sslVersionMin = WERSJA_SSL</code></pre>
 <p>domy&#x15B;lnie: TLSv1</p>
 
 </dd>
-<dt id="stack-LICZBA_BAJTW-z-wyjtkiem-modelu-FORK"><b>stack</b> = LICZBA_BAJT&Oacute;W (z wyj&#x105;tkiem modelu FORK)</dt>
+<dt id="stack-LICZBA_BAJT-W-z-wyj-tkiem-modelu-FORK"><b>stack</b> = LICZBA_BAJT&Oacute;W (z wyj&#x105;tkiem modelu FORK)</dt>
 <dd>
 
 <p>rozmiar stosu procesora tworzonych w&#x105;tk&oacute;w</p>
@@ -1515,7 +1553,7 @@ transparent = destination</code></pre>
 <p>weryfikuj z certyfikatem drugiej strony ignoruj&#x105;c ła&#x144;cuch CA</p>
 
 </dd>
-<dt id="domylnie"><i>domy&#x15B;lnie</i></dt>
+<dt id="domy-lnie"><i>domy&#x15B;lnie</i></dt>
 <dd>
 
 <p>nie weryfikuj</p>
@@ -1552,7 +1590,7 @@ transparent = destination</code></pre>
 
 <p><b>stunnel</b> zwraca zero w przypadku sukcesu, lub warto&#x15B;&#x107; niezerow&#x105; w przypadku bł&#x119;du.</p>
 
-<a href="#_podtop_"><h1 id="SIGNAY">SIGNA&#x141;Y</h1></a>
+<a href="#_podtop_"><h1 id="SIGNA-Y">SIGNA&#x141;Y</h1></a>
 
 <p>Nast&#x119;puj&#x105;ce sygnały mog&#x105; by&#x107; u&#x17C;yte do sterowania programem w systemie Unix:</p>
 
@@ -1611,7 +1649,7 @@ transparent = destination</code></pre>
 
 <p>Skutek wysłania innych sygnał&oacute;w jest niezdefiniowany.</p>
 
-<a href="#_podtop_"><h1 id="PRZYKADY">PRZYK&#x141;ADY</h1></a>
+<a href="#_podtop_"><h1 id="PRZYK-ADY">PRZYK&#x141;ADY</h1></a>
 
 <p>Szyfrowanie poł&#x105;cze&#x144; do lokalnego serwera <i>imapd</i> mo&#x17C;na u&#x17C;y&#x107;:</p>
 
@@ -1728,6 +1766,36 @@ accept = 127.0.0.1:8080
 connect = example.com:843
 cert = pkcs11:token=MyToken;object=KeyCert</code></pre>
 
+<p>Przykładowa konfiguracja umo&#x17C;liwiaj&#x105;ca u&#x17C;ycie certyfikatu i klucza prywatnego z urz&#x105;dzenia obsługiwanego przez provider `pkcs11prov`:</p>
+
+<p>Uwaga: wymaga OpenSSL 3.0 lub nowszego</p>
+
+<pre><code>setEnv = PKCS11_MODULE_PATH=opensc-pkcs11.dll
+setEnv = PKCS11_PIN:123456
+provider = pkcs11prov
+
+[service]
+client = yes
+accept = 127.0.0.1:8080
+connect = example.com:843
+cert = pkcs11:token=MyToken;object=MyCert
+key = pkcs11:token=MyToken;object=MyKey</code></pre>
+
+<p>Uwaga: wymaga OpenSSL 3.5 lub nowszego</p>
+
+<pre><code>provider = pkcs11prov
+providerParameter = pkcs11prov:pkcs11_module=opensc-pkcs11.dll
+providerParameter = pkcs11prov:pin=123456
+
+[service]
+client = yes
+accept = 127.0.0.1:8080
+connect = example.com:843
+cert = pkcs11:token=MyToken;object=MyCert
+key = pkcs11:token=MyToken;object=MyKey</code></pre>
+
+<p>W systemie Windows biblioteka PKCS#11 musi znajdowa&#x107; si&#x119; w katalogu `ossl-modules`, lub nale&#x17C;y poda&#x107; jej pełn&#x105; &#x15B;cie&#x17C;k&#x119; bezwzgl&#x119;dn&#x105; w `PKCS11_MODULE_PATH` lub parametrze `pkcs11_module`.</p>
+
 <a href="#_podtop_"><h1 id="NOTKI">NOTKI</h1></a>
 
 <h2 id="OGRANICZENIA">OGRANICZENIA</h2>
@@ -1816,11 +1884,11 @@ cert = pkcs11:token=MyToken;object=KeyCert</code></pre>
 </dd>
 </dl>
 
-<a href="#_podtop_"><h1 id="BDY">B&#x141;&#x118;DY</h1></a>
+<a href="#_podtop_"><h1 id="B-DY">B&#x141;&#x118;DY</h1></a>
 
 <p>Opcja <i>execArgs</i> oraz linia komend Win32 nie obsługuje cytowania.</p>
 
-<a href="#_podtop_"><h1 id="ZOBACZ-RWNIE">ZOBACZ R&Oacute;WNIE&#x17B;</h1></a>
+<a href="#_podtop_"><h1 id="ZOBACZ-R-WNIE">ZOBACZ R&Oacute;WNIE&#x17B;</h1></a>
 
 <dl>
 

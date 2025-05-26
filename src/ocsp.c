@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -648,6 +648,7 @@ NOEXPORT int ocsp_get_response(SERVICE_OPTIONS *opt, OCSP_PARAMS *params) {
      * - rewrite the network.c interface to use this structure */
     c=str_alloc(sizeof(CLI));
     c->fds=s_poll_alloc();
+    c->fd=INVALID_SOCKET;
     c->exception_pointer=&exception_buffer;
     if(setjmp(exception_buffer)) {
         s_poll_free(c->fds);

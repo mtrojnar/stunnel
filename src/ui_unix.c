@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -53,8 +53,9 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
 #ifdef M_MMAP_THRESHOLD
     mallopt(M_MMAP_THRESHOLD, 4096);
 #endif
-    tls_init(); /* initialize thread-local storage */
-    crypto_init(); /* initialize libcrypto */
+    retval=stunnel_init();
+    if(retval)
+        return retval;
     retval=main_unix(argc, argv);
     main_cleanup();
     return retval;
@@ -275,7 +276,7 @@ int ui_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
     return PEM_def_callback(buf, size, rwflag, userdata);
 }
 
-#ifndef OPENSSL_NO_ENGINE
+#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
 
 int (*ui_get_opener(void)) (UI *) {
     return UI_method_get_opener(UI_OpenSSL());
@@ -293,6 +294,6 @@ int (*ui_get_closer(void)) (UI *) {
     return UI_method_get_closer(UI_OpenSSL());
 }
 
-#endif
+#endif /* !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L */
 
 /* end of ui_unix.c */

@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -37,15 +37,24 @@
 
 #include "prototypes.h"
 
+#define MAX_ERRORS 10
+#define MAX_ERROR_LEN 256
+
 #if defined(__GNUC__) && defined(USE_WIN32)
 #pragma GCC diagnostic ignored "-Wformat"
 #endif /* defined(__GNUC__) && defined(USE_WIN32) */
 
 SERVICE_OPTIONS *current_section=NULL;
 
+#if OPENSSL_VERSION_NUMBER<0x10101000L
 /* try an empty passphrase first */
 static char cached_passwd[PEM_BUFSIZE]="";
 static int cached_len=0;
+#endif /* OpenSSL older than 1.1.1 */
+typedef struct {
+    const char *password;
+    const char *prompt_info;
+} PW_CB_DATA;
 
 #ifndef OPENSSL_NO_DH
 DH *dh_params=NULL;
@@ -80,17 +89,25 @@ NOEXPORT unsigned psk_client_callback(SSL *, const char *,
 NOEXPORT unsigned psk_server_callback(SSL *, const char *,
     unsigned char *, unsigned);
 #endif /* !defined(OPENSSL_NO_PSK) */
+
+#if OPENSSL_VERSION_NUMBER>=0x10101000L
+NOEXPORT int load_objects(SERVICE_OPTIONS *, int, int);
+NOEXPORT int load_objects_from_store(SSL_CTX *, const char *, int, int);
+#else /* OpenSSL 1.1.1 or later */
 NOEXPORT int load_cert_file(SERVICE_OPTIONS *);
 NOEXPORT int load_key_file(SERVICE_OPTIONS *);
 NOEXPORT int pkcs12_extension(const char *);
 NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *);
+NOEXPORT int cache_passwd_get_cb(char *, int, int, void *);
+NOEXPORT int cache_passwd_set_cb(char *, int, int, void *);
+NOEXPORT void set_prompt(const char *);
+#endif /* OpenSSL 1.1.1 or later */
+
 #ifndef OPENSSL_NO_ENGINE
 NOEXPORT int load_cert_engine(SERVICE_OPTIONS *);
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *);
 #endif
-NOEXPORT int cache_passwd_get_cb(char *, int, int, void *);
-NOEXPORT int cache_passwd_set_cb(char *, int, int, void *);
-NOEXPORT void set_prompt(const char *);
+
 NOEXPORT int ui_retry(void);
 
 /* session tickets */
@@ -696,8 +713,12 @@ NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
         key_needed=load_key_engine(section);
     }
 #endif
-    if (cert_needed && pkcs12_extension(section->cert)) {
-        if (load_pkcs12_file(section)) {
+#if OPENSSL_VERSION_NUMBER>=0x10101000L
+    if(load_objects(section, cert_needed, key_needed))
+        return 1; /* FAILED */
+#else /* OpenSSL 1.1.1 or later */
+    if(cert_needed && pkcs12_extension(section->cert)) {
+        if(load_pkcs12_file(section)) {
             return 1; /* FAILED */
         }
         cert_needed=key_needed=0; /* don't load any PEM files */
@@ -706,6 +727,7 @@ NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
         return 1; /* FAILED */
     if(key_needed && load_key_file(section))
         return 1; /* FAILED */
+#endif /* OpenSSL 1.1.1 or later */
 
     /* validate the private key against the certificate */
     if(!SSL_CTX_check_private_key(section->ctx)) {
@@ -818,6 +840,8 @@ PSK_KEYS *psk_find(const PSK_TABLE *table, const char *identity) {
 
 #endif /* !defined(OPENSSL_NO_PSK) */
 
+#if OPENSSL_VERSION_NUMBER<0x10101000L
+
 NOEXPORT int pkcs12_extension(const char *filename) {
     const char *ext=strrchr(filename, '.');
     return ext && (!strcasecmp(ext, ".p12") || !strcasecmp(ext, ".pfx"));
@@ -863,12 +887,9 @@ NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section) {
     for(i=0; !success && i<3; i++) {
         if(!ui_retry())
             break;
-        if(i==0) { /* silence the cached attempt */
-            ERR_clear_error();
-        } else {
-            sslerror(NULL); /* dump the error queue */
+        if(i>0)
             s_log(LOG_ERR, "Wrong passphrase: retrying");
-        }
+
         /* invoke the UI on subsequent calls */
         len=(size_t)cache_passwd_set_cb(pass, sizeof pass, 0, NULL);
         if(len>=sizeof pass)
@@ -941,12 +962,9 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
     for(i=0; !success && i<3; i++) {
         if(!ui_retry())
             break;
-        if(i==0) { /* silence the cached attempt */
-            ERR_clear_error();
-        } else {
-            sslerror(NULL); /* dump the error queue */
+        if(i>0)
             s_log(LOG_ERR, "Wrong passphrase: retrying");
-        }
+
         success=SSL_CTX_use_PrivateKey_file(section->ctx, section->key,
             SSL_FILETYPE_PEM);
     }
@@ -957,6 +975,8 @@ NOEXPORT int load_key_file(SERVICE_OPTIONS *section) {
     s_log(LOG_INFO, "Private key loaded from file: %s", section->key);
     return 0; /* OK */
 }
+
+#endif /* OpenSSL older than 1.1.1 */
 
 #ifndef OPENSSL_NO_ENGINE
 
@@ -977,6 +997,75 @@ NOEXPORT int load_cert_engine(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 
+#endif /* !defined(OPENSSL_NO_ENGINE) */
+
+#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
+
+NOEXPORT void clear_cached_password(PW_CB_DATA *cb_data) {
+    char *previous=(char *)cb_data->password;
+
+    cb_data->password=NULL;
+    if(previous) {
+        OPENSSL_cleanse(previous, strlen(previous));
+        str_free(previous);
+    }
+}
+
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+NOEXPORT char *ui_prompt_constructor(UI *ui,
+        const char *phrase_desc, const char *object_name) {
+    PW_CB_DATA *cb_data=UI_get0_user_data(ui);
+
+    if(!phrase_desc) {
+        if(cb_data->prompt_info && is_prefix(cb_data->prompt_info, "pkcs11:"))
+            phrase_desc="PIN";
+        else
+            phrase_desc="passphrase";
+    }
+    if(!object_name && cb_data)
+        object_name=cb_data->prompt_info;
+    return UI_construct_prompt(NULL, phrase_desc, object_name);
+}
+#endif /* OPENSSL_VERSION_NUMBER>=0x10000000L */
+
+NOEXPORT int ui_caching_reader(UI *ui, UI_STRING *uis) {
+    PW_CB_DATA *cb_data=UI_get0_user_data(ui);
+    int (*reader)(UI *, UI_STRING *);
+
+    /* return the cached password if available */
+    if(cb_data && cb_data->password) {
+        /* Set user_data password */
+        if(UI_set_result(ui, uis, cb_data->password) < 0)
+            s_log(LOG_DEBUG, "Failed to set the cached password");
+        else
+            return 1; /* OK */
+    }
+
+    /* invoke the UI if available */
+    reader=ui_get_reader();
+    if(reader) {
+        const char *result;
+
+        if(!reader(ui, uis))
+            return 0; /* FAILED */
+        result=UI_get0_result_string(uis);
+        if(result && *result) {
+            clear_cached_password(cb_data);
+            cb_data->password=str_dup(result);
+            s_log(LOG_DEBUG, "Password cached");
+        }
+        return 1; /* OK */
+    }
+
+    /* default to the empty password if we've got nothing better */
+    s_log(LOG_DEBUG, "No reader available, using empty password");
+    if(UI_set_result(ui, uis, "") < 0) {
+        s_log(LOG_DEBUG, "Failed to set empty password");
+        return 0; /* FAILED */
+    }
+    return 1; /* OK */
+}
+
 UI_METHOD *ui_stunnel(void) {
     static UI_METHOD *ui_method=NULL;
 
@@ -987,12 +1076,19 @@ UI_METHOD *ui_stunnel(void) {
         sslerror("UI_create_method");
         return NULL;
     }
+#if OPENSSL_VERSION_NUMBER>=0x10000000L
+    UI_method_set_prompt_constructor(ui_method, ui_prompt_constructor);
+#endif /* OPENSSL_VERSION_NUMBER>=0x10000000L */
     UI_method_set_opener(ui_method, ui_get_opener());
     UI_method_set_writer(ui_method, ui_get_writer());
-    UI_method_set_reader(ui_method, ui_get_reader());
+    UI_method_set_reader(ui_method, ui_caching_reader);
     UI_method_set_closer(ui_method, ui_get_closer());
     return ui_method;
 }
+
+#endif /* !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L */
+
+#ifndef OPENSSL_NO_ENGINE
 
 NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
     int i;
@@ -1008,7 +1104,6 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
             ui_stunnel(), NULL);
         if(!pkey) {
             if(i<2 && ui_retry()) { /* wrong PIN */
-                sslerror(NULL); /* dump the error queue */
                 s_log(LOG_ERR, "Wrong PIN: retrying");
                 continue;
             }
@@ -1025,6 +1120,120 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section) {
 }
 
 #endif /* !defined(OPENSSL_NO_ENGINE) */
+
+#if OPENSSL_VERSION_NUMBER>=0x10101000L
+
+NOEXPORT int load_objects(SERVICE_OPTIONS *section, int cert_needed, int key_needed) {
+
+    if(!strcmp(section->cert, section->key)) {
+        /* Try to open store from section->cert resource and get all objects */
+        if(!load_objects_from_store(section->ctx, section->cert, cert_needed, key_needed))
+            return 1; /* FAILED */
+    } else {
+        /* Try to open store from section->key resource and get the private key */
+        if(key_needed && !load_objects_from_store(section->ctx, section->key, 0, key_needed))
+            return 1; /* FAILED */
+        /* Try to open store from section->cert resource and get certificates */
+        if(cert_needed && !load_objects_from_store(section->ctx, section->cert, cert_needed, 0))
+            return 1; /* FAILED */
+    }
+    return 0; /* OK */
+}
+
+NOEXPORT int load_objects_from_store(SSL_CTX *ctx, const char *uri,
+        int cert_needed, int key_needed) {
+    static PW_CB_DATA cb_data={NULL, NULL};
+    int i=0;
+
+    cb_data.prompt_info=uri;
+    ERR_clear_error(); /* PROV_R_MISSING_CONFIG_DATA OpenSSL 3.5.0 */
+    for(;;) {
+        OSSL_STORE_CTX *store_ctx;
+
+        store_ctx=OSSL_STORE_open(uri, ui_stunnel(), &cb_data, NULL, NULL);
+        if(store_ctx) {
+            while(!OSSL_STORE_eof(store_ctx)) {
+                OSSL_STORE_INFO *object=OSSL_STORE_load(store_ctx);
+                int store_type;
+
+                if(!object)
+                    continue;
+                store_type=OSSL_STORE_INFO_get_type(object);
+                switch(store_type) {
+                case OSSL_STORE_INFO_PKEY:
+                    if(key_needed) { /* found the first private key */
+                        if(!SSL_CTX_use_PrivateKey(ctx,
+                                OSSL_STORE_INFO_get0_PKEY(object))) {
+                            sslerror("SSL_CTX_use_PrivateKey");
+                            OSSL_STORE_INFO_free(object);
+                            OSSL_STORE_close(store_ctx);
+                            return 0; /* FAILED */
+                        }
+                        s_log(LOG_INFO, "Private key loaded from: %s", uri);
+                        key_needed=0;
+                    }
+                    /* skip any private keys after the first one was loaded */
+                    break;
+                case OSSL_STORE_INFO_CERT:
+                    if(cert_needed) { /* found the first certificate */
+                        if(!SSL_CTX_use_certificate(ctx,
+                                OSSL_STORE_INFO_get0_CERT(object))) {
+                            sslerror("SSL_CTX_use_certificate");
+                            OSSL_STORE_INFO_free(object);
+                            OSSL_STORE_close(store_ctx);
+                            return 0; /* FAILED */
+                        }
+                        s_log(LOG_INFO, "Certificate loaded from: %s", uri);
+                        cert_needed=0;
+                    } else { /* found a subsequent certificate */
+                        /* add it to the certificate chain */
+                        if(!SSL_CTX_add1_chain_cert(ctx,
+                                OSSL_STORE_INFO_get0_CERT(object))) {
+                            sslerror("SSL_CTX_add1_chain_cert");
+                            OSSL_STORE_INFO_free(object);
+                            OSSL_STORE_close(store_ctx);
+                            return 0; /* FAILED */
+                        }
+                    }
+                    break;
+                default:
+                    break; /* skip any other type */
+                }
+                OSSL_STORE_INFO_free(object);
+            }
+            OSSL_STORE_close(store_ctx);
+        }
+
+        if(!cert_needed && !key_needed) { /* all done */
+            ERR_clear_error();
+            return 1; /* OK */
+        }
+
+        /* this attempt has failed, so the cached password
+         * should not be used for the next attempt */
+        clear_cached_password(&cb_data);
+        s_log(LOG_DEBUG, "Cached password cleared");
+
+        if(!ui_retry()) { /* process the error queue first */
+            s_log(LOG_ERR, "Unrecoverable error: giving up");
+            break;
+        }
+
+        if(++i>=3) { /* allow up to 3 attempts */
+            s_log(LOG_ERR, "Wrong password or PIN: giving up");
+            break;
+        }
+
+        s_log(LOG_WARNING, "Wrong password or PIN: retrying");
+    }
+    if(cert_needed)
+        s_log(LOG_ERR, "Failed to load certificate from: %s", uri);
+    if(key_needed)
+        s_log(LOG_ERR, "Failed to load private key from: %s", uri);
+    return 0; /* FAILED */
+}
+
+#else /* OpenSSL 1.1.1 or later */
 
 /* additional caching layer on top of ui_passwd_cb() */
 
@@ -1055,10 +1264,12 @@ NOEXPORT int cache_passwd_set_cb(char *buf, int size,
 NOEXPORT void set_prompt(const char *name) {
     char *prompt;
 
-    prompt=str_printf("Enter %s pass phrase:", name);
+    prompt=str_printf("Enter %s passphrase:", name);
     EVP_set_pw_prompt(prompt);
     str_free(prompt);
 }
+
+#endif /* OpenSSL 1.1.1 or later */
 
 NOEXPORT int ui_retry(void) {
     typedef struct {
@@ -1081,33 +1292,84 @@ NOEXPORT int ui_retry(void) {
 #endif
 #ifdef ERR_LIB_OSSL_STORE /* OpenSSL 1.1.1 */
         {ERR_LIB_OSSL_STORE /* 44 */, OSSL_STORE_R_BAD_PASSWORD_READ},
+        {ERR_LIB_OSSL_STORE /* 44 */, OSSL_STORE_R_ERROR_VERIFYING_PKCS12_MAC},
 #endif
 #ifdef ERR_LIB_PROV /* OpenSSL 3.0 */
         {ERR_LIB_PROV /* 57 */, PROV_R_BAD_DECRYPT},
 #endif
         /* libp11 hacks */
-        {ERR_LIB_USER /* 128 */, 7 /* CKR_ARGUMENTS_BAD */},
-        {ERR_LIB_USER /* 128 */, 0xa0 /* CKR_PIN_INCORRECT */},
+        {-1 /* libp11 */, 7 /* CKR_ARGUMENTS_BAD */},
+        {-1 /* libp11 */, 0xa0 /* CKR_PIN_INCORRECT */},
         {0, 0}
     }, *r;
-    unsigned long err;
-    int lib, reason;
+    char *errors[MAX_ERRORS];
+    char *error_string;
+    int i, retry=0;
 
-    err=ERR_peek_error();
-    if(!err) { /* there is no error in the queue */
-        s_log(LOG_DEBUG, "UI giving up: No error");
-        return 0;
+    error_string=str_alloc(MAX_ERROR_LEN);
+    for(i=0; i<MAX_ERRORS; i++) {
+        unsigned long err=0;
+        int line=0, flags=0, lib, reason;
+        const char *file=NULL, *func=NULL, *data=NULL;
+
+        /* pop an error from the error stack */
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+        err=ERR_get_error_all(&file, &line, &func, &data, &flags);
+#else
+        err=ERR_get_error_line(&file, &line);
+#endif
+        if(!err)
+            break;
+
+        /* save the error message for logging */
+        ERR_error_string_n(err, error_string, MAX_ERROR_LEN);
+        errors[i]=str_printf("ui_retry: %s%s%s:%d: %s%s%s",
+            func && *func ? func : "",
+            func && *func ? "@" : "",
+            file, line, error_string,
+            flags&ERR_TXT_STRING && data && *data ? ": " : "",
+            flags&ERR_TXT_STRING && data && *data ? data : "");
+
+        /* check whether this error should be retried */
+        if(retry)
+            continue; /* just save the remaining error messages */
+        lib=ERR_GET_LIB(err);
+        reason=ERR_GET_REASON(err);
+        for(r=retriables; r->lib && r->reason; r++) {
+            if(reason!=r->reason && r->reason!=-1)
+                continue;
+            if(lib==r->lib) {
+                s_log(LOG_DEBUG, "ui_retry: retrying on lib=%d reason=%d",
+                    lib, reason);
+                retry=1;
+                break;
+            }
+            if(r->lib==-1 && lib>=ERR_LIB_USER &&
+                    !strcmp(ERR_lib_error_string(err), "PKCS#11 module")) {
+                s_log(LOG_DEBUG, "ui_retry: retrying on lib=PKCS#11 reason=%d",
+                    reason);
+                retry=1;
+                break;
+            }
+        }
+        if(retry) /* we just decided to retry */
+            continue;
+        s_log(LOG_DEBUG, "ui_retry: giving up on lib=%d reason=%d",
+            lib, reason);
     }
-    lib=ERR_GET_LIB(err);
-    reason=ERR_GET_REASON(err);
-    for(r=retriables; r->lib && r->reason; r++) {
-        if(r->lib==lib && (r->reason==reason || r->reason==-1)) {
-            s_log(LOG_DEBUG, "UI retrying on lib=%d reason=%d", lib, reason);
-            return 1;
+    str_free(error_string);
+    ERR_clear_error(); /* in case more than MAX_ERRORS errors were collected */
+
+    if(i==0) { /* there was no error in the queue */
+        s_log(LOG_ERR, "ui_retry: giving up: No error");
+    } else { /* log and free the collected error messages */
+        while(i-->0) {
+            s_log(LOG_ERR, "%s", errors[i]);
+            str_free(errors[i]);
         }
     }
-    s_log(LOG_DEBUG, "UI giving up on lib=%d reason=%d", lib, reason);
-    return 0;
+
+    return retry;
 }
 
 /**************************************** session tickets */
@@ -1731,9 +1993,6 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
 }
 
 /**************************************** TLS error reporting */
-
-#define MAX_ERRORS 10
-#define MAX_ERROR_LEN 256
 
 void sslerror(const char *txt) { /* OpenSSL error handler */
     char *errors[MAX_ERRORS];

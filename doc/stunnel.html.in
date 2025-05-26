@@ -361,6 +361,22 @@
 <p><i>pid</i> path is relative to the <i>chroot</i> directory if specified.</p>
 
 </dd>
+<dt id="provider-PROVIDER_ID"><b>provider</b> = PROVIDER_ID</dt>
+<dd>
+
+<p>Specifies the identifier of the provider to be used. PROVIDER_ID is a unique identifier referring to a specific cryptographic service provider.</p>
+
+<p>This option requires OpenSSL 3.0 or later.</p>
+
+</dd>
+<dt id="providerParameter-PROVIDER_ID:PARAMETER-VALUE"><b>providerParameter</b> = PROVIDER_ID:PARAMETER=VALUE</dt>
+<dd>
+
+<p>Sets a specific parameter for the given provider. PROVIDER_ID identifies the provider, PARAMETER is the parameter name, and VALUE is its value. This option allows customization of the selected cryptographic service provider&#39;s configuration.</p>
+
+<p>This option requires OpenSSL 3.5 or later.</p>
+
+</dd>
 <dt id="RNDbytes-BYTES"><b>RNDbytes</b> = BYTES</dt>
 <dd>
 
@@ -391,6 +407,12 @@
 <p>The specified service name is used for syslog and as the <i>inetd</i> mode service name for TCP Wrappers. While this option can technically be specified in the service sections, it is only useful in global options.</p>
 
 <p>default: stunnel</p>
+
+</dd>
+<dt id="setEnv-VAR_NAME-VALUE"><b>setEnv</b> = VAR_NAME=VALUE</dt>
+<dd>
+
+<p>Change or add an environment variable for child processes. If VAR_NAME already exists, its value will be updated; otherwise, a new variable will be created. This modification applies only to spawned child processes and does not affect the current environment.</p>
 
 </dd>
 <dt id="syslog-yes-no-Unix-only"><b>syslog</b> = yes | no (Unix only)</dt>
@@ -467,7 +489,19 @@
 <p>This parameter can also be used to provide the root CA certificate needed to validate OCSP stapling in server mode.</p>
 
 </dd>
-<dt id="cert-CERT_FILE"><b>cert</b> = CERT_FILE</dt>
+<dt id="CAstore-URI_CA"><b>CAstore</b> = URI_CA</dt>
+<dd>
+
+<p>load trusted CA certificates from a resource specified by a URI</p>
+
+<p>This option allows loading CA certificates from an external source supported by the <i>OSSL_STORE</i> framework, such as a PKCS#11 module (e.g., hardware token), the system certificate store, or a remote resource.</p>
+
+<p>This option can be used independently of <i>CAfile</i> and <i>CAdir</i>, and similarly provides certificates used by <i>verifyChain</i> or <i>verifyPeer</i>, as well as for validating OCSP stapling in server mode.</p>
+
+<p>This option requires OpenSSL 3.0 or later.</p>
+
+</dd>
+<dt id="cert-CERT_FILE-URI"><b>cert</b> = CERT_FILE | URI</dt>
 <dd>
 
 <p>certificate chain file name</p>
@@ -476,7 +510,9 @@
 
 <p>A certificate chain is required in server mode, and optional in client mode.</p>
 
-<p>This parameter is also used as the certificate identifier when a hardware engine is enabled.</p>
+<p>This parameter is also used as the certificate identifier (PKCS#11 URI) when a hardware engine or provider is enabled.</p>
+
+<p>Note: The provider requires OpenSSL 3.0 or later</p>
 
 </dd>
 <dt id="checkEmail-EMAIL"><b>checkEmail</b> = EMAIL</dt>
@@ -753,7 +789,7 @@ prime256v1 (OpenSSL older than 1.1.1)</code></pre>
 02-service.conf</code></pre>
 
 </dd>
-<dt id="key-KEY_FILE"><b>key</b> = KEY_FILE</dt>
+<dt id="key-KEY_FILE-URI"><b>key</b> = KEY_FILE | URI</dt>
 <dd>
 
 <p>private key for the certificate specified with <i>cert</i> option</p>
@@ -762,7 +798,9 @@ prime256v1 (OpenSSL older than 1.1.1)</code></pre>
 
 <pre><code>chmod 600 keyfile</code></pre>
 
-<p>This parameter is also used as the private key identifier when a hardware engine is enabled.</p>
+<p>This parameter is also used as the private key identifier (PKCS#11 URI) when a hardware engine or provider is enabled.</p>
+
+<p>Note: The provider requires OpenSSL 3.0 or later</p>
 
 <p>default: the value of the <i>cert</i> option</p>
 
@@ -1729,6 +1767,36 @@ client = yes
 accept = 127.0.0.1:8080
 connect = example.com:843
 cert = pkcs11:token=MyToken;object=KeyCert</code></pre>
+
+<p>An example of advanced provider configuration to use the certificate and the corresponding private key from a `pkcs11prov` provider:</p>
+
+<p>Note: requires OpenSSL 3.0 or later</p>
+
+<pre><code>setEnv = PKCS11_MODULE_PATH=opensc-pkcs11.dll
+setEnv = PKCS11_PIN:123456
+provider = pkcs11prov
+
+[service]
+client = yes
+accept = 127.0.0.1:8080
+connect = example.com:843
+cert = pkcs11:token=MyToken;object=MyCert
+key = pkcs11:token=MyToken;object=MyKey</code></pre>
+
+<p>Note: requires OpenSSL 3.5 or later</p>
+
+<pre><code>provider = pkcs11prov
+providerParameter = pkcs11prov:pkcs11_module=opensc-pkcs11.dll
+providerParameter = pkcs11prov:pin=123456
+
+[service]
+client = yes
+accept = 127.0.0.1:8080
+connect = example.com:843
+cert = pkcs11:token=MyToken;object=MyCert
+key = pkcs11:token=MyToken;object=MyKey</code></pre>
+
+<p>On Windows, the PKCS#11 library must be placed in the `ossl-modules` directory, or a full absolute path must be provided in `PKCS11_MODULE_PATH` or `pkcs11_module` parameter.</p>
 
 <a href="#_podtop_"><h1 id="NOTES">NOTES</h1></a>
 

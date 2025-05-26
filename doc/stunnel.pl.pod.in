@@ -300,6 +300,23 @@ Jeżeli argument jest pusty, plik nie zostanie stworzony.
 Jeżeli zdefiniowano katalog I<chroot>, to ścieżka do I<pid> jest określona
 względem tego katalogu.
 
+=item B<provider> = PROVIDER_ID
+
+Określa identyfikator dostawcy (provider), który ma być używany.
+PROVIDER_ID to unikalny identyfikator wskazujący na konkretnego dostawcę usług
+kryptograficznych.
+
+Opcja ta wymaga biblioteki OpenSSL w wersji 3.0 lub nowszej.
+
+=item B<providerParameter> = PROVIDER_ID:PARAMETER=VALUE
+
+Ustawia określony parametr dla wskazanego dostawcy.
+PROVIDER_ID identyfikuje dostawcę, PARAMETER to nazwa parametru, a VALUE to jego
+wartość. Ta opcja pozwala na dostosowanie konfiguracji wybranego dostawcy usług
+kryptograficznych.
+
+Opcja ta wymaga biblioteki OpenSSL w wersji 3.5 lub nowszej.
+
 =item B<RNDbytes> = LICZBA_BAJTÓW
 
 liczba bajtów do zainicjowania generatora pseudolosowego
@@ -327,6 +344,13 @@ użyć tej opcji w trybie w sekcji usług, to jest ona użyteczna jedynie w opcj
 globalnych.
 
 domyślnie: stunnel
+
+=item B<setEnv> = VAR_NAME=VALUE
+
+Zmienia lub dodaje zmienną środowiskową dla procesów potomnych.
+Jeśli VAR_NAME już istnieje, jej wartość zostanie zaktualizowana; w przeciwnym
+razie zostanie utworzona nowa zmienna. Modyfikacja dotyczy tylko uruchamianych
+procesów potomnych i nie wpływa na bieżące środowisko.
 
 =item B<syslog> = yes | no (tylko Unix)
 
@@ -406,7 +430,21 @@ przez opcję I<verifyChain> lub I<verifyPeer>.
 Ta opcja może być również użyta do dostarczenia certyfikatu root CA, który jest
 niezbędny do prawidłowej weryfikacji OCSP stapling w trybie serwera.
 
-=item B<cert> = PLIK_CERT
+=item B<CAstore> = URI_CA
+
+ładuje zaufane certyfikaty Centrum certyfikacji z zasobu wskazanego przez URI
+
+Opcja umożliwia załadowanie certyfikatów CA z zewnętrznego magazynu obsługiwanego
+przez mechanizm I<OSSL_STORE>, takiego jak moduł PKCS#11 (np. token sprzętowy),
+systemowy magazyn certyfikatów lub zasób sieciowy.
+
+Opcja może być stosowana niezależnie od I<CAfile> i I<CAdir>, analogicznie służy
+do walidacji łańcucha certyfikatów przy użyciu opcji I<verifyChain> lub
+I<verifyPeer>, a także do weryfikacji OCSP stapling po stronie serwera.
+
+Opcja ta wymaga biblioteki OpenSSL w wersji 3.0 lub nowszej.
+
+=item B<cert> = PLIK_CERT | URI
 
 plik z łańcuchem certyfikatów
 
@@ -419,8 +457,10 @@ Obsługiwane są pliki w formacie PEM lub P12.
 Certyfikat jest konieczny, aby używać programu w trybie serwera.
 W trybie klienta certyfikat jest opcjonalny.
 
-Jeżeli używany jest silnik kryptograficzny, to opcja B<cert>
-pozwala wybrać identyfikator używanego certyfikatu.
+Jeżeli używany jest silnik kryptograficzny lub provider, to opcja B<cert>
+pozwala wybrać identyfikator (PKCS#11 URI) używanego certyfikatu.
+
+Uwaga: provider wymaga OpenSSL 3.0 lub nowszego
 
 =item B<checkEmail> = EMAIL
 
@@ -675,7 +715,7 @@ dla lokalnych opcji usług:
 
 	02-service.conf
 
-=item B<key> = PLIK_KLUCZA
+=item B<key> = PLIK_KLUCZA | URI
 
 klucz prywatny do certyfikatu podanego w opcji I<cert>
 
@@ -686,8 +726,10 @@ komendą:
 
     chmod 600 keyfile
 
-Jeżeli używany jest silnik kryptograficzny, to opcja B<key> pozwala wybrać
-identyfikator używanego klucza prywatnego.
+Jeżeli używany jest silnik kryptograficzny lub provider, to opcja B<key> pozwala
+wybrać identyfikator (PKCS#11 URI) używanego klucza prywatnego.
+
+Uwaga: provider wymaga OpenSSL 3.0 lub nowszego
 
 domyślnie: wartość opcji I<cert>
 
@@ -1618,6 +1660,39 @@ umieszczonego na tokenie SoftHSM:
     accept = 127.0.0.1:8080
     connect = example.com:843
     cert = pkcs11:token=MyToken;object=KeyCert
+
+Przykładowa konfiguracja umożliwiająca użycie certyfikatu i klucza prywatnego z
+urządzenia obsługiwanego przez provider `pkcs11prov`:
+
+Uwaga: wymaga OpenSSL 3.0 lub nowszego
+
+    setEnv = PKCS11_MODULE_PATH=opensc-pkcs11.dll
+    setEnv = PKCS11_PIN:123456
+    provider = pkcs11prov
+
+    [service]
+    client = yes
+    accept = 127.0.0.1:8080
+    connect = example.com:843
+    cert = pkcs11:token=MyToken;object=MyCert
+    key = pkcs11:token=MyToken;object=MyKey
+
+Uwaga: wymaga OpenSSL 3.5 lub nowszego
+
+    provider = pkcs11prov
+    providerParameter = pkcs11prov:pkcs11_module=opensc-pkcs11.dll
+    providerParameter = pkcs11prov:pin=123456
+
+    [service]
+    client = yes
+    accept = 127.0.0.1:8080
+    connect = example.com:843
+    cert = pkcs11:token=MyToken;object=MyCert
+    key = pkcs11:token=MyToken;object=MyKey
+
+W systemie Windows biblioteka PKCS#11 musi znajdować się w katalogu
+`ossl-modules`, lub należy podać jej pełną ścieżkę bezwzględną w
+`PKCS11_MODULE_PATH` lub parametrze `pkcs11_module`.
 
 =head1 NOTKI
 

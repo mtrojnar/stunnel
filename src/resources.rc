@@ -19,7 +19,7 @@ BEGIN
             VALUE "FileDescription",    "stunnel - TLS offloading and load-balancing proxy"
             VALUE "FileVersion",        STUNNEL_VERSION
             VALUE "InternalName",       "stunnel"
-            VALUE "LegalCopyright",     "© by Michal Trojnara, 1998-2024"
+            VALUE "LegalCopyright",     "© by Michal Trojnara, 1998-2025"
             VALUE "OriginalFilename",   "stunnel.exe"
             VALUE "ProductName",        STUNNEL_PRODUCTNAME
             VALUE "ProductVersion",     STUNNEL_VERSION
@@ -107,11 +107,11 @@ BEGIN
     ICON            IDI_STUNNEL_MAIN, -1,                        6,  6,  20, 20
     LTEXT           "stunnel version", -1,                      30,  4,  49,  8
     LTEXT           STUNNEL_VERSION, -1,                        79,  4,  57,  8
-    LTEXT           "© by Michal Trojnara, 1998-2024", -1,      30, 12, 106,  8
+    LTEXT           "© by Michal Trojnara, 1998-2025", -1,      30, 12, 106,  8
     LTEXT           "All Rights Reserved", -1,                  30, 20, 106,  8
     LTEXT           "Licensed under the GNU GPL version 2", -1,  4, 28, 132,  8
     LTEXT           "with a special exception for OpenSSL", -1,  4, 36, 132,  8
-    DEFPUSHBUTTON   "OK",IDOK,                                  54, 48,  32, 14, WS_GROUP
+    DEFPUSHBUTTON   "OK", IDOK,                                 54, 48,  32, 14, WS_GROUP
 END
 
 PASSBOX DIALOG DISCARDABLE 0, 0, 156, 51
@@ -119,11 +119,11 @@ STYLE DS_MODALFRAME|DS_CENTER|WS_POPUP|WS_CAPTION|WS_SYSMENU
 CAPTION ""
 FONT 8, "MS Sans Serif"
 BEGIN
-    ICON            IDI_STUNNEL_MAIN, -1,     6,  6, 20, 20
-    LTEXT           "Key passphrase:", -1,   30, 13, 56,  8
-    EDITTEXT        IDE_PASSEDIT,            86, 11, 64, 12, ES_PASSWORD|ES_AUTOHSCROLL
-    DEFPUSHBUTTON   "OK",IDOK,                6, 30, 50, 14
-    PUSHBUTTON      "Cancel",IDCANCEL,      100, 30, 50, 14
+    ICON            IDI_STUNNEL_MAIN, -1,                        6,  6, 20, 20
+    LTEXT           "Key passphrase:", IDE_PASSPHRASE_LABEL,    30, 13, 56,  8
+    EDITTEXT        IDE_PASSEDIT,                               86, 11, 64, 12, ES_PASSWORD|ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK", IDOK,                                  6, 30, 50, 14
+    PUSHBUTTON      "Cancel", IDCANCEL,                        100, 30, 50, 14
 END
 
 PINBOX DIALOG DISCARDABLE 0, 0, 156, 51
@@ -131,11 +131,11 @@ STYLE DS_MODALFRAME|DS_CENTER|WS_POPUP|WS_CAPTION|WS_SYSMENU
 CAPTION ""
 FONT 8, "MS Sans Serif"
 BEGIN
-    ICON            IDI_STUNNEL_MAIN, -1,     6,  6, 20, 20
-    LTEXT           "SmartCard PIN:", -1,    30, 13, 56,  8
-    EDITTEXT        IDE_PINEDIT,             86, 11, 64, 12, ES_PASSWORD|ES_AUTOHSCROLL
-    DEFPUSHBUTTON   "OK",IDOK,                6, 30, 50, 14
-    PUSHBUTTON      "Cancel",IDCANCEL,      100, 30, 50, 14
+    ICON            IDI_STUNNEL_MAIN, -1,                        6,  6, 20, 20
+    LTEXT           "Smart card PIN:", -1,                      30, 13, 56,  8
+    EDITTEXT        IDE_PINEDIT,                                86, 11, 64, 12, ES_PASSWORD|ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK", IDOK,                                  6, 30, 50, 14
+    PUSHBUTTON      "Cancel", IDCANCEL,                        100, 30, 50, 14
 END
 
 STRINGTABLE

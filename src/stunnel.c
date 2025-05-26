@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -104,6 +104,23 @@ int systemd_fds; /* number of file descriptors passed by systemd */
 int listen_fds_start; /* base for systemd-provided file descriptors */
 
 /**************************************** startup */
+
+/* this has to be the first function called from ui_*.c */
+int stunnel_init(void) { /* basic initialization */
+#ifdef USE_WIN32
+    static struct WSAData wsa_state;
+#endif
+
+    tls_init(); /* initialize thread-local storage */
+    str_init(); /* initialize memory allocator */
+    crypto_init(); /* initialize libcrypto */
+#ifdef USE_WIN32
+    if(WSAStartup(MAKEWORD(2, 2), &wsa_state))
+        return 1; /* error */
+#endif
+    resolver_init();
+    return 0;
+}
 
 void main_init(void) { /* one-time initialization */
 #ifdef USE_SYSTEMD

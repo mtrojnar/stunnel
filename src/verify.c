@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -89,7 +89,6 @@ NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
 #ifndef OPENSSL_NO_ENGINE
     NAME_LIST *ptr;
 #endif
-
     /* CA initialization with the file and/or directory */
     if(section->ca_file || section->ca_dir) {
         if(!SSL_CTX_load_verify_locations(section->ctx,
@@ -97,6 +96,13 @@ NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
             sslerror("SSL_CTX_load_verify_locations");
         }
     }
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+    if(section->ca_store) {
+        if(!SSL_CTX_load_verify_store(section->ctx, section->ca_store)) {
+            sslerror("SSL_CTX_load_verify_store");
+        }
+    }
+#endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
 
     ca_dn=sk_X509_NAME_new_null();
 
@@ -120,6 +126,10 @@ NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
         SSL_add_file_cert_subjects_to_stack(ca_dn, section->ca_file);
     if(section->ca_dir)
         SSL_add_dir_cert_subjects_to_stack(ca_dn, section->ca_dir);
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+    if(section->ca_store)
+        SSL_add_store_cert_subjects_to_stack(ca_dn, section->ca_store);
+#endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
 
     if(!sk_X509_NAME_num(ca_dn)) {
         sk_X509_NAME_pop_free(ca_dn, X509_NAME_free);

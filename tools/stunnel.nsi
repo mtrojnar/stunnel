@@ -1,4 +1,4 @@
-# NSIS stunnel installer by Michal Trojnara 1998-2024
+# NSIS stunnel installer by Michal Trojnara 1998-2025
 
 !define /ifndef VERSION testing
 !define /ifndef ARCH win32
@@ -268,6 +268,8 @@ no_service_restart:
   Delete "$INSTDIR\ossl-modules\fips.pdb"
   Delete "$INSTDIR\ossl-modules\legacy.dll"
   Delete "$INSTDIR\ossl-modules\legacy.pdb"
+  Delete "$INSTDIR\ossl-modules\pkcs11prov.dll"
+  Delete "$INSTDIR\ossl-modules\pkcs11prov.pdb"
   RMDir "$INSTDIR\ossl-modules"
 
   Delete "$INSTDIR\doc\*.html"
@@ -433,6 +435,7 @@ Section "Core Files" sectionCORE
       File "${OPENSSL_OSSLMODULES_DIR}\fips.dll"
     !endif
     File "${OPENSSL_OSSLMODULES_DIR}\legacy.dll"
+    File "${OPENSSL_OSSLMODULES_DIR}\pkcs11prov.dll"
   !endif
 
   # write new documentation
@@ -648,6 +651,7 @@ no_openssl_pdb:
   SetOutPath "$INSTDIR\ossl-modules"
   File "${OPENSSL_OSSLMODULES_DIR}\fips.pdb"
   File "${OPENSSL_OSSLMODULES_DIR}\legacy.pdb"
+  File "${OPENSSL_OSSLMODULES_DIR}\pkcs11prov.pdb"
   SetOutPath "$INSTDIR"
 SectionEnd
 */

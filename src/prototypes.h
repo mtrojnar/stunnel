@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -285,6 +285,9 @@ struct service_options_struct {
 #endif
     char *ca_dir;                    /* directory containing hashed CA certs */
     char *ca_file;                  /* file containing concatenated CA certs */
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+    char *ca_store;                                     /* store of CA certs */
+#endif
     char *crl_dir;                       /* directory containing hashed CRLs */
     char *crl_file;                     /* file containing concatenated CRLs */
 #ifndef OPENSSL_NO_OCSP
@@ -358,7 +361,9 @@ struct service_options_struct {
     int timeout_close;                          /* maximum close_notify time */
     int timeout_connect;                         /* maximum s_connect() time */
     int timeout_idle;                        /* maximum idle connection time */
+#ifndef OPENSSL_NO_OCSP
     int timeout_ocsp;                   /* maximum s_connect() time for OCSP */
+#endif /* !OPENSSL_NO_OCSP */
     enum {FAILOVER_RR, FAILOVER_PRIO} failover;         /* failover strategy */
     unsigned rr;   /* per-service sequential number for round-robin failover */
     char *username;                                 /* ident client username */
@@ -544,6 +549,7 @@ extern int num_clients;
 extern SOCKET signal_pipe[2];
 extern SOCKET terminate_pipe[2];
 
+int stunnel_init(void);
 void main_init(void);
 int main_configure(char *, char *);
 void main_cleanup(void);
@@ -648,9 +654,9 @@ void context_cleanup(SERVICE_OPTIONS *);
 void psk_sort(PSK_TABLE *, PSK_KEYS *);
 PSK_KEYS *psk_find(const PSK_TABLE *, const char *);
 #endif /* !defined(OPENSSL_NO_PSK) */
-#ifndef OPENSSL_NO_ENGINE
+#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
 UI_METHOD *ui_stunnel(void);
-#endif /* !defined(OPENSSL_NO_ENGINE) */
+#endif /* !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L*/
 void print_session_id(const char *, SSL_SESSION *);
 void sslerror(const char *);
 
@@ -948,12 +954,12 @@ void message_box(LPCTSTR, const UINT);
 #endif /* USE_WIN32 */
 
 int ui_passwd_cb(char *, int, int, void *);
-#ifndef OPENSSL_NO_ENGINE
+#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
 int (*ui_get_opener(void)) (UI *);
 int (*ui_get_writer(void)) (UI *, UI_STRING *);
 int (*ui_get_reader(void)) (UI *, UI_STRING *);
 int (*ui_get_closer(void)) (UI *);
-#endif /* !defined(OPENSSL_NO_ENGINE) */
+#endif /* !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L */
 
 #ifdef ICON_IMAGE
 ICON_IMAGE load_icon_default(ICON_TYPE);

@@ -299,6 +299,23 @@ If the argument is empty, then no pid file will be created.
 
 I<pid> path is relative to the I<chroot> directory if specified.
 
+=item B<provider> = PROVIDER_ID
+
+Specifies the identifier of the provider to be used.
+PROVIDER_ID is a unique identifier referring to a specific cryptographic service
+provider.
+
+This option requires OpenSSL 3.0 or later.
+
+=item B<providerParameter> = PROVIDER_ID:PARAMETER=VALUE
+
+Sets a specific parameter for the given provider.
+PROVIDER_ID identifies the provider, PARAMETER is the parameter name, and VALUE
+is its value. This option allows customization of the selected cryptographic
+service provider's configuration.
+
+This option requires OpenSSL 3.5 or later.
+
 =item B<RNDbytes> = BYTES
 
 bytes to read from random seed files
@@ -325,6 +342,13 @@ name for TCP Wrappers.  While this option can technically be specified in the
 service sections, it is only useful in global options.
 
 default: stunnel
+
+=item B<setEnv> = VAR_NAME=VALUE
+
+Change or add an environment variable for child processes.
+If VAR_NAME already exists, its value will be updated; otherwise, a new variable
+will be created. This modification applies only to spawned child processes and
+does not affect the current environment.
 
 =item B<syslog> = yes | no (Unix only)
 
@@ -404,7 +428,21 @@ I<verifyPeer> options.
 This parameter can also be used to provide the root CA certificate needed to
 validate OCSP stapling in server mode.
 
-=item B<cert> = CERT_FILE
+=item B<CAstore> = URI_CA
+
+load trusted CA certificates from a resource specified by a URI
+
+This option allows loading CA certificates from an external source supported by
+the I<OSSL_STORE> framework, such as a PKCS#11 module (e.g., hardware token),
+the system certificate store, or a remote resource.
+
+This option can be used independently of I<CAfile> and I<CAdir>, and similarly
+provides certificates used by I<verifyChain> or I<verifyPeer>, as well as for
+validating OCSP stapling in server mode.
+
+This option requires OpenSSL 3.0 or later.
+
+=item B<cert> = CERT_FILE | URI
 
 certificate chain file name
 
@@ -416,8 +454,10 @@ The file must be either in PEM or P12 format.
 
 A certificate chain is required in server mode, and optional in client mode.
 
-This parameter is also used as the certificate identifier when a hardware
-engine is enabled.
+This parameter is also used as the certificate identifier (PKCS#11 URI) when
+a hardware engine or provider is enabled.
+
+Note: The provider requires OpenSSL 3.0 or later
 
 =item B<checkEmail> = EMAIL
 
@@ -674,7 +714,7 @@ for local service-level options:
 
 	02-service.conf
 
-=item B<key> = KEY_FILE
+=item B<key> = KEY_FILE | URI
 
 private key for the certificate specified with I<cert> option
 
@@ -684,8 +724,10 @@ by its owner.  On Unix systems you can use the following command:
 
     chmod 600 keyfile
 
-This parameter is also used as the private key identifier when a hardware
-engine is enabled.
+This parameter is also used as the private key identifier (PKCS#11 URI) when
+a hardware engine or provider is enabled.
+
+Note: The provider requires OpenSSL 3.0 or later
 
 default: the value of the I<cert> option
 
@@ -1615,6 +1657,38 @@ corresponding private key from a SoftHSM token:
     connect = example.com:843
     cert = pkcs11:token=MyToken;object=KeyCert
 
+An example of advanced provider configuration to use the certificate and the
+corresponding private key from a `pkcs11prov` provider:
+
+Note: requires OpenSSL 3.0 or later
+
+    setEnv = PKCS11_MODULE_PATH=opensc-pkcs11.dll
+    setEnv = PKCS11_PIN:123456
+    provider = pkcs11prov
+
+    [service]
+    client = yes
+    accept = 127.0.0.1:8080
+    connect = example.com:843
+    cert = pkcs11:token=MyToken;object=MyCert
+    key = pkcs11:token=MyToken;object=MyKey
+
+Note: requires OpenSSL 3.5 or later
+
+    provider = pkcs11prov
+    providerParameter = pkcs11prov:pkcs11_module=opensc-pkcs11.dll
+    providerParameter = pkcs11prov:pin=123456
+
+    [service]
+    client = yes
+    accept = 127.0.0.1:8080
+    connect = example.com:843
+    cert = pkcs11:token=MyToken;object=MyCert
+    key = pkcs11:token=MyToken;object=MyKey
+
+On Windows, the PKCS#11 library must be placed in the `ossl-modules` directory,
+or a full absolute path must be provided in `PKCS11_MODULE_PATH` or
+`pkcs11_module` parameter.
 
 =head1 NOTES
 

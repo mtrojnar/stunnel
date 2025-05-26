@@ -8,6 +8,7 @@ result_path=$(pwd)
 cd $(dirname "$0")
 script_path=$(pwd)
 cd "${result_path}"
+export LC_ALL=C
 
 gen_psk () {
   tr -c -d 'A-Za-z0-9' </dev/urandom 2>> "maketestcert.log" | head -c 50 > tmp/psk.txt
@@ -25,17 +26,25 @@ gen_psk () {
 # OpenSSL settings
 ################################################################################
 TEMP_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-LD_LIBRARY_PATH=""
-OPENSSL=openssl
+if [ -z "$OPENSSL_PATH" ]; then
+    export LD_LIBRARY_PATH=""
+    OPENSSL="openssl"
+else
+    LIB_PATH="$OPENSSL_PATH/lib64"
+    [ -d "$LIB_PATH" ] || LIB_PATH="$OPENSSL_PATH/lib"
+    [ -d "$LIB_PATH" ] || { echo "Error: No lib or lib64 found in $OPENSSL_PATH."; exit 1; }
 
-mkdir "tmp/"
-export LC_ALL=C
+    export LD_LIBRARY_PATH="$LIB_PATH:$LD_LIBRARY_PATH"
+    OPENSSL="$OPENSSL_PATH/bin/openssl"
+fi
+
+date > "maketestcert.log"
+mkdir "tmp/" 2>> "maketestcert.log" 1>&2
 mkdir "CA/" 2>> "maketestcert.log" 1>&2
 touch "CA/index.txt"
 echo -n "unique_subject = no" > "CA/index.txt.attr"
 "$OPENSSL" rand -hex 16 > "CA/serial"
 echo 1001 > "CA/crlnumber"
-date > "maketestcert.log"
 "$OPENSSL" version 2>> "maketestcert.log" 1>&2
 
 
@@ -61,7 +70,7 @@ CONF="${script_path}/openssl_root.cnf"
 ################################################################################
 # Root CA certificate
 ################################################################################
-"$OPENSSL" genrsa -out CA/CA.key \
+"$OPENSSL" genrsa -out CA/CA.key 2048 \
     2>> "maketestcert.log" 1>&2
 "$OPENSSL" req -config $CONF -new -x509 -days 3600 -key CA/CA.key -out tmp/CACert.pem \
     -subj "/C=PL/O=Stunnel Developers/OU=Root CA/CN=CA/emailAddress=CA@example.com" \
@@ -72,7 +81,7 @@ CONF="${script_path}/openssl_root.cnf"
 # Intermediate CA certificate
 ################################################################################
 CONF="${script_path}/openssl_intermediate.cnf"
-"$OPENSSL" genrsa -out CA/intermediateCA.key \
+"$OPENSSL" genrsa -out CA/intermediateCA.key 2048 \
     2>> "maketestcert.log" 1>&2
 "$OPENSSL" req -config "$CONF" -new -key CA/intermediateCA.key -out CA/intermediateCA.csr \
     -subj "/C=PL/O=Stunnel Developers/OU=Intermediate CA/CN=Intermediate CA" \
@@ -89,7 +98,7 @@ CONF="${script_path}/openssl_root.cnf"
 # Revoked certificate chain
 ################################################################################
 CONF="${script_path}/openssl_intermediate.cnf"
-"$OPENSSL" genrsa -out CA/revoked.key \
+"$OPENSSL" genrsa -out CA/revoked.key 2048 \
     2>> "maketestcert.log" 1>&2
 "$OPENSSL" req -config $CONF -new -key CA/revoked.key -out CA/revoked.csr \
     -subj "/C=PL/O=Stunnel Developers/OU=revoked/CN=revoked/emailAddress=revoked@example.com" \
@@ -111,7 +120,7 @@ cat tmp/intermediateCA.pem >> tmp/revoked_cert.pem 2>> "maketestcert.log"
 ################################################################################
 # Server certificate chain
 ################################################################################
-"$OPENSSL" genrsa -out CA/server.key \
+"$OPENSSL" genrsa -out CA/server.key 2048 \
     2>> "maketestcert.log" 1>&2
 "$OPENSSL" req -config $CONF -new -key CA/server.key -out CA/server.csr \
     -subj "/C=PL/O=Stunnel Developers/OU=server/CN=server/emailAddress=server@example.com" \
@@ -124,16 +133,27 @@ cat tmp/server_cert.pem >> tmp/PeerCerts.pem 2>> "maketestcert.log"
 cat CA/server.key >> tmp/server_cert.pem 2>> "maketestcert.log"
 cat tmp/intermediateCA.pem >> tmp/server_cert.pem 2>> "maketestcert.log"
 
-# create a PKCS#12 file with a server certificate chain
-"$OPENSSL" pkcs12 -export -certpbe pbeWithSHA1And3-KeyTripleDES-CBC \
+# create a PKCS#12 file with a server certificate chain using AES-256-CBC
+# and PBMAC1 (RFC 9579, supported in OpenSSL 3.4.0+);
+# PBMAC1 is FIPS-compliant, whereas SHA1 + 3DES is not
+"$OPENSSL" pkcs12 -export --certpbe AES-256-CBC -keypbe AES-256-CBC \
+    -macalg SHA256 -pbmac1_pbkdf2 \
     -in tmp/server_cert.pem -out tmp/server_cert.p12 -passout pass: \
+     2>> "maketestcert.log" 1>&2
+# if the operation fails, retry with SHA1 + 3DES for compatibility
+if ! test -s tmp/server_cert.p12; then
+    "$OPENSSL" pkcs12 -export -certpbe pbeWithSHA1And3-KeyTripleDES-CBC \
+        -in tmp/server_cert.pem -out tmp/server_cert.p12 -passout pass: \
+        2>> "maketestcert.log" 1>&2
+fi
+"$OPENSSL" pkcs12 -in tmp/server_cert.p12 -noout -info -passin pass: \
     2>> "maketestcert.log" 1>&2
 
 
 ################################################################################
 # Client certificate chain
 ################################################################################
-"$OPENSSL" genrsa -out CA/client.key \
+"$OPENSSL" genrsa -out CA/client.key 2048 \
     2>> "maketestcert.log" 1>&2
 "$OPENSSL" req -config $CONF -new -key CA/client.key -out CA/client.csr \
     -subj "/C=PL/O=Stunnel Developers/OU=client/CN=client/emailAddress=client@example.com" \

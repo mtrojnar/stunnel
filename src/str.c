@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -118,6 +118,10 @@ NOEXPORT int leak_cmp(const LEAK_ENTRY *const *, const LEAK_ENTRY *const *);
 NOEXPORT void leak_report(void);
 NOEXPORT long leak_threshold(void);
 
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+NOEXPORT void free_function(void *);
+#endif
+
 TLS_DATA *ui_tls;
 NOEXPORT uint8_t canary[10]; /* 80-bit canary value */
 NOEXPORT volatile uint64_t canary_initialized=CANARY_UNINTIALIZED;
@@ -221,6 +225,13 @@ NOEXPORT LPTSTR str_vtprintf(LPCTSTR format, va_list start_ap) {
 
 void str_init(void) {
     memset(leak_hash_table, 0, sizeof leak_hash_table);
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    CRYPTO_set_mem_functions(str_alloc_detached_debug,
+        str_realloc_detached_debug, str_free_debug);
+#else
+    CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
+        str_realloc_detached_debug, free_function);
+#endif
 }
 
 void str_thread_init(TLS_DATA *tls_data) {
@@ -669,5 +680,15 @@ int safe_memcmp(const void *s1, const void *s2, size_t n) {
         r|=(*ps1++)^(*ps2++);
     return r!=0;
 }
+
+/**************************************** OpenSSL allocator hook */
+
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+NOEXPORT void free_function(void *ptr) {
+    /* CRYPTO_set_mem_ex_functions() needs a function rather than a macro */
+    /* unfortunately, OpenSSL provides no file:line information here */
+    str_free_debug(ptr, "OpenSSL", 0);
+}
+#endif
 
 /* end of str.c */

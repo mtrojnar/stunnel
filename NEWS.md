@@ -1,6 +1,26 @@
 # stunnel change log
 
 
+### Version 5.75, 2025.05.26, urgency: MEDIUM
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.4.1.
+  - OpenSSL FIPS Provider updated to version 3.1.2.
+* Bugfixes
+  - Fixed infinite loop triggered by OCSP URL parsing errors
+    (thx to Richard Könning for reporting).
+  - Fixed OPENSSL_NO_OCSP build issues
+    (thx to Dmitry Mostovoy for reporting).
+  - Fixed default curve selection in FIPS mode with OpenSSL 3.4+.
+  - Fixed tests with modern Python versions.
+  - Fixed tests with multiple OpenSSL versions installed.
+* Features
+  - Added provider URI support for "cert" and "key" options.
+  - Added new "CAstore" service-level option (OpenSSL 3.0+).
+  - Added "provider" (OpenSSL 3.0+), "providerParameter"
+    (OpenSSL 3.5+), and "setEnv" global options.
+  - Key file/URI path added to passphrase prompt on Unix.
+  - PKCS#11 provider installed on Windows.
+
 ### Version 5.74, 2024.12.13, urgency: HIGH
 * Bugfixes
   - Fixed a stapling cache deallocation crash.

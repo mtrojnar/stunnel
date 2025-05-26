@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -490,6 +490,7 @@ extern char *sys_errlist[];
 #include <openssl/ui.h>
 #include <openssl/err.h>
 #include <openssl/crypto.h> /* for CRYPTO_* and SSLeay_version */
+#include <openssl/x509v3.h>
 #include <openssl/rand.h>
 #include <openssl/bn.h>
 #include <openssl/pkcs12.h>
@@ -514,6 +515,7 @@ int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
 STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #endif /* !defined(OPENSSL_NO_COMP) */
 #if OPENSSL_VERSION_NUMBER>=0x10101000L
+#include <openssl/store.h>
 #include <openssl/storeerr.h>
 #endif /* OPENSSL_VERSION_NUMBER>=0x10101000L */
 #if OPENSSL_VERSION_NUMBER>=0x30000000L

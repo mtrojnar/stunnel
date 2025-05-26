@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -141,22 +141,26 @@ void crypto_init(void) {
     SetCurrentDirectory(TEXT("config"));
 #endif
 
+    stunnel_dir=tstr2str(stunnel_exe_path);
+    if(!stunnel_dir) /* fail-safe */
+        stunnel_dir=str_dup("..");
+
     /* setup the environment */
-    _tputenv(str_tprintf(TEXT("OPENSSL_ENGINES=%s\\engines"),
-        stunnel_exe_path));
-    _tputenv(str_tprintf(TEXT("OPENSSL_MODULES=%s\\ossl-modules"),
-        stunnel_exe_path));
-    _tputenv(str_tprintf(TEXT("OPENSSL_CONF=%s\\config\\openssl.cnf"),
-        stunnel_exe_path));
+    path=str_printf("%s\\engines", stunnel_dir);
+    _putenv_s("OPENSSL_ENGINES", path);
+    str_free(path);
+    path=str_printf("%s\\ossl-modules", stunnel_dir);
+    _putenv_s("OPENSSL_MODULES", path);
+    str_free(path);
+    path=str_printf("%s\\config\\openssl.cnf", stunnel_dir);
+    _putenv_s("OPENSSL_CONF", path);
+    str_free(path);
 #endif /* USE_WIN32 */
 
     /* initialize OpenSSL */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     conf=OPENSSL_INIT_new();
 #ifdef USE_WIN32
-    stunnel_dir=tstr2str(stunnel_exe_path);
-    if(!stunnel_dir) /* fail-safe */
-        stunnel_dir=str_dup("..");
     path=str_printf("%s\\config\\openssl.cnf", stunnel_dir);
     if(!OPENSSL_INIT_set_config_filename(conf, path)) {
         s_log(LOG_ERR, "Failed to set OpenSSL configuration file name");

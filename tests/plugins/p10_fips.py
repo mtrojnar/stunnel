@@ -44,6 +44,7 @@ class FIPSTest(StunnelTest):
             "Client received unexpected message",
             "Server received unexpected message",
             "Something went wrong",
+            "Invalid groups list in 'curves'",
             "INTERNAL ERROR"
         ]
 

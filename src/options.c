@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -39,11 +39,7 @@
 
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
 #define DEFAULT_CURVES "X25519:P-256:X448:P-521:P-384"
-#ifdef SSL_SYSTEM_DEFAULT_CIPHER_LIST /* Red Hat OpenSSL */
 #define DEFAULT_CURVES_FIPS "P-256:P-521:P-384"
-#else /* standard OpenSSL */
-#define DEFAULT_CURVES_FIPS DEFAULT_CURVES
-#endif /* Red Hat OpenSSL */
 #else /* OpenSSL version < 1.1.1 */
 #define DEFAULT_CURVES "prime256v1"
 #define DEFAULT_CURVES_FIPS DEFAULT_CURVES
@@ -301,6 +297,10 @@ NOEXPORT ENGINE *engine_get_by_id(const char *);
 NOEXPORT ENGINE *engine_get_by_num(const int);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
+#if OPENSSL_VERSION_NUMBER>=0x30500000L
+NOEXPORT int provider_parameter(OSSL_PROVIDER *, void *);
+#endif /* OPENSSL_VERSION_NUMBER>=0x30500000L */
+
 NOEXPORT const char *include_config(char *, SERVICE_OPTIONS **);
 
 NOEXPORT void print_syntax(void);
@@ -336,6 +336,10 @@ static const char *fips_cipher_list=
 static const char *stunnel_ciphersuites=
     "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256";
 #endif /* TLS 1.3 */
+
+#if OPENSSL_VERSION_NUMBER>=0x30500000L
+static int provider_found;
+#endif /* OPENSSL_VERSION_NUMBER>=0x30500000L */
 
 /**************************************** parse commandline parameters */
 
@@ -1186,6 +1190,59 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
     }
 #endif
 
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+    /* provider */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        break;
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "provider"))
+            break;
+        if(!OSSL_PROVIDER_try_load(NULL, arg, 1))
+            return "Failed to load provider";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = OpenSSL provider to load", "provider");
+        break;
+    }
+#endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
+
+#if OPENSSL_VERSION_NUMBER>=0x30500000L
+    /* providerParameter */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        break;
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "providerParameter"))
+            break;
+        provider_found=0;
+        if(!OSSL_PROVIDER_do_all(NULL, provider_parameter, arg))
+            return "Malformed parameter";
+        if(!provider_found)
+            return "Provider not found";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = provider:parameter=value", "providerParameter");
+        break;
+    }
+#endif /* OPENSSL_VERSION_NUMBER>=0x30500000L */
+
     /* RNDbytes */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
@@ -1275,6 +1332,42 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
     case CMD_PRINT_HELP:
         s_log(LOG_NOTICE, "%-22s = yes|no overwrite seed datafiles with new random data",
             "RNDoverwrite");
+        break;
+    }
+
+    /* setEnv */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        break;
+    case CMD_SET_COPY: /* not used for global options */
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "setEnv"))
+            break;
+        {
+            char *value;
+
+            value=strchr(arg, '=');
+            if(value)
+                *value++='\0';
+            else
+                value="";
+#ifdef USE_WIN32
+            if(_putenv_s(arg, value))
+#else
+            if(*value ? setenv(arg, value, 1) : unsetenv(arg))
+#endif
+                return "Memory allocation failed";
+        }
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = name=value of an environment variable", "setEnv");
         break;
     }
 
@@ -1563,6 +1656,38 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             "CAfile");
         break;
     }
+
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+    /* CAstore */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->ca_store=NULL;
+        break;
+    case CMD_SET_COPY:
+        section->ca_store=str_dup_detached(new_service_options.ca_store);
+        break;
+    case CMD_FREE:
+        str_free(section->ca_store);
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "CAstore"))
+            break;
+        str_free(section->ca_store);
+        if(arg[0]) /* not empty */
+            section->ca_store=str_dup_detached(arg);
+        else
+            section->ca_store=NULL;
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE, "%-22s = URI to store of CA certificates",
+            "CAstore");
+        break;
+    }
+#endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
 
     /* cert */
     switch(cmd) {
@@ -1960,7 +2085,14 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
              * section->curves is no longer NULL in sections */
 #ifdef USE_FIPS
             if(new_global_options.option.fips)
+#ifdef SSL_SYSTEM_DEFAULT_CIPHER_LIST
                 section->curves=str_dup_detached(DEFAULT_CURVES_FIPS);
+#else /* standard OpenSSL */
+                if(OpenSSL_version_num()>=0x30400000L)
+                    section->curves=str_dup_detached(DEFAULT_CURVES_FIPS);
+                else
+                    section->curves=str_dup_detached(DEFAULT_CURVES);
+#endif /* Red Hat OpenSSL */
             else
 #endif /* USE_FIPS */
                 section->curves=str_dup_detached(DEFAULT_CURVES);
@@ -3781,6 +3913,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     }
 
     /* TIMEOUTocsp */
+#ifndef OPENSSL_NO_OCSP
     switch(cmd) {
     case CMD_SET_DEFAULTS:
         section->timeout_ocsp=5; /* 5 seconds */
@@ -3809,6 +3942,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         s_log(LOG_NOTICE, "%-22s = seconds to connect OCSP responder", "TIMEOUTocsp");
         break;
     }
+#endif /* !OPENSSL_NO_OCSP */
 
     /* transparent */
 #ifndef USE_WIN32
@@ -3882,13 +4016,25 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     case CMD_INITIALIZE:
 #ifndef OPENSSL_NO_ENGINE
         if((section->option.verify_chain || section->option.verify_peer) &&
-                !section->ca_engine && !section->ca_file && !section->ca_dir)
+                !section->ca_engine && !section->ca_file && !section->ca_dir
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+                && !section->ca_store)
+            return "Either \"CAengine\", \"CAfile\", \"CApath\" or \"CAstore\" has to be configured";
+#else /* OPENSSL_VERSION_NUMBER>=0x30000000L */
+                )
             return "Either \"CAengine\", \"CAfile\" or \"CApath\" has to be configured";
-#else
+#endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
+#else /* OPENSSL_NO_ENGINE */
         if((section->option.verify_chain || section->option.verify_peer) &&
-                !section->ca_file && !section->ca_dir)
+                !section->ca_file && !section->ca_dir
+#if OPENSSL_VERSION_NUMBER>=0x30000000L
+                 && !section->ca_store)
+            return "Either \"CAfile\", \"CApath\" or \"CAstore\" has to be configured";
+#else /* OPENSSL_VERSION_NUMBER>=0x30000000L */
+                )
             return "Either \"CAfile\" or \"CApath\" has to be configured";
-#endif
+#endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
+#endif /* OPENSSL_NO_ENGINE */
         break;
     case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = none", "verify");
@@ -4955,6 +5101,35 @@ NOEXPORT ENGINE *engine_get_by_num(const int i) {
 }
 
 #endif /* !defined(OPENSSL_NO_ENGINE) */
+
+/**************************************** provider */
+
+#if OPENSSL_VERSION_NUMBER>=0x30500000L
+
+NOEXPORT int provider_parameter(OSSL_PROVIDER *provider, void *cbdata) {
+    char *prov=str_dup(cbdata), *name, *value;
+    int retval=0;
+
+    name=strchr(prov, ':');
+    if(!name)
+        goto cleanup;
+    *name++='\0';
+    value=strchr(name, '=');
+    if(!value)
+        goto cleanup;
+    *value++='\0';
+
+    if(!strcmp(OSSL_PROVIDER_get0_name(provider), prov))
+        if(OSSL_PROVIDER_add_conf_parameter(provider, name, value))
+            provider_found=1;
+    retval=1;
+
+cleanup:
+    str_free(prov);
+    return retval;
+}
+
+#endif /* OPENSSL_VERSION_NUMBER>=0x30500000L */
 
 /**************************************** include config directory */
 

@@ -1,6 +1,6 @@
 /*
  *   stunnel       TLS offloading and load-balancing proxy
- *   Copyright (C) 1998-2024 Michal Trojnara <Michal.Trojnara@stunnel.org>
+ *   Copyright (C) 1998-2025 Michal Trojnara <Michal.Trojnara@stunnel.org>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -38,13 +38,8 @@
 #include "prototypes.h"
 
 int main(int argc, char *argv[]) {
-    static struct WSAData wsa_state;
-
-    tls_init(); /* initialize thread-local storage */
-    crypto_init(); /* initialize libcrypto */
-    if(WSAStartup(MAKEWORD(2, 2), &wsa_state))
+    if(stunnel_init())
         return 1;
-    resolver_init();
     main_init();
     if(!main_configure(argc>1 ? argv[1] : NULL, argc>2 ? argv[2] : NULL))
         daemon_loop();
@@ -105,7 +100,7 @@ int ui_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
     return PEM_def_callback(buf, size, rwflag, userdata);
 }
 
-#ifndef OPENSSL_NO_ENGINE
+#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
 
 int (*ui_get_opener(void)) (UI *) {
     return UI_method_get_opener(UI_OpenSSL());
@@ -123,6 +118,6 @@ int (*ui_get_closer(void)) (UI *) {
     return UI_method_get_closer(UI_OpenSSL());
 }
 
-#endif
+#endif /* !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L */
 
 /* end of ui_win_cli.c */
