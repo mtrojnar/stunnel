@@ -941,7 +941,8 @@ NOEXPORT void transfer(CLI *c) {
                 s_log(LOG_INFO, "Write socket closed (HUP)");
                 sock_open_wr=0;
             }
-            if(s_poll_hup(c->fds, c->sock_rfd->fd)) {
+            if(sock_open_rd && s_poll_hup(c->fds, c->sock_rfd->fd) &&
+                    (ioctlsocket(c->sock_rfd->fd, FIONREAD, &bytes) || !bytes)) {
                 s_log(LOG_INFO, "Read socket closed (HUP)");
                 sock_open_rd=0;
             }
