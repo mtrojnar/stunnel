@@ -855,8 +855,8 @@ NOEXPORT void transfer(CLI *c) {
         s_poll_init(c->fds, 0); /* initialize the structure */
         /* for plain socket open data stream = open file descriptor */
         /* make sure to add each open socket to receive exceptions! */
-        if(sock_open_rd) /* only poll if the read file descriptor is open */
-            s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
+        if(sock_open_rd && c->sock_ptr<BUFFSIZE)
+            s_poll_add(c->fds, c->sock_rfd->fd, 1, 0);
         if(sock_open_wr) /* only poll if the write file descriptor is open */
             s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr>0);
         /* poll TLS file descriptors unless TLS shutdown was completed */
