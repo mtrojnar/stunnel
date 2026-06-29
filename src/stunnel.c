@@ -38,7 +38,7 @@
 #include "prototypes.h"
 
 /* http://www.openssl.org/support/faq.html#PROG2 */
-#ifdef USE_WIN32
+#if defined(_MSC_VER) || defined(HAVE_OPENSSL_APPLINK_C)
 
 #ifdef __GNUC__
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
@@ -55,7 +55,7 @@
 #endif /* __GNUC__>=4.6 */
 #endif /* __GNUC__ */
 
-#endif /* USE_WIN32 */
+#endif /* _MSC_VER || HAVE_OPENSSL_APPLINK_C */
 
 /**************************************** prototypes */
 
@@ -72,7 +72,20 @@ NOEXPORT void terminate_threads(void);
 NOEXPORT void pid_status_nohang(const char *);
 NOEXPORT void status_info(int, int, const char *);
 #endif
+typedef enum {
+    ACCEPT_SUCCESS,
+    ACCEPT_FAILURE,
+    ACCEPT_DELAY
+} ACCEPT_STATUS;
+
 NOEXPORT int accept_connection(SERVICE_OPTIONS *, unsigned);
+#ifdef USE_DTLS
+NOEXPORT ACCEPT_STATUS accept_udp_connection(SERVICE_OPTIONS *, SOCKET, CLI *);
+NOEXPORT int accept_udp_peer(SERVICE_OPTIONS *, SOCKET, CLI *, ssize_t *);
+NOEXPORT int connect_udp_client_socket(SERVICE_OPTIONS *, SOCKET, CLI *);
+#endif /* USE_DTLS */
+NOEXPORT ACCEPT_STATUS accept_tcp_connection(SERVICE_OPTIONS *, SOCKET, CLI *);
+NOEXPORT void start_accepted_client(SERVICE_OPTIONS *, SOCKET, CLI *);
 NOEXPORT int exec_connect_start(void);
 NOEXPORT void unbind_ports(void);
 NOEXPORT void unbind_port(SERVICE_OPTIONS *, unsigned);
@@ -297,7 +310,7 @@ NOEXPORT void terminate_threads(void) {
     threads=0;
     for(c=thread_head; c; c=c->thread_next) /* count client threads */
         threads++;
-    thread_list=str_alloc((threads+2)*sizeof(THREAD_ID));
+    thread_list=str_alloc((threads+3)*sizeof(THREAD_ID));
     i=0;
     for(c=thread_head; c; c=c->thread_next) { /* copy client threads */
         thread_list[i++]=c->thread_id;
@@ -306,6 +319,10 @@ NOEXPORT void terminate_threads(void) {
     if(per_second_thread_id) { /* append per_second_thread_id if used */
         thread_list[threads++]=per_second_thread_id;
         s_log(LOG_DEBUG, "Terminating the per-second thread");
+    }
+    if(per_minute_thread_id) { /* append per_minute_thread_id if used */
+        thread_list[threads++]=per_minute_thread_id;
+        s_log(LOG_DEBUG, "Terminating the per-minute thread");
     }
     if(per_day_thread_id) { /* append per_day_thread_id if used */
         thread_list[threads++]=per_day_thread_id;
@@ -432,61 +449,233 @@ void daemon_loop(void) {
     leak_table_utilization();
 }
 
-    /* return 1 when a short delay is needed before another try */
+/* return 1 when a short delay is needed before another try */
 NOEXPORT int accept_connection(SERVICE_OPTIONS *opt, unsigned i) {
-    SOCKADDR_UNION addr;
-    char *from_address;
-    SOCKET s, fd=opt->local_fd[i];
-    socklen_t addrlen;
+    SOCKET fd=opt->local_fd[i];
+    CLI *c;
+    ACCEPT_STATUS status;
 
-    addrlen=sizeof addr;
+    c=alloc_client(opt);
+#ifdef USE_DTLS
+    status=opt->sock_type==SOCK_DGRAM ?
+        accept_udp_connection(opt, fd, c) :
+        accept_tcp_connection(opt, fd, c);
+#else
+    status=accept_tcp_connection(opt, fd, c);
+#endif /* USE_DTLS */
+    switch(status) {
+    case ACCEPT_SUCCESS:
+        start_accepted_client(opt, fd, c);
+        return 0;
+    case ACCEPT_DELAY:
+        free_client(c);
+        return 1; /* retry */
+    default: /* ACCEPT_FAILURE */
+        free_client(c);
+        return 0;
+    }
+}
+
+#ifdef USE_DTLS
+/* accept UDP peer and create connected client socket */
+NOEXPORT ACCEPT_STATUS accept_udp_connection(SERVICE_OPTIONS *opt,
+        SOCKET fd, CLI *c) {
+    ssize_t len=0;
+    BIO *rbio, *wbio;
+
+    /* UDP: DTLS server mode validates cookies on the listening socket
+     * and leaves peer address in c->peer_addr.  It must not consume
+     * another datagram here: pending ClientHello data is drained by
+     * dtls_preload_pending() below.  DTLS client mode consumes and queues
+     * the first plaintext datagram to discover the peer. */
+    if(accept_udp_peer(opt, fd, c, &len))
+        return ACCEPT_FAILURE;
+
+    c->accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
+    str_detach(c->accepted_address);
+    s_log(LOG_DEBUG, "Service [%s] UDP accepted from %s",
+        opt->servname, c->accepted_address);
+
+    if(connect_udp_client_socket(opt, fd, c))
+        return ACCEPT_FAILURE;
+
+    if(opt->option.client) {
+        c->sock_ptr=(size_t)len;
+        /* Drain same-peer datagrams from the listen fd so they
+         * don't spawn duplicate sessions for the same 4-tuple.
+         * drain_udp_datagrams() queues them in udp_preload_bio
+         * (dgram BIO) or drops them (old OpenSSL). */
+        if(drain_udp_datagrams(c, fd))
+            return ACCEPT_FAILURE;
+    } else if(c->ssl) {
+        /* Server mode: dtls_listen() accepted the cookie and left
+         * c->ssl in handshake state.  Drain same-peer fragments. */
+        if(drain_udp_datagrams(c, fd))
+            return ACCEPT_FAILURE;
+    }
+
+    if(c->ssl) {
+        /* Pre-initialized by dtls_listen() on the listen socket.
+         * Retarget BIOs from listen fd to connected client fd,
+         * preserving DTLSv1_listen() handshake state. */
+        rbio=SSL_get_rbio(c->ssl);
+        if(rbio)
+            BIO_set_fd(rbio, (int)c->local_rfd.fd, BIO_NOCLOSE);
+        wbio=SSL_get_wbio(c->ssl);
+        if(wbio && wbio!=rbio)
+            BIO_set_fd(wbio, (int)c->local_wfd.fd, BIO_NOCLOSE);
+    }
+
+    return ACCEPT_SUCCESS;
+}
+
+/* discover UDP peer; DTLS server mode only validates cookie */
+NOEXPORT int accept_udp_peer(SERVICE_OPTIONS *opt, SOCKET fd,
+        CLI *c, ssize_t *len) {
+    if(!opt->option.client)
+        return dtls_listen(c, fd) ? 0 : 1;
+
+    c->peer_addr_len=sizeof c->peer_addr;
+#ifdef MSG_TRUNC
+    /* on platforms with MSG_TRUNC, recvfrom() returns the real datagram
+     * size even when the buffer is shorter (the excess is discarded by
+     * the kernel) */
+    *len=recvfrom(fd, c->sock_buff, BUFFSIZE,
+        MSG_TRUNC, &c->peer_addr.sa, &c->peer_addr_len);
+#else
+    /* without MSG_TRUNC, a full buffer is the best truncation heuristic */
+    *len=recvfrom(fd, c->sock_buff, BUFFSIZE,
+        0, &c->peer_addr.sa, &c->peer_addr_len);
+#endif
+    if(*len<0) {
+        switch(get_last_socket_error()) {
+        case S_EINTR:
+        case S_EWOULDBLOCK:
+            break;
+#ifdef S_EMSGSIZE
+        case S_EMSGSIZE:
+            s_log(LOG_WARNING, "UDP: oversized datagram discarded");
+            break;
+#endif
+        default:
+            sockerror("recvfrom");
+        }
+        return 1;
+    }
+#ifdef MSG_TRUNC
+    if(*len>BUFFSIZE) {
+#else
+    if(*len==BUFFSIZE) {
+#endif
+        s_log(LOG_WARNING,
+            "UDP: datagram larger than BUFFSIZE"
+            " (%d bytes); discarding", BUFFSIZE);
+        return 1;
+    }
+    if(*len>SSL3_RT_MAX_PLAIN_LENGTH) {
+        s_log(LOG_WARNING,
+            "UDP: datagram larger than DTLS maximum plaintext"
+            " (%d bytes); discarding", SSL3_RT_MAX_PLAIN_LENGTH);
+        return 1;
+    }
+    return 0;
+}
+
+/* connect UDP client socket to peer */
+NOEXPORT int connect_udp_client_socket(SERVICE_OPTIONS *opt,
+        SOCKET fd, CLI *c) {
+    SOCKADDR_UNION local_addr;
+    socklen_t local_addrlen=sizeof local_addr;
+#ifdef SO_REUSEPORT
+    int on=1;
+#endif
+
+    if(getsockname(fd, &local_addr.sa, &local_addrlen)) {
+        sockerror("getsockname");
+        return 1;
+    }
+
+    c->local_rfd.fd=c->local_wfd.fd=
+        s_socket(c->peer_addr.sa.sa_family, SOCK_DGRAM, 0, 1,
+            "UDP client socket");
+    if(c->local_rfd.fd==INVALID_SOCKET)
+        return 1;
+    if(socket_options_set(opt, c->local_rfd.fd, 1)<0)
+        s_log(LOG_WARNING, "Failed to set UDP client socket options");
+#ifdef SO_REUSEPORT
+    /* Best-effort UDP port sharing.  socket_options_set() failures
+     * are logged as configuration problems, so keep this non-fatal. */
+    setsockopt(c->local_rfd.fd, SOL_SOCKET, SO_REUSEPORT,
+        (void *)&on, sizeof on); /* non-fatal */
+#endif
+    if(bind(c->local_rfd.fd, &local_addr.sa, local_addrlen)) {
+        sockerror("bind");
+        return 1;
+    }
+    if(connect(c->local_rfd.fd, &c->peer_addr.sa, c->peer_addr_len)) {
+        sockerror("connect");
+        return 1;
+    }
+    return 0;
+}
+#endif /* USE_DTLS */
+
+/* accept TCP connection from listening socket */
+NOEXPORT ACCEPT_STATUS accept_tcp_connection(SERVICE_OPTIONS *opt,
+        SOCKET fd, CLI *c) {
+    c->peer_addr_len=sizeof c->peer_addr;
     for(;;) {
-        s=s_accept(fd, &addr.sa, &addrlen, 1, "local socket");
-        if(s!=INVALID_SOCKET) /* success! */
+        c->local_rfd.fd=c->local_wfd.fd=
+            s_accept(fd, &c->peer_addr.sa, &c->peer_addr_len, 1,
+                "local socket");
+        if(c->local_rfd.fd!=INVALID_SOCKET) /* success! */
             break;
         switch(get_last_socket_error()) {
-            case S_EINTR: /* interrupted by a signal */
-                break; /* retry now */
-            case S_EMFILE:
+        case S_EINTR: /* interrupted by a signal */
+            break; /* retry now */
+        case S_EMFILE:
 #ifdef S_ENFILE
-            case S_ENFILE:
+        case S_ENFILE:
 #endif
 #ifdef S_ENOBUFS
-            case S_ENOBUFS:
+        case S_ENOBUFS:
 #endif
 #ifdef S_ENOMEM
-            case S_ENOMEM:
+        case S_ENOMEM:
 #endif
-                return 1; /* temporary lack of resources */
-            default:
-                return 0; /* any other error */
+            return ACCEPT_DELAY; /* temporary lack of resources */
+        default:
+            return ACCEPT_FAILURE; /* any other error */
         }
     }
-    from_address=s_ntop(&addr, addrlen);
+    c->accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
+    str_detach(c->accepted_address);
     s_log(LOG_DEBUG, "Service [%s] accepted (FD=%ld) from %s",
-        opt->servname, (long)s, from_address);
-    str_free(from_address);
+        opt->servname, (long)c->local_rfd.fd, c->accepted_address);
+    return ACCEPT_SUCCESS;
+}
+
+/* start client worker for accepted connection */
+NOEXPORT void start_accepted_client(SERVICE_OPTIONS *opt, SOCKET fd, CLI *c) {
+    /* shared: pre-create_client checks */
 #ifdef USE_FORK
     RAND_add("", 1, 0.0); /* each child needs a unique entropy pool */
 #else
     if(max_clients && num_clients>=max_clients) {
-        s_log(LOG_WARNING, "Connection rejected: too many clients (>=%d)",
+        s_log(LOG_WARNING,
+            "Connection rejected: too many clients (>=%d)",
             max_clients);
-        closesocket(s);
-        return 0;
+        free_client(c);
+        return;
     }
-#endif
-#ifndef USE_FORK
     service_up_ref(opt);
 #endif
-    if(create_client(fd, s, alloc_client_session(opt, s, s))) {
+    if(create_client(fd, c)) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
 #ifndef USE_FORK
         service_free(opt);
 #endif
-        return 0;
     }
-    return 0;
 }
 
 /**************************************** initialization helpers */
@@ -501,8 +690,8 @@ NOEXPORT int exec_connect_start(void) {
 #ifndef USE_FORK
             service_up_ref(opt);
 #endif
-            if(create_client(INVALID_SOCKET, INVALID_SOCKET,
-                    alloc_client_session(opt, INVALID_SOCKET, INVALID_SOCKET))) {
+            if(create_client(INVALID_SOCKET,
+                    alloc_client(opt))) {
                 s_log(LOG_ERR, "Failed to start exec+connect service [%s]",
                     opt->servname);
 #ifndef USE_FORK
@@ -642,6 +831,9 @@ NOEXPORT int bind_ports(void) {
 NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned i) {
     SOCKET fd;
     SOCKADDR_UNION *addr=opt->local_addr.addr+i;
+#ifdef SO_REUSEPORT
+    int on=1;
+#endif
 #ifdef HAVE_STRUCT_SOCKADDR_UN
     struct stat sb; /* buffer for lstat() */
 #endif
@@ -652,7 +844,9 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
             "Listening file descriptor received from systemd (FD=%ld)",
             (long)fd);
     } else {
-        fd=s_socket(addr->sa.sa_family, SOCK_STREAM, 0, 1, "accept socket");
+        fd=s_socket(addr->sa.sa_family,
+            opt->sock_type,
+            0, 1, "accept socket");
         if(fd==INVALID_SOCKET)
             return INVALID_SOCKET;
         s_log(LOG_DEBUG, "Listening file descriptor created (FD=%ld)",
@@ -663,6 +857,24 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
         closesocket(fd);
         return INVALID_SOCKET;
     }
+
+#ifdef SO_REUSEPORT
+    /* Best-effort UDP port sharing.  It is useful where supported,
+     * but should not make binding fail on platforms rejecting it. */
+    if(opt->sock_type==SOCK_DGRAM &&
+            (addr->sa.sa_family==AF_INET
+#ifdef AF_INET6
+            || addr->sa.sa_family==AF_INET6
+#endif
+            )) {
+        if(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT,
+                (void *)&on, sizeof on)) {
+            sockerror("SO_REUSEPORT");
+        } else {
+            s_log(LOG_DEBUG, "Option SO_REUSEPORT set on accept socket");
+        }
+    }
+#endif
 
     /* we don't bind or listen on a socket inherited from systemd */
     if(listening_section>=systemd_fds) {
@@ -678,7 +890,8 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
             closesocket(fd);
             return INVALID_SOCKET;
         }
-        if(listen(fd, SOMAXCONN)) {
+        if(opt->sock_type!=SOCK_DGRAM &&
+                listen(fd, SOMAXCONN)) {
             sockerror("listen");
             closesocket(fd);
             return INVALID_SOCKET;
@@ -750,7 +963,7 @@ NOEXPORT int pipe_init(SOCKET socket_vector[2], const char *name) {
 #ifdef USE_WIN32
     (void)name; /* squash the unused parameter warning */
 
-    if(make_sockets(socket_vector))
+    if(make_sockets(socket_vector, SOCK_STREAM))
         return 1;
 #elif defined(__INNOTEK_LIBC__)
     /* Innotek port of GCC can not use select on a pipe:
@@ -861,7 +1074,8 @@ NOEXPORT int signal_pipe_dispatch(void) {
         log_close(SINK_OUTFILE);
         log_open(SINK_OUTFILE);
         log_flush(LOG_MODE_CONFIGURED);
-        s_log(LOG_NOTICE, "Log file reopened");
+        if(outfile)
+            s_log(LOG_NOTICE, "Log file reopened");
         return 0;
     case SIGNAL_CONNECTIONS:
         return process_connections();
@@ -1146,6 +1360,12 @@ void stunnel_info(int level) {
     features=str_cat(features, "SNI");
     tls_feature_found=1;
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
+#ifdef USE_DTLS
+    if(tls_feature_found)
+        features=str_cat(features, ",");
+    features=str_cat(features, "DTLS");
+    tls_feature_found=1;
+#endif /* USE_DTLS */
     if(!tls_feature_found)
         features=str_cat(features, "NONE");
 

@@ -2,7 +2,7 @@
 ## DO NOT EDIT - This file generated from ./build-aux/ltmain.in
 ##               by inline-source v2019-02-19.15
 
-# libtool (GNU libtool) 2.4.7
+# libtool (GNU libtool) 2.5.4
 # Provide generalized library-building support services.
 # Written by Gordon Matzigkeit <gord@gnu.ai.mit.edu>, 1996
 
@@ -31,8 +31,8 @@
 
 PROGRAM=libtool
 PACKAGE=libtool
-VERSION="2.4.7 Debian-2.5.4-3"
-package_revision=2.4.7
+VERSION="2.5.4 Debian-2.5.4-11"
+package_revision=2.5.4
 
 
 ## ------ ##
@@ -2206,7 +2206,7 @@ func_version ()
 # End:
 
 # Set a version string.
-scriptversion='(GNU libtool) 2.4.7'
+scriptversion='(GNU libtool) 2.5.4'
 
 # func_version
 # ------------
@@ -2218,7 +2218,7 @@ func_version ()
 	year=`date +%Y`
 
 	cat <<EOF
-$progname $scriptversion Debian-2.5.4-3
+$progname $scriptversion Debian-2.5.4-11
 Copyright (C) $year Free Software Foundation, Inc.
 License GPLv2+: GNU GPL version 2 or later <https://gnu.org/licenses/gpl.html>
 This is free software: you are free to change and redistribute it.
@@ -2312,12 +2312,12 @@ include the following information:
        compiler:       $LTCC
        compiler flags: $LTCFLAGS
        linker:         $LD (gnu? $with_gnu_ld)
-       version:        $progname $scriptversion Debian-2.5.4-3
+       version:        $progname $scriptversion Debian-2.5.4-11
        automake:       `($AUTOMAKE --version) 2>/dev/null |$SED 1q`
        autoconf:       `($AUTOCONF --version) 2>/dev/null |$SED 1q`
 
 Report bugs to <bug-libtool@gnu.org>.
-GNU libtool home page: <https://www.gnu.org/s/libtool/>.
+GNU libtool home page: <https://www.gnu.org/software/libtool/>.
 General help using GNU software: <https://www.gnu.org/gethelp/>."
     exit 0
 }

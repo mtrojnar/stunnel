@@ -330,7 +330,7 @@ NOEXPORT void socks5_client_address(CLI *c) {
     else
         s_ssl_read(c, &socks.v4.addr, 4+2);
     if(socks.resp.ver!=5) {
-        s_log(LOG_ERR, "Invalid SOCKS5 message version 0x%02x", socks.req.ver);
+        s_log(LOG_ERR, "Invalid SOCKS5 message version 0x%02x", socks.resp.ver);
         throw_exception(c, 2); /* don't reset */
     }
     switch(socks.resp.rep) {
@@ -1768,7 +1768,7 @@ NOEXPORT void capwinctrl_client_early(CLI *c) {
 
 NOEXPORT int capwin_decode(const char *src,
         char **cmd, char **user, char **pass, char **ctrl) {
-    char *us1, *us2, *us3, *fs;
+    const char *us1, *us2, *us3, *fs;
 
     us1=strchr(src, '\x1f');
     if(!us1) {

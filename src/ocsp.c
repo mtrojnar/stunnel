@@ -599,7 +599,7 @@ NOEXPORT int ocsp_request(CLI *c, SERVICE_OPTIONS *opt, OCSP_CTX *ocsp) {
     ocsp_ctx_cleanup(ocsp);
 
     /* build request */
-    ocsp->source_found=1; /* ether AIA or a configured responder */
+    ocsp->source_found=1; /* either AIA or a configured responder */
     ocsp->request=OCSP_REQUEST_new();
     if(!ocsp->request) {
         ssl_error(c, "OCSP: OCSP_REQUEST_new");

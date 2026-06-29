@@ -78,8 +78,14 @@
 /* Define to 1 if you have 'msghdr.msg_control' structure. */
 #undef HAVE_MSGHDR_MSG_CONTROL
 
+/* Define to 1 if you have the <netinet/udp.h> header file. */
+#undef HAVE_NETINET_UDP_H
+
 /* Define to 1 if you have the 'openpty' function. */
 #undef HAVE_OPENPTY
+
+/* Define to 1 if you have the <openssl/applink.c> header file. */
+#undef HAVE_OPENSSL_APPLINK_C
 
 /* Define to 1 if you have the 'OSSL_PROVIDER_available' function. */
 #undef HAVE_OSSL_PROVIDER_AVAILABLE
@@ -288,6 +294,10 @@
 /* Enable extensions on AIX, Interix, z/OS.  */
 #ifndef _ALL_SOURCE
 # undef _ALL_SOURCE
+#endif
+/* Enable extensions on Cosmopolitan Libc. */
+#ifndef _COSMO_SOURCE
+# undef _COSMO_SOURCE
 #endif
 /* Enable general extensions on macOS.  */
 #ifndef _DARWIN_C_SOURCE

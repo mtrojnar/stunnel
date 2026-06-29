@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>stunnel TLS Proxy</title>
   <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
     html {
       color: #1a1a1a;
       background-color: #fdfdfd;
@@ -88,6 +91,7 @@
       color: #606060;
     }
     code {
+      white-space: pre-wrap;
       font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
       font-size: 85%;
       margin: 0;
@@ -107,8 +111,8 @@
      overflow: visible;
     }
     hr {
-      background-color: #1a1a1a;
       border: none;
+      border-top: 1px solid #1a1a1a;
       height: 1px;
       margin: 1em 0;
     }
@@ -151,7 +155,6 @@
     #TOC a:not(:hover) {
       text-decoration: none;
     }
-    code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
     div.columns{display: flex; gap: min(4vw, 1.5em);}
     div.column{flex: auto; overflow-x: auto;}
@@ -1059,6 +1062,19 @@ with <strong>OpenSSL 1.0.0</strong> and later.</p></li>
 <p>time to keep an idle connection</p></li>
 <li><p><strong>TIMEOUTocsp</strong> = SECONDS</p>
 <p>time to wait to connect an OCSP responder</p></li>
+<li><p><strong>transport</strong> = tcp | udp</p>
+<p>select transport protocol</p>
+<p>Supported values:</p>
+<ul>
+<li><p><em>tcp</em></p>
+<p>Use standard TLS over TCP (default).</p></li>
+<li><p><em>udp</em></p>
+<p>Use DTLS over UDP.</p>
+<p>Each datagram opens a new logical connection within the service. The
+server uses a different connected socket per client, and DTLS cookies
+protect against DDoS reflection attacks.</p></li>
+</ul>
+<p>default: tcp</p></li>
 <li><p><strong>transparent</strong> = none | source | destination | both
 (Unix only)</p>
 <p>enable transparent proxy support on selected platforms</p>

@@ -166,6 +166,7 @@ typedef union sockaddr_union {
 #ifdef HAVE_STRUCT_SOCKADDR_UN
     struct sockaddr_un un;
 #endif
+    struct sockaddr_storage ss; /* generic storage, large enough for any AF */
 } SOCKADDR_UNION;
 
 typedef struct name_list_struct {
@@ -350,6 +351,12 @@ struct service_options_struct {
     TICKET_KEY *ticket_key;              /* key for handling session tickets */
     TICKET_KEY *ticket_mac;            /* key for protecting session tickets */
 #endif /* OpenSSL 1.0.0 or later */
+#ifdef USE_DTLS
+    /* DTLS cookie callbacks - required for DTLSv1_listen()
+     * Use HMAC-SHA256 with random per-section secret bound to the client
+     * IP address (not port) so cookies survive ephemeral port changes. */
+    unsigned char dtls_cookie_secret[32];
+#endif /* USE_DTLS */
 
         /* service-specific data for client.c */
     char *exec_name;                          /* program name for local mode */
@@ -395,6 +402,7 @@ struct service_options_struct {
     char *chain;
 
         /* on/off switches */
+    int sock_type;                      /* SOCK_STREAM (default) or SOCK_DGRAM */
     struct {
         unsigned request_cert:1;        /* request a peer certificate */
         unsigned require_cert:1;        /* require a client certificate */
@@ -469,7 +477,8 @@ struct sock_opt_struct {
     int  opt_level;
     int  opt_name;
     VAL_TYPE opt_type;
-    OPT_UNION *opt_val[3];
+    OPT_UNION *opt_val_tcp[3];
+    OPT_UNION *opt_val_udp[3];
 };
 
 typedef enum {
@@ -556,6 +565,11 @@ struct client_data_struct {
         unsigned psk_found:1;                      /* PSK identity was found */
 #endif /* !defined(OPENSSL_NO_PSK) */
     } flag;
+
+#ifdef USE_DTLS
+    BIO *udp_preload_bio;  /* drain_udp_datagrams() (server + client); see
+                             * set_preload_bio() / transfer_udp() */
+#endif /* USE_DTLS */
 };
 
 /**************************************** prototypes for stunnel.c */
@@ -642,6 +656,7 @@ DH *get_dh2048(void);
 
 #ifdef USE_OS_THREADS
 extern THREAD_ID per_second_thread_id;
+extern THREAD_ID per_minute_thread_id;
 extern THREAD_ID per_day_thread_id;
 #endif
 
@@ -651,6 +666,9 @@ int cron_init(void);
 
 extern int index_ssl_cli, index_ssl_ctx_opt;
 extern int index_session_authenticated, index_session_connect_address;
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+extern int unsafe_openssl;
+#endif /* OpenSSL version < 1.1.0 */
 
 #ifdef USE_FIPS
 int fips_default(void);
@@ -742,13 +760,20 @@ void s_poll_sleep(int, int);
 #endif
 
 int socket_options_set(SERVICE_OPTIONS *, SOCKET, int);
-int make_sockets(SOCKET[2]);
+int make_sockets(SOCKET[2], int);
 int original_dst(const SOCKET, SOCKADDR_UNION *);
 int socket_needs_retry(CLI *, const char *);
 
+#ifdef USE_DTLS
+int dtls_listen(CLI *, SOCKET);
+void dtls_accept(CLI *);
+int drain_udp_datagrams(CLI *, SOCKET);
+#endif /* USE_DTLS */
+
 /**************************************** prototypes for client.c */
 
-CLI *alloc_client_session(SERVICE_OPTIONS *, SOCKET, SOCKET);
+CLI *alloc_client(SERVICE_OPTIONS *);
+void free_client(CLI *);
 #if defined(USE_WIN32) || defined(USE_OS2)
 unsigned __stdcall
 #else
@@ -756,7 +781,6 @@ void *
 #endif
     client_thread(void *);
 void client_main(CLI *);
-void client_free(CLI *);
 void throw_exception(CLI *, int) NORETURN;
 
 /**************************************** prototypes for network.c */
@@ -856,7 +880,7 @@ int CRYPTO_atomic_add(int *, int, int *, CRYPTO_RWLOCK *);
 int sthreads_init(void);
 unsigned long stunnel_process_id(void);
 unsigned long stunnel_thread_id(void);
-int create_client(SOCKET, SOCKET, CLI *);
+int create_client(SOCKET, CLI *);
 
 #ifdef USE_UCONTEXT
 typedef struct CONTEXT_STRUCTURE {

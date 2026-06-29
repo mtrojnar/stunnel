@@ -11,7 +11,6 @@ More secure defaults planned for the next major version.
 These features will likely be supported some day.
 A sponsor could allocate my time to get them faster.
 
-* DTLS support (transport = UDP).
 * Add client certificate autoselection based on the list of accepted issuers:
   SSL_CTX_set_client_cert_cb(), SSL_get_client_CA_list().
 * Indirect CRL support (RFC 3280, section 5).

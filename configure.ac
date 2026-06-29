@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.78])
+AC_INIT([stunnel],[5.79])
 AC_MSG_NOTICE([**************************************** initialization])
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
@@ -84,7 +84,6 @@ if test "${GCC}" = yes; then
     AX_APPEND_COMPILE_FLAGS([-Wpedantic])
     AX_APPEND_COMPILE_FLAGS([-Wformat=2])
     AX_APPEND_COMPILE_FLAGS([-Wconversion])
-    AX_APPEND_COMPILE_FLAGS([-Wno-deprecated-declarations])
     AX_APPEND_COMPILE_FLAGS([-Wno-unused-command-line-argument])
     AX_APPEND_COMPILE_FLAGS([-fPIE])
     case "${host}" in
@@ -182,7 +181,8 @@ AC_MSG_NOTICE([**************************************** header files])
 # AC_HEADER_STDC
 # AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([stdint.h inttypes.h malloc.h ucontext.h pthread.h poll.h \
-    tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h limits.h])
+    tcpd.h stropts.h grp.h unistd.h util.h libutil.h pty.h limits.h \
+    netinet/udp.h])
 AC_CHECK_HEADERS([sys/types.h sys/select.h sys/poll.h sys/socket.h sys/un.h \
     sys/ioctl.h sys/filio.h sys/resource.h sys/uio.h sys/syscall.h \
     sys/param.h])
@@ -477,14 +477,15 @@ else
     AC_MSG_RESULT([no])
 fi
 
-AC_MSG_NOTICE([updating version.txt])
-echo "${PACKAGE_VERSION}" >version.txt
-
 SYSROOT="${lt_sysroot}"
 CPPFLAGS="${valid_CPPFLAGS}"
 LIBS="${valid_LIBS}"
 
+AC_CHECK_HEADERS([openssl/applink.c])
+
 AC_MSG_NOTICE([**************************************** write the results])
+AC_MSG_NOTICE([updating version.txt to ${PACKAGE_VERSION}])
+echo "${PACKAGE_VERSION}" >version.txt
 AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile tests/Makefile tests/certs/Makefile])
 AC_OUTPUT
 

@@ -479,7 +479,7 @@ int sthreads_init(void) {
     return 0;
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg) {
+int create_client(SOCKET ls, CLI *arg) {
     CONTEXT *context;
 
     (void)ls; /* this parameter is only used with USE_FORK */
@@ -487,18 +487,14 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     s_log(LOG_DEBUG, "Creating a new context");
     context=new_context();
     if(!context) {
-        str_free(arg);
-        if(s>=0)
-            closesocket(s);
+        free_client(arg);
         return -1;
     }
 
     /* initialize context_t structure */
     if(getcontext(&context->context)<0) {
         str_free(context);
-        str_free(arg);
-        if(s>=0)
-            closesocket(s);
+        free_client(arg);
         ioerror("getcontext");
         return -1;
     }
@@ -535,12 +531,10 @@ NOEXPORT void null_handler(int sig) {
     signal(SIGCHLD, null_handler);
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg) {
+int create_client(SOCKET ls, CLI *arg) {
     switch(fork()) {
     case -1:    /* error */
-        str_free(arg);
-        if(s>=0)
-            closesocket(s);
+        free_client(arg);
         return -1;
     case  0:    /* child */
         if(ls>=0)
@@ -549,9 +543,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
         client_thread(arg);
         _exit(0);
     default:    /* parent */
-        str_free(arg);
-        if(s>=0)
-            closesocket(s);
+        free_client(arg);
     }
     return 0;
 }
@@ -578,7 +570,7 @@ int sthreads_init(void) {
     return 0;
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg) {
+int create_client(SOCKET ls, CLI *arg) {
     pthread_attr_t pth_attr;
     int error;
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
@@ -609,9 +601,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
         errno=error;
         ioerror("pthread_create");
         CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
-        str_free(arg);
-        if(s>=0)
-            closesocket(s);
+        free_client(arg);
         return -1;
     }
     thread_list_add(arg);
@@ -633,7 +623,7 @@ int sthreads_init(void) {
     return 0;
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg) {
+int create_client(SOCKET ls, CLI *arg) {
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
     CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
@@ -643,9 +633,7 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     if(!arg->thread_id) {
         ioerror("_beginthreadex");
         CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
-        str_free(arg);
-        if(s!=INVALID_SOCKET)
-            closesocket(s);
+        free_client(arg);
         return -1;
     }
     thread_list_add(arg);
@@ -674,14 +662,12 @@ unsigned long stunnel_thread_id(void) {
     return (unsigned long)ppib->pib_ulpid;
 }
 
-int create_client(SOCKET ls, SOCKET s, CLI *arg) {
+int create_client(SOCKET ls, CLI *arg) {
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
     if((long)_beginthread(client_thread, NULL, arg->opt->stack_size, arg)==-1L) {
         ioerror("_beginthread");
-        str_free(arg);
-        if(s>=0)
-            closesocket(s);
+        free_client(arg);
         return -1;
     }
     s_log(LOG_DEBUG, "New thread created");

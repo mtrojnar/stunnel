@@ -1038,6 +1038,27 @@ Note that if you wish to run **stunnel** in *inetd* mode (where it is provided a
 
     time to wait to connect an OCSP responder
 
+-   **transport** = tcp \| udp
+
+    select transport protocol
+
+    Supported values:
+
+    -   *tcp*
+
+        Use standard TLS over TCP (default).
+
+    -   *udp*
+
+        Use DTLS over UDP.
+
+        Each datagram opens a new logical connection within the
+        service.  The server uses a different connected socket per
+        client, and DTLS cookies protect against DDoS reflection
+        attacks.
+
+    default: tcp
+
 -   **transparent** = none \| source \| destination \| both (Unix only)
 
     enable transparent proxy support on selected platforms

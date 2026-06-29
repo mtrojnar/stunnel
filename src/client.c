@@ -54,13 +54,25 @@ NOEXPORT void client_run(CLI *);
 NOEXPORT void local_start(CLI *);
 NOEXPORT void remote_start(CLI *);
 NOEXPORT void ssl_start(CLI *);
+#if defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x10100000L
+NOEXPORT BIO *set_preload_bio(CLI *);
+#endif /* USE_DTLS && OpenSSL version >= 1.1.0 */
+NOEXPORT void ssl_start_new(CLI *);
+NOEXPORT void ssl_init_client(CLI *);
+NOEXPORT void ssl_init_server(CLI *);
+NOEXPORT void ssl_handshake_loop(CLI *, BIO *);
+NOEXPORT void ssl_handshake_poll(CLI *, int, int);
+NOEXPORT void ssl_start_finish(CLI *);
 NOEXPORT void session_cache_retrieve(CLI *);
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
 NOEXPORT void print_tmp_key(SSL *s);
 #endif
 NOEXPORT void print_cipher(CLI *);
-NOEXPORT void transfer(CLI *);
-
+NOEXPORT void transfer_tcp(CLI *);
+NOEXPORT void transfer_udp(CLI *);
+NOEXPORT int are_sockets_datagram(CLI *);
+NOEXPORT void ssl_shutdown_step(CLI *, int *, int *, const char *);
+NOEXPORT void tls_read_close(CLI *, const char *);
 NOEXPORT void auth_user(CLI *);
 NOEXPORT SOCKET connect_local(CLI *);
 #if !defined(USE_WIN32) && !defined(__vms)
@@ -76,19 +88,35 @@ NOEXPORT int redirect(CLI *);
 NOEXPORT void print_bound_address(CLI *);
 NOEXPORT void reset(SOCKET, const char *);
 NOEXPORT void check_socket_error(CLI *, SOCKET, const char *);
+NOEXPORT void check_fds_error(CLI *);
 
 /* allocate local data structure for the new thread */
-CLI *alloc_client_session(SERVICE_OPTIONS *opt, SOCKET rfd, SOCKET wfd) {
+CLI *alloc_client(SERVICE_OPTIONS *opt) {
     static unsigned long long seq=0;
     CLI *c;
 
     c=str_alloc_detached(sizeof(CLI));
     c->opt=opt;
-    c->local_rfd.fd=rfd;
-    c->local_wfd.fd=wfd;
+    c->local_rfd.fd=c->local_wfd.fd=INVALID_SOCKET;
     c->seq=seq++;
     c->rr=c->opt->rr++;
     return c;
+}
+
+/* Free a CLI allocated by alloc_client() before it reaches a
+ * client thread.  Safe to call with partially-initialized fields.
+ * create_client() calls this on failure and in the FORK parent. */
+void free_client(CLI *c) {
+#ifdef USE_DTLS
+    BIO_free(c->udp_preload_bio); /* server: DTLS fragments,
+                                     client: plaintext datagrams */
+#endif
+    str_free(c->accepted_address);
+    if(c->ssl)
+        SSL_free(c->ssl);
+    if(c->local_rfd.fd!=INVALID_SOCKET)
+        closesocket(c->local_rfd.fd);
+    str_free(c);
 }
 
 #if defined(USE_WIN32) || defined(USE_OS2)
@@ -145,7 +173,10 @@ void *
 #endif
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
 #endif /* !USE_FORK */
-    client_free(c);
+#ifndef USE_FORK
+    service_free(c->opt);
+#endif
+    free_client(c);
 #ifdef DEBUG_STACK_SIZE
     stack_info(stack_size, 0); /* display computed value */
 #endif
@@ -183,13 +214,6 @@ void client_main(CLI *c) {
     } else {
         client_run(c);
     }
-}
-
-void client_free(CLI *c) {
-#ifndef USE_FORK
-    service_free(c->opt);
-#endif
-    str_free(c);
 }
 
 #ifdef __GNUC__
@@ -280,7 +304,7 @@ NOEXPORT void client_run(CLI *c) {
         /* initialize the client context */
     c->remote_fd.fd=INVALID_SOCKET;
     c->fd=INVALID_SOCKET;
-    c->ssl=NULL;
+    /* c->ssl may be preinitialized by DTLSv1_listen() */
     c->sock_bytes=c->ssl_bytes=0;
     if(c->opt->option.client) {
         c->sock_rfd=&(c->local_rfd);
@@ -406,7 +430,6 @@ NOEXPORT void client_run(CLI *c) {
     /* a client does not have its own local copy of
        c->connect_addr.session and c->connect_addr.fd */
     s_poll_free(c->fds);
-    str_free(c->accepted_address);
 }
 #ifdef __GNUC__
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
@@ -432,7 +455,10 @@ NOEXPORT void client_try(CLI *c) {
     }
     if(c->opt->protocol_late && !c->flag.redirect)
         c->opt->protocol_late(c);
-    transfer(c);
+    if(c->opt->sock_type==SOCK_DGRAM && are_sockets_datagram(c))
+        transfer_udp(c);
+    else
+        transfer_tcp(c);
 }
 
 NOEXPORT void local_start(CLI *c) {
@@ -496,7 +522,10 @@ NOEXPORT void local_start(CLI *c) {
     }
 
     /* authenticate based on retrieved IP address of the client */
-    c->accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
+    if(!c->accepted_address) {
+        c->accepted_address=s_ntop(&c->peer_addr, c->peer_addr_len);
+        str_detach(c->accepted_address);
+    }
 #ifdef USE_LIBWRAP
     libwrap_auth(c);
 #endif /* USE_LIBWRAP */
@@ -536,13 +565,57 @@ NOEXPORT void remote_start(CLI *c) {
         (long)c->remote_fd.fd);
 }
 
+/* initialize and run the TLS/DTLS handshake */
 NOEXPORT void ssl_start(CLI *c) {
-    int i, err;
-    SSL_SESSION *sess;
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    int unsafe_openssl;
-#endif /* OpenSSL version < 1.1.0 */
+    BIO *udp_bio=NULL;
 
+    /* initialize SSL object */
+    if(c->ssl) {
+        /* DTLS server: c->ssl was pre-initialized by dtls_listen().
+         * If udp_preload_bio was filled by drain_udp_datagrams()
+         * (same-peer ClientHello fragments), splice it in as the
+         * SSL read BIO via set_preload_bio(). */
+#if defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x10100000L
+        if(c->udp_preload_bio)
+            udp_bio=set_preload_bio(c);
+#endif /* USE_DTLS && OpenSSL version >= 1.1.0 */
+    } else {
+        ssl_start_new(c);
+    }
+
+    if(c->opt->option.require_cert)
+        s_log(LOG_INFO, "Peer certificate required");
+    else
+        s_log(LOG_INFO, "Peer certificate not required");
+
+    ssl_handshake_loop(c, udp_bio);
+
+    ssl_start_finish(c);
+}
+
+#if defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x10100000L
+/* DTLS server-only: splice udp_preload_bio (filled by
+ * drain_udp_datagrams() with same-peer ClientHello fragments)
+ * in as the SSL read BIO, preserving the existing socket BIO
+ * for later restoration in ssl_handshake_loop(). */
+NOEXPORT BIO *set_preload_bio(CLI *c) {
+    BIO *udp_bio;
+
+    udp_bio=SSL_get_rbio(c->ssl);
+    if(!udp_bio || !BIO_up_ref(udp_bio)) {
+        s_log(LOG_ERR, "DTLS: BIO_up_ref() failed");
+        throw_exception(c, 1);
+    }
+
+    SSL_set0_rbio(c->ssl, c->udp_preload_bio);
+    c->udp_preload_bio=NULL;
+    s_log(LOG_DEBUG, "DTLS: preloaded ClientHello fragments");
+    return udp_bio;
+}
+#endif /* USE_DTLS && OpenSSL version >= 1.1.0 */
+
+/* initialize a c->ssl */
+NOEXPORT void ssl_start_new(CLI *c) {
     c->ssl=SSL_new(c->opt->ctx);
     if(!c->ssl) {
         ssl_error(c, "SSL_new");
@@ -553,58 +626,75 @@ NOEXPORT void ssl_start(CLI *c) {
         ssl_error(c, "SSL_set_ex_data");
         throw_exception(c, 1);
     }
-    if(c->opt->option.client) {
+
+    if(c->opt->option.client)
+        ssl_init_client(c);
+    else
+        ssl_init_server(c);
+
+#ifdef USE_DTLS
+    /* DTLS server: pseudo-blocking accept with ClientHello preload
+     * support.  See dtls_accept() in network.c for details. */
+    if(c->opt->sock_type==SOCK_DGRAM && !c->opt->option.client)
+        dtls_accept(c);
+#endif /* USE_DTLS */
+}
+
+/* configure client-side TLS state */
+NOEXPORT void ssl_init_client(CLI *c) {
 #ifndef OPENSSL_NO_TLSEXT
 #ifndef OPENSSL_NO_OCSP
-        if(!SSL_set_tlsext_status_type(c->ssl, TLSEXT_STATUSTYPE_ocsp)) {
-            ssl_error(c, "OCSP: SSL_set_tlsext_status_type");
+    if(!SSL_set_tlsext_status_type(c->ssl, TLSEXT_STATUSTYPE_ocsp)) {
+        ssl_error(c, "OCSP: SSL_set_tlsext_status_type");
+        throw_exception(c, 1);
+    }
+#endif /* !defined(OPENSSL_NO_OCSP) */
+    /* c->opt->sni should always be initialized at this point,
+     * either explicitly with "sni"
+     * or implicitly with "protocolHost" or "connect" */
+    if(c->opt->sni && *c->opt->sni) {
+        s_log(LOG_INFO, "SNI: sending servername: %s", c->opt->sni);
+        if(!SSL_set_tlsext_host_name(c->ssl, c->opt->sni)) {
+            ssl_error(c, "SSL_set_tlsext_host_name");
             throw_exception(c, 1);
         }
-#endif /* !defined(OPENSSL_NO_OCSP) */
-        /* c->opt->sni should always be initialized at this point,
-         * either explicitly with "sni"
-         * or implicitly with "protocolHost" or "connect" */
-        if(c->opt->sni && *c->opt->sni) {
-            s_log(LOG_INFO, "SNI: sending servername: %s", c->opt->sni);
-            if(!SSL_set_tlsext_host_name(c->ssl, c->opt->sni)) {
-                ssl_error(c, "SSL_set_tlsext_host_name");
-                throw_exception(c, 1);
-            }
-        } else { /* c->opt->sni was set to an empty value */
-            s_log(LOG_INFO, "SNI: extension disabled");
-        }
-#endif
-        session_cache_retrieve(c);
-        SSL_set_fd(c->ssl, (int)c->remote_fd.fd);
-        SSL_set_connect_state(c->ssl);
-    } else { /* TLS server */
-        if(c->local_rfd.fd==c->local_wfd.fd)
-            SSL_set_fd(c->ssl, (int)c->local_rfd.fd);
-        else {
-           /* does it make sense to have TLS on STDIN/STDOUT? */
-            SSL_set_rfd(c->ssl, (int)c->local_rfd.fd);
-            SSL_set_wfd(c->ssl, (int)c->local_wfd.fd);
-        }
-        SSL_set_accept_state(c->ssl);
+    } else { /* c->opt->sni was set to an empty value */
+        s_log(LOG_INFO, "SNI: extension disabled");
     }
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
+    session_cache_retrieve(c);
+    SSL_set_fd(c->ssl, (int)c->remote_fd.fd);
+    SSL_set_connect_state(c->ssl);
+}
 
-    if(c->opt->option.require_cert)
-        s_log(LOG_INFO, "Peer certificate required");
-    else
-        s_log(LOG_INFO, "Peer certificate not required");
+/* configure server-side TLS state */
+NOEXPORT void ssl_init_server(CLI *c) {
+    if(c->local_rfd.fd==c->local_wfd.fd)
+        SSL_set_fd(c->ssl, (int)c->local_rfd.fd);
+    else {
+        /* does it make sense to have TLS on STDIN/STDOUT? */
+        SSL_set_rfd(c->ssl, (int)c->local_rfd.fd);
+        SSL_set_wfd(c->ssl, (int)c->local_wfd.fd);
+    }
+    SSL_set_accept_state(c->ssl);
+}
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    unsafe_openssl=OpenSSL_version_num()<0x0090810fL ||
-        (OpenSSL_version_num()>=0x10000000L &&
-        OpenSSL_version_num()<0x1000002fL);
-#endif /* OpenSSL version < 1.1.0 */
+/* drive the pseudo-blocking TLS/DTLS handshake */
+NOEXPORT void ssl_handshake_loop(CLI *c, BIO *udp_bio) {
+#if !defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x10100000L
+    (void)udp_bio; /* squash the unused parameter warning */
+#endif /* !defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x10100000L */
+
     while(1) {
+        int i, err;
+
         /* critical section for OpenSSL version < 0.9.8p or 1.x.x < 1.0.0b *
          * this critical section is a crude workaround for CVE-2010-3864   *
          * see http://www.securityfocus.com/bid/44884 for details          *
          * alternative solution is to disable internal session caching     *
          * NOTE: this critical section also covers callbacks (e.g. OCSP)   */
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
+        (void)udp_bio; /* squash the unused parameter warning */
         if(unsafe_openssl)
             CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SSL]);
 #endif /* OpenSSL version < 1.1.0 */
@@ -617,28 +707,29 @@ NOEXPORT void ssl_start(CLI *c) {
 #endif /* OpenSSL version < 1.1.0 */
 
         err=SSL_get_error(c->ssl, i);
+#if defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x10100000L
+        if(udp_bio) {
+            SSL_set0_rbio(c->ssl, udp_bio);
+            udp_bio=NULL;
+        }
+#endif /* USE_DTLS && OpenSSL version >= 1.1.0 */
+
         if(err==SSL_ERROR_NONE)
             break; /* ok -> done */
-        if(err==SSL_ERROR_WANT_READ || err==SSL_ERROR_WANT_WRITE) {
-            s_poll_init(c->fds, 0);
-            s_poll_add(c->fds, c->ssl_rfd->fd,
+        if(err==SSL_ERROR_WANT_READ || err==SSL_ERROR_WANT_WRITE
+#if defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x30000000L
+                /* DTLS may see ZERO_RETURN when a retransmit
+                 * close_notify arrives during handshake;
+                 * retry so DTLSv1_handle_timeout() can recover.
+                 * TCP: peer closed — fall through to the error
+                 * handler to log the real cause (e.g. OCSP). */
+                || (err==SSL_ERROR_ZERO_RETURN &&
+                    c->opt->sock_type==SOCK_DGRAM)
+#endif
+                ) {
+            ssl_handshake_poll(c,
                 err==SSL_ERROR_WANT_READ,
                 err==SSL_ERROR_WANT_WRITE);
-            switch(s_poll_wait(c->fds, c->opt->timeout_busy, 0)) {
-            case -1:
-                sockerror("ssl_start: s_poll_wait");
-                throw_exception(c, 1);
-            case 0:
-                s_log(LOG_INFO, "ssl_start: s_poll_wait:"
-                    " TIMEOUTbusy exceeded: sending reset");
-                s_poll_dump(c->fds, LOG_DEBUG);
-                throw_exception(c, 1);
-            case 1:
-                break; /* OK */
-            default:
-                s_log(LOG_ERR, "ssl_start: s_poll_wait: unknown result");
-                throw_exception(c, 1);
-            }
             continue; /* ok -> retry */
         }
         if(err==SSL_ERROR_SYSCALL) {
@@ -657,6 +748,84 @@ NOEXPORT void ssl_start(CLI *c) {
         throw_exception(c, 1);
     }
     ERR_clear_error(); /* silence any cached errors */
+}
+
+/* poll helper for ssl_handshake_loop() */
+NOEXPORT void ssl_handshake_poll(CLI *c, int rd, int wr) {
+    int poll_sec, poll_msec;
+
+    s_poll_init(c->fds, 0);
+    s_poll_add(c->fds, c->ssl_rfd->fd, rd, wr);
+
+#ifdef USE_DTLS
+    if(c->opt->sock_type==SOCK_DGRAM) { /* UDP */
+        struct timeval dtls_timeout;
+
+        /* DTLS over UDP: lost handshake flights must be
+         * retransmitted.  Query OpenSSL for the next
+         * retransmission deadline instead of using the
+         * fixed timeout_busy. */
+        if(DTLSv1_get_timeout(c->ssl, &dtls_timeout)) {
+            poll_sec=(int)dtls_timeout.tv_sec;
+            poll_msec=(int)dtls_timeout.tv_usec/1000;
+            /* cap to timeout_busy so a single DTLS
+             * backoff cycle (up to 60 s) cannot block
+             * longer than the configured limit */
+            if(poll_sec>c->opt->timeout_busy ||
+                    (poll_sec==c->opt->timeout_busy &&
+                    poll_msec>0)) {
+                poll_sec=c->opt->timeout_busy;
+                poll_msec=0;
+            }
+        } else {
+            poll_sec=c->opt->timeout_busy;
+            poll_msec=0;
+        }
+    } else
+#endif /* USE_DTLS */
+    { /* TCP */
+        poll_sec=c->opt->timeout_busy;
+        poll_msec=0;
+    }
+
+    switch(s_poll_wait(c->fds, poll_sec, poll_msec)) {
+    case -1:
+        sockerror("ssl_handshake_poll: s_poll_wait");
+        throw_exception(c, 1);
+    case 0:
+#ifdef USE_DTLS
+        if(c->opt->sock_type==SOCK_DGRAM) {
+            /* DTLS timer expired: trigger retransmission,
+             * then retry SSL_connect/SSL_accept.
+             * DTLS has its own bounded retry limit
+             * (exponential backoff: 1 s, 2 s, 4 s, …)
+             * so this does not loop forever even when
+             * the peer is dead. */
+            if(DTLSv1_handle_timeout(c->ssl)<0)
+                ssl_error(c,
+                    "DTLSv1_handle_timeout");
+        } else
+#endif /* USE_DTLS */
+        {
+            s_log(LOG_INFO, "ssl_handshake_poll: s_poll_wait:"
+                " TIMEOUTbusy exceeded: sending reset");
+            s_poll_dump(c->fds, LOG_DEBUG);
+            throw_exception(c, 1);
+        }
+        break;
+    case 1:
+        break; /* OK */
+    default:
+        s_log(LOG_ERR, "ssl_handshake_poll: s_poll_wait:"
+            " unknown result");
+        throw_exception(c, 1);
+    }
+}
+
+/* finalize negotiated session state */
+NOEXPORT void ssl_start_finish(CLI *c) {
+    SSL_SESSION *sess;
+
     print_cipher(c);
     sess=SSL_get1_session(c->ssl);
     if(sess) {
@@ -819,8 +988,8 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
 #endif
 }
 
-/****************************** transfer data */
-NOEXPORT void transfer(CLI *c) {
+/****************************** transfer TCP data */
+NOEXPORT void transfer_tcp(CLI *c) {
     int timeout; /* s_poll_wait timeout in seconds */
     int pending; /* either processed on unprocessed TLS data */
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -854,10 +1023,14 @@ NOEXPORT void transfer(CLI *c) {
         /****************************** setup c->fds structure */
         s_poll_init(c->fds, 0); /* initialize the structure */
         /* for plain socket open data stream = open file descriptor */
-        /* make sure to add each open socket to receive exceptions! */
-        if(sock_open_rd) /* only poll if the read file descriptor is open */
-            s_poll_add(c->fds, c->sock_rfd->fd, c->sock_ptr<BUFFSIZE, 0);
-        if(sock_open_wr) /* only poll if the write file descriptor is open */
+        /* Some calls below intentionally register open descriptors without
+         * read/write interest so poll() can still report HUP/ERR.  Do not
+         * do this for sock_rfd when c->sock_buff is full: a sticky HUP with
+         * unread kernel data cannot be consumed until SSL_write() drains
+         * the buffer, causing a busy loop. */
+        if(sock_open_rd && c->sock_ptr<BUFFSIZE)
+            s_poll_add(c->fds, c->sock_rfd->fd, 1, 0);
+        if(sock_open_wr) /* always watch HUP/ERR on a socket open for write */
             s_poll_add(c->fds, c->sock_wfd->fd, 0, c->ssl_ptr>0);
         /* poll TLS file descriptors unless TLS shutdown was completed */
         if(SSL_get_shutdown(c->ssl)!=
@@ -889,7 +1062,7 @@ NOEXPORT void transfer(CLI *c) {
         err=s_poll_wait(c->fds, timeout, 0);
         switch(err) {
         case -1:
-            sockerror("transfer: s_poll_wait");
+            sockerror("transfer_tcp: s_poll_wait");
             throw_exception(c, 1);
         case 0: /* timeout */
             if(read_wants_read && pending)
@@ -897,13 +1070,13 @@ NOEXPORT void transfer(CLI *c) {
             if((sock_open_rd &&
                     !(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN)) ||
                     c->ssl_ptr || c->sock_ptr) {
-                s_log(LOG_INFO, "transfer: s_poll_wait:"
+                s_log(LOG_INFO, "transfer_tcp: s_poll_wait:"
                     " TIMEOUTidle exceeded: sending reset");
                 s_poll_dump(c->fds, LOG_DEBUG);
                 throw_exception(c, 1);
             }
             /* already closing connection */
-            s_log(LOG_ERR, "transfer: s_poll_wait:"
+            s_log(LOG_ERR, "transfer_tcp: s_poll_wait:"
                 " TIMEOUTclose exceeded: closing");
             s_poll_dump(c->fds, LOG_DEBUG);
             return; /* OK */
@@ -916,22 +1089,18 @@ NOEXPORT void transfer(CLI *c) {
         ssl_can_wr=s_poll_canwrite(c->fds, c->ssl_wfd->fd);
 
         /****************************** identify exceptions */
-        if(c->sock_rfd->fd==c->sock_wfd->fd) {
-            check_socket_error(c, c->sock_rfd->fd, "socket fd");
-        } else {
-            check_socket_error(c, c->sock_rfd->fd, "socket rfd");
-            check_socket_error(c, c->sock_wfd->fd, "socket wfd");
-        }
-        if(c->ssl_rfd->fd==c->ssl_wfd->fd) {
-            check_socket_error(c, c->ssl_rfd->fd, "TLS fd");
-        } else {
-            check_socket_error(c, c->ssl_rfd->fd, "TLS rfd");
-            check_socket_error(c, c->ssl_wfd->fd, "TLS wfd");
-        }
+        check_fds_error(c);
 
-        /****************************** hangups without read or write */
+        /****************************** hangups without read/write readiness */
+        /* Handle POLLHUP only when poll reports no read/write readiness.
+         * If readiness is also reported, normal I/O below runs first to
+         * drain buffered data.  sock_wfd HUP closes plaintext write side
+         * unless decrypted data is still queued.  sock_rfd HUP closes
+         * plaintext read side only after FIONREAD confirms EOF.  TLS fd
+         * HUP marks TLS shutdown complete unless plaintext data still needs
+         * SSL_write(). */
         if(!(sock_can_rd || sock_can_wr || ssl_can_rd || ssl_can_wr)) {
-            if(s_poll_hup(c->fds, c->sock_wfd->fd)) {
+            if(sock_open_wr && s_poll_hup(c->fds, c->sock_wfd->fd)) {
                 if(c->ssl_ptr) {
                     s_log(LOG_ERR,
                         "Write socket closed (HUP) with %ld unsent byte(s)",
@@ -941,7 +1110,11 @@ NOEXPORT void transfer(CLI *c) {
                 s_log(LOG_INFO, "Write socket closed (HUP)");
                 sock_open_wr=0;
             }
-            if(s_poll_hup(c->fds, c->sock_rfd->fd)) {
+            /* POLLHUP may arrive while socket buffer still has data.
+             * Treat it as EOF only after FIONREAD confirms buffer is empty
+             * or FIONREAD itself fails. */
+            if(sock_open_rd && s_poll_hup(c->fds, c->sock_rfd->fd) &&
+                    (ioctlsocket(c->sock_rfd->fd, FIONREAD, &bytes) || !bytes)) {
                 s_log(LOG_INFO, "Read socket closed (HUP)");
                 sock_open_rd=0;
             }
@@ -965,52 +1138,16 @@ NOEXPORT void transfer(CLI *c) {
         }
 
         /****************************** send TLS close_notify alert */
-        if(shutdown_wants_read || shutdown_wants_write) {
-            int num=SSL_shutdown(c->ssl); /* send close_notify alert */
-            if(num<0) /* -1 - not completed */
-                err=SSL_get_error(c->ssl, num);
-            else /* 0 or 1 - success */
-                err=SSL_ERROR_NONE;
-            switch(err) {
-            case SSL_ERROR_NONE: /* the shutdown was successfully completed */
-                s_log(LOG_INFO, "SSL_shutdown successfully sent close_notify alert");
-                shutdown_wants_read=shutdown_wants_write=0;
-                break;
-            case SSL_ERROR_WANT_WRITE:
-                s_log(LOG_DEBUG, "SSL_shutdown returned WANT_WRITE: retrying");
-                shutdown_wants_read=0;
-                shutdown_wants_write=1;
-                break;
-            case SSL_ERROR_WANT_READ:
-                s_log(LOG_DEBUG, "SSL_shutdown returned WANT_READ: retrying");
-                shutdown_wants_read=1;
-                shutdown_wants_write=0;
-                break;
-            case SSL_ERROR_SSL: /* TLS error */
-                ssl_error(c, "SSL_shutdown");
-                throw_exception(c, 1);
-            case SSL_ERROR_ZERO_RETURN: /* received a close_notify alert */
-                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-                shutdown_wants_read=shutdown_wants_write=0;
-                break;
-            case SSL_ERROR_SYSCALL: /* socket error */
-                if(socket_needs_retry(c, "transfer: SSL_shutdown"))
-                    break; /* a non-critical error: retry */
-                SSL_set_shutdown(c->ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-                shutdown_wants_read=shutdown_wants_write=0;
-                break;
-            default:
-                s_log(LOG_ERR, "SSL_shutdown/SSL_get_error returned %d", err);
-                throw_exception(c, 1);
-            }
-        }
+        if(shutdown_wants_read || shutdown_wants_write)
+            ssl_shutdown_step(c, &shutdown_wants_read, &shutdown_wants_write,
+                "transfer_tcp: SSL_shutdown");
 
         /****************************** write to socket */
         if(sock_open_wr && sock_can_wr) {
             ssize_t num=writesocket(c->sock_wfd->fd, c->ssl_buff, c->ssl_ptr);
             switch(num) {
             case -1: /* error */
-                if(socket_needs_retry(c, "transfer: writesocket"))
+                if(socket_needs_retry(c, "transfer_tcp: writesocket"))
                     break; /* a non-critical error: retry */
                 sock_open_rd=sock_open_wr=0;
                 break;
@@ -1032,7 +1169,7 @@ NOEXPORT void transfer(CLI *c) {
                 c->sock_buff+c->sock_ptr, BUFFSIZE-c->sock_ptr);
             switch(num) {
             case -1:
-                if(socket_needs_retry(c, "transfer: readsocket"))
+                if(socket_needs_retry(c, "transfer_tcp: readsocket"))
                     break; /* a non-critical error: retry */
                 sock_open_rd=sock_open_wr=0;
                 break;
@@ -1090,7 +1227,7 @@ NOEXPORT void transfer(CLI *c) {
             case SSL_ERROR_ZERO_RETURN: /* a buffered close_notify alert */
                 /* fall through */
             case SSL_ERROR_SYSCALL: /* socket error */
-                if(socket_needs_retry(c, "transfer: SSL_write") && num)
+                if(socket_needs_retry(c, "transfer_tcp: SSL_write") && num)
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
                  * TLS socket closed without close_notify alert */
@@ -1168,7 +1305,7 @@ NOEXPORT void transfer(CLI *c) {
                         SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
                 break;
             case SSL_ERROR_SYSCALL:
-                if(socket_needs_retry(c, "transfer: SSL_read") && num)
+                if(socket_needs_retry(c, "transfer_tcp: SSL_read") && num)
                     break; /* a non-critical error: retry */
                 /* EOF -> buggy (e.g. Microsoft) peer:
                  * TLS socket closed without close_notify alert */
@@ -1262,7 +1399,7 @@ NOEXPORT void transfer(CLI *c) {
         /****************************** check watchdog */
         if(++watchdog>100) { /* loop executes without transferring any data */
             s_log(LOG_ERR,
-                "transfer() loop executes not transferring any data");
+                "transfer_tcp() loop executes not transferring any data");
             s_log(LOG_ERR,
                 "please report the problem to Michal.Trojnara@stunnel.org");
             stunnel_info(LOG_ERR);
@@ -1281,8 +1418,14 @@ NOEXPORT void transfer(CLI *c) {
                 (SSL_get_shutdown(c->ssl) & SSL_SENT_SHUTDOWN) ? "Y" : "n");
             s_log(LOG_ERR, "sock_can_rd=%s, sock_can_wr=%s",
                 sock_can_rd ? "Y" : "n", sock_can_wr ? "Y" : "n");
+            s_log(LOG_ERR, "sock_hup_rd=%s, sock_hup_wr=%s",
+                s_poll_hup(c->fds, c->sock_rfd->fd) ? "Y" : "n",
+                s_poll_hup(c->fds, c->sock_wfd->fd) ? "Y" : "n");
             s_log(LOG_ERR, "ssl_can_rd=%s, ssl_can_wr=%s",
                 ssl_can_rd ? "Y" : "n", ssl_can_wr ? "Y" : "n");
+            s_log(LOG_ERR, "ssl_hup_rd=%s, ssl_hup_wr=%s",
+                s_poll_hup(c->fds, c->ssl_rfd->fd) ? "Y" : "n",
+                s_poll_hup(c->fds, c->ssl_wfd->fd) ? "Y" : "n");
             s_log(LOG_ERR, "read_wants_read=%s, read_wants_write=%s",
                 read_wants_read ? "Y" : "n", read_wants_write ? "Y" : "n");
             s_log(LOG_ERR, "write_wants_read=%s, write_wants_write=%s",
@@ -1293,11 +1436,534 @@ NOEXPORT void transfer(CLI *c) {
             s_log(LOG_ERR, "socket input buffer: %ld byte(s), "
                 "TLS input buffer: %ld byte(s)",
                 (long)c->sock_ptr, (long)c->ssl_ptr);
+            s_poll_dump(c->fds, LOG_ERR);
             throw_exception(c, 1);
         }
 
     } while(sock_open_wr || !(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN) ||
         shutdown_wants_read || shutdown_wants_write);
+}
+
+/****************************** perform one SSL_shutdown step */
+NOEXPORT void ssl_shutdown_step(CLI *c, int *wants_read, int *wants_write,
+        const char *caller) {
+    int num=SSL_shutdown(c->ssl);
+    int err;
+
+    if(num<0)
+        err=SSL_get_error(c->ssl, num);
+    else
+        err=SSL_ERROR_NONE;
+    switch(err) {
+    case SSL_ERROR_NONE:
+        s_log(LOG_INFO,
+            "SSL_shutdown successfully sent close_notify alert");
+        *wants_read=*wants_write=0;
+        break;
+    case SSL_ERROR_WANT_WRITE:
+        s_log(LOG_DEBUG,
+            "SSL_shutdown returned WANT_WRITE: retrying");
+        *wants_read=0;
+        *wants_write=1;
+        break;
+    case SSL_ERROR_WANT_READ:
+        s_log(LOG_DEBUG,
+            "SSL_shutdown returned WANT_READ: retrying");
+        *wants_read=1;
+        *wants_write=0;
+        break;
+    case SSL_ERROR_SSL:
+        ssl_error(c, "SSL_shutdown");
+        throw_exception(c, 1);
+    case SSL_ERROR_ZERO_RETURN:
+        SSL_set_shutdown(c->ssl,
+            SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+        *wants_read=*wants_write=0;
+        break;
+    case SSL_ERROR_SYSCALL:
+        if(socket_needs_retry(c, caller))
+            break;
+        SSL_set_shutdown(c->ssl,
+            SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+        *wants_read=*wants_write=0;
+        break;
+    default:
+        s_log(LOG_ERR, "SSL_shutdown/SSL_get_error returned %d", err);
+        throw_exception(c, 1);
+    }
+}
+
+/****************************** check both sides are datagram sockets */
+NOEXPORT int are_sockets_datagram(CLI *c) {
+    int sock_type;
+    socklen_t optlen=sizeof(sock_type);
+
+    if(getsockopt(c->sock_rfd->fd, SOL_SOCKET, SO_TYPE,
+            (char *)&sock_type, &optlen)) {
+        sockerror("are_sockets_datagram: getsockopt(SO_TYPE)"
+            " on plaintext socket");
+        return 0;
+    }
+    if(sock_type!=SOCK_DGRAM) {
+        s_log(LOG_INFO, "Plaintext socket type is %d, "
+            "not SOCK_DGRAM (%d) - falling back to stream mode",
+            sock_type, SOCK_DGRAM);
+        return 0;
+    }
+    optlen=sizeof(sock_type);
+    if(getsockopt(c->ssl_rfd->fd, SOL_SOCKET, SO_TYPE,
+            (char *)&sock_type, &optlen)) {
+        sockerror("are_sockets_datagram: getsockopt(SO_TYPE)"
+            " on TLS socket");
+        return 0;
+    }
+    if(sock_type!=SOCK_DGRAM) {
+        s_log(LOG_INFO, "TLS socket type is %d, "
+            "not SOCK_DGRAM (%d) - falling back to stream mode",
+            sock_type, SOCK_DGRAM);
+        return 0;
+    }
+    return 1;
+}
+
+/* handle TLS/DTLS read-side close, throw if unsent plaintext remains */
+NOEXPORT void tls_read_close(CLI *c, const char *where) {
+    if(c->sock_ptr) {
+        s_log(LOG_ERR,
+            "TLS socket closed (%s) with %ld unsent byte(s)",
+            where, (long)c->sock_ptr);
+        throw_exception(c, 1);
+    }
+    s_log(LOG_INFO, "TLS socket closed (%s)", where);
+    SSL_set_shutdown(c->ssl,
+        SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+}
+
+/* transfer UDP/DTLS data */
+NOEXPORT void transfer_udp(CLI *c) {
+    int watchdog=0;
+    int shutdown_wants_read=0, shutdown_wants_write=0;
+    int read_wants_read=0, read_wants_write=0;
+    int write_wants_read=0, write_wants_write=0;
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+    int has_pending=0, prev_has_pending;
+#endif
+    int sock_open=1, tls_open=1;
+    time_t last_activity;
+
+    /* c->sock_ptr may already contain the first UDP datagram consumed
+     * by accept_connection() in DTLS client mode. */
+    c->ssl_ptr=0;
+
+    /* Defensive: udp_preload_bio is filled by drain_udp_datagrams()
+     * for both client (plaintext payload) and server (DTLS fragments).
+     * Server mode must have consumed it via set_preload_bio() during
+     * ssl_start().  If a future code change leaks it here, free it
+     * to avoid feeding DTLS handshake fragments to the plaintext
+     * transfer path.  Client mode intentionally enters with a
+     * non-NULL BIO; the loop below drains it. */
+#if defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x10100000L
+    if(!c->opt->option.client && c->udp_preload_bio) {
+        s_log(LOG_WARNING,
+            "UDP: udp_preload_bio not consumed before transfer_udp()");
+        s_log(LOG_WARNING,
+            "UDP: discarding %d preloaded byte(s)",
+            (int)BIO_pending(c->udp_preload_bio));
+        BIO_free(c->udp_preload_bio);
+        c->udp_preload_bio=NULL;
+    }
+#endif
+    last_activity=time(NULL);
+
+    do { /* main loop of client UDP data transfer */
+        int pending;
+        int timeout;
+        int err;
+        int sock_can_rd, sock_can_wr, ssl_can_rd, ssl_can_wr;
+        const int shut=SSL_get_shutdown(c->ssl);
+        const int shut_complete=
+            shut==(SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+
+        /****************************** initialize *_wants_* */
+        /* DTLS sends one record per datagram, but nonblocking OpenSSL
+         * operations still need WANT_READ/WANT_WRITE state.  Retry the
+         * same SSL_read()/SSL_write() when the requested direction is
+         * ready. */
+        read_wants_read|=tls_open && sock_open &&
+            !(shut&SSL_RECEIVED_SHUTDOWN) && !c->ssl_ptr &&
+            !read_wants_write;
+        write_wants_write|=tls_open && !(shut&SSL_SENT_SHUTDOWN) &&
+            c->sock_ptr && !write_wants_read;
+
+        /****************************** setup c->fds structure */
+        s_poll_init(c->fds, 0);
+        /* plaintext socket: poll read if no datagram pending for DTLS,
+         *                poll write if decrypted datagram ready for socket */
+        if(tls_open && sock_open && !c->sock_ptr)
+            s_poll_add(c->fds, c->sock_rfd->fd, 1, 0);
+        if(sock_open && c->ssl_ptr)
+            s_poll_add(c->fds, c->sock_wfd->fd, 0, 1);
+
+        /* DTLS: poll directions requested by pending OpenSSL operations. */
+        if(tls_open && !shut_complete &&
+                (read_wants_read || write_wants_read ||
+                shutdown_wants_read))
+            s_poll_add(c->fds, c->ssl_rfd->fd, 1, 0);
+        if(tls_open && !shut_complete &&
+                (read_wants_write || write_wants_write ||
+                shutdown_wants_write))
+            s_poll_add(c->fds, c->ssl_wfd->fd, 0, 1);
+
+        /****************************** check cumulative idle time */
+        {
+            time_t now=time(NULL);
+            int idle=(int)(now-last_activity);
+            int target_timeout;
+
+            if(!(c->sock_ptr || c->ssl_ptr) &&
+                    (shut & SSL_RECEIVED_SHUTDOWN))
+                target_timeout=c->opt->timeout_close;
+            else
+                target_timeout=c->opt->timeout_idle;
+            if(idle>=target_timeout) {
+                if(shut & SSL_RECEIVED_SHUTDOWN) {
+                    s_log(LOG_ERR, "transfer_udp: s_poll_wait:"
+                        " TIMEOUTclose exceeded: closing");
+                    s_poll_dump(c->fds, LOG_DEBUG);
+                    return;
+                } else {
+                    s_log(LOG_INFO, "transfer_udp: s_poll_wait:"
+                        " TIMEOUTidle exceeded: aborting");
+                    s_poll_dump(c->fds, LOG_DEBUG);
+                    throw_exception(c, 1);
+                }
+            }
+
+        /****************************** wait for an event */
+            if(tls_open) {
+                pending=SSL_pending(c->ssl);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+                /* only attempt to process SSL_has_pending() data once */
+                prev_has_pending=has_pending;
+                has_pending=SSL_has_pending(c->ssl);
+                pending=pending || (has_pending && !prev_has_pending);
+#endif
+            } else {
+                pending=0;
+            }
+            if((read_wants_read || write_wants_read) && pending)
+                timeout=0; /* process buffered DTLS data without delay */
+            else
+                timeout=target_timeout>idle ? target_timeout-idle : 0;
+            err=s_poll_wait(c->fds, timeout, 0);
+            if(err==-1) {
+                sockerror("transfer_udp: s_poll_wait");
+                throw_exception(c, 1);
+            }
+            /* s_poll_wait timeout is not an error:
+             * cumulative idle check at top of loop handles it */
+        }
+
+        /****************************** retrieve results from c->fds */
+        sock_can_rd=s_poll_canread(c->fds, c->sock_rfd->fd);
+        sock_can_wr=s_poll_canwrite(c->fds, c->sock_wfd->fd);
+        ssl_can_rd=s_poll_canread(c->fds, c->ssl_rfd->fd);
+        ssl_can_wr=s_poll_canwrite(c->fds, c->ssl_wfd->fd);
+
+        /****************************** hangups without same-side data */
+        /* Handle POLLHUP for each datagram side when that side has no
+         * queued input.  Readiness on the other side must not delay closing
+         * the hung-up side, and write readiness does not make a hung-up
+         * datagram socket useful.  AF_INET/AF_INET6 datagram sockets do not
+         * signal POLLHUP, but AF_UNIX SOCK_DGRAM socketpairs used by exec
+         * fallback do.  A HUP closes the whole plaintext datagram socket.
+         * TLS fd HUP closes the whole DTLS socket: no further input is
+         * possible and queued plaintext for DTLS cannot be delivered. */
+        if(sock_open && !sock_can_rd &&
+                (s_poll_hup(c->fds, c->sock_wfd->fd) ||
+                s_poll_hup(c->fds, c->sock_rfd->fd))) {
+            if(c->ssl_ptr) {
+                s_log(LOG_ERR,
+                    "Plaintext socket closed (HUP) with %ld"
+                    " undelivered decrypted byte(s)",
+                    (long)c->ssl_ptr);
+                throw_exception(c, 1);
+            }
+            s_log(LOG_INFO, "Plaintext socket closed (HUP)");
+            sock_open=0;
+            read_wants_read=read_wants_write=0;
+        }
+        if(tls_open && !(ssl_can_rd || pending) &&
+                (s_poll_hup(c->fds, c->ssl_rfd->fd) ||
+                s_poll_hup(c->fds, c->ssl_wfd->fd))) {
+            if(c->sock_ptr) {
+                s_log(LOG_ERR,
+                    "TLS socket closed (HUP) with %ld"
+                    " undelivered plaintext byte(s)",
+                    (long)c->sock_ptr);
+                c->sock_ptr=0;
+            }
+            s_log(LOG_INFO, "TLS socket closed (HUP)");
+            tls_open=0;
+            read_wants_read=read_wants_write=0;
+            write_wants_read=write_wants_write=0;
+            shutdown_wants_read=shutdown_wants_write=0;
+            SSL_set_shutdown(c->ssl,
+                SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+        }
+
+        /****************************** identify exceptions */
+        check_fds_error(c);
+
+        if(c->reneg_state==RENEG_DETECTED && !c->opt->option.renegotiation) {
+            s_log(LOG_ERR, "Aborting due to renegotiation request");
+            throw_exception(c, 1);
+        }
+
+        /****************************** send DTLS close_notify alert */
+        if(tls_open && (shutdown_wants_read || shutdown_wants_write))
+            ssl_shutdown_step(c, &shutdown_wants_read, &shutdown_wants_write,
+                "transfer_udp: SSL_shutdown");
+
+        /****************************** read from preloaded datagrams */
+        /* Client mode: drain_udp_datagrams() may have queued same-peer
+         * plaintext datagrams in udp_preload_bio.  Consume one datagram
+         * before reading from the connected socket.  The dgram BIO
+         * preserves datagram boundaries set by BIO_write(). */
+#if defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x10100000L
+        if(!c->sock_ptr && c->udp_preload_bio) {
+            int num=BIO_read(c->udp_preload_bio,
+                c->sock_buff, BUFFSIZE);
+
+            if(num>0) {
+                c->sock_ptr=(size_t)num;
+                last_activity=time(NULL);
+                watchdog=0;
+            } else {
+                BIO_free(c->udp_preload_bio);
+                c->udp_preload_bio=NULL;
+            }
+        }
+#endif /* USE_DTLS && OpenSSL version >= 1.1.0 */
+
+        /****************************** read from socket (one datagram) */
+        if(tls_open && sock_open && sock_can_rd && !c->sock_ptr) {
+            ssize_t num;
+            int drop=0;
+#ifdef MSG_TRUNC
+            /* MSG_TRUNC returns real datagram size even if truncated */
+            num=recv(c->sock_rfd->fd, c->sock_buff, BUFFSIZE, MSG_TRUNC);
+            if(num>0 && num>BUFFSIZE)
+                drop=1;
+#else
+            num=readsocket(c->sock_rfd->fd, c->sock_buff, BUFFSIZE);
+            if(num>0 && num==BUFFSIZE)
+                drop=1;
+#endif
+            if(num>0) {
+                if(num>SSL3_RT_MAX_PLAIN_LENGTH)
+                    drop=1;
+                if(drop) {
+                    s_log(LOG_WARNING,
+                        "Datagram larger than DTLS maximum plaintext"
+                        " (%d bytes); discarding",
+                        SSL3_RT_MAX_PLAIN_LENGTH);
+                    c->sock_ptr=0;
+                    last_activity=time(NULL);
+                    watchdog=0;
+                } else {
+                    c->sock_ptr=(size_t)num;
+                    last_activity=time(NULL);
+                    watchdog=0;
+                }
+            } else if(num<0) {
+#ifdef S_EMSGSIZE
+                if(get_last_socket_error()==S_EMSGSIZE) {
+                    s_log(LOG_WARNING,
+                        "UDP: oversized datagram discarded");
+                    last_activity=time(NULL);
+                    watchdog=0;
+                } else
+#endif
+                    socket_needs_retry(c, "transfer_udp: readsocket");
+            }
+        }
+
+        /****************************** write to DTLS (one record) */
+        if(tls_open && c->sock_ptr &&
+                ((write_wants_read && (ssl_can_rd || pending)) ||
+                (write_wants_write && ssl_can_wr))) {
+            int num=SSL_write(c->ssl, c->sock_buff, (int)(c->sock_ptr));
+            write_wants_read=write_wants_write=0;
+            switch(err=SSL_get_error(c->ssl, num)) {
+            case SSL_ERROR_NONE:
+                if(num>0) {
+                    c->sock_ptr=0;
+                    c->ssl_bytes+=(size_t)num;
+                    last_activity=time(NULL);
+                    watchdog=0;
+                } else
+                    /* SSL_write returning 0 with SSL_ERROR_NONE means
+                     * the DTLS peer closed the connection.  Don't set
+                     * SSL_RECEIVED_SHUTDOWN here — SSL_read will pick up
+                     * the close_notify as SSL_ERROR_ZERO_RETURN. */
+                    s_log(LOG_DEBUG, "SSL_write returned 0");
+                break;
+            case SSL_ERROR_WANT_WRITE:
+                write_wants_write=1;
+                break;
+            case SSL_ERROR_WANT_READ:
+                write_wants_read=1;
+                break;
+            case SSL_ERROR_WANT_X509_LOOKUP:
+                break;
+            case SSL_ERROR_SSL:
+                ssl_error(c, "SSL_write");
+                throw_exception(c, 1);
+            case SSL_ERROR_ZERO_RETURN:
+            case SSL_ERROR_SYSCALL:
+                if(socket_needs_retry(c, "transfer_udp: SSL_write") && num)
+                    break;
+                if(c->sock_ptr) {
+                    s_log(LOG_ERR,
+                        "TLS socket closed (SSL_write) with %ld"
+                        " unsent byte(s)", (long)c->sock_ptr);
+                    throw_exception(c, 1);
+                }
+                s_log(LOG_INFO, "TLS socket closed (SSL_write)");
+                SSL_set_shutdown(c->ssl,
+                    SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
+                break;
+            default:
+                s_log(LOG_ERR, "SSL_write/SSL_get_error returned %d", err);
+                throw_exception(c, 1);
+            }
+        }
+
+        /****************************** read from DTLS (one record) */
+        if(tls_open && sock_open && !c->ssl_ptr &&
+                ((read_wants_read && (ssl_can_rd || pending)) ||
+                (read_wants_write && ssl_can_wr))) {
+            int num=SSL_read(c->ssl, c->ssl_buff, (int)BUFFSIZE);
+            read_wants_read=read_wants_write=0;
+            switch(err=SSL_get_error(c->ssl, num)) {
+            case SSL_ERROR_NONE:
+                if(num>0) {
+                    c->ssl_ptr=(size_t)num;
+                    last_activity=time(NULL);
+                    watchdog=0;
+                } else
+                    s_log(LOG_DEBUG, "SSL_read returned 0");
+                break;
+            case SSL_ERROR_WANT_READ:
+                read_wants_read=1;
+                break;
+            case SSL_ERROR_WANT_WRITE:
+                read_wants_write=1;
+                break;
+            case SSL_ERROR_WANT_X509_LOOKUP:
+                break;
+            case SSL_ERROR_SSL:
+#ifdef SSL_R_UNEXPECTED_EOF_WHILE_READING
+                if(ERR_GET_REASON(ERR_peek_error())==
+                        SSL_R_UNEXPECTED_EOF_WHILE_READING) {
+                    tls_read_close(c, "SSL_read");
+                    break;
+                }
+#endif
+                ssl_error(c, "SSL_read");
+                throw_exception(c, 1);
+            case SSL_ERROR_ZERO_RETURN:
+                s_log(LOG_INFO, "DTLS closed (SSL_read)");
+                SSL_set_shutdown(c->ssl,
+                    SSL_get_shutdown(c->ssl)|SSL_RECEIVED_SHUTDOWN);
+                shutdown_wants_write=1;
+                break;
+            case SSL_ERROR_SYSCALL:
+                if(socket_needs_retry(c, "transfer_udp: SSL_read") && num)
+                    break;
+                tls_read_close(c, "SSL_read");
+                break;
+            default:
+                s_log(LOG_ERR, "SSL_read/SSL_get_error returned %d", err);
+                throw_exception(c, 1);
+            }
+        }
+
+        /****************************** write to socket (one datagram) */
+        if(sock_open && c->ssl_ptr && sock_can_wr) {
+            ssize_t num=writesocket(c->sock_wfd->fd,
+                c->ssl_buff, c->ssl_ptr);
+            if(num<0) {
+                if(!socket_needs_retry(c, "transfer_udp: writesocket")) {
+                    s_log(LOG_ERR,
+                        "Write socket closed (writesocket) with %ld"
+                        " unsent byte(s)", (long)c->ssl_ptr);
+                    throw_exception(c, 1);
+                }
+            } else {
+                c->sock_bytes+=(size_t)num;
+                c->ssl_ptr=0;
+                last_activity=time(NULL);
+                watchdog=0;
+            }
+        }
+
+        /****************************** check write shutdown conditions */
+        if(tls_open && !sock_open && !c->sock_ptr &&
+                !(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN) &&
+                !shutdown_wants_write) {
+            s_log(LOG_DEBUG, "Sending close_notify alert");
+            shutdown_wants_write=1;
+        }
+
+        /****************************** check watchdog */
+        if(++watchdog>100) { /* loop executes without transferring any data */
+            s_log(LOG_ERR,
+                "transfer_udp() loop executes not transferring any data");
+            s_log(LOG_ERR,
+                "please report the problem to Michal.Trojnara@stunnel.org");
+            stunnel_info(LOG_ERR);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+            s_log(LOG_ERR, "protocol=%s, SSL_pending=%d, SSL_has_pending=%d",
+                SSL_get_version(c->ssl),
+                SSL_pending(c->ssl), SSL_has_pending(c->ssl));
+#else
+            s_log(LOG_ERR, "protocol=%s, SSL_pending=%d",
+                SSL_get_version(c->ssl), SSL_pending(c->ssl));
+#endif
+            s_log(LOG_ERR, "sock_open=%s, tls_open=%s",
+                sock_open ? "Y" : "n", tls_open ? "Y" : "n");
+            s_log(LOG_ERR, "SSL_RECEIVED_SHUTDOWN=%s, SSL_SENT_SHUTDOWN=%s",
+                (SSL_get_shutdown(c->ssl) & SSL_RECEIVED_SHUTDOWN) ? "Y" : "n",
+                (SSL_get_shutdown(c->ssl) & SSL_SENT_SHUTDOWN) ? "Y" : "n");
+            s_log(LOG_ERR, "sock_can_rd=%s, sock_can_wr=%s",
+                sock_can_rd ? "Y" : "n", sock_can_wr ? "Y" : "n");
+            s_log(LOG_ERR, "sock_hup_rd=%s, sock_hup_wr=%s",
+                s_poll_hup(c->fds, c->sock_rfd->fd) ? "Y" : "n",
+                s_poll_hup(c->fds, c->sock_wfd->fd) ? "Y" : "n");
+            s_log(LOG_ERR, "ssl_can_rd=%s, ssl_can_wr=%s",
+                ssl_can_rd ? "Y" : "n", ssl_can_wr ? "Y" : "n");
+            s_log(LOG_ERR, "ssl_hup_rd=%s, ssl_hup_wr=%s",
+                s_poll_hup(c->fds, c->ssl_rfd->fd) ? "Y" : "n",
+                s_poll_hup(c->fds, c->ssl_wfd->fd) ? "Y" : "n");
+            s_log(LOG_ERR, "read_wants_read=%s, read_wants_write=%s",
+                read_wants_read ? "Y" : "n", read_wants_write ? "Y" : "n");
+            s_log(LOG_ERR, "write_wants_read=%s, write_wants_write=%s",
+                write_wants_read ? "Y" : "n", write_wants_write ? "Y" : "n");
+            s_log(LOG_ERR, "shutdown_wants_read=%s, shutdown_wants_write=%s",
+                shutdown_wants_read ? "Y" : "n",
+                shutdown_wants_write ? "Y" : "n");
+            s_log(LOG_ERR, "socket input buffer: %ld byte(s), "
+                "TLS input buffer: %ld byte(s)",
+                (long)c->sock_ptr, (long)c->ssl_ptr);
+            s_poll_dump(c->fds, LOG_ERR);
+            throw_exception(c, 1);
+        }
+
+    } while((tls_open && !(SSL_get_shutdown(c->ssl)&SSL_SENT_SHUTDOWN)) ||
+        (sock_open && c->ssl_ptr) || shutdown_wants_read ||
+        shutdown_wants_write);
 }
 
 NOEXPORT void auth_user(CLI *c) {
@@ -1395,7 +2061,7 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
     PROCESS_INFORMATION pi;
     LPTSTR name, args;
 
-    if(make_sockets(fd))
+    if(make_sockets(fd, c->opt->sock_type))
         throw_exception(c, 1);
     memset(&si, 0, sizeof si);
     si.cb=sizeof si;
@@ -1406,7 +2072,14 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
 
     name=str2tstr(c->opt->exec_name);
     args=str2tstr(c->opt->exec_args);
-    CreateProcess(name, args, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    if(!CreateProcess(name, args, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+        ioerror("CreateProcess");
+        str_free(name);
+        str_free(args);
+        closesocket(fd[0]);
+        closesocket(fd[1]);
+        throw_exception(c, 1);
+    }
     str_free(name);
     str_free(args);
 
@@ -1432,7 +2105,7 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
             throw_exception(c, 1);
         s_log(LOG_DEBUG, "TTY=%s allocated", tty);
     } else
-        if(make_sockets(fd))
+        if(make_sockets(fd, c->opt->sock_type))
             throw_exception(c, 1);
     set_nonblock(fd[1], 0); /* switch back to the blocking mode */
 
@@ -1711,7 +2384,9 @@ NOEXPORT int connect_init(CLI *c, int domain) {
     }
 
     /* create a new socket */
-    c->fd=s_socket(domain, SOCK_STREAM, 0, 1, "remote socket");
+    c->fd=s_socket(domain,
+        c->opt->sock_type,
+        0, 1, "remote socket");
     if(c->fd==INVALID_SOCKET)
         return 1; /* failure */
     if(!c->bind_addr)
@@ -1721,7 +2396,9 @@ NOEXPORT int connect_init(CLI *c, int domain) {
 #ifndef USE_WIN32
     if(c->opt->option.transparent_src) {
 #if defined(__linux__)
-        /* non-local bind on Linux */
+        /* Non-local bind is only needed for transparent source mode.
+         * Keep direct setsockopt for Linux fallback semantics:
+         * try IP_TRANSPARENT, then IP_FREEBIND, and let bind() decide. */
         int on=1;
         if(setsockopt(c->fd, SOL_IP, IP_TRANSPARENT, &on, sizeof on)) {
             sockerror("setsockopt IP_TRANSPARENT");
@@ -1734,7 +2411,8 @@ NOEXPORT int connect_init(CLI *c, int domain) {
         /* ignore the error to retain Linux 2.2 compatibility */
         /* the error will be handled by bind(), anyway */
 #elif defined(IP_BINDANY) && defined(IPV6_BINDANY)
-        /* non-local bind on FreeBSD */
+        /* Non-local bind on FreeBSD is address-family specific,
+         * unlike service socket option defaults. */
         int on=1;
         if(domain==AF_INET) { /* IPv4 */
             if(setsockopt(c->fd, IPPROTO_IP, IP_BINDANY, &on, sizeof on)) {
@@ -1814,7 +2492,8 @@ NOEXPORT void print_bound_address(CLI *c) {
     str_free(txt);
 }
 
-/* set lingering on a socket */
+/* Set linger only on the reset path to force TCP RST.
+ * This must not be a default socket option. */
 NOEXPORT void reset(SOCKET fd, const char *txt) {
     struct linger l;
 
@@ -1827,6 +2506,21 @@ NOEXPORT void reset(SOCKET fd, const char *txt) {
 
         log_error(LOG_INFO, err, message);
         str_free(message);
+    }
+}
+
+NOEXPORT void check_fds_error(CLI *c) {
+    if(c->sock_rfd->fd==c->sock_wfd->fd) {
+        check_socket_error(c, c->sock_rfd->fd, "socket fd");
+    } else {
+        check_socket_error(c, c->sock_rfd->fd, "socket rfd");
+        check_socket_error(c, c->sock_wfd->fd, "socket wfd");
+    }
+    if(c->ssl_rfd->fd==c->ssl_wfd->fd) {
+        check_socket_error(c, c->ssl_rfd->fd, "TLS fd");
+    } else {
+        check_socket_error(c, c->ssl_rfd->fd, "TLS rfd");
+        check_socket_error(c, c->ssl_wfd->fd, "TLS wfd");
     }
 }
 

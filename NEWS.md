@@ -1,6 +1,21 @@
 # stunnel change log
 
 
+### Version 5.79, 2026.06.29, urgency: MEDIUM
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.5.7.
+* Bugfixes
+  - Fixed a TCP stream truncation (thanks to Solomon Jacobs).
+  - Fixed a transfer() loop (thanks to Solomon Jacobs).
+  - Fixed log reopening logs without a configured log file.
+  - Fixed some logged values (thanks to Jose Alf.).
+  - Fixed some error handling and cleanup issues
+    (thanks to Jose Alf.).
+  - Fixed OpenSSL applink detection and MSYS2 MinGW builds.
+* Features
+  - Added the new 'transport' service-level option
+    to choose between TLS over TCP and DTLS over UDP.
+
 ### Version 5.78, 2026.04.09, urgency: MEDIUM
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.5.6.

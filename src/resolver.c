@@ -624,6 +624,7 @@ int getnameinfo(const struct sockaddr *sa, socklen_t salen,
     if(s_getnameinfo)
         return s_getnameinfo(sa, salen, host, hostlen, serv, servlen, flags);
 #endif
+
     if(host && hostlen) {
 #if defined(USE_IPV6) && !defined(USE_WIN32)
         inet_ntop(sa->sa_family, sa->sa_family==AF_INET6 ?
@@ -639,10 +640,11 @@ int getnameinfo(const struct sockaddr *sa, socklen_t salen,
         host[hostlen-1]='\0';
 #endif /* USE_IPV6 */
     }
-    if(serv && servlen)
-        sprintf(serv, "%u", ntohs(((struct sockaddr_in *)sa)->sin_port));
+
     /* sin_port is in the same place both in sockaddr_in and sockaddr_in6 */
-    /* ignore servlen since it's long enough in stunnel code */
+    if(serv && servlen)
+        snprintf(serv, servlen, "%u",
+            ntohs(((struct sockaddr_in *)sa)->sin_port));
     return 0;
 }
 #endif

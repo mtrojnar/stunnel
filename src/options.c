@@ -309,10 +309,12 @@ NOEXPORT uint64_t parse_ssl_option(char *);
 NOEXPORT void print_ssl_options(void);
 
 NOEXPORT SOCK_OPT *socket_options_init(void);
-NOEXPORT void socket_option_set_int(SOCK_OPT *, const char *, int, int);
+NOEXPORT void socket_option_set_int(SOCK_OPT *, const char *, int, int, int);
 NOEXPORT SOCK_OPT *socket_options_dup(SOCK_OPT *);
 NOEXPORT void socket_options_free(SOCK_OPT *);
 NOEXPORT int socket_options_print(void);
+NOEXPORT int socket_option_is_tcp(SOCK_OPT *);
+NOEXPORT int socket_option_is_udp(SOCK_OPT *);
 NOEXPORT char *socket_option_text(VAL_TYPE, OPT_UNION *);
 NOEXPORT int socket_option_parse(SOCK_OPT *, char *);
 
@@ -4226,6 +4228,45 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         break;
     }
 
+    /* transport */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->sock_type=SOCK_STREAM;
+        break;
+    case CMD_SET_COPY:
+        section->sock_type=new_service_options.sock_type;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "transport"))
+            break;
+        if(!strcasecmp(arg, "tcp"))
+            section->sock_type=SOCK_STREAM;
+        else if(!strcasecmp(arg, "udp")) {
+#ifdef USE_DTLS
+            section->sock_type=SOCK_DGRAM;
+#else
+            return "DTLS is not supported by this OpenSSL build";
+#endif /* USE_DTLS */
+        } else
+            return "The argument needs to be either 'tcp' or 'udp'";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+#ifdef USE_DTLS
+        s_log(LOG_NOTICE, "%-22s = tcp|udp transport protocol",
+            "transport");
+#else
+        s_log(LOG_NOTICE, "%-22s = tcp transport protocol (DTLS not supported)",
+            "transport");
+#endif /* USE_DTLS */
+        break;
+    }
+
     /* final checks */
     switch(cmd) {
     case CMD_SET_DEFAULTS:
@@ -4243,6 +4284,10 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     case CMD_SET_VALUE:
         return option_not_found;
     case CMD_INITIALIZE:
+#ifndef USE_DTLS
+        if(section->sock_type==SOCK_DGRAM)
+            return "DTLS is not supported by this OpenSSL build";
+#endif /* !defined(USE_DTLS) */
         if(section!=&new_service_options) { /* daemon mode checks */
             if(endpoints!=2)
                 return "Each service must define two endpoints";
@@ -4737,7 +4782,7 @@ NOEXPORT void key_free(TICKET_KEY *head) {
 
 /**************************************** socket options */
 
-#define VAL_TAB {NULL, NULL, NULL}
+#define VAL_TAB {NULL, NULL, NULL}, {NULL, NULL, NULL}
 
 SOCK_OPT sock_opts_def[]={
     {"SO_DEBUG",        SOL_SOCKET,     SO_DEBUG,        TYPE_FLAG,     VAL_TAB},
@@ -4787,6 +4832,24 @@ SOCK_OPT sock_opts_def[]={
     {"TCP_MAXSEG",      IPPROTO_TCP,    TCP_MAXSEG,      TYPE_INT,      VAL_TAB},
 #endif
     {"TCP_NODELAY",     IPPROTO_TCP,    TCP_NODELAY,     TYPE_FLAG,     VAL_TAB},
+#ifdef UDP_CORK
+    {"UDP_CORK",        IPPROTO_UDP,    UDP_CORK,        TYPE_FLAG,     VAL_TAB},
+#endif
+#ifdef UDP_ENCAP
+    {"UDP_ENCAP",       IPPROTO_UDP,    UDP_ENCAP,       TYPE_INT,      VAL_TAB},
+#endif
+#ifdef UDP_NO_CHECK6_TX
+    {"UDP_NO_CHECK6_TX", IPPROTO_UDP,   UDP_NO_CHECK6_TX, TYPE_FLAG,    VAL_TAB},
+#endif
+#ifdef UDP_NO_CHECK6_RX
+    {"UDP_NO_CHECK6_RX", IPPROTO_UDP,   UDP_NO_CHECK6_RX, TYPE_FLAG,    VAL_TAB},
+#endif
+#ifdef UDP_SEGMENT
+    {"UDP_SEGMENT",     IPPROTO_UDP,    UDP_SEGMENT,     TYPE_INT,      VAL_TAB},
+#endif
+#ifdef UDP_GRO
+    {"UDP_GRO",         IPPROTO_UDP,    UDP_GRO,         TYPE_FLAG,     VAL_TAB},
+#endif
 #ifdef IP_FREEBIND
     {"IP_FREEBIND",     IPPROTO_IP,     IP_FREEBIND,     TYPE_FLAG,     VAL_TAB},
 #endif
@@ -4820,21 +4883,39 @@ NOEXPORT SOCK_OPT *socket_options_init(void) {
     minor=HIBYTE(LOWORD(version));
     s_log(LOG_DEBUG, "Running on Windows %d.%d", major, minor);
 
+    /* Win32 SO_REUSEADDR is unsafe for TCP listeners;
+     * use SO_EXCLUSIVEADDRUSE instead. */
     if(major>5) /* Vista or later */
-        socket_option_set_int(opt, "SO_EXCLUSIVEADDRUSE", 0, 1); /* accepting socket */
+        socket_option_set_int(opt, "SO_EXCLUSIVEADDRUSE",
+            SOCK_STREAM, 0, 1); /* accepting socket */
 #else
-    socket_option_set_int(opt, "SO_REUSEADDR", 0, 1); /* accepting socket */
+    /* Unix SO_REUSEADDR is safe and conventional for TCP listeners. */
+    socket_option_set_int(opt, "SO_REUSEADDR",
+        SOCK_STREAM, 0, 1); /* accepting socket */
 #endif
-    socket_option_set_int(opt, "TCP_NODELAY", 1, 1); /* local socket */
-    socket_option_set_int(opt, "TCP_NODELAY", 2, 1); /* remote socket */
+
+    /* UDP listener and per-client sockets share a port. */
+    socket_option_set_int(opt, "SO_REUSEADDR",
+        SOCK_DGRAM, 0, 1); /* accepting socket */
+    socket_option_set_int(opt, "SO_REUSEADDR",
+        SOCK_DGRAM, 1, 1); /* UDP per-client local socket */
+
+    socket_option_set_int(opt, "TCP_NODELAY",
+        SOCK_STREAM, 1, 1); /* local socket */
+    socket_option_set_int(opt, "TCP_NODELAY",
+        SOCK_STREAM, 2, 1); /* remote socket */
     return opt;
 }
 
-NOEXPORT void socket_option_set_int(SOCK_OPT *opt, const char *name, int type, int value) {
+NOEXPORT void socket_option_set_int(SOCK_OPT *opt, const char *name,
+        int sock_type, int type, int value) {
     for(; opt->opt_str; ++opt) {
         if(!strcmp(name, opt->opt_str)) {
-            opt->opt_val[type]=str_alloc_detached(sizeof(OPT_UNION));
-            opt->opt_val[type]->i_val=value;
+            OPT_UNION **opt_val=sock_type==SOCK_DGRAM ?
+                opt->opt_val_udp : opt->opt_val_tcp;
+            str_free(opt_val[type]);
+            opt_val[type]=str_alloc_detached(sizeof(OPT_UNION));
+            opt_val[type]->i_val=value;
         }
     }
 }
@@ -4847,10 +4928,15 @@ NOEXPORT SOCK_OPT *socket_options_dup(SOCK_OPT *src) {
     for(ptr=dst; src->opt_str; ++src, ++ptr) {
         int type;
         for(type=0; type<3; ++type) {
-            if(src->opt_val[type]) {
-                ptr->opt_val[type]=str_alloc_detached(sizeof(OPT_UNION));
-                memcpy(ptr->opt_val[type],
-                    src->opt_val[type], sizeof(OPT_UNION));
+            if(src->opt_val_tcp[type]) {
+                ptr->opt_val_tcp[type]=str_alloc_detached(sizeof(OPT_UNION));
+                memcpy(ptr->opt_val_tcp[type],
+                    src->opt_val_tcp[type], sizeof(OPT_UNION));
+            }
+            if(src->opt_val_udp[type]) {
+                ptr->opt_val_udp[type]=str_alloc_detached(sizeof(OPT_UNION));
+                memcpy(ptr->opt_val_udp[type],
+                    src->opt_val_udp[type], sizeof(OPT_UNION));
             }
         }
     }
@@ -4865,66 +4951,99 @@ NOEXPORT void socket_options_free(SOCK_OPT *opt) {
     }
     for(ptr=opt; ptr->opt_str; ++ptr) {
         int type;
-        for(type=0; type<3; ++type)
-            str_free(ptr->opt_val[type]);
+        for(type=0; type<3; ++type) {
+            str_free(ptr->opt_val_tcp[type]);
+            str_free(ptr->opt_val_udp[type]);
+        }
     }
     str_free(opt);
 }
 
 NOEXPORT int socket_options_print(void) {
     SOCK_OPT *opt, *ptr;
-
-    s_log(LOG_NOTICE, " ");
-    s_log(LOG_NOTICE, "Socket option defaults:");
-    s_log(LOG_NOTICE,
-        "    Option Name         |  Accept  |   Local  |  Remote  |OS default");
-    s_log(LOG_NOTICE,
-        "    --------------------+----------+----------+----------+----------");
+    static const int sock_types[2]={SOCK_STREAM, SOCK_DGRAM};
+    static const char *sock_type_names[2]={"TCP", "UDP"};
+    int i;
 
     opt=socket_options_init();
-    for(ptr=opt; ptr->opt_str; ++ptr) {
-        SOCKET fd;
-        socklen_t optlen;
-        OPT_UNION val;
-        char *ta, *tl, *tr, *td;
+    for(i=0; i<2; ++i) {
+        int sock_type=sock_types[i];
+        s_log(LOG_NOTICE, " ");
+        s_log(LOG_NOTICE, "%s socket option defaults:", sock_type_names[i]);
+        s_log(LOG_NOTICE,
+            "    Option Name         |  Accept  |   Local  |  Remote  |OS default");
+        s_log(LOG_NOTICE,
+            "    --------------------+----------+----------+----------+----------");
 
-        /* get OS default value */
+        for(ptr=opt; ptr->opt_str; ++ptr) {
+            OPT_UNION **opt_val=sock_type==SOCK_DGRAM ?
+                ptr->opt_val_udp : ptr->opt_val_tcp;
+            SOCKET fd;
+            socklen_t optlen;
+            OPT_UNION val;
+            char *ta, *tl, *tr, *td;
+
+            if(sock_type==SOCK_STREAM && socket_option_is_udp(ptr))
+                continue;
+            if(sock_type==SOCK_DGRAM && socket_option_is_tcp(ptr))
+                continue;
+
+            /* get OS default value */
 #if defined(AF_INET6) && defined(IPPROTO_IPV6)
-        if(ptr->opt_level==IPPROTO_IPV6)
-            fd=socket(AF_INET6, SOCK_STREAM, 0);
-        else
+            if(ptr->opt_level==IPPROTO_IPV6)
+                fd=socket(AF_INET6, sock_type, 0);
+            else
 #endif
-            fd=socket(AF_INET, SOCK_STREAM, 0);
-        optlen=sizeof val;
-        if(getsockopt(fd, ptr->opt_level,
-                ptr->opt_name, (void *)&val, &optlen)) {
-            switch(get_last_socket_error()) {
-            case S_ENOPROTOOPT:
-            case S_EOPNOTSUPP:
-                td=str_dup("write-only");
-                break;
-            default:
-                s_log(LOG_ERR, "Failed to get %s OS default", ptr->opt_str);
-                sockerror("getsockopt");
-                closesocket(fd);
-                return 1; /* FAILED */
-            }
-        } else
-            td=socket_option_text(ptr->opt_type, &val);
-        closesocket(fd);
+                fd=socket(AF_INET, sock_type, 0);
+            optlen=sizeof val;
+            if(getsockopt(fd, ptr->opt_level,
+                    ptr->opt_name, (void *)&val, &optlen)) {
+                switch(get_last_socket_error()) {
+                case S_EINVAL:
+                case S_ENOPROTOOPT:
+                case S_EOPNOTSUPP:
+                    td=str_dup("write-only");
+                    break;
+                default:
+                    s_log(LOG_ERR, "Failed to get %s OS default", ptr->opt_str);
+                    sockerror("getsockopt");
+                    closesocket(fd);
+                    socket_options_free(opt);
+                    return 1; /* FAILED */
+                }
+            } else
+                td=socket_option_text(ptr->opt_type, &val);
+            closesocket(fd);
 
-        /* get stunnel default values */
-        ta=socket_option_text(ptr->opt_type, ptr->opt_val[0]);
-        tl=socket_option_text(ptr->opt_type, ptr->opt_val[1]);
-        tr=socket_option_text(ptr->opt_type, ptr->opt_val[2]);
+            /* get stunnel default values */
+            ta=socket_option_text(ptr->opt_type, opt_val[0]);
+            tl=socket_option_text(ptr->opt_type, opt_val[1]);
+            tr=socket_option_text(ptr->opt_type, opt_val[2]);
 
-        /* print collected data and free the allocated memory */
-        s_log(LOG_NOTICE, "    %-20s|%10s|%10s|%10s|%10s",
-            ptr->opt_str, ta, tl, tr, td);
-        str_free(ta); str_free(tl); str_free(tr); str_free(td);
+            /* print collected data and free the allocated memory */
+            s_log(LOG_NOTICE, "    %-20s|%10s|%10s|%10s|%10s",
+                ptr->opt_str, ta, tl, tr, td);
+            str_free(ta); str_free(tl); str_free(tr); str_free(td);
+        }
     }
     socket_options_free(opt);
     return 0; /* OK */
+}
+
+NOEXPORT int socket_option_is_tcp(SOCK_OPT *opt) {
+    return opt->opt_level==IPPROTO_TCP
+#ifdef SOL_TCP
+        || opt->opt_level==SOL_TCP
+#endif
+        ;
+}
+
+NOEXPORT int socket_option_is_udp(SOCK_OPT *opt) {
+    return opt->opt_level==IPPROTO_UDP
+#ifdef SOL_UDP
+        || opt->opt_level==SOL_UDP
+#endif
+        ;
 }
 
 NOEXPORT char *socket_option_text(VAL_TYPE type, OPT_UNION *val) {
@@ -5033,9 +5152,16 @@ NOEXPORT int socket_option_parse(SOCK_OPT *opt, char *arg) {
     default:
         return 1; /* FAILED */
     }
-    str_free(opt->opt_val[socket_type]);
-    opt->opt_val[socket_type]=str_alloc_detached(sizeof(OPT_UNION));
-    memcpy(opt->opt_val[socket_type], &opt_val, sizeof(OPT_UNION));
+    if(!socket_option_is_udp(opt)) {
+        str_free(opt->opt_val_tcp[socket_type]);
+        opt->opt_val_tcp[socket_type]=str_alloc_detached(sizeof(OPT_UNION));
+        memcpy(opt->opt_val_tcp[socket_type], &opt_val, sizeof(OPT_UNION));
+    }
+    if(!socket_option_is_tcp(opt)) {
+        str_free(opt->opt_val_udp[socket_type]);
+        opt->opt_val_udp[socket_type]=str_alloc_detached(sizeof(OPT_UNION));
+        memcpy(opt->opt_val_udp[socket_type], &opt_val, sizeof(OPT_UNION));
+    }
     return 0;
 }
 

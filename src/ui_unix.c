@@ -136,11 +136,14 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
 #endif
         set_nonblock(0, 1); /* stdin */
         set_nonblock(1, 1); /* stdout */
-        c=alloc_client_session(&service_options, 0, 1);
+        c=alloc_client(&service_options);
+        c->local_rfd.fd=0;
+        c->local_wfd.fd=1;
         tls_alloc(c, ui_tls, NULL);
         service_up_ref(&service_options);
         client_main(c);
-        client_free(c);
+        service_free(c->opt);
+        free_client(c);
     }
     return 0;
 }

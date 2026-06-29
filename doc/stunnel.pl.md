@@ -1030,6 +1030,27 @@ Jeżeli **stunnel** ma zostać użyty w trybie *inetd*, gdzie za odebranie poł�
 
     czas oczekiwania na nawiązanie połączenia z serwerem OCSP
 
+-   **transport** = tcp \| udp
+
+    wybór protokołu transportowego
+
+    Wspierane wartości:
+
+    -   *tcp*
+
+        Standardowy TLS po TCP (domyślnie).
+
+    -   *udp*
+
+        DTLS po UDP.
+
+        Każdy datagram otwiera nowe połączenie logiczne w ramach
+        usługi.  Serwer używa oddzielnego połączonego gniazda dla
+        każdego klienta, a ciasteczka DTLS chronią przed atakami
+        DDoS typu refleksyjnego.
+
+    domyślnie: tcp
+
 -   **transparent** = none \| source \| destination \| both (tylko Unix)
 
     tryb przezroczystego proxy na wspieranych platformach

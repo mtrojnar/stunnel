@@ -133,7 +133,7 @@ int cron_init(void) {
     per_minute_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_minute_thread, NULL, 0, NULL);
     per_day_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_day_thread, NULL, 0, NULL);
     CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
-    if(!per_day_thread_id || !per_day_thread_id) {
+    if(!per_second_thread_id || !per_minute_thread_id || !per_day_thread_id) {
         ioerror("_beginthreadex");
         return 1;
     }
@@ -234,9 +234,11 @@ NOEXPORT void per_day_worker(void) {
     time(&then);
     for(;;) {
         s_log(LOG_INFO, "Executing per-day jobs");
+
 #ifndef OPENSSL_NO_DH
         per_day_dh_param(bn_gencb);
 #endif /* OPENSSL_NO_DH */
+
         time(&now);
         s_log(LOG_INFO, "Per-day jobs completed in %d seconds", (int)(now-then));
         then+=PER_DAY_PERIOD;
@@ -253,8 +255,11 @@ NOEXPORT void per_day_worker(void) {
             time(&now);
             delay=(int)(then-now);
         } while(delay>0);
-        s_log(LOG_INFO, "Reopening log file");
-        signal_post(SIGNAL_REOPEN_LOG);
+
+        if(outfile) {
+            s_log(LOG_INFO, "Reopening log file");
+            signal_post(SIGNAL_REOPEN_LOG);
+        }
     }
 }
 

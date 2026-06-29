@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 
 from typing import (
     Any,
@@ -51,7 +52,7 @@ OCSP_INDEX = os.path.join(DEFAULT_CERTS, "index.txt")
 
 RE_VERSIONS = re.compile(r"""\A
     (?=.*^stunnel\s+(?P<stunnel_version>(?:[5-9]|[1-9]\d+)\.\d\d\S*)(?:\s.*)?$)?
-    (?=.*^Compiled/running\swith\sOpenSSL\s+(?P<openssl_version>\d+\.\d+\.\d+\S*)(?:\s.*)?$)?
+    (?=.*^Compiled/running\s+with\sOpenSSL\s+(?P<openssl_version>\d+\.\d+\.\d+\S*)(?:\s.*)?$)?
     .*\Z""", re.X | re.M | re.S)
 
 RE_LINE_IDX = re.compile(r" ^ Hello \s+ (?P<idx> 0 | [1-9][0-9]* ) $ ", re.X)
@@ -464,6 +465,7 @@ class TestResult():
     def __init__(self, cfg: Config, logger: logging.Logger):
         self.cfg = cfg
         self.logger = logger
+        self.start_time = time.perf_counter()
         self.events = TestEvents(
             skip=[],
             success=[],
@@ -515,7 +517,8 @@ class TestResult():
                 if result == "UNKNOWN":
                     result = "succeeded"
                 break
-        self.logger.info("." * 70 + " " + result)
+        elapsed = time.perf_counter() - self.start_time
+        self.logger.info("." * 55 + f" {result} in {elapsed*1000:.0f} ms")
         return result
 
 

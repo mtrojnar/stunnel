@@ -277,27 +277,136 @@ typedef long unsigned SSL_OPTIONS_TYPE;
 typedef long SSL_OPTIONS_TYPE;
 #endif
 
+#ifdef USE_DTLS
+/* compute HMAC-SHA256 cookie bound to client IP (not port) */
+NOEXPORT int dtls_cookie_compute(SSL *ssl,
+        unsigned char *out, unsigned int *out_len) {
+    CLI *c=SSL_get_ex_data(ssl, index_ssl_cli);
+    const unsigned char *host_addr;
+    size_t host_len;
+
+    if(!c) {
+        s_log(LOG_ERR, "DTLS cookie: CLI not found");
+        return 0;
+    }
+    switch(c->peer_addr.sa.sa_family) {
+        case AF_INET:
+            host_addr=(const unsigned char *)&c->peer_addr.in.sin_addr;
+            host_len=sizeof(c->peer_addr.in.sin_addr);
+            break;
+#ifdef USE_IPV6
+        case AF_INET6:
+            host_addr=(const unsigned char *)&c->peer_addr.in6.sin6_addr;
+            host_len=sizeof(c->peer_addr.in6.sin6_addr);
+            break;
+#endif
+        default:
+            host_addr=(const unsigned char *)&c->peer_addr;
+            host_len=(size_t)addr_len(&c->peer_addr);
+    }
+    *out_len=SHA256_DIGEST_LENGTH;
+    if(!HMAC(EVP_sha256(),
+            c->opt->dtls_cookie_secret, (int)sizeof c->opt->dtls_cookie_secret,
+            host_addr, host_len, out, out_len)) {
+        s_log(LOG_ERR, "DTLS cookie: HMAC() failed");
+        return 0;
+    }
+    return 1;
+}
+
+/* verify DTLS cookie against per-section secret */
+NOEXPORT int dtls_verify_cookie(SSL *ssl,
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+        const unsigned char *cookie,
+#else
+        unsigned char *cookie,
+#endif
+        unsigned int cookie_len) {
+    unsigned char expected[SHA256_DIGEST_LENGTH];
+    unsigned int expected_len;
+
+    if(!dtls_cookie_compute(ssl, expected, &expected_len))
+        return 0;
+    if(expected_len!=cookie_len)
+        return 0;
+    return safe_memcmp(expected, cookie, cookie_len)==0;
+}
+#endif /* USE_DTLS */
+
 int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     s_log(LOG_DEBUG, "Initializing context [%s]", section->servname);
 
-    /* create a new TLS context */
+#ifndef USE_DTLS
+    if(section->sock_type==SOCK_DGRAM) {
+        s_log(LOG_ERR, "DTLS is not supported by this OpenSSL build");
+        return 1; /* FAILED */
+    }
+#endif /* !defined(USE_DTLS) */
+
+    /* create a new TLS/DTLS context */
 #if OPENSSL_VERSION_NUMBER>=0x30000000L
-    section->ctx=SSL_CTX_new_ex(NULL,
-        EVP_default_properties_is_fips_enabled(NULL) ?
-            "fips=yes" : "provider!=fips",
-        section->option.client ?
-            TLS_client_method() : TLS_server_method());
+#ifdef USE_DTLS
+    if(section->sock_type==SOCK_DGRAM)
+        section->ctx=SSL_CTX_new_ex(NULL,
+            EVP_default_properties_is_fips_enabled(NULL) ?
+                "fips=yes" : "provider!=fips",
+            section->option.client ?
+                DTLS_client_method() : DTLS_server_method());
+    else
+#endif /* USE_DTLS */
+        section->ctx=SSL_CTX_new_ex(NULL,
+            EVP_default_properties_is_fips_enabled(NULL) ?
+                "fips=yes" : "provider!=fips",
+            section->option.client ?
+                TLS_client_method() : TLS_server_method());
 #elif OPENSSL_VERSION_NUMBER>=0x10100000L
-    section->ctx=SSL_CTX_new(section->option.client ?
-        TLS_client_method() : TLS_server_method());
-#else /* OPENSSL_VERSION_NUMBER<0x10100000L */
-    section->ctx=SSL_CTX_new(section->option.client ?
-        section->client_method : section->server_method);
+#ifdef USE_DTLS
+    if(section->sock_type==SOCK_DGRAM)
+        section->ctx=SSL_CTX_new(section->option.client ?
+            DTLS_client_method() : DTLS_server_method());
+    else
+#endif /* USE_DTLS */
+        section->ctx=SSL_CTX_new(section->option.client ?
+            TLS_client_method() : TLS_server_method());
+#else
+#ifdef USE_DTLS
+    if(section->sock_type==SOCK_DGRAM)
+#if OPENSSL_VERSION_NUMBER>=0x10002000L
+        section->ctx=SSL_CTX_new(section->option.client ?
+            DTLS_client_method() : DTLS_server_method());
+#else
+        section->ctx=SSL_CTX_new(section->option.client ?
+            DTLSv1_client_method() : DTLSv1_server_method());
+#endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
+    else
+#endif /* USE_DTLS */
+        section->ctx=SSL_CTX_new(section->option.client ?
+            section->client_method : section->server_method);
+
 #endif
     if(!section->ctx) {
         ssl_error(NULL, "SSL_CTX_new");
         return 1; /* FAILED */
     }
+
+#ifdef USE_DTLS
+    /* DTLS server: generate per-section cookie secret
+     * and register cookie callbacks */
+    if(section->sock_type==SOCK_DGRAM && !section->option.client) {
+#if OPENSSL_VERSION_NUMBER>=0x10101000L
+        if(!RAND_priv_bytes(section->dtls_cookie_secret,
+#else /* OPENSSL_VERSION_NUMBER>=0x10101000L */
+        if(!RAND_bytes(section->dtls_cookie_secret,
+#endif /* OPENSSL_VERSION_NUMBER>=0x10101000L */
+                sizeof section->dtls_cookie_secret)) {
+            s_log(LOG_ERR, "DTLS cookie: RAND_bytes() failed");
+            return 1; /* FAILED */
+        }
+        SSL_CTX_set_cookie_generate_cb(section->ctx, dtls_cookie_compute);
+        SSL_CTX_set_cookie_verify_cb(section->ctx, dtls_verify_cookie);
+        s_log(LOG_DEBUG, "DTLS cookie callbacks registered");
+    }
+#endif /* USE_DTLS */
 
     /* set supported protocol versions */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
@@ -762,7 +871,7 @@ NOEXPORT int SSL_CTX_set1_groups_list(SSL_CTX *ctx, char *list) {
         return 0; /* FAILED */
     }
     if(!SSL_CTX_set_tmp_ecdh(ctx, ecdh)) {
-        ssl_error(NULL, "SSL_CTX_set_tmp_ecdhSSL_CTX_set_tmp_ecdh");
+        ssl_error(NULL, "SSL_CTX_set_tmp_ecdh");
         EC_KEY_free(ecdh);
         return 0; /* FAILED */
     }
@@ -951,7 +1060,7 @@ NOEXPORT unsigned psk_client_callback(SSL *ssl, const char *hint,
     identity_len=strlen(c->opt->psk_selected->identity)+1;
     if(identity_len>max_identity_len) {
         s_log(LOG_ERR, "PSK identity too long (%lu>%d bytes)",
-            (long unsigned)identity_len, max_psk_len);
+            (long unsigned)identity_len, max_identity_len);
         return 0;
     }
     if(c->opt->psk_selected->key_len>max_psk_len) {
@@ -973,10 +1082,10 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     c=SSL_get_ex_data(ssl, index_ssl_cli);
     found=psk_find(&c->opt->psk_sorted, identity);
     if(!found) {
-        const char *c=identity;
-        while(*c && isprint((unsigned char)*c))
-            c++;
-        if(*c)
+        const char *cp=identity;
+        while(*cp && isprint((unsigned char)*cp))
+            cp++;
+        if(*cp)
             s_log(LOG_INFO, "PSK identity not found (session resumption?)");
         else
             s_log(LOG_INFO, "PSK identity not found: %s", identity);
@@ -1987,7 +2096,8 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
         return;
     }
 
-    /* set recvfrom timeout to 200ms */
+    /* Internal sessiond socket: fixed 200ms recvfrom timeout,
+     * not a service socket option default. */
     t.tv_sec=0;
     t.tv_usec=200;
     if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (void *)&t, sizeof t)<0) {

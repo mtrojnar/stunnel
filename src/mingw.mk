@@ -31,6 +31,7 @@ ifneq ($(win32_mimalloc_dir),)
 win32_cflags += -DHAVE_MIMALLOC_H
 endif
 win32_cflags += -fstack-protector-strong -fcf-protection=full -D_FORTIFY_SOURCE=2
+
 win32_ldflags = -g -mthreads -pipe
 ifeq ($(win32_arch),win64)
 win32_ldflags += -Wl,--high-entropy-va
@@ -70,7 +71,12 @@ win32_cli_objs = $(addsuffix .o, $(addprefix $(objdir)/, $(win32_cli)))
 
 win32_prefix = $(win32_targetcpu)-w64-mingw32-
 win32_cc = $(win32_prefix)gcc
+# MSYS2 MinGW ships windres.exe without the target-prefixed alias.
+ifeq ($(OS),Windows_NT)
+win32_windres = windres
+else
 win32_windres = $(win32_prefix)windres
+endif
 
 all: mkdirs $(bindir)/stunnel.exe $(bindir)/tstunnel.exe
 

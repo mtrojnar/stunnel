@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>stunnel TLS Proxy</title>
   <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
     html {
       color: #1a1a1a;
       background-color: #fdfdfd;
@@ -88,6 +91,7 @@
       color: #606060;
     }
     code {
+      white-space: pre-wrap;
       font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
       font-size: 85%;
       margin: 0;
@@ -107,8 +111,8 @@
      overflow: visible;
     }
     hr {
-      background-color: #1a1a1a;
       border: none;
+      border-top: 1px solid #1a1a1a;
       height: 1px;
       margin: 1em 0;
     }
@@ -151,7 +155,6 @@
     #TOC a:not(:hover) {
       text-decoration: none;
     }
-    code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
     div.columns{display: flex; gap: min(4vw, 1.5em);}
     div.column{flex: auto; overflow-x: auto;}
@@ -1101,6 +1104,19 @@ MSIE)</p></li>
 <p>maksymalny czas utrzymywania bezczynnego połączenia</p></li>
 <li><p><strong>TIMEOUTocsp</strong> = LICZBA_SEKUND</p>
 <p>czas oczekiwania na nawiązanie połączenia z serwerem OCSP</p></li>
+<li><p><strong>transport</strong> = tcp | udp</p>
+<p>wybór protokołu transportowego</p>
+<p>Wspierane wartości:</p>
+<ul>
+<li><p><em>tcp</em></p>
+<p>Standardowy TLS po TCP (domyślnie).</p></li>
+<li><p><em>udp</em></p>
+<p>DTLS po UDP.</p>
+<p>Każdy datagram otwiera nowe połączenie logiczne w ramach usługi.
+Serwer używa oddzielnego połączonego gniazda dla każdego klienta, a
+ciasteczka DTLS chronią przed atakami DDoS typu refleksyjnego.</p></li>
+</ul>
+<p>domyślnie: tcp</p></li>
 <li><p><strong>transparent</strong> = none | source | destination | both
 (tylko Unix)</p>
 <p>tryb przezroczystego proxy na wspieranych platformach</p>

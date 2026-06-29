@@ -124,6 +124,7 @@ typedef int                 ssize_t;
 #define S_EINVAL        WSAEINVAL
 #define S_EISCONN       WSAEISCONN
 #define S_EMFILE        WSAEMFILE
+#define S_EMSGSIZE      WSAEMSGSIZE
 /* winsock does not define WSAENFILE */
 #define S_ENOBUFS       WSAENOBUFS
 /* winsock does not define WSAENOMEM */
@@ -209,6 +210,11 @@ typedef int                 ssize_t;
 /* must be included before sys/stat.h for Ultrix */
 #ifndef _WIN32_WCE
 #include <errno.h>
+#endif
+#ifndef S_EMSGSIZE
+#ifdef EMSGSIZE
+#define S_EMSGSIZE      EMSGSIZE
+#endif
 #endif
 #include <stdlib.h>
 #include <stdarg.h>      /* va_ */
@@ -373,6 +379,9 @@ typedef int SOCKET;
 #include <sys/un.h>
 #endif
 #include <netinet/tcp.h>
+#ifdef HAVE_NETINET_UDP_H
+#include <netinet/udp.h>
+#endif
 #include <netdb.h>
 #ifndef INADDR_ANY
 #define INADDR_ANY       (u32)0x00000000
@@ -426,6 +435,9 @@ extern char *sys_errlist[];
 
 /**************************************** OpenSSL headers */
 
+/* TODO: remove this after migrating to the OpenSSL 3.0 API */
+#define OPENSSL_SUPPRESS_DEPRECATED
+
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>
 /* opensslv.h requires prior opensslconf.h to include -fips in version string */
@@ -472,6 +484,12 @@ extern char *sys_errlist[];
 #define OPENSSL_NO_TLS1_3
 #endif /* OpenSSL older than 1.1.1 */
 
+#if OPENSSL_VERSION_NUMBER<0x10002000L
+#ifndef OPENSSL_NO_DTLS1_2
+#define OPENSSL_NO_DTLS1_2
+#endif /* !defined(OPENSSL_NO_DTLS1_2) */
+#endif /* OpenSSL older than 1.0.2 */
+
 #ifdef USE_WIN32
 #define USE_FIPS
 #endif
@@ -511,6 +529,19 @@ STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #include <openssl/provider.h>
 #include <openssl/proverr.h>
 #endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
+
+#ifndef SSL3_RT_MAX_PLAIN_LENGTH
+#define SSL3_RT_MAX_PLAIN_LENGTH 16384
+#endif /* !defined(SSL3_RT_MAX_PLAIN_LENGTH) */
+
+#if !defined(OPENSSL_NO_DTLS) && !defined(OPENSSL_NO_DGRAM) && \
+        !defined(OPENSSL_NO_SOCK) && \
+        (!defined(OPENSSL_NO_DTLS1) || !defined(OPENSSL_NO_DTLS1_2))
+#define USE_DTLS
+#endif
+#if defined(USE_DTLS) && OPENSSL_VERSION_NUMBER>=0x30200000L
+#define USE_DTLS_DGRAM_BIO
+#endif
 
 #ifndef OPENSSL_VERSION
 #define OPENSSL_VERSION SSLEAY_VERSION

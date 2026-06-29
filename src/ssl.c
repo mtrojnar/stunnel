@@ -79,6 +79,9 @@ NOEXPORT void update_rand_file(const char *);
 
 int index_ssl_cli, index_ssl_ctx_opt;
 int index_session_authenticated, index_session_connect_address;
+#if OPENSSL_VERSION_NUMBER<0x10100000L
+int unsafe_openssl;
+#endif /* OpenSSL version < 1.1.0 */
 
 #ifdef USE_FIPS
 
@@ -180,6 +183,9 @@ void crypto_init(void) {
     OPENSSL_config(NULL);
     SSL_load_error_strings();
     SSL_library_init();
+    unsafe_openssl=OpenSSL_version_num()<0x0090810fL ||
+        (OpenSSL_version_num()>=0x10000000L &&
+        OpenSSL_version_num()<0x1000002fL);
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 
 #ifdef USE_WIN32
