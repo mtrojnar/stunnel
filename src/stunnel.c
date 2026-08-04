@@ -659,6 +659,7 @@ NOEXPORT ACCEPT_STATUS accept_tcp_connection(SERVICE_OPTIONS *opt,
 NOEXPORT void start_accepted_client(SERVICE_OPTIONS *opt, SOCKET fd, CLI *c) {
     /* shared: pre-create_client checks */
 #ifdef USE_FORK
+    (void)opt; /* squash the unused parameter warning */
     RAND_add("", 1, 0.0); /* each child needs a unique entropy pool */
 #else
     if(max_clients && num_clients>=max_clients) {

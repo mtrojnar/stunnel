@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc" />
+  <meta name="generator" content="pandoc 3.10" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>stunnel TLS Proxy</title>
   <style>
@@ -156,8 +156,12 @@
       text-decoration: none;
     }
     span.smallcaps{font-variant: small-caps;}
-    div.columns{display: flex; gap: min(4vw, 1.5em);}
-    div.column{flex: auto; overflow-x: auto;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
     /* The extra [class] is a hack that increases specificity enough to
        override a similar rule in reveal.js */
@@ -568,8 +572,9 @@ chosen using a round-robin algorithm.</p></li>
 <p>Certificate Revocation Lists directory</p>
 <p>This is the directory in which <strong>stunnel</strong> will look for
 CRLs when using the <em>verifyChain</em> and <em>verifyPeer</em>
-options. Note that the CRLs in this directory should be named
-XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.</p>
+options, and with <em>CRLcheckChain</em> for full-chain CRL checking.
+Note that the CRLs in this directory should be named XXXXXXXX.r0 where
+XXXXXXXX is the hash value of the CRL.</p>
 <p>The hash algorithm has been changed in <strong>OpenSSL
 1.0.0</strong>. It is required to c_rehash the directory on upgrade from
 <strong>OpenSSL 0.x.x</strong> to <strong>OpenSSL 1.x.x</strong>.</p>
@@ -578,7 +583,21 @@ specified.</p></li>
 <li><p><strong>CRLfile</strong> = CRL_FILE</p>
 <p>Certificate Revocation Lists file</p>
 <p>This file contains multiple CRLs, used with the <em>verifyChain</em>
-and <em>verifyPeer</em> options.</p></li>
+and <em>verifyPeer</em> options, and with <em>CRLcheckChain</em> for
+full-chain CRL checking.</p></li>
+<li><p><strong>CRLcheckChain</strong> = yes | no</p>
+<p>check CRLs for the full peer certificate chain</p>
+<p>This option requires <em>verifyChain = yes</em> and either
+<em>CRLfile</em> or <em>CRLpath</em>.</p>
+<p>By default, CRL checking is only performed for the end-entity (leaf)
+peer certificate. With <em>CRLcheckChain = yes</em>, CRL checking is
+additionally performed for every certificate in the verified issuer
+chain. Full-chain mode fails closed if an applicable issuer CRL is
+missing, expired, or invalid.</p>
+<p>For a chain such as Root CA -&gt; Intermediate CA -&gt; Leaf, an
+intermediate-issued CRL is needed for the leaf certificate and a
+root-issued CRL is needed for the intermediate certificate.</p>
+<p>default: no</p></li>
 <li><p><strong>curves</strong> = list</p>
 <p>ECDH curves separated with ‘:’</p>
 <p>Note: This option is supported for server mode sockets only.</p>

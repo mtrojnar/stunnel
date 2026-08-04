@@ -2162,6 +2162,43 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         break;
     }
 
+    /* CRLcheckChain */
+    switch(cmd) {
+    case CMD_SET_DEFAULTS:
+        section->option.crl_check_chain=0;
+        break;
+    case CMD_SET_COPY:
+        section->option.crl_check_chain=
+            new_service_options.option.crl_check_chain;
+        break;
+    case CMD_FREE:
+        break;
+    case CMD_SET_VALUE:
+        if(strcasecmp(opt, "CRLcheckChain"))
+            break;
+        if(!strcasecmp(arg, "yes"))
+            section->option.crl_check_chain=1;
+        else if(!strcasecmp(arg, "no"))
+            section->option.crl_check_chain=0;
+        else
+            return "The argument needs to be either 'yes' or 'no'";
+        return NULL; /* OK */
+    case CMD_INITIALIZE:
+        if(section->option.crl_check_chain && !section->option.verify_chain)
+            return "\"verifyChain\" has to be enabled for \"CRLcheckChain\"";
+        if(section->option.crl_check_chain &&
+                !section->crl_file && !section->crl_dir)
+            return "Either \"CRLfile\" or \"CRLpath\" has to be configured for \"CRLcheckChain\"";
+        break;
+    case CMD_PRINT_DEFAULTS:
+        break;
+    case CMD_PRINT_HELP:
+        s_log(LOG_NOTICE,
+            "%-22s = yes|no check CRLs for the full certificate chain",
+            "CRLcheckChain");
+        break;
+    }
+
 #ifndef OPENSSL_NO_ECDH
 
     /* curves */

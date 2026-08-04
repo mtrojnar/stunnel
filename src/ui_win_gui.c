@@ -1415,6 +1415,7 @@ NOEXPORT unsigned __stdcall control_pipe_server_thread(void *arg) {
             TEXT("D:") /* discretionary ACL */
             TEXT("(D;OICI;GA;;;BG)") /* deny access to Built-in Guests */
             TEXT("(D;OICI;GA;;;AN)") /* deny access to Anonymous Logon */
+            TEXT("(D;OICI;GA;;;NU)") /* deny access to Network */
             TEXT("(A;OICI;GRGW;;;AU)"), /* allow read/write to Authenticated Users */
             SDDL_REVISION_1, &sa.lpSecurityDescriptor, NULL)) {
         /* spawn new threads for incoming client connections */

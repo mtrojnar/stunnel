@@ -422,7 +422,7 @@ Jeżeli **stunnel** ma zostać użyty w trybie *inetd*, gdzie za odebranie poł�
 
     katalog List Odwołanych Certyfikatów (CRL)
 
-    Opcja określa katalog, w którym **stunnel** będzie szukał list CRL używanych przez opcje *verifyChain* i *verifyPeer*. Pliki z listami CRL muszą posiadać specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skrótem listy CRL.
+    Opcja określa katalog, w którym **stunnel** będzie szukał list CRL używanych przez opcje *verifyChain* i *verifyPeer*, a także przez *CRLcheckChain* do sprawdzania pełnego łańcucha certyfikatów. Pliki z listami CRL muszą posiadać specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skrótem listy CRL.
 
     Funkcja skrótu została zmieniona **OpenSSL 1.0.0**. Należy wykonać c_rehash przy zmianie **OpenSSL 0.x.x** na **1.x.x**.
 
@@ -432,7 +432,19 @@ Jeżeli **stunnel** ma zostać użyty w trybie *inetd*, gdzie za odebranie poł�
 
     plik List Odwołanych Certyfikatów (CRL)
 
-    Opcja pozwala określić położenie pliku zawierającego listy CRL używane przez opcje *verifyChain* i *verifyPeer*.
+    Opcja pozwala określić położenie pliku zawierającego listy CRL używane przez opcje *verifyChain* i *verifyPeer*, a także przez *CRLcheckChain* do sprawdzania pełnego łańcucha certyfikatów.
+
+-   **CRLcheckChain** = yes \| no
+
+    sprawdzaj listy CRL dla pełnego łańcucha certyfikatów drugiej strony połączenia
+
+    Opcja wymaga ustawienia *verifyChain = yes* oraz wskazania źródła list CRL za pomocą *CRLfile* lub *CRLpath*.
+
+    Domyślnie listy CRL są sprawdzane tylko dla certyfikatu podmiotu końcowego (liścia) drugiej strony połączenia. Ustawienie *CRLcheckChain = yes* dodatkowo włącza sprawdzanie list CRL dla każdego certyfikatu w zweryfikowanym łańcuchu wystawców. W trybie pełnego łańcucha weryfikacja kończy się niepowodzeniem, jeżeli brakuje odpowiedniej listy CRL wystawcy albo lista ta straciła ważność lub jest nieprawidłowa.
+
+    Dla łańcucha takiego jak Główny CA -> Pośredni CA -> Certyfikat końcowy lista CRL wystawiona przez pośredni CA jest potrzebna do sprawdzenia certyfikatu końcowego, natomiast lista CRL wystawiona przez główny CA jest potrzebna do sprawdzenia certyfikatu pośredniego.
+
+    domyślnie: no
 
 -   **curves** = lista
 

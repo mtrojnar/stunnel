@@ -6,13 +6,14 @@
 
 import asyncio
 import logging
-import os
-import pathlib
+import shlex
 import socket
 import subprocess
 import threading
 from plugin_collection import Plugin, ERR_CONN_RESET
-from maketest import Config, StunnelAcceptConnect, LogEvent, ResultEvent
+from maketest import (
+    Config, StunnelAcceptConnect, LogEvent, ResultEvent, openssl_dtls_args
+)
 
 
 class DTLSStunnelServerInterleavingTest(StunnelAcceptConnect):
@@ -30,6 +31,15 @@ class DTLSStunnelServerInterleavingTest(StunnelAcceptConnect):
             "Connection lost", "Something went wrong",
             "timed out", "INTERNAL ERROR"
         ]
+        self._udp_echo_socket = None
+        self._udp_echo_thread = None
+        self._udp_echo_stop = threading.Event()
+        self._udp_echo_packets = []
+
+    async def _log(self, tag, message, level=20):
+        """Write a diagnostic message through the test event queue."""
+        await self.cfg.mainq.put(
+            LogEvent(etype="log", level=level, log=f"[{tag}] {message}"))
 
     async def prepare_server_cfgfile(self, cfg, port, service):
         contents = f"""
@@ -59,22 +69,45 @@ class DTLSStunnelServerInterleavingTest(StunnelAcceptConnect):
             pass
 
     async def test_stunnel(self, cfg):
-        tag = "test_stunnel_dtls_interleaving"
+        tag = "test_stunnel_dtls_server_interleaving"
         task = asyncio.create_task(self.set_result())
         try:
             self.logger.info(self.params.description)
-            # Step 1: UDP echo backend
+            await cfg.mainq.put(LogEvent(etype="log", level=30, log=""))
+            await self._log(
+                tag, f"***** Start '{self.params.description}' *****", level=30)
+            await self._log(
+                tag,
+                "Topology: openssl clients A/B -> stunnel DTLS server"
+                " -> shared UDP echo backend; send order A1, B1, A2, B2")
+
             udp_port = self._start_udp_echo()
-            # Step 2: start stunnel DTLS server
+            await self._log(
+                "udp-echo", f"Listening on 127.0.0.1:{udp_port}")
+
             cfgfile = await self.prepare_server_cfgfile(
                 cfg, udp_port, 'dtls-server')
             stunnel_port = await self.start_stunnel(cfgfile, 'dtls-server')
-            # Step 3: interleaved DTLS client test
+            await self._log(
+                tag,
+                f"stunnel forwards DTLS 127.0.0.1:{stunnel_port}"
+                f" to UDP 127.0.0.1:{udp_port}")
+
             await self._run_interleaved_clients(stunnel_port)
-        except Exception as err:
-            await cfg.mainq.put(LogEvent(etype="fatal_event", level=50,
-                log=f"[{tag}] {type(err).__name__}: {err}"))
+        except Exception as err:  # pylint: disable=broad-except
+            await cfg.mainq.put(LogEvent(
+                etype="fatal_event",
+                level=50,
+                log=f"[{tag}] Something went wrong:"
+                    f" {type(err).__name__}: {err}"))
         finally:
+            if self._udp_echo_socket is not None:
+                thread_stopped = await self._stop_udp_echo()
+                await self._log(
+                    "udp-echo",
+                    f"Stopped (thread joined: {thread_stopped}) after echoing"
+                    f" {len(self._udp_echo_packets)} datagram(s):"
+                    f" {self._udp_echo_packets!r}")
             await self.cleanup_stunnels()
             await self.cleanup_tasks()
             await self.expect_event(self.cfg.logsq, "result_event")
@@ -84,80 +117,151 @@ class DTLSStunnelServerInterleavingTest(StunnelAcceptConnect):
                             log=f"[{tag}] Test {result}", result=result))
             await self.expect_event(self.cfg.logsq, "set_result_event")
 
-    @staticmethod
-    def _start_udp_echo():
-        """Start a UDP echo server on a random port.
-        Returns the listening port number."""
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('127.0.0.1', 0))
-        port = s.getsockname()[1]
+    def _start_udp_echo(self):
+        """Start a UDP echo server and retain its packet trace."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 0))
+        sock.settimeout(0.2)
+        self._udp_echo_socket = sock
+        self._udp_echo_stop.clear()
+        self._udp_echo_packets.clear()
+        port = sock.getsockname()[1]
 
         def echo():
-            while True:
+            while not self._udp_echo_stop.is_set():
                 try:
-                    s.settimeout(1.0)
-                    d, a = s.recvfrom(4096)
-                    if d:
-                        s.sendto(d, a)
+                    data, addr = sock.recvfrom(4096)
+                    if data:
+                        sock.sendto(data, addr)
+                        self._udp_echo_packets.append(
+                            (f"{addr[0]}:{addr[1]}", data))
                 except socket.timeout:
                     continue
                 except OSError:
                     break
-        threading.Thread(target=echo, daemon=True).start()
+
+        self._udp_echo_thread = threading.Thread(target=echo, daemon=True)
+        self._udp_echo_thread.start()
         return port
 
-    async def _run_interleaved_clients(self, port):
-        """Launch two openssl DTLS clients.  Queue four packets:
-        A sends P1, B sends P1, A sends P2, B sends P2.
-        Responses are read afterwards to verify interleaved backlog."""
-        async def launch_client(name):
-            return await asyncio.create_subprocess_exec(
-                "openssl", "s_client", "-dtls1_2",
-                "-connect", f"127.0.0.1:{port}", "-quiet",
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+    async def _stop_udp_echo(self):
+        """Stop the UDP echo backend and join its thread."""
+        self._udp_echo_stop.set()
+        self._udp_echo_socket.close()
+        self._udp_echo_socket = None
+        thread = self._udp_echo_thread
+        await asyncio.get_running_loop().run_in_executor(
+            None, thread.join, 1.0)
+        self._udp_echo_thread = None
+        return not thread.is_alive()
 
-        async def send(proc, data):
-            """Send data to openssl DTLS client."""
+    async def _log_openssl_stderr(self, stream, client):
+        """Record diagnostic output from an OpenSSL helper."""
+        async for data in stream:
+            line = data.decode("UTF-8", errors="replace").rstrip("\r\n")
+            await self._log(client, f"stderr: {line}")
+
+    async def _run_interleaved_clients(self, port):
+        """Send A1, B1, A2, B2 before validating each client's echoes."""
+        endpoint = f"127.0.0.1:{port}"
+        dtls_args = await openssl_dtls_args(self.cfg)
+
+        async def launch_client(name):
+            tag = f"openssl-dtls-client-{name}"
+            command = ["openssl", "s_client"]
+            command.extend(dtls_args)
+            command.extend(["-connect", endpoint, "-quiet"])
+            cmd_str = " ".join(shlex.quote(word) for word in command)
+            await self._log(tag, f"Launching `{cmd_str}`")
+            proc = await asyncio.create_subprocess_exec(
+                *command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            stderr_task = asyncio.create_task(
+                self._log_openssl_stderr(proc.stderr, tag))
+            await self._log(
+                tag, f"Started process {proc.pid} for {endpoint}")
+            return proc, stderr_task
+
+        async def send(proc, name, sequence, data):
+            """Send and identify one interleaved application payload."""
+            tag = f"openssl-dtls-client-{name}"
+            await self._log(
+                tag,
+                f"Sending payload {name}{sequence} ({len(data)} bytes)"
+                f" to {endpoint}: {data!r}")
             proc.stdin.write(data)
             await proc.stdin.drain()
+            await self._log(tag, f"Payload {name}{sequence} sent")
 
-        async def recv(proc, name, data, timeout=20):
-            """Read echoed response and verify it."""
+        async def recv(proc, name, sequence, data, timeout=20):
+            """Read and identify one echoed application payload."""
+            tag = f"openssl-dtls-client-{name}"
             expected = data.strip()
-            response = await asyncio.wait_for(
-                proc.stdout.readline(), timeout=timeout)
+            await self._log(
+                tag,
+                f"Waiting up to {timeout} seconds for payload"
+                f" {name}{sequence}; expected {expected!r}")
+            try:
+                response = await asyncio.wait_for(
+                    proc.stdout.readline(), timeout=timeout)
+            except asyncio.TimeoutError as err:
+                raise RuntimeError(
+                    f"[{name}] timed out after {timeout} seconds waiting"
+                    f" for payload {name}{sequence} from {endpoint};"
+                    f" expected {expected!r}") from err
+            await self._log(
+                tag,
+                f"Received payload {name}{sequence} ({len(response)} bytes)"
+                f" from {endpoint}: {response!r}")
             if expected not in response:
                 raise RuntimeError(
-                    f"[{name}] Expected {expected!r},"
+                    f"[{name}] payload {name}{sequence} mismatch"
+                    f" from {endpoint}: expected {expected!r},"
                     f" got {response[:200]!r}")
+            await self._log(
+                tag, f"Verified payload {name}{sequence}: {expected!r}")
 
-        proc_a = None
-        proc_b = None
-        data_a1 = b"DATA_A_PACKET_1\n"
-        data_b1 = b"DATA_B_PACKET_1\n"
-        data_a2 = b"DATA_A_PACKET_2\n"
-        data_b2 = b"DATA_B_PACKET_2\n"
+        clients = {}
+        data = {
+            "A": [b"DATA_A_PACKET_1\n", b"DATA_A_PACKET_2\n"],
+            "B": [b"DATA_B_PACKET_1\n", b"DATA_B_PACKET_2\n"]
+        }
         try:
-            proc_a = await launch_client("A")
-            proc_b = await launch_client("B")
-            await send(proc_a, data_a1)
-            await send(proc_b, data_b1)
-            await send(proc_a, data_a2)
-            await send(proc_b, data_b2)
-            await recv(proc_a, "A", data_a1)
-            await recv(proc_b, "B", data_b1)
-            await recv(proc_a, "A", data_a2)
-            await recv(proc_b, "B", data_b2)
+            clients["A"] = await launch_client("A")
+            clients["B"] = await launch_client("B")
+            await send(clients["A"][0], "A", 1, data["A"][0])
+            await send(clients["B"][0], "B", 1, data["B"][0])
+            await send(clients["A"][0], "A", 2, data["A"][1])
+            await send(clients["B"][0], "B", 2, data["B"][1])
+            await self._log(
+                "dtls-interleaving",
+                "Queued all payloads in order A1, B1, A2, B2;"
+                " now reading echoes")
+            await recv(clients["A"][0], "A", 1, data["A"][0])
+            await recv(clients["B"][0], "B", 1, data["B"][0])
+            await recv(clients["A"][0], "A", 2, data["A"][1])
+            await recv(clients["B"][0], "B", 2, data["B"][1])
+            await self._log(
+                "dtls-interleaving",
+                "Verified A received only A1/A2 and B received only B1/B2")
         finally:
-            for p in (proc_a, proc_b):
-                if p is not None:
+            for name, (proc, stderr_task) in clients.items():
+                tag = f"openssl-dtls-client-{name}"
+                if proc.returncode is None:
+                    await self._log(
+                        tag, f"Stopping process {proc.pid}")
                     try:
-                        p.kill()
-                        await p.wait()
+                        proc.kill()
                     except ProcessLookupError:
                         pass
+                returncode = await proc.wait()
+                await stderr_task
+                await self._log(
+                    tag,
+                    f"Process {proc.pid} exited with status {returncode}")
 
 
 class StunnelDTLSServerInterleavingTestPlugin(Plugin):

@@ -1,10 +1,9 @@
 """stunnel DTLS client mode interleaving test
    Two UDP clients --> one stunnel DTLS client listener -->
    stunnel DTLS server --> UDP echo server
-   UDP packets from two clients are queued before responses are read:
-   A1, B1, A2, B2.  Each client verifies its own echoed data,
-   confirming stunnel DTLS client mode handles multiple clients on
-   the same UDP accept socket."""
+   The clients alternate request/response exchanges: A1, B1, A2, B2.
+   Each client verifies its own echoed data, confirming stunnel DTLS
+   client mode handles multiple clients on the same UDP accept socket."""
 
 import asyncio
 import logging
@@ -22,6 +21,9 @@ class DTLSStunnelClientInterleavingTest(StunnelAcceptConnect):
         self.params.ssl_server = False
         self.params.description = '311. Test DTLS client mode with interleaved clients'
         self.params.services = ['dtls-backend', 'dtls-client']
+        self.events.skip = [
+            r"requires OpenSSL 1\.1\.0 or later"
+        ]
         self.events.failure = [
             "peer did not return a certificate",
             "bad certificate", "certificate verify failed",
@@ -30,7 +32,14 @@ class DTLSStunnelClientInterleavingTest(StunnelAcceptConnect):
             "timed out", "INTERNAL ERROR"
         ]
         self._udp_echo_socket = None
+        self._udp_echo_thread = None
         self._udp_echo_stop = threading.Event()
+        self._udp_echo_packets = []
+
+    async def _log(self, tag, message, level=20):
+        """Write a diagnostic message through the test event queue."""
+        await self.cfg.mainq.put(
+            LogEvent(etype="log", level=level, log=f"[{tag}] {message}"))
 
     async def prepare_backend_cfgfile(self, cfg, port, service):
         """Create a DTLS server backend config file."""
@@ -81,32 +90,69 @@ class DTLSStunnelClientInterleavingTest(StunnelAcceptConnect):
         task = asyncio.create_task(self.set_result())
         try:
             self.logger.info(self.params.description)
-            # Step 1: UDP echo backend for the stunnel DTLS server
-            udp_port = self._start_udp_echo()
+            await cfg.mainq.put(LogEvent(etype="log", level=30, log=""))
+            await self._log(
+                tag, f"***** Start '{self.params.description}' *****", level=30)
+            await self._log(
+                tag,
+                "Topology: UDP clients A/B -> stunnel DTLS client ->"
+                " stunnel DTLS backend -> UDP echo backend;"
+                " request/response order A1, B1, A2, B2")
 
-            # Step 2: stunnel DTLS server backend; OpenSSL s_server handles
-            # only one DTLS client reliably, while stunnel can handle several.
+            # Do not remove this guard merely because the alternating test no
+            # longer needs BIO_s_dgram_mem().  With OpenSSL 1.0.2 the
+            # auxiliary stunnel-to-stunnel DTLS topology stalls during the
+            # backend cookie exchange.  Test 291 covers DTLS client mode on
+            # 1.0.2 without using this incompatible topology.
+            openssl_version = cfg.versions.get("stunnel-openssl")
+            if openssl_version is None:
+                raise RuntimeError("stunnel OpenSSL version is unavailable")
+            if openssl_version < (1, 1, 0):
+                await cfg.mainq.put(LogEvent(
+                    etype="output_event",
+                    level=30,
+                    log=f"[{tag}] The stunnel-to-stunnel DTLS topology"
+                        f" requires OpenSSL 1.1.0 or later;"
+                        f" got {openssl_version}"))
+                return
+
+            udp_port = self._start_udp_echo()
+            await self._log(
+                "udp-echo", f"Listening on 127.0.0.1:{udp_port}")
+
             backend_cfg = await self.prepare_backend_cfgfile(
                 cfg, udp_port, 'dtls-backend')
             backend_port = await self.start_stunnel(
                 backend_cfg, 'dtls-backend')
+            await self._log(
+                tag,
+                f"DTLS backend forwards 127.0.0.1:{backend_port}"
+                f" to UDP 127.0.0.1:{udp_port}")
 
-            # Step 3: one stunnel DTLS client listener under test
             client_cfg = await self.prepare_client_cfgfile(
                 cfg, backend_port, 'dtls-client')
-            stunnel_port = await self.start_stunnel(
-                client_cfg, 'dtls-client')
+            stunnel_port = int(
+                await self.start_stunnel(client_cfg, 'dtls-client'))
+            await self._log(
+                tag,
+                f"DTLS client under test forwards UDP 127.0.0.1:{stunnel_port}"
+                f" to DTLS 127.0.0.1:{backend_port}")
 
-            # Step 4: two UDP clients share the same stunnel accept socket
             await self._run_interleaved_udp_clients(stunnel_port)
-        except Exception as err:
-            await cfg.mainq.put(LogEvent(etype="fatal_event", level=50,
-                log=f"[{tag}] {type(err).__name__}: {err}"))
+        except Exception as err:  # pylint: disable=broad-except
+            await cfg.mainq.put(LogEvent(
+                etype="fatal_event",
+                level=50,
+                log=f"[{tag}] Something went wrong:"
+                    f" {type(err).__name__}: {err}"))
         finally:
             if self._udp_echo_socket is not None:
-                self._udp_echo_stop.set()
-                self._udp_echo_socket.close()
-                self._udp_echo_socket = None
+                thread_stopped = await self._stop_udp_echo()
+                await self._log(
+                    "udp-echo",
+                    f"Stopped (thread joined: {thread_stopped}) after echoing"
+                    f" {len(self._udp_echo_packets)} datagram(s):"
+                    f" {self._udp_echo_packets!r}")
             await self.cleanup_stunnels()
             await self.cleanup_tasks()
             await self.expect_event(self.cfg.logsq, "result_event")
@@ -117,76 +163,109 @@ class DTLSStunnelClientInterleavingTest(StunnelAcceptConnect):
             await self.expect_event(self.cfg.logsq, "set_result_event")
 
     def _start_udp_echo(self):
-        """Start a UDP echo server on a random port."""
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('127.0.0.1', 0))
-        port = s.getsockname()[1]
-        self._udp_echo_socket = s
+        """Start a UDP echo server and retain its packet trace."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 0))
+        sock.settimeout(0.2)
+        self._udp_echo_socket = sock
         self._udp_echo_stop.clear()
+        self._udp_echo_packets.clear()
+        port = sock.getsockname()[1]
 
         def echo():
             while not self._udp_echo_stop.is_set():
                 try:
-                    s.settimeout(1.0)
-                    data, addr = s.recvfrom(4096)
+                    data, addr = sock.recvfrom(4096)
                     if data:
-                        s.sendto(data, addr)
+                        sock.sendto(data, addr)
+                        self._udp_echo_packets.append(
+                            (f"{addr[0]}:{addr[1]}", data))
                 except socket.timeout:
                     continue
                 except OSError:
                     break
-        threading.Thread(target=echo, daemon=True).start()
+
+        self._udp_echo_thread = threading.Thread(target=echo, daemon=True)
+        self._udp_echo_thread.start()
         return port
 
+    async def _stop_udp_echo(self):
+        """Stop the UDP echo backend and join its thread."""
+        self._udp_echo_stop.set()
+        self._udp_echo_socket.close()
+        self._udp_echo_socket = None
+        thread = self._udp_echo_thread
+        await asyncio.get_running_loop().run_in_executor(
+            None, thread.join, 1.0)
+        self._udp_echo_thread = None
+        return not thread.is_alive()
+
     async def _run_interleaved_udp_clients(self, port):
-        """Queue interleaved UDP packets on one stunnel listener."""
+        """Alternate request/response exchanges: A1, B1, A2, B2."""
+        tag = "udp-interleaving"
         loop = asyncio.get_running_loop()
-        data_a = [b"UDP_A_PACKET_1", b"UDP_A_PACKET_2"]
-        data_b = [b"UDP_B_PACKET_1", b"UDP_B_PACKET_2"]
+        endpoint = f"127.0.0.1:{port}"
+        data = {
+            "A": [b"UDP_A_PACKET_1", b"UDP_A_PACKET_2"],
+            "B": [b"UDP_B_PACKET_1", b"UDP_B_PACKET_2"]
+        }
 
-        async def send(sock, data, timeout=10):
-            await asyncio.wait_for(
-                loop.sock_sendall(sock, data), timeout=timeout)
-
-        async def recv_all(sock, name, expected, timeout=20):
-            remaining = list(expected)
-            while remaining:
+        async def exchange(sock, name, sequence, payload, timeout=20):
+            local_addr, local_port = sock.getsockname()[:2]
+            local_endpoint = f"{local_addr}:{local_port}"
+            await self._log(
+                tag,
+                f"Client {name} sending payload {name}{sequence}"
+                f" ({len(payload)} bytes) from {local_endpoint}"
+                f" to {endpoint}: {payload!r}")
+            try:
+                await asyncio.wait_for(
+                    loop.sock_sendall(sock, payload), timeout=timeout)
                 response = await asyncio.wait_for(
                     loop.sock_recv(sock, 4096), timeout=timeout)
-                for data in list(remaining):
-                    if data in response:
-                        remaining.remove(data)
-                        break
-                else:
-                    raise RuntimeError(
-                        f"[{name}] Unexpected response {response[:200]!r};"
-                        f" expected one of {remaining!r}")
+            except asyncio.TimeoutError as err:
+                raise RuntimeError(
+                    f"client {name} timed out after {timeout} seconds"
+                    f" exchanging payload {name}{sequence}"
+                    f" from {local_endpoint} with {endpoint}") from err
+            await self._log(
+                tag,
+                f"Client {name} received {len(response)} bytes"
+                f" from {endpoint}: {response!r}")
+            if response != payload:
+                raise RuntimeError(
+                    f"client {name} received unexpected response"
+                    f" for payload {name}{sequence}: {response[:200]!r};"
+                    f" expected {payload!r}")
+            await self._log(
+                tag, f"Client {name} verified payload {name}{sequence}")
 
-        sock_a = None
-        sock_b = None
+        sockets = {}
         try:
-            sock_a = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock_a.setblocking(False)
-            sock_a.connect(('127.0.0.1', port))
-            sock_b = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock_b.setblocking(False)
-            sock_b.connect(('127.0.0.1', port))
+            for name in ("A", "B"):
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.setblocking(False)
+                sock.connect(('127.0.0.1', port))
+                sockets[name] = sock
+                local_addr, local_port = sock.getsockname()[:2]
+                await self._log(
+                    tag,
+                    f"Client {name} connected UDP"
+                    f" {local_addr}:{local_port} to {endpoint}")
 
-            # Queue all packets before reading responses to exercise
-            # listener demultiplexing and per-client UDP sockets.
-            await send(sock_a, data_a[0])
-            await send(sock_b, data_b[0])
-            await send(sock_a, data_a[1])
-            await send(sock_b, data_b[1])
-
-            await asyncio.gather(
-                recv_all(sock_a, "A", data_a),
-                recv_all(sock_b, "B", data_b))
+            for name, sequence in (("A", 1), ("B", 1),
+                                   ("A", 2), ("B", 2)):
+                await exchange(
+                    sockets[name], name, sequence, data[name][sequence-1])
+            await self._log(
+                tag,
+                "Verified alternating exchanges A1, B1, A2, B2")
         finally:
-            for s in (sock_a, sock_b):
-                if s is not None:
-                    s.close()
+            for name, sock in sockets.items():
+                sock.close()
+                await self._log(
+                    tag, f"Closed UDP socket for client {name}", level=10)
 
 
 class StunnelDTLSClientInterleavingTestPlugin(Plugin):

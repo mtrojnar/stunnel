@@ -432,7 +432,7 @@ Note that if you wish to run **stunnel** in *inetd* mode (where it is provided a
 
     Certificate Revocation Lists directory
 
-    This is the directory in which **stunnel** will look for CRLs when using the *verifyChain* and *verifyPeer* options. Note that the CRLs in this directory should be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.
+    This is the directory in which **stunnel** will look for CRLs when using the *verifyChain* and *verifyPeer* options, and with *CRLcheckChain* for full-chain CRL checking. Note that the CRLs in this directory should be named XXXXXXXX.r0 where XXXXXXXX is the hash value of the CRL.
 
     The hash algorithm has been changed in **OpenSSL 1.0.0**. It is required to c_rehash the directory on upgrade from **OpenSSL 0.x.x** to **OpenSSL 1.x.x**.
 
@@ -442,7 +442,19 @@ Note that if you wish to run **stunnel** in *inetd* mode (where it is provided a
 
     Certificate Revocation Lists file
 
-    This file contains multiple CRLs, used with the *verifyChain* and *verifyPeer* options.
+    This file contains multiple CRLs, used with the *verifyChain* and *verifyPeer* options, and with *CRLcheckChain* for full-chain CRL checking.
+
+-   **CRLcheckChain** = yes \| no
+
+    check CRLs for the full peer certificate chain
+
+    This option requires *verifyChain = yes* and either *CRLfile* or *CRLpath*.
+
+    By default, CRL checking is only performed for the end-entity (leaf) peer certificate.  With *CRLcheckChain = yes*, CRL checking is additionally performed for every certificate in the verified issuer chain.  Full-chain mode fails closed if an applicable issuer CRL is missing, expired, or invalid.
+
+    For a chain such as Root CA -> Intermediate CA -> Leaf, an intermediate-issued CRL is needed for the leaf certificate and a root-issued CRL is needed for the intermediate certificate.
+
+    default: no
 
 -   **curves** = list
 

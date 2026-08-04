@@ -1,6 +1,25 @@
 # stunnel change log
 
 
+### Version 5.80, 2026.08.04, urgency: HIGH
+* Security bugfixes
+  - CVE-2026-70368: Fixed an out-of-bounds memory access triggered by
+    logging attacker-controlled protocol messages longer than 1,024 bytes
+    (thanks to AISLE Research and Clemens Lang).
+  - CVE-2026-70367: Fixed a SOCKS server mode bypass of the localhost
+    destination filter using alternate local-address encodings and
+    interface-scoped IPv6 destinations (thanks to AISLE Research and
+    Clemens Lang).
+  - Restricted Windows GUI/service control pipes to local clients.
+* Bugfixes
+  - Fixed concurrent DTLS handshakes from clients sharing an IP address.
+  - Fixed version reporting in builds from source.
+  - Rejected stream-oriented protocol negotiation with the UDP transport
+    during configuration validation.
+* Features
+  - Added the "CRLcheckChain" service-level option for opt-in
+    full-chain CRL verification.
+
 ### Version 5.79, 2026.06.29, urgency: MEDIUM
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.5.7.

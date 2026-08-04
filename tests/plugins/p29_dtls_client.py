@@ -4,11 +4,13 @@
 import asyncio
 import logging
 import os
-import pathlib
+import shlex
 import socket
 import subprocess
 from plugin_collection import Plugin, ERR_CONN_RESET
-from maketest import Config, StunnelAcceptConnect, LogEvent, ResultEvent
+from maketest import (
+    Config, StunnelAcceptConnect, LogEvent, ResultEvent, openssl_dtls_args
+)
 
 
 class DTLSStunnelClientTest(StunnelAcceptConnect):
@@ -27,6 +29,13 @@ class DTLSStunnelClientTest(StunnelAcceptConnect):
             "timed out", "INTERNAL ERROR"
         ]
         self._dtls_proc = None
+        self._echo_tasks = []
+        self._stderr_task = None
+
+    async def _log(self, tag, message, level=20):
+        """Write a diagnostic message through the test event queue."""
+        await self.cfg.mainq.put(
+            LogEvent(etype="log", level=level, log=f"[{tag}] {message}"))
 
     async def prepare_client_cfgfile(self, cfg, ports, service):
         dtls_port = ports[0]
@@ -60,30 +69,33 @@ class DTLSStunnelClientTest(StunnelAcceptConnect):
         task = asyncio.create_task(self.set_result())
         try:
             self.logger.info(self.params.description)
+            await cfg.mainq.put(LogEvent(etype="log", level=30, log=""))
+            await self._log(
+                tag, f"***** Start '{self.params.description}' *****", level=30)
+            await self._log(
+                tag,
+                "Topology: UDP test client -> stunnel DTLS client"
+                " -> openssl s_server echo backend")
+
             dtls_port = await self._start_dtls_echo(cfg)
             cfgfile, _ = await self.prepare_client_cfgfile(
                 cfg, [dtls_port], 'dtls-client')
-            stunnel_port = await self.start_stunnel(cfgfile, 'dtls-client')
+            stunnel_port = int(
+                await self.start_stunnel(cfgfile, 'dtls-client'))
+            await self._log(
+                tag,
+                f"stunnel forwards UDP 127.0.0.1:{stunnel_port}"
+                f" to DTLS 127.0.0.1:{dtls_port}")
+
             await self._run_udp_client(stunnel_port)
-        except Exception as err:
-            await cfg.mainq.put(LogEvent(etype="fatal_event", level=50,
-                log=f"[{tag}] {type(err).__name__}: {err}"))
+        except Exception as err:  # pylint: disable=broad-except
+            await cfg.mainq.put(LogEvent(
+                etype="fatal_event",
+                level=50,
+                log=f"[{tag}] Something went wrong:"
+                    f" {type(err).__name__}: {err}"))
         finally:
-            if self._dtls_proc is not None:
-                try:
-                    self._dtls_proc.kill()
-                    await self._dtls_proc.wait()
-                except ProcessLookupError:
-                    pass
-            # Clean up the echo relay task if still running
-            if hasattr(self, '_echo_tasks'):
-                for t in self._echo_tasks:
-                    t.cancel()
-                    try:
-                        await t
-                    except (asyncio.CancelledError, ProcessLookupError):
-                        pass
-                self._echo_tasks.clear()
+            await self._stop_dtls_echo()
             await self.cleanup_stunnels()
             await self.cleanup_tasks()
             await self.expect_event(self.cfg.logsq, "result_event")
@@ -93,69 +105,164 @@ class DTLSStunnelClientTest(StunnelAcceptConnect):
                             log=f"[{tag}] Test {result}", result=result))
             await self.expect_event(self.cfg.logsq, "set_result_event")
 
-    async def _start_dtls_echo(self, cfg):
-        """Start an openssl DTLS server as an echo backend.
-        Returns the listening port."""
-        # Bind a UDP socket to find a free port, then close it
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.bind(('127.0.0.1', 0))
-        port = s.getsockname()[1]
-        s.close()
+    async def _log_openssl_stderr(self, stream):
+        """Record diagnostic output from the OpenSSL DTLS server."""
+        async for data in stream:
+            line = data.decode("UTF-8", errors="replace").rstrip("\r\n")
+            await self._log("openssl-dtls-server", f"stderr: {line}")
 
-        proc = await asyncio.create_subprocess_exec(
-            "openssl", "s_server", "-dtls1_2",
-            "-accept", f"127.0.0.1:{port}",
+    async def _wait_dtls_server_ready(self, proc, endpoint):
+        """Allow s_server to bind before sending the first UDP datagram."""
+        await asyncio.sleep(0.2)
+        if proc.returncode is not None:
+            stderr = await proc.stderr.read()
+            detail = stderr.decode("UTF-8", errors="replace").strip()
+            raise RuntimeError(
+                f"OpenSSL DTLS server at {endpoint} exited with status"
+                f" {proc.returncode} before becoming ready: {detail}")
+        await self._log("openssl-dtls-server", f"Ready on {endpoint}")
+
+    async def _start_dtls_echo(self, cfg):
+        """Start an OpenSSL DTLS server and relay plaintext back to it."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(('127.0.0.1', 0))
+        port = sock.getsockname()[1]
+        sock.close()
+        endpoint = f"127.0.0.1:{port}"
+        command = ["openssl", "s_server"]
+        command.extend(await openssl_dtls_args(self.cfg))
+        command.extend([
+            "-accept", endpoint,
             "-cert", str(cfg.certdir / "server_cert.pem"),
             "-key", str(cfg.certdir / "server_cert.pem"),
-            "-quiet",
+            "-quiet"
+        ])
+        cmd_str = " ".join(shlex.quote(word) for word in command)
+        await self._log(
+            "openssl-dtls-server", f"Launching `{cmd_str}`")
+        proc = await asyncio.create_subprocess_exec(
+            *command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
         self._dtls_proc = proc
+        await self._log(
+            "openssl-dtls-server",
+            f"Started process {proc.pid} for {endpoint}")
+        await self._wait_dtls_server_ready(proc, endpoint)
+        self._stderr_task = asyncio.create_task(
+            self._log_openssl_stderr(proc.stderr))
 
-        # Relay stdout back to stdin (echo).  Keep running until cancelled.
         async def echo_relay():
+            """Relay decrypted server output to its input as an echo."""
+            tag = "openssl-dtls-server"
             try:
                 while True:
-                    try:
-                        data = await asyncio.wait_for(
-                            proc.stdout.read(4096), timeout=1.0)
-                    except asyncio.TimeoutError:
-                        continue
+                    data = await proc.stdout.read(4096)
                     if not data:
+                        await self._log(
+                            tag, "Plaintext stdout reached EOF", level=10)
                         break
+                    await self._log(
+                        tag,
+                        f"Received plaintext ({len(data)} bytes)"
+                        f" from stunnel: {data!r}")
                     proc.stdin.write(data)
                     await proc.stdin.drain()
+                    await self._log(
+                        tag,
+                        f"Echoed plaintext ({len(data)} bytes)"
+                        f" to stunnel: {data!r}")
             except asyncio.CancelledError:
-                pass
-            except Exception:
-                pass
-        self._echo_tasks = [asyncio.ensure_future(echo_relay())]
+                return
+            except Exception as err:  # pylint: disable=broad-except
+                await self.cfg.mainq.put(LogEvent(
+                    etype="fatal_event",
+                    level=50,
+                    log=f"[{tag}] Something went wrong in echo relay:"
+                        f" {type(err).__name__}: {err}"))
+
+        self._echo_tasks = [asyncio.create_task(echo_relay())]
         return port
 
+    async def _stop_dtls_echo(self):
+        """Stop and report the OpenSSL echo helper."""
+        for task in self._echo_tasks:
+            task.cancel()
+        if self._echo_tasks:
+            await asyncio.gather(*self._echo_tasks, return_exceptions=True)
+            self._echo_tasks.clear()
+
+        proc = self._dtls_proc
+        if proc is None:
+            return
+        if proc.returncode is None:
+            await self._log(
+                "openssl-dtls-server", f"Stopping process {proc.pid}")
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+        returncode = await proc.wait()
+        if self._stderr_task is not None:
+            await self._stderr_task
+            self._stderr_task = None
+        await self._log(
+            "openssl-dtls-server",
+            f"Process {proc.pid} exited with status {returncode}")
+        self._dtls_proc = None
+
     async def _run_udp_client(self, stunnel_port):
-        """Send test data through stunnel's UDP accept port,
-        receive the echo, and verify it.
-        Uses non-blocking asyncio socket methods to avoid
-        stalling the event loop."""
+        """Send a UDP payload through stunnel and verify the echoed data."""
+        tag = "udp-test-client"
         loop = asyncio.get_running_loop()
+        endpoint = f"127.0.0.1:{stunnel_port}"
         test_data = b"HELLO_DTLS_CLIENT_TEST"
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setblocking(False)
         try:
             sock.connect(('127.0.0.1', stunnel_port))
-            await asyncio.wait_for(
-                loop.sock_sendall(sock, test_data), timeout=10)
-            response = await asyncio.wait_for(
-                loop.sock_recv(sock, 4096), timeout=10)
-        except asyncio.TimeoutError:
-            raise RuntimeError(
-                "UDP echo timed out waiting for response")
+            local_addr, local_port = sock.getsockname()[:2]
+            local_endpoint = f"{local_addr}:{local_port}"
+            await self._log(
+                tag, f"Connected UDP {local_endpoint} to {endpoint}")
+            await self._log(
+                tag,
+                f"Sending payload #1 ({len(test_data)} bytes)"
+                f" to {endpoint}: {test_data!r}")
+            try:
+                await asyncio.wait_for(
+                    loop.sock_sendall(sock, test_data), timeout=10)
+            except asyncio.TimeoutError as err:
+                raise RuntimeError(
+                    f"timed out after 10 seconds sending payload #1"
+                    f" from {local_endpoint} to {endpoint}:"
+                    f" {test_data!r}") from err
+            await self._log(
+                tag, "Payload #1 sent; waiting up to 10 seconds for its echo")
+            try:
+                response = await asyncio.wait_for(
+                    loop.sock_recv(sock, 4096), timeout=10)
+            except asyncio.TimeoutError as err:
+                raise RuntimeError(
+                    f"timed out after 10 seconds waiting for payload #1"
+                    f" at {local_endpoint} from {endpoint};"
+                    f" expected {test_data!r}") from err
+            await self._log(
+                tag,
+                f"Received payload #1 ({len(response)} bytes)"
+                f" from {endpoint}: {response!r}")
         finally:
             sock.close()
+            await self._log(tag, "Closed UDP test socket", level=10)
+
         if test_data not in response:
             raise RuntimeError(
-                f"Expected {test_data!r}, got {response[:200]!r}")
+                f"payload #1 mismatch from {endpoint}:"
+                f" expected {test_data!r}, got {response[:200]!r}")
+        await self._log(
+            tag,
+            f"Verified payload #1 echo from {endpoint}: {test_data!r}")
 
 
 class StunnelDTLSClientTestPlugin(Plugin):

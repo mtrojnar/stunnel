@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="pl-PL" xml:lang="pl-PL">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc" />
+  <meta name="generator" content="pandoc 3.10" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>stunnel TLS Proxy</title>
   <style>
@@ -156,8 +156,12 @@
       text-decoration: none;
     }
     span.smallcaps{font-variant: small-caps;}
-    div.columns{display: flex; gap: min(4vw, 1.5em);}
-    div.column{flex: auto; overflow-x: auto;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
     /* The extra [class] is a hack that increases specificity enough to
        override a similar rule in reveal.js */
@@ -588,8 +592,9 @@ serwerów.</p></li>
 <p>katalog List Odwołanych Certyfikatów (CRL)</p>
 <p>Opcja określa katalog, w którym <strong>stunnel</strong> będzie
 szukał list CRL używanych przez opcje <em>verifyChain</em> i
-<em>verifyPeer</em>. Pliki z listami CRL muszą posiadać specjalne nazwy
-XXXXXXXX.r0, gdzie XXXXXXXX jest skrótem listy CRL.</p>
+<em>verifyPeer</em>, a także przez <em>CRLcheckChain</em> do sprawdzania
+pełnego łańcucha certyfikatów. Pliki z listami CRL muszą posiadać
+specjalne nazwy XXXXXXXX.r0, gdzie XXXXXXXX jest skrótem listy CRL.</p>
 <p>Funkcja skrótu została zmieniona <strong>OpenSSL 1.0.0</strong>.
 Należy wykonać c_rehash przy zmianie <strong>OpenSSL 0.x.x</strong> na
 <strong>1.x.x</strong>.</p>
@@ -598,7 +603,26 @@ Należy wykonać c_rehash przy zmianie <strong>OpenSSL 0.x.x</strong> na
 <li><p><strong>CRLfile</strong> = PLIK_CRL</p>
 <p>plik List Odwołanych Certyfikatów (CRL)</p>
 <p>Opcja pozwala określić położenie pliku zawierającego listy CRL
-używane przez opcje <em>verifyChain</em> i <em>verifyPeer</em>.</p></li>
+używane przez opcje <em>verifyChain</em> i <em>verifyPeer</em>, a także
+przez <em>CRLcheckChain</em> do sprawdzania pełnego łańcucha
+certyfikatów.</p></li>
+<li><p><strong>CRLcheckChain</strong> = yes | no</p>
+<p>sprawdzaj listy CRL dla pełnego łańcucha certyfikatów drugiej strony
+połączenia</p>
+<p>Opcja wymaga ustawienia <em>verifyChain = yes</em> oraz wskazania
+źródła list CRL za pomocą <em>CRLfile</em> lub <em>CRLpath</em>.</p>
+<p>Domyślnie listy CRL są sprawdzane tylko dla certyfikatu podmiotu
+końcowego (liścia) drugiej strony połączenia. Ustawienie
+<em>CRLcheckChain = yes</em> dodatkowo włącza sprawdzanie list CRL dla
+każdego certyfikatu w zweryfikowanym łańcuchu wystawców. W trybie
+pełnego łańcucha weryfikacja kończy się niepowodzeniem, jeżeli brakuje
+odpowiedniej listy CRL wystawcy albo lista ta straciła ważność lub jest
+nieprawidłowa.</p>
+<p>Dla łańcucha takiego jak Główny CA -&gt; Pośredni CA -&gt; Certyfikat
+końcowy lista CRL wystawiona przez pośredni CA jest potrzebna do
+sprawdzenia certyfikatu końcowego, natomiast lista CRL wystawiona przez
+główny CA jest potrzebna do sprawdzenia certyfikatu pośredniego.</p>
+<p>domyślnie: no</p></li>
 <li><p><strong>curves</strong> = lista</p>
 <p>krzywe ECDH odddzielone ‘:’</p>
 <p>Uwaga: ta opcja wpływa tylko na gniazda w trybie serwera.</p>

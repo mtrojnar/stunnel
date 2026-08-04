@@ -407,6 +407,7 @@ struct service_options_struct {
         unsigned request_cert:1;        /* request a peer certificate */
         unsigned require_cert:1;        /* require a client certificate */
         unsigned verify_chain:1;        /* verify certificate chain */
+        unsigned crl_check_chain:1;     /* check CRLs for the full chain */
         unsigned verify_peer:1;         /* verify peer certificate */
         unsigned accept:1;              /* endpoint: accept */
         unsigned client:1;
@@ -765,6 +766,9 @@ int original_dst(const SOCKET, SOCKADDR_UNION *);
 int socket_needs_retry(CLI *, const char *);
 
 #ifdef USE_DTLS
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+int bio_addr_to_sockaddr(const BIO_ADDR *, SOCKADDR_UNION *);
+#endif
 int dtls_listen(CLI *, SOCKET);
 void dtls_accept(CLI *);
 int drain_udp_datagrams(CLI *, SOCKET);

@@ -63,8 +63,8 @@
 #endif /* __MINGW32__ */
 #endif /* HOST */
 
-#define VERSION_MAJOR 5
-#define VERSION_MINOR 80
+#define VERSION_MAJOR @PACKAGE_VERSION_MAJOR@
+#define VERSION_MINOR @PACKAGE_VERSION_MINOR@
 
 /* all the following macros are ABSOLUTELY NECESSARY to have proper string
  * construction with VARIOUS C preprocessors (EVC, VC, BCC, GCC) */

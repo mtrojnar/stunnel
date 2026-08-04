@@ -95,6 +95,23 @@ CONF="${script_path}/openssl_root.cnf"
 
 
 ################################################################################
+# Root CA CRLs
+################################################################################
+CONF="${script_path}/openssl_root.cnf"
+"$OPENSSL" ca -config "$CONF" -gencrl -crldays 1461 -out tmp/RootCACRL.pem \
+    2>> "maketestcert.log" 1>&2
+cp CA/index.txt tmp/index-before-intermediate-revoke.txt \
+    2>> "maketestcert.log"
+"$OPENSSL" ca -config "$CONF" -revoke CA/intermediateCA.cer \
+    2>> "maketestcert.log" 1>&2
+"$OPENSSL" ca -config "$CONF" -gencrl -crldays 1461 -out tmp/RootCARevokedIntermediateCRL.pem \
+    2>> "maketestcert.log" 1>&2
+cp tmp/index-before-intermediate-revoke.txt CA/index.txt \
+    2>> "maketestcert.log"
+rm -f tmp/index-before-intermediate-revoke.txt
+
+
+################################################################################
 # Revoked certificate chain
 ################################################################################
 CONF="${script_path}/openssl_intermediate.cnf"
@@ -115,6 +132,10 @@ cat tmp/intermediateCA.pem >> tmp/revoked_cert.pem 2>> "maketestcert.log"
     2>> "maketestcert.log" 1>&2
 "$OPENSSL" ca -config $CONF -gencrl -crldays 1461 -out tmp/CACertCRL.pem \
     2>> "maketestcert.log" 1>&2
+cat tmp/CACertCRL.pem tmp/RootCACRL.pem > tmp/ChainCRL.pem \
+    2>> "maketestcert.log"
+cat tmp/CACertCRL.pem tmp/RootCARevokedIntermediateCRL.pem > tmp/ChainRevokedIntermediateCRL.pem \
+    2>> "maketestcert.log"
 
 
 ################################################################################
@@ -217,6 +238,10 @@ cat CA/intermediateCA.key >> tmp/interCA_ocsp.pem  2>> "makecerts.log"
 # Copy new files
 ################################################################################
 if test -s tmp/CACert.pem -a -s tmp/CACertCRL.pem \
+    -a -s tmp/RootCACRL.pem \
+    -a -s tmp/RootCARevokedIntermediateCRL.pem \
+    -a -s tmp/ChainCRL.pem \
+    -a -s tmp/ChainRevokedIntermediateCRL.pem \
     -a -s tmp/intermediateCA.pem \
     -a -s tmp/stunnel.pem -a -s tmp/revoked_cert.pem \
     -a -s tmp/client_cert.pem -a -s tmp/server_cert.pem \

@@ -49,6 +49,10 @@ NOEXPORT void socks_server_late(CLI *);
 NOEXPORT void socks4_server(CLI *);
 NOEXPORT void socks5_server_method(CLI *);
 NOEXPORT void socks5_server(CLI *);
+NOEXPORT int socks_ipv4_addr_prohibited(const unsigned char *);
+#ifdef USE_IPV6
+NOEXPORT int socks_ipv6_addr_prohibited(const unsigned char *);
+#endif
 NOEXPORT int validate_connect_addr(CLI *);
 
 NOEXPORT void proxy_server_late(CLI *);
@@ -117,40 +121,41 @@ const char *protocol_init(SERVICE_OPTIONS *opt) {
     } MODE;
     typedef struct {
         const char *name;
+        int sock_type;
         MODE client, server;
     } PROTOCOLS;
     const PROTOCOLS protocols[]={
-        {.name="socks",
+        {.name="socks", .sock_type=SOCK_STREAM,
             .client={.late=socks_client_late},
             .server={.init=socks_server_init, .middle=socks_server_middle, .late=socks_server_late}},
-        {.name="proxy",
+        {.name="proxy", .sock_type=SOCK_STREAM,
             .server={.late=proxy_server_late}},
-        {.name="cifs",
+        {.name="cifs", .sock_type=SOCK_STREAM,
             .client={.middle=cifs_client_middle},
             .server={.early=cifs_server_early}},
-        {.name="pgsql",
+        {.name="pgsql", .sock_type=SOCK_STREAM,
             .client={.middle=pgsql_client_middle},
             .server={.early=pgsql_server_early}},
-        {.name="smtp",
+        {.name="smtp", .sock_type=SOCK_STREAM,
             .client={.middle=smtp_client_middle, .late=smtp_client_late},
             .server={.init=smtp_server_init, .middle=smtp_server_middle}},
-        {.name="pop3",
+        {.name="pop3", .sock_type=SOCK_STREAM,
             .client={.middle=pop3_client_middle},
             .server={.init=pop3_server_init, .middle=pop3_server_middle}},
-        {.name="imap",
+        {.name="imap", .sock_type=SOCK_STREAM,
             .client={.middle=imap_client_middle},
             .server={.init=imap_server_init, .middle=imap_server_middle}},
-        {.name="nntp",
+        {.name="nntp", .sock_type=SOCK_STREAM,
             .client={.middle=nntp_client_middle}},
-        {.name="ldap",
+        {.name="ldap", .sock_type=SOCK_STREAM,
             .client={.middle=ldap_client_middle}},
-        {.name="connect",
+        {.name="connect", .sock_type=SOCK_STREAM,
             .client={.init=connect_client_init, .middle=connect_client_middle},
             .server={.early=connect_server_early}},
-        {.name="capwin",
+        {.name="capwin", .sock_type=SOCK_STREAM,
             .client={.late=capwin_client_late},
             .server={.middle=capwin_server_middle, .late=capwin_server_late}},
-        {.name="capwinctrl",
+        {.name="capwinctrl", .sock_type=SOCK_STREAM,
             .client={.init=capwinctrl_client_init, .early=capwinctrl_client_early}},
         {.name=NULL}
     }, *p;
@@ -167,7 +172,7 @@ const char *protocol_init(SERVICE_OPTIONS *opt) {
     }
 
     for(p=protocols; p->name; p++) {
-        if(!strcasecmp(p->name, opt->protocol)) {
+        if(!strcasecmp(p->name, opt->protocol) && p->sock_type==opt->sock_type) {
             const MODE *m=opt->option.client ? &p->client : &p->server;
             if(!m->init && !m->early && !m->middle && !m->late) {
                 if(opt->option.client)
@@ -633,35 +638,62 @@ NOEXPORT void socks5_server(CLI *c) {
         throw_exception(c, 2); /* don't reset */
 }
 
+NOEXPORT int socks_ipv4_addr_prohibited(const unsigned char *addr) {
+    return (!addr[0] && !addr[1] && !addr[2] && !addr[3]) ||
+        addr[0]==0x7f;
+}
+
+#ifdef USE_IPV6
+NOEXPORT int socks_ipv6_addr_prohibited(const unsigned char *addr) {
+    const unsigned char ipv6_unspecified[16]={0};
+    const unsigned char ipv6_loopback[16]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
+    const unsigned char ipv4_mapped_prefix[12]={
+        0,0,0,0,0,0,0,0,0,0,0xff,0xff};
+
+    if(!memcmp(addr, ipv6_unspecified, 16) ||
+            !memcmp(addr, ipv6_loopback, 16))
+        return 1;
+    if(!memcmp(addr, ipv6_unspecified, 12) &&
+            socks_ipv4_addr_prohibited(addr+12))
+        return 1;
+    if(!memcmp(addr, ipv4_mapped_prefix, 12) &&
+            socks_ipv4_addr_prohibited(addr+12))
+        return 1;
+    return 0;
+}
+#endif
+
 /* validate the allocated address */
 NOEXPORT int validate_connect_addr(CLI *c) {
-#ifdef USE_IPV6
-    const unsigned char ipv6_loopback[16]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
-#endif
     unsigned i;
 
     for(i=0; i<c->connect_addr.num; ++i) {
         SOCKADDR_UNION *addr=&c->connect_addr.addr[i];
+        int prohibited;
 #ifdef USE_IPV6
         if(addr->sa.sa_family==AF_INET6) {
-            if(!memcmp(&addr->in6.sin6_addr, ipv6_loopback, 16)) {
-                s_log(LOG_ERR,
-                    "SOCKS connection to the IPv6 loopback rejected");
-                return 0;
-            }
-            /* TODO: implement more checks */
+            const unsigned char *bytes=
+                (const unsigned char *)&addr->in6.sin6_addr;
+            /* A link-local address scoped to a loopback interface reaches
+             * the local host on some systems.  Conservatively reject all
+             * interface-scoped destinations. */
+            prohibited=addr->in6.sin6_scope_id ||
+                socks_ipv6_addr_prohibited(bytes);
         } else
 #endif
         if(addr->sa.sa_family==AF_INET) {
-            if((ntohl(addr->in.sin_addr.s_addr)&0xff000000)==0x7f000000) {
-                s_log(LOG_ERR,
-                    "SOCKS connection to the IPv4 loopback rejected");
-                return 0;
-            }
-            /* TODO: implement more checks */
+            const unsigned char *bytes=
+                (const unsigned char *)&addr->in.sin_addr;
+            prohibited=socks_ipv4_addr_prohibited(bytes);
         } else {
             s_log(LOG_ERR, "Unsupported address type 0x%02x",
                 addr->sa.sa_family);
+            return 0;
+        }
+        if(prohibited) {
+            char *addr_txt=s_ntop(addr, addr_len(addr));
+            s_log(LOG_ERR, "SOCKS connection to %s rejected", addr_txt);
+            str_free(addr_txt);
             return 0;
         }
     }

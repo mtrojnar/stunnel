@@ -37,6 +37,8 @@
 
 #include "prototypes.h"
 
+#define LOG_MAX_TEXT_LENGTH 1024
+
 NOEXPORT void log_queue(SERVICE_OPTIONS *, int, char *, char *, char *);
 NOEXPORT void log_raw(SERVICE_OPTIONS *, int, char *, char *, char *);
 NOEXPORT void safestring(char *);
@@ -175,9 +177,8 @@ void s_vlog(int level, const char *format, va_list ap) {
     if(log_mode!=LOG_MODE_CONFIGURED || level<=tls_data->opt->log_level) {
         time_t gmt;
         struct tm ts;
-        char stamp[72], id[72], *text;
-        va_list aq;
-        int len;
+        char stamp[72], id[72], text[LOG_MAX_TEXT_LENGTH+1]={0};
+        size_t len;
 
         /* format the id to be logged */
         time(&gmt);
@@ -188,17 +189,9 @@ void s_vlog(int level, const char *format, va_list ap) {
         snprintf(id, sizeof id, "LOG%d[%s]", level, tls_data->id);
 
         /* format the text to be logged */
-        /* cppcheck-suppress-begin va_list_usedBeforeStarted */
-        va_copy(aq, ap);
-        len=vsnprintf(NULL, 0, format, aq);
-        va_end(aq);
-        if(len>1024)
-            len=1024;
-        text=alloca((size_t)len+1);
-        va_copy(aq, ap);
-        len=vsnprintf(text, (size_t)len+1, format, aq);
-        va_end(aq);
-        /* cppcheck-suppress-end va_list_usedBeforeStarted */
+        vsnprintf(text, sizeof text, format, ap);
+        text[sizeof text-1]='\0';
+        len=strlen(text);
         while(len>0 && text[len-1]=='\n')
             text[--len]='\0'; /* strip trailing newlines */
         safestring(text);

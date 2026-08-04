@@ -1211,6 +1211,40 @@ int socket_needs_retry(CLI *c, const char *text) {
 }
 
 #ifdef USE_DTLS
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+/* copy an OpenSSL datagram peer address to the socket representation */
+int bio_addr_to_sockaddr(const BIO_ADDR *src, SOCKADDR_UNION *dst) {
+    u_short family=(u_short)BIO_ADDR_family(src);
+    size_t len;
+
+    memset(dst, 0, sizeof *dst);
+    switch(family) {
+        case AF_INET:
+            dst->in.sin_family=AF_INET;
+            dst->in.sin_port=BIO_ADDR_rawport(src);
+            len=sizeof dst->in.sin_addr;
+            if(!BIO_ADDR_rawaddress(src, &dst->in.sin_addr, &len) ||
+                    len!=sizeof dst->in.sin_addr)
+                return 1;
+            return 0;
+#ifdef USE_IPV6
+        case AF_INET6:
+            dst->in6.sin6_family=AF_INET6;
+            dst->in6.sin6_port=BIO_ADDR_rawport(src);
+            len=sizeof dst->in6.sin6_addr;
+            if(!BIO_ADDR_rawaddress(src, &dst->in6.sin6_addr, &len) ||
+                    len!=sizeof dst->in6.sin6_addr)
+                return 1;
+            return 0;
+#endif
+        default:
+            s_log(LOG_ERR, "DTLS: unsupported peer address family: %d",
+                family);
+            return 1;
+    }
+}
+#endif /* OpenSSL version >= 1.1.0 */
+
 /* validate DTLS cookie and pre-accept the ClientHello */
 int dtls_listen(CLI *c, SOCKET fd) {
     SSL *new_ssl;
@@ -1307,13 +1341,20 @@ int dtls_listen(CLI *c, SOCKET fd) {
         return 0;
     }
     dtls_ret=DTLSv1_listen(new_ssl, peer);
+    if(dtls_ret>0 && bio_addr_to_sockaddr(peer, &c->peer_addr)) {
+        s_log(LOG_ERR, "DTLSv1_listen: invalid peer address");
+        dtls_ret=0;
+    }
     BIO_ADDR_free(peer);
 #else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
     memset(&peer, 0, sizeof peer);
     dtls_ret=DTLSv1_listen(new_ssl, &peer.sa);
+    if(dtls_ret>0)
+        memcpy(&c->peer_addr, &peer, sizeof peer);
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 
     if(dtls_ret>0) {
+        c->peer_addr_len=addr_len(&c->peer_addr);
         s_log(LOG_DEBUG, "DTLS: ClientHello accepted on listen socket");
         c->ssl=new_ssl;
         return 1;

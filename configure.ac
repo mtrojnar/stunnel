@@ -1,7 +1,17 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.79])
+AC_INIT([stunnel],[5.80])
+
 AC_MSG_NOTICE([**************************************** initialization])
+PACKAGE_VERSION_MAJOR="${PACKAGE_VERSION%%.*}"
+PACKAGE_VERSION_MINOR="${PACKAGE_VERSION#*.}"
+PACKAGE_VERSION_MINOR="${PACKAGE_VERSION_MINOR%%.*}"
+AS_IF([test "x$PACKAGE_VERSION_MAJOR.$PACKAGE_VERSION_MINOR" != "x$PACKAGE_VERSION"], [
+    AC_MSG_ERROR([unsupported version format: $PACKAGE_VERSION])
+])
+AC_SUBST([PACKAGE_VERSION_MAJOR])
+AC_SUBST([PACKAGE_VERSION_MINOR])
+
 AC_CONFIG_AUX_DIR(auto)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([src/config.h])
@@ -471,8 +481,8 @@ AC_MSG_CHECKING([whether DH parameters need to be updated])
 # only build src/dhparam.c if sources are located in the current directory
 if test -f src/stunnel.c && \
         ! grep -q " built for ${PACKAGE_STRING} " src/dhparam.c 2>/dev/null; then
-    "${srcdir}/makedh.sh" "${PACKAGE_STRING}" >src/dhparam.c
     AC_MSG_RESULT([yes])
+    "${srcdir}/makedh.sh" "${PACKAGE_STRING}" >src/dhparam.c
 else
     AC_MSG_RESULT([no])
 fi
@@ -484,9 +494,10 @@ LIBS="${valid_LIBS}"
 AC_CHECK_HEADERS([openssl/applink.c])
 
 AC_MSG_NOTICE([**************************************** write the results])
+AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile tests/Makefile tests/certs/Makefile])
+AC_CONFIG_FILES([src/version.h])
 AC_MSG_NOTICE([updating version.txt to ${PACKAGE_VERSION}])
 echo "${PACKAGE_VERSION}" >version.txt
-AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile tools/Makefile tests/Makefile tests/certs/Makefile])
 AC_OUTPUT
 
 AC_MSG_NOTICE([**************************************** success])

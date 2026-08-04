@@ -153,6 +153,7 @@ NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
 
 NOEXPORT int init_crl(SERVICE_OPTIONS *section) {
     X509_STORE *store;
+    unsigned long flags;
 
     if(!section->crl_file && !section->crl_dir)
         return 0; /* OK (nothing to initialize) */
@@ -170,7 +171,10 @@ NOEXPORT int init_crl(SERVICE_OPTIONS *section) {
         if(add_dir_lookup(store, section->crl_dir))
             return 1; /* FAILED */
     }
-    X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK);
+    flags=X509_V_FLAG_CRL_CHECK;
+    if(section->option.crl_check_chain)
+        flags|=X509_V_FLAG_CRL_CHECK_ALL;
+    X509_STORE_set_flags(store, flags);
     return 0; /* OK */
 }
 

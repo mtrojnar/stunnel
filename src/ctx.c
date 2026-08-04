@@ -278,36 +278,103 @@ typedef long SSL_OPTIONS_TYPE;
 #endif
 
 #ifdef USE_DTLS
-/* compute HMAC-SHA256 cookie bound to client IP (not port) */
-NOEXPORT int dtls_cookie_compute(SSL *ssl,
-        unsigned char *out, unsigned int *out_len) {
+/* serialize the address family, port, and address for DTLS cookies */
+NOEXPORT int dtls_cookie_sockaddr(const SOCKADDR_UNION *peer,
+        u_char *peer_data, size_t *peer_len) {
+    const void *address;
+    u_short family=(u_short)peer->sa.sa_family, port;
+    size_t address_len, header_len=sizeof family+sizeof port;
+
+    switch(family) {
+        case AF_INET:
+            address=&peer->in.sin_addr;
+            address_len=sizeof peer->in.sin_addr;
+            port=peer->in.sin_port;
+            break;
+#ifdef USE_IPV6
+        case AF_INET6:
+            address=&peer->in6.sin6_addr;
+            address_len=sizeof peer->in6.sin6_addr;
+            port=peer->in6.sin6_port;
+            break;
+#endif
+        default:
+            s_log(LOG_ERR, "DTLS cookie: unsupported address family: %d",
+                family);
+            return 0;
+    }
+    memcpy(peer_data, &family, sizeof family);
+    memcpy(peer_data+sizeof family, &port, sizeof port);
+    memcpy(peer_data+header_len, address, address_len);
+    *peer_len=header_len+address_len;
+    return 1;
+}
+
+/* serialize the current datagram peer for the DTLS cookie callbacks */
+NOEXPORT int dtls_cookie_peer(SSL *ssl,
+        u_char *peer_data, size_t *peer_len) {
     CLI *c=SSL_get_ex_data(ssl, index_ssl_cli);
-    const unsigned char *host_addr;
-    size_t host_len;
+    BIO *bio;
+    SOCKADDR_UNION peer;
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    BIO_ADDR *bio_peer;
+#endif
 
     if(!c) {
         s_log(LOG_ERR, "DTLS cookie: CLI not found");
         return 0;
     }
-    switch(c->peer_addr.sa.sa_family) {
-        case AF_INET:
-            host_addr=(const unsigned char *)&c->peer_addr.in.sin_addr;
-            host_len=sizeof(c->peer_addr.in.sin_addr);
-            break;
-#ifdef USE_IPV6
-        case AF_INET6:
-            host_addr=(const unsigned char *)&c->peer_addr.in6.sin6_addr;
-            host_len=sizeof(c->peer_addr.in6.sin6_addr);
-            break;
-#endif
-        default:
-            host_addr=(const unsigned char *)&c->peer_addr;
-            host_len=(size_t)addr_len(&c->peer_addr);
+    bio=SSL_get_rbio(ssl);
+#if OPENSSL_VERSION_NUMBER>=0x10100000L
+    if(bio) {
+        bio_peer=BIO_ADDR_new();
+        if(!bio_peer) {
+            s_log(LOG_ERR, "DTLS cookie: BIO_ADDR_new() failed");
+            return 0;
+        }
+        if(BIO_dgram_get_peer(bio, bio_peer)>0) {
+            if(bio_addr_to_sockaddr(bio_peer, &peer)) {
+                s_log(LOG_ERR, "DTLS cookie: invalid peer address");
+                BIO_ADDR_free(bio_peer);
+                return 0;
+            }
+            BIO_ADDR_free(bio_peer);
+            return dtls_cookie_sockaddr(&peer, peer_data, peer_len);
+        }
+        BIO_ADDR_free(bio_peer);
     }
+#else
+    if(bio) {
+        memset(&peer, 0, sizeof peer);
+        if(BIO_dgram_get_peer(bio, &peer)>0)
+            return dtls_cookie_sockaddr(&peer, peer_data, peer_len);
+    }
+#endif
+    /* A memory BIO used to preload ClientHello fragments has no peer
+     * metadata.  DTLSv1_listen() already saved the accepted peer in c. */
+    if(c->ssl==ssl)
+        return dtls_cookie_sockaddr(&c->peer_addr, peer_data, peer_len);
+    s_log(LOG_ERR, "DTLS cookie: peer address not found");
+    return 0;
+}
+
+/* compute an HMAC-SHA256 cookie bound to the current client endpoint */
+NOEXPORT int dtls_cookie_compute(SSL *ssl,
+        u_char *out, unsigned int *out_len) {
+    CLI *c=SSL_get_ex_data(ssl, index_ssl_cli);
+    u_char endpoint[sizeof(SOCKADDR_UNION)];
+    size_t endpoint_len;
+
+    if(!c) {
+        s_log(LOG_ERR, "DTLS cookie: CLI not found");
+        return 0;
+    }
+    if(!dtls_cookie_peer(ssl, endpoint, &endpoint_len))
+        return 0;
     *out_len=SHA256_DIGEST_LENGTH;
     if(!HMAC(EVP_sha256(),
             c->opt->dtls_cookie_secret, (int)sizeof c->opt->dtls_cookie_secret,
-            host_addr, host_len, out, out_len)) {
+            endpoint, endpoint_len, out, out_len)) {
         s_log(LOG_ERR, "DTLS cookie: HMAC() failed");
         return 0;
     }
@@ -317,12 +384,12 @@ NOEXPORT int dtls_cookie_compute(SSL *ssl,
 /* verify DTLS cookie against per-section secret */
 NOEXPORT int dtls_verify_cookie(SSL *ssl,
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
-        const unsigned char *cookie,
+        const u_char *cookie,
 #else
-        unsigned char *cookie,
+        u_char *cookie,
 #endif
         unsigned int cookie_len) {
-    unsigned char expected[SHA256_DIGEST_LENGTH];
+    u_char expected[SHA256_DIGEST_LENGTH];
     unsigned int expected_len;
 
     if(!dtls_cookie_compute(ssl, expected, &expected_len))

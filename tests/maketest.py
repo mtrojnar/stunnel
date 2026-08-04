@@ -29,6 +29,7 @@ from typing import (
     List,
     NamedTuple,
     Optional,
+    Tuple,
     TypeVar
 )
 from datetime import datetime, timedelta, timezone
@@ -183,6 +184,51 @@ class Config(NamedTuple):
     summary: pathlib.Path
     debug: int
     port: int
+    versions: Dict[str, Tuple[int, int, int]]
+
+
+async def openssl_dtls_args(cfg: Config) -> List[str]:
+    """Select a DTLS version shared by stunnel and the OpenSSL CLI."""
+    linked_version = cfg.versions.get("stunnel-openssl")
+    if linked_version is None:
+        raise RuntimeError("stunnel OpenSSL version is unavailable")
+
+    helper_version = cfg.versions.get("openssl-cli")
+    if helper_version is None:
+        proc = await asyncio.create_subprocess_exec(
+            "openssl", "version",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+        stdout, stderr = await proc.communicate()
+        output = (stdout + stderr).decode("UTF-8", errors="replace").strip()
+        if proc.returncode:
+            raise RuntimeError(
+                f"`openssl version` exited with status {proc.returncode}:"
+                f" {output}")
+        match = re.search(r"\b(?:OpenSSL|LibreSSL)\s+"
+                          r"(\d+)\.(\d+)\.(\d+)", output)
+        if not match:
+            raise RuntimeError(
+                f"Could not parse OpenSSL CLI version: {output!r}")
+        helper_version = tuple(int(value) for value in match.groups())
+        cfg.versions["openssl-cli"] = helper_version
+
+    if linked_version >= (1, 0, 2) and helper_version >= (1, 0, 2):
+        args = ["-dtls1_2"]
+        protocol = "DTLSv1.2"
+    else:
+        args = ["-dtls1"]
+        protocol = "DTLSv1"
+        if helper_version >= (1, 1, 0):
+            args.extend(["-cipher", "DEFAULT:@SECLEVEL=0"])
+
+    await cfg.mainq.put(LogEvent(
+        etype="log",
+        level=20,
+        log="[openssl-dtls] Selected"
+            f" {protocol} for stunnel OpenSSL {linked_version}"
+            f" and OpenSSL CLI {helper_version}"))
+    return args
 
 
 class TestConnections(NamedTuple):
@@ -392,14 +438,15 @@ class TestLogs(PrintLogs):
                 log=f"[{tag}] Got OpenSSL version {openssl_version}"
             )
         )
-        if 'AUTOPKGTEST_TMP' not in os.environ:
-            match = re.match(r"(\d+)\.(\d+)\.(\d+)", openssl_version)
-            if not match:
-                raise UnsupportedVersion(f"Could not parse OpenSSL version: {openssl_version}")
-            numeric_version = tuple(int(x) for x in match.groups())
-            if numeric_version < (1, 0, 1):
-                raise UnsupportedVersion(
-                    f"OpenSSL version {openssl_version} is deprecated and not supported")
+        match = re.match(r"(\d+)\.(\d+)\.(\d+)", openssl_version)
+        if not match:
+            raise UnsupportedVersion(
+                f"Could not parse OpenSSL version: {openssl_version}")
+        numeric_version = tuple(int(x) for x in match.groups())
+        self.cfg.versions["stunnel-openssl"] = numeric_version
+        if 'AUTOPKGTEST_TMP' not in os.environ and numeric_version < (1, 0, 1):
+            raise UnsupportedVersion(
+                f"OpenSSL version {openssl_version} is deprecated and not supported")
 
     async def get_version(self, logger:logging.Logger) -> str:
         """Obtain the version of stunnel."""
@@ -2026,7 +2073,8 @@ def parse_args() -> Config:
             results=os.path.join(args.logs, "results.log"),
             summary=os.path.join(args.logs, "summary.log"),
             debug=args.debug,
-            port=args.port
+            port=args.port,
+            versions={}
         )
 
 
