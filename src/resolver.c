@@ -51,21 +51,23 @@
 
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
 
-typedef int (CALLBACK * GETADDRINFO) (const char *,
-    const char *, const struct addrinfo *, struct addrinfo **);
-typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo *);
-typedef int (CALLBACK * GETNAMEINFO) (const struct sockaddr *, socklen_t,
-    char *, size_t, char *, size_t, int);
-extern GETADDRINFO s_getaddrinfo;
-extern FREEADDRINFO s_freeaddrinfo;
-extern GETNAMEINFO s_getnameinfo;
+typedef int (CALLBACK * GETADDRINFO) (const char *node,
+    const char *service, const struct addrinfo *hints, struct addrinfo **res);
+typedef void (CALLBACK * FREEADDRINFO) (struct addrinfo *res);
+typedef int (CALLBACK * GETNAMEINFO) (const struct sockaddr *sa,
+    socklen_t salen, char *host, size_t hostlen, char *serv, size_t servlen,
+    int flags);
+NOEXPORT GETADDRINFO s_getaddrinfo;
+NOEXPORT FREEADDRINFO s_freeaddrinfo;
+NOEXPORT GETNAMEINFO s_getnameinfo;
 
-NOEXPORT int get_ipv6(LPTSTR);
+NOEXPORT int get_ipv6(LPTSTR file);
 
 #endif /* defined(USE_WIN32) && !defined(_WIN32_WCE) */
 
-NOEXPORT void addrlist2addr(SOCKADDR_UNION *, SOCKADDR_LIST *);
-NOEXPORT void addrlist_reset(SOCKADDR_LIST *);
+NOEXPORT void addrlist2addr(SOCKADDR_UNION *addr,
+    SOCKADDR_LIST *addr_list);
+NOEXPORT void addrlist_reset(SOCKADDR_LIST *addr_list);
 
 #ifndef HAVE_GETADDRINFO
 
@@ -100,21 +102,15 @@ struct addrinfo {
 #define AI_PASSIVE 1
 #endif
 
-NOEXPORT int getaddrinfo(const char *, const char *,
-    const struct addrinfo *, struct addrinfo **);
-NOEXPORT int alloc_addresses(struct hostent *, const struct addrinfo *,
-    u_short port, struct addrinfo **, struct addrinfo **);
-NOEXPORT void freeaddrinfo(struct addrinfo *);
+NOEXPORT int getaddrinfo(const char *node, const char *service,
+    const struct addrinfo *hints, struct addrinfo **res);
+NOEXPORT int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
+    u_short port, struct addrinfo **head, struct addrinfo **tail);
+NOEXPORT void freeaddrinfo(struct addrinfo *current);
 
 #endif /* !defined HAVE_GETADDRINFO */
 
 /**************************************** resolver initialization */
-
-#if defined(USE_WIN32) && !defined(_WIN32_WCE)
-GETADDRINFO s_getaddrinfo;
-FREEADDRINFO s_freeaddrinfo;
-GETNAMEINFO s_getnameinfo;
-#endif
 
 void resolver_init(void) {
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)
@@ -138,14 +134,17 @@ NOEXPORT int get_ipv6(LPTSTR file) {
     handle=LoadLibrary(file);
     if(!handle)
         return 0;
+    /* GetProcAddress() requires converting its generic entry point. */
+    /* cppcheck-suppress-begin misra-c2012-11.3 */
     s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
     s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
     s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
+    /* cppcheck-suppress-end misra-c2012-11.3 */
     if(!s_getaddrinfo || !s_freeaddrinfo || !s_getnameinfo) {
         s_getaddrinfo=NULL;
         s_freeaddrinfo=NULL;
         s_getnameinfo=NULL;
-        FreeLibrary(handle);
+        (void)FreeLibrary(handle);
         return 0;
     }
     return 1; /* IPv6 detected -> OK */
@@ -202,21 +201,21 @@ NOEXPORT void addrlist2addr(SOCKADDR_UNION *addr, SOCKADDR_LIST *addr_list) {
     unsigned i;
 
     for(i=0; i<addr_list->num; ++i) { /* find the first IPv4 address */
-        if(addr_list->addr[i].in.sin_family==AF_INET) {
-            memcpy(addr, &addr_list->addr[i], sizeof(SOCKADDR_UNION));
+        if(addr_family_is(&addr_list->addr[i], AF_INET)) {
+            (void)memcpy(addr, &addr_list->addr[i], sizeof(SOCKADDR_UNION));
             return;
         }
     }
 #ifdef USE_IPV6
     for(i=0; i<addr_list->num; ++i) { /* find the first IPv6 address */
-        if(addr_list->addr[i].in.sin_family==AF_INET6) {
-            memcpy(addr, &addr_list->addr[i], sizeof(SOCKADDR_UNION));
+        if(addr_family_is(&addr_list->addr[i], AF_INET6)) {
+            (void)memcpy(addr, &addr_list->addr[i], sizeof(SOCKADDR_UNION));
             return;
         }
     }
 #endif
     /* copy the first address resolved (currently AF_UNIX) */
-    memcpy(addr, &addr_list->addr[0], sizeof(SOCKADDR_UNION));
+    (void)memcpy(addr, &addr_list->addr[0], sizeof(SOCKADDR_UNION));
 }
 
 unsigned name2addrlist(SOCKADDR_LIST *addr_list, char *name) {
@@ -226,15 +225,17 @@ unsigned name2addrlist(SOCKADDR_LIST *addr_list, char *name) {
     /* first check if this is a UNIX socket */
 #ifdef HAVE_STRUCT_SOCKADDR_UN
     if(*name=='/') {
-        if(offsetof(struct sockaddr_un, sun_path)+strlen(name)+1
-                > sizeof(struct sockaddr_un)) {
+        /* offsetof() is the portable system-interface representation. */
+        /* cppcheck-suppress misra-c2012-10.8 */
+        if(offsetof(struct sockaddr_un, sun_path)+strlen(name)+1U>
+                sizeof(struct sockaddr_un)) {
             s_log(LOG_ERR, "Unix socket path is too long");
             return 0; /* no results */
         }
         addr_list->addr=str_realloc_detached(addr_list->addr,
-            (addr_list->num+1)*sizeof(SOCKADDR_UNION));
+            (addr_list->num+1U)*sizeof(SOCKADDR_UNION));
         addr_list->addr[addr_list->num].un.sun_family=AF_UNIX;
-        strcpy(addr_list->addr[addr_list->num].un.sun_path, name);
+        (void)strcpy(addr_list->addr[addr_list->num].un.sun_path, name);
         ++(addr_list->num);
         return 1; /* ok - return the number of new addresses */
     }
@@ -263,7 +264,7 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
     int err, retry=0;
     unsigned num;
 
-    memset(&hints, 0, sizeof hints);
+    (void)memset(&hints, 0, sizeof hints);
 #if defined(USE_IPV6) || defined(USE_WIN32)
     hints.ai_family=AF_UNSPEC;
 #else
@@ -286,10 +287,13 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
             s_log(LOG_ERR, "Unknown TCP service \"%s\"", port_name);
             return 0; /* error */
         }
-        if(err==EAI_AGAIN && ++retry<=3) {
-            s_log(LOG_DEBUG, "getaddrinfo: EAI_AGAIN received: retrying");
-            s_poll_sleep(1, 0);
-            continue;
+        if(err==EAI_AGAIN) {
+            ++retry;
+            if(retry<=3) {
+                s_log(LOG_DEBUG, "getaddrinfo: EAI_AGAIN received: retrying");
+                s_poll_sleep(1, 0);
+                continue;
+            }
         }
 #ifdef AI_ADDRCONFIG
         if(hints.ai_flags&AI_ADDRCONFIG) {
@@ -319,7 +323,7 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
     addr_list->addr=str_realloc_detached(addr_list->addr,
         (addr_list->num+num)*sizeof(SOCKADDR_UNION));
     for(cur=res; cur; cur=cur->ai_next)
-        memcpy(&addr_list->addr[(addr_list->num)++], cur->ai_addr,
+        (void)memcpy(&addr_list->addr[(addr_list->num)++], cur->ai_addr,
             (size_t)cur->ai_addrlen);
 
     freeaddrinfo(res);
@@ -342,12 +346,12 @@ NOEXPORT void addrlist_reset(SOCKADDR_LIST *addr_list) {
 }
 
 unsigned addrlist_dup(SOCKADDR_LIST *dst, const SOCKADDR_LIST *src) {
-    memcpy(dst, src, sizeof(SOCKADDR_LIST));
+    (void)memcpy(dst, src, sizeof(SOCKADDR_LIST));
     if(src->num) { /* already resolved */
         dst->addr=str_alloc_detached(src->num*sizeof(SOCKADDR_UNION));
-        memcpy(dst->addr, src->addr, src->num*sizeof(SOCKADDR_UNION));
+        (void)memcpy(dst->addr, src->addr, src->num*sizeof(SOCKADDR_UNION));
     } else { /* delayed resolver */
-        addrlist_resolve(dst);
+        (void)addrlist_resolve(dst);
     }
     return dst->num;
 }
@@ -359,12 +363,12 @@ unsigned addrlist_resolve(SOCKADDR_LIST *addr_list) {
     addrlist_reset(addr_list);
     for(host=addr_list->names; host; host=host->next)
         num+=name2addrlist(addr_list, host->name);
-    if(num<2) {
+    if(num<2U) {
         addr_list->start=0;
     } else {
         /* randomize the initial value of round-robin counter */
         /* ignore the error value and the distribution bias */
-        RAND_bytes((unsigned char *)&rnd, sizeof rnd);
+        (void)RAND_bytes((unsigned char *)&rnd, sizeof rnd);
         addr_list->start=rnd%num;
     }
     return num;
@@ -374,7 +378,7 @@ char *s_ntop(SOCKADDR_UNION *addr, socklen_t addrlen) {
     int err;
     char *host, *port, *retval;
 
-    if(addrlen==sizeof(u_short)) /* see UNIX(7) manual for details */
+    if(addrlen==(socklen_t)sizeof(u_short)) /* see UNIX(7) manual for details */
         return str_dup("unnamed socket");
     host=str_alloc(256);
     port=str_alloc(256); /* needs to be long enough for AF_UNIX path */
@@ -392,7 +396,22 @@ char *s_ntop(SOCKADDR_UNION *addr, socklen_t addrlen) {
     return retval;
 }
 
-socklen_t addr_len(const SOCKADDR_UNION *addr) {
+int addr_cmp(const SOCKADDR_UNION *addr1, socklen_t addrlen1,
+        const SOCKADDR_UNION *addr2, socklen_t addrlen2) {
+    if(addrlen1!=addrlen2)
+        return 1;
+    /* Socket addresses are fixed-length binary endpoint representations. */
+    /* cppcheck-suppress misra-c2012-21.16 */
+    return memcmp(addr1, addr2, (size_t)addrlen1);
+}
+
+int addr_family_is(const SOCKADDR_UNION *addr, int family) {
+    /* Address-family constants and fields have platform-specific types. */
+    /* cppcheck-suppress misra-c2012-10.4 */
+    return addr->sa.sa_family==family ? 1 : 0;
+}
+
+socklen_t sockaddr_len(const SOCKADDR_UNION *addr) {
     switch(addr->sa.sa_family) {
     case AF_UNSPEC: /* 0 */
         return 0;
@@ -423,7 +442,9 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
     struct servent *p;
 #endif
     u_short port;
+    long port_num;
     struct addrinfo *ai;
+    CRYPTO_RWLOCK *lock;
     int retval;
     char *tmpstr;
 
@@ -434,7 +455,10 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
         return s_getaddrinfo(node, service, hints, res);
 #endif
     /* decode service name */
-    port=htons((u_short)strtol(service, &tmpstr, 10));
+    errno=0;
+    /* Cppcheck does not recognize the adjacent errno protocol. */
+    /* cppcheck-suppress [misra-c2012-22.8, misra-c2012-22.9] */
+    port_num=strtol(service, &tmpstr, 10);
     if(tmpstr==service || *tmpstr) { /* not a number */
 #ifdef _WIN32_WCE
         return EAI_NONAME;
@@ -444,12 +468,16 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
             return EAI_NONAME;
         port=(u_short)p->s_port;
 #endif /* defined(_WIN32_WCE) */
+    } else {
+        if(errno!=0 || port_num<0L || port_num>65535L)
+            return EAI_SERVICE;
+        port=htons((u_short)port_num);
     }
 
     /* allocate addrlist structure */
     ai=str_alloc(sizeof(struct addrinfo));
     if(hints)
-        memcpy(ai, hints, sizeof(struct addrinfo));
+        (void)memcpy(ai, hints, sizeof(struct addrinfo));
 
     /* try to decode numerical address */
 #if defined(USE_IPV6) && !defined(USE_WIN32)
@@ -464,10 +492,14 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
     ai->ai_addrlen=sizeof(struct sockaddr_in);
     ai->ai_addr=str_alloc(ai->ai_addrlen);
     ai->ai_addr->sa_family=AF_INET;
+    /* addrinfo stores concrete socket addresses through a generic pointer. */
+    /* cppcheck-suppress misra-c2012-11.3 */
     ((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr=inet_addr(node);
+    /* cppcheck-suppress misra-c2012-11.3 */
     if(((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr+1) {
     /* (signed)((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr!=-1 */
 #endif
+        /* cppcheck-suppress misra-c2012-11.3 */
         ((struct sockaddr_in *)ai->ai_addr)->sin_port=port;
         *res=ai;
         return 0; /* numerical address resolved */
@@ -478,25 +510,28 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
     /* not numerical: need to call resolver library */
     *res=NULL;
     ai=NULL;
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_INET]);
+    lock=s_write_lock(LOCK_INET);
 #ifdef HAVE_GETHOSTBYNAME2
     h=gethostbyname2(node, AF_INET6);
     if(h) /* some IPv6 addresses found */
         alloc_addresses(h, hints, port, res, &ai); /* ignore the error */
 #endif
     h=gethostbyname(node); /* get list of addresses */
-    if(h)
-        retval=ai ?
-            alloc_addresses(h, hints, port, &ai->ai_next, &ai) :
-            alloc_addresses(h, hints, port, res, &ai);
-    else if(!*res)
+    if(h) {
+#ifdef HAVE_GETHOSTBYNAME2
+        if(ai)
+            retval=alloc_addresses(h, hints, port, &ai->ai_next, &ai);
+        else
+#endif /* HAVE_GETHOSTBYNAME2 */
+            retval=alloc_addresses(h, hints, port, res, &ai);
+    } else if(!*res)
         retval=EAI_NONAME; /* no results */
     else
         retval=0;
 #ifdef HAVE_ENDHOSTENT
     endhostent();
 #endif
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_INET]);
+    s_unlock(lock);
     if(retval) { /* error: free allocated memory */
         freeaddrinfo(*res);
         *res=NULL;
@@ -513,7 +548,7 @@ NOEXPORT int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
     for(i=0; h->h_addr_list[i]; i++) {
         ai=str_alloc(sizeof(struct addrinfo));
         if(hints)
-            memcpy(ai, hints, sizeof(struct addrinfo));
+            (void)memcpy(ai, hints, sizeof(struct addrinfo));
         ai->ai_next=NULL; /* just in case */
         if(*tail) { /* list not empty: add a node */
             (*tail)->ai_next=ai;
@@ -527,18 +562,23 @@ NOEXPORT int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
         if(h->h_addrtype==AF_INET6) {
             ai->ai_addrlen=sizeof(struct sockaddr_in6);
             ai->ai_addr=str_alloc((size_t)ai->ai_addrlen);
-            memcpy(&((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr,
+            /* Copy raw resolver bytes into the concrete address object. */
+            /* cppcheck-suppress [misra-c2012-11.3, misra-c2012-21.15] */
+            (void)memcpy(&((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr,
                 h->h_addr_list[i], (size_t)h->h_length);
         } else
 #endif
         {
             ai->ai_addrlen=sizeof(struct sockaddr_in);
             ai->ai_addr=str_alloc((size_t)ai->ai_addrlen);
-            memcpy(&((struct sockaddr_in *)ai->ai_addr)->sin_addr,
+            /* Copy raw resolver bytes into the concrete address object. */
+            /* cppcheck-suppress [misra-c2012-11.3, misra-c2012-21.15] */
+            (void)memcpy(&((struct sockaddr_in *)ai->ai_addr)->sin_addr,
                 h->h_addr_list[i], (size_t)h->h_length);
         }
         ai->ai_addr->sa_family=(u_short)h->h_addrtype;
-        /* offsets of sin_port and sin6_port should be the same */
+        /* Ports have the same offset in each supported concrete address. */
+        /* cppcheck-suppress misra-c2012-11.3 */
         ((struct sockaddr_in *)ai->ai_addr)->sin_port=port;
     }
     return 0; /* success */
@@ -632,19 +672,26 @@ int getnameinfo(const struct sockaddr *sa, socklen_t salen,
                 (void *)&((struct sockaddr_in *)sa)->sin_addr,
             host, hostlen);
 #else /* USE_IPV6 */
+        CRYPTO_RWLOCK *lock;
+
         /* inet_ntoa is not mt-safe */
-        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_INET]);
-        strncpy(host, inet_ntoa(((struct sockaddr_in *)sa)->sin_addr),
-            hostlen);
-        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_INET]);
+        lock=s_write_lock(LOCK_INET);
+        /* Socket APIs expose concrete addresses through struct sockaddr. */
+        (void)strncpy(host,
+            /* cppcheck-suppress misra-c2012-11.3 */
+            inet_ntoa(((const struct sockaddr_in *)sa)->sin_addr), hostlen);
+        s_unlock(lock);
         host[hostlen-1]='\0';
 #endif /* USE_IPV6 */
     }
 
     /* sin_port is in the same place both in sockaddr_in and sockaddr_in6 */
-    if(serv && servlen)
-        snprintf(serv, servlen, "%u",
-            ntohs(((struct sockaddr_in *)sa)->sin_port));
+    if(serv && servlen) {
+        /* Socket APIs expose concrete addresses through struct sockaddr. */
+        (void)snprintf(serv, servlen, "%u",
+            /* cppcheck-suppress misra-c2012-11.3 */
+            ntohs(((const struct sockaddr_in *)sa)->sin_port));
+    }
     return 0;
 }
 #endif

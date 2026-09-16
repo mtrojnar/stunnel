@@ -76,7 +76,7 @@ void ui_clients(const long num) {
 /**************************************** s_log callbacks */
 
 void message_box(LPCTSTR text, const UINT type) {
-    MessageBox(NULL, text, TEXT("stunnel"), type);
+    (void)MessageBox(NULL, text, TEXT("stunnel"), type);
 }
 
 void ui_new_log(const char *line) {
@@ -88,8 +88,8 @@ void ui_new_log(const char *line) {
     RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
 #else
     /* use UTF-16 or native codepage rather than UTF-8 */
-    _putts(tstr);
-    fflush(stdout);
+    (void)_putts(tstr);
+    (void)fflush(stdout);
 #endif
     str_free(tstr);
 }
@@ -102,19 +102,19 @@ int ui_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
 
 #if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
 
-int (*ui_get_opener(void)) (UI *) {
+int (*ui_get_opener(void)) (UI *ui) {
     return UI_method_get_opener(UI_OpenSSL());
 }
 
-int (*ui_get_writer(void)) (UI *, UI_STRING *) {
+int (*ui_get_writer(void)) (UI *ui, UI_STRING *uis) {
     return UI_method_get_writer(UI_OpenSSL());
 }
 
-int (*ui_get_reader(void)) (UI *, UI_STRING *) {
+int (*ui_get_reader(void)) (UI *ui, UI_STRING *uis) {
     return UI_method_get_reader(UI_OpenSSL());
 }
 
-int (*ui_get_closer(void)) (UI *) {
+int (*ui_get_closer(void)) (UI *ui) {
     return UI_method_get_closer(UI_OpenSSL());
 }
 

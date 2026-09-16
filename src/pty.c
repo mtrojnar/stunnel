@@ -82,7 +82,7 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf) {
         ioerror("openpty");
         return -1;
     }
-    strcpy(namebuf, buf); /* possible truncation */
+    (void)strcpy(namebuf, buf); /* possible truncation */
     return 0;
 #else /* HAVE_OPENPTY */
 #ifdef HAVE__GETPTY
@@ -92,6 +92,8 @@ int pty_allocate(int *ptyfd, int *ttyfd, char *namebuf) {
      */
     char *slave;
 
+    /* _getpty() expects POSIX permission bits, conventionally written octal. */
+    /* cppcheck-suppress misra-c2012-7.1 */
     slave=_getpty(ptyfd, O_RDWR, 0622, 0);
     if(slave==NULL) {
         ioerror("_getpty");

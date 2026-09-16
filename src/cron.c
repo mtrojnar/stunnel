@@ -64,47 +64,77 @@ NOEXPORT void per_minute_worker(void);
 NOEXPORT void per_minute_stapling_update(void);
 NOEXPORT void per_day_worker(void);
 #ifndef OPENSSL_NO_DH
-NOEXPORT void per_day_dh_param(BN_GENCB *);
+NOEXPORT void per_day_dh_param(BN_GENCB *bn_gencb);
 NOEXPORT BN_GENCB *per_day_bn_gencb(void);
-NOEXPORT int bn_callback(int, int, BN_GENCB *);
+NOEXPORT int bn_callback(int p, int n, BN_GENCB *cb);
 #endif /* OPENSSL_NO_DH */
 #endif /* USE_OS_THREADS */
 
 #if defined(USE_PTHREAD)
 
 int cron_init(void) {
+    CRYPTO_RWLOCK *lock;
+    int error, result=0;
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
     sigset_t new_set, old_set;
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
 
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
-    sigfillset(&new_set);
-    pthread_sigmask(SIG_SETMASK, &new_set, &old_set); /* block signals */
+    error=sigfillset(&new_set);
+    if(error) {
+        ioerror("sigfillset");
+        return 1;
+    }
+    error=pthread_sigmask(SIG_SETMASK, &new_set, &old_set);
+    if(error) {
+        errno=error;
+        ioerror("pthread_sigmask");
+        return 1;
+    }
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
-    if(pthread_create(&per_second_thread_id, NULL, per_second_thread, NULL))
+    lock=s_write_lock(LOCK_THREAD_LIST);
+    error=pthread_create(&per_second_thread_id, NULL,
+        per_second_thread, NULL);
+    if(error) {
+        errno=error;
         ioerror("pthread_create");
-    if(pthread_create(&per_minute_thread_id, NULL, per_minute_thread, NULL))
+        result=1;
+    }
+    error=pthread_create(&per_minute_thread_id, NULL,
+        per_minute_thread, NULL);
+    if(error) {
+        errno=error;
         ioerror("pthread_create");
-    if(pthread_create(&per_day_thread_id, NULL, per_day_thread, NULL))
+        result=1;
+    }
+    error=pthread_create(&per_day_thread_id, NULL, per_day_thread, NULL);
+    if(error) {
+        errno=error;
         ioerror("pthread_create");
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+        result=1;
+    }
+    s_unlock(lock);
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
-    pthread_sigmask(SIG_SETMASK, &old_set, NULL); /* unblock signals */
+    error=pthread_sigmask(SIG_SETMASK, &old_set, NULL); /* unblock signals */
+    if(error) {
+        errno=error;
+        ioerror("pthread_sigmask");
+        result=1;
+    }
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
-    return 0;
+    return result;
 }
 
 NOEXPORT void *per_second_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
-    tls_alloc(NULL, NULL, "per-second");
+    (void)tls_alloc(NULL, NULL, "per-second");
     per_second_worker();
     return NULL; /* it should never be executed */
 }
 
 NOEXPORT void *per_minute_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
-    tls_alloc(NULL, NULL, "per-minute");
+    (void)tls_alloc(NULL, NULL, "per-minute");
     per_minute_worker();
     return NULL; /* it should never be executed */
 }
@@ -115,7 +145,7 @@ NOEXPORT void *per_day_thread(void *arg) {
 #endif
 
     (void)arg; /* squash the unused parameter warning */
-    tls_alloc(NULL, NULL, "per-day");
+    (void)tls_alloc(NULL, NULL, "per-day");
 #ifdef SCHED_BATCH
     param.sched_priority=0;
     if(pthread_setschedparam(pthread_self(), SCHED_BATCH, &param))
@@ -128,11 +158,16 @@ NOEXPORT void *per_day_thread(void *arg) {
 #elif defined(USE_WIN32)
 
 int cron_init(void) {
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    CRYPTO_RWLOCK *lock;
+
+    lock=s_write_lock(LOCK_THREAD_LIST);
+    /* The Microsoft CRT requires converting its uintptr_t thread handles. */
+    /* cppcheck-suppress-begin misra-c2012-11.6 */
     per_second_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_second_thread, NULL, 0, NULL);
     per_minute_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_minute_thread, NULL, 0, NULL);
     per_day_thread_id=(HANDLE)_beginthreadex(NULL, 0, per_day_thread, NULL, 0, NULL);
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+    /* cppcheck-suppress-end misra-c2012-11.6 */
+    s_unlock(lock);
     if(!per_second_thread_id || !per_minute_thread_id || !per_day_thread_id) {
         ioerror("_beginthreadex");
         return 1;
@@ -143,7 +178,7 @@ int cron_init(void) {
 NOEXPORT unsigned __stdcall per_second_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
 
-    tls_alloc(NULL, NULL, "per-second");
+    (void)tls_alloc(NULL, NULL, "per-second");
     per_second_worker();
     _endthreadex(0); /* it should never be executed */
     return 0;
@@ -152,7 +187,7 @@ NOEXPORT unsigned __stdcall per_second_thread(void *arg) {
 NOEXPORT unsigned __stdcall per_minute_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
 
-    tls_alloc(NULL, NULL, "per-minute");
+    (void)tls_alloc(NULL, NULL, "per-minute");
     per_minute_worker();
     _endthreadex(0); /* it should never be executed */
     return 0;
@@ -161,7 +196,7 @@ NOEXPORT unsigned __stdcall per_minute_thread(void *arg) {
 NOEXPORT unsigned __stdcall per_day_thread(void *arg) {
     (void)arg; /* squash the unused parameter warning */
 
-    tls_alloc(NULL, NULL, "per-day");
+    (void)tls_alloc(NULL, NULL, "per-day");
     if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST))
         ioerror("SetThreadPriority");
     per_day_worker();
@@ -181,13 +216,15 @@ int cron_init(void) {
 #ifdef USE_OS_THREADS
 
 NOEXPORT void per_second_worker(void) {
+    CRYPTO_RWLOCK *lock;
+
     s_log(LOG_DEBUG, "Per-second thread initialized");
     for(;;) {
         s_poll_sleep(1, 0); /* 1 second */
 
-        CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LOG_MODE]);
-        file_flush(outfile);
-        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
+        lock=s_read_lock(LOCK_LOG_MODE);
+        (void)file_flush(outfile);
+        s_unlock(lock);
     }
 }
 
@@ -203,20 +240,21 @@ NOEXPORT void per_minute_worker(void) {
 NOEXPORT void per_minute_stapling_update(void) {
 #if !defined(OPENSSL_NO_OCSP) && OPENSSL_VERSION_NUMBER>=0x10002000L
     SERVICE_OPTIONS **srv, *opt;
+    CRYPTO_RWLOCK *lock;
     int num=0;
 
     /* acquire references of server sections */
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SECTIONS]);
+    lock=s_read_lock(LOCK_SECTIONS);
     srv=str_alloc(number_of_sections*sizeof(SERVICE_OPTIONS *));
     for(opt=service_options.next; opt; opt=opt->next)
         if(!opt->option.client)
             srv[num++]=service_up_ref(opt);
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
+    s_unlock(lock);
 
     /* update stapling caches and release the references */
     while(num--) {
         if(SSL_CTX_get0_certificate(srv[num]->ctx)) {
-            ocsp_stapling(srv[num]);
+            (void)ocsp_stapling(srv[num]);
         }
         service_free(srv[num]);
     }
@@ -231,7 +269,7 @@ NOEXPORT void per_day_worker(void) {
 
     s_log(LOG_DEBUG, "Per-day thread initialized");
     bn_gencb=per_day_bn_gencb();
-    time(&then);
+    (void)time(&then);
     for(;;) {
         s_log(LOG_INFO, "Executing per-day jobs");
 
@@ -239,7 +277,7 @@ NOEXPORT void per_day_worker(void) {
         per_day_dh_param(bn_gencb);
 #endif /* OPENSSL_NO_DH */
 
-        time(&now);
+        (void)time(&now);
         s_log(LOG_INFO, "Per-day jobs completed in %d seconds", (int)(now-then));
         then+=PER_DAY_PERIOD;
         if(then>now) {
@@ -252,7 +290,7 @@ NOEXPORT void per_day_worker(void) {
         s_log(LOG_DEBUG, "Waiting %d seconds", delay);
         do { /* retry s_poll_sleep() if it was interrupted by a signal */
             s_poll_sleep(delay, 0);
-            time(&now);
+            (void)time(&now);
             delay=(int)(then-now);
         } while(delay>0);
 
@@ -267,6 +305,7 @@ NOEXPORT void per_day_worker(void) {
 
 NOEXPORT void per_day_dh_param(BN_GENCB *bn_gencb) {
     SERVICE_OPTIONS *opt;
+    CRYPTO_RWLOCK *lock;
     DH *dh;
 
     if(!dh_temp_params || !service_options.next)
@@ -286,17 +325,24 @@ NOEXPORT void per_day_dh_param(BN_GENCB *bn_gencb) {
     }
 
     /* update global dh_params for future configuration reloads */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_DH]);
+    lock=s_write_lock(LOCK_DH);
     DH_free(dh_params);
     dh_params=dh;
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_DH]);
+    s_unlock(lock);
 
     /* set for all sections that require it */
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SECTIONS]);
+    lock=s_read_lock(LOCK_SECTIONS);
     for(opt=service_options.next; opt; opt=opt->next)
-        if(opt->option.dh_temp_params)
-            SSL_CTX_set_tmp_dh(opt->ctx, dh);
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
+        if(opt->option.dh_temp_params_set) {
+            long success;
+
+            /* OpenSSL implements this typed macro through SSL_CTX_ctrl(). */
+            /* cppcheck-suppress misra-c2012-11.2 */
+            success=SSL_CTX_set_tmp_dh(opt->ctx, dh);
+            if(!success)
+                ssl_error(NULL, "SSL_CTX_set_tmp_dh");
+        }
+    s_unlock(lock);
     s_log(LOG_NOTICE, "DH parameters updated");
 }
 

@@ -35,23 +35,28 @@
  *   forward this exception.
  */
 
+/* POSIX signal APIs define special handler values through pointer casts. */
+/* cppcheck-suppress-file misra-c2012-11.6 */
+
 #include "prototypes.h"
 
-NOEXPORT int main_unix(int, char*[]);
+NOEXPORT int main_unix(int argc, char *argv[]);
 #if !defined(__vms) && !defined(USE_OS2)
-NOEXPORT int daemonize(int);
+NOEXPORT int daemonize(int fd);
 NOEXPORT int create_pid(void);
 NOEXPORT void delete_pid(void);
 #endif
 #ifndef USE_OS2
-NOEXPORT void signal_handler(int);
+NOEXPORT void signal_handler(int sig);
+NOEXPORT int signal_set(int sig, void (*handler)(int));
+NOEXPORT int signal_set_if_not_ignored(int sig);
 #endif
 
 int main(int argc, char* argv[]) { /* execution begins here 8-) */
     int retval;
 
 #ifdef M_MMAP_THRESHOLD
-    mallopt(M_MMAP_THRESHOLD, 4096);
+    (void)mallopt(M_MMAP_THRESHOLD, 4096);
 #endif
     retval=stunnel_init();
     if(retval)
@@ -76,19 +81,19 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         argc>2 ? argv[2] : NULL);
     switch(configure_status) {
     case 1: /* error -> exit with 1 to indicate error */
-        close(fd);
+        (void)close(fd);
         return 1;
     case 2: /* information printed -> exit with 0 to indicate success */
-        close(fd);
+        (void)close(fd);
         return 0;
     }
     if(service_options.next) { /* there are service sections -> daemon mode */
 #if !defined(__vms) && !defined(USE_OS2)
         if(daemonize(fd)) {
-            close(fd);
+            (void)close(fd);
             return 1;
         }
-        close(fd);
+        (void)close(fd);
         /* create_pid() must be called after drop_privileges()
          * or it won't be possible to remove the file on exit */
         /* create_pid() must be called after daemonize()
@@ -97,17 +102,29 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
             return 1;
 #endif
 #ifndef USE_OS2
-        signal(SIGCHLD, signal_handler); /* handle dead children */
-        signal(SIGHUP, signal_handler); /* configuration reload */
-        signal(SIGUSR1, signal_handler); /* log reopen */
-        signal(SIGUSR2, signal_handler); /* connections */
-        signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
-        if(signal(SIGTERM, SIG_IGN)!=SIG_IGN)
-            signal(SIGTERM, signal_handler); /* fatal */
-        if(signal(SIGQUIT, SIG_IGN)!=SIG_IGN)
-            signal(SIGQUIT, signal_handler); /* fatal */
-        if(signal(SIGINT, SIG_IGN)!=SIG_IGN)
-            signal(SIGINT, signal_handler); /* fatal */
+        {
+            int signal_errors;
+
+            /* handle dead children */
+            signal_errors=signal_set(SIGCHLD, signal_handler);
+            /* configuration reload */
+            signal_errors+=signal_set(SIGHUP, signal_handler);
+            /* log reopen */
+            signal_errors+=signal_set(SIGUSR1, signal_handler);
+            /* connections */
+            signal_errors+=signal_set(SIGUSR2, signal_handler);
+            /* ignore broken pipe */
+            signal_errors+=signal_set(SIGPIPE, SIG_IGN);
+            signal_errors+=signal_set_if_not_ignored(SIGTERM); /* fatal */
+            signal_errors+=signal_set_if_not_ignored(SIGQUIT); /* fatal */
+            signal_errors+=signal_set_if_not_ignored(SIGINT); /* fatal */
+            if(signal_errors) {
+#if !defined(__vms)
+                delete_pid();
+#endif
+                return 1;
+            }
+        }
 #endif
 #ifdef USE_FORK
         setpgid(0, 0); /* create a new process group if needed */
@@ -115,8 +132,8 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         daemon_loop();
 #ifdef USE_FORK
         s_log(LOG_NOTICE, "Terminating service processes");
-        signal(SIGCHLD, SIG_IGN);
-        signal(SIGTERM, SIG_IGN);
+        (void)signal(SIGCHLD, SIG_IGN);
+        (void)signal(SIGTERM, SIG_IGN);
         kill(0, SIGTERM); /* kill the whole process group */
         while(wait(NULL)!=-1)
             ;
@@ -128,19 +145,27 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
     } else { /* inetd mode */
         CLI *c;
 #if !defined(__vms) && !defined(USE_OS2)
-        close(fd);
+        (void)close(fd);
 #endif /* standard Unix */
 #ifndef USE_OS2
-        signal(SIGCHLD, SIG_IGN); /* ignore dead children */
-        signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
+        {
+            int signal_errors;
+
+            /* ignore dead children */
+            signal_errors=signal_set(SIGCHLD, SIG_IGN);
+            /* ignore broken pipe */
+            signal_errors+=signal_set(SIGPIPE, SIG_IGN);
+            if(signal_errors)
+                return 1;
+        }
 #endif
         set_nonblock(0, 1); /* stdin */
         set_nonblock(1, 1); /* stdout */
         c=alloc_client(&service_options);
         c->local_rfd.fd=0;
         c->local_wfd.fd=1;
-        tls_alloc(c, ui_tls, NULL);
-        service_up_ref(&service_options);
+        (void)tls_alloc(c, ui_tls, NULL);
+        (void)service_up_ref(&service_options);
         client_main(c);
         service_free(c->opt);
         free_client(c);
@@ -154,8 +179,33 @@ NOEXPORT void signal_handler(int sig) {
 
     saved_errno=errno;
     signal_post((uint8_t)sig);
-    signal(sig, signal_handler);
+    /* There is no async-signal-safe recovery if reinstallation fails. */
+    (void)signal(sig, signal_handler);
     errno=saved_errno;
+}
+
+NOEXPORT int signal_set(int sig, void (*handler)(int)) {
+    void (*previous)(int);
+
+    previous=signal(sig, handler);
+    if(previous==SIG_ERR) {
+        ioerror("signal");
+        return 1;
+    }
+    return 0;
+}
+
+NOEXPORT int signal_set_if_not_ignored(int sig) {
+    void (*previous)(int);
+
+    previous=signal(sig, SIG_IGN);
+    if(previous==SIG_ERR) {
+        ioerror("signal");
+        return 1;
+    }
+    if(previous!=SIG_IGN)
+        return signal_set(sig, signal_handler);
+    return 0;
 }
 #endif
 
@@ -164,9 +214,25 @@ NOEXPORT void signal_handler(int sig) {
 NOEXPORT int daemonize(int fd) { /* go to background */
     if(global_options.option.foreground)
         return 0;
-    dup2(fd, 0);
-    dup2(fd, 1);
-    dup2(fd, 2);
+    {
+        int duplicate_result;
+
+        duplicate_result=dup2(fd, 0);
+        if(duplicate_result<0) {
+            ioerror("dup2");
+            return 1;
+        }
+        duplicate_result=dup2(fd, 1);
+        if(duplicate_result<0) {
+            ioerror("dup2");
+            return 1;
+        }
+        duplicate_result=dup2(fd, 2);
+        if(duplicate_result<0) {
+            ioerror("dup2");
+            return 1;
+        }
+    }
 #if defined(HAVE_DAEMON) && !defined(__BEOS__)
     /* set noclose option when calling daemon() function,
      * so it does not require /dev/null device in the chrooted directory */
@@ -186,9 +252,9 @@ NOEXPORT int daemonize(int fd) { /* go to background */
         exit(0);
     }
 #endif
-    tls_alloc(NULL, ui_tls, "main"); /* reuse thread-local storage */
+    (void)tls_alloc(NULL, ui_tls, "main"); /* reuse thread-local storage */
 #ifdef HAVE_SETSID
-    setsid(); /* ignore the error */
+    (void)setsid(); /* ignore the error */
 #endif
     return 0;
 }
@@ -203,9 +269,11 @@ NOEXPORT int create_pid(void) {
     }
 
     /* silently remove the old pid file */
-    unlink(global_options.pidfile);
+    (void)unlink(global_options.pidfile);
 
     /* create a new pid file */
+    /* POSIX permission bits are conventionally and most clearly octal. */
+    /* cppcheck-suppress misra-c2012-7.1 */
     pf=open(global_options.pidfile, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
     if(pf==-1) {
         s_log(LOG_ERR, "Cannot create pid file %s", global_options.pidfile);
@@ -219,7 +287,7 @@ NOEXPORT int create_pid(void) {
         return 1;
     }
     str_free(pid);
-    close(pf);
+    (void)close(pf);
     s_log(LOG_DEBUG, "Created pid file %s", global_options.pidfile);
     return 0;
 }
@@ -270,7 +338,7 @@ void ui_clients(const long num) {
 /**************************************** s_log callbacks */
 
 void ui_new_log(const char *line) {
-    fprintf(stderr, "%s\n", line);
+    (void)fprintf(stderr, "%s\n", line);
 }
 
 /**************************************** ctx callbacks */
@@ -281,19 +349,19 @@ int ui_passwd_cb(char *buf, int size, int rwflag, void *userdata) {
 
 #if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
 
-int (*ui_get_opener(void)) (UI *) {
+int (*ui_get_opener(void)) (UI *ui) {
     return UI_method_get_opener(UI_OpenSSL());
 }
 
-int (*ui_get_writer(void)) (UI *, UI_STRING *) {
+int (*ui_get_writer(void)) (UI *ui, UI_STRING *uis) {
     return UI_method_get_writer(UI_OpenSSL());
 }
 
-int (*ui_get_reader(void)) (UI *, UI_STRING *) {
+int (*ui_get_reader(void)) (UI *ui, UI_STRING *uis) {
     return UI_method_get_reader(UI_OpenSSL());
 }
 
-int (*ui_get_closer(void)) (UI *) {
+int (*ui_get_closer(void)) (UI *ui) {
     return UI_method_get_closer(UI_OpenSSL());
 }
 

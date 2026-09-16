@@ -83,7 +83,7 @@ class DTLSStunnelClientInterleavingTest(StunnelAcceptConnect):
                 if evt.etype == "stunnel_event":
                     break
         except asyncio.TimeoutError:
-            pass
+            pass  # A second startup event is optional.
 
     async def test_stunnel(self, cfg):
         tag = "test_stunnel_dtls_client_interleaving"

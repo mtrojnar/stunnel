@@ -40,6 +40,7 @@
 volatile int tls_initialized=0;
 
 NOEXPORT void tls_platform_init(void);
+NOEXPORT void tls_set(TLS_DATA *tls_data);
 
 /**************************************** thread local storage */
 
@@ -57,6 +58,8 @@ TLS_DATA *tls_alloc(CLI *c, TLS_DATA *inherited, const char *txt) {
         tls_data=inherited;
         str_free_const(tls_data->id);
     } else {
+        /* Tracked allocation is unavailable until TLS_DATA is initialized. */
+        /* cppcheck-suppress misra-c2012-21.3 */
         tls_data=calloc(1, sizeof(TLS_DATA));
         if(!tls_data)
             fatal("Out of memory");
@@ -74,8 +77,10 @@ TLS_DATA *tls_alloc(CLI *c, TLS_DATA *inherited, const char *txt) {
         tls_data->id=str_dup(txt);
         str_detach_const(tls_data->id); /* it is deallocated after str_stats() */
     } else if(c) {
-        tls_data->id=log_id(c);
+        tls_data->id=log_id_alloc(c);
         str_detach_const(tls_data->id); /* it is deallocated after str_stats() */
+    } else {
+        /* retain the default "unconfigured" identifier */
     }
 
     return tls_data;
@@ -91,17 +96,19 @@ void tls_cleanup(void) {
     str_thread_cleanup(tls_data);
     str_free_const(tls_data->id); /* detached allocation */
     tls_set(NULL);
+    /* Match the bootstrap allocation performed before tracked allocation. */
+    /* cppcheck-suppress misra-c2012-21.3 */
     free(tls_data);
 }
 
 #ifdef USE_UCONTEXT
 
-static TLS_DATA *global_tls=NULL;
+NOEXPORT TLS_DATA *global_tls=NULL;
 
 NOEXPORT void tls_platform_init(void) {
 }
 
-void tls_set(TLS_DATA *tls_data) {
+NOEXPORT void tls_set(TLS_DATA *tls_data) {
     if(ready_head)
         ready_head->tls=tls_data;
     else /* ucontext threads not initialized */
@@ -119,12 +126,12 @@ TLS_DATA *tls_get(void) {
 
 #ifdef USE_FORK
 
-static TLS_DATA *global_tls=NULL;
+NOEXPORT TLS_DATA *global_tls=NULL;
 
 NOEXPORT void tls_platform_init(void) {
 }
 
-void tls_set(TLS_DATA *tls_data) {
+NOEXPORT void tls_set(TLS_DATA *tls_data) {
     global_tls=tls_data;
 }
 
@@ -136,14 +143,24 @@ TLS_DATA *tls_get(void) {
 
 #ifdef USE_PTHREAD
 
-static pthread_key_t pthread_key;
+NOEXPORT pthread_key_t pthread_key;
 
 NOEXPORT void tls_platform_init(void) {
-    pthread_key_create(&pthread_key, NULL);
+    int error=pthread_key_create(&pthread_key, NULL);
+
+    if(error) {
+        errno=error;
+        fatal("pthread_key_create failed");
+    }
 }
 
-void tls_set(TLS_DATA *tls_data) {
-    pthread_setspecific(pthread_key, tls_data);
+NOEXPORT void tls_set(TLS_DATA *tls_data) {
+    int error=pthread_setspecific(pthread_key, tls_data);
+
+    if(error) {
+        errno=error;
+        fatal("pthread_setspecific failed");
+    }
 }
 
 TLS_DATA *tls_get(void) {
@@ -154,14 +171,17 @@ TLS_DATA *tls_get(void) {
 
 #ifdef USE_WIN32
 
-static DWORD tls_index;
+NOEXPORT DWORD tls_index;
 
 NOEXPORT void tls_platform_init(void) {
     tls_index=TlsAlloc();
+    if(tls_index==TLS_OUT_OF_INDEXES)
+        fatal("TlsAlloc failed");
 }
 
-void tls_set(TLS_DATA *tls_data) {
-    TlsSetValue(tls_index, tls_data);
+NOEXPORT void tls_set(TLS_DATA *tls_data) {
+    if(!TlsSetValue(tls_index, tls_data))
+        fatal("TlsSetValue failed");
 }
 
 TLS_DATA *tls_get(void) {

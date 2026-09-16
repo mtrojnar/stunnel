@@ -109,10 +109,15 @@ typedef int                 ssize_t;
 #endif /* _WIN64 */
 #endif /* !__MINGW32__ */
 #define USE_IPV6
+/* These reserved macros select the supported Microsoft CRT interface. */
+/* cppcheck-suppress misra-c2012-21.1 */
 #define _CRT_SECURE_NO_DEPRECATE
+/* cppcheck-suppress misra-c2012-21.1 */
 #define _CRT_NONSTDC_NO_DEPRECATE
+/* cppcheck-suppress misra-c2012-21.1 */
 #define _CRT_NON_CONFORMING_SWPRINTFS
-/* prevent including wincrypt.h, as it defines its own OCSP_RESPONSE */
+/* Prevent wincrypt.h from defining its conflicting OCSP_RESPONSE type. */
+/* cppcheck-suppress misra-c2012-21.1 */
 #define __WINCRYPT_H__
 #define S_EADDRINUSE  WSAEADDRINUSE
 /* winsock does not define WSAEAGAIN */
@@ -171,6 +176,8 @@ typedef int                 ssize_t;
 
 /* threads model */
 #ifdef USE_UCONTEXT
+/* This reserved feature macro selects the required makecontext() ABI. */
+/* cppcheck-suppress misra-c2012-21.1 */
 #define __MAKECONTEXT_V2_SOURCE
 #include <ucontext.h>
 #endif
@@ -180,10 +187,13 @@ typedef int                 ssize_t;
 #define THREADS
 #endif
 #ifndef _REENTRANT
-/* _REENTRANT is required for thread-safe errno on Solaris */
+/* This reserved feature macro enables thread-safe errno on Solaris. */
+/* cppcheck-suppress misra-c2012-21.1 */
 #define _REENTRANT
 #endif
 #ifndef _THREAD_SAFE
+/* This reserved feature macro enables thread-safe system interfaces. */
+/* cppcheck-suppress misra-c2012-21.1 */
 #define _THREAD_SAFE
 #endif
 #include <pthread.h>
@@ -220,8 +230,12 @@ typedef int                 ssize_t;
 #include <stdarg.h>      /* va_ */
 #include <string.h>
 #include <ctype.h>       /* isalnum */
+/* Wall-clock time is required for scheduling and log timestamps. */
+/* cppcheck-suppress misra-c2012-21.10 */
 #include <time.h>
 #include <sys/stat.h>    /* stat */
+/* setjmp implements stunnel's established exception and cleanup mechanism. */
+/* cppcheck-suppress misra-c2012-21.4 */
 #include <setjmp.h>
 #include <fcntl.h>
 
@@ -231,8 +245,11 @@ typedef int                 ssize_t;
 
 #define HAVE_STRUCT_ADDRINFO
 #define HAVE_SNPRINTF
+/* These reserved names provide the Microsoft CRT compatibility aliases. */
+/* cppcheck-suppress misra-c2012-21.1 */
 #define snprintf                    _snprintf
 #define HAVE_VSNPRINTF
+/* cppcheck-suppress misra-c2012-21.1 */
 #define vsnprintf                   _vsnprintf
 #define strcasecmp                  _stricmp
 #define strncasecmp                 _strnicmp
@@ -245,6 +262,8 @@ typedef int                 ssize_t;
 #define writesocket(s,b,n)          send((s),(b),(int)(n),0)
 
 /* #define Win32_Winsock */
+/* This reserved feature macro selects socket-aware system declarations. */
+/* cppcheck-suppress misra-c2012-21.1 */
 #define __USE_W32_SOCKETS
 
 /* Winsock2 header for IPv6 definitions */
@@ -267,6 +286,8 @@ typedef int                 ssize_t;
 #include "resources.h"
 
 #ifndef PRIX64
+/* This standard-format fallback is required by older Microsoft CRTs. */
+/* cppcheck-suppress misra-c2012-21.1 */
 #define PRIX64 "I64X"
 #endif
 
@@ -317,6 +338,8 @@ typedef int SOCKET;
 #endif  /* __vms */
 
     /* Unix-specific headers */
+/* Unix signal handling drives the main event loop control path. */
+/* cppcheck-suppress misra-c2012-21.5 */
 #include <signal.h>         /* signal */
 #include <sys/wait.h>       /* wait */
 #ifdef HAVE_LIMITS_H
@@ -517,10 +540,6 @@ extern char *sys_errlist[];
 #ifndef OPENSSL_NO_OCSP
 #include <openssl/ocsp.h>
 #endif /* !defined(OPENSSL_NO_OCSP) */
-#ifndef OPENSSL_NO_COMP
-/* not defined in public headers before OpenSSL 0.9.8 */
-STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
-#endif /* !defined(OPENSSL_NO_COMP) */
 #if OPENSSL_VERSION_NUMBER>=0x10101000L
 #include <openssl/store.h>
 #include <openssl/storeerr.h>
@@ -529,6 +548,10 @@ STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #include <openssl/provider.h>
 #include <openssl/proverr.h>
 #endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
+#ifndef OPENSSL_NO_COMP
+/* not defined in public headers before OpenSSL 0.9.8 */
+STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
+#endif /* !defined(OPENSSL_NO_COMP) */
 
 #ifndef SSL3_RT_MAX_PLAIN_LENGTH
 #define SSL3_RT_MAX_PLAIN_LENGTH 16384
@@ -571,6 +594,8 @@ STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void);
 #endif /* defined (USE_WIN32) || defined (__vms) */
 
 #ifndef offsetof
+/* T is a type argument and therefore cannot be enclosed in parentheses. */
+/* cppcheck-suppress misra-c2012-20.7 */
 #define offsetof(T, F) ((unsigned)((char *)&((T *)0L)->F - (char *)0L))
 #endif
 

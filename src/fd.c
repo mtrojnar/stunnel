@@ -48,20 +48,24 @@
 
 /**************************************** prototypes */
 
-NOEXPORT SOCKET setup_fd(SOCKET, int, const char *);
+NOEXPORT SOCKET setup_fd(SOCKET fd, int nonblock, const char *msg);
 
 /**************************************** internal limit of file descriptors */
 
 #ifndef USE_FORK
 
-static SOCKET max_fds;
+NOEXPORT SOCKET max_fds;
 
 void get_limits(void) { /* set max_fds and max_clients */
     /* start with current ulimit */
 #if defined(HAVE_SYSCONF)
+    long limit;
+
     errno=0;
-    max_fds=(SOCKET)sysconf(_SC_OPEN_MAX);
-    if(errno)
+    limit=sysconf(_SC_OPEN_MAX);
+    max_fds=(SOCKET)limit;
+    /* errno distinguishes an error from an indeterminate limit only at -1. */
+    if(limit==-1 && errno)
         ioerror("sysconf");
     if(max_fds<0)
         max_fds=0; /* unlimited */
@@ -135,7 +139,7 @@ SOCKET s_accept(SOCKET sockfd, struct sockaddr *addr, socklen_t *addrlen,
 
 #ifndef USE_WIN32
 
-int s_socketpair(int domain, int type, int protocol, SOCKET sv[2],
+int s_socketpair(int domain, int type, int protocol, SOCKET *sv,
         int nonblock, const char *msg) {
 #ifdef USE_NEW_LINUX_API
     if(nonblock)
@@ -147,11 +151,11 @@ int s_socketpair(int domain, int type, int protocol, SOCKET sv[2],
         return -1;
     }
     if(setup_fd(sv[0], nonblock, msg)<0) {
-        closesocket(sv[1]);
+        (void)closesocket(sv[1]);
         return -1;
     }
     if(setup_fd(sv[1], nonblock, msg)<0) {
-        closesocket(sv[0]);
+        (void)closesocket(sv[0]);
         return -1;
     }
     return 0;
@@ -173,11 +177,11 @@ int s_pipe(int pipefd[2], int nonblock, const char *msg) {
         return -1;
     }
     if(setup_fd(pipefd[0], nonblock, msg)<0) {
-        close(pipefd[1]);
+        (void)close(pipefd[1]);
         return -1;
     }
     if(setup_fd(pipefd[1], nonblock, msg)<0) {
-        close(pipefd[0]);
+        (void)close(pipefd[0]);
         return -1;
     }
     return 0;
@@ -198,7 +202,7 @@ NOEXPORT SOCKET setup_fd(SOCKET fd, int nonblock, const char *msg) {
     if(max_fds && fd>=max_fds) {
         s_log(LOG_ERR, "%s: FD=%ld out of range (max %d)",
             msg, (long)fd, (int)max_fds);
-        closesocket(fd);
+        (void)closesocket(fd);
         return INVALID_SOCKET;
     }
 #endif

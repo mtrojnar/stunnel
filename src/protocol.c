@@ -40,68 +40,70 @@
 #define CAPWIN_BUFFER_SIZE 100
 
 /* protocol-specific function prototypes */
-NOEXPORT void socks_client_late(CLI *);
-NOEXPORT void socks5_client_method(CLI *);
-NOEXPORT void socks5_client_address(CLI *);
-NOEXPORT const char *socks_server_init(SERVICE_OPTIONS *);
-NOEXPORT void socks_server_middle(CLI *);
-NOEXPORT void socks_server_late(CLI *);
-NOEXPORT void socks4_server(CLI *);
-NOEXPORT void socks5_server_method(CLI *);
-NOEXPORT void socks5_server(CLI *);
-NOEXPORT int socks_ipv4_addr_prohibited(const unsigned char *);
+NOEXPORT void socks_client_late(CLI *c);
+NOEXPORT void socks5_client_method(CLI *c);
+NOEXPORT void socks5_client_address(CLI *c);
+NOEXPORT const char *socks_server_init(SERVICE_OPTIONS *opt);
+NOEXPORT void socks_server_middle(CLI *c);
+NOEXPORT void socks_server_late(CLI *c);
+NOEXPORT void socks4_server(CLI *c);
+NOEXPORT void socks5_server_method(CLI *c);
+NOEXPORT void socks5_server(CLI *c);
+NOEXPORT int socks_ipv4_addr_prohibited(const unsigned char *addr);
 #ifdef USE_IPV6
-NOEXPORT int socks_ipv6_addr_prohibited(const unsigned char *);
+NOEXPORT int socks_ipv6_addr_prohibited(const unsigned char *addr);
 #endif
-NOEXPORT int validate_connect_addr(CLI *);
+NOEXPORT int validate_connect_addr(CLI *c);
 
-NOEXPORT void proxy_server_late(CLI *);
+NOEXPORT void proxy_server_late(CLI *c);
 
-NOEXPORT void cifs_client_middle(CLI *);
-NOEXPORT void cifs_server_early(CLI *);
+NOEXPORT void cifs_client_middle(CLI *c);
+NOEXPORT void cifs_server_early(CLI *c);
 
-NOEXPORT void pgsql_client_middle(CLI *);
-NOEXPORT void pgsql_server_early(CLI *);
+NOEXPORT void pgsql_client_middle(CLI *c);
+NOEXPORT void pgsql_server_early(CLI *c);
 
-NOEXPORT void smtp_client_middle(CLI *);
-NOEXPORT void smtp_client_late(CLI *);
-NOEXPORT void smtp_client_negotiate(CLI *);
-NOEXPORT void smtp_client_plain(CLI *, const char *, const char *);
-NOEXPORT void smtp_client_login(CLI *, const char *, const char *);
-NOEXPORT const char *smtp_server_init(SERVICE_OPTIONS *);
-NOEXPORT void smtp_server_middle(CLI *);
+NOEXPORT void smtp_client_middle(CLI *c);
+NOEXPORT void smtp_client_late(CLI *c);
+NOEXPORT void smtp_client_negotiate(CLI *c);
+NOEXPORT void smtp_client_plain(CLI *c, const char *user, const char *pass);
+NOEXPORT void smtp_client_login(CLI *c, const char *user, const char *pass);
+NOEXPORT const char *smtp_server_init(SERVICE_OPTIONS *opt);
+NOEXPORT void smtp_server_middle(CLI *c);
 
-NOEXPORT void pop3_client_middle(CLI *);
-NOEXPORT const char *pop3_server_init(SERVICE_OPTIONS *);
-NOEXPORT void pop3_server_middle(CLI *);
+NOEXPORT void pop3_client_middle(CLI *c);
+NOEXPORT const char *pop3_server_init(SERVICE_OPTIONS *opt);
+NOEXPORT void pop3_server_middle(CLI *c);
 
-NOEXPORT void imap_client_middle(CLI *);
-NOEXPORT const char *imap_server_init(SERVICE_OPTIONS *);
-NOEXPORT void imap_server_middle(CLI *);
+NOEXPORT void imap_client_middle(CLI *c);
+NOEXPORT const char *imap_server_init(SERVICE_OPTIONS *opt);
+NOEXPORT void imap_server_middle(CLI *c);
 
-NOEXPORT void nntp_client_middle(CLI *);
+NOEXPORT void nntp_client_middle(CLI *c);
 
-NOEXPORT void ldap_client_middle(CLI *);
+NOEXPORT void ldap_client_middle(CLI *c);
 
-NOEXPORT void connect_server_early(CLI *);
-NOEXPORT const char *connect_client_init(SERVICE_OPTIONS *);
-NOEXPORT void connect_client_middle(CLI *);
+NOEXPORT void connect_server_early(CLI *c);
+NOEXPORT const char *connect_client_init(SERVICE_OPTIONS *opt);
+NOEXPORT void connect_client_middle(CLI *c);
 #ifndef OPENSSL_NO_MD4
-NOEXPORT void ntlm(CLI *);
+NOEXPORT void ntlm(CLI *c);
 NOEXPORT char *ntlm1(void);
-NOEXPORT char *ntlm3(char *, char *, char *, char *);
-NOEXPORT void crypt_DES(DES_cblock, const_DES_cblock, unsigned char[7]);
+NOEXPORT char *ntlm3(char *domain, char *user, char *password, char *phase2);
+NOEXPORT void crypt_DES(DES_cblock dst, const_DES_cblock src,
+    unsigned char hash[7]);
 #endif
-NOEXPORT char *base64(int, const char *, int);
+NOEXPORT char *base64(int encode, const char *in, int len);
 
-NOEXPORT void capwin_server_middle(CLI *);
-NOEXPORT void capwin_server_late(CLI *);
-NOEXPORT void capwin_client_late(CLI *);
-NOEXPORT const char *capwinctrl_client_init(SERVICE_OPTIONS *);
-NOEXPORT void capwinctrl_client_early(CLI *);
-NOEXPORT int capwin_decode(const char *, char **, char **, char **, char **);
-NOEXPORT int ldap_auth(CLI *, const char *, const char *);
-NOEXPORT char *ldap_escape_dn(const char *);
+NOEXPORT void capwin_server_middle(CLI *c);
+NOEXPORT void capwin_server_late(CLI *c);
+NOEXPORT void capwin_client_late(CLI *c);
+NOEXPORT const char *capwinctrl_client_init(SERVICE_OPTIONS *opt);
+NOEXPORT void capwinctrl_client_early(CLI *c);
+NOEXPORT int capwin_decode(const char *src, char **cmd, char **user,
+    char **pass, char **ctrl);
+NOEXPORT int ldap_auth(CLI *c, const char *dn, const char *pass);
+NOEXPORT char *ldap_escape_dn(const char *src);
 
 /* global state */
 NOEXPORT char capwin_auth[CAPWIN_BUFFER_SIZE]={0};
@@ -114,10 +116,10 @@ LONG capwin_connectivity=0;
 
 const char *protocol_init(SERVICE_OPTIONS *opt) {
     typedef struct {
-        const char *(*init)(SERVICE_OPTIONS *);
-        void (*early)(CLI *);
-        void (*middle)(CLI *);
-        void (*late)(CLI *);
+        const char *(*init)(SERVICE_OPTIONS *opt);
+        void (*early)(CLI *c);
+        void (*middle)(CLI *c);
+        void (*late)(CLI *c);
     } MODE;
     typedef struct {
         const char *name;
@@ -233,12 +235,12 @@ NOEXPORT void socks5_client_method(CLI *c) {
     s_ssl_write(c, &req, sizeof req);
 
     s_ssl_read(c, &resp, sizeof resp);
-    if(resp.ver!=5) {
+    if(resp.ver!=5U) {
         s_log(LOG_ERR, "Invalid SOCKS5 message version 0x%02x", resp.ver);
         throw_exception(c, 2); /* don't reset */
     }
     /* TODO: add USERNAME/PASSWORD authentication */
-    if(resp.method!=0x00) {
+    if(resp.method!=0x00U) {
         s_log(LOG_ERR, "No supported SOCKS5 authentication method received");
         throw_exception(c, 2); /* don't reset */
     }
@@ -248,12 +250,13 @@ NOEXPORT void socks5_client_address(CLI *c) {
     SOCKADDR_UNION addr;
     SOCKS5_UNION socks;
 
-    memset(&socks, 0, sizeof socks);
+    (void)memset(&socks, 0, sizeof socks);
     socks.req.ver=5; /* SOCKS5 */
     socks.req.cmd=0x01; /* CONNECT */
 
     if(c->opt->protocol_host) { /* explicit destination */
-        char *tmp_str, *host_str, *port_str;
+        char *tmp_str, *port_str;
+        const char *host_str;
         size_t host_len, offset;
         u_short port_num;
         struct addrinfo hints, *result=NULL;
@@ -263,8 +266,11 @@ NOEXPORT void socks5_client_address(CLI *c) {
         socks.req.atyp=0x03; /* DOMAINNAME */
         tmp_str=strrchr(c->opt->protocol_host, ':');
         if(tmp_str) {
+            ptrdiff_t host_diff;
+
             host_str=c->opt->protocol_host;
-            host_len=(size_t)(tmp_str - host_str);
+            host_diff=tmp_str-host_str;
+            host_len=(size_t)host_diff;
             port_str=tmp_str+1;
         } else {
             host_str="localhost";
@@ -273,16 +279,16 @@ NOEXPORT void socks5_client_address(CLI *c) {
         }
 
         /* set the host name */
-        if(host_len > 0xff) {
+        if(host_len>0xffU) {
             s_log(LOG_ERR, "protocolHost too long");
             throw_exception(c, 2); /* don't reset */
         }
         socks.host.len=(uint8_t)host_len;
-        memcpy(socks.host.data, host_str, host_len);
+        (void)memcpy(socks.host.data, host_str, host_len);
         offset=host_len;
 
         /* set the port number */
-        memset(&hints, 0, sizeof(hints));
+        (void)memset(&hints, 0, sizeof(hints));
         hints.ai_family=AF_UNSPEC; /* both IPv4 and IPv6 */
         hints.ai_socktype=SOCK_STREAM; /* TCP */
         error=getaddrinfo(NULL, port_str, &hints, &result);
@@ -296,29 +302,42 @@ NOEXPORT void socks5_client_address(CLI *c) {
                 );
             throw_exception(c, 2); /* don't reset */
         }
+        /* getaddrinfo() returns a generic sockaddr for the requested family. */
+        /* cppcheck-suppress misra-c2012-11.3 */
         port_num=ntohs(((struct sockaddr_in *)result->ai_addr)->sin_port);
         freeaddrinfo(result);
         socks.host.data[offset++]=(uint8_t)(port_num>>8); /* MSB */
-        socks.host.data[offset++]=(uint8_t)(port_num&0xff); /* LSB */
+        socks.host.data[offset++]=(uint8_t)(port_num&0xffU); /* LSB */
 
         s_log(LOG_INFO, "Sending SOCKS5 DOMAINNAME");
-        s_ssl_write(c, &socks, (int)(offsetof(SOCKS5_UNION, host.data)+offset));
+        {
+            int request_len=(int)sizeof socks.req+
+                (int)sizeof socks.host.len+(int)offset;
+
+            s_ssl_write(c, &socks, request_len);
+        }
     } else { /* transparent destination */
         if(original_dst(c->local_rfd.fd, &addr))
             throw_exception(c, 2); /* don't reset */
         switch(addr.sa.sa_family) {
         case AF_INET:
             socks.req.atyp=0x01; /* IP v4 address */
-            memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
-            memcpy(&socks.v4.port, &addr.in.sin_port, 2);
+            /* Serialize the host address into the SOCKS wire layout. */
+            /* cppcheck-suppress misra-c2012-21.15 */
+            (void)memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
+            /* cppcheck-suppress misra-c2012-21.15 */
+            (void)memcpy(&socks.v4.port, &addr.in.sin_port, 2);
             s_log(LOG_INFO, "Sending SOCKS5 IPv4 address");
             s_ssl_write(c, &socks, sizeof socks.v4);
             break;
 #ifdef USE_IPV6
         case AF_INET6:
             socks.req.atyp=0x04; /* IP v6 address */
-            memcpy(&socks.v6.addr, &addr.in6.sin6_addr, 16);
-            memcpy(&socks.v6.port, &addr.in6.sin6_port, 2);
+            /* Serialize the host address into the SOCKS wire layout. */
+            /* cppcheck-suppress misra-c2012-21.15 */
+            (void)memcpy(&socks.v6.addr, &addr.in6.sin6_addr, 16);
+            /* cppcheck-suppress misra-c2012-21.15 */
+            (void)memcpy(&socks.v6.port, &addr.in6.sin6_port, 2);
             s_log(LOG_INFO, "Sending SOCKS5 IPv6 address");
             s_ssl_write(c, &socks, sizeof socks.v6);
             break;
@@ -330,11 +349,11 @@ NOEXPORT void socks5_client_address(CLI *c) {
     }
 
     s_ssl_read(c, &socks, sizeof socks.resp);
-    if(socks.resp.atyp==0x04) /* IP V6 address */
+    if(socks.resp.atyp==0x04U) /* IP V6 address */
         s_ssl_read(c, &socks.v6.addr, 16+2);
     else
         s_ssl_read(c, &socks.v4.addr, 4+2);
-    if(socks.resp.ver!=5) {
+    if(socks.resp.ver!=5U) {
         s_log(LOG_ERR, "Invalid SOCKS5 message version 0x%02x", socks.resp.ver);
         throw_exception(c, 2); /* don't reset */
     }
@@ -427,18 +446,18 @@ NOEXPORT void socks4_server(CLI *c) {
     SOCKADDR_UNION addr;
     int close_connection=1;
 
-    memset(&socks, 0, sizeof socks);
+    (void)memset(&socks, 0, sizeof socks);
     s_ssl_read(c, &socks.cd, sizeof socks-sizeof socks.vn);
     socks.vn=0; /* response version 0 */
     user_name=ssl_getstring(c); /* ignore the username */
     str_free(user_name);
 
-    if(socks.cd==0x01) { /* CONNECT */
-        if(ntohl(socks.sin_addr.s_addr)>0 &&
-                ntohl(socks.sin_addr.s_addr)<256) { /* 0.0.0.x */
+    if(socks.cd==0x01U) { /* CONNECT */
+        if(ntohl(socks.sin_addr.s_addr)>0U &&
+                ntohl(socks.sin_addr.s_addr)<256U) { /* 0.0.0.x */
             host_name=ssl_getstring(c);
             port_name=str_printf("%u", ntohs(socks.sin_port));
-            hostport2addrlist(&c->connect_addr, host_name, port_name);
+            (void)hostport2addrlist(&c->connect_addr, host_name, port_name);
             str_free(port_name);
             if(c->connect_addr.num) {
                 s_log(LOG_INFO, "SOCKS4a resolved \"%s\" to %u host(s)",
@@ -468,10 +487,13 @@ NOEXPORT void socks4_server(CLI *c) {
                 socks.cd=91; /* rejected */
             }
         }
-    } else if(socks.cd==0xf0) { /* RESOLVE (a TOR extension) */
+    } else if(socks.cd==0xf0U) { /* RESOLVE (a TOR extension) */
+        unsigned resolved;
+
         host_name=ssl_getstring(c);
-        if(hostport2addr(&addr, host_name, "0", 0) && addr.sa.sa_family==AF_INET) {
-            memcpy(&socks.sin_addr, &addr.in.sin_addr, 4);
+        resolved=hostport2addr(&addr, host_name, "0", 0);
+        if(resolved && addr_family_is(&addr, AF_INET)) {
+            (void)memcpy(&socks.sin_addr, &addr.in.sin_addr, 4);
             s_log(LOG_INFO, "SOCKS4a/TOR resolved \"%s\"", host_name);
             socks.cd=90; /* access granted */
         } else {
@@ -493,7 +515,7 @@ NOEXPORT void socks5_server_method(CLI *c) {
     struct {
         uint8_t ver, method;
     } response;
-    int i;
+    unsigned i;
 
     response.ver=0x05;
     response.method=0xff; /* NO ACCEPTABLE METHODS */
@@ -501,7 +523,7 @@ NOEXPORT void socks5_server_method(CLI *c) {
     methods=str_alloc(nmethods);
     s_ssl_read(c, methods, nmethods);
     for(i=0; i<nmethods; ++i)
-        if(methods[i]==0x00) { /* NO AUTHENTICATION REQUIRED */
+        if(methods[i]==0x00U) { /* NO AUTHENTICATION REQUIRED */
             response.method=0x00; /* use this method */
             break;
         }
@@ -524,20 +546,23 @@ NOEXPORT void socks5_server(CLI *c) {
     int close_connection=1;
 
     /* parse request */
-    memset(&socks, 0, sizeof socks);
+    (void)memset(&socks, 0, sizeof socks);
     s_ssl_read(c, &socks, sizeof socks.req);
-    if(socks.req.ver!=0x05) {
+    if(socks.req.ver!=0x05U) {
         s_log(LOG_ERR, "Invalid SOCKS5 message version 0x%02x", socks.req.ver);
         socks.resp.ver=0x05; /* response version 5 */
         socks.resp.rep=0x01; /* general SOCKS server failure */
-    } else if(socks.req.cmd==0x01) { /* CONNECT */
-        if(socks.req.atyp==0x01) { /* IP v4 address */
+    } else if(socks.req.cmd==0x01U) { /* CONNECT */
+        if(socks.req.atyp==0x01U) { /* IP v4 address */
             c->connect_addr.num=1;
             c->connect_addr.addr=str_alloc(sizeof(SOCKADDR_UNION));
             c->connect_addr.addr[0].in.sin_family=AF_INET;
             s_ssl_read(c, &socks.v4.addr, 4+2);
-            memcpy(&c->connect_addr.addr[0].in.sin_addr, &socks.v4.addr, 4);
-            memcpy(&c->connect_addr.addr[0].in.sin_port, &socks.v4.port, 2);
+            /* Deserialize the SOCKS wire layout into the host address. */
+            /* cppcheck-suppress misra-c2012-21.15 */
+            (void)memcpy(&c->connect_addr.addr[0].in.sin_addr, &socks.v4.addr, 4);
+            /* cppcheck-suppress misra-c2012-21.15 */
+            (void)memcpy(&c->connect_addr.addr[0].in.sin_port, &socks.v4.port, 2);
             s_log(LOG_INFO, "SOCKS5 IPv4 address received");
             if(validate_connect_addr(c)) {
                 socks.resp.rep=0x00; /* succeeded */
@@ -545,14 +570,14 @@ NOEXPORT void socks5_server(CLI *c) {
             } else {
                 socks.resp.rep=0x02; /* connection not allowed by ruleset */
             }
-        } else if(socks.req.atyp==0x03) { /* DOMAINNAME */
+        } else if(socks.req.atyp==0x03U) { /* DOMAINNAME */
             s_ssl_read(c, &host_len, sizeof host_len);
-            host_name=str_alloc((size_t)host_len+1);
+            host_name=str_alloc((size_t)host_len+1U);
             s_ssl_read(c, host_name, host_len);
             host_name[host_len]='\0';
             s_ssl_read(c, &port_number, 2);
             port_name=str_printf("%u", ntohs(port_number));
-            hostport2addrlist(&c->connect_addr, host_name, port_name);
+            (void)hostport2addrlist(&c->connect_addr, host_name, port_name);
             str_free(port_name);
             if(c->connect_addr.num) {
                 s_log(LOG_INFO, "SOCKS5 resolved \"%s\" to %u host(s)",
@@ -569,13 +594,16 @@ NOEXPORT void socks5_server(CLI *c) {
             }
             str_free(host_name);
 #ifdef USE_IPV6
-        } else if(socks.req.atyp==0x04) { /* IP v6 address */
+        } else if(socks.req.atyp==0x04U) { /* IP v6 address */
             c->connect_addr.num=1;
             c->connect_addr.addr=str_alloc(sizeof(SOCKADDR_UNION));
             c->connect_addr.addr[0].in6.sin6_family=AF_INET6;
             s_ssl_read(c, &socks.v6.addr, 16+2);
-            memcpy(&c->connect_addr.addr[0].in6.sin6_addr, &socks.v6.addr, 16);
-            memcpy(&c->connect_addr.addr[0].in6.sin6_port, &socks.v6.port, 2);
+            /* Deserialize the SOCKS wire layout into the host address. */
+            /* cppcheck-suppress misra-c2012-21.15 */
+            (void)memcpy(&c->connect_addr.addr[0].in6.sin6_addr, &socks.v6.addr, 16);
+            /* cppcheck-suppress misra-c2012-21.15 */
+            (void)memcpy(&c->connect_addr.addr[0].in6.sin6_port, &socks.v6.port, 2);
             s_log(LOG_INFO, "SOCKS5 IPv6 address received");
             if(validate_connect_addr(c)) {
                 socks.resp.rep=0x00; /* succeeded */
@@ -589,34 +617,47 @@ NOEXPORT void socks5_server(CLI *c) {
                 "Unsupported SOCKS5 address type 0x%02x", socks.req.atyp);
             socks.resp.rep=0x07; /* Address type not supported */
         }
-    } else if(socks.req.cmd==0xf0) { /* RESOLVE (a TOR extension) */
+    } else if(socks.req.cmd==0xf0U) { /* RESOLVE (a TOR extension) */
         s_ssl_read(c, &host_len, sizeof host_len);
-        host_name=str_alloc((size_t)host_len+1);
+        host_name=str_alloc((size_t)host_len+1U);
         s_ssl_read(c, host_name, host_len);
         host_name[host_len]='\0';
         s_ssl_read(c, &port_number, 2);
         port_name=str_printf("%u", ntohs(port_number));
-        if(hostport2addr(&addr, host_name, port_name, 0)) {
-            if(addr.sa.sa_family==AF_INET) {
-                s_log(LOG_INFO, "SOCKS5/TOR resolved \"%s\" to IPv4", host_name);
-                memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
-                socks.resp.atyp=0x01; /* IP v4 address */
-                socks.resp.rep=0x00; /* succeeded */
+        {
+            unsigned resolved;
+
+            resolved=hostport2addr(&addr, host_name, port_name, 0);
+            if(resolved) {
+                if(addr_family_is(&addr, AF_INET)) {
+                    s_log(LOG_INFO,
+                        "SOCKS5/TOR resolved \"%s\" to IPv4", host_name);
+                    /* Serialize the host address into the SOCKS wire layout. */
+                    /* cppcheck-suppress misra-c2012-21.15 */
+                    (void)memcpy(&socks.v4.addr, &addr.in.sin_addr, 4);
+                    socks.resp.atyp=0x01; /* IP v4 address */
+                    socks.resp.rep=0x00; /* succeeded */
 #ifdef USE_IPV6
-            } else if(addr.sa.sa_family==AF_INET6) {
-                s_log(LOG_INFO, "SOCKS5/TOR resolved \"%s\" to IPv6", host_name);
-                memcpy(&socks.v6.addr, &addr.in6.sin6_addr, 16);
-                socks.resp.atyp=0x04; /* IP v6 address */
-                socks.resp.rep=0x00; /* succeeded */
+                } else if(addr_family_is(&addr, AF_INET6)) {
+                    s_log(LOG_INFO,
+                        "SOCKS5/TOR resolved \"%s\" to IPv6", host_name);
+                    /* Serialize the host address into the SOCKS wire layout. */
+                    /* cppcheck-suppress misra-c2012-21.15 */
+                    (void)memcpy(&socks.v6.addr, &addr.in6.sin6_addr, 16);
+                    socks.resp.atyp=0x04; /* IP v6 address */
+                    socks.resp.rep=0x00; /* succeeded */
 #endif
+                } else {
+                    s_log(LOG_ERR,
+                        "SOCKS5/TOR unsupported address type for \"%s\"",
+                        host_name);
+                    socks.resp.rep=0x04; /* Host unreachable */
+                }
             } else {
-                s_log(LOG_ERR, "SOCKS5/TOR unsupported address type for \"%s\"",
-                    host_name);
+                s_log(LOG_ERR,
+                    "SOCKS5/TOR failed to resolve \"%s\"", host_name);
                 socks.resp.rep=0x04; /* Host unreachable */
             }
-        } else {
-            s_log(LOG_ERR, "SOCKS5/TOR failed to resolve \"%s\"", host_name);
-            socks.resp.rep=0x04; /* Host unreachable */
         }
         str_free(host_name);
         str_free(port_name);
@@ -628,7 +669,7 @@ NOEXPORT void socks5_server(CLI *c) {
     /* send response */
     /* broken clients tend to expect the same address family for response,
      * so stunnel tries to preserve the address family if possible */
-    if(socks.resp.atyp==0x04) { /* IP V6 address */
+    if(socks.resp.atyp==0x04U) { /* IP V6 address */
         s_ssl_write(c, &socks, sizeof socks.v6);
     } else {
         socks.resp.atyp=0x01; /* IP v4 address */
@@ -640,7 +681,7 @@ NOEXPORT void socks5_server(CLI *c) {
 
 NOEXPORT int socks_ipv4_addr_prohibited(const unsigned char *addr) {
     return (!addr[0] && !addr[1] && !addr[2] && !addr[3]) ||
-        addr[0]==0x7f;
+        addr[0]==0x7fU;
 }
 
 #ifdef USE_IPV6
@@ -671,17 +712,17 @@ NOEXPORT int validate_connect_addr(CLI *c) {
         SOCKADDR_UNION *addr=&c->connect_addr.addr[i];
         int prohibited;
 #ifdef USE_IPV6
-        if(addr->sa.sa_family==AF_INET6) {
+        if(addr_family_is(addr, AF_INET6)) {
             const unsigned char *bytes=
                 (const unsigned char *)&addr->in6.sin6_addr;
             /* A link-local address scoped to a loopback interface reaches
              * the local host on some systems.  Conservatively reject all
              * interface-scoped destinations. */
             prohibited=addr->in6.sin6_scope_id ||
-                socks_ipv6_addr_prohibited(bytes);
+                socks_ipv6_addr_prohibited(bytes) ? 1 : 0;
         } else
 #endif
-        if(addr->sa.sa_family==AF_INET) {
+        if(addr_family_is(addr, AF_INET)) {
             const unsigned char *bytes=
                 (const unsigned char *)&addr->in.sin_addr;
             prohibited=socks_ipv4_addr_prohibited(bytes);
@@ -691,7 +732,7 @@ NOEXPORT int validate_connect_addr(CLI *c) {
             return 0;
         }
         if(prohibited) {
-            char *addr_txt=s_ntop(addr, addr_len(addr));
+            char *addr_txt=s_ntop(addr, sockaddr_len(addr));
             s_log(LOG_ERR, "SOCKS connection to %s rejected", addr_txt);
             str_free(addr_txt);
             return 0;
@@ -727,7 +768,7 @@ NOEXPORT void proxy_server_late(CLI *c) {
         sockerror("getpeername");
         throw_exception(c, 1);
     }
-    err=getnameinfo(&addr.sa, addr_len(&addr), src_host, IP_LEN,
+    err=getnameinfo(&addr.sa, sockaddr_len(&addr), src_host, IP_LEN,
         src_port, PORT_LEN, NI_NUMERICHOST|NI_NUMERICSERV);
     if(err) {
         s_log(LOG_ERR, "getnameinfo: %s", s_gai_strerror(err));
@@ -739,7 +780,7 @@ NOEXPORT void proxy_server_late(CLI *c) {
         sockerror("getsockname");
         throw_exception(c, 1);
     }
-    err=getnameinfo(&addr.sa, addr_len(&addr), dst_host, IP_LEN,
+    err=getnameinfo(&addr.sa, sockaddr_len(&addr), dst_host, IP_LEN,
         dst_port, PORT_LEN, NI_NUMERICHOST|NI_NUMERICSERV);
     if(err) {
         s_log(LOG_ERR, "getnameinfo: %s", s_gai_strerror(err));
@@ -770,15 +811,15 @@ NOEXPORT void cifs_client_middle(CLI *c) {
 
     s_write(c, c->remote_fd.fd, request_dummy, 4);
     s_read(c, c->remote_fd.fd, buffer, 5);
-    if(buffer[0]!=0x83) { /* NB_SSN_NEGRESP */
+    if(buffer[0]!=0x83U) { /* NB_SSN_NEGRESP */
         s_log(LOG_ERR, "Negative response expected");
         throw_exception(c, 1);
     }
-    if(buffer[2]!=0 || buffer[3]!=1) { /* length != 1 */
+    if(buffer[2]!=0U || buffer[3]!=1U) { /* length != 1 */
         s_log(LOG_ERR, "Unexpected NetBIOS response size");
         throw_exception(c, 1);
     }
-    if(buffer[4]!=0x8e) { /* use TLS */
+    if(buffer[4]!=0x8eU) { /* use TLS */
         s_log(LOG_ERR, "Remote server does not require TLS");
         throw_exception(c, 1);
     }
@@ -792,12 +833,12 @@ NOEXPORT void cifs_server_early(CLI *c) {
 
     s_read(c, c->local_rfd.fd, buffer, 4); /* NetBIOS header */
     len=(uint16_t)(((uint16_t)(buffer[2])<<8)|buffer[3]);
-    if(len>sizeof buffer-4) {
+    if(len>sizeof buffer-4U) {
         s_log(LOG_ERR, "Received block too long");
         throw_exception(c, 1);
     }
     s_read(c, c->local_rfd.fd, buffer+4, len);
-    if(buffer[0]!=0x81) { /* NB_SSN_REQUEST */
+    if(buffer[0]!=0x81U) { /* NB_SSN_REQUEST */
         s_log(LOG_ERR, "Client did not send session setup");
         s_write(c, c->local_wfd.fd, response_access_denied, 5);
         throw_exception(c, 1);
@@ -808,7 +849,7 @@ NOEXPORT void cifs_server_early(CLI *c) {
 /**************************************** pgsql */
 
 /* http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982 */
-static const uint8_t ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
+NOEXPORT const uint8_t ssl_request[8]={0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f};
 
 NOEXPORT void pgsql_client_middle(CLI *c) {
     uint8_t buffer[1];
@@ -816,7 +857,7 @@ NOEXPORT void pgsql_client_middle(CLI *c) {
     s_write(c, c->remote_fd.fd, ssl_request, sizeof ssl_request);
     s_read(c, c->remote_fd.fd, buffer, 1);
     /* S - accepted, N - rejected, non-TLS preferred */
-    if(buffer[0]!='S') {
+    if(buffer[0]!=(uint8_t)'S') {
         s_log(LOG_ERR, "PostgreSQL server rejected TLS");
         throw_exception(c, 1);
     }
@@ -833,7 +874,7 @@ NOEXPORT void pgsql_server_early(CLI *c) {
         'e', 'd', ' ', 'b', 'y', ' ', 'c', 'l', 'i', 'e', 'n', 't', 0, 0};
 
     s_log(LOG_DEBUG, "Started server-side psql protocol negotiation");
-    memset(buffer, 0, sizeof buffer);
+    (void)memset(buffer, 0, sizeof buffer);
     s_read(c, c->local_rfd.fd, buffer, sizeof buffer);
     if(!safe_memcmp(buffer, gss_request, sizeof gss_request)) {
         s_log(LOG_INFO, "GSSAPI encryption requested, rejecting gracefully");
@@ -1248,7 +1289,7 @@ NOEXPORT void nntp_client_middle(CLI *c) {
 
 /**************************************** LDAP, RFC 2830 */
 
-uint8_t ldap_starttls_message[0x1d + 2]={
+NOEXPORT uint8_t ldap_starttls_message[0x1d + 2]={
     0x30,   /* tag = UNIVERSAL SEQUENCE */
     0x1d,   /* len = 29 */
     0x02,   /*   tag = INTEGER (messageID) */
@@ -1275,15 +1316,15 @@ uint8_t ldap_starttls_message[0x1d + 2]={
      * (section 2.1: "The requestValue field is absent") */
 };
 
-#define LDAP_UNIVERSAL_SEQUENCE                 0x30
-#define LDAP_WINLDAP_FOUR_BYTE_LEN_FLAG         0x84
-#define LDAP_RESPONSE_MSG_ID_TAG_INTEGER        0x02
-#define LDAP_RESPONSE_MSG_ID_LEN                0x01
-#define LDAP_RESPONSE_MSG_ID_VAL                0x01
-#define LDAP_RESPONSE_OP_APPLICATION_24         0x78
-#define LDAP_RESPONSE_RESULT_TAG_ENUMERATED     0x0a
-#define LDAP_RESPONSE_RESULT_LEN                0x01
-#define LDAP_RESPONSE_RESULT_VAL_SUCCESS        0x00
+#define LDAP_UNIVERSAL_SEQUENCE                 0x30U
+#define LDAP_WINLDAP_FOUR_BYTE_LEN_FLAG         0x84U
+#define LDAP_RESPONSE_MSG_ID_TAG_INTEGER        0x02U
+#define LDAP_RESPONSE_MSG_ID_LEN                0x01U
+#define LDAP_RESPONSE_MSG_ID_VAL                0x01U
+#define LDAP_RESPONSE_OP_APPLICATION_24         0x78U
+#define LDAP_RESPONSE_RESULT_TAG_ENUMERATED     0x0aU
+#define LDAP_RESPONSE_RESULT_LEN                0x01U
+#define LDAP_RESPONSE_RESULT_VAL_SUCCESS        0x00U
 
 /* also see:
  * https://ldap.com/ldapv3-wire-protocol-reference-extended/
@@ -1323,39 +1364,46 @@ NOEXPORT void ldap_client_middle(CLI *c) {
 
     s_log(LOG_DEBUG, "Receiving LDAP response value (%lu byte(s))",
         (unsigned long)resp_len);
-    memset(ldap_response, 0, sizeof(ldap_response)); /* prevent data leaks */
+    (void)memset(ldap_response, 0, sizeof(ldap_response)); /* prevent data leaks */
     s_read(c, c->remote_fd.fd, ldap_response, resp_len);
 
     s_log(LOG_DEBUG, "Decoding LDAP response value");
-    resp_idx=0;
-    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_MSG_ID_TAG_INTEGER) {
+    resp_idx=0U;
+    if(ldap_response[resp_idx]!=LDAP_RESPONSE_MSG_ID_TAG_INTEGER) {
         s_log(LOG_ERR, "LDAP response has an incorrect message ID type");
         throw_exception(c, 1);
     }
-    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_MSG_ID_LEN) {
+    ++resp_idx;
+    if(ldap_response[resp_idx]!=LDAP_RESPONSE_MSG_ID_LEN) {
         s_log(LOG_ERR, "LDAP response has an unexpected message ID length");
         throw_exception(c, 1);
     }
-    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_MSG_ID_VAL) {
+    ++resp_idx;
+    if(ldap_response[resp_idx]!=LDAP_RESPONSE_MSG_ID_VAL) {
         s_log(LOG_ERR, "LDAP response has an unexpected message ID value");
         throw_exception(c, 1);
     }
-    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_OP_APPLICATION_24) {
+    ++resp_idx;
+    if(ldap_response[resp_idx]!=LDAP_RESPONSE_OP_APPLICATION_24) {
         s_log(LOG_ERR, "LDAP response protocol op is not ExtendedResponse");
         throw_exception(c, 1);
     }
+    ++resp_idx;
     /* we do not validate the protocol op sequence length */
-    if(ldap_response[resp_idx++]==LDAP_WINLDAP_FOUR_BYTE_LEN_FLAG) { /* WinLDAP */
-        resp_idx+=4; /* skip next 4 bytes */
+    if(ldap_response[resp_idx]==LDAP_WINLDAP_FOUR_BYTE_LEN_FLAG) { /* WinLDAP */
+        resp_idx+=4U; /* skip next 4 bytes */
     }
-    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_RESULT_TAG_ENUMERATED) {
+    ++resp_idx;
+    if(ldap_response[resp_idx]!=LDAP_RESPONSE_RESULT_TAG_ENUMERATED) {
         s_log(LOG_ERR, "LDAP response has an unexpected result code type");
         throw_exception(c, 1);
     }
-    if(ldap_response[resp_idx++]!=LDAP_RESPONSE_RESULT_LEN) {
+    ++resp_idx;
+    if(ldap_response[resp_idx]!=LDAP_RESPONSE_RESULT_LEN) {
         s_log(LOG_ERR, "LDAP response has an unexpected result code length");
         throw_exception(c, 1);
     }
+    ++resp_idx;
     if(ldap_response[resp_idx]!=LDAP_RESPONSE_RESULT_VAL_SUCCESS) {
         s_log(LOG_ERR, "LDAP response has indicated an error (%u)",
             ldap_response[resp_idx]);
@@ -1507,29 +1555,33 @@ NOEXPORT void ntlm(CLI *c) {
     do { /* read all headers */
         str_free(line);
         line=fd_getline(c, c->remote_fd.fd);
-        if(is_prefix(line, "Proxy-Authenticate: NTLM "))
+        if(is_prefix(line, "Proxy-Authenticate: NTLM ")) {
+            str_free(ntlm2_txt);
             ntlm2_txt=str_dup(line+25);
-        else if(is_prefix(line, "Content-Length: ")) {
-            content_length=strtol(line+16, &tmpstr, 10);
+        } else if(is_prefix(line, "Content-Length: ")) {
+            content_length=str_to_long(line+16, &tmpstr);
             if(tmpstr>line+16) /* found some digits */
                 while(*tmpstr && isspace((int)*tmpstr))
                     ++tmpstr;
             if(tmpstr==line+16 || *tmpstr || content_length<0) {
                 s_log(LOG_ERR, "Proxy-Authenticate: Invalid Content-Length");
                 str_free(line);
+                str_free(ntlm2_txt);
                 throw_exception(c, 1);
             }
+        } else {
+            /* ignore other HTTP headers */
         }
     } while(*line);
+    str_free(line);
     if(!ntlm2_txt) { /* no Proxy-Authenticate: NTLM header */
         s_log(LOG_ERR, "Proxy-Authenticate: NTLM header not found");
-        str_free(line);
         throw_exception(c, 1);
     }
 
     /* read and ignore HTTP content (if any) */
     while(content_length>0) {
-        size_t n=s_min((size_t)content_length, BUFSIZ);
+        size_t n=s_min((size_t)content_length, (size_t)BUFSIZ);
         s_read(c, c->remote_fd.fd, buf, n);
         content_length-=(long)n;
     }
@@ -1551,8 +1603,8 @@ NOEXPORT void ntlm(CLI *c) {
 NOEXPORT char *ntlm1(void) {
     char phase1[32];
 
-    memset(phase1, 0, sizeof phase1);
-    strcpy(phase1, "NTLMSSP");
+    (void)memset(phase1, 0, sizeof phase1);
+    (void)strcpy(phase1, "NTLMSSP");
     phase1[8]=1; /* type: 1 */
     phase1[12]=2; /* flag: negotiate OEM */
     phase1[13]=2; /* flag: negotiate NTLM */
@@ -1574,13 +1626,14 @@ NOEXPORT char *ntlm3(char *domain,
     const size_t domain_off=ntlm_off+ntlm_len;
     const size_t user_off=domain_off+domain_len;
     const size_t end_off=user_off+user_len;
+    int md_result;
 
     /* setup the phase3 structure */
     if(end_off>sizeof phase3)
         return NULL;
-    memset(phase3, 0, sizeof phase3);
+    (void)memset(phase3, 0, sizeof phase3);
     /* bytes 0-7: null-terminated NTLMSSP signature */
-    strcpy((char *)phase3, "NTLMSSP");
+    (void)strcpy((char *)phase3, "NTLMSSP");
     /* bytes 8-11: NTLM message type */
     phase3[8]=3;                    /* type: 3 */
     /* bytes 12-19: LM/LMv2 response */
@@ -1606,25 +1659,34 @@ NOEXPORT char *ntlm3(char *domain,
     phase3[61]=2;                   /* flag: negotiate NTLM */
 
     /* calculate MD4 of the UTF-16 encoded password */
-    MD4_Init(&md4);
+    md_result=MD4_Init(&md4);
+    if(!md_result)
+        return NULL;
     while(*password) {
-        MD4_Update(&md4, password++, 1);
-        MD4_Update(&md4, "", 1); /* UTF-16 */
+        md_result=MD4_Update(&md4, password, 1);
+        ++password;
+        if(!md_result)
+            return NULL;
+        md_result=MD4_Update(&md4, "", 1); /* UTF-16 */
+        if(!md_result)
+            return NULL;
     }
-    MD4_Final(md4_hash, &md4);
-    memset(md4_hash+16, 0, 5); /* pad to 21 bytes */
+    md_result=MD4_Final(md4_hash, &md4);
+    if(!md_result)
+        return NULL;
+    (void)memset(md4_hash+16, 0, 5); /* pad to 21 bytes */
 
     /* decode the challenge and calculate the response */
     decoded=(uint8_t *)base64(0, phase2, (int)strlen(phase2)); /* decode */
     if(!decoded)
         return NULL;
     crypt_DES(phase3+ntlm_off,    decoded+24, md4_hash);
-    crypt_DES(phase3+ntlm_off+8,  decoded+24, md4_hash+7);
-    crypt_DES(phase3+ntlm_off+16, decoded+24, md4_hash+14);
+    crypt_DES(phase3+ntlm_off+8U,  decoded+24U, md4_hash+7U);
+    crypt_DES(phase3+ntlm_off+16U, decoded+24U, md4_hash+14U);
     str_free(decoded);
 
-    memcpy((char *)phase3+domain_off, domain, domain_len);
-    memcpy((char *)phase3+user_off, user, user_len);
+    (void)memcpy((char *)phase3+domain_off, domain, domain_len);
+    (void)memcpy((char *)phase3+user_off, user, user_len);
 
     return base64(1, (char *)phase3, (int)end_off); /* encode */
 }
@@ -1633,16 +1695,18 @@ NOEXPORT void crypt_DES(DES_cblock dst, const_DES_cblock src,
         unsigned char hash[7]) {
     DES_cblock key;
     DES_key_schedule sched;
+    unsigned int h0=hash[0], h1=hash[1], h2=hash[2], h3=hash[3],
+        h4=hash[4], h5=hash[5], h6=hash[6];
 
     /* convert 56-bit hash to 64-bit DES key */
-    key[0]=hash[0];
-    key[1]=(unsigned char)(((hash[0]&1)<<7)|(hash[1]>>1));
-    key[2]=(unsigned char)(((hash[1]&3)<<6)|(hash[2]>>2));
-    key[3]=(unsigned char)(((hash[2]&7)<<5)|(hash[3]>>3));
-    key[4]=(unsigned char)(((hash[3]&15)<<4)|(hash[4]>>4));
-    key[5]=(unsigned char)(((hash[4]&31)<<3)|(hash[5]>>5));
-    key[6]=(unsigned char)(((hash[5]&63)<<2)|(hash[6]>>6));
-    key[7]=(unsigned char)(((hash[6]&127)<<1));
+    key[0]=(unsigned char)h0;
+    key[1]=(unsigned char)(((h0&1U)<<7)|(h1>>1));
+    key[2]=(unsigned char)(((h1&3U)<<6)|(h2>>2));
+    key[3]=(unsigned char)(((h2&7U)<<5)|(h3>>3));
+    key[4]=(unsigned char)(((h3&15U)<<4)|(h4>>4));
+    key[5]=(unsigned char)(((h4&31U)<<3)|(h5>>5));
+    key[6]=(unsigned char)(((h5&63U)<<2)|(h6>>6));
+    key[7]=(unsigned char)((h6&127U)<<1);
     DES_set_odd_parity(&key);
 
     /* encrypt */
@@ -1664,23 +1728,29 @@ NOEXPORT char *base64(int encode, const char *in, int len) {
     BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
     bio=BIO_new(BIO_s_mem());
     if(!bio) {
-        BIO_free(b64);
+        (void)BIO_free(b64);
         return NULL;
     }
     if(encode)
         bio=BIO_push(b64, bio);
-    BIO_write(bio, in, len);
+    n=BIO_write(bio, in, len);
+    if(n!=len) {
+        BIO_free_all(bio);
+        if(!encode)
+            (void)BIO_free(b64);
+        return NULL;
+    }
     (void)BIO_flush(bio); /* ignore the error if any */
     if(encode) {
         bio=BIO_pop(bio);
-        BIO_free(b64);
+        (void)BIO_free(b64);
     } else {
         bio=BIO_push(b64, bio);
     }
     n=BIO_pending(bio);
     /* 32 bytes as a safety precaution for passing decoded data to crypt_DES */
     /* n+1 to get null-terminated string on encode */
-    out=str_alloc(n<32?32:(size_t)n+1);
+    out=str_alloc(n<32 ? 32U : (size_t)n+1U);
     n=BIO_read(bio, out, n);
     if(n<0) {
         BIO_free_all(bio);
@@ -1699,9 +1769,9 @@ NOEXPORT void capwin_server_middle(CLI *c) {
     int i;
 
     buffer=str_alloc(CAPWIN_BUFFER_SIZE);
-    for(i=0; i<CAPWIN_BUFFER_SIZE - 1; ++i) {
+    for(i=0; i<CAPWIN_BUFFER_SIZE-1; ++i) {
         s_ssl_read(c, buffer+i, 1);
-        if(buffer[i] == '\x1c')
+        if((unsigned char)buffer[i]==0x1cU)
             break;
     }
     if(capwin_decode(buffer, NULL, &user, &pass, NULL)) {
@@ -1752,11 +1822,23 @@ NOEXPORT void capwin_client_late(CLI *c) {
         throw_exception(c, 1);
     }
     str_free(cmd);
-    req=str_printf("\x1f%s\x1f%s\x1f\x1c", user, pass);
+    req=str_printf("\x1f" "%s\x1f" "%s\x1f\x1c", user, pass);
     str_free(user);
     str_free(pass);
 #ifdef USE_WIN32
-    capwin_hwnd=(HWND)(uintptr_t)atoi(ctrl);
+    {
+        char *end;
+        unsigned long long handle;
+
+        errno=0;
+        handle=strtoull(ctrl, &end, 10);
+        if(errno || end==ctrl || *end || handle>(unsigned long long)UINTPTR_MAX) {
+            s_log(LOG_ERR, "CapWIN: Invalid window handle");
+            str_free(ctrl);
+            throw_exception(c, 1);
+        }
+        capwin_hwnd=(HWND)(uintptr_t)handle;
+    }
 #endif
     str_free(ctrl);
 
@@ -1769,18 +1851,20 @@ NOEXPORT void capwin_client_late(CLI *c) {
 #ifdef USE_WIN32
     /* we received a response, so network is up */
     if(!InterlockedExchange(&capwin_connectivity, 1))
-        PostMessage(capwin_hwnd, WM_CAPWIN_NET_UP, 0, 0);
+        (void)PostMessage(capwin_hwnd, WM_CAPWIN_NET_UP, 0, 0);
 #endif
+    /* This is a fixed-size CapWIN wire token rather than a C string. */
+    /* cppcheck-suppress [misra-c2012-21.14, misra-c2012-21.16] */
     if(memcmp(resp, "BINGO", sizeof resp)) {
         s_log(LOG_ERR, "CapWIN: Authentication failed");
 #ifdef USE_WIN32
-        PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_FAIL, 0, 0);
+        (void)PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_FAIL, 0, 0);
 #endif
         throw_exception(c, 1);
     }
     s_log(LOG_NOTICE, "CapWIN: Authentication succeeded");
 #ifdef USE_WIN32
-    PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_OK, 0, 0);
+    (void)PostMessage(capwin_hwnd, WM_CAPWIN_AUTH_OK, 0, 0);
 #endif
 }
 
@@ -1791,8 +1875,8 @@ NOEXPORT const char *capwinctrl_client_init(SERVICE_OPTIONS *opt) {
 
 NOEXPORT void capwinctrl_client_early(CLI *c) {
     s_log(LOG_DEBUG, "CapWIN: Setting credentials");
-    memset(capwin_auth, 0, CAPWIN_BUFFER_SIZE);
-    s_read_eof(c, c->local_rfd.fd, capwin_auth, CAPWIN_BUFFER_SIZE - 1);
+    (void)memset(capwin_auth, 0, CAPWIN_BUFFER_SIZE);
+    (void)s_read_eof(c, c->local_rfd.fd, capwin_auth, CAPWIN_BUFFER_SIZE - 1);
     s_log(LOG_NOTICE, "CapWIN: Credentials set");
     /* skip connecting a remote host */
     throw_exception(c, 2); /* don't reset */
@@ -1823,30 +1907,38 @@ NOEXPORT int capwin_decode(const char *src,
         return 1; /* FAILED */
     }
     if(cmd) {
-        size_t len=(size_t)(us1 - src);
-        *cmd=str_alloc(len + 1);
-        memcpy(*cmd, src, len);
+        ptrdiff_t span=us1-src;
+        size_t len=(size_t)span;
+
+        *cmd=str_alloc(len+1U);
+        (void)memcpy(*cmd, src, len);
     }
     if(user) {
-        size_t len=(size_t)(us2 - us1) - 1;
-        *user=str_alloc(len + 1);
-        memcpy(*user, us1 + 1, len);
+        ptrdiff_t span=us2-us1-1;
+        size_t len=(size_t)span;
+
+        *user=str_alloc(len+1U);
+        (void)memcpy(*user, us1 + 1, len);
     }
     if(pass) {
-        size_t len=(size_t)(us3 - us2) - 1;
-        *pass=str_alloc(len + 1);
-        memcpy(*pass, us2 + 1, len);
+        ptrdiff_t span=us3-us2-1;
+        size_t len=(size_t)span;
+
+        *pass=str_alloc(len+1U);
+        (void)memcpy(*pass, us2 + 1, len);
     }
     if(ctrl) {
-        size_t len=(size_t)(fs - us3) - 1;
-        *ctrl=str_alloc(len + 1);
-        memcpy(*ctrl, us3 + 1, len);
+        ptrdiff_t span=fs-us3-1;
+        size_t len=(size_t)span;
+
+        *ctrl=str_alloc(len+1U);
+        (void)memcpy(*ctrl, us3 + 1, len);
     }
     return 0; /* SUCCESS */
 }
 
 NOEXPORT int ldap_auth(CLI *c, const char *dn, const char *pass) {
-    size_t dn_len, pass_len, req_len;
+    size_t dn_len, pass_len, req_len, sequence_len, bind_len;
     SOCKADDR_UNION addr;
     int i;
     unsigned char *req, resp[22];
@@ -1858,8 +1950,10 @@ NOEXPORT int ldap_auth(CLI *c, const char *dn, const char *pass) {
     /* reject parameters too long for simple encoding */
     dn_len=strlen(dn);
     pass_len=strlen(pass);
-    req_len=dn_len + pass_len + 14;
-    if(req_len > 120) {
+    sequence_len=dn_len+pass_len+12U;
+    bind_len=dn_len+pass_len+7U;
+    req_len=dn_len+pass_len+14U;
+    if(req_len>120U) {
         s_log(LOG_ERR, "LDAP: Request too long");
         return 1; /* FAILED */
     }
@@ -1873,8 +1967,8 @@ NOEXPORT int ldap_auth(CLI *c, const char *dn, const char *pass) {
     if(c->fd==INVALID_SOCKET)
         return 1; /* FAILED */
     s_log(LOG_DEBUG, "LDAP: Connecting the server");
-    if(s_connect(c, &addr, addr_len(&addr), c->opt->timeout_connect)) {
-        closesocket(c->fd);
+    if(s_connect(c, &addr, sockaddr_len(&addr), c->opt->timeout_connect)) {
+        (void)closesocket(c->fd);
         c->fd=INVALID_SOCKET; /* avoid double close on cleanup */
         return 1; /* FAILED */
     }
@@ -1883,22 +1977,22 @@ NOEXPORT int ldap_auth(CLI *c, const char *dn, const char *pass) {
     req=str_alloc(req_len);
     i=0;
     req[i++]=0x30; /* SEQUENCE */
-    req[i++]=(unsigned char)(dn_len + pass_len + 12);
+    req[i++]=(unsigned char)sequence_len;
     req[i++]=0x02; /* INTEGER */
     req[i++]=0x01; /* length */
     req[i++]=0x01; /* MessageID */
     req[i++]=0x60; /* [APPLICATION 0]: BindRequest */
-    req[i++]=(unsigned char)(dn_len + pass_len + 7);
+    req[i++]=(unsigned char)bind_len;
     req[i++]=0x02; /* INTEGER */
     req[i++]=0x01; /* length */
     req[i++]=0x03; /* LDAP protocol version */
     req[i++]=0x04; /* OCTET STRING */
     req[i++]=(unsigned char)dn_len;
-    memcpy(req + i, dn, dn_len);
+    (void)memcpy(req + i, dn, dn_len);
     i+=(int)dn_len;
     req[i++]=0x80; /* [IMPLICIT 0]: simple authentication */
     req[i++]=(unsigned char)pass_len;
-    memcpy(req + i, pass, pass_len);
+    (void)memcpy(req + i, pass, pass_len);
     s_log(LOG_DEBUG, "LDAP: Sending BindRequest");
     s_write(c, c->fd, req, req_len);
     str_free(req);
@@ -1906,14 +2000,14 @@ NOEXPORT int ldap_auth(CLI *c, const char *dn, const char *pass) {
     /* receive BindResponse */
     s_log(LOG_DEBUG, "LDAP: Waiting for BindResponse");
     s_read(c, c->fd, resp, sizeof resp);
-    closesocket(c->fd);
+    (void)closesocket(c->fd);
     c->fd=INVALID_SOCKET; /* avoid double close on cleanup */
     return memcmp(resp, resp_ok, sizeof resp);
 }
 
 NOEXPORT char *ldap_escape_dn(const char *src) {
     int i=0, j=0;
-    char *dst=str_alloc(2 * strlen(src) + 1);
+    char *dst=str_alloc(2U*strlen(src)+1U);
 
     while(src[i]) {
         if(strchr("+;,\\\"<>#", src[i]))

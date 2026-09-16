@@ -174,9 +174,9 @@ An address parameter of an option may be either:
 
 -   **fips** = yes \| no
 
-    enable or disable FIPS 140-2 mode.
+    enable or disable FIPS 140-3 mode.
 
-    This option allows you to disable entering FIPS mode if **stunnel** was compiled with FIPS 140-2 support.
+    This option allows you to disable entering FIPS mode if **stunnel** was compiled with FIPS 140-3 support.
 
     default: no (since version 5.00)
 
@@ -565,6 +565,8 @@ Note that if you wish to run **stunnel** in *inetd* mode (where it is provided a
 -   **include** = DIRECTORY
 
     include all configuration file parts located in DIRECTORY
+
+    Include directives may be nested to a maximum depth of 100 configuration files, including the main configuration file. Exceeding this limit rejects the configuration as a likely recursive include.
 
     The files are included in the ascending alphabetical order of their names. The recommended filename convention is
 
@@ -1263,7 +1265,7 @@ or in remote mode:
     accept = 993
     connect = 143
 
-In order to let your local e-mail client connect to a TLS-enabled *imapd* service on another server, configure the e-mail client to connect to localhost on port 119 and use:
+In order to let your local e-mail client connect to a TLS-enabled *imapd* service on another server, configure the e-mail client to connect to localhost on port 143 and use:
 
     [imap]
     client = yes

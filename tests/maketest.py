@@ -49,6 +49,8 @@ DEFAULT_CERTS = os.path.join(RESULT_PATH, "certs")
 DEFAULT_LOGS = os.path.join(RESULT_PATH, "logs")
 DEFAULT_LEVEL = logging.INFO
 DEFAULT_PORT = 19254
+EVENT_TIMEOUT = 60
+PROCESS_TIMEOUT = 5
 OCSP_INDEX = os.path.join(DEFAULT_CERTS, "index.txt")
 
 RE_VERSIONS = re.compile(r"""\A
@@ -589,9 +591,17 @@ class TestSuite(TestResult):
         )
 
 
-    async def expect_event(self, msgq: asyncio.Queue[LogEvent], pattern: str) -> TypeLogEvent:
-        """Make sure the next event in the logsq queue is of that etype."""
-        evt = await msgq.get()
+    async def expect_event(
+        self, msgq: asyncio.Queue[LogEvent], pattern: str,
+        timeout: float = EVENT_TIMEOUT
+    ) -> TypeLogEvent:
+        """Make sure the next event has the expected type within a deadline."""
+        try:
+            evt = await asyncio.wait_for(msgq.get(), timeout=timeout)
+        except asyncio.TimeoutError as err:
+            raise OutputError(
+                f"Timed out after {timeout:g} seconds waiting for "
+                f"{pattern!r}") from err
         if evt.etype != pattern:
             raise OutputError(f"Expected {pattern}, got {evt.etype}")
         return evt
@@ -1193,123 +1203,146 @@ class TestSuite(TestResult):
             )
 
 
-    async def cleanup_stunnels(self) -> None:
-        """Terminate and remove any remaining stunnel processes."""
+    async def _finish_stunnel_output(self, service: str, tag: str) -> None:
+        """Bound the wait for a terminated stunnel's output reader."""
+        task_name = f"{service}_output"
+        task = self.cfg.tasks.pop(task_name, None)
+        if task is None:
+            return
+        waiter = asyncio.gather(task, return_exceptions=True)
         try:
-            tag = "cleanup_stunnels"
-            num = len(self.cfg.children)
+            result = await asyncio.wait_for(
+                asyncio.shield(waiter), timeout=PROCESS_TIMEOUT)
+        except asyncio.TimeoutError:
             await self.cfg.mainq.put(
                 LogEvent(
                     etype="log",
-                    level=10,
-                    log=f"[{tag}] About to kill and wait for {num} stunnel process(es)"
+                    level=30,
+                    log=f"[{tag}] '{task_name}' did not finish in "
+                        f"{PROCESS_TIMEOUT} seconds; cancelling"
                 )
             )
-            await self.cleanup_stunnel("client")
+            task.cancel()
+            result = await asyncio.gather(task, return_exceptions=True)
+        error = result[0]
+        if isinstance(error, BaseException) and not isinstance(
+                error, asyncio.CancelledError):
+            await self.cfg.mainq.put(
+                LogEvent(
+                    etype="fatal_event",
+                    level=50,
+                    log=f"[{tag}] Something went wrong in '{task_name}': "
+                        f"{type(error).__name__}: {error}"
+                )
+            )
+        await self.cfg.mainq.put(
+            LogEvent(
+                etype="log",
+                level=10,
+                log=f"[{tag}] Stopped '{task_name}'"
+            )
+        )
 
-            waiters = [asyncio.create_task(proc.wait()) for proc in self.cfg.children.values()]
-            children = []
-            for key, proc in self.cfg.children.items():
+
+    async def _terminate_stunnel(self, key: Keys, proc, tag: str) -> None:
+        """Terminate one stunnel process without allowing cleanup to hang."""
+        await self.cfg.mainq.put(
+            LogEvent(
+                etype="log",
+                level=10,
+                log=f"[{tag}] Stopping '{key.service}' PID {key.pid}"
+            )
+        )
+        if proc.returncode is None:
+            try:
+                proc.terminate()
+            except ProcessLookupError:
+                pass  # The process exited before termination.
+            except OSError as err:
                 await self.cfg.mainq.put(
                     LogEvent(
                         etype="log",
-                        level=10,
-                        log=f"[{tag}] Waiting for the '{key.service}' PID {key.pid} to exit..."
+                        level=30,
+                        log=f"[{tag}] PID {key.pid} termination error: {err!r}"
                     )
                 )
-                children.append(key)
+        try:
+            returncode = await asyncio.wait_for(
+                proc.wait(), timeout=PROCESS_TIMEOUT)
+        except asyncio.TimeoutError:
+            await self.cfg.mainq.put(
+                LogEvent(
+                    etype="log",
+                    level=30,
+                    log=f"[{tag}] PID {key.pid} did not terminate in "
+                        f"{PROCESS_TIMEOUT} seconds; killing"
+                )
+            )
+            if proc.returncode is None:
                 try:
-                    proc.terminate()
+                    proc.kill()
                 except ProcessLookupError:
-                    await self.cfg.mainq.put(
-                        LogEvent(
-                            etype="log",
-                            level=10,
-                            log=f"[{tag}] PID {key.pid} already finished"
-                        )
-                    )
+                    pass  # The process exited before it could be killed.
                 except OSError as err:
                     await self.cfg.mainq.put(
                         LogEvent(
                             etype="log",
                             level=30,
-                            log=f"[{tag}] PID {key.pid} termination error: {err!r}"
+                            log=f"[{tag}] PID {key.pid} kill error: {err!r}"
                         )
                     )
-            for key in children:
-                self.cfg.children.pop(key)
-
-            wait_res = await asyncio.gather(*waiters, return_exceptions=True)
-            await self.cfg.mainq.put(
-                LogEvent(
-                    etype="log",
-                    level=20,
-                    log=f"[{tag}] Got stunnel processes' exit status: {wait_res!r}",
+            try:
+                returncode = await asyncio.wait_for(
+                    proc.wait(), timeout=PROCESS_TIMEOUT)
+            except asyncio.TimeoutError:
+                await self.cfg.mainq.put(
+                    LogEvent(
+                        etype="fatal_event",
+                        level=50,
+                        log=f"[{tag}] Something went wrong: PID {key.pid} "
+                            f"could not be reaped after being killed"
+                    )
                 )
+                await self._finish_stunnel_output(key.service, tag)
+                return
+        self.cfg.children.pop(key, None)
+        await self._finish_stunnel_output(key.service, tag)
+        await self.cfg.mainq.put(
+            LogEvent(
+                etype="log",
+                level=20,
+                log=f"[{tag}] '{key.service}' PID {key.pid} exited with "
+                    f"status {returncode}"
             )
+        )
 
-        except asyncio.CancelledError as err:
-            await self.cfg.mainq.put(
-                LogEvent(
-                    etype="fatal_event",
-                    level=50,
-                    log=f"[{tag}] Something went wrong: {err}"
-                )
+
+    async def cleanup_stunnels(self) -> None:
+        """Terminate and remove any remaining stunnel processes."""
+        tag = "cleanup_stunnels"
+        num = len(self.cfg.children)
+        await self.cfg.mainq.put(
+            LogEvent(
+                etype="log",
+                level=10,
+                log=f"[{tag}] About to stop and wait for {num} "
+                    "stunnel process(es)"
             )
+        )
+        await self.cleanup_stunnel("client")
+        for key, proc in list(self.cfg.children.items()):
+            await self._terminate_stunnel(key, proc, tag)
 
 
     async def cleanup_stunnel(self, service: str) -> None:
-        """Terminate and remove a stunnel process."""
+        """Terminate and remove stunnel processes for one service."""
         tag = f"cleanup_stunnel {service}"
-        try:
-            children = []
-            for key, proc in self.cfg.children.items():
-                if key.service is service:
-                    await self.cfg.mainq.put(
-                        LogEvent(
-                            etype="log",
-                            level=10,
-                        log=f"[{tag}] Waiting for the '{key.service}' PID {key.pid} to exit..."
-                        )
-                    )
-                    children.append(key)
-                    try:
-                        proc.terminate()
-                    except ProcessLookupError:
-                        await self.cfg.mainq.put(
-                            LogEvent(
-                                etype="log",
-                                level=30,
-                                log=f"[{tag}] - already finished, it seems"
-                            )
-                        )
-                    except OSError as err:
-                        await self.cfg.mainq.put(
-                            LogEvent(
-                                etype="log",
-                                level=30,
-                                log=f"[{tag}] - {err!r}"
-                            )
-                        )
-                    wait_res = await asyncio.gather(proc.wait(), return_exceptions=True)
-                    await self.cfg.mainq.put(
-                        LogEvent(
-                            etype="log",
-                            level=20,
-                            log=f"[{tag}] Got stunnel processes' exit status: {wait_res!r}",
-                        )
-                    )
-            for key in children:
-                self.cfg.children.pop(key)
-
-        except OSError as err:
-            await self.cfg.mainq.put(
-                LogEvent(
-                    etype="fatal_event",
-                    level=50,
-                    log=f"[{tag}] Something went wrong: {err}"
-                )
-            )
+        children = [
+            (key, proc) for key, proc in self.cfg.children.items()
+            if key.service == service
+        ]
+        for key, proc in children:
+            await self._terminate_stunnel(key, proc, tag)
 
 
 class StunnelAcceptConnect(TestSuite):
@@ -1903,7 +1936,7 @@ class OCSPHandler(SimpleHTTPRequestHandler):
                         nonce = request.extensions.get_extension_for_class(OCSPNonce)
                         builder = builder.add_extension(nonce.value, critical=nonce.critical)
                     except ExtensionNotFound:
-                        pass
+                        pass  # OCSP requests need not include a nonce.
 
                     # create the SUCCESSFUL response that can then be serialized and sent
                     response = builder.sign(issuer.get('ocsp_key'), hashes.SHA256())

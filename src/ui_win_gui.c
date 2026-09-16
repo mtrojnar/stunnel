@@ -35,6 +35,27 @@
  *   forward this exception.
  */
 
+/* Win32 constants inherit Microsoft types that cannot carry C suffixes. */
+/* cppcheck-suppress-file misra-c2012-7.2 */
+/* Mutable command-line storage must also accept Windows and CRT buffers. */
+/* cppcheck-suppress-file misra-c2012-7.4 */
+/* Win32 BOOL results are intentionally stored in the SDK's BOOL type. */
+/* cppcheck-suppress-file misra-c2012-10.3 */
+/* Win32 message constants intentionally mix SDK integer typedefs. */
+/* cppcheck-suppress-file misra-c2012-10.4 */
+/* Win32 message packing macros require the SDK's documented integer casts. */
+/* cppcheck-suppress-file misra-c2012-10.8 */
+/* Win32 represents thread and file handles using integer-backed opaque values. */
+/* cppcheck-suppress-file misra-c2012-11.6 */
+/* Win32 GUI calls often have no useful recovery action for a failed return value. */
+/* cppcheck-suppress-file misra-c2012-17.7 */
+/* _fullpath allocates with the CRT and therefore requires the matching free(). */
+/* cppcheck-suppress-file misra-c2012-21.3 */
+/* Control-pipe messages are trusted local decimal values with validated ranges. */
+/* cppcheck-suppress-file misra-c2012-21.7 */
+/* Missing proprietary SDK configuration can leave some Win32 types unresolved. */
+/* cppcheck-suppress-file misra-config */
+
 #include "prototypes.h"
 #include <commdlg.h>
 #include <commctrl.h>
@@ -58,11 +79,8 @@
 #define SERVICE_DISPLAY_NAME TEXT("Stunnel TLS wrapper")
 #endif
 
-/* mingw-Patches-1825044 is missing in Debian Squeeze */
-WINBASEAPI BOOL WINAPI CheckTokenMembership(HANDLE, PSID, PBOOL);
-
 /* initialization */
-NOEXPORT unsigned __stdcall daemon_thread(void *);
+NOEXPORT unsigned __stdcall daemon_thread(void *arg);
 
 /* GUI core */
 NOEXPORT void gui_cmdline(void);
@@ -70,20 +88,24 @@ NOEXPORT void gui_init(void);
 NOEXPORT int gui_loop(void);
 
 /* GUI callbacks */
-NOEXPORT void CALLBACK timer_proc(HWND, UINT, UINT_PTR, DWORD);
-NOEXPORT LRESULT CALLBACK window_proc(HWND, UINT, WPARAM, LPARAM);
-NOEXPORT LRESULT CALLBACK edit_proc(HWND, UINT, WPARAM, LPARAM);
-NOEXPORT LRESULT CALLBACK about_proc(HWND, UINT, WPARAM, LPARAM);
-NOEXPORT LRESULT CALLBACK pass_proc(HWND, UINT, WPARAM, LPARAM);
+NOEXPORT void CALLBACK timer_proc(HWND hWnd, UINT msg, UINT_PTR id, DWORD t);
+NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
+    UINT message, WPARAM wParam, LPARAM lParam);
+NOEXPORT LRESULT CALLBACK edit_proc(HWND hWnd, UINT uMsg,
+    WPARAM wParam, LPARAM lParam);
+NOEXPORT LRESULT CALLBACK about_proc(HWND dialog_handle,
+    UINT message, WPARAM wParam, LPARAM lParam);
+NOEXPORT LRESULT CALLBACK pass_proc(HWND dialog_handle,
+    UINT message, WPARAM wParam, LPARAM lParam);
 
 /* icon tray */
-NOEXPORT void tray_update(const int);
+NOEXPORT void tray_update(const int num);
 NOEXPORT void tray_delete(void);
 
 /* configuration file (re)loading */
 NOEXPORT void config_valid(void);
 NOEXPORT void config_invalid(void);
-NOEXPORT void config_edit(HWND);
+NOEXPORT void config_edit(HWND main_window_handle);
 
 /* peer certs */
 NOEXPORT void peer_menu_update(void);
@@ -92,24 +114,24 @@ NOEXPORT void peer_cert_save(WPARAM wParam);
 
 #if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
 /* UI callbacks */
-NOEXPORT int pin_cb(UI *, UI_STRING *);
+NOEXPORT int pin_cb(UI *ui, UI_STRING *uis);
 #endif /* !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L */
 
 /* log handling */
 NOEXPORT void log_save(void);
-NOEXPORT void log_push(LPCTSTR);
+NOEXPORT void log_push(const char *line);
 NOEXPORT void log_update(void);
 NOEXPORT LPTSTR log_txt(void);
 
 /* control pipe support */
 NOEXPORT void control_pipe_names(void);
 NOEXPORT int control_pipe_client(void);
-NOEXPORT int control_pipe_server(LPTSTR);
-NOEXPORT unsigned __stdcall control_pipe_server_thread(void *);
-NOEXPORT unsigned __stdcall control_pipe_instance_thread(void *);
-NOEXPORT int control_pipe_send(HANDLE, const char *, ...);
-NOEXPORT char *control_pipe_recv(HANDLE);
-NOEXPORT char *control_pipe_call(LPTSTR, const char *, ...);
+NOEXPORT int control_pipe_server(LPTSTR pipe_name);
+NOEXPORT unsigned __stdcall control_pipe_server_thread(void *arg);
+NOEXPORT unsigned __stdcall control_pipe_instance_thread(void *arg);
+NOEXPORT int control_pipe_send(HANDLE pipe, const char *format, ...);
+NOEXPORT char *control_pipe_recv(HANDLE pipe);
+NOEXPORT char *control_pipe_call(LPTSTR pipe_name, const char *format, ...);
 
 /* NT Service support */
 #ifndef _WIN32_WCE
@@ -118,62 +140,64 @@ NOEXPORT int service_install(void);
 NOEXPORT int service_uninstall(void);
 NOEXPORT int service_start(void);
 NOEXPORT int service_stop(void);
-NOEXPORT void WINAPI service_main(DWORD, LPTSTR *);
-NOEXPORT void WINAPI control_handler(DWORD);
+NOEXPORT void WINAPI service_main(DWORD argc, LPTSTR *argv);
+NOEXPORT void WINAPI control_handler(DWORD controlCode);
 #endif /* !defined(_WIN32_WCE) */
 
 /* helper functions */
 NOEXPORT LPTSTR params_get(void);
-NOEXPORT int text_file_create(LPTSTR, char *);
-NOEXPORT void gui_signal_post(uint8_t);
-NOEXPORT void error_box(LPCTSTR);
+NOEXPORT int text_file_create(LPTSTR path, const char *str);
+NOEXPORT void gui_signal_post(uint8_t sig);
+NOEXPORT void error_box(LPCTSTR text);
 
 /* global variables */
-static struct LIST {
-  struct LIST *next;
-  size_t len;
-  TCHAR txt[1]; /* single character for trailing '\0' */
-} *head=NULL, *tail=NULL;
-
-static HINSTANCE ghInst;
-static HWND edit_handle=NULL, pause_handle=NULL;
-static HMENU tray_menu_handle=NULL;
+NOEXPORT HINSTANCE ghInst;
+NOEXPORT HWND edit_handle=NULL, pause_handle=NULL;
+NOEXPORT HMENU tray_menu_handle=NULL;
 #ifndef _WIN32_WCE
-static HMENU main_menu_handle=NULL;
+NOEXPORT HMENU main_menu_handle=NULL;
 #endif
-static HWND hwnd=NULL; /* main window handle */
+NOEXPORT HWND hwnd=NULL; /* main window handle */
 #ifdef _WIN32_WCE
-static HWND command_bar_handle; /* command bar handle */
+NOEXPORT HWND command_bar_handle; /* command bar handle */
 #endif
-static WNDPROC default_edit_proc;
+NOEXPORT WNDPROC default_edit_proc;
     /* win32_name is needed for any error_box(), message_box(),
      * and the initial main window title */
-static TCHAR *win32_name=TEXT("stunnel ") TEXT(STUNNEL_VERSION)
+NOEXPORT LPCTSTR win32_name=TEXT("stunnel ") TEXT(STUNNEL_VERSION)
     TEXT(" on ") TEXT(STUNNEL_PLATFORM) TEXT(" (not configured)");
 
 #ifndef _WIN32_WCE
-static SERVICE_STATUS serviceStatus;
-static SERVICE_STATUS_HANDLE serviceStatusHandle=0;
+NOEXPORT SERVICE_STATUS serviceStatus;
+NOEXPORT SERVICE_STATUS_HANDLE serviceStatusHandle=NULL;
 #endif
 
-static BOOL visible=FALSE;
-static HANDLE main_initialized=NULL; /* global initialization performed */
-static HANDLE main_terminated=NULL; /* daemon_loop() terminated */
-static HANDLE config_ready=NULL; /* reload without a valid configuration */
-static BOOL new_logs=FALSE;
-static int removed_logs=0;
+NOEXPORT BOOL visible=FALSE;
+NOEXPORT HANDLE main_initialized=NULL; /* global initialization performed */
+NOEXPORT HANDLE main_terminated=NULL; /* daemon_loop() terminated */
+NOEXPORT HANDLE config_ready=NULL; /* reload without a valid configuration */
 
-static struct {
+NOEXPORT struct LOGS {
+    LPTSTR txt;
+    size_t len;
+} logs[LOG_LINES];
+NOEXPORT size_t log_chars=1; /* 1 for the trailing '\0' */
+NOEXPORT int log_count=0;
+NOEXPORT int log_next=0;
+NOEXPORT int log_removed=0;
+NOEXPORT BOOL log_changed=FALSE;
+
+NOEXPORT struct {
     char *config_file;
     char *config_command;
     unsigned service:1, install:1, uninstall:1, start:1, stop:1,
-        quiet:1, exit:1, reload:1, reopen:1;
+        quiet:1, terminate:1, reload:1, reopen:1;
 } cmdline;
 
-static char ui_pass[PEM_BUFSIZE];
+NOEXPORT char ui_pass[PEM_BUFSIZE];
 
-LPTSTR pipe_name_ui, pipe_name_service;
-BOOL nt_service_client=FALSE;
+NOEXPORT LPTSTR pipe_name_ui, pipe_name_service;
+NOEXPORT BOOL nt_service_client=FALSE;
 
 /**************************************** initialization */
 
@@ -267,7 +291,7 @@ NOEXPORT unsigned __stdcall daemon_thread(void *arg) {
 
 /**************************************** GUI core */
 
-NOEXPORT void gui_cmdline() {
+NOEXPORT void gui_cmdline(void) {
     char *line, *c, *config_file=NULL;
 
     memset(&cmdline, 0, sizeof cmdline);
@@ -277,22 +301,27 @@ NOEXPORT void gui_cmdline() {
         char *opt;
 
         if(*c=='\"') { /* the option is within double quotes */
-            *c++='\0';
+            *c='\0';
+            ++c;
             opt=c;
             while(*c && *c!='\"') /* find the closing double quote */
-                c++;
-            if(*c=='\"') /* replace with '\0' if found */
-                *c++='\0';
+                ++c;
+            if(*c=='\"') { /* replace with '\0' if found */
+                *c='\0';
+                ++c;
+            }
         } else if(*c=='-' || *c=='/') { /* advanced parameters: the option is the next word */
             opt=c;
-            while(*c && !isspace(*c)) /* skip non-whitespaces */
-                c++;
+            while(*c && !isspace((unsigned char)*c)) /* skip non-whitespaces */
+                ++c;
         } else { /* the rest of the line is our configuration file path */
             config_file=c;
             break;
         }
-        while(*c && isspace(*c)) /* replace whitespaces with '\0' */
-            *c++='\0';
+        while(*c && isspace((unsigned char)*c)) { /* replace whitespaces with '\0' */
+            *c='\0';
+            ++c;
+        }
 
         if(*opt=='/' || *opt=='-') {
             if(!strcasecmp(opt+1, "install")) {
@@ -328,7 +357,7 @@ NOEXPORT void gui_cmdline() {
                 continue;
             }
             if(!strcasecmp(opt+1, "exit")) {
-                cmdline.exit=1;
+                cmdline.terminate=1;
                 continue;
             }
             if(!strcasecmp(opt+1, "help")) {
@@ -364,7 +393,7 @@ NOEXPORT void gui_cmdline() {
     str_free(line);
 }
 
-NOEXPORT void gui_init() {
+NOEXPORT void gui_init(void) {
 #ifdef _WIN32_WCE
     WNDCLASS wc;
 #else
@@ -378,7 +407,8 @@ NOEXPORT void gui_init() {
 #endif
     wc.style=CS_VREDRAW|CS_HREDRAW;
     wc.lpfnWndProc=window_proc;
-    wc.cbClsExtra=wc.cbWndExtra=0;
+    wc.cbClsExtra=0;
+    wc.cbWndExtra=0;
     wc.hInstance=ghInst;
     wc.hIcon=LoadIcon(ghInst, MAKEINTRESOURCE(IDI_STUNNEL_MAIN));
     wc.hCursor=LoadCursor(NULL, IDC_ARROW);
@@ -410,7 +440,7 @@ NOEXPORT void gui_init() {
     tray_update(0);
 }
 
-NOEXPORT int gui_loop() {
+NOEXPORT int gui_loop(void) {
     MSG msg;
 
     /* setup periodic event to trigger log_update() and tray_update() */
@@ -475,21 +505,23 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
         /* create child edit window */
         edit_handle=CreateWindowEx(WS_EX_STATICEDGE, WC_EDIT, NULL,
             WS_CHILD|WS_VISIBLE|WS_HSCROLL|WS_VSCROLL|ES_MULTILINE|ES_READONLY,
-            0, 0, 0, 0, main_window_handle, (HMENU)IDE_EDIT, ghInst, NULL);
+            0, 0, 0, 0, main_window_handle,
+            (HMENU)(UINT_PTR)IDE_EDIT, ghInst, NULL);
         pause_handle=CreateWindowEx(0, WC_BUTTON, TEXT("Pause auto-scroll"),
             WS_CHILD|WS_VISIBLE|BS_CHECKBOX|BS_AUTOCHECKBOX|BS_TEXT,
-            0, 0, 0, 0, main_window_handle, (HMENU)IDE_PAUSE, ghInst, NULL);
+            0, 0, 0, 0, main_window_handle,
+            (HMENU)(UINT_PTR)IDE_PAUSE, ghInst, NULL);
         default_edit_proc=(WNDPROC)SetWindowLongPtr(edit_handle, GWLP_WNDPROC,
             (LONG_PTR)edit_proc);
 #ifndef _WIN32_WCE
         monospaced_font=CreateFont(-12, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, OUT_RASTER_PRECIS, CLIP_DEFAULT_PRECIS,
-            PROOF_QUALITY, DEFAULT_PITCH, TEXT("Courier")),
+            PROOF_QUALITY, DEFAULT_PITCH, TEXT("Courier"));
         SendMessage(edit_handle, WM_SETFONT, (WPARAM)monospaced_font,
             MAKELPARAM(FALSE, 0)); /* no need to redraw right now */
         proportional_font=CreateFont(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
-            DEFAULT_QUALITY, DEFAULT_PITCH, TEXT("Segoe UI")),
+            DEFAULT_QUALITY, DEFAULT_PITCH, TEXT("Segoe UI"));
         SendMessage(pause_handle, WM_SETFONT, (WPARAM)proportional_font,
             MAKELPARAM(FALSE, 0)); /* no need to redraw right now */
 #endif
@@ -685,7 +717,9 @@ NOEXPORT LRESULT CALLBACK window_proc(HWND main_window_handle,
 
 NOEXPORT LRESULT CALLBACK edit_proc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     if(uMsg==WM_CHAR && wParam==VK_SPACE) {
-        Button_SetCheck(pause_handle, !Button_GetCheck(pause_handle));
+        Button_SetCheck(pause_handle,
+            Button_GetCheck(pause_handle)==BST_UNCHECKED ?
+                BST_CHECKED : BST_UNCHECKED);
         return 0;
     }
     return CallWindowProc(default_edit_proc, hWnd, uMsg, wParam, lParam);
@@ -711,21 +745,22 @@ NOEXPORT LRESULT CALLBACK about_proc(HWND dialog_handle, UINT message,
 
 NOEXPORT LRESULT CALLBACK pass_proc(HWND dialog_handle, UINT message,
         WPARAM wParam, LPARAM lParam) {
-    LPTSTR titlebar;
     union {
         TCHAR txt[PEM_BUFSIZE];
         WORD len;
     } pass_dialog;
     WORD pass_len;
     char* pass_txt;
-    LPTSTR key_file_name;
 
+    (void)lParam; /* squash the unused parameter warning */
     switch(message) {
     case WM_INITDIALOG:
         /* set the default push button to "Cancel" */
         SendMessage(dialog_handle, DM_SETDEFID, (WPARAM)IDCANCEL, (LPARAM)0);
 
         if(current_section) { /* should always be set */
+            LPTSTR titlebar, key_file_name;
+
             SetDlgItemText(dialog_handle, IDE_PASSPHRASE_LABEL,
                 is_prefix(current_section->key, "pkcs11:") ?
                     TEXT("Smart card PIN:") : TEXT("Key passphrase:"));
@@ -774,8 +809,6 @@ NOEXPORT LRESULT CALLBACK pass_proc(HWND dialog_handle, UINT message,
         return 0;
     }
     return FALSE;
-
-    UNREFERENCED_PARAMETER(lParam);
 }
 
 /**************************************** icon tray */
@@ -855,7 +888,7 @@ NOEXPORT void tray_delete(void) {
 
 /**************************************** configuration file (re)loading */
 
-NOEXPORT void config_invalid() {
+NOEXPORT void config_invalid(void) {
     /* update the main window title */
     win32_name=TEXT("stunnel ") TEXT(STUNNEL_VERSION) TEXT(" on ")
         TEXT(STUNNEL_PLATFORM) TEXT(" (invalid configuration file)");
@@ -868,7 +901,7 @@ NOEXPORT void config_invalid() {
     tray_update(-1); /* error icon */
     peer_menu_update(); /* purge the list of sections */
 
-    log_push(TEXT(""));
+    ui_new_log("");
     ui_new_log("Server is down");
     message_box(TEXT("Stunnel server is down due to an error.\n")
         TEXT("You need to exit and correct the problem.\n")
@@ -876,7 +909,7 @@ NOEXPORT void config_invalid() {
         MB_ICONERROR);
 }
 
-NOEXPORT void config_valid() {
+NOEXPORT void config_valid(void) {
     /* update the main window title */
     win32_name=TEXT("stunnel ") TEXT(STUNNEL_VERSION) TEXT(" on ")
         TEXT(STUNNEL_PLATFORM);
@@ -926,9 +959,11 @@ NOEXPORT void config_edit(HWND main_window_handle) {
 /**************************************** peer certs */
 
 NOEXPORT void peer_menu_update(void) {
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SECTIONS]);
+    CRYPTO_RWLOCK *lock;
+
+    lock=s_read_lock(LOCK_SECTIONS);
     peer_menu_update_unlocked();
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
+    s_unlock(lock);
 }
 
 NOEXPORT void peer_menu_update_unlocked(void) {
@@ -1007,13 +1042,16 @@ NOEXPORT void peer_menu_update_unlocked(void) {
 
 NOEXPORT void peer_cert_save(WPARAM wParam) {
     SERVICE_OPTIONS *section;
+    CRYPTO_RWLOCK *lock;
     unsigned section_number;
 
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_SECTIONS]);
-    for(section=service_options.next, section_number=0;
-            section && wParam!=IDM_PEER_MENU+section_number;
-            section=section->next, ++section_number)
-        ;
+    lock=s_read_lock(LOCK_SECTIONS);
+    section=service_options.next;
+    section_number=0;
+    while(section && wParam!=IDM_PEER_MENU+section_number) {
+        section=section->next;
+        ++section_number;
+    }
     if(section && !text_file_create(section->file, section->chain)) {
 #ifndef _WIN32_WCE
         if(main_menu_handle)
@@ -1023,7 +1061,7 @@ NOEXPORT void peer_cert_save(WPARAM wParam) {
             CheckMenuItem(tray_menu_handle, (UINT)wParam, MF_CHECKED);
         message_box(section->help, MB_ICONINFORMATION);
     }
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
+    s_unlock(lock);
 }
 
 /**************************************** options callbacks */
@@ -1064,7 +1102,7 @@ ICON_IMAGE load_icon_file(const char *name) {
 
     if(!hwnd) /* NT service */
         return NULL; /* not supported */
-    tname=str2tstr((LPSTR)name);
+    tname=str2tstr(name);
 #ifndef _WIN32_WCE
     icon=LoadImage(NULL, tname, IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
         GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
@@ -1090,7 +1128,7 @@ void ui_clients(const long num) {
     if(cmdline.service) { /* forward the number of connections to the connected client */
         char *result;
 
-        result=control_pipe_call(pipe_name_ui, "connections %d", num);
+        result=control_pipe_call(pipe_name_ui, "connections %ld", num);
         str_free(result);
     }
 }
@@ -1110,11 +1148,9 @@ void ui_new_log(const char *line) {
         result=control_pipe_call(pipe_name_ui, "log %s", line);
         str_free(result);
     } else if(hwnd) { /* GUI mode */
-        LPTSTR txt;
-
-        txt=str2tstr(line);
-        log_push(txt);
-        str_free(txt);
+        log_push(line);
+    } else {
+        /* no log recipient is available */
     }
 }
 
@@ -1149,19 +1185,19 @@ NOEXPORT int pin_cb(UI *ui, UI_STRING *uis) {
     return 1;
 }
 
-int (*ui_get_opener(void)) (UI *) {
+int (*ui_get_opener(void)) (UI *ui) {
     return NULL;
 }
 
-int (*ui_get_writer(void)) (UI *, UI_STRING *) {
+int (*ui_get_writer(void)) (UI *ui, UI_STRING *uis) {
     return NULL;
 }
 
-int (*ui_get_reader(void)) (UI *, UI_STRING *) {
+int (*ui_get_reader(void)) (UI *ui, UI_STRING *uis) {
     return hwnd ? pin_cb : NULL; /* only allow for UI in GUI mode */
 }
 
-int (*ui_get_closer(void)) (UI *) {
+int (*ui_get_closer(void)) (UI *ui) {
     return NULL;
 }
 
@@ -1169,9 +1205,10 @@ int (*ui_get_closer(void)) (UI *) {
 
 /**************************************** log handling */
 
-NOEXPORT void log_save() {
+NOEXPORT void log_save(void) {
     TCHAR file_name[MAX_PATH];
     OPENFILENAME ofn;
+    CRYPTO_RWLOCK *lock;
     LPTSTR txt;
     LPSTR str;
 
@@ -1180,7 +1217,9 @@ NOEXPORT void log_save() {
 
     ofn.lStructSize=sizeof ofn;
     ofn.hwndOwner=hwnd;
-    ofn.lpstrFilter=TEXT("Log Files (*.log)\0*.log\0All Files (*.*)\0*.*\0\0");
+    ofn.lpstrFilter=TEXT("Log Files (*.log)") TEXT("\0")
+        TEXT("*.log") TEXT("\0") TEXT("All Files (*.*)") TEXT("\0")
+        TEXT("*.*") TEXT("\0") TEXT("\0");
     ofn.lpstrFile=file_name;
     ofn.nMaxFile=MAX_PATH;
     ofn.lpstrDefExt=TEXT("LOG");
@@ -1192,67 +1231,65 @@ NOEXPORT void log_save() {
     if(!GetSaveFileName(&ofn))
         return;
 
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_WIN_LOG]);
+    lock=s_write_lock(LOCK_WIN_LOG);
     txt=log_txt(); /* need to convert the result to UTF-8 */
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_WIN_LOG]);
+    s_unlock(lock);
     str=tstr2str(txt);
     str_free(txt);
     text_file_create(file_name, str);
     str_free(str);
 }
 
-NOEXPORT void log_push(LPCTSTR txt) {
-    struct LIST *curr;
-    size_t txt_len;
-    static size_t log_len=0;
+NOEXPORT void log_push(const char *line) {
+    LPTSTR old_txt, new_txt;
+    CRYPTO_RWLOCK *lock;
+    size_t new_len;
 
-    txt_len=_tcslen(txt);
-    curr=str_alloc_detached(sizeof(struct LIST)+txt_len*sizeof(TCHAR));
-    curr->len=txt_len;
-    _tcscpy(curr->txt, txt);
-    curr->next=NULL;
+    new_txt=str2tstr(line);
+    str_detach(new_txt);
+    new_len=_tcslen(new_txt);
 
     /* this critical section is performance critical */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_WIN_LOG]);
-    if(tail)
-        tail->next=curr;
-    tail=curr;
-    if(!head)
-        head=tail;
-    log_len++;
-    new_logs=TRUE;
-    if(log_len>LOG_LINES) {
-        curr=head;
-        head=head->next;
-        log_len--;
-        removed_logs++;
+    lock=s_write_lock(LOCK_WIN_LOG);
+    old_txt=logs[log_next].txt;
+    if(old_txt) {
+        log_chars-=logs[log_next].len;
+        log_removed++;
     } else {
-        curr=NULL;
+        if(log_count)
+            log_chars+=2; /* trailing '\r\n' */
+        log_count++;
     }
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_WIN_LOG]);
+    log_chars+=new_len;
+    logs[log_next].txt=new_txt;
+    logs[log_next].len=new_len;
+    log_next=(log_next+1)%LOG_LINES;
+    log_changed=TRUE;
+    s_unlock(lock);
 
-    str_free(curr);
+    str_free(old_txt);
 }
 
 NOEXPORT void log_update(void) {
     LPTSTR txt;
+    CRYPTO_RWLOCK *lock;
     int offset;
 
     if(!visible || Button_GetCheck(pause_handle))
         return;
 
     /* retrieve the new edit control text */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_WIN_LOG]);
-    if(new_logs) {
+    lock=s_write_lock(LOCK_WIN_LOG);
+    if(log_changed) {
         txt=log_txt();
-        new_logs=FALSE;
-        offset=removed_logs;
-        removed_logs=0;
+        log_changed=FALSE;
+        offset=log_removed;
+        log_removed=0;
     } else {
         txt=NULL;
         offset=0; /* only needed to avoid a warning in MSVC */
     }
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_WIN_LOG]);
+    s_unlock(lock);
 
     if(txt) {
         int cur_pos, max_pos;
@@ -1280,20 +1317,18 @@ NOEXPORT void log_update(void) {
 }
 
 NOEXPORT LPTSTR log_txt(void) {
-    LPTSTR buff;
-    size_t ptr=0, len=0;
-    struct LIST *curr;
+    LPTSTR buff=str_alloc(log_chars*sizeof(TCHAR));
+    size_t ptr=0;
+    int i, line=(log_next+LOG_LINES-log_count)%LOG_LINES;
 
-    for(curr=head; curr; curr=curr->next)
-        len+=curr->len+2; /* +2 for trailing '\r\n' */
-    buff=str_alloc((len+1)*sizeof(TCHAR)); /* +1 for trailing '\0' */
-    for(curr=head; curr; curr=curr->next) {
-        memcpy(buff+ptr, curr->txt, curr->len*sizeof(TCHAR));
-        ptr+=curr->len;
-        if(curr->next) {
+    for(i=0; i<log_count; i++) {
+        if(i) {
             buff[ptr++]=TEXT('\r');
             buff[ptr++]=TEXT('\n');
         }
+        memcpy(buff+ptr, logs[line].txt, logs[line].len*sizeof(TCHAR));
+        ptr+=logs[line].len;
+        line=(line+1)%LOG_LINES;
     }
     buff[ptr]=TEXT('\0');
     return buff;
@@ -1302,7 +1337,7 @@ NOEXPORT LPTSTR log_txt(void) {
 /**************************************** control pipe */
 
 /* build a pipe file name from the configuration file name */
-NOEXPORT void control_pipe_names() {
+NOEXPORT void control_pipe_names(void) {
     char *pipe_name_txt, *text;
 
     if(cmdline.config_file) {
@@ -1326,15 +1361,15 @@ NOEXPORT void control_pipe_names() {
 }
 
 /* attempt to send a command to an already running stunnel */
-NOEXPORT int control_pipe_client() {
+NOEXPORT int control_pipe_client(void) {
     char *result=NULL;
 
-    if(cmdline.exit || cmdline.reload || cmdline.reopen) {
-        if(cmdline.exit)
+    if(cmdline.terminate || cmdline.reload || cmdline.reopen) {
+        if(cmdline.terminate)
             result=control_pipe_call(pipe_name_service, "signal %u", SIGNAL_TERMINATE);
         else if(cmdline.reload)
             result=control_pipe_call(pipe_name_service, "signal %u", SIGNAL_RELOAD_CONFIG);
-        else if(cmdline.reopen)
+        else /* cmdline.reopen */
             result=control_pipe_call(pipe_name_service, "signal %u", SIGNAL_REOPEN_LOG);
         if(!result) {
             message_box(TEXT("The target stunnel was not found"), MB_ICONERROR);
@@ -1402,7 +1437,6 @@ NOEXPORT int control_pipe_server(LPTSTR pipe_name) {
 #define MSG_SIZE 256
 
 NOEXPORT unsigned __stdcall control_pipe_server_thread(void *arg) {
-    LPTSTR pipe_name=arg;
     SECURITY_ATTRIBUTES sa;
 
     tls_alloc(NULL, NULL, "control server");
@@ -1418,6 +1452,8 @@ NOEXPORT unsigned __stdcall control_pipe_server_thread(void *arg) {
             TEXT("(D;OICI;GA;;;NU)") /* deny access to Network */
             TEXT("(A;OICI;GRGW;;;AU)"), /* allow read/write to Authenticated Users */
             SDDL_REVISION_1, &sa.lpSecurityDescriptor, NULL)) {
+        LPTSTR pipe_name=arg;
+
         /* spawn new threads for incoming client connections */
         for(;;) {
             BOOL connected;
@@ -1566,10 +1602,11 @@ NOEXPORT int service_initialize(void) {
 
 #define DESCR_LEN 256
 
-NOEXPORT int service_install() {
+NOEXPORT int service_install(void) {
     SC_HANDLE scm, service;
-    TCHAR stunnel_exe_path[MAX_PATH];
+    TCHAR stunnel_exe_path[MAX_PATH]={0};
     LPTSTR service_path;
+    DWORD path_len;
     TCHAR descr_str[DESCR_LEN];
     SERVICE_DESCRIPTION descr;
 
@@ -1578,7 +1615,12 @@ NOEXPORT int service_install() {
         error_box(TEXT("OpenSCManager"));
         return 1;
     }
-    GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
+    path_len=GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
+    if(!path_len || path_len>=MAX_PATH) {
+        message_box(TEXT("Cannot determine the executable path"), MB_ICONERROR);
+        CloseServiceHandle(scm);
+        return 1;
+    }
     service_path=str_tprintf(TEXT("\"%s\" -service %s"),
         stunnel_exe_path, params_get());
     service=CreateService(scm, SERVICE_NAME, SERVICE_DISPLAY_NAME,
@@ -1809,7 +1851,7 @@ NOEXPORT void WINAPI control_handler(DWORD controlCode) {
 
 /**************************************** helper functions */
 
-NOEXPORT LPTSTR params_get() {
+NOEXPORT LPTSTR params_get(void) {
     LPTSTR c;
     TCHAR s;
 
@@ -1835,7 +1877,7 @@ NOEXPORT LPTSTR params_get() {
     return c; /* return parameters */
 }
 
-NOEXPORT int text_file_create(LPTSTR file_name, char *str) {
+NOEXPORT int text_file_create(LPTSTR file_name, const char *str) {
     HANDLE file_handle;
     DWORD ignore;
 
@@ -1885,15 +1927,19 @@ NOEXPORT void gui_signal_post(uint8_t sig) {
 }
 
 NOEXPORT void error_box(LPCTSTR text) {
-    LPTSTR errmsg, fullmsg;
+    LPTSTR errmsg=NULL, fullmsg;
     DWORD dw;
 
     dw=GetLastError();
-    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM,
-        NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPTSTR)&errmsg, 0, NULL);
-    fullmsg=str_tprintf(TEXT("%s: error %ld: %s"), text, dw, errmsg);
-    LocalFree(errmsg);
+    if(FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM,
+            NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPTSTR)&errmsg, 0, NULL)) {
+        fullmsg=str_tprintf(TEXT("%s: error %lu: %s"),
+            text, (unsigned long)dw, errmsg);
+        LocalFree(errmsg);
+    } else {
+        fullmsg=str_tprintf(TEXT("%s: error %lu"), text, (unsigned long)dw);
+    }
     message_box(fullmsg, MB_ICONERROR);
     str_free(fullmsg);
 }

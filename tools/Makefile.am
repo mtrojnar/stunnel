@@ -21,7 +21,6 @@ bashcompdir = @bashcompdir@
 dist_bashcomp_DATA = stunnel.bash
 
 CLEANFILES = stunnel.conf-sample stunnel.init stunnel.service stunnel.spec
-
 install-data-local:
 	${INSTALL} -d -m 1770 $(DESTDIR)$(localstatedir)/lib/stunnel
 	-chgrp $(DEFAULT_GROUP) $(DESTDIR)$(localstatedir)/lib/stunnel

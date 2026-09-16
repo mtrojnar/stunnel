@@ -1,6 +1,29 @@
 # stunnel change log
 
 
+### Version 5.81, 2026.09.16, urgency: HIGH
+* Security bugfixes
+  - OpenSSL DLLs updated to version 3.5.8.
+  - Fixed truncation and out-of-bounds reads when inheriting binary
+    session ticket keys containing null bytes (thanks to Jose A. Diaz).
+  - Prevented OCSP stapling response failures from terminating the
+    daemon (thanks to Jose A. Diaz).
+* Bugfixes
+  - Avoided spurious sysconf error messages after successful descriptor-limit
+    queries on platforms where a successful call may change errno.
+  - Fixed a potential crash when parsing empty ASCII PSK secrets
+    (thanks to Jose A. Diaz).
+  - Fixed a memory leak after DTLS listener poll errors and timeouts
+    (thanks to Jose A. Diaz).
+  - Fixed memory leaks during NTLM HTTP proxy negotiation
+    (thanks to Jose A. Diaz).
+  - Fixed early startup logging before thread lock initialization
+    (thanks to Jose A. Diaz).
+  - Rejected excessively nested configuration includes instead of
+    consuming the process stack recursively.
+* Features
+  - Improved TLS and DTLS shutdown diagnostics.
+
 ### Version 5.80, 2026.08.04, urgency: HIGH
 * Security bugfixes
   - CVE-2026-70368: Fixed an out-of-bounds memory access triggered by
@@ -27,9 +50,9 @@
   - Fixed a TCP stream truncation (thanks to Solomon Jacobs).
   - Fixed a transfer() loop (thanks to Solomon Jacobs).
   - Fixed log reopening logs without a configured log file.
-  - Fixed some logged values (thanks to Jose Alf.).
+  - Fixed some logged values (thanks to Jose A. Diaz).
   - Fixed some error handling and cleanup issues
-    (thanks to Jose Alf.).
+    (thanks to Jose A. Diaz).
   - Fixed OpenSSL applink detection and MSYS2 MinGW builds.
 * Features
   - Added the new 'transport' service-level option
@@ -672,7 +695,7 @@
   - A workaround implemented for the unexpected exceptfds set by
     select() on WinCE 6.0 (thanks to Richard Kraemer).
   - Fixed logging an incorrect value of the round-robin starting
-    point (thanks to Jose Alf.).
+    point (thanks to Jose A. Diaz).
 
 ### Version 5.30, 2016.01.28, urgency: HIGH
 * Security bugfixes
@@ -700,7 +723,7 @@
 ### Version 5.28, 2015.12.11, urgency: HIGH
 * New features
   - Build matrix (.travis.yml) extended with ./configure options.
-  - mingw.mak updated to build tstunnel.exe (thanks to Jose Alf.).
+  - mingw.mak updated to build tstunnel.exe (thanks to Jose A. Diaz).
 * Bugfixes
   - Fixed incomplete initialization.
   - Fixed UCONTEXT threading on OSX.
@@ -718,7 +741,7 @@
   - Only attempt to use potentially harmful compiler or linker
     options if gcc was detected.
   - /opt/csw added to the OpenSSL directory lookup list.
-  - mingw.mak updates (thanks to Jose Alf.).
+  - mingw.mak updates (thanks to Jose A. Diaz).
   - TODO list updated.
 
 ### Version 5.26, 2015.11.06, urgency: MEDIUM
@@ -1407,7 +1430,7 @@
 * Bugfixes
   - Fixed -l option handling in stunnel3 script (thanks to Kai Gülzau).
   - Script to build default stunnel.pem was fixed (thanks to Sebastian Kayser).
-  - MinGW compilation script (mingw.mak) was fixed (thanks to Jose Alf).
+  - MinGW compilation script (mingw.mak) was fixed (thanks to Jose A. Diaz).
   - MSVC compilation script (vc.mak) was fixed.
   - A number of problems in WINSOCK error handling were fixed.
 

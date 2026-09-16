@@ -42,27 +42,29 @@
 /* verify initialization */
 NOEXPORT int init_ca(SERVICE_OPTIONS *section);
 NOEXPORT int init_crl(SERVICE_OPTIONS *section);
-NOEXPORT int load_file_lookup(X509_STORE *, char *);
-NOEXPORT int add_dir_lookup(X509_STORE *, char *);
-NOEXPORT void auth_warnings(SERVICE_OPTIONS *);
+NOEXPORT int load_file_lookup(X509_STORE *store, char *name);
+NOEXPORT int add_dir_lookup(X509_STORE *store, char *name);
+NOEXPORT void auth_warnings(SERVICE_OPTIONS *section);
 
 /* verify callback */
-NOEXPORT int verify_callback(int, X509_STORE_CTX *);
-NOEXPORT int verify_checks(CLI *, int, X509_STORE_CTX *);
-NOEXPORT int cert_check(CLI *, X509_STORE_CTX *, int);
+NOEXPORT int verify_callback(int preverify_ok, X509_STORE_CTX *callback_ctx);
+NOEXPORT int verify_checks(CLI *c, int preverify_ok,
+    X509_STORE_CTX *callback_ctx);
+NOEXPORT int cert_check(CLI *c, X509_STORE_CTX *callback_ctx,
+    int preverify_ok);
 #if OPENSSL_VERSION_NUMBER>=0x10002000L
-NOEXPORT int cert_check_subject(CLI *, X509_STORE_CTX *);
+NOEXPORT int cert_check_subject(CLI *c, X509_STORE_CTX *callback_ctx);
 #endif /* OPENSSL_VERSION_NUMBER>=0x10002000L */
-NOEXPORT int cert_check_local(X509_STORE_CTX *);
+NOEXPORT int cert_check_local(X509_STORE_CTX *callback_ctx);
 #if OPENSSL_VERSION_NUMBER>=0x40000000L
-NOEXPORT int pubkey_eq(const X509 *, const X509 *);
+NOEXPORT int pubkey_eq(const X509 *c1, const X509 *c2);
 #else /* OpenSSL 4.0.0 or later */
-NOEXPORT int pubkey_eq(X509 *, X509 *);
+NOEXPORT int pubkey_eq(X509 *c1, X509 *c2);
 #endif /* OpenSSL 4.0.0 or later */
 
 /**************************************** verify initialization */
 
-int verify_init(SERVICE_OPTIONS *section) {
+int verify_section_init(SERVICE_OPTIONS *section) {
     int verify_mode=0;
 
     if(init_ca(section)) {
@@ -115,8 +117,9 @@ NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
     for(ptr=section->ca_engine; ptr; ptr=ptr->next) {
         X509 *cert=engine_get_cert(section->engine, ptr->name);
         if(cert) {
-            X509_STORE_add_cert(SSL_CTX_get_cert_store(section->ctx), cert);
-            sk_X509_NAME_push(ca_dn,
+            (void)X509_STORE_add_cert(
+                SSL_CTX_get_cert_store(section->ctx), cert);
+            (void)sk_X509_NAME_push(ca_dn,
                 X509_NAME_dup(X509_get_subject_name(cert)));
             X509_free(cert);
         } else {
@@ -126,13 +129,40 @@ NOEXPORT int init_ca(SERVICE_OPTIONS *section) {
 #endif
 
     /* client CA list initialization with the file and/or directory */
-    if(section->ca_file)
-        SSL_add_file_cert_subjects_to_stack(ca_dn, section->ca_file);
-    if(section->ca_dir)
-        SSL_add_dir_cert_subjects_to_stack(ca_dn, section->ca_dir);
+    if(section->ca_file) {
+        int ca_result;
+
+        ca_result=SSL_add_file_cert_subjects_to_stack(ca_dn,
+            section->ca_file);
+        if(!ca_result) {
+            ssl_error(NULL, "SSL_add_file_cert_subjects_to_stack");
+            sk_X509_NAME_pop_free(ca_dn, X509_NAME_free);
+            return 1; /* FAILED */
+        }
+    }
+    if(section->ca_dir) {
+        int ca_result;
+
+        ca_result=SSL_add_dir_cert_subjects_to_stack(ca_dn,
+            section->ca_dir);
+        if(!ca_result) {
+            ssl_error(NULL, "SSL_add_dir_cert_subjects_to_stack");
+            sk_X509_NAME_pop_free(ca_dn, X509_NAME_free);
+            return 1; /* FAILED */
+        }
+    }
 #if OPENSSL_VERSION_NUMBER>=0x30000000L
-    if(section->ca_store)
-        SSL_add_store_cert_subjects_to_stack(ca_dn, section->ca_store);
+    if(section->ca_store) {
+        int ca_result;
+
+        ca_result=SSL_add_store_cert_subjects_to_stack(ca_dn,
+            section->ca_store);
+        if(!ca_result) {
+            ssl_error(NULL, "SSL_add_store_cert_subjects_to_stack");
+            sk_X509_NAME_pop_free(ca_dn, X509_NAME_free);
+            return 1; /* FAILED */
+        }
+    }
 #endif /* OPENSSL_VERSION_NUMBER>=0x30000000L */
 
     if(!sk_X509_NAME_num(ca_dn)) {
@@ -174,7 +204,15 @@ NOEXPORT int init_crl(SERVICE_OPTIONS *section) {
     flags=X509_V_FLAG_CRL_CHECK;
     if(section->option.crl_check_chain)
         flags|=X509_V_FLAG_CRL_CHECK_ALL;
-    X509_STORE_set_flags(store, flags);
+    {
+        int flags_result;
+
+        flags_result=X509_STORE_set_flags(store, flags);
+        if(!flags_result) {
+            ssl_error(NULL, "X509_STORE_set_flags");
+            return 1; /* FAILED */
+        }
+    }
     return 0; /* OK */
 }
 
@@ -466,7 +504,7 @@ NOEXPORT int pubkey_eq(X509 *c1, X509 *c2) {
 #endif /* OpenSSL 4.0.0 or later */
     EVP_PKEY *k1=X509_get_pubkey(c1);
     EVP_PKEY *k2=X509_get_pubkey(c2);
-    int retval=k1 && k2 && EVP_PKEY_eq(k1, k2) == 1;
+    int retval=k1 && k2 && EVP_PKEY_eq(k1, k2)==1 ? 1 : 0;
 
     EVP_PKEY_free(k1);
     EVP_PKEY_free(k2);
@@ -485,7 +523,7 @@ X509 *engine_get_cert(ENGINE *engine, const char *id) {
 
     params.id=id;
     params.cert=NULL;
-    ENGINE_ctrl_cmd(engine, "LOAD_CERT_CTRL", 0, &params, NULL, 1);
+    (void)ENGINE_ctrl_cmd(engine, "LOAD_CERT_CTRL", 0, &params, NULL, 1);
     if(!params.cert)
         ssl_error(NULL, "ENGINE_ctrl_cmd");
     return params.cert;
@@ -525,18 +563,24 @@ char *X509_NAME2text(X509_NAME *name) {
     bio=BIO_new(BIO_s_mem());
     if(!bio)
         return str_dup("BIO_new() failed");
-    X509_NAME_print_ex(bio, name, 0,
+    /* These OpenSSL masks have API-defined widths and shift ranges. */
+    n=X509_NAME_print_ex(bio, name, 0,
+        /* cppcheck-suppress [misra-c2012-10.1, misra-c2012-12.2] */
         XN_FLAG_ONELINE & ~ASN1_STRFLGS_ESC_MSB & ~XN_FLAG_SPC_EQ);
+    if(n<0) {
+        (void)BIO_free(bio);
+        return str_dup("X509_NAME_print_ex() failed");
+    }
     n=BIO_pending(bio);
-    text=str_alloc((size_t)n+1);
+    text=str_alloc((size_t)n+1U);
     n=BIO_read(bio, text, n);
     if(n<0) {
-        BIO_free(bio);
+        (void)BIO_free(bio);
         str_free(text);
         return str_dup("BIO_read() failed");
     }
     text[n]='\0';
-    BIO_free(bio);
+    (void)BIO_free(bio);
     return text;
 }
 

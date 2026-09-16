@@ -45,9 +45,9 @@
 #define FDS_INITIAL_CAPACITY 4
 /* #define DEBUG_UCONTEXT */
 
-NOEXPORT void s_poll_realloc(s_poll_set *, unsigned);
+NOEXPORT void s_poll_realloc(s_poll_set *fds, unsigned capacity);
 #ifndef USE_UCONTEXT
-NOEXPORT void check_terminate(s_poll_set *);
+NOEXPORT void check_terminate(s_poll_set *fds);
 #endif
 
 /**************************************** s_poll functions */
@@ -85,7 +85,7 @@ void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
         ;
     if(i==fds->nfds) { /* not found */
         if(i==fds->capacity)
-            s_poll_realloc(fds, i+1);
+            s_poll_realloc(fds, i+1U);
         fds->ufds[i].fd=fd;
         fds->ufds[i].events=0;
         fds->nfds++;
@@ -106,8 +106,8 @@ void s_poll_remove(s_poll_set *fds, SOCKET fd) {
     for(i=0; i<fds->nfds && fds->ufds[i].fd!=fd; i++)
         ;
     if(i<fds->nfds) { /* found */
-        memmove(fds->ufds+i, fds->ufds+i+1,
-            (fds->nfds-i-1)*sizeof(struct pollfd));
+        (void)memmove(fds->ufds+i, fds->ufds+i+1U,
+            (fds->nfds-i-1U)*sizeof(struct pollfd));
         fds->nfds--;
     }
 }
@@ -395,7 +395,7 @@ void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
         fds->irfds->fd_count : fds->iwfds->fd_count;
 
     if(max_count>=fds->capacity)
-        s_poll_realloc(fds, max_count+1);
+        s_poll_realloc(fds, max_count+1U);
 #endif
     if(rd)
         FD_SET(fd, fds->irfds);
@@ -469,8 +469,8 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
     if(!fds)
         fatal("NULL fds is only allowed with UCONTEXT threads");
     do { /* skip "Interrupted system call" errors */
-        memcpy(fds->orfds, fds->irfds, FD_SIZE(fds));
-        memcpy(fds->owfds, fds->iwfds, FD_SIZE(fds));
+        (void)memcpy(fds->orfds, fds->irfds, FD_SIZE(fds));
+        (void)memcpy(fds->owfds, fds->iwfds, FD_SIZE(fds));
 #ifndef USE_WIN32
         memcpy(fds->oxfds, fds->ixfds, FD_SIZE(fds));
 #endif
@@ -517,7 +517,9 @@ void s_poll_dump(s_poll_set *fds, int level) {
     int ix, ox;
 #endif
 
-    for(fd=0; fd<fds->max+1; fd++) {
+    /* Avoid overflow in fds->max+1 and unsigned SOCKET wraparound. */
+    fd=0;
+    while(1) {
         ir=FD_ISSET(fd, fds->irfds);
         iw=FD_ISSET(fd, fds->iwfds);
 #ifndef USE_WIN32
@@ -536,6 +538,9 @@ void s_poll_dump(s_poll_set *fds, int level) {
             s_log(level, "FD=%ld ifds=%c%c ofds=%c%c", (long)fd,
                 ir?'r':'-', iw?'w':'-', or?'r':'-', ow?'w':'-');
 #endif
+        if(fd==fds->max)
+            break;
+        ++fd;
     }
 }
 
@@ -543,11 +548,11 @@ void s_poll_dump(s_poll_set *fds, int level) {
 
 void s_poll_sleep(int sec, int msec) {
 #ifdef USE_WIN32
-    Sleep(1000*(DWORD)sec+(DWORD)msec);
+    Sleep(1000UL*(DWORD)sec+(DWORD)msec);
 #else
     s_poll_set *fds=s_poll_alloc();
     s_poll_init(fds, 0);
-    s_poll_wait(fds, sec, msec);
+    (void)s_poll_wait(fds, sec, msec);
     s_poll_free(fds);
 #endif
 }
@@ -591,7 +596,7 @@ int socket_options_set(SERVICE_OPTIONS *service, SOCKET s, int type) {
     s_log(LOG_DEBUG, "Setting %s socket options (FD=%ld)",
         type_str[type], (long)s);
     for(ptr=service->sock_opts; ptr->opt_str; ptr++) {
-        OPT_UNION **opt_val=service->sock_type==SOCK_DGRAM ?
+        OPT_UNION **opt_val=socket_type_is_datagram(service->sock_type) ?
             ptr->opt_val_udp : ptr->opt_val_tcp;
         if(!opt_val[type])
             continue; /* default */
@@ -602,9 +607,12 @@ int socket_options_set(SERVICE_OPTIONS *service, SOCKET s, int type) {
         case TYPE_TIMEVAL:
             opt_size=sizeof(struct timeval);
             break;
-        case TYPE_STRING:
-            opt_size=(socklen_t)strlen(opt_val[type]->c_val)+1;
+        case TYPE_STRING: {
+            size_t string_len=strlen(opt_val[type]->c_val)+1U;
+
+            opt_size=(socklen_t)string_len;
             break;
+        }
         default:
             opt_size=sizeof(int);
         }
@@ -700,7 +708,7 @@ void s_write(CLI *c, SOCKET fd, const void *buf, size_t len) {
         /* simulate a blocking write */
     const uint8_t *ptr=(const uint8_t *)buf;
 
-    while(len>0) {
+    while(len>0U) {
         ssize_t num;
 
         s_poll_init(c->fds, 0);
@@ -722,7 +730,7 @@ void s_write(CLI *c, SOCKET fd, const void *buf, size_t len) {
 
         num=writesocket(fd, (const void *)ptr, len);
         if(num>=0) {
-            ptr+=(size_t)num;
+            ptr=ptr+num;
             len-=(size_t)num;
         } else { /* error */
             if(!socket_needs_retry(c, "s_write: writesocket"))
@@ -736,7 +744,7 @@ size_t s_read_eof(CLI *c, SOCKET fd, void *ptr, size_t len) {
         /* return a value < len on EOF */
     size_t total=0;
 
-    while(len>0) {
+    while(len>0U) {
         ssize_t num;
 
         s_poll_init(c->fds, 0);
@@ -800,12 +808,12 @@ char *fd_getline(CLI *c, SOCKET fd) {
 
     line=str_alloc(allocated);
     for(;;) {
-        if(ptr>65536) { /* >64KB --> DoS protection */
+        if(ptr>65536U) { /* >64KB --> DoS protection */
             s_log(LOG_ERR, "fd_getline: Line too long");
             str_free(line);
             throw_exception(c, 1);
         }
-        if(allocated<ptr+1) {
+        if(allocated<ptr+1U) {
             allocated*=2;
             line=str_realloc(line, allocated);
         }
@@ -865,7 +873,7 @@ void s_ssl_write(CLI *c, const void *buf, int len) {
         num=SSL_write(c->ssl, (const void *)ptr, len);
         err=SSL_get_error(c->ssl, num);
         if(err==SSL_ERROR_NONE) {
-            ptr+=num;
+            ptr=ptr+num;
             len-=num;
         } else if(err==SSL_ERROR_WANT_WRITE) {
             s_log(LOG_DEBUG, "s_ssl_write: SSL_ERROR_WANT_WRITE: Retrying");
@@ -885,7 +893,7 @@ void s_ssl_write(CLI *c, const void *buf, int len) {
     }
 }
 
-size_t s_ssl_read_eof(CLI *c, void *ptr, int len) {
+NOEXPORT size_t s_ssl_read_eof(CLI *c, void *ptr, int len) {
         /* simulate a blocking SSL_read */
         /* return a value < len on EOF */
     size_t total=0;
@@ -968,12 +976,12 @@ char *ssl_getstring(CLI *c) { /* get null-terminated string */
 
     line=str_alloc(allocated);
     for(;;) {
-        if(ptr>65536) { /* >64KB --> DoS protection */
+        if(ptr>65536U) { /* >64KB --> DoS protection */
             s_log(LOG_ERR, "ssl_getstring: Line too long");
             str_free(line);
             throw_exception(c, 1);
         }
-        if(allocated<ptr+1) {
+        if(allocated<ptr+1U) {
             allocated*=2;
             line=str_realloc(line, allocated);
         }
@@ -991,12 +999,12 @@ char *ssl_getline(CLI *c) { /* get newline-terminated string */
 
     line=str_alloc(allocated);
     for(;;) {
-        if(ptr>65536) { /* >64KB --> DoS protection */
+        if(ptr>65536U) { /* >64KB --> DoS protection */
             s_log(LOG_ERR, "ssl_getline: Line too long");
             str_free(line);
             throw_exception(c, 1);
         }
-        if(allocated<ptr+1) {
+        if(allocated<ptr+1U) {
             allocated*=2;
             line=str_realloc(line, allocated);
         }
@@ -1021,7 +1029,7 @@ void ssl_putline(CLI *c, const char *line) { /* put newline-terminated string */
 
     tmpline=str_printf("%s%s", line, crlf);
     len=strlen(tmpline);
-    if(len>INT_MAX) { /* paranoia */
+    if(len>(size_t)INT_MAX) { /* paranoia */
         s_log(LOG_ERR, "ssl_putline: Line too long");
         str_free(tmpline);
         throw_exception(c, 1);
@@ -1050,7 +1058,19 @@ void ssl_printf(CLI *c, const char *format, ...) {
 
 #define INET_SOCKET_PAIR
 
-int make_sockets(SOCKET fd[2], int sock_type) { /* make a pair of connected sockets */
+int socket_type_is_stream(int socket_type) {
+    /* Socket type constants have platform-specific essential types. */
+    /* cppcheck-suppress misra-c2012-10.4 */
+    return socket_type==SOCK_STREAM ? 1 : 0;
+}
+
+int socket_type_is_datagram(int socket_type) {
+    /* Socket type constants have platform-specific essential types. */
+    /* cppcheck-suppress misra-c2012-10.4 */
+    return socket_type==SOCK_DGRAM ? 1 : 0;
+}
+
+int make_sockets(SOCKET *fd, int sock_type) { /* make a pair of connected sockets */
 #ifdef INET_SOCKET_PAIR
     struct sockaddr_in addr;
     socklen_t addrlen;
@@ -1062,64 +1082,72 @@ int make_sockets(SOCKET fd[2], int sock_type) { /* make a pair of connected sock
         return 1;
     fd[1]=s_socket(AF_INET, sock_type, 0, 0, "make_sockets: s_socket#2");
     if(fd[1]==INVALID_SOCKET) {
-        closesocket(s);
+        (void)closesocket(s);
         return 1;
     }
 
     addrlen=sizeof addr;
-    memset(&addr, 0, sizeof addr);
+    (void)memset(&addr, 0, sizeof addr);
     addr.sin_family=AF_INET;
     addr.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
     addr.sin_port=htons(0); /* dynamic port allocation */
+    /* Socket APIs require a generic view of the concrete address. */
+    /* cppcheck-suppress misra-c2012-11.3 */
     if(bind(s, (struct sockaddr *)&addr, addrlen))
         log_error(LOG_DEBUG, get_last_socket_error(), "make_sockets: bind#1");
+    /* cppcheck-suppress misra-c2012-11.3 */
     if(bind(fd[1], (struct sockaddr *)&addr, addrlen))
         log_error(LOG_DEBUG, get_last_socket_error(), "make_sockets: bind#2");
 
     /* TCP needs listen/accept; UDP just cross-connects */
-    if(sock_type==SOCK_STREAM) {
+    if(socket_type_is_stream(sock_type)) {
         if(listen(s, 1)) {
             sockerror("make_sockets: listen");
-            closesocket(s);
-            closesocket(fd[1]);
+            (void)closesocket(s);
+            (void)closesocket(fd[1]);
             return 1;
         }
     }
 
+    /* cppcheck-suppress misra-c2012-11.3 */
     if(getsockname(s, (struct sockaddr *)&addr, &addrlen)) {
         sockerror("make_sockets: getsockname");
-        closesocket(s);
-        closesocket(fd[1]);
+        (void)closesocket(s);
+        (void)closesocket(fd[1]);
         return 1;
     }
+    /* cppcheck-suppress misra-c2012-11.3 */
     if(connect(fd[1], (struct sockaddr *)&addr, addrlen)) {
         sockerror("make_sockets: connect");
-        closesocket(s);
-        closesocket(fd[1]);
+        (void)closesocket(s);
+        (void)closesocket(fd[1]);
         return 1;
     }
 
-    if(sock_type==SOCK_STREAM) {
+    if(socket_type_is_stream(sock_type)) {
+        /* cppcheck-suppress misra-c2012-11.3 */
         fd[0]=s_accept(s, (struct sockaddr *)&addr, &addrlen, 1,
             "make_sockets: s_accept");
         if(fd[0]==INVALID_SOCKET) {
-            closesocket(s);
-            closesocket(fd[1]);
+            (void)closesocket(s);
+            (void)closesocket(fd[1]);
             return 1;
         }
-        closesocket(s); /* don't care about the result */
+        (void)closesocket(s); /* don't care about the result */
     } else { /* UDP: connect s back to fd[1] for bidirectional pair */
         addrlen=sizeof addr;
+        /* cppcheck-suppress misra-c2012-11.3 */
         if(getsockname(fd[1], (struct sockaddr *)&addr, &addrlen)) {
             sockerror("make_sockets: getsockname#2");
-            closesocket(s);
-            closesocket(fd[1]);
+            (void)closesocket(s);
+            (void)closesocket(fd[1]);
             return 1;
         }
+        /* cppcheck-suppress misra-c2012-11.3 */
         if(connect(s, (struct sockaddr *)&addr, addrlen)) {
             sockerror("make_sockets: connect#2");
-            closesocket(s);
-            closesocket(fd[1]);
+            (void)closesocket(s);
+            (void)closesocket(fd[1]);
             return 1;
         }
         fd[0]=s;
@@ -1127,7 +1155,7 @@ int make_sockets(SOCKET fd[2], int sock_type) { /* make a pair of connected sock
     set_nonblock(fd[0], 1);
     set_nonblock(fd[1], 1);
 #else
-    if(sock_type==SOCK_STREAM) {
+    if(socket_type_is_stream(sock_type)) {
         if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, fd, 1,
                 "make_sockets: socketpair"))
             return 1;
@@ -1150,7 +1178,7 @@ int make_sockets(SOCKET fd[2], int sock_type) { /* make a pair of connected sock
 int original_dst(const SOCKET fd, SOCKADDR_UNION *addr) {
     socklen_t addrlen;
 
-    memset(addr, 0, sizeof(SOCKADDR_UNION));
+    (void)memset(addr, 0, sizeof(SOCKADDR_UNION));
     addrlen=sizeof(SOCKADDR_UNION);
 #ifdef SO_ORIGINAL_DST
 #ifdef USE_IPV6
@@ -1217,7 +1245,7 @@ int bio_addr_to_sockaddr(const BIO_ADDR *src, SOCKADDR_UNION *dst) {
     u_short family=(u_short)BIO_ADDR_family(src);
     size_t len;
 
-    memset(dst, 0, sizeof *dst);
+    (void)memset(dst, 0, sizeof *dst);
     switch(family) {
         case AF_INET:
             dst->in.sin_family=AF_INET;
@@ -1341,9 +1369,11 @@ int dtls_listen(CLI *c, SOCKET fd) {
         return 0;
     }
     dtls_ret=DTLSv1_listen(new_ssl, peer);
-    if(dtls_ret>0 && bio_addr_to_sockaddr(peer, &c->peer_addr)) {
-        s_log(LOG_ERR, "DTLSv1_listen: invalid peer address");
-        dtls_ret=0;
+    if(dtls_ret>0) {
+        if(bio_addr_to_sockaddr(peer, &c->peer_addr)) {
+            s_log(LOG_ERR, "DTLSv1_listen: invalid peer address");
+            dtls_ret=0;
+        }
     }
     BIO_ADDR_free(peer);
 #else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
@@ -1354,7 +1384,7 @@ int dtls_listen(CLI *c, SOCKET fd) {
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 
     if(dtls_ret>0) {
-        c->peer_addr_len=addr_len(&c->peer_addr);
+        c->peer_addr_len=sockaddr_len(&c->peer_addr);
         s_log(LOG_DEBUG, "DTLS: ClientHello accepted on listen socket");
         c->ssl=new_ssl;
         return 1;
@@ -1406,7 +1436,7 @@ int drain_udp_datagrams(CLI *c, SOCKET fd) {
 
     max_len=c->opt->option.client ? SSL3_RT_MAX_PLAIN_LENGTH : BUFFSIZE;
     for(;;) {
-        if(count>=32) {
+        if(count>=32U) {
             s_log(LOG_WARNING,
                 "UDP drain: limit reached, %u datagrams",
                 count);
@@ -1447,8 +1477,7 @@ int drain_udp_datagrams(CLI *c, SOCKET fd) {
             }
             break;
         }
-        if(peer_len!=c->peer_addr_len ||
-                memcmp(&peer.sa, &c->peer_addr.sa, (size_t)peer_len))
+        if(addr_cmp(&peer, peer_len, &c->peer_addr, c->peer_addr_len))
             break;
 
 #ifdef MSG_TRUNC
@@ -1473,9 +1502,11 @@ int drain_udp_datagrams(CLI *c, SOCKET fd) {
                 sockerror("UDP drain: recvfrom oversized");
                 goto fail;
 #endif
-            } else if(peer_len!=c->peer_addr_len ||
-                    memcmp(&peer.sa, &c->peer_addr.sa, (size_t)peer_len)) {
+            } else if(addr_cmp(&peer, peer_len,
+                    &c->peer_addr, c->peer_addr_len)) {
                 break;
+            } else {
+                /* count the same-peer datagram below */
             }
             ++count;
             ++dropped;
@@ -1505,8 +1536,7 @@ int drain_udp_datagrams(CLI *c, SOCKET fd) {
             }
             break;
         }
-        if(peer_len!=c->peer_addr_len ||
-                memcmp(&peer.sa, &c->peer_addr.sa, (size_t)peer_len))
+        if(addr_cmp(&peer, peer_len, &c->peer_addr, c->peer_addr_len))
             break;
         ++count;
 #ifdef USE_DTLS_DGRAM_BIO
@@ -1542,7 +1572,7 @@ int drain_udp_datagrams(CLI *c, SOCKET fd) {
     return 0;
 
 fail:
-    BIO_free(c->udp_preload_bio);
+    (void)BIO_free(c->udp_preload_bio);
     c->udp_preload_bio=NULL;
     return 1;
 }
@@ -1581,10 +1611,12 @@ void dtls_accept(CLI *c) {
         ret=s_poll_wait(c->fds, c->opt->timeout_busy, 0);
         if(ret<0) {
             sockerror("DTLSv1_listen: s_poll_wait");
+            BIO_ADDR_free(peer);
             throw_exception(c, 1);
         }
         if(ret==0) {
             s_log(LOG_INFO, "DTLSv1_listen: TIMEOUTbusy exceeded");
+            BIO_ADDR_free(peer);
             throw_exception(c, 1);
         }
     }

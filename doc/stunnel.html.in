@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc 3.10" />
+  <meta name="generator" content="pandoc 3.10.2" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>stunnel TLS Proxy</title>
   <style>
@@ -41,7 +41,6 @@
       body {
         background-color: transparent;
         color: black;
-        font-size: 12pt;
       }
       p, h2, h3 {
         orphans: 3;
@@ -356,9 +355,9 @@ delegated to the current engine.</p>
 ALL, RSA, DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY,
 PKEY_CRYPTO, PKEY_ASN1.</p></li>
 <li><p><strong>fips</strong> = yes | no</p>
-<p>enable or disable FIPS 140-2 mode.</p>
+<p>enable or disable FIPS 140-3 mode.</p>
 <p>This option allows you to disable entering FIPS mode if
-<strong>stunnel</strong> was compiled with FIPS 140-2 support.</p>
+<strong>stunnel</strong> was compiled with FIPS 140-3 support.</p>
 <p>default: no (since version 5.00)</p></li>
 <li><p><strong>foreground</strong> = yes | quiet | no (Unix only)</p>
 <p>foreground mode</p>
@@ -680,6 +679,9 @@ arbitrary amount of whitespace.</p></li>
 <p>use IDENT (RFC 1413) username checking</p></li>
 <li><p><strong>include</strong> = DIRECTORY</p>
 <p>include all configuration file parts located in DIRECTORY</p>
+<p>Include directives may be nested to a maximum depth of 100
+configuration files, including the main configuration file. Exceeding
+this limit rejects the configuration as a likely recursive include.</p>
 <p>The files are included in the ascending alphabetical order of their
 names. The recommended filename convention is</p>
 <p>for global options:</p>
@@ -1252,7 +1254,7 @@ accept = 993
 connect = 143</code></pre>
 <p>In order to let your local e-mail client connect to a TLS-enabled
 <em>imapd</em> service on another server, configure the e-mail client to
-connect to localhost on port 119 and use:</p>
+connect to localhost on port 143 and use:</p>
 <pre><code>[imap]
 client = yes
 accept = 143

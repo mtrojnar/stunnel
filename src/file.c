@@ -37,10 +37,13 @@
 
 #include "prototypes.h"
 
+#ifdef USE_WIN32
+NOEXPORT /* only Unix callers need external linkage */
+#endif /* USE_WIN32 */
 DISK_FILE *file_fdopen(int fd, FILE_MODE file_mode) {
     DISK_FILE *df;
     FILE *f;
-    char *mode;
+    const char *mode;
 
     switch(fd) {
     case 0:
@@ -99,6 +102,8 @@ DISK_FILE *file_open(char *name, FILE_MODE file_mode) {
 #ifdef USE_WIN32
     fd=_open(name, flags, _S_IREAD|_S_IWRITE);
 #else /* USE_WIN32 */
+    /* POSIX permission bits are conventionally and most clearly octal. */
+    /* cppcheck-suppress misra-c2012-7.1 */
     fd=open(name, flags, 0640);
 #endif /* USE_WIN32 */
     if(fd<0)
@@ -110,7 +115,7 @@ void file_close(DISK_FILE *df) {
     if(!df) /* nothing to do */
         return;
     if(fileno(df->f)>2) /* never close stdin/stdout/stder */
-        fclose(df->f);
+        (void)fclose(df->f);
     str_free(df);
 }
 
@@ -121,18 +126,19 @@ ssize_t file_getline(DISK_FILE *df, char *line, int len) {
     if(!df) /* not opened */
         return -1;
 
-    for(i=0; i<len-1; i++) {
+    i=0;
+    while(i<len-1) {
         c=getc(df->f);
         if(c==EOF) {
             if(!i) /* no previously retrieved data */
                 return -1;
             break; /* MSDOS-style last file line */
         }
-        line[i]=(char)c;
-        if(line[i]=='\n') /* LF */
+        if(c==(int)'\n') /* LF */
             break;
-        if(line[i]=='\r') /* CR */
-            --i; /* ignore - it must be the last check */
+        if(c==(int)'\r') /* CR */
+            continue;
+        line[i++]=(char)c;
     }
     line[i]='\0';
     return i;
@@ -154,8 +160,8 @@ ssize_t file_putline_newline(DISK_FILE *df, char *line) {
     ssize_t num;
 
     len=strlen(line);
-    buff=str_alloc(len+3); /* +2 for LF+NUL */
-    strcpy(buff, line);
+    buff=str_alloc(len+3U); /* +2 for LF+NUL */
+    (void)strcpy(buff, line);
     buff[len++]='\n'; /* LF */
     buff[len]='\0'; /* NUL */
     num=file_putline_nonewline(df, buff);
@@ -196,7 +202,7 @@ LPTSTR str2tstr(LPCSTR in) {
     len=MultiByteToWideChar(CP_UTF8, 0, in, -1, NULL, 0);
     if(!len)
         return str_tprintf(TEXT("MultiByteToWideChar() failed"));
-    out=str_alloc(((size_t)len+1)*sizeof(WCHAR));
+    out=str_alloc(((size_t)len+1U)*sizeof(WCHAR));
     len=MultiByteToWideChar(CP_UTF8, 0, in, -1, out, len);
     if(!len) {
         str_free(out);
@@ -217,7 +223,7 @@ LPSTR tstr2str(LPCTSTR in) {
     len=WideCharToMultiByte(CP_UTF8, 0, in, -1, NULL, 0, NULL, NULL);
     if(!len)
         return str_printf("WideCharToMultiByte() failed");
-    out=str_alloc((size_t)len+1);
+    out=str_alloc((size_t)len+1U);
     len=WideCharToMultiByte(CP_UTF8, 0, in, -1, out, len, NULL, NULL);
     if(!len) {
         str_free(out);

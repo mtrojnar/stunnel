@@ -54,6 +54,7 @@
 #endif
 
 #define CONFLINELEN (16*1024)
+#define INCLUDE_STACK_SIZE 100U
 
 #define INVALID_SSL_OPTION ((uint64_t)-1)
 
@@ -67,44 +68,70 @@ typedef enum {
     CMD_PRINT_HELP      /* print help */
 } CMD;
 
-NOEXPORT int options_file(char *, CONF_TYPE, SERVICE_OPTIONS **);
-NOEXPORT int init_section(int, SERVICE_OPTIONS **);
 #ifdef USE_WIN32
 struct dirent {
     char d_name[MAX_PATH];
 };
-int scandir(const char *, struct dirent ***,
-    int (*)(const struct dirent *),
-    int (*)(const struct dirent **, const struct dirent **));
-int alphasort(const struct dirent **, const struct dirent **);
+NOEXPORT int scandir(const char *dirp, struct dirent ***namelist,
+    int (*filter)(const struct dirent *entry),
+    int (*compar)(const struct dirent **entry1, const struct dirent **entry2));
+NOEXPORT int alphasort(const struct dirent **a, const struct dirent **b);
 #endif
-NOEXPORT const char *parse_global_option(CMD, GLOBAL_OPTIONS *, char *, char *);
-NOEXPORT const char *parse_service_option(CMD, SERVICE_OPTIONS **, char *, char *);
+
+typedef struct {
+    DISK_FILE *df;
+    char *path;
+    int line_number;
+    struct dirent **namelist;
+    int include_num, include_idx;
+    char *include_directory;
+} INCLUDE_STACK_ENTRY;
+
+typedef enum {
+    INCLUDE_EXHAUSTED, /* directory drained: resume the current frame */
+    INCLUDE_ADVANCE,   /* next included file pushed onto the stack */
+    INCLUDE_ERROR,     /* included file could not be opened */
+    INCLUDE_OVERFLOW   /* include depth exceeded: recursive include */
+} INCLUDE_RESULT;
+
+NOEXPORT int options_file(char *path, CONF_TYPE type,
+    SERVICE_OPTIONS **section_ptr);
+NOEXPORT int options_file_open(INCLUDE_STACK_ENTRY *entry,
+    char *path, CONF_TYPE type);
+NOEXPORT void options_file_close(INCLUDE_STACK_ENTRY *entry);
+NOEXPORT INCLUDE_RESULT include_config_next(INCLUDE_STACK_ENTRY *stack,
+    unsigned *depth);
+NOEXPORT void include_config_close(INCLUDE_STACK_ENTRY *entry);
+NOEXPORT int init_section(int end_of_file, SERVICE_OPTIONS **section_ptr);
+NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options,
+    char *opt, char *arg);
+NOEXPORT const char *parse_service_option(CMD cmd,
+    SERVICE_OPTIONS **section_ptr, char *opt, char *arg);
 
 #ifndef OPENSSL_NO_TLSEXT
-NOEXPORT const char *sni_init(SERVICE_OPTIONS *);
-NOEXPORT void sni_free(SERVICE_OPTIONS *);
+NOEXPORT const char *sni_init(SERVICE_OPTIONS *section);
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
-NOEXPORT int str_to_proto_version(const char *);
+NOEXPORT int str_to_proto_version(const char *name);
 #else /* OPENSSL_VERSION_NUMBER<0x10100000L */
-NOEXPORT char *tls_methods_set(SERVICE_OPTIONS *, const char *);
-NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *);
+NOEXPORT char *tls_methods_set(SERVICE_OPTIONS *section, const char *arg);
+NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *section);
 #endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 
-NOEXPORT const char *parse_debug_level(char *, SERVICE_OPTIONS *);
+NOEXPORT const char *parse_debug_level(char *arg, SERVICE_OPTIONS *section);
 
 #ifndef OPENSSL_NO_PSK
-NOEXPORT PSK_KEYS *psk_read(char *);
-NOEXPORT PSK_KEYS *psk_dup(PSK_KEYS *);
-NOEXPORT void psk_free(PSK_KEYS *);
+NOEXPORT PSK_KEYS *psk_parse(char *line, int line_number);
+NOEXPORT PSK_KEYS *psk_read(char *key_file);
+NOEXPORT PSK_KEYS *psk_dup(PSK_KEYS *src);
+NOEXPORT void psk_free(PSK_KEYS *head);
 #endif /* !defined(OPENSSL_NO_PSK) */
 
 #if OPENSSL_VERSION_NUMBER>=0x10000000L
-NOEXPORT TICKET_KEY *key_read(char *, const char *);
-NOEXPORT TICKET_KEY *key_dup(TICKET_KEY *);
-NOEXPORT void key_free(TICKET_KEY *);
+NOEXPORT TICKET_KEY *key_read(char *arg, const char *option);
+NOEXPORT TICKET_KEY *key_dup(TICKET_KEY *src);
+NOEXPORT void key_free(TICKET_KEY *head);
 #endif /* OpenSSL 1.0.0 or later */
 
 typedef struct {
@@ -112,7 +139,7 @@ typedef struct {
     uint64_t value;
 } SSL_OPTION;
 
-static const SSL_OPTION ssl_opts[]={
+NOEXPORT const SSL_OPTION ssl_opts[]={
 #ifdef SSL_OP_ALL
     {"ALL", SSL_OP_ALL},
 #endif
@@ -305,78 +332,81 @@ static const SSL_OPTION ssl_opts[]={
     {NULL, 0}
 };
 
-NOEXPORT uint64_t parse_ssl_option(char *);
+NOEXPORT uint64_t parse_ssl_option(char *arg);
 NOEXPORT void print_ssl_options(void);
 
 NOEXPORT SOCK_OPT *socket_options_init(void);
-NOEXPORT void socket_option_set_int(SOCK_OPT *, const char *, int, int, int);
-NOEXPORT SOCK_OPT *socket_options_dup(SOCK_OPT *);
-NOEXPORT void socket_options_free(SOCK_OPT *);
+NOEXPORT void socket_option_set_int(SOCK_OPT *opt, const char *name,
+    int sock_type, int type, int value);
+NOEXPORT SOCK_OPT *socket_options_dup(SOCK_OPT *src);
+NOEXPORT void socket_options_free(SOCK_OPT *opt);
 NOEXPORT int socket_options_print(void);
-NOEXPORT int socket_option_is_tcp(SOCK_OPT *);
-NOEXPORT int socket_option_is_udp(SOCK_OPT *);
-NOEXPORT char *socket_option_text(VAL_TYPE, OPT_UNION *);
-NOEXPORT int socket_option_parse(SOCK_OPT *, char *);
+NOEXPORT int socket_option_is_tcp(SOCK_OPT *opt);
+NOEXPORT int socket_option_is_udp(SOCK_OPT *opt);
+NOEXPORT char *socket_option_text(VAL_TYPE type, OPT_UNION *val);
+NOEXPORT int socket_option_parse(SOCK_OPT *opt, char *arg);
 
 #ifndef OPENSSL_NO_OCSP
-NOEXPORT unsigned long parse_ocsp_flag(char *);
+NOEXPORT unsigned long parse_ocsp_flag(char *arg);
 #endif /* !defined(OPENSSL_NO_OCSP) */
 
 #ifndef OPENSSL_NO_ENGINE
 NOEXPORT void engine_reset_list(void);
 NOEXPORT const char *engine_auto(void);
-NOEXPORT const char *engine_open(const char *);
-NOEXPORT const char *engine_ctrl(const char *, const char *);
-NOEXPORT const char *engine_default(const char *);
+NOEXPORT const char *engine_open(const char *name);
+NOEXPORT const char *engine_ctrl(const char *cmd, const char *arg);
+NOEXPORT const char *engine_default(const char *list);
 NOEXPORT const char *engine_init(void);
-NOEXPORT ENGINE *engine_get_by_id(const char *);
-NOEXPORT ENGINE *engine_get_by_num(const int);
+NOEXPORT ENGINE *engine_get_by_id(const char *id);
+NOEXPORT ENGINE *engine_get_by_num(const int i);
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
 #if OPENSSL_VERSION_NUMBER>=0x30500000L
-NOEXPORT int provider_parameter(OSSL_PROVIDER *, void *);
+NOEXPORT int provider_parameter(OSSL_PROVIDER *provider, void *cbdata);
 #endif /* OPENSSL_VERSION_NUMBER>=0x30500000L */
 
-NOEXPORT const char *include_config(char *, SERVICE_OPTIONS **);
+NOEXPORT const char *include_config(INCLUDE_STACK_ENTRY *entry,
+    char *directory);
 
 NOEXPORT void print_syntax(void);
 
-NOEXPORT void name_list_append(NAME_LIST **, char *);
-NOEXPORT void name_list_dup(NAME_LIST **, NAME_LIST *);
-NOEXPORT void name_list_free(NAME_LIST **);
-NOEXPORT void connect_session_free(SERVICE_OPTIONS *);
+NOEXPORT void name_list_append(NAME_LIST **ptr, char *name);
+NOEXPORT void name_list_dup(NAME_LIST **dst, NAME_LIST *src);
+NOEXPORT void name_list_free(NAME_LIST **dst);
+NOEXPORT void connect_session_free(SERVICE_OPTIONS *section);
 #ifndef USE_WIN32
-NOEXPORT char **arg_alloc(char *);
-NOEXPORT char **arg_dup(char **);
+NOEXPORT char **arg_alloc(char *str);
+NOEXPORT char **arg_dup(char **src);
 NOEXPORT void arg_free(char **arg);
 #endif
 
-static char *configuration_file=NULL;
+NOEXPORT char *configuration_file=NULL;
 
 GLOBAL_OPTIONS global_options;
 SERVICE_OPTIONS service_options;
 unsigned number_of_sections=0;
 
-static GLOBAL_OPTIONS new_global_options;
-static SERVICE_OPTIONS new_service_options;
+NOEXPORT GLOBAL_OPTIONS new_global_options;
+NOEXPORT SERVICE_OPTIONS new_service_options;
 
-static const char *option_not_found=
+NOEXPORT const char *option_not_found=
     "Specified option name is not valid here";
+NOEXPORT const char option_include[]="Include directory";
 
-static const char *stunnel_cipher_list=
+NOEXPORT const char *stunnel_cipher_list=
     "HIGH:!aNULL:!SSLv2:!DH:!kDHEPSK";
 #ifdef USE_FIPS
-static const char *fips_cipher_list=
+NOEXPORT const char *fips_cipher_list=
     "FIPS:!DH:!kDHEPSK";
 #endif /* USE_FIPS */
 
 #ifndef OPENSSL_NO_TLS1_3
-static const char *stunnel_ciphersuites=
+NOEXPORT const char *stunnel_ciphersuites=
     "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256";
 #endif /* TLS 1.3 */
 
 #if OPENSSL_VERSION_NUMBER>=0x30500000L
-static int provider_found;
+NOEXPORT int provider_found;
 #endif /* OPENSSL_VERSION_NUMBER>=0x30500000L */
 
 /**************************************** parse commandline parameters */
@@ -407,17 +437,17 @@ int options_cmdline(char *arg1, char *arg2) {
             "stunnel.conf";
         type=CONF_FILE;
     } else if(!strcasecmp(arg1, "-help")) {
-        parse_global_option(CMD_PRINT_HELP, NULL, NULL, NULL);
-        parse_service_option(CMD_PRINT_HELP, NULL, NULL, NULL);
+        (void)parse_global_option(CMD_PRINT_HELP, NULL, NULL, NULL);
+        (void)parse_service_option(CMD_PRINT_HELP, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
         return 2;
     } else if(!strcasecmp(arg1, "-version")) {
-        parse_global_option(CMD_PRINT_DEFAULTS, NULL, NULL, NULL);
-        parse_service_option(CMD_PRINT_DEFAULTS, NULL, NULL, NULL);
+        (void)parse_global_option(CMD_PRINT_DEFAULTS, NULL, NULL, NULL);
+        (void)parse_service_option(CMD_PRINT_DEFAULTS, NULL, NULL, NULL);
         log_flush(LOG_MODE_INFO);
         return 2;
     } else if(!strcasecmp(arg1, "-sockets")) {
-        socket_options_print();
+        (void)socket_options_print();
         log_flush(LOG_MODE_INFO);
         return 2;
     } else if(!strcasecmp(arg1, "-options")) {
@@ -446,16 +476,20 @@ int options_cmdline(char *arg1, char *arg2) {
         char *buffer=NULL, *real_path;
 #ifdef MAXPATHLEN
         /* a workaround for pre-POSIX.1-2008 4.4BSD and Solaris */
+        /* cppcheck-suppress misra-c2012-21.3 */
         buffer=malloc(MAXPATHLEN);
 #endif
         real_path=realpath(name, buffer);
         if(!real_path) {
+            /* realpath() requires matching Standard Library ownership. */
+            /* cppcheck-suppress misra-c2012-21.3 */
             free(buffer);
             s_log(LOG_ERR, "Invalid configuration file name \"%s\"", name);
             ioerror("realpath");
             return 1;
         }
         configuration_file=str_dup(real_path);
+        /* cppcheck-suppress misra-c2012-21.3 */
         free(real_path);
 #else
         configuration_file=str_dup(name);
@@ -464,6 +498,9 @@ int options_cmdline(char *arg1, char *arg2) {
     } else if(type==CONF_FD) {
         configuration_file=str_dup(name);
 #endif
+    } else {
+        s_log(LOG_ERR, "INTERNAL ERROR: Invalid configuration source");
+        return 1;
     }
     return options_parse(type);
 }
@@ -475,10 +512,12 @@ int options_parse(CONF_TYPE type) {
 
     options_defaults();
     section=&new_service_options;
-    /* options_file() is a recursive function, so the last section of the
-     * configuration file section needs to be initialized separately */
-    if(options_file(configuration_file, type, &section) ||
-            init_section(1, &section)) {
+    if(options_file(configuration_file, type, &section)) {
+        s_log(LOG_ERR, "Configuration failed");
+        options_free(0); /* free the new options */
+        return 1;
+    }
+    if(init_section(1, &section)) {
         s_log(LOG_ERR, "Configuration failed");
         options_free(0); /* free the new options */
         return 1;
@@ -487,14 +526,9 @@ int options_parse(CONF_TYPE type) {
     return 0;
 }
 
-NOEXPORT int options_file(char *path, CONF_TYPE type,
-        SERVICE_OPTIONS **section_ptr) {
+NOEXPORT int options_file_open(INCLUDE_STACK_ENTRY *entry,
+        char *path, CONF_TYPE type) {
     DISK_FILE *df;
-    char line_text[CONFLINELEN];
-    const char *errstr;
-    char config_line[CONFLINELEN], *config_opt, *config_arg;
-    int i, line_number=0;
-    const u_char utf8_bom[]={0xef, 0xbb, 0xbf};
 #ifndef USE_WIN32
     int fd;
     char *tmp_str;
@@ -504,7 +538,7 @@ NOEXPORT int options_file(char *path, CONF_TYPE type,
         type==CONF_FD ? "descriptor" : "file", path);
 #ifndef USE_WIN32
     if(type==CONF_FD) { /* file descriptor */
-        fd=(int)strtol(path, &tmp_str, 10);
+        fd=(int)str_to_long(path, &tmp_str);
         if(tmp_str==path || *tmp_str) { /* not a number */
             s_log(LOG_ERR, "Invalid file descriptor number");
             print_syntax();
@@ -520,12 +554,58 @@ NOEXPORT int options_file(char *path, CONF_TYPE type,
             print_syntax();
         return 1;
     }
+    (void)memset(entry, 0, sizeof(INCLUDE_STACK_ENTRY));
+    entry->df=df;
+    entry->path=str_dup(path);
+    return 0;
+}
 
-    while(file_getline(df, line_text, CONFLINELEN)>=0) {
-        memcpy(config_line, line_text, CONFLINELEN);
-        ++line_number;
+NOEXPORT void options_file_close(INCLUDE_STACK_ENTRY *entry) {
+    include_config_close(entry);
+    file_close(entry->df);
+    entry->df=NULL;
+    str_free(entry->path);
+    entry->line_number=0;
+}
+
+NOEXPORT int options_file(char *path, CONF_TYPE type,
+        SERVICE_OPTIONS **section_ptr) {
+    INCLUDE_STACK_ENTRY stack[INCLUDE_STACK_SIZE];
+    INCLUDE_STACK_ENTRY *entry;
+    char line_text[CONFLINELEN];
+    const char *errstr;
+    char config_line[CONFLINELEN], *config_opt, *config_arg;
+    unsigned depth=0;
+    INCLUDE_RESULT result=INCLUDE_EXHAUSTED;
+    int i;
+    const u_char utf8_bom[]={0xef, 0xbb, 0xbf};
+
+    (void)memset(stack, 0, sizeof stack);
+    if(options_file_open(&stack[0], path, type))
+        return 1;
+    depth=1U;
+
+    while(depth) {
+        entry=&stack[depth-1U];
+        if(entry->include_directory) {
+            result=include_config_next(stack, &depth);
+            if(result==INCLUDE_ADVANCE)
+                continue;
+            if(result!=INCLUDE_EXHAUSTED)
+                goto fail;
+        }
+
+        if(file_getline(entry->df, line_text, CONFLINELEN)<0) {
+            options_file_close(entry);
+            --depth;
+            continue;
+        }
+        (void)memcpy(config_line, line_text, strlen(line_text)+1U);
+        ++entry->line_number;
         config_opt=config_line;
-        if(line_number==1) {
+        if(entry->line_number==1) {
+            /* The BOM is a fixed binary prefix rather than a C string. */
+            /* cppcheck-suppress [misra-c2012-21.14, misra-c2012-21.16] */
             if(!memcmp(config_opt, utf8_bom, sizeof utf8_bom)) {
                 s_log(LOG_NOTICE, "UTF-8 byte order mark detected");
                 config_opt+=sizeof utf8_bom;
@@ -541,11 +621,10 @@ NOEXPORT int options_file(char *path, CONF_TYPE type,
         if(config_opt[0]=='\0' || config_opt[0]=='#' || config_opt[0]==';') /* empty or comment */
             continue;
 
-        if(config_opt[0]=='[' && config_opt[strlen(config_opt)-1]==']') { /* new section */
-            if(init_section(0, section_ptr)) {
-                file_close(df);
-                return 1;
-            }
+        if(config_opt[0]=='[' &&
+                config_opt[strlen(config_opt)-1U]==']') { /* new section */
+            if(init_section(0, section_ptr))
+                goto fail;
 
             /* append a new SERVICE_OPTIONS structure to the list */
             {
@@ -558,19 +637,18 @@ NOEXPORT int options_file(char *path, CONF_TYPE type,
 
             /* initialize the newly allocated section */
             ++config_opt;
-            config_opt[strlen(config_opt)-1]='\0';
+            config_opt[strlen(config_opt)-1U]='\0';
             (*section_ptr)->servname=str_dup_detached(config_opt);
             (*section_ptr)->session=NULL;
-            parse_service_option(CMD_SET_COPY, section_ptr, NULL, NULL);
+            (void)parse_service_option(CMD_SET_COPY, section_ptr, NULL, NULL);
             continue;
         }
 
         config_arg=strchr(config_line, '=');
         if(!config_arg) {
             s_log(LOG_ERR, "%s:%d: \"%s\": No '=' found",
-                path, line_number, line_text);
-            file_close(df);
-            return 1;
+                entry->path, entry->line_number, line_text);
+            goto fail;
         }
         *config_arg++='\0'; /* split into option name and argument value */
         for(i=(int)strlen(config_opt)-1; i>=0 && isspace((unsigned char)config_opt[i]); --i)
@@ -584,18 +662,29 @@ NOEXPORT int options_file(char *path, CONF_TYPE type,
             errstr=parse_global_option(CMD_SET_VALUE, &new_global_options, config_opt, config_arg);
         if(errstr==option_not_found)
             errstr=parse_service_option(CMD_SET_VALUE, section_ptr, config_opt, config_arg);
+        if(errstr==option_include)
+            errstr=include_config(entry, config_arg);
         if(errstr) {
             s_log(LOG_ERR, "%s:%d: \"%s\": %s",
-                path, line_number, line_text, errstr);
-            file_close(df);
-            return 1;
+                entry->path, entry->line_number, line_text, errstr);
+            goto fail;
         }
     }
-    file_close(df);
     return 0;
+
+fail:
+    while(depth) {
+        entry=&stack[depth-1U];
+        if(result!=INCLUDE_OVERFLOW && entry->include_directory)
+            s_log(LOG_ERR, "%s:%d: \"include = %s\": Failed to include a file",
+                entry->path, entry->line_number, entry->include_directory);
+        options_file_close(entry);
+        --depth;
+    }
+    return 1;
 }
 
-NOEXPORT int init_section(int eof, SERVICE_OPTIONS **section_ptr) {
+NOEXPORT int init_section(int end_of_file, SERVICE_OPTIONS **section_ptr) {
     const char *errstr;
 
 #ifndef USE_WIN32
@@ -611,7 +700,7 @@ NOEXPORT int init_section(int eof, SERVICE_OPTIONS **section_ptr) {
         }
     }
 
-    if(*section_ptr!=&new_service_options || eof) {
+    if(*section_ptr!=&new_service_options || end_of_file) {
         /* end service section or inetd mode -> initialize service */
         errstr=parse_service_option(CMD_INITIALIZE, section_ptr, NULL, NULL);
         if(errstr) {
@@ -628,9 +717,10 @@ NOEXPORT int init_section(int eof, SERVICE_OPTIONS **section_ptr) {
 
 #ifdef USE_WIN32
 
-int scandir(const char *dirp, struct dirent ***namelist,
-        int (*filter)(const struct dirent *),
-        int (*compar)(const struct dirent **, const struct dirent **)) {
+NOEXPORT int scandir(const char *dirp, struct dirent ***namelist,
+        int (*filter)(const struct dirent *entry),
+        int (*compar)(const struct dirent **entry1,
+            const struct dirent **entry2)) {
     WIN32_FIND_DATA data;
     HANDLE h;
     unsigned num=0, allocated=0;
@@ -638,8 +728,6 @@ int scandir(const char *dirp, struct dirent ***namelist,
     char *name;
     DWORD saved_errno;
 
-    (void)filter; /* squash the unused parameter warning */
-    (void)compar; /* squash the unused parameter warning */
     path=str2tstr(dirp);
     pattern=str_tprintf(TEXT("%s\\*"), path);
     str_free(path);
@@ -654,34 +742,79 @@ int scandir(const char *dirp, struct dirent ***namelist,
         if(num>=allocated) {
             struct dirent **tmp;
 
-            allocated+=16;
+            allocated+=16U;
+            /* scandir() transfers Standard Library allocated ownership. */
+            /* cppcheck-suppress misra-c2012-21.3 */
             tmp=realloc(*namelist, allocated*sizeof(**namelist));
             if(!tmp) {
-                FindClose(h);
-                return -1;
+                saved_errno=ERROR_NOT_ENOUGH_MEMORY;
+                goto fail;
             }
             *namelist=tmp;
         }
+        /* scandir() transfers Standard Library allocated ownership. */
+        /* cppcheck-suppress misra-c2012-21.3 */
         (*namelist)[num]=malloc(sizeof(struct dirent));
         if(!(*namelist)[num]) {
-            FindClose(h);
-            return -1;
+            saved_errno=ERROR_NOT_ENOUGH_MEMORY;
+            goto fail;
         }
         name=tstr2str(data.cFileName);
-        strncpy((*namelist)[num]->d_name, name, MAX_PATH-1);
+        (void)strncpy((*namelist)[num]->d_name, name, MAX_PATH-1);
         (*namelist)[num]->d_name[MAX_PATH-1]='\0';
         str_free(name);
-        ++num;
+        if(!filter || filter((*namelist)[num])) {
+            ++num;
+        } else {
+            /* Match the Standard Library allocation above. */
+            /* cppcheck-suppress misra-c2012-21.3 */
+            free((*namelist)[num]);
+        }
     } while(FindNextFile(h, &data));
-    FindClose(h);
+    saved_errno=GetLastError();
+    if(saved_errno!=ERROR_NO_MORE_FILES)
+        goto fail;
+    (void)FindClose(h);
+
+    if(compar) {
+        unsigned i;
+
+        for(i=1U; i<num; ++i) {
+            struct dirent *entry=(*namelist)[i];
+            unsigned j=i;
+
+            while(j>0U) {
+                const struct dirent *previous=(*namelist)[j-1U];
+                const struct dirent *current=entry;
+
+                if(compar(&previous, &current)<=0)
+                    break;
+                (*namelist)[j]=(*namelist)[j-1U];
+                --j;
+            }
+            (*namelist)[j]=entry;
+        }
+    }
     return (int)num;
+
+fail:
+    (void)FindClose(h);
+    while(num>0U) {
+        --num;
+        /* Match the Standard Library allocation above. */
+        /* cppcheck-suppress misra-c2012-21.3 */
+        free((*namelist)[num]);
+    }
+    /* Match the Standard Library allocation above. */
+    /* cppcheck-suppress misra-c2012-21.3 */
+    free(*namelist);
+    *namelist=NULL;
+    SetLastError(saved_errno);
+    return -1;
 }
 
-int alphasort(const struct dirent **a, const struct dirent **b) {
-    (void)a; /* squash the unused parameter warning */
-    (void)b; /* squash the unused parameter warning */
-    /* most Windows filesystem return sorted data */
-    return 0;
+NOEXPORT int alphasort(const struct dirent **a, const struct dirent **b) {
+    return strcoll((*a)->d_name, (*b)->d_name);
 }
 
 #endif
@@ -690,74 +823,95 @@ void options_defaults(void) {
     SERVICE_OPTIONS *service;
 
     /* initialize globals *before* opening the config file */
-    memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS));
-    memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS));
+    (void)memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS));
+    (void)memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS));
     new_service_options.next=NULL;
 
-    parse_global_option(CMD_SET_DEFAULTS, &new_global_options, NULL, NULL);
+    (void)parse_global_option(CMD_SET_DEFAULTS, &new_global_options, NULL, NULL);
     service=&new_service_options;
-    parse_service_option(CMD_SET_DEFAULTS, &service, NULL, NULL);
+    (void)parse_service_option(CMD_SET_DEFAULTS, &service, NULL, NULL);
 }
 
 void options_apply(void) { /* apply default/validated configuration */
     unsigned num=0;
     SERVICE_OPTIONS *section;
+    CRYPTO_RWLOCK *lock;
 
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SECTIONS]);
+    lock=s_write_lock(LOCK_SECTIONS);
 
-    memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
-    memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS));
+    (void)memcpy(&global_options, &new_global_options, sizeof(GLOBAL_OPTIONS));
+    (void)memset(&new_global_options, 0, sizeof(GLOBAL_OPTIONS));
 
     /* service_options are used for inetd mode and to enumerate services */
     for(section=new_service_options.next; section; section=section->next)
         section->section_number=num++;
-    memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
-    memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS));
+    (void)memcpy(&service_options, &new_service_options, sizeof(SERVICE_OPTIONS));
+    (void)memset(&new_service_options, 0, sizeof(SERVICE_OPTIONS));
     number_of_sections=num;
 
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
+    s_unlock(lock);
 }
 
 void options_free(int current) {
     GLOBAL_OPTIONS *global=current?&global_options:&new_global_options;
     SERVICE_OPTIONS *service=current?&service_options:&new_service_options;
+    CRYPTO_RWLOCK *lock;
 
-    parse_global_option(CMD_FREE, global, NULL, NULL);
+    (void)parse_global_option(CMD_FREE, global, NULL, NULL);
 
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SECTIONS]);
+    lock=s_write_lock(LOCK_SECTIONS);
     while(service) {
         SERVICE_OPTIONS *tmp=service;
         service=service->next;
         tmp->next=NULL;
         service_free(tmp);
     }
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SECTIONS]);
+    s_unlock(lock);
 }
 
 SERVICE_OPTIONS *service_up_ref(SERVICE_OPTIONS *section) {
-#ifdef USE_OS_THREADS
-    int ref;
-
-    CRYPTO_atomic_add(&section->ref, 1, &ref, stunnel_locks[LOCK_REF]);
-#else
-    ++(section->ref);
-#endif
+    (void)s_atomic_add(&section->ref, 1, LOCK_REF);
     return section;
 }
 
 void service_free(SERVICE_OPTIONS *section) {
-    int ref;
+    SERVICE_OPTIONS *current=section;
+#ifndef OPENSSL_NO_TLSEXT
+    /* Reuse SNI list nodes as a worklist to avoid recursive deallocation. */
+    SERVERNAME_LIST *pending=NULL;
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
 
-#ifdef USE_OS_THREADS
-    CRYPTO_atomic_add(&section->ref, -1, &ref, stunnel_locks[LOCK_REF]);
-#else
-    ref=--(section->ref);
-#endif
-    if(ref<0)
-        fatal("Negative section reference counter");
-    if(ref==0) {
-        parse_service_option(CMD_FREE, &section, NULL, NULL);
-    }
+    do {
+        int ref;
+
+        ref=s_atomic_add(&current->ref, -1, LOCK_REF);
+        if(ref<0)
+            fatal("Negative section reference counter");
+        if(ref==0) {
+#ifndef OPENSSL_NO_TLSEXT
+            if(current->servername_list_head) {
+                current->servername_list_tail->next=pending;
+                pending=current->servername_list_head;
+                current->servername_list_head=NULL;
+                current->servername_list_tail=NULL;
+            }
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
+            (void)parse_service_option(CMD_FREE, &current, NULL, NULL);
+        }
+#ifndef OPENSSL_NO_TLSEXT
+        if(pending) {
+            SERVERNAME_LIST *entry=pending;
+            pending=entry->next;
+            current=entry->opt;
+            str_free(entry->servername);
+            str_free(entry);
+        } else {
+            current=NULL;
+        }
+#else /* OPENSSL_NO_TLSEXT */
+        current=NULL;
+#endif /* !defined(OPENSSL_NO_TLSEXT) */
+    } while(current!=NULL);
 }
 
 /**************************************** global options */
@@ -894,7 +1048,7 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
         else
             return engine_open(arg);
     case CMD_INITIALIZE:
-        engine_init();
+        (void)engine_init();
         break;
     case CMD_PRINT_DEFAULTS:
         break;
@@ -996,7 +1150,7 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
     case CMD_PRINT_HELP:
 #ifdef USE_FIPS
         if(fips_available())
-            s_log(LOG_NOTICE, "%-22s = yes|no FIPS 140-2 mode",
+            s_log(LOG_NOTICE, "%-22s = yes|no FIPS 140-3 mode",
                 "fips");
 #endif /* USE_FIPS */
         break;
@@ -1312,7 +1466,7 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
             break;
         {
             char *tmp_str;
-            options->random_bytes=(long)strtol(arg, &tmp_str, 10);
+            options->random_bytes=(long)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal number of bytes to read from random seed files";
         }
@@ -1408,7 +1562,7 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
             if(value)
                 *value++='\0';
             else
-                value="";
+                value=arg+strlen(arg); /* terminating null character */
 #ifdef USE_WIN32
             if(_putenv_s(arg, value))
 #else
@@ -1518,7 +1672,7 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
     case CMD_SET_COPY:
         break;
     case CMD_FREE:
-        memset(options, 0, sizeof(GLOBAL_OPTIONS));
+        (void)memset(options, 0, sizeof(GLOBAL_OPTIONS));
         break;
     case CMD_SET_VALUE:
         return option_not_found;
@@ -1565,6 +1719,8 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     } else if(cmd==CMD_PRINT_DEFAULTS || cmd==CMD_PRINT_HELP) {
         s_log(LOG_NOTICE, " ");
         s_log(LOG_NOTICE, "Service-level options:");
+    } else {
+        /* other commands do not require an introductory log message */
     }
 
     /* accept */
@@ -1588,7 +1744,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "accept"))
             break;
-        section->option.accept=1;
+        section->option.accept_set=1;
         if(section->option.default_local_addr) {
             name_list_free(&section->local_addr.names);
             addrlist_clear(&section->local_addr, 1);
@@ -2080,17 +2236,20 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         return NULL; /* OK */
     case CMD_INITIALIZE:
         if(section->connect_addr.names) {
-            if(!section->option.delayed_lookup &&
-                    !addrlist_resolve(&section->connect_addr)) {
-                s_log(LOG_INFO,
-                    "Cannot resolve connect target - delaying DNS lookup");
-                section->connect_addr.num=0;
-                section->redirect_addr.num=0;
-                section->option.delayed_lookup=1;
+            if(!section->option.delayed_lookup) {
+                unsigned resolved=addrlist_resolve(&section->connect_addr);
+
+                if(!resolved) {
+                    s_log(LOG_INFO,
+                        "Cannot resolve connect target - delaying DNS lookup");
+                    section->connect_addr.num=0;
+                    section->redirect_addr.num=0;
+                    section->option.delayed_lookup=1;
+                }
             }
             if(!section->option.delayed_lookup &&
                     section->option.client &&
-                    section->connect_addr.num>1)
+                    section->connect_addr.num>1U)
                 section->connect_session=
                     str_alloc_detached(section->connect_addr.num*sizeof(SSL_SESSION *));
             ++endpoints;
@@ -2227,7 +2386,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
 #ifdef SSL_SYSTEM_DEFAULT_CIPHER_LIST
                 section->curves=str_dup_detached(DEFAULT_CURVES_FIPS);
 #else /* standard OpenSSL */
-                if(OpenSSL_version_num()>=0x30400000L)
+                if(OpenSSL_version_num()>=0x30400000UL)
                     section->curves=str_dup_detached(DEFAULT_CURVES_FIPS);
                 else
                     section->curves=str_dup_detached(DEFAULT_CURVES);
@@ -2262,6 +2421,8 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     case CMD_SET_DEFAULTS:
         section->log_level=LOG_NOTICE;
 #if !defined (USE_WIN32) && !defined (__vms)
+        /* syslog facilities are system-defined signed-shift macros. */
+        /* cppcheck-suppress misra-c2012-10.1 */
         new_global_options.log_facility=LOG_DAEMON;
 #endif
         break;
@@ -2365,7 +2526,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            int tmp_int=(int)strtol(arg, &tmp_str, 10);
+            int tmp_int=(int)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal engine number";
             section->engine=engine_get_by_num(tmp_int-1);
@@ -2405,7 +2566,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         section->exec_args=str_dup_detached(arg);
 #else
         if(!section->exec_args) {
-            section->exec_args=str_alloc_detached(2*sizeof(char *));
+            section->exec_args=str_alloc_detached(2U*sizeof(char *));
             section->exec_args[0]=str_dup_detached(section->exec_name);
             section->exec_args[1]=NULL; /* null-terminate */
         }
@@ -2534,7 +2695,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "include"))
             break;
-        return include_config(arg, section_ptr);
+        return option_include;
     case CMD_INITIALIZE:
         break;
     case CMD_PRINT_DEFAULTS:
@@ -2610,7 +2771,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         break;
     case CMD_SET_COPY:
         section->option.local=new_service_options.option.local;
-        memcpy(&section->source_addr, &new_service_options.source_addr,
+        (void)memcpy(&section->source_addr, &new_service_options.source_addr,
             sizeof(SOCKADDR_UNION));
         break;
     case CMD_FREE:
@@ -2896,7 +3057,8 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             if(tmp_str)
                 return tmp_str;
         }
-        endpoints+=section->option.protocol_endpoint;
+        if(section->option.protocol_endpoint)
+            ++endpoints;
         break;
     case CMD_PRINT_DEFAULTS:
         break;
@@ -3225,13 +3387,16 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
                 return "\"redirect\" is unsupported in client sections";
             if(section->option.connect_before_ssl)
                 return "\"redirect\" is incompatible with the specified protocol negotiation";
-            if(!section->option.delayed_lookup &&
-                    !addrlist_resolve(&section->redirect_addr)) {
-                s_log(LOG_INFO,
-                    "Cannot resolve redirect target - delaying DNS lookup");
-                section->connect_addr.num=0;
-                section->redirect_addr.num=0;
-                section->option.delayed_lookup=1;
+            if(!section->option.delayed_lookup) {
+                unsigned resolved=addrlist_resolve(&section->redirect_addr);
+
+                if(!resolved) {
+                    s_log(LOG_INFO,
+                        "Cannot resolve redirect target - delaying DNS lookup");
+                    section->connect_addr.num=0;
+                    section->redirect_addr.num=0;
+                    section->option.delayed_lookup=1;
+                }
             }
             if(!section->option.verify_chain && !section->option.verify_peer)
                 return "Either \"verifyChain\" or \"verifyPeer\" has to be enabled for \"redirect\" to work";
@@ -3357,7 +3522,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             section->retry=-1; /* disabled */
         } else {
             char *tmp_str;
-            section->retry=(long)strtol(arg, &tmp_str, 10);
+            section->retry=(long)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str || section->retry < 0)
                 return "Illegal retry delay";
         }
@@ -3388,7 +3553,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            int tmp_int =(int)strtol(arg, &tmp_str, 10);
+            int tmp_int =(int)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str || tmp_int<0 || tmp_int>5) /* not a correct number */
                 return "Illegal security level";
             section->security_level = tmp_int;
@@ -3454,7 +3619,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         }
         {
             char *tmp_str;
-            section->gid=(gid_t)strtol(arg, &tmp_str, 10);
+            section->gid=(gid_t)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal GID";
         }
@@ -3490,7 +3655,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         }
         {
             char *tmp_str;
-            section->uid=(uid_t)strtol(arg, &tmp_str, 10);
+            section->uid=(uid_t)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal UID";
         }
@@ -3520,7 +3685,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            section->session_size=strtol(arg, &tmp_str, 10);
+            section->session_size=str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal session cache size";
         }
@@ -3550,7 +3715,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            section->session_timeout=strtol(arg, &tmp_str, 10);
+            section->session_timeout=str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal session cache timeout";
         }
@@ -3600,12 +3765,12 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
     switch(cmd) {
     case CMD_SET_DEFAULTS:
         section->option.sessiond=0;
-        memset(&section->sessiond_addr, 0, sizeof(SOCKADDR_UNION));
+        (void)memset(&section->sessiond_addr, 0, sizeof(SOCKADDR_UNION));
         section->sessiond_addr.in.sin_family=AF_INET;
         break;
     case CMD_SET_COPY:
         section->option.sessiond=new_service_options.option.sessiond;
-        memcpy(&section->sessiond_addr, &new_service_options.sessiond_addr,
+        (void)memcpy(&section->sessiond_addr, &new_service_options.sessiond_addr,
             sizeof(SOCKADDR_UNION));
         break;
     case CMD_FREE:
@@ -3645,7 +3810,6 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         break;
     case CMD_FREE:
         str_free(section->sni);
-        sni_free(section);
         break;
     case CMD_SET_VALUE:
         if(strcasecmp(opt, "sni"))
@@ -3851,12 +4015,16 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            section->stack_size=(size_t)strtol(arg, &tmp_str, 10);
-            if(tmp_str==arg || *tmp_str) /* not a number */
+            long stack_size=str_to_long(arg, &tmp_str);
+
+            if(tmp_str==arg || *tmp_str || stack_size<=0)
                 return "Illegal thread stack size";
+            section->stack_size=(size_t)stack_size;
         }
         return NULL; /* OK */
     case CMD_INITIALIZE:
+        if(sthreads_stack_size_validate(section->stack_size))
+            return "Illegal thread stack size";
         break;
     case CMD_PRINT_DEFAULTS:
         s_log(LOG_NOTICE, "%-22s = %d bytes", "stack", DEFAULT_STACK_SIZE);
@@ -3895,7 +4063,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
                     "ticketKeySecret is ignored in the client mode");
             break;
         }
-        if(section->ticket_key && !section->ticket_mac)
+        if(!section->ticket_mac)
             return "\"ticketKeySecret\" and \"ticketMacSecret\" must be set together";
         break;
     case CMD_PRINT_DEFAULTS:
@@ -3932,7 +4100,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
                     "ticketMacSecret is ignored in the client mode");
             break;
         }
-        if(section->ticket_mac && !section->ticket_key)
+        if(!section->ticket_key)
             return "\"ticketKeySecret\" and \"ticketMacSecret\" must be set together";
         break;
     case CMD_PRINT_DEFAULTS:
@@ -3960,7 +4128,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            section->timeout_busy=(int)strtol(arg, &tmp_str, 10);
+            section->timeout_busy=(int)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal busy timeout";
         }
@@ -3990,7 +4158,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            section->timeout_close=(int)strtol(arg, &tmp_str, 10);
+            section->timeout_close=(int)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal close timeout";
         }
@@ -4021,7 +4189,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            section->timeout_connect=(int)strtol(arg, &tmp_str, 10);
+            section->timeout_connect=(int)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal connect timeout";
         }
@@ -4051,7 +4219,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            section->timeout_idle=(int)strtol(arg, &tmp_str, 10);
+            section->timeout_idle=(int)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal idle timeout";
             return NULL; /* OK */
@@ -4082,7 +4250,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            section->timeout_ocsp=(int)strtol(arg, &tmp_str, 10);
+            section->timeout_ocsp=(int)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str) /* not a number */
                 return "Illegal OCSP connect timeout";
         }
@@ -4158,7 +4326,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             break;
         {
             char *tmp_str;
-            int tmp_int=(int)strtol(arg, &tmp_str, 10);
+            int tmp_int=(int)str_to_long(arg, &tmp_str);
             if(tmp_str==arg || *tmp_str || tmp_int<0 || tmp_int>4)
                 return "Bad verify level";
             section->option.request_cert=1;
@@ -4314,7 +4482,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         context_cleanup(section);
         str_free(section->servname);
         if(section==&service_options || section==&new_service_options)
-            memset(section, 0, sizeof(SERVICE_OPTIONS));
+            (void)memset(section, 0, sizeof(SERVICE_OPTIONS));
         else
             str_free(section);
         break;
@@ -4329,7 +4497,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
             if(endpoints!=2)
                 return "Each service must define two endpoints";
         } else { /* inetd mode checks */
-            if(section->option.accept)
+            if(section->option.accept_set)
                 return "'accept' option is only allowed in a [section]";
             /* no need to check for section->sni in inetd mode,
                as it requires valid sections to be set */
@@ -4342,7 +4510,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
          * into session tickets */
         /* server mode sections need it for the "redirect" option
          * and connect address session persistence */
-        if(OpenSSL_version_num()<0x10101000L &&
+        if(OpenSSL_version_num()<0x10101000UL &&
                 !section->option.client &&
                 !section->option.connect_before_ssl)
             section->ssl_options_set|=SSL_OP_NO_TICKET;
@@ -4392,7 +4560,7 @@ NOEXPORT const char *sni_init(SERVICE_OPTIONS *section) {
         }
         /* a secondary section reference is needed to prevent a race condition
            while switching to a section after configuration file reload */
-        service_up_ref(section);
+        (void)service_up_ref(section);
         tmpsrv->servername_list_tail->servername=str_dup_detached(tmp_str);
         tmpsrv->servername_list_tail->opt=section;
         tmpsrv->servername_list_tail->next=NULL;
@@ -4409,6 +4577,9 @@ NOEXPORT const char *sni_init(SERVICE_OPTIONS *section) {
             section->sni=str_dup_detached(section->protocol_host);
         else if(section->connect_addr.names) /* 'connect' option */
             section->sni=str_dup_detached(section->connect_addr.names->name); /* first hostname */
+        else {
+            /* no default SNI name is available */
+        }
         if(section->sni) { /* either 'protocolHost' or 'connect' specified */
             tmp_str=strrchr(section->sni, ':');
             if(tmp_str) { /* 'host:port' -> drop ':port' */
@@ -4420,19 +4591,6 @@ NOEXPORT const char *sni_init(SERVICE_OPTIONS *section) {
         }
     }
     return NULL;
-}
-
-NOEXPORT void sni_free(SERVICE_OPTIONS *section) {
-    SERVERNAME_LIST *curr=section->servername_list_head;
-    while(curr) {
-        SERVERNAME_LIST *next=curr->next;
-        str_free(curr->servername);
-        service_free(curr->opt); /* free the secondary section */
-        str_free(curr);
-        curr=next;
-    }
-    section->servername_list_head=NULL;
-    section->servername_list_tail=NULL;
 }
 
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
@@ -4548,14 +4706,16 @@ NOEXPORT char *tls_methods_check(SERVICE_OPTIONS *section) {
 typedef struct {
     const char *name;
     int value;
-} facilitylevel;
+} facility_level;
 
 NOEXPORT const char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
-    facilitylevel *fl;
+    facility_level *entry;
 
 /* facilities only make sense on unix */
 #if !defined (USE_WIN32) && !defined (__vms)
-    facilitylevel facilities[]={
+    /* syslog facilities are system-defined signed-shift macros. */
+    /* cppcheck-suppress-begin misra-c2012-10.1 */
+    facility_level facilities[]={
         {"auth", LOG_AUTH},     {"cron", LOG_CRON},     {"daemon", LOG_DAEMON},
         {"kern", LOG_KERN},     {"lpr", LOG_LPR},       {"mail", LOG_MAIL},
         {"news", LOG_NEWS},     {"syslog", LOG_SYSLOG}, {"user", LOG_USER},
@@ -4575,9 +4735,10 @@ NOEXPORT const char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
 #endif
         {NULL, 0}
     };
+    /* cppcheck-suppress-end misra-c2012-10.1 */
 #endif /* USE_WIN32, __vms */
 
-    facilitylevel levels[]={
+    facility_level levels[]={
         {"emerg", LOG_EMERG},     {"alert", LOG_ALERT},
         {"crit", LOG_CRIT},       {"err", LOG_ERR},
         {"warning", LOG_WARNING}, {"notice", LOG_NOTICE},
@@ -4592,9 +4753,9 @@ NOEXPORT const char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
         new_global_options.log_facility=-1;
         arg=strtok(arg, "."); /* break it up */
 
-        for(fl=facilities; fl->name; ++fl) {
-            if(!strcasecmp(fl->name, arg)) {
-                new_global_options.log_facility=fl->value;
+        for(entry=facilities; entry->name; ++entry) {
+            if(!strcasecmp(entry->name, arg)) {
+                new_global_options.log_facility=entry->value;
                 break;
             }
         }
@@ -4605,14 +4766,14 @@ NOEXPORT const char *parse_debug_level(char *arg, SERVICE_OPTIONS *section) {
 #endif /* USE_WIN32, __vms */
 
     /* time to check the syslog level */
-    if(arg && strlen(arg)==1 && *arg>='0' && *arg<='7') {
+    if(arg && strlen(arg)==1U && *arg>='0' && *arg<='7') {
         section->log_level=*arg-'0';
         return NULL; /* OK */
     }
     section->log_level=8;    /* illegal level */
-    for(fl=levels; fl->name; ++fl) {
-        if(!strcasecmp(fl->name, arg)) {
-            section->log_level=fl->value;
+    for(entry=levels; entry->name; ++entry) {
+        if(!strcasecmp(entry->name, arg)) {
+            section->log_level=entry->value;
             break;
         }
     }
@@ -4645,11 +4806,69 @@ NOEXPORT void print_ssl_options(void) {
 
 #ifndef OPENSSL_NO_PSK
 
+NOEXPORT PSK_KEYS *psk_parse(char *line, int line_number) {
+    char *key_str;
+    unsigned char *key_buf;
+    const void *key_val;
+    const char *key_format;
+    long key_len;
+    PSK_KEYS *key;
+
+    key_str=strchr(line, ':');
+    if(!key_str) {
+        s_log(LOG_ERR,
+            "PSKsecrets line %d: Not in identity:key format", line_number);
+        return NULL;
+    }
+    *key_str++='\0';
+    if(strlen(line)+1U>(size_t)PSK_MAX_IDENTITY_LEN) { /* trailing '\0' */
+        s_log(LOG_ERR,
+            "PSKsecrets line %d: Identity longer than %d characters",
+            line_number, PSK_MAX_IDENTITY_LEN);
+        return NULL;
+    }
+
+    key_buf=OPENSSL_hexstr2buf(key_str, &key_len);
+    if(key_buf) { /* a valid hexadecimal value */
+        key_val=key_buf;
+        key_format="hexadecimal";
+    } else { /* interpret a non-hexadecimal value as a string */
+        key_val=key_str;
+        key_len=(long)strlen(key_str);
+        key_format="ASCII";
+    }
+    if(key_len>PSK_MAX_PSK_LEN) {
+        s_log(LOG_ERR,
+            "PSKsecrets line %d: Key longer than %d bytes",
+            line_number, PSK_MAX_PSK_LEN);
+        OPENSSL_free(key_buf);
+        return NULL;
+    }
+    if(key_len<16) {
+        /* shorter keys are unlikely to have sufficient entropy */
+        s_log(LOG_ERR,
+            "PSKsecrets line %d: Key shorter than 16 bytes", line_number);
+        OPENSSL_free(key_buf);
+        return NULL;
+    }
+
+    key=str_alloc_detached(sizeof(PSK_KEYS));
+    key->identity=str_dup_detached(line);
+    key->key_val=str_alloc_detached((size_t)key_len);
+    (void)memcpy(key->key_val, key_val, (size_t)key_len);
+    key->key_len=(unsigned)key_len;
+    key->next=NULL;
+    OPENSSL_free(key_buf);
+
+    s_log(LOG_INFO, "PSKsecrets line %d: "
+        "%ld-byte %s key configured for identity \"%s\"",
+        line_number, key_len, key_format, line);
+    return key;
+}
+
 NOEXPORT PSK_KEYS *psk_read(char *key_file) {
     DISK_FILE *df;
-    char line[CONFLINELEN], *key_str;
-    unsigned char *key_buf;
-    long key_len;
+    char line[CONFLINELEN];
     PSK_KEYS *head=NULL, *tail=NULL, *curr;
     int line_number=0;
 
@@ -4664,63 +4883,12 @@ NOEXPORT PSK_KEYS *psk_read(char *key_file) {
         ++line_number;
         if(!line[0]) /* empty line */
             continue;
-        key_str=strchr(line, ':');
-        if(!key_str) {
-            s_log(LOG_ERR,
-                "PSKsecrets line %d: Not in identity:key format",
-                line_number);
-            file_close(df);
+        curr=psk_parse(line, line_number);
+        if(!curr) {
             psk_free(head);
-            return NULL;
+            head=NULL;
+            break;
         }
-        *key_str++='\0';
-        if(strlen(line)+1>PSK_MAX_IDENTITY_LEN) { /* with the trailing '\0' */
-            s_log(LOG_ERR,
-                "PSKsecrets line %d: Identity longer than %d characters",
-                line_number, PSK_MAX_IDENTITY_LEN);
-            file_close(df);
-            psk_free(head);
-            return NULL;
-        }
-        key_buf=OPENSSL_hexstr2buf(key_str, &key_len);
-        if(key_buf) { /* a valid hexadecimal value */
-            s_log(LOG_INFO, "PSKsecrets line %d: "
-                "%ld-byte hexadecimal key configured for identity \"%s\"",
-                line_number, key_len, line);
-        } else { /* not a valid hexadecimal value -> copy as a string */
-            key_len=(long)strlen(key_str);
-            key_buf=OPENSSL_malloc((size_t)key_len);
-            memcpy(key_buf, key_str, (size_t)key_len);
-            s_log(LOG_INFO, "PSKsecrets line %d: "
-                "%ld-byte ASCII key configured for identity \"%s\"",
-                line_number, key_len, line);
-        }
-        if(key_len>PSK_MAX_PSK_LEN) {
-            s_log(LOG_ERR,
-                "PSKsecrets line %d: Key longer than %d bytes",
-                line_number, PSK_MAX_PSK_LEN);
-            OPENSSL_free(key_buf);
-            file_close(df);
-            psk_free(head);
-            return NULL;
-        }
-        if(key_len<16) {
-            /* shorter keys are unlikely to have sufficient entropy */
-            s_log(LOG_ERR,
-                "PSKsecrets line %d: Key shorter than 16 bytes",
-                line_number);
-            OPENSSL_free(key_buf);
-            file_close(df);
-            psk_free(head);
-            return NULL;
-        }
-        curr=str_alloc_detached(sizeof(PSK_KEYS));
-        curr->identity=str_dup_detached(line);
-        curr->key_val=str_alloc_detached((size_t)key_len);
-        memcpy(curr->key_val, key_buf, (size_t)key_len);
-        OPENSSL_free(key_buf);
-        curr->key_len=(unsigned)key_len;
-        curr->next=NULL;
         if(head)
             tail->next=curr;
         else
@@ -4738,7 +4906,7 @@ NOEXPORT PSK_KEYS *psk_dup(PSK_KEYS *src) {
         curr=str_alloc_detached(sizeof(PSK_KEYS));
         curr->identity=str_dup_detached(src->identity);
         curr->key_val=str_alloc_detached(src->key_len);
-        memcpy(curr->key_val, src->key_val, src->key_len);
+        (void)memcpy(curr->key_val, src->key_val, src->key_len);
         curr->key_len=src->key_len;
         curr->next=NULL;
         if(head)
@@ -4791,7 +4959,7 @@ NOEXPORT TICKET_KEY *key_read(char *arg, const char *option) {
     }
     head=str_alloc_detached(sizeof(TICKET_KEY));
     head->key_val=str_alloc_detached((size_t)key_len);
-    memcpy(head->key_val, key_buf, (size_t)key_len);
+    (void)memcpy(head->key_val, key_buf, (size_t)key_len);
     OPENSSL_free(key_buf);
     head->key_len=(int)key_len;
     return head;
@@ -4800,9 +4968,10 @@ NOEXPORT TICKET_KEY *key_read(char *arg, const char *option) {
 NOEXPORT TICKET_KEY *key_dup(TICKET_KEY *src) {
     TICKET_KEY *head=NULL;
 
-    if (src) {
+    if(src) {
         head=str_alloc_detached(sizeof(TICKET_KEY));
-        head->key_val=(unsigned char *)str_dup_detached((char *)src->key_val);
+        head->key_val=str_alloc_detached((size_t)src->key_len);
+        (void)memcpy(head->key_val, src->key_val, (size_t)src->key_len);
         head->key_len=src->key_len;
     }
     return head;
@@ -4821,7 +4990,7 @@ NOEXPORT void key_free(TICKET_KEY *head) {
 
 #define VAL_TAB {NULL, NULL, NULL}, {NULL, NULL, NULL}
 
-SOCK_OPT sock_opts_def[]={
+NOEXPORT SOCK_OPT sock_opts_def[]={
     {"SO_DEBUG",        SOL_SOCKET,     SO_DEBUG,        TYPE_FLAG,     VAL_TAB},
     {"SO_DONTROUTE",    SOL_SOCKET,     SO_DONTROUTE,    TYPE_FLAG,     VAL_TAB},
     {"SO_KEEPALIVE",    SOL_SOCKET,     SO_KEEPALIVE,    TYPE_FLAG,     VAL_TAB},
@@ -4909,7 +5078,7 @@ NOEXPORT SOCK_OPT *socket_options_init(void) {
 #endif
 
     SOCK_OPT *opt=str_alloc_detached(sizeof sock_opts_def);
-    memcpy(opt, sock_opts_def, sizeof sock_opts_def);
+    (void)memcpy(opt, sock_opts_def, sizeof sock_opts_def);
 
 #ifdef USE_WIN32
 #ifdef _MSC_VER
@@ -4948,7 +5117,7 @@ NOEXPORT void socket_option_set_int(SOCK_OPT *opt, const char *name,
         int sock_type, int type, int value) {
     for(; opt->opt_str; ++opt) {
         if(!strcmp(name, opt->opt_str)) {
-            OPT_UNION **opt_val=sock_type==SOCK_DGRAM ?
+            OPT_UNION **opt_val=socket_type_is_datagram(sock_type) ?
                 opt->opt_val_udp : opt->opt_val_tcp;
             str_free(opt_val[type]);
             opt_val[type]=str_alloc_detached(sizeof(OPT_UNION));
@@ -4961,21 +5130,23 @@ NOEXPORT SOCK_OPT *socket_options_dup(SOCK_OPT *src) {
     SOCK_OPT *dst=str_alloc_detached(sizeof sock_opts_def);
     SOCK_OPT *ptr;
 
-    memcpy(dst, sock_opts_def, sizeof sock_opts_def);
-    for(ptr=dst; src->opt_str; ++src, ++ptr) {
+    (void)memcpy(dst, sock_opts_def, sizeof sock_opts_def);
+    ptr=dst;
+    for(; src->opt_str; ++src) {
         int type;
         for(type=0; type<3; ++type) {
             if(src->opt_val_tcp[type]) {
                 ptr->opt_val_tcp[type]=str_alloc_detached(sizeof(OPT_UNION));
-                memcpy(ptr->opt_val_tcp[type],
+                (void)memcpy(ptr->opt_val_tcp[type],
                     src->opt_val_tcp[type], sizeof(OPT_UNION));
             }
             if(src->opt_val_udp[type]) {
                 ptr->opt_val_udp[type]=str_alloc_detached(sizeof(OPT_UNION));
-                memcpy(ptr->opt_val_udp[type],
+                (void)memcpy(ptr->opt_val_udp[type],
                     src->opt_val_udp[type], sizeof(OPT_UNION));
             }
         }
+        ++ptr;
     }
     return dst;
 }
@@ -5013,16 +5184,18 @@ NOEXPORT int socket_options_print(void) {
             "    --------------------+----------+----------+----------+----------");
 
         for(ptr=opt; ptr->opt_str; ++ptr) {
-            OPT_UNION **opt_val=sock_type==SOCK_DGRAM ?
+            OPT_UNION **opt_val=socket_type_is_datagram(sock_type) ?
                 ptr->opt_val_udp : ptr->opt_val_tcp;
             SOCKET fd;
             socklen_t optlen;
             OPT_UNION val;
             char *ta, *tl, *tr, *td;
 
-            if(sock_type==SOCK_STREAM && socket_option_is_udp(ptr))
+            if(socket_type_is_stream(sock_type) &&
+                    socket_option_is_udp(ptr))
                 continue;
-            if(sock_type==SOCK_DGRAM && socket_option_is_tcp(ptr))
+            if(socket_type_is_datagram(sock_type) &&
+                    socket_option_is_tcp(ptr))
                 continue;
 
             /* get OS default value */
@@ -5044,13 +5217,13 @@ NOEXPORT int socket_options_print(void) {
                 default:
                     s_log(LOG_ERR, "Failed to get %s OS default", ptr->opt_str);
                     sockerror("getsockopt");
-                    closesocket(fd);
+                    (void)closesocket(fd);
                     socket_options_free(opt);
                     return 1; /* FAILED */
                 }
             } else
                 td=socket_option_text(ptr->opt_type, &val);
-            closesocket(fd);
+            (void)closesocket(fd);
 
             /* get stunnel default values */
             ta=socket_option_text(ptr->opt_type, opt_val[0]);
@@ -5110,6 +5283,7 @@ NOEXPORT int socket_option_parse(SOCK_OPT *opt, char *arg) {
     char *opt_val_str, *opt_val2_str, *tmp_str;
     OPT_UNION opt_val;
 
+    (void)memset(&opt_val, 0, sizeof opt_val);
     if(arg[1]!=':')
         return 1; /* FAILED */
     switch(arg[0]) {
@@ -5145,8 +5319,8 @@ NOEXPORT int socket_option_parse(SOCK_OPT *opt, char *arg) {
         }
         return 1; /* FAILED */
     case TYPE_INT:
-        opt_val.i_val=(int)strtol(opt_val_str, &tmp_str, 10);
-        if(tmp_str==arg || *tmp_str) /* not a number */
+        opt_val.i_val=(int)str_to_long(opt_val_str, &tmp_str);
+        if(tmp_str==opt_val_str || *tmp_str) /* not a number */
             return 1; /* FAILED */
         break; /* OK */
     case TYPE_LINGER:
@@ -5154,15 +5328,15 @@ NOEXPORT int socket_option_parse(SOCK_OPT *opt, char *arg) {
         if(opt_val2_str) {
             *opt_val2_str++='\0';
             opt_val.linger_val.l_linger=
-                (u_short)strtol(opt_val2_str, &tmp_str, 10);
-            if(tmp_str==arg || *tmp_str) /* not a number */
+                (u_short)str_to_long(opt_val2_str, &tmp_str);
+            if(tmp_str==opt_val2_str || *tmp_str) /* not a number */
                 return 1; /* FAILED */
         } else {
             opt_val.linger_val.l_linger=0;
         }
         opt_val.linger_val.l_onoff=
-            (u_short)strtol(opt_val_str, &tmp_str, 10);
-        if(tmp_str==arg || *tmp_str) /* not a number */
+            (u_short)str_to_long(opt_val_str, &tmp_str);
+        if(tmp_str==opt_val_str || *tmp_str) /* not a number */
             return 1; /* FAILED */
         break; /* OK */
     case TYPE_TIMEVAL:
@@ -5170,21 +5344,21 @@ NOEXPORT int socket_option_parse(SOCK_OPT *opt, char *arg) {
         if(opt_val2_str) {
             *opt_val2_str++='\0';
             opt_val.timeval_val.tv_usec=
-                (int)strtol(opt_val2_str, &tmp_str, 10);
-            if(tmp_str==arg || *tmp_str) /* not a number */
+                (int)str_to_long(opt_val2_str, &tmp_str);
+            if(tmp_str==opt_val2_str || *tmp_str) /* not a number */
                 return 1; /* FAILED */
         } else {
             opt_val.timeval_val.tv_usec=0;
         }
         opt_val.timeval_val.tv_sec=
-            (int)strtol(opt_val_str, &tmp_str, 10);
-        if(tmp_str==arg || *tmp_str) /* not a number */
+            (int)str_to_long(opt_val_str, &tmp_str);
+        if(tmp_str==opt_val_str || *tmp_str) /* not a number */
             return 1; /* FAILED */
         break; /* OK */
     case TYPE_STRING:
-        if(strlen(opt_val_str)+1>sizeof(OPT_UNION))
+        if(strlen(opt_val_str)+1U>sizeof(OPT_UNION))
             return 1; /* FAILED */
-        strcpy(opt_val.c_val, opt_val_str);
+        (void)strcpy(opt_val.c_val, opt_val_str);
         break; /* OK */
     default:
         return 1; /* FAILED */
@@ -5192,12 +5366,12 @@ NOEXPORT int socket_option_parse(SOCK_OPT *opt, char *arg) {
     if(!socket_option_is_udp(opt)) {
         str_free(opt->opt_val_tcp[socket_type]);
         opt->opt_val_tcp[socket_type]=str_alloc_detached(sizeof(OPT_UNION));
-        memcpy(opt->opt_val_tcp[socket_type], &opt_val, sizeof(OPT_UNION));
+        (void)memcpy(opt->opt_val_tcp[socket_type], &opt_val, sizeof(OPT_UNION));
     }
     if(!socket_option_is_tcp(opt)) {
         str_free(opt->opt_val_udp[socket_type]);
         opt->opt_val_udp[socket_type]=str_alloc_detached(sizeof(OPT_UNION));
-        memcpy(opt->opt_val_udp[socket_type], &opt_val, sizeof(OPT_UNION));
+        (void)memcpy(opt->opt_val_udp[socket_type], &opt_val, sizeof(OPT_UNION));
     }
     return 0;
 }
@@ -5239,9 +5413,9 @@ NOEXPORT unsigned long parse_ocsp_flag(char *arg) {
 #ifndef OPENSSL_NO_ENGINE
 
 #define MAX_ENGINES 256
-static ENGINE *engines[MAX_ENGINES]; /* table of engines for config parser */
-static int current_engine;
-static int engine_initialized;
+NOEXPORT ENGINE *engines[MAX_ENGINES]; /* table of engines for config parser */
+NOEXPORT int current_engine;
+NOEXPORT int engine_initialized;
 
 NOEXPORT void engine_reset_list(void) {
     current_engine=-1;
@@ -5252,7 +5426,7 @@ NOEXPORT const char *engine_auto(void) {
     ENGINE *e;
 
     s_log(LOG_INFO, "Enabling automatic engine support");
-    ENGINE_register_all_complete();
+    (void)ENGINE_register_all_complete();
     /* rebuild the internal list of engines */
     engine_reset_list();
     for(e=ENGINE_get_first(); e; e=ENGINE_get_next(e)) {
@@ -5269,10 +5443,10 @@ NOEXPORT const char *engine_auto(void) {
 NOEXPORT const char *engine_open(const char *name) {
     ENGINE *e;
     struct {
-        void (*vlog)(int, const char *, va_list);
+        void (*vlog)(int level, const char *format, va_list ap);
     } vlog_callback;
 
-    engine_init(); /* initialize the previous engine (if any) */
+    (void)engine_init(); /* initialize the previous engine (if any) */
     if(++current_engine>=MAX_ENGINES)
         return "Too many open engines";
 
@@ -5411,37 +5585,80 @@ cleanup:
 
 /**************************************** include config directory */
 
-NOEXPORT const char *include_config(char *directory, SERVICE_OPTIONS **section_ptr) {
+NOEXPORT const char *include_config(INCLUDE_STACK_ENTRY *entry,
+        char *directory) {
     struct dirent **namelist;
-    int i, num, err=0;
+    int num;
 
     num=scandir(directory, &namelist, NULL, alphasort);
     if(num<0) {
         ioerror("scandir");
         return "Failed to include directory";
     }
-    for(i=0; i<num; ++i) {
-        if(!err) {
-            struct stat sb;
-            char *name=str_printf(
-#ifdef USE_WIN32
-                "%s\\%s",
-#else
-                "%s/%s",
-#endif
-                directory, namelist[i]->d_name);
-            if(!stat(name, &sb) && S_ISREG(sb.st_mode))
-                err=options_file(name, CONF_FILE, section_ptr);
-            else
-                s_log(LOG_DEBUG, "\"%s\" is not a file", name);
-            str_free(name);
-        }
-        free(namelist[i]);
-    }
-    free(namelist);
-    if(err)
-        return "Failed to include a file";
+    entry->namelist=namelist;
+    entry->include_num=num;
+    entry->include_idx=0;
+    entry->include_directory=str_dup(directory);
     return NULL;
+}
+
+NOEXPORT INCLUDE_RESULT include_config_next(INCLUDE_STACK_ENTRY *stack,
+        unsigned *depth) {
+    INCLUDE_STACK_ENTRY *entry=&stack[*depth-1U];
+
+    while(entry->include_idx<entry->include_num) {
+        struct stat sb;
+        char *name=str_printf(
+#ifdef USE_WIN32
+            "%s\\%s",
+#else
+            "%s/%s",
+#endif
+            entry->include_directory,
+            entry->namelist[entry->include_idx]->d_name);
+        ++entry->include_idx;
+
+        if(!stat(name, &sb) && S_ISREG(sb.st_mode)) {
+            if(*depth>=INCLUDE_STACK_SIZE) {
+                s_log(LOG_ERR,
+                    "%s:%d: Include stack overflow while including \"%s\" "
+                    "(maximum depth %u); recursive includes suspected",
+                    entry->path, entry->line_number, name,
+                    INCLUDE_STACK_SIZE);
+                str_free(name);
+                return INCLUDE_OVERFLOW;
+            }
+            if(options_file_open(&stack[*depth], name, CONF_FILE)) {
+                str_free(name);
+                return INCLUDE_ERROR;
+            }
+            ++*depth;
+            str_free(name);
+            return INCLUDE_ADVANCE;
+        }
+        s_log(LOG_DEBUG, "\"%s\" is not a file", name);
+        str_free(name);
+    }
+    include_config_close(entry);
+    return INCLUDE_EXHAUSTED;
+}
+
+NOEXPORT void include_config_close(INCLUDE_STACK_ENTRY *entry) {
+    if(entry->namelist) {
+        int i;
+
+        for(i=0; i<entry->include_num; ++i) {
+            /* scandir() transfers Standard Library allocated ownership. */
+            /* cppcheck-suppress misra-c2012-21.3 */
+            free(entry->namelist[i]);
+        }
+        /* cppcheck-suppress misra-c2012-21.3 */
+        free(entry->namelist);
+        entry->namelist=NULL;
+    }
+    entry->include_num=0;
+    entry->include_idx=0;
+    str_free(entry->include_directory);
 }
 
 /**************************************** fatal error */
@@ -5531,8 +5748,8 @@ NOEXPORT char **arg_alloc(char *str) {
     size_t max_arg, i;
     char **tmp, **retval;
 
-    max_arg=strlen(str)/2+1;
-    tmp=str_alloc((max_arg+1)*sizeof(char *));
+    max_arg=strlen(str)/2U+1U;
+    tmp=str_alloc((max_arg+1U)*sizeof(char *));
 
     i=0;
     while(*str && i<max_arg) {
@@ -5557,7 +5774,7 @@ NOEXPORT char **arg_dup(char **src) {
         return NULL;
     for(n=0; src[n]; ++n)
         ;
-    dst=str_alloc_detached((n+1)*sizeof(char *));
+    dst=str_alloc_detached((n+1U)*sizeof(char *));
     for(i=0; i<n; ++i)
         dst[i]=str_dup_detached(src[i]);
     dst[n]=NULL;

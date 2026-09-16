@@ -48,8 +48,8 @@ SERVICE_OPTIONS *current_section=NULL;
 
 #if OPENSSL_VERSION_NUMBER<0x10101000L
 /* try an empty passphrase first */
-static char cached_passwd[PEM_BUFSIZE]="";
-static int cached_len=0;
+NOEXPORT char cached_passwd[PEM_BUFSIZE]="";
+NOEXPORT int cached_len=0;
 #endif /* OpenSSL older than 1.1.1 */
 typedef struct {
     const char *password;
@@ -69,96 +69,109 @@ int dh_temp_params=0;
 
 /* SNI */
 #ifndef OPENSSL_NO_TLSEXT
-NOEXPORT int servername_cb(SSL *, int *, void *);
-NOEXPORT int matches_wildcard(const char *, const char *);
+NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg);
+NOEXPORT int matches_wildcard(const char *servername, const char *pattern);
 #endif
 
 /* DH/ECDH */
 #ifndef OPENSSL_NO_DH
-NOEXPORT int dh_init(SERVICE_OPTIONS *);
+NOEXPORT int dh_init(SERVICE_OPTIONS *section);
 #if OPENSSL_VERSION_NUMBER>=0x10101000L
 NOEXPORT DH *dh_load_from_store(const char *uri);
 #else /* OpenSSL 1.1.1 or later */
-NOEXPORT DH *dh_read(char *);
+NOEXPORT DH *dh_read(char *cert);
 #endif /* OpenSSL 1.1.1 or later */
 #endif /* OPENSSL_NO_DH */
 #ifndef OPENSSL_NO_ECDH
-NOEXPORT int ecdh_init(SERVICE_OPTIONS *);
+NOEXPORT int ecdh_init(SERVICE_OPTIONS *section);
 #endif /* USE_ECDH */
 
 /* configuration commands */
 NOEXPORT int conf_init(SERVICE_OPTIONS *section);
 
 /* authentication */
-NOEXPORT int auth_init(SERVICE_OPTIONS *);
+NOEXPORT int auth_init(SERVICE_OPTIONS *section);
 #ifndef OPENSSL_NO_PSK
-NOEXPORT unsigned psk_client_callback(SSL *, const char *,
-    char *, unsigned, unsigned char *, unsigned);
-NOEXPORT unsigned psk_server_callback(SSL *, const char *,
-    unsigned char *, unsigned);
+NOEXPORT unsigned psk_client_callback(SSL *ssl, const char *hint,
+    char *identity, unsigned max_identity_len, unsigned char *psk,
+    unsigned max_psk_len);
+NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
+    unsigned char *psk, unsigned max_psk_len);
 #endif /* !defined(OPENSSL_NO_PSK) */
 
 #if OPENSSL_VERSION_NUMBER>=0x10101000L
-NOEXPORT int load_objects(SERVICE_OPTIONS *, int *, int *);
-NOEXPORT int load_objects_from_store(SSL_CTX *, const char *, int *, int *);
+NOEXPORT int load_objects(SERVICE_OPTIONS *section,
+    int *cert_needed, int *key_needed);
+NOEXPORT int load_objects_from_store(SSL_CTX *ctx, const char *uri,
+    int *cert_needed, int *key_needed);
 #else /* OpenSSL 1.1.1 or later */
-NOEXPORT int load_cert_file(SERVICE_OPTIONS *, const char *, int *);
-NOEXPORT int load_key_file(SERVICE_OPTIONS *, const char *, int *);
-NOEXPORT int pkcs12_extension(const char *);
-NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *, const char *, int *, int *);
-NOEXPORT int cache_passwd_get_cb(char *, int, int, void *);
-NOEXPORT int cache_passwd_set_cb(char *, int, int, void *);
-NOEXPORT void set_prompt(const char *);
+NOEXPORT int load_cert_file(SERVICE_OPTIONS *section, const char *file,
+    int *cert_needed);
+NOEXPORT int load_key_file(SERVICE_OPTIONS *section, const char *file,
+    int *key_needed);
+NOEXPORT int pkcs12_extension(const char *filename);
+NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section, const char *file,
+    int *cert_needed, int *key_needed);
+NOEXPORT int cache_passwd_get_cb(char *buf, int size, int rwflag,
+    void *userdata);
+NOEXPORT int cache_passwd_set_cb(char *buf, int size, int rwflag,
+    void *userdata);
+NOEXPORT void set_prompt(const char *name);
 #endif /* OpenSSL 1.1.1 or later */
 
 #ifndef OPENSSL_NO_ENGINE
-NOEXPORT int load_cert_engine(SERVICE_OPTIONS *, const char *, int *);
-NOEXPORT int load_key_engine(SERVICE_OPTIONS *, const char *, int *);
+NOEXPORT int load_cert_engine(SERVICE_OPTIONS *section, const char *file,
+    int *cert_needed);
+NOEXPORT int load_key_engine(SERVICE_OPTIONS *section, const char *file,
+    int *key_needed);
 #endif
 
 NOEXPORT int ui_retry(void);
 
 /* session tickets */
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
-NOEXPORT int generate_session_ticket_cb(SSL *, void *);
-NOEXPORT int decrypt_session_ticket_cb(SSL *, SSL_SESSION *,
-    const unsigned char *, size_t, SSL_TICKET_STATUS, void *);
+NOEXPORT int generate_session_ticket_cb(SSL *ssl, void *arg);
+NOEXPORT int decrypt_session_ticket_cb(SSL *ssl, SSL_SESSION *sess,
+    const unsigned char *keyname, size_t keyname_len,
+    SSL_TICKET_STATUS status, void *arg);
 #endif /* OpenSSL 1.1.1 or later */
 
 #if OPENSSL_VERSION_NUMBER>=0x10000000L
-NOEXPORT int ssl_tlsext_ticket_key_cb(SSL *, unsigned char *,
-    unsigned char *, EVP_CIPHER_CTX *, HMAC_CTX *, int);
+NOEXPORT int ssl_tlsext_ticket_key_cb(SSL *ssl, unsigned char *key_name,
+    unsigned char *iv, EVP_CIPHER_CTX *ctx, HMAC_CTX *hctx, int enc);
 #endif /* OpenSSL 1.0.0 or later */
 
 /* session callbacks */
-NOEXPORT int sess_new_cb(SSL *, SSL_SESSION *);
-NOEXPORT void new_chain(CLI *);
-NOEXPORT void session_cache_save(CLI *, SSL_SESSION *);
+NOEXPORT int sess_new_cb(SSL *ssl, SSL_SESSION *sess);
+NOEXPORT void new_chain(CLI *c);
+NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess);
 #if OPENSSL_VERSION_NUMBER<0x10101000L
-NOEXPORT SSL_SESSION *SSL_SESSION_dup(SSL_SESSION *);
+NOEXPORT SSL_SESSION *SSL_SESSION_dup(SSL_SESSION *src);
 #endif
-NOEXPORT SSL_SESSION *sess_get_cb(SSL *,
+NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     const
 #endif
-    unsigned char *, int, int *);
-NOEXPORT void sess_remove_cb(SSL_CTX *, SSL_SESSION *);
+    unsigned char *key, int key_len, int *do_copy);
+NOEXPORT void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess);
 
 /* sessiond interface */
-NOEXPORT void cache_new(SSL *, SSL_SESSION *);
-NOEXPORT SSL_SESSION *cache_get(SSL *, const unsigned char *, int);
-NOEXPORT void cache_remove(SSL_CTX *, SSL_SESSION *);
-NOEXPORT void cache_transfer(SSL_CTX *, const u_char, const long,
-    const u_char *, const size_t,
-    const u_char *, const size_t,
-    unsigned char **, size_t *);
+NOEXPORT void cache_new(SSL *ssl, SSL_SESSION *sess);
+NOEXPORT SSL_SESSION *cache_get(SSL *ssl, const unsigned char *key,
+    int key_len);
+NOEXPORT void cache_remove(SSL_CTX *ctx, SSL_SESSION *sess);
+NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
+    const long timeout, const u_char *key, const size_t key_len,
+    const u_char *val, const size_t val_len,
+    unsigned char **ret, size_t *ret_len);
 
 /* info callbacks */
-NOEXPORT void info_callback(const SSL *, int, int);
+NOEXPORT void info_callback(const SSL *ssl, int where, int ret);
 
 #ifndef OPENSSL_NO_TLS1_3
-NOEXPORT char *compare_cipher_lists(STACK_OF(SSL_CIPHER) *, STACK_OF(SSL_CIPHER) *);
-NOEXPORT char *get_tls13_cipher_list(STACK_OF(SSL_CIPHER) *);
+NOEXPORT char *compare_cipher_lists(STACK_OF(SSL_CIPHER) *list1,
+    STACK_OF(SSL_CIPHER) *list2);
+NOEXPORT char *get_tls13_cipher_list(STACK_OF(SSL_CIPHER) *list);
 #endif /* TLS 1.3 */
 
 /**************************************** global initialization and cleanup */
@@ -166,6 +179,8 @@ NOEXPORT char *get_tls13_cipher_list(STACK_OF(SSL_CIPHER) *);
 #if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
 
 NOEXPORT void clear_cached_password(PW_CB_DATA *cb_data) {
+    /* The const-qualified API field owns this mutable allocated buffer. */
+    /* cppcheck-suppress misra-c2012-11.8 */
     char *previous=(char *)cb_data->password;
 
     cb_data->password=NULL;
@@ -194,7 +209,7 @@ NOEXPORT char *ui_prompt_constructor(UI *ui,
 
 NOEXPORT int ui_caching_reader(UI *ui, UI_STRING *uis) {
     PW_CB_DATA *cb_data=UI_get0_user_data(ui);
-    int (*reader)(UI *, UI_STRING *);
+    int (*reader)(UI *ui, UI_STRING *uis);
 
     /* NOTE: NULL cb_data value indicates a password that is not supposed
      * to be cached, such as a CKA_ALWAYS_AUTHENTICATE PIN in PKCS#11 */
@@ -244,18 +259,41 @@ int ctx_init(void) {
     }
 #endif /* OPENSSL_NO_DH */
 #if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
+    int ui_result;
+
     ui_stunnel=UI_create_method("stunnel UI");
     if(!ui_stunnel) {
         ssl_error(NULL, "UI_create_method");
         return 1; /* FAILED */
     }
 #if OPENSSL_VERSION_NUMBER>=0x10000000L
-    UI_method_set_prompt_constructor(ui_stunnel, ui_prompt_constructor);
+    ui_result=UI_method_set_prompt_constructor(ui_stunnel,
+        ui_prompt_constructor);
+    if(ui_result<0) {
+        ssl_error(NULL, "UI_method_set_prompt_constructor");
+        return 1; /* FAILED */
+    }
 #endif /* OPENSSL_VERSION_NUMBER>=0x10000000L */
-    UI_method_set_opener(ui_stunnel, ui_get_opener());
-    UI_method_set_writer(ui_stunnel, ui_get_writer());
-    UI_method_set_reader(ui_stunnel, ui_caching_reader);
-    UI_method_set_closer(ui_stunnel, ui_get_closer());
+    ui_result=UI_method_set_opener(ui_stunnel, ui_get_opener());
+    if(ui_result<0) {
+        ssl_error(NULL, "UI_method_set_opener");
+        return 1; /* FAILED */
+    }
+    ui_result=UI_method_set_writer(ui_stunnel, ui_get_writer());
+    if(ui_result<0) {
+        ssl_error(NULL, "UI_method_set_writer");
+        return 1; /* FAILED */
+    }
+    ui_result=UI_method_set_reader(ui_stunnel, ui_caching_reader);
+    if(ui_result<0) {
+        ssl_error(NULL, "UI_method_set_reader");
+        return 1; /* FAILED */
+    }
+    ui_result=UI_method_set_closer(ui_stunnel, ui_get_closer());
+    if(ui_result<0) {
+        ssl_error(NULL, "UI_method_set_closer");
+        return 1; /* FAILED */
+    }
 #endif /* !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L */
     return 0; /* SUCCESS */
 }
@@ -303,9 +341,13 @@ NOEXPORT int dtls_cookie_sockaddr(const SOCKADDR_UNION *peer,
                 family);
             return 0;
     }
-    memcpy(peer_data, &family, sizeof family);
-    memcpy(peer_data+sizeof family, &port, sizeof port);
-    memcpy(peer_data+header_len, address, address_len);
+    /* Serialize the peer identity into OpenSSL's byte-oriented cookie. */
+    /* cppcheck-suppress misra-c2012-21.15 */
+    (void)memcpy(peer_data, &family, sizeof family);
+    /* cppcheck-suppress misra-c2012-21.15 */
+    (void)memcpy(peer_data+sizeof family, &port, sizeof port);
+    /* cppcheck-suppress misra-c2012-21.15 */
+    (void)memcpy(peer_data+header_len, address, address_len);
     *peer_len=header_len+address_len;
     return 1;
 }
@@ -404,7 +446,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     s_log(LOG_DEBUG, "Initializing context [%s]", section->servname);
 
 #ifndef USE_DTLS
-    if(section->sock_type==SOCK_DGRAM) {
+    if(socket_type_is_datagram(section->sock_type)) {
         s_log(LOG_ERR, "DTLS is not supported by this OpenSSL build");
         return 1; /* FAILED */
     }
@@ -413,7 +455,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     /* create a new TLS/DTLS context */
 #if OPENSSL_VERSION_NUMBER>=0x30000000L
 #ifdef USE_DTLS
-    if(section->sock_type==SOCK_DGRAM)
+    if(socket_type_is_datagram(section->sock_type))
         section->ctx=SSL_CTX_new_ex(NULL,
             EVP_default_properties_is_fips_enabled(NULL) ?
                 "fips=yes" : "provider!=fips",
@@ -428,7 +470,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
                 TLS_client_method() : TLS_server_method());
 #elif OPENSSL_VERSION_NUMBER>=0x10100000L
 #ifdef USE_DTLS
-    if(section->sock_type==SOCK_DGRAM)
+    if(socket_type_is_datagram(section->sock_type))
         section->ctx=SSL_CTX_new(section->option.client ?
             DTLS_client_method() : DTLS_server_method());
     else
@@ -437,7 +479,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
             TLS_client_method() : TLS_server_method());
 #else
 #ifdef USE_DTLS
-    if(section->sock_type==SOCK_DGRAM)
+    if(socket_type_is_datagram(section->sock_type))
 #if OPENSSL_VERSION_NUMBER>=0x10002000L
         section->ctx=SSL_CTX_new(section->option.client ?
             DTLS_client_method() : DTLS_server_method());
@@ -459,7 +501,8 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 #ifdef USE_DTLS
     /* DTLS server: generate per-section cookie secret
      * and register cookie callbacks */
-    if(section->sock_type==SOCK_DGRAM && !section->option.client) {
+    if(socket_type_is_datagram(section->sock_type) &&
+            !section->option.client) {
 #if OPENSSL_VERSION_NUMBER>=0x10101000L
         if(!RAND_priv_bytes(section->dtls_cookie_secret,
 #else /* OPENSSL_VERSION_NUMBER>=0x10101000L */
@@ -477,19 +520,21 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 
     /* set supported protocol versions */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
-    if(section->min_proto_version &&
-            !SSL_CTX_set_min_proto_version(section->ctx,
-            section->min_proto_version)) {
-        s_log(LOG_ERR, "Failed to set the minimum protocol version 0x%X",
-            section->min_proto_version);
-        return 1; /* FAILED */
+    if(section->min_proto_version) {
+        if(!SSL_CTX_set_min_proto_version(section->ctx,
+                section->min_proto_version)) {
+            s_log(LOG_ERR, "Failed to set the minimum protocol version 0x%X",
+                section->min_proto_version);
+            return 1; /* FAILED */
+        }
     }
-    if(section->max_proto_version &&
-            !SSL_CTX_set_max_proto_version(section->ctx,
-            section->max_proto_version)) {
-        s_log(LOG_ERR, "Failed to set the maximum protocol version 0x%X",
-            section->max_proto_version);
-        return 1; /* FAILED */
+    if(section->max_proto_version) {
+        if(!SSL_CTX_set_max_proto_version(section->ctx,
+                section->max_proto_version)) {
+            s_log(LOG_ERR, "Failed to set the maximum protocol version 0x%X",
+                section->max_proto_version);
+            return 1; /* FAILED */
+        }
     }
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 
@@ -554,24 +599,26 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 #endif /* TLS 1.3 */
 
     /* TLS options: configure the stunnel defaults first */
-    SSL_CTX_set_options(section->ctx, SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
+    /* OpenSSL option masks have API-defined essential types. */
+    /* cppcheck-suppress misra-c2012-10.4 */
+    (void)SSL_CTX_set_options(section->ctx, SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
     /* no session ticket gets sent to the client at all in TLSv1.2
        and below, but a stateful ticket will be sent in TLSv1.3 */
 #ifdef SSL_OP_NO_TICKET
     if(!section->option.client && !section->option.session_resume) {
-        SSL_CTX_set_options(section->ctx, SSL_OP_NO_TICKET);
+        (void)SSL_CTX_set_options(section->ctx, SSL_OP_NO_TICKET);
     }
 #endif
 #ifdef SSL_OP_NO_COMPRESSION
     /* we implemented a better way to disable compression if needed */
-    SSL_CTX_clear_options(section->ctx, SSL_OP_NO_COMPRESSION);
+    (void)SSL_CTX_clear_options(section->ctx, SSL_OP_NO_COMPRESSION);
 #endif /* SSL_OP_NO_COMPRESSION */
 
     /* TLS options: configure the user-specified values */
-    SSL_CTX_set_options(section->ctx,
+    (void)SSL_CTX_set_options(section->ctx,
         (SSL_OPTIONS_TYPE)(section->ssl_options_set));
 #if OPENSSL_VERSION_NUMBER>=0x009080dfL
-    SSL_CTX_clear_options(section->ctx,
+    (void)SSL_CTX_clear_options(section->ctx,
         (SSL_OPTIONS_TYPE)(section->ssl_options_clear));
 #endif /* OpenSSL 0.9.8m or later */
 
@@ -592,37 +639,55 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 
     /* setup mode of operation for the TLS state machine */
 #ifdef SSL_MODE_RELEASE_BUFFERS
-    SSL_CTX_set_mode(section->ctx,
+    (void)SSL_CTX_set_mode(section->ctx,
         SSL_MODE_ENABLE_PARTIAL_WRITE |
         SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER |
         SSL_MODE_RELEASE_BUFFERS);
 #else
-    SSL_CTX_set_mode(section->ctx,
+    (void)SSL_CTX_set_mode(section->ctx,
         SSL_MODE_ENABLE_PARTIAL_WRITE |
         SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 #endif
 
     /* setup session tickets */
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
-    SSL_CTX_set_session_ticket_cb(section->ctx, generate_session_ticket_cb,
-        decrypt_session_ticket_cb, NULL);
+    {
+        int ticket_result;
+
+        ticket_result=SSL_CTX_set_session_ticket_cb(section->ctx,
+            generate_session_ticket_cb, decrypt_session_ticket_cb, NULL);
+        if(!ticket_result) {
+            ssl_error(NULL, "SSL_CTX_set_session_ticket_cb");
+            return 1; /* FAILED */
+        }
+    }
 #endif /* OpenSSL 1.1.1 or later */
 
 #if OPENSSL_VERSION_NUMBER>=0x10000000L
-    if((section->ticket_key)&&(section->ticket_mac))
-        SSL_CTX_set_tlsext_ticket_key_cb(section->ctx, ssl_tlsext_ticket_key_cb);
+    if(section->ticket_key && section->ticket_mac) {
+        long ticket_result;
+
+        ticket_result=SSL_CTX_set_tlsext_ticket_key_cb(section->ctx,
+            ssl_tlsext_ticket_key_cb);
+        if(!ticket_result) {
+            ssl_error(NULL, "SSL_CTX_set_tlsext_ticket_key_cb");
+            return 1; /* FAILED */
+        }
+    }
 #endif /* OpenSSL 1.0.0 or later */
 
     /* setup session cache */
     if(!section->option.client) {
         unsigned servname_len=(unsigned)strlen(section->servname);
-        if(servname_len>SSL_MAX_SSL_SESSION_ID_LENGTH)
-            servname_len=SSL_MAX_SSL_SESSION_ID_LENGTH;
+        if(servname_len>(unsigned)SSL_MAX_SSL_SESSION_ID_LENGTH)
+            servname_len=(unsigned)SSL_MAX_SSL_SESSION_ID_LENGTH;
 #ifndef OPENSSL_NO_TLS1_3
         /* suppress all tickets (stateful and stateless) in TLSv1.3 */
-        if(!section->option.session_resume && !SSL_CTX_set_num_tickets(section->ctx, 0)) {
-            ssl_error(NULL, "SSL_CTX_set_num_tickets");
-            return 1; /* FAILED */
+        if(!section->option.session_resume) {
+            if(!SSL_CTX_set_num_tickets(section->ctx, 0)) {
+                ssl_error(NULL, "SSL_CTX_set_num_tickets");
+                return 1; /* FAILED */
+            }
         }
 #endif /* TLS 1.3 */
         if(!SSL_CTX_set_session_id_context(section->ctx,
@@ -632,15 +697,15 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
         }
     }
     if(section->option.session_resume) {
-        SSL_CTX_set_session_cache_mode(section->ctx,
+        (void)SSL_CTX_set_session_cache_mode(section->ctx,
             SSL_SESS_CACHE_BOTH | SSL_SESS_CACHE_NO_INTERNAL_STORE);
     } else {
-        SSL_CTX_set_session_cache_mode(section->ctx, SSL_SESS_CACHE_OFF);
+        (void)SSL_CTX_set_session_cache_mode(section->ctx, SSL_SESS_CACHE_OFF);
     }
     s_log(LOG_INFO, "Session resumption %s", section->option.session_resume
         ? "enabled" : "disabled");
-    SSL_CTX_sess_set_cache_size(section->ctx, section->session_size);
-    SSL_CTX_set_timeout(section->ctx, section->session_timeout);
+    (void)SSL_CTX_sess_set_cache_size(section->ctx, section->session_size);
+    (void)SSL_CTX_set_timeout(section->ctx, section->session_timeout);
     SSL_CTX_sess_set_new_cb(section->ctx, sess_new_cb);
     SSL_CTX_sess_set_get_cb(section->ctx, sess_get_cb);
     SSL_CTX_sess_set_remove_cb(section->ctx, sess_remove_cb);
@@ -653,7 +718,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
         return 1; /* FAILED */
 
     /* initialize verification of the peer server certificate */
-    if(verify_init(section))
+    if(verify_section_init(section))
         return 1; /* FAILED */
 
     /* OCSP stapling */
@@ -664,11 +729,19 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 
     /* initialize the DH/ECDH key agreement */
 #ifndef OPENSSL_NO_TLSEXT
-    if(!section->option.client)
-        SSL_CTX_set_tlsext_servername_callback(section->ctx, servername_cb);
+    if(!section->option.client) {
+        long sni_result;
+
+        sni_result=SSL_CTX_set_tlsext_servername_callback(section->ctx,
+            servername_cb);
+        if(!sni_result) {
+            ssl_error(NULL, "SSL_CTX_set_tlsext_servername_callback");
+            return 1; /* FAILED */
+        }
+    }
 #endif /* OPENSSL_NO_TLSEXT */
 #ifndef OPENSSL_NO_DH
-    dh_init(section); /* ignore the result (errors are not critical) */
+    (void)dh_init(section); /* ignore the result (errors are not critical) */
 #endif /* OPENSSL_NO_DH */
 #ifndef OPENSSL_NO_ECDH
     if(ecdh_init(section))
@@ -688,9 +761,9 @@ void context_cleanup(SERVICE_OPTIONS *section) {
     if(section->servname) /* after options_defaults() */
         s_log(LOG_DEBUG, "Cleaning up context [%s]", section->servname);
 
-#ifndef OPENSSL_NO_OCSP
+#if !defined(OPENSSL_NO_OCSP) && OPENSSL_VERSION_NUMBER>=0x10002000L
     ocsp_cleanup(section);
-#endif /* !defined(OPENSSL_NO_OCSP) */
+#endif /* !defined(OPENSSL_NO_OCSP) && OpenSSL version 1.0.2 or later */
     str_free(section->chain);
     if(section->session)
         SSL_SESSION_free(section->session);
@@ -734,11 +807,11 @@ NOEXPORT int servername_cb(SSL *ssl, int *ad, void *arg) {
 
     /* switch to the new section */
 #ifndef USE_FORK
-    service_up_ref(list->opt);
+    (void)service_up_ref(list->opt);
     service_free(c->opt);
 #endif
     c->opt=list->opt;
-    SSL_set_SSL_CTX(ssl, c->opt->ctx);
+    (void)SSL_set_SSL_CTX(ssl, c->opt->ctx);
     SSL_set_verify(ssl, SSL_CTX_get_verify_mode(c->opt->ctx),
         SSL_CTX_get_verify_callback(c->opt->ctx));
     s_log(LOG_NOTICE, "SNI: switched to service [%s]", c->opt->servname);
@@ -798,12 +871,13 @@ NOEXPORT STACK_OF(SSL_CIPHER) *SSL_CTX_get_ciphers(const SSL_CTX *ctx) {
 
 NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
     DH *dh=NULL;
+    CRYPTO_RWLOCK *lock;
     int i, n;
     char description[128];
     STACK_OF(SSL_CIPHER) *ciphers;
     NAME_LIST *ptr;
 
-    section->option.dh_temp_params=0; /* disable by default */
+    section->option.dh_temp_params_set=0; /* disable by default */
 
     /* check if DH is needed for this section */
     if(section->option.client) {
@@ -815,9 +889,16 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
         return 1; /* ERROR (unlikely) */
     n=sk_SSL_CIPHER_num(ciphers);
     for(i=0; i<n; ++i) {
+        const char *description_result;
+
         *description='\0';
-        SSL_CIPHER_description(sk_SSL_CIPHER_value(ciphers, i),
+        description_result=SSL_CIPHER_description(
+            sk_SSL_CIPHER_value(ciphers, i),
             description, sizeof description);
+        if(!description_result) {
+            ssl_error(NULL, "SSL_CIPHER_description");
+            return 1; /* FAILED */
+        }
         /* s_log(LOG_INFO, "Ciphersuite: %s", description); */
         if(strstr(description, " Kx=DH")) {
             s_log(LOG_INFO, "DH initialization needed for %s",
@@ -842,16 +923,34 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
 #endif /* OpenSSL 1.1.1 or later */
         }
     if(dh) {
-        SSL_CTX_set_tmp_dh(section->ctx, dh);
+        long success;
+
+        /* OpenSSL implements this typed macro through SSL_CTX_ctrl(). */
+        /* cppcheck-suppress misra-c2012-11.2 */
+        success=SSL_CTX_set_tmp_dh(section->ctx, dh);
         s_log(LOG_INFO, "%d-bit DH parameters loaded", 8*DH_size(dh));
         DH_free(dh);
+        if(!success) {
+            ssl_error(NULL, "SSL_CTX_set_tmp_dh");
+            return 1; /* FAILED */
+        }
         return 0; /* OK */
     }
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_DH]);
-    SSL_CTX_set_tmp_dh(section->ctx, dh_params);
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_DH]);
+    {
+        long success;
+
+        lock=s_read_lock(LOCK_DH);
+        /* OpenSSL implements this typed macro through SSL_CTX_ctrl(). */
+        /* cppcheck-suppress misra-c2012-11.2 */
+        success=SSL_CTX_set_tmp_dh(section->ctx, dh_params);
+        s_unlock(lock);
+        if(!success) {
+            ssl_error(NULL, "SSL_CTX_set_tmp_dh");
+            return 1; /* FAILED */
+        }
+    }
     dh_temp_params=1; /* generate temporary DH parameters in cron */
-    section->option.dh_temp_params=1; /* update this section in cron */
+    section->option.dh_temp_params_set=1; /* update this section in cron */
     s_log(LOG_INFO, "Using dynamic DH parameters");
     return 0; /* OK */
 }
@@ -884,7 +983,7 @@ NOEXPORT DH *dh_load_from_store(const char *uri)
         }
         OSSL_STORE_INFO_free(object);
     }
-    OSSL_STORE_close(store_ctx);
+    (void)OSSL_STORE_close(store_ctx);
     return dh;
 }
 
@@ -975,10 +1074,10 @@ NOEXPORT int conf_init(SERVICE_OPTIONS *section) {
         return 1; /* FAILED */
     }
     SSL_CONF_CTX_set_ssl_ctx(cctx, section->ctx);
-    SSL_CONF_CTX_set_flags(cctx, SSL_CONF_FLAG_FILE);
-    SSL_CONF_CTX_set_flags(cctx, section->option.client ?
+    (void)SSL_CONF_CTX_set_flags(cctx, SSL_CONF_FLAG_FILE);
+    (void)SSL_CONF_CTX_set_flags(cctx, section->option.client ?
         SSL_CONF_FLAG_CLIENT : SSL_CONF_FLAG_SERVER);
-    SSL_CONF_CTX_set_flags(cctx, SSL_CONF_FLAG_CERTIFICATE);
+    (void)SSL_CONF_CTX_set_flags(cctx, SSL_CONF_FLAG_CERTIFICATE);
 
     for(curr=section->config; curr; curr=curr->next) {
         cmd=str_dup(curr->name);
@@ -1124,7 +1223,7 @@ NOEXPORT unsigned psk_client_callback(SSL *ssl, const char *hint,
     /* the source seems to have its buffer large enough for
      * the trailing null character, but the manual page says
      * nothing about it -- lets play safe */
-    identity_len=strlen(c->opt->psk_selected->identity)+1;
+    identity_len=strlen(c->opt->psk_selected->identity)+1U;
     if(identity_len>max_identity_len) {
         s_log(LOG_ERR, "PSK identity too long (%lu>%d bytes)",
             (long unsigned)identity_len, max_identity_len);
@@ -1135,8 +1234,8 @@ NOEXPORT unsigned psk_client_callback(SSL *ssl, const char *hint,
             (long unsigned)c->opt->psk_selected->key_len, max_psk_len);
         return 0;
     }
-    strcpy(identity, c->opt->psk_selected->identity);
-    memcpy(psk, c->opt->psk_selected->key_val, c->opt->psk_selected->key_len);
+    (void)strcpy(identity, c->opt->psk_selected->identity);
+    (void)memcpy(psk, c->opt->psk_selected->key_val, c->opt->psk_selected->key_len);
     s_log(LOG_INFO, "PSK client configured for identity \"%s\"", identity);
     return (unsigned)(c->opt->psk_selected->key_len);
 }
@@ -1162,14 +1261,15 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
         s_log(LOG_ERR, "PSK too long (%u>%u)", found->key_len, max_psk_len);
         return 0;
     }
-    memcpy(psk, found->key_val, found->key_len);
+    (void)memcpy(psk, found->key_val, found->key_len);
     s_log(LOG_NOTICE, "Key configured for PSK identity \"%s\"", identity);
     c->flag.psk_found=1;
     return found->key_len;
 }
 
 NOEXPORT int psk_compar(const void *a, const void *b) {
-    const PSK_KEYS *x=*(PSK_KEYS *const*)a, *y=*(PSK_KEYS *const*)b;
+    const PSK_KEYS *const *a_key=a, *const *b_key=b;
+    const PSK_KEYS *x=*a_key, *y=*b_key;
 
 #if 0
     s_log(LOG_DEBUG, "PSK cmp: %s %s", x->identity, y->identity);
@@ -1187,10 +1287,13 @@ void psk_sort(PSK_TABLE *table, PSK_KEYS *head) {
     s_log(LOG_INFO, "PSK identities: %lu retrieved",
         (long unsigned)table->num);
     table->val=str_alloc_detached(table->num*sizeof(PSK_KEYS *));
-    for(curr=head, i=0; i<table->num; ++i) {
+    curr=head;
+    for(i=0; i<table->num; ++i) {
         table->val[i]=curr;
         curr=curr->next;
     }
+    /* The standard sort is safer than maintaining a custom implementation. */
+    /* cppcheck-suppress misra-c2012-21.9 */
     qsort(table->val, table->num, sizeof(PSK_KEYS *), psk_compar);
 #if 0
     for(i=0; i<table->num; ++i)
@@ -1202,6 +1305,8 @@ PSK_KEYS *psk_find(const PSK_TABLE *table, const char *identity) {
     PSK_KEYS key, *ptr=&key, **ret;
 
     key.identity=identity;
+    /* The standard search matches the table ordering established above. */
+    /* cppcheck-suppress misra-c2012-21.9 */
     ret=bsearch(&ptr,
         table->val, table->num, sizeof(PSK_KEYS *), psk_compar);
     return ret ? *ret : NULL;
@@ -1442,9 +1547,13 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section, const char *file, int *ke
         pkey=ENGINE_load_private_key(section->engine, file,
             ui_stunnel, NULL);
         if(!pkey) {
-            if(i<2 && ui_retry()) { /* wrong PIN */
-                s_log(LOG_ERR, "Wrong PIN: retrying");
-                continue;
+            if(i<2) {
+                int retry=ui_retry(); /* wrong PIN */
+
+                if(retry) {
+                    s_log(LOG_ERR, "Wrong PIN: retrying");
+                    continue;
+                }
             }
             ssl_error(NULL, "ENGINE_load_private_key");
             return 1; /* FAILED */
@@ -1507,7 +1616,7 @@ NOEXPORT int load_objects_from_store(SSL_CTX *ctx, const char *uri,
                                 OSSL_STORE_INFO_get0_PKEY(object))) {
                             ssl_error(NULL, "SSL_CTX_use_PrivateKey");
                             OSSL_STORE_INFO_free(object);
-                            OSSL_STORE_close(store_ctx);
+                            (void)OSSL_STORE_close(store_ctx);
                             return 0; /* FAILED */
                         }
                         s_log(LOG_INFO, "Private key loaded from: %s", uri);
@@ -1521,7 +1630,7 @@ NOEXPORT int load_objects_from_store(SSL_CTX *ctx, const char *uri,
                                 OSSL_STORE_INFO_get0_CERT(object))) {
                             ssl_error(NULL, "SSL_CTX_use_certificate");
                             OSSL_STORE_INFO_free(object);
-                            OSSL_STORE_close(store_ctx);
+                            (void)OSSL_STORE_close(store_ctx);
                             return 0; /* FAILED */
                         }
                         s_log(LOG_INFO, "Certificate loaded from: %s", uri);
@@ -1532,7 +1641,7 @@ NOEXPORT int load_objects_from_store(SSL_CTX *ctx, const char *uri,
                                 OSSL_STORE_INFO_get0_CERT(object))) {
                             ssl_error(NULL, "SSL_CTX_add1_chain_cert");
                             OSSL_STORE_INFO_free(object);
-                            OSSL_STORE_close(store_ctx);
+                            (void)OSSL_STORE_close(store_ctx);
                             return 0; /* FAILED */
                         }
                     }
@@ -1542,7 +1651,7 @@ NOEXPORT int load_objects_from_store(SSL_CTX *ctx, const char *uri,
                 }
                 OSSL_STORE_INFO_free(object);
             }
-            OSSL_STORE_close(store_ctx);
+            (void)OSSL_STORE_close(store_ctx);
         }
 
         if((!key_needed || !*key_needed) && (!cert_needed || !*cert_needed)) {
@@ -1726,6 +1835,7 @@ NOEXPORT int generate_session_ticket_cb(SSL *ssl, void *arg) {
     TICKET_DATA ticket_data;
 #if 0
     SOCKADDR_UNION *addr;
+    CRYPTO_RWLOCK *lock;
 #endif
     int retval;
 
@@ -1736,18 +1846,18 @@ NOEXPORT int generate_session_ticket_cb(SSL *ssl, void *arg) {
     sess=SSL_get1_session(ssl);
     if(!sess)
         return 0;
-    memset(&ticket_data, 0, sizeof(TICKET_DATA));
+    (void)memset(&ticket_data, 0, sizeof(TICKET_DATA));
 
     ticket_data.session_authenticated=
         SSL_SESSION_get_ex_data(sess, index_session_authenticated);
 
 #if 0
     /* TODO: add remote_start() invocation here */
-    CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_ADDR]);
+    lock=s_read_lock(LOCK_ADDR);
     addr=SSL_SESSION_get_ex_data(sess, index_session_connect_address);
     if(addr)
-        memcpy(&ticket_data.addr, addr, (size_t)addr_len(addr));
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
+        memcpy(&ticket_data.addr, addr, (size_t)sockaddr_len(addr));
+    s_unlock(lock);
 #endif
 
     retval=SSL_SESSION_set1_ticket_appdata(sess,
@@ -1796,24 +1906,33 @@ NOEXPORT int decrypt_session_ticket_cb(SSL *ssl, SSL_SESSION *sess,
 
     s_log(LOG_INFO, "Decrypted ticket for an authenticated session: %s",
         ticket_data->session_authenticated ? "yes" : "no");
-    SSL_SESSION_set_ex_data(sess, index_session_authenticated,
-        ticket_data->session_authenticated);
+    {
+        int ex_data_result;
+
+        ex_data_result=SSL_SESSION_set_ex_data(sess,
+            index_session_authenticated, ticket_data->session_authenticated);
+        if(!ex_data_result) {
+            ssl_error(NULL, "SSL_SESSION_set_ex_data");
+            return SSL_TICKET_RETURN_ABORT;
+        }
+    }
 
 #if 0
     if(ticket_data->addr.sa.sa_family) {
         char *addr_txt;
         SOCKADDR_UNION *old_addr;
+        CRYPTO_RWLOCK *lock;
 
-        addr_txt=s_ntop(&ticket_data->addr, addr_len(&ticket_data->addr));
+        addr_txt=s_ntop(&ticket_data->addr, sockaddr_len(&ticket_data->addr));
         s_log(LOG_INFO, "Decrypted ticket persistence address: %s", addr_txt);
         str_free(addr_txt);
-        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_ADDR]);
+        lock=s_write_lock(LOCK_ADDR);
         old_addr=SSL_SESSION_get_ex_data(sess, index_session_connect_address);
         if(SSL_SESSION_set_ex_data(sess, index_session_connect_address, &ticket_data->addr)) {
-            CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
+            s_unlock(lock);
             str_free(old_addr); /* NULL pointers are ignored */
         } else { /* failed to store ticket_data->addr */
-            CRYPTO_THREAD_unlock(stunnel_locks[LOCK_ADDR]);
+            s_unlock(lock);
             ssl_error(c, "SSL_SESSION_set_ex_data");
         }
     } else {
@@ -1863,12 +1982,13 @@ NOEXPORT int ssl_tlsext_ticket_key_cb(SSL *ssl, unsigned char *key_name,
             s_log(LOG_ERR, "EVP_EncryptInit_ex failed");
             return -1;
         }
-    } else /* retrieve session */
+    } else { /* retrieve session */
         if(!EVP_DecryptInit_ex(ctx, cipher, NULL,
-            (const unsigned char *)(c->opt->ticket_key->key_val), iv)) {
+                (const unsigned char *)(c->opt->ticket_key->key_val), iv)) {
             s_log(LOG_ERR, "EVP_DecryptInit_ex failed");
             return -1;
         }
+    }
     /* By default, in TLSv1.2 and below, a new session ticket */
     /* is not issued on a successful resumption. */
     /* In TLSv1.3 the default behaviour is to always issue a new ticket on resumption. */
@@ -1925,33 +2045,46 @@ NOEXPORT void new_chain(CLI *c) {
         return;
     sk=SSL_get_peer_cert_chain(c->ssl);
     for(i=0; sk && i<sk_X509_num(sk); i++) {
+        int write_result;
+
         peer_cert=sk_X509_value(sk, i);
-        PEM_write_bio_X509(bio, peer_cert);
+        write_result=PEM_write_bio_X509(bio, peer_cert);
+        if(!write_result) {
+            ssl_error(c, "PEM_write_bio_X509");
+            (void)BIO_free(bio);
+            return;
+        }
     }
     if(!sk || !c->opt->option.client) {
         peer_cert=SSL_get_peer_certificate(c->ssl);
         if(peer_cert) {
-            PEM_write_bio_X509(bio, peer_cert);
+            int success=PEM_write_bio_X509(bio, peer_cert);
+
             X509_free(peer_cert);
+            if(!success) {
+                ssl_error(c, "PEM_write_bio_X509");
+                (void)BIO_free(bio);
+                return;
+            }
         }
     }
     len=BIO_pending(bio);
     if(len<=0) {
         s_log(LOG_INFO, "No peer certificate received");
-        BIO_free(bio);
+        (void)BIO_free(bio);
         return;
     }
     /* prevent automatic deallocation of the cached value */
-    chain=str_alloc_detached((size_t)len+1);
+    chain=str_alloc_detached((size_t)len+1U);
     len=BIO_read(bio, chain, len);
     if(len<0) {
         s_log(LOG_ERR, "BIO_read failed");
-        BIO_free(bio);
+        (void)BIO_free(bio);
         str_free(chain);
         return;
     }
     chain[len]='\0';
-    BIO_free(bio);
+    (void)BIO_free(bio);
     c->opt->chain=chain; /* this race condition is safe to ignore */
     ui_new_chain(c->opt->section_number);
     s_log(LOG_DEBUG, "Peer certificate was cached (%d bytes)", len);
@@ -1959,6 +2092,8 @@ NOEXPORT void new_chain(CLI *c) {
 
 /* cache client sessions */
 NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess) {
+    CRYPTO_RWLOCK *lock;
+
     if(!c->opt->option.client || !sess)
         return;
 
@@ -1967,7 +2102,7 @@ NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess) {
         return;
 #endif
 
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_SESSION]);
+    lock=s_write_lock(LOCK_SESSION);
 
     /* save per-destination client session */
     if(c->opt->connect_session) {
@@ -1981,7 +2116,7 @@ NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess) {
         SSL_SESSION_free(c->opt->session);
     c->opt->session=SSL_SESSION_dup(sess);
 
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_SESSION]);
+    s_unlock(lock);
 }
 
 #if OPENSSL_VERSION_NUMBER<0x10101000L
@@ -2035,11 +2170,11 @@ NOEXPORT void sess_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess) {
 
 /**************************************** sessiond functionality */
 
-#define CACHE_CMD_NEW     0x00
-#define CACHE_CMD_GET     0x01
-#define CACHE_CMD_REMOVE  0x02
-#define CACHE_RESP_ERR    0x80
-#define CACHE_RESP_OK     0x81
+#define CACHE_CMD_NEW     0x00U
+#define CACHE_CMD_GET     0x01U
+#define CACHE_CMD_REMOVE  0x02U
+#define CACHE_RESP_ERR    0x80U
+#define CACHE_RESP_OK     0x81U
 
 NOEXPORT void cache_new(SSL *ssl, SSL_SESSION *sess) {
     unsigned char *val, *val_tmp;
@@ -2048,8 +2183,21 @@ NOEXPORT void cache_new(SSL *ssl, SSL_SESSION *sess) {
     unsigned int session_id_length;
 
     val_len=i2d_SSL_SESSION(sess, NULL);
+    if(val_len<=0) {
+        ssl_error(NULL, "i2d_SSL_SESSION");
+        return;
+    }
     val_tmp=val=str_alloc((size_t)val_len);
-    i2d_SSL_SESSION(sess, &val_tmp);
+    {
+        int encoded_len;
+
+        encoded_len=i2d_SSL_SESSION(sess, &val_tmp);
+        if(encoded_len!=val_len) {
+            ssl_error(NULL, "i2d_SSL_SESSION");
+            str_free(val);
+            return;
+        }
+    }
 
     session_id=SSL_SESSION_get_id(sess, &session_id_length);
     cache_transfer(SSL_get_SSL_CTX(ssl), CACHE_CMD_NEW,
@@ -2084,7 +2232,7 @@ NOEXPORT void cache_remove(SSL_CTX *ctx, SSL_SESSION *sess) {
         session_id, session_id_length, NULL, 0, NULL, NULL);
 }
 
-#define MAX_VAL_LEN 512
+#define MAX_VAL_LEN 512U
 typedef struct {
     u_char version, type;
     u_short timeout;
@@ -2104,6 +2252,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     struct timeval t;
     CACHE_PACKET *packet;
     SERVICE_OPTIONS *section;
+    const size_t packet_header_len=sizeof(CACHE_PACKET)-MAX_VAL_LEN;
 
     if(ret) /* set error as the default result if required */
         *ret=NULL;
@@ -2115,7 +2264,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
         type_description[type], timeout, session_id_txt, (long unsigned)val_len);
 
     /* allocate UDP packet buffer */
-    if(key_len>SSL_MAX_SSL_SESSION_ID_LENGTH) {
+    if(key_len>(size_t)SSL_MAX_SSL_SESSION_ID_LENGTH) {
         s_log(LOG_ERR, "cache_transfer: session id too big (%lu bytes)",
             (unsigned long)key_len);
         return;
@@ -2131,9 +2280,9 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     packet->version=1;
     packet->type=type;
     packet->timeout=htons((u_short)(timeout<64800?timeout:64800));/* 18 hours */
-    memcpy(packet->key, key, key_len);
+    (void)memcpy(packet->key, key, key_len);
     if(val && val_len) /* only check it to make code analysis tools happy */
-        memcpy(packet->val, val, val_len);
+        (void)memcpy(packet->val, val, val_len);
 
     /* create the socket */
     s=s_socket(AF_INET, SOCK_DGRAM, 0, 0, "cache_transfer: socket");
@@ -2148,17 +2297,17 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
 #ifdef USE_WIN32
             (int)
 #endif
-            (sizeof(CACHE_PACKET)-MAX_VAL_LEN+val_len),
+            (packet_header_len+val_len),
             0, &section->sessiond_addr.sa,
-            addr_len(&section->sessiond_addr))<0) {
+            sockaddr_len(&section->sessiond_addr))<0) {
         sockerror("cache_transfer: sendto");
-        closesocket(s);
+        (void)closesocket(s);
         str_free(packet);
         return;
     }
 
     if(!ret || !ret_len) { /* no response is required */
-        closesocket(s);
+        (void)closesocket(s);
         str_free(packet);
         return;
     }
@@ -2169,14 +2318,14 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     t.tv_usec=200;
     if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (void *)&t, sizeof t)<0) {
         sockerror("cache_transfer: setsockopt SO_RCVTIMEO");
-        closesocket(s);
+        (void)closesocket(s);
         str_free(packet);
         return;
     }
 
     /* retrieve response */
     len=recv(s, (void *)packet, sizeof(CACHE_PACKET), 0);
-    closesocket(s);
+    (void)closesocket(s);
     if(len<0) {
         int err=get_last_socket_error();
 
@@ -2189,8 +2338,8 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     }
 
     /* parse results */
-    if(len<(int)sizeof(CACHE_PACKET)-MAX_VAL_LEN || /* too short */
-            packet->version!=1 || /* wrong version */
+    if((size_t)len<packet_header_len || /* too short */
+            packet->version!=1U || /* wrong version */
             safe_memcmp(packet->key, key, key_len)) { /* wrong session id */
         s_log(LOG_DEBUG, "cache_transfer: malformed packet received");
         str_free(packet);
@@ -2201,10 +2350,10 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
         str_free(packet);
         return;
     }
-    *ret_len=(size_t)len-(sizeof(CACHE_PACKET)-MAX_VAL_LEN);
+    *ret_len=(size_t)len-packet_header_len;
     *ret=str_alloc(*ret_len);
     s_log(LOG_INFO, "cache_transfer: session found");
-    memcpy(*ret, packet->val, *ret_len);
+    (void)memcpy(*ret, packet->val, *ret_len);
     str_free(packet);
 }
 
@@ -2269,6 +2418,8 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
              * this means renegotiation -> mark it */
             c->reneg_state=RENEG_DETECTED;
         }
+    } else {
+        /* no renegotiation state transition */
     }
 
     if(c->opt->log_level<LOG_DEBUG)
@@ -2319,6 +2470,8 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
             s_log(LOG_DEBUG, "%6ld expired session(s) retrieved",
                 SSL_CTX_sess_timeouts(ctx));
         }
+    } else {
+        /* no additional debug information for this callback event */
     }
 }
 
@@ -2327,7 +2480,7 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
 void ssl_error(CLI *c, const char *txt) { /* OpenSSL error handler */
     char *errors[MAX_ERRORS];
     char *error_string;
-    int i;
+    int i, error_count=0;
 
     error_string=str_alloc(MAX_ERROR_LEN);
     for(i=0; i<MAX_ERRORS; i++) {
@@ -2341,13 +2494,16 @@ void ssl_error(CLI *c, const char *txt) { /* OpenSSL error handler */
         err=ERR_get_error_line(&file, &line);
 #endif
         if(!err) {
-            if(txt && i==0)
-                errors[i++]=str_printf("%s: Peer suddenly disconnected", txt);
+            if(txt && i==0) {
+                errors[error_count]=
+                    str_printf("%s: Peer suddenly disconnected", txt);
+                ++error_count;
+            }
             break;
         }
 
         ERR_error_string_n(err, error_string, MAX_ERROR_LEN);
-        errors[i]=str_printf("%s: %s%s%s:%d: %s%s%s%s%s",
+        errors[error_count]=str_printf("%s: %s%s%s:%d: %s%s%s%s%s",
             txt && i==0 ? txt : "error queue",
             func && *func ? func : "",
             func && *func ? "@" : "",
@@ -2356,13 +2512,14 @@ void ssl_error(CLI *c, const char *txt) { /* OpenSSL error handler */
             flags&ERR_TXT_STRING && data && *data ? data : "",
             c && c->accepted_address && i==0 ? ": client " : "",
             c && c->accepted_address && i==0 ? c->accepted_address : "");
+        ++error_count;
     }
     str_free(error_string);
     ERR_clear_error();
 
-    while(i-->0) {
-        s_log(LOG_ERR, "%s", errors[i]);
-        str_free(errors[i]);
+    while(error_count-->0) {
+        s_log(LOG_ERR, "%s", errors[error_count]);
+        str_free(errors[error_count]);
     }
 }
 
@@ -2390,14 +2547,15 @@ NOEXPORT char *compare_cipher_lists(STACK_OF(SSL_CIPHER) *list1, STACK_OF(SSL_CI
         if(!found) {
             size_t name_len=strlen(cipher2_name);
 
-            result=str_realloc(result, result_len + name_len + 2); /* +2 for ':' and '\0' */
-            if(result_len == 0) {
-                strcpy(result, cipher2_name);
+            result=str_realloc(result,
+                result_len+name_len+2U); /* +2 for ':' and '\0' */
+            if(result_len==0U) {
+                (void)strcpy(result, cipher2_name);
             } else {
-                strcat(result, ":");
-                strcat(result, cipher2_name);
+                (void)strcat(result, ":");
+                (void)strcat(result, cipher2_name);
             }
-            result_len+=name_len + 1; /* +1 for ':' */
+            result_len+=name_len+1U; /* +1 for ':' */
         }
     }
     return result;
@@ -2415,14 +2573,15 @@ NOEXPORT char *get_tls13_cipher_list(STACK_OF(SSL_CIPHER) *list) {
             const char *cipher_name=SSL_CIPHER_get_name(cipher);
             size_t name_len=strlen(cipher_name);
 
-            result=str_realloc(result, result_len + name_len + 2); /* +2 for ':' and '\0' */
-            if(result_len == 0) {
-                strcpy(result, cipher_name);
+            result=str_realloc(result,
+                result_len+name_len+2U); /* +2 for ':' and '\0' */
+            if(result_len==0U) {
+                (void)strcpy(result, cipher_name);
             } else {
-                strcat(result, ":");
-                strcat(result, cipher_name);
+                (void)strcat(result, ":");
+                (void)strcat(result, cipher_name);
             }
-            result_len+=name_len + 1; /* +1 for ':' */
+            result_len+=name_len+1U; /* +1 for ':' */
         }
     }
     return result;

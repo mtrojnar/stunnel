@@ -66,7 +66,7 @@ class DTLSStunnelServerInterleavingTest(StunnelAcceptConnect):
                 if evt.etype == "stunnel_event":
                     break
         except asyncio.TimeoutError:
-            pass
+            pass  # A second startup event is optional.
 
     async def test_stunnel(self, cfg):
         tag = "test_stunnel_dtls_server_interleaving"
@@ -256,7 +256,7 @@ class DTLSStunnelServerInterleavingTest(StunnelAcceptConnect):
                     try:
                         proc.kill()
                     except ProcessLookupError:
-                        pass
+                        pass  # The helper exited before it could be killed.
                 returncode = await proc.wait()
                 await stderr_task
                 await self._log(

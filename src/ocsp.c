@@ -76,32 +76,39 @@ typedef struct {
 
 /**************************************** OCSP stapling callbacks */
 
-NOEXPORT int ocsp_client_cb(SSL *, void *);
+NOEXPORT int ocsp_client_cb(SSL *ssl, void *arg);
 #if OPENSSL_VERSION_NUMBER>=0x10002000L
-NOEXPORT int ocsp_server_cb(SSL *, void *);
-NOEXPORT int ocsp_set_stapling_response(CLI *);
+NOEXPORT int ocsp_server_cb(SSL *ssl, void *arg);
+NOEXPORT int ocsp_set_stapling_response(CLI *c);
 #endif /* OpenSSL version 1.0.2 or later */
 
 /**************************************** OCSP utility functions */
 
-NOEXPORT void ocsp_ctx_free(OCSP_CTX *);
-NOEXPORT void ocsp_ctx_cleanup(OCSP_CTX *);
-NOEXPORT int ocsp_verify(CLI *, OCSP_CTX *);
-NOEXPORT int check_aia(CLI *, SERVICE_OPTIONS *, OCSP_CTX *);
-NOEXPORT int ocsp_request(CLI *c, SERVICE_OPTIONS *, OCSP_CTX *);
-NOEXPORT int ocsp_get_response(SERVICE_OPTIONS *, OCSP_CTX *);
-NOEXPORT int ocsp_response_validate(CLI *, SERVICE_OPTIONS *, OCSP_CTX *);
-NOEXPORT void ocsp_ctx_setup_cert_id(OCSP_CTX *);
-NOEXPORT int ocsp_ctx_append_root_ca(SERVICE_OPTIONS *, OCSP_CTX *);
-NOEXPORT void log_time(const int, const char *, ASN1_GENERALIZEDTIME *);
+NOEXPORT void ocsp_ctx_free(OCSP_CTX *ocsp);
+NOEXPORT void ocsp_ctx_cleanup(OCSP_CTX *ocsp);
+NOEXPORT int ocsp_verify(CLI *c, OCSP_CTX *ocsp);
+NOEXPORT int check_aia(CLI *c, SERVICE_OPTIONS *opt, OCSP_CTX *ocsp);
+NOEXPORT int ocsp_request(CLI *c, SERVICE_OPTIONS *opt, OCSP_CTX *ocsp);
+NOEXPORT int ocsp_get_response(SERVICE_OPTIONS *opt, OCSP_CTX *ocsp);
+#if OPENSSL_VERSION_NUMBER>=0x10002000L
+NOEXPORT unsigned char *ocsp_response_cache_get(SERVICE_OPTIONS *section,
+    int *response_len);
+NOEXPORT void ocsp_response_cache_set(SERVICE_OPTIONS *section,
+    const unsigned char *response_der, int response_len);
+#endif /* OpenSSL version 1.0.2 or later */
+NOEXPORT int ocsp_response_validate(CLI *c, SERVICE_OPTIONS *opt,
+    OCSP_CTX *ocsp);
+NOEXPORT void ocsp_ctx_setup_cert_id(OCSP_CTX *ocsp);
+NOEXPORT int ocsp_ctx_append_root_ca(SERVICE_OPTIONS *opt, OCSP_CTX *ocsp);
+NOEXPORT void log_time(const int level, const char *txt,
+    ASN1_GENERALIZEDTIME *t);
 #if OPENSSL_VERSION_NUMBER>=0x10101000L
-NOEXPORT time_t time_t_get_asn1_time(const ASN1_TIME *);
+NOEXPORT time_t time_t_get_asn1_time(const ASN1_TIME *s);
 #endif /* OpenSSL version 1.1.1 or later */
 
 /**************************************** OCSP initialization */
 
 int ocsp_init(SERVICE_OPTIONS *section) {
-    section->ocsp_response_lock=CRYPTO_THREAD_lock_new();
     if(section->option.client) {
         if(!SSL_CTX_set_tlsext_status_cb(section->ctx, ocsp_client_cb)) {
             ssl_error(NULL, "OCSP: SSL_CTX_set_tlsext_status_cb");
@@ -114,7 +121,7 @@ int ocsp_init(SERVICE_OPTIONS *section) {
         if(!section->psk_keys) {
 #endif /* !defined(OPENSSL_NO_PSK) */
             if(SSL_CTX_set_tlsext_status_cb(section->ctx, ocsp_server_cb)) {
-                ocsp_stapling(section);
+                (void)ocsp_stapling(section);
                 s_log(LOG_DEBUG, "OCSP: Server OCSP stapling enabled");
             } else {
                 s_log(LOG_NOTICE, "OCSP: Server OCSP stapling not supported");
@@ -164,16 +171,65 @@ NOEXPORT void ocsp_ctx_cleanup(OCSP_CTX *ocsp) {
     ocsp->next_update=NULL;
 }
 
+/**************************************** OCSP response cache */
+
+#if OPENSSL_VERSION_NUMBER>=0x10002000L
+NOEXPORT unsigned char *ocsp_response_cache_get(SERVICE_OPTIONS *section,
+        int *response_len) {
+    *response_len=0;
+    for(;;) {
+        unsigned char *response_der;
+        CRYPTO_RWLOCK *lock;
+        int cached_len;
+
+        /* Unlocked allocation hint; cache contents are checked under lock. */
+        cached_len=section->ocsp_response_len;
+        if(cached_len<=0)
+            return NULL;
+
+        response_der=str_alloc((size_t)cached_len);
+        lock=s_read_lock(LOCK_OCSP_RESPONSE);
+        if(section->ocsp_response_der &&
+                /* The length may have changed before the lock was acquired. */
+                /* cppcheck-suppress knownConditionTrueFalse */
+                section->ocsp_response_len==cached_len) {
+            (void)memcpy(response_der, section->ocsp_response_der,
+                (size_t)cached_len);
+            s_unlock(lock);
+            *response_len=cached_len;
+            return response_der;
+        }
+        s_unlock(lock);
+        str_free(response_der);
+    }
+}
+
+NOEXPORT void ocsp_response_cache_set(SERVICE_OPTIONS *section,
+        const unsigned char *response_der, int response_len) {
+    CRYPTO_RWLOCK *lock;
+    unsigned char *response_copy=NULL, *previous_response;
+
+    if(response_der && response_len>0) {
+        response_copy=str_alloc_detached((size_t)response_len);
+        (void)memcpy(response_copy, response_der, (size_t)response_len);
+    }
+
+    lock=s_write_lock(LOCK_OCSP_RESPONSE);
+    previous_response=section->ocsp_response_der;
+    section->ocsp_response_der=response_copy;
+    /* Cppcheck mistakes this integer zero for a null pointer constant. */
+    /* cppcheck-suppress misra-c2012-11.9 */
+    section->ocsp_response_len=response_copy ? response_len : 0;
+    s_unlock(lock);
+    str_free(previous_response);
+}
+
 /**************************************** OCSP cleanup */
 
 void ocsp_cleanup(SERVICE_OPTIONS *section) {
-    if(section->ocsp_response_len) {
-        str_free(section->ocsp_response_der);
-        section->ocsp_response_len=0;
-    }
-    if(section->ocsp_response_lock)
-        CRYPTO_THREAD_lock_free(section->ocsp_response_lock);
+    ocsp_response_cache_set(section, NULL, 0);
 }
+#endif /* OpenSSL version 1.0.2 or later */
 
 /**************************************** OCSP verify.c callback */
 
@@ -198,7 +254,7 @@ int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
     }
 
     /* initialize the OCSP_CTX structure */
-    memset(&ocsp, 0, sizeof(OCSP_CTX));
+    (void)memset(&ocsp, 0, sizeof(OCSP_CTX));
     ocsp.depth=X509_STORE_CTX_get_error_depth(callback_ctx);
     ocsp.use_nonce=c->opt->option.nonce;
     ocsp.use_aia=c->opt->option.aia;
@@ -214,7 +270,7 @@ int ocsp_check(CLI *c, X509_STORE_CTX *callback_ctx) {
         s_log(LOG_ERR, "OCSP: sk_X509_dup");
         goto cleanup;
     }
-    ocsp_ctx_append_root_ca(c->opt, &ocsp); /* ignore failures */
+    (void)ocsp_ctx_append_root_ca(c->opt, &ocsp); /* ignore failures */
 
     ret=ocsp_verify(c, &ocsp);
 
@@ -264,7 +320,7 @@ NOEXPORT int ocsp_client_cb(SSL *ssl, void *arg) {
     }
 
     /* initialize the OCSP_CTX structure */
-    memset(&ocsp, 0, sizeof(OCSP_CTX));
+    (void)memset(&ocsp, 0, sizeof(OCSP_CTX));
     ocsp.depth=0; /* peer (leaf) certificate */
     ocsp.use_nonce=c->opt->option.nonce;
     ocsp.use_aia=c->opt->option.aia;
@@ -280,7 +336,7 @@ NOEXPORT int ocsp_client_cb(SSL *ssl, void *arg) {
         s_log(LOG_ERR, "OCSP: sk_X509_dup");
         goto cleanup;
     }
-    ocsp_ctx_append_root_ca(c->opt, &ocsp); /* ignore failures */
+    (void)ocsp_ctx_append_root_ca(c->opt, &ocsp); /* ignore failures */
     ret=ocsp_verify(c, &ocsp);
 
 cleanup:
@@ -335,7 +391,7 @@ int ocsp_stapling(SERVICE_OPTIONS *opt) {
     int ocsp_status=V_OCSP_CERTSTATUS_UNKNOWN;
 
     /* initialize the OCSP_CTX structure */
-    memset(&ocsp, 0, sizeof(OCSP_CTX));
+    (void)memset(&ocsp, 0, sizeof(OCSP_CTX));
     ocsp.depth=0; /* peer (leaf) certificate */
     ocsp.use_nonce=0; /* disable nonce */
     ocsp.use_aia=1; /* enable AIA */
@@ -375,16 +431,10 @@ int ocsp_stapling(SERVICE_OPTIONS *opt) {
         s_log(LOG_ERR, "OCSP: sk_X509_unshift");
         goto cleanup;
     }
-    ocsp_ctx_append_root_ca(opt, &ocsp); /* ignore failures */
+    (void)ocsp_ctx_append_root_ca(opt, &ocsp); /* ignore failures */
 
     /* retrieve the cached response */
-    CRYPTO_THREAD_read_lock(opt->ocsp_response_lock);
-    if(opt->ocsp_response_len) {
-        response_len=opt->ocsp_response_len;
-        response_der=str_alloc((size_t)response_len);
-        memcpy(response_der, opt->ocsp_response_der, (size_t)response_len);
-    }
-    CRYPTO_THREAD_unlock(opt->ocsp_response_lock);
+    response_der=ocsp_response_cache_get(opt, &response_len);
 
     if(response_len) { /* found a cached response */
         /* decode */
@@ -411,13 +461,7 @@ int ocsp_stapling(SERVICE_OPTIONS *opt) {
     }
 
     /* invalidate the cache */
-    CRYPTO_THREAD_write_lock(opt->ocsp_response_lock);
-    if(opt->ocsp_response_len) {
-        opt->ocsp_response_len=0;
-        str_free(opt->ocsp_response_der);
-        opt->ocsp_response_der=NULL;
-    }
-    CRYPTO_THREAD_unlock(opt->ocsp_response_lock);
+    ocsp_response_cache_set(opt, NULL, 0);
 
     /* try fetching response from the OCSP responder */
     ocsp_status=check_aia(NULL, opt, &ocsp);
@@ -429,15 +473,17 @@ int ocsp_stapling(SERVICE_OPTIONS *opt) {
 
     /* encode */
     response_len=i2d_OCSP_RESPONSE(ocsp.response, &response_der);
+    if(response_len<=0 || !response_der) {
+        s_log(LOG_ERR, "OCSP: Failed to encode the OCSP response");
+        OPENSSL_free(response_der); /* no-op unless i2d allocated then failed */
+        ret=SSL_TLSEXT_ERR_NOACK;
+        goto cleanup;
+    }
 
     /* update the cache */
     if(ocsp.next_update) {
         /* cache the newly fetched OCSP response */
-        CRYPTO_THREAD_write_lock(opt->ocsp_response_lock);
-        opt->ocsp_response_len=response_len;
-        opt->ocsp_response_der=str_alloc_detached((size_t)response_len);
-        memcpy(opt->ocsp_response_der, response_der, (size_t)response_len);
-        CRYPTO_THREAD_unlock(opt->ocsp_response_lock);
+        ocsp_response_cache_set(opt, response_der, response_len);
         s_log(LOG_DEBUG, "OCSP: Response cached");
     }
 
@@ -456,25 +502,32 @@ cleanup:
  * SSL_TLSEXT_ERR_ALERT_FATAL - a fatal error has occurred
  */
 NOEXPORT int ocsp_set_stapling_response(CLI *c) {
-    int ret=SSL_TLSEXT_ERR_NOACK;
+    unsigned char *cached_response, *response_der;
+    int response_len, ret=SSL_TLSEXT_ERR_NOACK;
 
-    if(!c->opt->ocsp_response_len) /* performance optimization */
-        return ret; /* return without locking */
+    cached_response=ocsp_response_cache_get(c->opt, &response_len);
+    if(!cached_response)
+        return ret;
 
-    CRYPTO_THREAD_read_lock(c->opt->ocsp_response_lock);
-    if(c->opt->ocsp_response_len) {
-        unsigned char *response_der=
-            OPENSSL_malloc((size_t)c->opt->ocsp_response_len);
+    response_der=OPENSSL_malloc((size_t)response_len);
+    if(response_der) {
+        long response_result;
 
-        memcpy(response_der, c->opt->ocsp_response_der,
-            (size_t)c->opt->ocsp_response_len);
+        (void)memcpy(response_der, cached_response, (size_t)response_len);
         /* SSL_set_tlsext_status_ocsp_resp requires *us* to allocate the
          * response with OPENSSL_malloc(), but it will free it for us */
-        SSL_set_tlsext_status_ocsp_resp(c->ssl,
-            response_der, c->opt->ocsp_response_len);
-        ret=SSL_TLSEXT_ERR_OK;
+        response_result=SSL_set_tlsext_status_ocsp_resp(c->ssl,
+            response_der, response_len);
+        if(response_result>0) {
+            ret=SSL_TLSEXT_ERR_OK;
+        } else {
+            OPENSSL_free(response_der);
+            ssl_error(c, "SSL_set_tlsext_status_ocsp_resp");
+        }
+    } else {
+        s_log(LOG_ERR, "OCSP stapling: Failed to allocate the response");
     }
-    CRYPTO_THREAD_unlock(c->opt->ocsp_response_lock);
+    str_free(cached_response);
     if(ret==SSL_TLSEXT_ERR_OK)
         s_log(LOG_DEBUG, "OCSP stapling: OCSP response sent back");
     return ret;
@@ -505,6 +558,8 @@ NOEXPORT int ocsp_verify(CLI *c, OCSP_CTX *ocsp) {
 
         if(c->opt->option.client) { /* no stapling on the server */
             /* process the stapling response if available */
+            /* OpenSSL's API exposes its internally owned response as mutable. */
+            /* cppcheck-suppress misra-c2012-11.8 */
             resp_der_len=SSL_get_tlsext_status_ocsp_resp(c->ssl, &resp_der);
             if(resp_der_len>0 && resp_der) {
                 s_log(LOG_INFO, "OCSP: OCSP stapling response received");
@@ -614,7 +669,13 @@ NOEXPORT int ocsp_request(CLI *c, SERVICE_OPTIONS *opt, OCSP_CTX *ocsp) {
         goto cleanup;
     }
     if(ocsp->use_nonce) {
-        OCSP_request_add1_nonce(ocsp->request, NULL, -1);
+        int nonce_result;
+
+        nonce_result=OCSP_request_add1_nonce(ocsp->request, NULL, -1);
+        if(!nonce_result) {
+            ssl_error(c, "OCSP: OCSP_request_add1_nonce");
+            goto cleanup;
+        }
     }
 
     /* send the request and get a response */
@@ -682,7 +743,7 @@ NOEXPORT int ocsp_get_response(SERVICE_OPTIONS *opt, OCSP_CTX *ocsp) {
     c->fd=s_socket(addr.sa.sa_family, SOCK_STREAM, 0, 1, "OCSP: socket");
     if(c->fd==INVALID_SOCKET)
         goto cleanup;
-    if(s_connect(c, &addr, addr_len(&addr), opt->timeout_ocsp))
+    if(s_connect(c, &addr, sockaddr_len(&addr), opt->timeout_ocsp))
         goto cleanup;
     bio=BIO_new_socket((int)c->fd, BIO_NOCLOSE);
     if(!bio) {
@@ -752,7 +813,7 @@ cleanup:
     if(bio)
         BIO_free_all(bio);
     if(c->fd!=INVALID_SOCKET) {
-        closesocket(c->fd);
+        (void)closesocket(c->fd);
         c->fd=INVALID_SOCKET; /* avoid double close on cleanup */
     }
     if(host)
@@ -948,27 +1009,35 @@ NOEXPORT void log_time(const int level, const char *txt, ASN1_GENERALIZEDTIME *t
 #if OPENSSL_VERSION_NUMBER>=0x10101000L
     posix_time=time_t_get_asn1_time(t);
     if(posix_time==INVALID_TIME) {
-        BIO_free(bio);
+        (void)BIO_free(bio);
         return;
     }
     safe_localtime(&ts, posix_time);
-    BIO_printf(bio, "%04d.%02d.%02d %02d:%02d:%02d",
+    n=BIO_printf(bio, "%04d.%02d.%02d %02d:%02d:%02d",
         ts.tm_year + 1900, ts.tm_mon + 1, ts.tm_mday,
         ts.tm_hour, ts.tm_min, ts.tm_sec);
+    if(n<=0) {
+        (void)BIO_free(bio);
+        return;
+    }
 #else /* OpenSSL version 1.1.1 or later */
-    ASN1_TIME_print(bio, t);
+    n=ASN1_TIME_print(bio, t);
+    if(!n) {
+        (void)BIO_free(bio);
+        return;
+    }
 #endif /* OpenSSL version 1.1.1 or later */
 
     n=BIO_pending(bio);
-    cp=str_alloc((size_t)n+1);
+    cp=str_alloc((size_t)n+1U);
     n=BIO_read(bio, cp, n);
     if(n<0) {
-        BIO_free(bio);
+        (void)BIO_free(bio);
         str_free(cp);
         return;
     }
     cp[n]='\0';
-    BIO_free(bio);
+    (void)BIO_free(bio);
     s_log(level, "%s: %s", txt, cp);
     str_free(cp);
 }

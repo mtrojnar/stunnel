@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="pl-PL" xml:lang="pl-PL">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc 3.10" />
+  <meta name="generator" content="pandoc 3.10.2" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>stunnel TLS Proxy</title>
   <style>
@@ -41,7 +41,6 @@
       body {
         background-color: transparent;
         color: black;
-        font-size: 12pt;
       }
       p, h2, h3 {
         orphans: 3;
@@ -363,10 +362,10 @@ mają zostać oddelegowane do bieżącego silnika kryptograficznego.</p>
 zadania: ALL, RSA, DSA, ECDH, ECDSA, DH, RAND, CIPHERS, DIGESTS, PKEY,
 PKEY_CRYPTO, PKEY_ASN1.</p></li>
 <li><p><strong>fips</strong> = yes | no</p>
-<p>tryb FIPS 140-2</p>
+<p>tryb FIPS 140-3</p>
 <p>Opcja pozwala wyłączyć wejście w tryb FIPS, jeśli
 <strong>stunnel</strong> został skompilowany ze wsparciem dla FIPS
-140-2.</p>
+140-3.</p>
 <p>domyślnie: no (od wersji 5.00)</p></li>
 <li><p><strong>foreground</strong> = yes | quiet | no (tylko Unix)</p>
 <p>tryb pierwszoplanowy</p>
@@ -1299,7 +1298,7 @@ accept = 993
 connect = 143</code></pre>
 <p>Aby umożliwić lokalnemu klientowi poczty elektronicznej korzystanie z
 serwera <em>imapd</em> przez TLS należy skonfigurować pobieranie poczty
-z adresu localhost i portu 119, oraz użyć następującej konfiguracji:</p>
+z adresu localhost i portu 143, oraz użyć następującej konfiguracji:</p>
 <pre><code>[imap]
 client = yes
 accept = 143

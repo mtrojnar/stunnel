@@ -37,25 +37,31 @@
 
 #include "prototypes.h"
 
+#define LOG_FIELD_SIZE 72
 #define LOG_MAX_TEXT_LENGTH 1024
+#define LOG_MAX_LINE_LENGTH \
+    (LOG_MAX_TEXT_LENGTH+2*(LOG_FIELD_SIZE-1)+3)
 
-NOEXPORT void log_queue(SERVICE_OPTIONS *, int, char *, char *, char *);
-NOEXPORT void log_raw(SERVICE_OPTIONS *, int, char *, char *, char *);
-NOEXPORT void safestring(char *);
+NOEXPORT void log_emit(TLS_DATA *tls_data, int level, char *text);
+NOEXPORT void log_queue(SERVICE_OPTIONS *opt, int level,
+    char *stamp, char *id, char *text);
+NOEXPORT void log_raw(SERVICE_OPTIONS *opt, int level,
+    char *stamp, char *id, char *text);
+NOEXPORT void safestring(char *c);
 
 DISK_FILE *outfile=NULL;
 
-static struct LIST { /* single-linked list of log lines */
+NOEXPORT struct LIST { /* single-linked list of log lines */
     struct LIST *next;
     SERVICE_OPTIONS *opt;
     int level;
     char *stamp, *id, *text;
 } *head=NULL, *tail=NULL;
-static LOG_MODE log_mode=LOG_MODE_BUFFER;
+NOEXPORT LOG_MODE log_mode=LOG_MODE_BUFFER;
 
 #if !defined(USE_WIN32) && !defined(__vms)
 
-static int syslog_opened=0;
+NOEXPORT int syslog_opened=0;
 
 NOEXPORT void syslog_open(void) {
     if(global_options.option.log_syslog) {
@@ -129,15 +135,17 @@ int log_open(int sink) {
 }
 
 void log_close(int sink) {
+    CRYPTO_RWLOCK *lock;
+
     /* prevent changing the mode while logging */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
+    lock=s_write_lock(LOCK_LOG_MODE);
 #if !defined(USE_WIN32) && !defined(__vms)
     if(sink&SINK_SYSLOG)
         syslog_close();
 #endif
     if(sink&SINK_OUTFILE)
         outfile_close();
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
+    s_unlock(lock);
 }
 
 void s_log(int level, const char *format, ...) {
@@ -146,6 +154,36 @@ void s_log(int level, const char *format, ...) {
     va_start(ap, format);
     s_vlog(level, format, ap);
     va_end(ap);
+}
+
+NOEXPORT void log_emit(TLS_DATA *tls_data, int level, char *text) {
+    time_t gmt;
+    struct tm ts;
+    char stamp[LOG_FIELD_SIZE], id[LOG_FIELD_SIZE];
+    size_t len;
+    CRYPTO_RWLOCK *lock;
+
+    /* format the id to be logged */
+    (void)time(&gmt);
+    safe_localtime(&ts, gmt);
+    (void)snprintf(stamp, sizeof stamp, "%04d.%02d.%02d %02d:%02d:%02d",
+        ts.tm_year+1900, ts.tm_mon+1, ts.tm_mday,
+        ts.tm_hour, ts.tm_min, ts.tm_sec);
+    (void)snprintf(id, sizeof id, "LOG%d[%s]", level, tls_data->id);
+
+    /* sanitize the text to be logged */
+    len=strlen(text);
+    while(len>0U && text[len-1U]=='\n')
+        text[--len]='\0'; /* strip trailing newlines */
+    safestring(text);
+
+    /* either log or queue for logging */
+    lock=s_read_lock(LOCK_LOG_MODE);
+    if(log_mode==LOG_MODE_BUFFER)
+        log_queue(tls_data->opt, level, stamp, id, text);
+    else
+        log_raw(tls_data->opt, level, stamp, id, text);
+    s_unlock(lock);
 }
 
 #ifdef __GNUC__
@@ -169,40 +207,24 @@ void s_vlog(int level, const char *format, va_list ap) {
     tls_data=tls_get();
     if(!tls_data) {
         tls_data=tls_alloc(NULL, NULL, "log");
-        s_log(LOG_ERR, "INTERNAL ERROR: Uninitialized TLS at %s, line %d",
-            __FILE__, __LINE__);
+        if(log_mode!=LOG_MODE_CONFIGURED ||
+                LOG_ERR<=tls_data->opt->log_level) {
+            char text[LOG_MAX_TEXT_LENGTH+1]={0};
+
+            (void)snprintf(text, sizeof text,
+                "INTERNAL ERROR: Uninitialized TLS at %s, line %d",
+                __FILE__, __LINE__);
+            log_emit(tls_data, LOG_ERR, text);
+        }
     }
 
     /* performance optimization: skip the trivial case early */
     if(log_mode!=LOG_MODE_CONFIGURED || level<=tls_data->opt->log_level) {
-        time_t gmt;
-        struct tm ts;
-        char stamp[72], id[72], text[LOG_MAX_TEXT_LENGTH+1]={0};
-        size_t len;
+        char text[LOG_MAX_TEXT_LENGTH+1]={0};
 
-        /* format the id to be logged */
-        time(&gmt);
-        safe_localtime(&ts, gmt);
-        snprintf(stamp, sizeof stamp, "%04d.%02d.%02d %02d:%02d:%02d",
-            ts.tm_year+1900, ts.tm_mon+1, ts.tm_mday,
-            ts.tm_hour, ts.tm_min, ts.tm_sec);
-        snprintf(id, sizeof id, "LOG%d[%s]", level, tls_data->id);
-
-        /* format the text to be logged */
-        vsnprintf(text, sizeof text, format, ap);
-        text[sizeof text-1]='\0';
-        len=strlen(text);
-        while(len>0 && text[len-1]=='\n')
-            text[--len]='\0'; /* strip trailing newlines */
-        safestring(text);
-
-        /* either log or queue for logging */
-        CRYPTO_THREAD_read_lock(stunnel_locks[LOCK_LOG_MODE]);
-        if(log_mode==LOG_MODE_BUFFER)
-            log_queue(tls_data->opt, level, stamp, id, text);
-        else
-            log_raw(tls_data->opt, level, stamp, id, text);
-        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
+        (void)vsnprintf(text, sizeof text, format, ap);
+        text[sizeof text-1U]='\0';
+        log_emit(tls_data, level, text);
     }
 
     set_last_error(libc_error);
@@ -217,6 +239,7 @@ void s_vlog(int level, const char *format, va_list ap) {
 NOEXPORT void log_queue(SERVICE_OPTIONS *opt,
         int level, char *stamp, char *id, char *text) {
     struct LIST *tmp;
+    CRYPTO_RWLOCK *lock;
 
     /* make a new element */
     tmp=str_alloc_detached(sizeof(struct LIST));
@@ -228,25 +251,26 @@ NOEXPORT void log_queue(SERVICE_OPTIONS *opt,
     tmp->text=str_dup_detached(text);
 
     /* append the new element to the list */
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
+    lock=s_write_lock(LOCK_LOG_BUFFER);
     if(tail)
         tail->next=tmp;
     else
         head=tmp;
     tail=tmp;
-    if(stunnel_locks[LOCK_LOG_BUFFER])
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
+    s_unlock(lock);
 }
 
 void log_flush(LOG_MODE new_mode) {
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_MODE]);
+    CRYPTO_RWLOCK *mode_lock, *buffer_lock;
+
+    mode_lock=s_write_lock(LOCK_LOG_MODE);
 
     log_mode=new_mode;
 
     /* emit the buffered logs (unless we just started buffering) */
     if(new_mode!=LOG_MODE_BUFFER) {
         /* log_raw() will use the new value of log_mode */
-        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOG_BUFFER]);
+        buffer_lock=s_write_lock(LOCK_LOG_BUFFER);
         while(head) {
             struct LIST *tmp=head;
             head=head->next;
@@ -257,16 +281,15 @@ void log_flush(LOG_MODE new_mode) {
             str_free(tmp);
         }
         head=tail=NULL;
-        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_BUFFER]);
+        s_unlock(buffer_lock);
     }
 
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOG_MODE]);
+    s_unlock(mode_lock);
 }
 
 NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
         int level, char *stamp, char *id, char *text) {
-    char *line;
-    size_t size;
+    char line_buffer[LOG_MAX_LINE_LENGTH+1], *line;
 
     /* NOTE: opt->log_level may have changed since s_log().
      * It is important to use the new value and not the old one. */
@@ -274,16 +297,15 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
     /* build the line and log it to syslog/file if configured */
     switch(log_mode) {
     case LOG_MODE_CONFIGURED:
-        size=strlen(stamp)+strlen(id)+strlen(text)+4;
-        line=alloca(size);
-        snprintf(line, size, "%s %s: %s", stamp, id, text);
+        line=line_buffer;
+        (void)snprintf(line, sizeof line_buffer, "%s %s: %s", stamp, id, text);
         if(level<=opt->log_level) {
 #if !defined(USE_WIN32) && !defined(__vms)
             if(global_options.option.log_syslog)
                 syslog(level, "%s: %s", id, text);
 #endif /* USE_WIN32, __vms */
             if(outfile) {
-                file_putline_newline(outfile, line);
+                (void)file_putline_newline(outfile, line);
 #ifndef USE_OS_THREADS
                 file_flush(outfile);
 #endif /* !USE_OS_THREADS */
@@ -294,12 +316,12 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
         if(level>=LOG_INFO && level<=LOG_DEBUG)
             return;
         /* don't log the id or the time stamp */
-        size=strlen(text)+5;
-        line=alloca(size);
+        line=line_buffer;
         if(level>=LOG_EMERG && level<=LOG_NOTICE)
-            snprintf(line, size, "[%c] %s", "***!:."[level], text);
+            (void)snprintf(line, sizeof line_buffer,
+                "[%c] %s", "***!:."[level], text);
         else /* invalid level */
-            snprintf(line, size, "[?] %s", text);
+            (void)snprintf(line, sizeof line_buffer, "[?] %s", text);
         break;
     default: /* LOG_MODE_INFO */
         /* don't log the level, the id or the time stamp */
@@ -326,7 +348,7 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
 #pragma GCC diagnostic ignored "-Wformat"
 #pragma GCC diagnostic ignored "-Wformat-extra-args"
 #endif /* __GNUC__ */
-char *log_id(CLI *c) {
+char *log_id_alloc(CLI *c) {
     const char table[62]=
         {'0', '1', '2', '3', '4', '5', '6', '7',
          '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
@@ -345,18 +367,18 @@ char *log_id(CLI *c) {
     case LOG_ID_SEQUENTIAL:
         return str_printf("%llu", c->seq);
     case LOG_ID_UNIQUE:
-        memset(rnd, 0, sizeof rnd);
+        (void)memset(rnd, 0, sizeof rnd);
         if(RAND_bytes(rnd, sizeof rnd)<=0) /* log2(62^22)=130.99 */
             return str_dup("error");
         for(i=0; i<sizeof rnd; ++i) {
-            rnd[i]&=63;
-            while(rnd[i]>=62) {
+            rnd[i]&=63U;
+            while(rnd[i]>=62U) {
                 if(RAND_bytes(rnd+i, 1)<=0)
                     return str_dup("error");
-                rnd[i]&=63;
+                rnd[i]&=63U;
             }
         }
-        uniq=str_alloc(sizeof rnd+1);
+        uniq=str_alloc(sizeof rnd+1U);
         for(i=0; i<sizeof rnd; ++i)
             uniq[i]=table[rnd[i]];
         uniq[sizeof rnd]='\0';
@@ -393,22 +415,22 @@ void fatal_debug(const char *txt, const char *file, int line) {
 #endif
 #endif /* USE_WIN32 */
 
-    snprintf(msg, sizeof msg, /* with newline */
+    (void)snprintf(msg, sizeof msg, /* with newline */
         "INTERNAL ERROR: %s at %s, line %d\n", txt, file, line);
 
     if(outfile) {
-        file_putline_nonewline(outfile, msg);
-        file_flush(outfile);
+        (void)file_putline_nonewline(outfile, msg);
+        (void)file_flush(outfile);
     }
 
 #ifndef USE_WIN32
     if(log_mode!=LOG_MODE_CONFIGURED || global_options.option.log_stderr) {
-        fputs(msg, stderr);
-        fflush(stderr);
+        (void)fputs(msg, stderr);
+        (void)fflush(stderr);
     }
 #endif /* !USE_WIN32 */
 
-    snprintf(msg, sizeof msg, /* without newline */
+    (void)snprintf(msg, sizeof msg, /* without newline */
         "INTERNAL ERROR: %s at %s, line %d", txt, file, line);
 
 #if !defined(USE_WIN32) && !defined(__vms)
@@ -425,6 +447,8 @@ void fatal_debug(const char *txt, const char *file, int line) {
 #endif
 #endif /* USE_WIN32 */
 
+    /* fatal() cannot safely return to its caller. */
+    /* cppcheck-suppress misra-c2012-21.8 */
     abort();
 }
 #ifdef __GNUC__
@@ -560,9 +584,11 @@ char *s_strerror(int errnum) {
 
 /* replace non-UTF-8 and non-printable control characters with '.' */
 NOEXPORT void safestring(char *c) {
-    for(; *c; ++c)
+    while(*c) {
         if(!(*c&0x80 || isprint((int)*c)))
             *c='.';
+        ++c;
+    }
 }
 
 /* provide hex string corresponding to the input string
@@ -571,30 +597,37 @@ void bin2hexstring(const unsigned char *in_data, size_t in_size, char *out_data,
     const char hex[16]=
         {'0', '1', '2', '3', '4', '5', '6', '7',
          '8', '9' ,'A', 'B', 'C', 'D', 'E', 'F'};
-    size_t i;
+    size_t i, input_limit;
 
-    for(i=0; i<in_size && 2*i+2<out_size; ++i) {
-        out_data[2*i]=hex[in_data[i]>>4];
-        out_data[2*i+1]=hex[in_data[i]&0x0f];
+    if(!out_size)
+        return;
+    input_limit=(out_size-1U)/2U;
+    if(input_limit>in_size)
+        input_limit=in_size;
+    for(i=0; i<input_limit; ++i) {
+        out_data[2U*i]=hex[in_data[i]>>4U];
+        out_data[2U*i+1U]=hex[in_data[i]&0x0fU];
     }
-    out_data[2*i]='\0';
+    out_data[2U*i]='\0';
 }
 
 void safe_localtime(struct tm *ts, time_t unix_time) {
 #if defined(HAVE_LOCALTIME_R) && defined(_REENTRANT)
     if(!localtime_r(&unix_time, ts))
-        memset(ts, 0, sizeof *ts);
+        (void)memset(ts, 0, sizeof *ts);
 #else
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LOCALTIME]);
+    CRYPTO_RWLOCK *lock;
+
+    lock=s_write_lock(LOCK_LOCALTIME);
     {
         struct tm *tp=localtime(&unix_time);
 
         if(tp)
-            memcpy(ts, tp, sizeof *ts);
+            (void)memcpy(ts, tp, sizeof *ts);
         else
-            memset(ts, 0, sizeof *ts);
+            (void)memset(ts, 0, sizeof *ts);
     }
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LOCALTIME]);
+    s_unlock(lock);
 #endif
 }
 /* end of log.c */

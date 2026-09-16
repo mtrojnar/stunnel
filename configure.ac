@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([stunnel],[5.80])
+AC_INIT([stunnel],[5.81])
 
 AC_MSG_NOTICE([**************************************** initialization])
 PACKAGE_VERSION_MAJOR="${PACKAGE_VERSION%%.*}"

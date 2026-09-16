@@ -19,7 +19,7 @@
 ;debug = info
 ;output = @localstatedir@/log/stunnel.log
 
-; Enable FIPS 140-2 mode if needed for compliance
+; Enable FIPS 140-3 mode if needed for compliance
 ;fips = yes
 
 ; The pkcs11 engine allows for authentication with cryptographic

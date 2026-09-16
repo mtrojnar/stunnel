@@ -46,18 +46,18 @@
 #define USE_LIBWRAP_POOL
 #endif /* USE_PTHREAD && !__CYGWIN__ */
 
-NOEXPORT uint8_t check(char *, int);
+NOEXPORT uint8_t check(char *name, int fd);
 
 int allow_severity=LOG_NOTICE, deny_severity=LOG_WARNING;
 
 #ifdef USE_LIBWRAP_POOL
 #define SERVNAME_LEN 256
 
-NOEXPORT ssize_t read_fd(int, void *, size_t, int *);
-NOEXPORT ssize_t write_fd(int, void *, size_t, int);
+NOEXPORT ssize_t read_fd(int fd, void *ptr, size_t nbytes, int *recvfd);
+NOEXPORT ssize_t write_fd(int fd, void *ptr, size_t nbytes, int sendfd);
 
-unsigned num_processes=0;
-static int *ipc_socket, *busy;
+NOEXPORT unsigned num_processes=0;
+NOEXPORT int *ipc_socket, *busy;
 #endif /* USE_LIBWRAP_POOL */
 
 #ifdef __GNUC__
@@ -66,53 +66,94 @@ static int *ipc_socket, *busy;
 #endif /* __GNUC__ */
 int libwrap_init(void) {
 #ifdef USE_LIBWRAP_POOL
-    unsigned i, j;
+    unsigned i, j, children=0;
     int rfd;
     uint8_t result;
     char servname[SERVNAME_LEN];
+    pid_t child_pid[LIBWRAP_CLIENTS], pid;
     static int initialized=0;
-    SERVICE_OPTIONS *opt;
+    const SERVICE_OPTIONS *opt;
 
-    if(initialized) /* during startup or previous configuration file reload */
+    if(initialized!=0) { /* startup or a previous configuration file reload */
         return 0;
-    for(opt=service_options.next; opt; opt=opt->next)
-        if(opt->option.libwrap) /* libwrap is enabled for this service */
+    }
+    for(opt=service_options.next; opt; opt=opt->next) {
+        if(opt->option.libwrap) { /* libwrap is enabled for this service */
             break;
-    if(!opt) /* disabled for all sections or inetd mode (no sections) */
+        }
+    }
+    if(!opt) { /* disabled for all sections or inetd mode (no sections) */
         return 0;
+    }
 
     num_processes=LIBWRAP_CLIENTS;
-    ipc_socket=str_alloc(2*num_processes*sizeof(int));
-    busy=str_alloc(num_processes*sizeof(int));
+    ipc_socket=str_alloc(2U*(size_t)num_processes*sizeof(int));
+    busy=str_alloc((size_t)num_processes*sizeof(int));
+    for(i=0; i<2U*num_processes; ++i)
+        ipc_socket[i]=INVALID_SOCKET;
     for(i=0; i<num_processes; ++i) { /* spawn a child */
-        if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, ipc_socket+2*i, 0, "libwrap_init"))
-            return 1;
-        switch(fork()) {
+        if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, &ipc_socket[2U*i],
+                0, "libwrap_init")!=0) {
+            /* s_socketpair() closes both descriptors on setup failure */
+            ipc_socket[2U*i]=INVALID_SOCKET;
+            ipc_socket[(2U*i)+1U]=INVALID_SOCKET;
+            goto fail;
+        }
+        pid=fork();
+        switch(pid) {
         case -1:    /* error */
             ioerror("fork");
-            return 1;
+            goto fail;
         case  0:    /* child */
-            tls_alloc(NULL, ui_tls, "libwrap");
-            drop_privileges(0); /* libwrap processes are not chrooted */
-            close(0); /* stdin */
-            close(1); /* stdout */
-            if(!global_options.option.log_stderr) /* for logging in read_fd */
-                close(2); /* stderr */
-            for(j=0; j<=i; ++j) /* close parent-side sockets created so far */
-                close(ipc_socket[2*j]);
-            while(1) { /* main libwrap child loop */
-                if(read_fd(ipc_socket[2*i+1], servname, SERVNAME_LEN, &rfd)<=0)
-                    _exit(0);
-                result=check(servname, rfd);
-                write(ipc_socket[2*i+1], &result, sizeof result);
-                if(rfd>=0)
-                    close(rfd);
+            (void)tls_alloc(NULL, ui_tls, "libwrap");
+            (void)drop_privileges(0); /* libwrap processes are not chrooted */
+            (void)close(0); /* stdin */
+            (void)close(1); /* stdout */
+            if(!global_options.option.log_stderr) { /* logging in read_fd */
+                (void)close(2); /* stderr */
             }
+            for(j=0; j<=i; ++j) { /* close parent sockets created so far */
+                (void)close(ipc_socket[2U*j]);
+            }
+            while(1) { /* main libwrap child loop */
+                if(read_fd(ipc_socket[(2U*i)+1U], servname,
+                        SERVNAME_LEN, &rfd)<=0) {
+                    _exit(0);
+                }
+                result=check(servname, rfd);
+                (void)write(ipc_socket[(2U*i)+1U], &result, sizeof result);
+                if(rfd>=0) {
+                    (void)close(rfd);
+                }
+            }
+            break; /* unreached */
         default:    /* parent */
-            close(ipc_socket[2*i+1]); /* child-side socket */
+            child_pid[children++]=pid;
+            (void)close(ipc_socket[(2U*i)+1U]); /* child-side socket */
+            ipc_socket[(2U*i)+1U]=INVALID_SOCKET;
+            break;
         }
     }
     initialized=1;
+    return 0;
+
+fail:
+    /* Closing the parent endpoints makes initialized children exit on EOF. */
+    for(i=0; i<2U*num_processes; ++i) {
+        if(ipc_socket[i]!=INVALID_SOCKET)
+            (void)close(ipc_socket[i]);
+    }
+    for(i=0; i<children; ++i) {
+        do {
+            pid=waitpid(child_pid[i], NULL, 0);
+        } while(pid<0 && errno==EINTR);
+        if(pid<0)
+            ioerror("waitpid");
+    }
+    str_free(ipc_socket);
+    str_free(busy);
+    num_processes=0;
+    return 1;
 #endif /* USE_LIBWRAP_POOL */
     return 0;
 }
@@ -121,6 +162,7 @@ int libwrap_init(void) {
 #endif /* __GNUC__ */
 
 void libwrap_auth(CLI *c) {
+    CRYPTO_RWLOCK *lock;
     uint8_t result=0; /* deny by default */
 #ifdef USE_LIBWRAP_POOL
     jmp_buf exception_buffer, *exception_backup;
@@ -131,37 +173,41 @@ void libwrap_auth(CLI *c) {
     static pthread_cond_t cond=PTHREAD_COND_INITIALIZER;
 #endif /* USE_LIBWRAP_POOL */
 
-    if(!c->opt->option.libwrap) /* libwrap is disabled for this service */
+    if(!c->opt->option.libwrap) { /* libwrap is disabled for this service */
         return; /* allow connection */
+    }
 #ifdef HAVE_STRUCT_SOCKADDR_UN
+    /* AF_UNIX and sa_family_t are defined by the platform socket API. */
+    /* cppcheck-suppress misra-c2012-10.4 */
     if(c->peer_addr.sa.sa_family==AF_UNIX) {
         s_log(LOG_INFO, "Libwrap is not supported on Unix sockets");
         return;
     }
 #endif
 #ifdef USE_LIBWRAP_POOL
-    if(num_processes) {
+    if(num_processes!=0U) {
         s_log(LOG_DEBUG, "Waiting for a libwrap process");
 
         retval=pthread_mutex_lock(&mutex);
-        if(retval) {
+        if(retval!=0) {
             errno=retval;
             ioerror("pthread_mutex_lock");
         }
         while(num_busy==num_processes) { /* all child processes are busy */
             retval=pthread_cond_wait(&cond, &mutex);
-            if(retval) {
+            if(retval!=0) {
                 errno=retval;
                 ioerror("pthread_cond_wait");
             }
         }
-        while(busy[roundrobin]) /* find a free child process */
-            roundrobin=(roundrobin+1)%num_processes;
+        while(busy[roundrobin]!=0) { /* find a free child process */
+            roundrobin=(roundrobin+1U)%num_processes;
+        }
         my_process=roundrobin; /* the process allocated by this thread */
         ++num_busy; /* the child process has been allocated */
         busy[my_process]=1; /* mark the child process as busy */
         retval=pthread_mutex_unlock(&mutex);
-        if(retval) {
+        if(retval!=0) {
             errno=retval;
             ioerror("pthread_mutex_unlock");
         }
@@ -169,28 +215,28 @@ void libwrap_auth(CLI *c) {
         s_log(LOG_DEBUG, "Acquired libwrap process #%d", my_process);
         exception_backup=c->exception_pointer;
         c->exception_pointer=&exception_buffer;
-        if(!setjmp(exception_buffer)) {
-            write_fd(ipc_socket[2*my_process], c->opt->servname,
-                strlen(c->opt->servname)+1, c->local_rfd.fd);
-            s_read(c, ipc_socket[2*my_process], &result, sizeof result);
+        if(setjmp(exception_buffer)==0) {
+            (void)write_fd(ipc_socket[2U*my_process], c->opt->servname,
+                strlen(c->opt->servname)+1U, c->local_rfd.fd);
+            s_read(c, ipc_socket[2U*my_process], &result, sizeof result);
         }
         c->exception_pointer=exception_backup;
         s_log(LOG_DEBUG, "Releasing libwrap process #%d", my_process);
 
         retval=pthread_mutex_lock(&mutex);
-        if(retval) {
+        if(retval!=0) {
             errno=retval;
             ioerror("pthread_mutex_lock");
         }
         busy[my_process]=0; /* mark the child process as free */
         --num_busy; /* the child process has been released */
         retval=pthread_cond_signal(&cond); /* signal a waiting thread */
-        if(retval) {
+        if(retval!=0) {
             errno=retval;
             ioerror("pthread_cond_signal");
         }
         retval=pthread_mutex_unlock(&mutex);
-        if(retval) {
+        if(retval!=0) {
             errno=retval;
             ioerror("pthread_mutex_unlock");
         }
@@ -199,11 +245,11 @@ void libwrap_auth(CLI *c) {
     } else
 #endif /* USE_LIBWRAP_POOL */
     { /* use original, synchronous libwrap calls */
-        CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_LIBWRAP]);
+        lock=s_write_lock(LOCK_LIBWRAP);
         result=check(c->opt->servname, c->local_rfd.fd);
-        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_LIBWRAP]);
+        s_unlock(lock);
     }
-    if(!result) {
+    if(result==0U) {
         s_log(LOG_WARNING, "Service [%s] REFUSED by libwrap from %s",
             c->opt->servname, c->accepted_address);
         s_log(LOG_DEBUG, "See hosts_access(5) manual for details");
@@ -216,8 +262,10 @@ void libwrap_auth(CLI *c) {
 NOEXPORT uint8_t check(char *name, int fd) {
     struct request_info request;
 
-    request_init(&request, RQ_DAEMON, name, RQ_FILE, fd, 0);
+    (void)request_init(&request, RQ_DAEMON, name, RQ_FILE, fd, 0);
     fromhost(&request);
+    /* hosts_access() uses the integer result defined by libwrap. */
+    /* cppcheck-suppress misra-c2012-10.4 */
     return hosts_access(&request)!=0;
 }
 
@@ -230,10 +278,14 @@ NOEXPORT ssize_t read_fd(SOCKET fd, void *ptr, size_t nbytes, SOCKET *recvfd) {
 
 #ifdef HAVE_MSGHDR_MSG_CONTROL
     union {
-        struct cmsghdr cm;
+        /* This unread member provides the alignment required by CMSG_FIRSTHDR. */
+        /* cppcheck-suppress unusedStructMember */
+        struct cmsghdr align;
+        /* CMSG_SPACE is a platform macro with analyzer-unknown size and type. */
+        /* cppcheck-suppress [misra-config, misra-c2012-10.4] */
         char control[CMSG_SPACE(sizeof(int))];
     } control_un;
-    struct cmsghdr *cmptr;
+    const struct cmsghdr *cmptr;
 
     msg.msg_control=control_un.control;
     msg.msg_controllen=sizeof control_un.control;
@@ -254,13 +306,17 @@ NOEXPORT ssize_t read_fd(SOCKET fd, void *ptr, size_t nbytes, SOCKET *recvfd) {
 
     *recvfd=INVALID_SOCKET; /* descriptor was not passed */
     n=recvmsg(fd, &msg, 0);
-    if(n<=0)
+    if(n<=0) {
         return n;
+    }
 
 #ifdef HAVE_MSGHDR_MSG_CONTROL
     cmptr=CMSG_FIRSTHDR(&msg);
-    if(!cmptr || cmptr->cmsg_len!=CMSG_LEN(sizeof(int)))
+    /* CMSG_LEN returns the implementation-defined ancillary-data type. */
+    /* cppcheck-suppress misra-c2012-10.4 */
+    if(!cmptr || (cmptr->cmsg_len!=CMSG_LEN(sizeof(int)))) {
         return n;
+    }
     if(cmptr->cmsg_level!=SOL_SOCKET) {
         s_log(LOG_ERR, "control level != SOL_SOCKET");
         return -1;
@@ -269,10 +325,13 @@ NOEXPORT ssize_t read_fd(SOCKET fd, void *ptr, size_t nbytes, SOCKET *recvfd) {
         s_log(LOG_ERR, "control type != SCM_RIGHTS");
         return -1;
     }
-    memcpy(recvfd, CMSG_DATA(cmptr), sizeof(int));
+    /* POSIX defines CMSG_DATA as an untyped, suitably aligned byte buffer. */
+    /* cppcheck-suppress misra-c2012-21.15 */
+    (void)memcpy(recvfd, CMSG_DATA(cmptr), sizeof(int));
 #else
-    if(msg.msg_accrightslen==sizeof(int))
+    if(msg.msg_accrightslen==sizeof(int)) {
         *recvfd=newfd;
+    }
 #endif
 
     return n;
@@ -284,7 +343,11 @@ NOEXPORT ssize_t write_fd(int fd, void *ptr, size_t nbytes, int sendfd) {
 
 #ifdef HAVE_MSGHDR_MSG_CONTROL
     union {
-        struct cmsghdr cm;
+        /* This unread member provides the alignment required by CMSG_FIRSTHDR. */
+        /* cppcheck-suppress unusedStructMember */
+        struct cmsghdr align;
+        /* CMSG_SPACE is a platform macro with analyzer-unknown size and type. */
+        /* cppcheck-suppress [misra-config, misra-c2012-10.4] */
         char control[CMSG_SPACE(sizeof(int))];
     } control_un;
     struct cmsghdr *cmptr;
@@ -293,10 +356,14 @@ NOEXPORT ssize_t write_fd(int fd, void *ptr, size_t nbytes, int sendfd) {
     msg.msg_controllen=sizeof control_un.control;
 
     cmptr=CMSG_FIRSTHDR(&msg);
+    /* CMSG_LEN returns the implementation-defined ancillary-data type. */
+    /* cppcheck-suppress misra-c2012-10.4 */
     cmptr->cmsg_len=CMSG_LEN(sizeof(int));
     cmptr->cmsg_level=SOL_SOCKET;
     cmptr->cmsg_type=SCM_RIGHTS;
-    memcpy(CMSG_DATA(cmptr), &sendfd, sizeof(int));
+    /* POSIX defines CMSG_DATA as an untyped, suitably aligned byte buffer. */
+    /* cppcheck-suppress misra-c2012-21.15 */
+    (void)memcpy(CMSG_DATA(cmptr), &sendfd, sizeof(int));
 #else
     msg.msg_accrights=(caddr_t)&sendfd;
     msg.msg_accrightslen=sizeof(int);

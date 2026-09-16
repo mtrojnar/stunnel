@@ -580,7 +580,6 @@ uninstall-am: uninstall-confDATA uninstall-dist_bashcompDATA \
 
 .PRECIOUS: Makefile
 
-
 install-data-local:
 	${INSTALL} -d -m 1770 $(DESTDIR)$(localstatedir)/lib/stunnel
 	-chgrp $(DEFAULT_GROUP) $(DESTDIR)$(localstatedir)/lib/stunnel

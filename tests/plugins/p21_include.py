@@ -6,6 +6,7 @@ import pathlib
 from plugin_collection import Plugin, ERR_CONN_RESET
 from maketest import (
     Config,
+    ExpectedConfigurationFailure,
     StunnelAcceptConnect
 )
 
@@ -47,11 +48,16 @@ class IncludedConfiguration(StunnelTest):
     ) -> (pathlib.Path, pathlib.Path):
         """Create a configuration file for a stunnel client."""
 
+        nested_dir = cfg.tempd / "nested-conf.d"
+        nested_dir.mkdir(exist_ok=True)
+        (nested_dir / "00-debug.conf").write_text(
+            "debug = debug\n", encoding="UTF-8"
+        )
         with open(f"{cfg.tempd}/conf.d/00-global.conf", "w") as conf:
             conf.write(f"""
     foreground = yes
-    debug = debug
     syslog = no
+    include = {nested_dir}
     """
             )
         with open(f"{cfg.tempd}/conf.d/01-service.conf", "w") as conf:
@@ -75,11 +81,16 @@ class IncludedConfiguration(StunnelTest):
     ) -> pathlib.Path:
         """Create a configuration file for a stunnel server."""
         os.mkdir(f"{cfg.tempd}/conf.d")
+        nested_dir = cfg.tempd / "nested-conf.d"
+        nested_dir.mkdir(exist_ok=True)
+        (nested_dir / "00-debug.conf").write_text(
+            "debug = debug\n", encoding="UTF-8"
+        )
         with open(f"{cfg.tempd}/conf.d/00-global.conf", "w") as conf:
             conf.write(f"""
     foreground = yes
-    debug = debug
     syslog = no
+    include = {nested_dir}
     """)
         with open(f"{cfg.tempd}/conf.d/01-service.conf", "w") as conf:
             conf.write(f"""
@@ -92,6 +103,49 @@ class IncludedConfiguration(StunnelTest):
     include = {cfg.tempd}/conf.d
     """
         cfgfile = cfg.tempd / "stunnel_server.conf"
+        cfgfile.write_text(contents, encoding="UTF-8")
+        return cfgfile
+
+
+class IncludeStackOverflow(ExpectedConfigurationFailure):
+    """Reject a configuration with an excessive include depth."""
+
+    def __init__(self, cfg: Config, logger: logging.Logger):
+        super().__init__(cfg, logger)
+        self.params.ssl_client = True
+        self.params.services = ['server']
+        self.params.description = '212. Configuration include stack overflow'
+        self.events.count = 1
+        self.events.success = [
+            r"Include stack overflow.*recursive includes suspected"
+        ]
+        self.events.failure = [
+            "Configuration successful",
+            "Each service must define two endpoints",
+            "Something went wrong",
+            "INTERNAL ERROR"
+        ]
+
+
+    async def prepare_server_cfgfile(
+        self, cfg: Config, port: int, service: str
+    ) -> pathlib.Path:
+        """Create a configuration exceeding the include stack limit."""
+        del port, service
+        include_dir = cfg.tempd / "include-overflow"
+        include_dir.mkdir()
+        include_file = include_dir / "00-include.conf"
+        include_file.write_text(
+            f"include = {include_dir}\n", encoding="UTF-8"
+        )
+
+        contents = f"""
+    foreground = yes
+    debug = debug
+    syslog = no
+    include = {include_dir}
+    """
+        cfgfile = cfg.tempd / "stunnel_include_overflow.conf"
         cfgfile.write_text(contents, encoding="UTF-8")
         return cfgfile
 
@@ -110,4 +164,7 @@ class StunnelClientServerTest(Plugin):
     async def perform_operation(self, cfg: Config, logger: logging.Logger) -> None:
         """Run tests"""
         stunnel = IncludedConfiguration(cfg, logger)
+        await stunnel.test_stunnel(cfg)
+
+        stunnel = IncludeStackOverflow(cfg, logger)
         await stunnel.test_stunnel(cfg)

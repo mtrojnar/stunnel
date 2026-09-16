@@ -48,8 +48,37 @@ NOEXPORT void thread_id_init(void);
 NOEXPORT void locking_init(void);
 #ifndef USE_FORK
 CLI *thread_head=NULL;
-NOEXPORT void thread_list_add(CLI *);
+NOEXPORT void thread_list_add(CLI *c);
 #endif
+
+int sthreads_stack_size_validate(size_t stack_size) {
+#ifdef USE_PTHREAD
+    pthread_attr_t attr;
+    int error, cleanup_error;
+
+    error=pthread_attr_init(&attr);
+    if(error) {
+        errno=error;
+        ioerror("pthread_attr_init");
+        return 1;
+    }
+    error=pthread_attr_setstacksize(&attr, stack_size);
+    cleanup_error=pthread_attr_destroy(&attr);
+    if(error) {
+        errno=error;
+        ioerror("pthread_attr_setstacksize");
+        return 1;
+    }
+    if(cleanup_error) {
+        errno=cleanup_error;
+        ioerror("pthread_attr_destroy");
+        return 1;
+    }
+#else
+    (void)stack_size; /* only pthread exposes a stack-size validator */
+#endif
+    return 0;
+}
 
 /**************************************** thread ID callbacks */
 
@@ -96,11 +125,11 @@ unsigned long stunnel_thread_id(void) {
 #ifdef USE_WIN32
 
 unsigned long stunnel_process_id(void) {
-    return GetCurrentProcessId() & 0x00ffffff;
+    return GetCurrentProcessId() & 0x00ffffffUL;
 }
 
 unsigned long stunnel_thread_id(void) {
-    return GetCurrentThreadId() & 0x00ffffff;
+    return GetCurrentThreadId() & 0x00ffffffUL;
 }
 
 #endif /* USE_WIN32 */
@@ -139,7 +168,7 @@ NOEXPORT void s_lock_init_debug(struct CRYPTO_dynlock_value *lock,
 #endif
 }
 
-NOEXPORT void s_read_lock_debug(struct CRYPTO_dynlock_value *lock,
+NOEXPORT void legacy_read_lock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     pthread_rwlock_rdlock(&lock->rwlock);
 #ifdef DEBUG_LOCKS
@@ -151,7 +180,7 @@ NOEXPORT void s_read_lock_debug(struct CRYPTO_dynlock_value *lock,
 #endif
 }
 
-NOEXPORT void s_write_lock_debug(struct CRYPTO_dynlock_value *lock,
+NOEXPORT void legacy_write_lock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     pthread_rwlock_wrlock(&lock->rwlock);
 #ifdef DEBUG_LOCKS
@@ -163,7 +192,7 @@ NOEXPORT void s_write_lock_debug(struct CRYPTO_dynlock_value *lock,
 #endif
 }
 
-NOEXPORT void s_unlock_debug(struct CRYPTO_dynlock_value *lock,
+NOEXPORT void legacy_unlock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     pthread_rwlock_unlock(&lock->rwlock);
 #ifdef DEBUG_LOCKS
@@ -208,7 +237,7 @@ NOEXPORT void s_lock_init_debug(struct CRYPTO_dynlock_value *lock,
 #endif
 }
 
-NOEXPORT void s_read_lock_debug(struct CRYPTO_dynlock_value *lock,
+NOEXPORT void legacy_read_lock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     EnterCriticalSection(&lock->critical_section);
 #ifdef DEBUG_LOCKS
@@ -220,7 +249,7 @@ NOEXPORT void s_read_lock_debug(struct CRYPTO_dynlock_value *lock,
 #endif
 }
 
-NOEXPORT void s_write_lock_debug(struct CRYPTO_dynlock_value *lock,
+NOEXPORT void legacy_write_lock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     EnterCriticalSection(&lock->critical_section);
 #ifdef DEBUG_LOCKS
@@ -232,7 +261,7 @@ NOEXPORT void s_write_lock_debug(struct CRYPTO_dynlock_value *lock,
 #endif
 }
 
-NOEXPORT void s_unlock_debug(struct CRYPTO_dynlock_value *lock,
+NOEXPORT void legacy_unlock_debug(struct CRYPTO_dynlock_value *lock,
         const char *file, int line) {
     LeaveCriticalSection(&lock->critical_section);
 #ifdef DEBUG_LOCKS
@@ -259,35 +288,130 @@ NOEXPORT void s_lock_destroy_debug(struct CRYPTO_dynlock_value *lock,
 
 #endif /* USE_WIN32 */
 
-NOEXPORT int s_atomic_add(int *val, int amount, CRYPTO_RWLOCK *lock) {
-    int ret;
-
-    (void)lock; /* squash the unused parameter warning */
-#if !defined(USE_OS_THREADS)
-    /* no synchronization is needed */
-    return *val+=amount;
-#elif defined(__ATOMIC_ACQ_REL)
-    if(__atomic_is_lock_free(sizeof *val, val))
-        return __atomic_add_fetch(val, amount, __ATOMIC_ACQ_REL);
-#elif defined(_MSC_VER)
-    /* casting is safe, because sizeof(long)==sizeof(int) on Windows */
-    return InterlockedExchangeAdd((long *)val, amount)+amount;
-#endif
-    CRYPTO_THREAD_write_lock(lock);
-    ret=(*val+=amount);
-    CRYPTO_THREAD_unlock(lock);
-    return ret;
-}
-
 #endif /* OPENSSL_VERSION_NUMBER<0x10100004L */
 
-CRYPTO_RWLOCK *stunnel_locks[STUNNEL_LOCKS];
+NOEXPORT CRYPTO_RWLOCK *stunnel_locks[STUNNEL_LOCKS];
+
+int s_atomic_add_debug(int *val, int amount, int type,
+        const char *file, int line) {
+#if !defined(USE_OS_THREADS)
+    (void)type; /* squash the unused parameter warning */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+    /* no synchronization is needed */
+    return *val+=amount;
+#elif defined(_MSC_VER)
+    (void)type; /* squash the unused parameter warning */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+    /* casting is safe, because sizeof(long)==sizeof(int) on Windows */
+    return InterlockedExchangeAdd((long *)val, amount)+amount;
+#else
+    int ret;
+    CRYPTO_RWLOCK *lock;
+
+    /* CRYPTO_atomic_add() is only used as a fallback, because it is slow */
+#ifdef __ATOMIC_ACQ_REL
+    if(__atomic_is_lock_free(sizeof *val, val))
+        return __atomic_add_fetch(val, amount, __ATOMIC_ACQ_REL);
+#endif
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+    lock=s_write_lock_debug(type, file, line);
+    ret=(*val+=amount);
+    s_unlock_debug(lock, file, line);
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+    /* locking may be invoked before sthreads_init() initializes the locks */
+    lock=stunnel_locks[type];
+    if(!lock)
+        return *val+=amount;
+    if(!CRYPTO_atomic_add(val, amount, &ret, lock))
+        fatal("CRYPTO_atomic_add failed");
+#endif
+    return ret;
+#endif
+}
+
+/* locking may be invoked before sthreads_init() initializes the locks */
+CRYPTO_RWLOCK *s_read_lock_debug(int type, const char *file, int line) {
+    CRYPTO_RWLOCK *lock=stunnel_locks[type];
+
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+#ifdef USE_OS_THREADS
+    if(lock)
+        legacy_read_lock_debug(lock, file, line);
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+    if(lock) {
+        int lock_result;
+
+        lock_result=CRYPTO_THREAD_read_lock(lock);
+        if(!lock_result)
+            fatal("CRYPTO_THREAD_read_lock failed");
+    }
+#endif
+    return lock;
+}
+
+CRYPTO_RWLOCK *s_write_lock_debug(int type, const char *file, int line) {
+    CRYPTO_RWLOCK *lock=stunnel_locks[type];
+
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+#ifdef USE_OS_THREADS
+    if(lock)
+        legacy_write_lock_debug(lock, file, line);
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+    if(lock) {
+        int lock_result;
+
+        lock_result=CRYPTO_THREAD_write_lock(lock);
+        if(!lock_result)
+            fatal("CRYPTO_THREAD_write_lock failed");
+    }
+#endif
+    return lock;
+}
+
+void s_unlock_debug(CRYPTO_RWLOCK *lock, const char *file, int line) {
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+#ifdef USE_OS_THREADS
+    if(lock)
+        legacy_unlock_debug(lock, file, line);
+#else
+    (void)lock; /* squash the unused parameter warning */
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+#endif
+#else
+    (void)file; /* squash the unused parameter warning */
+    (void)line; /* squash the unused parameter warning */
+    if(lock) {
+        int unlock_result;
+
+        unlock_result=CRYPTO_THREAD_unlock(lock);
+        if(!unlock_result)
+            fatal("CRYPTO_THREAD_unlock failed");
+    }
+#endif
+}
 
 #if OPENSSL_VERSION_NUMBER<0x10100004L
 
 #ifdef USE_OS_THREADS
 
-static struct CRYPTO_dynlock_value *lock_cs;
+NOEXPORT struct CRYPTO_dynlock_value *lock_cs;
 
 NOEXPORT struct CRYPTO_dynlock_value *s_dynlock_create_cb(const char *file,
         int line) {
@@ -305,11 +429,11 @@ NOEXPORT void s_dynlock_lock_cb(int mode, struct CRYPTO_dynlock_value *lock,
         if(!(mode&CRYPTO_READ)==!(mode&CRYPTO_WRITE))
             fatal("Invalid locking mode");
         if(mode&CRYPTO_WRITE)
-            s_write_lock_debug(lock, file, line);
+            legacy_write_lock_debug(lock, file, line);
         else
-            s_read_lock_debug(lock, file, line);
+            legacy_read_lock_debug(lock, file, line);
     } else
-        s_unlock_debug(lock, file, line);
+        legacy_unlock_debug(lock, file, line);
 }
 
 NOEXPORT void s_dynlock_destroy_cb(struct CRYPTO_dynlock_value *lock,
@@ -323,69 +447,26 @@ NOEXPORT void s_locking_cb(int mode, int type, const char *file, int line) {
 
 NOEXPORT int s_add_lock_cb(int *num, int amount, int type,
         const char *file, int line) {
+#ifdef _MSC_VER
     (void)file; /* squash the unused parameter warning */
     (void)line; /* squash the unused parameter warning */
-    return s_atomic_add(num, amount, lock_cs+type);
-}
+    /* casting is safe, because sizeof(long)==sizeof(int) on Windows */
+    return InterlockedExchangeAdd((long *)num, amount)+amount;
+#else
+    int ret;
 
-CRYPTO_RWLOCK *CRYPTO_THREAD_lock_new(void) {
-    struct CRYPTO_dynlock_value *lock;
-
-    lock=str_alloc_detached(sizeof(CRYPTO_RWLOCK));
-    s_lock_init_debug(lock, __FILE__, __LINE__);
-    return lock;
-}
-
-int CRYPTO_THREAD_read_lock(CRYPTO_RWLOCK *lock) {
-    s_read_lock_debug(lock, __FILE__, __LINE__);
-    return 1;
-}
-
-int CRYPTO_THREAD_write_lock(CRYPTO_RWLOCK *lock) {
-    s_write_lock_debug(lock, __FILE__, __LINE__);
-    return 1;
-}
-
-int CRYPTO_THREAD_unlock(CRYPTO_RWLOCK *lock) {
-    s_unlock_debug(lock, __FILE__, __LINE__);
-    return 1;
-}
-
-void CRYPTO_THREAD_lock_free(CRYPTO_RWLOCK *lock) {
-    s_lock_destroy_debug(lock, __FILE__, __LINE__);
-}
-
-#else /* USE_OS_THREADS */
-
-CRYPTO_RWLOCK *CRYPTO_THREAD_lock_new(void) {
-    return NULL;
-}
-
-int CRYPTO_THREAD_read_lock(CRYPTO_RWLOCK *lock) {
-    (void)lock; /* squash the unused parameter warning */
-    return 1;
-}
-
-int CRYPTO_THREAD_write_lock(CRYPTO_RWLOCK *lock) {
-    (void)lock; /* squash the unused parameter warning */
-    return 1;
-}
-
-int CRYPTO_THREAD_unlock(CRYPTO_RWLOCK *lock) {
-    (void)lock; /* squash the unused parameter warning */
-    return 1;
-}
-
-void CRYPTO_THREAD_lock_free(CRYPTO_RWLOCK *lock) {
-    (void)lock; /* squash the unused parameter warning */
+#ifdef __ATOMIC_ACQ_REL
+    if(__atomic_is_lock_free(sizeof *num, num))
+        return __atomic_add_fetch(num, amount, __ATOMIC_ACQ_REL);
+#endif
+    legacy_write_lock_debug(lock_cs+type, file, line);
+    ret=(*num+=amount);
+    legacy_unlock_debug(lock_cs+type, file, line);
+    return ret;
+#endif
 }
 
 #endif /* USE_OS_THREADS */
-
-int CRYPTO_atomic_add(int *val, int amount, int *ret, CRYPTO_RWLOCK *lock) {
-    *ret=s_atomic_add(val, amount, lock);
-    return 1;
-}
 
 #endif /* OPENSSL_VERSION_NUMBER<0x10100004L */
 
@@ -411,8 +492,18 @@ NOEXPORT void locking_init(void) {
 #endif /* defined(USE_OS_THREADS) && OPENSSL_VERSION_NUMBER<0x10100004L */
 
     /* initialize stunnel critical sections */
-    for(i=0; i<STUNNEL_LOCKS; i++) /* all the mutexes */
+    for(i=0; i<(size_t)STUNNEL_LOCKS; i++) { /* all the mutexes */
+#if OPENSSL_VERSION_NUMBER<0x10100004L
+#ifdef USE_OS_THREADS
+        stunnel_locks[i]=str_alloc_detached(sizeof(CRYPTO_RWLOCK));
+        s_lock_init_debug(stunnel_locks[i], __FILE__, __LINE__);
+#else
+        stunnel_locks[i]=NULL;
+#endif
+#else
         stunnel_locks[i]=CRYPTO_THREAD_lock_new();
+#endif
+    }
 }
 
 /**************************************** creating a client */
@@ -559,11 +650,22 @@ NOEXPORT void *dummy_thread(void *arg) {
 
 int sthreads_init(void) {
     pthread_t thread_id;
+    int error;
 
     /* this is a workaround for NPTL threads failing to invoke
      * pthread_exit() or pthread_cancel() from a chroot jail */
-    if(!pthread_create(&thread_id, NULL, dummy_thread, NULL))
-        pthread_join(thread_id, NULL);
+    error=pthread_create(&thread_id, NULL, dummy_thread, NULL);
+    if(error) {
+        errno=error;
+        ioerror("pthread_create");
+        return 1;
+    }
+    error=pthread_join(thread_id, NULL);
+    if(error) {
+        errno=error;
+        ioerror("pthread_join");
+        return 1;
+    }
 
     thread_id_init();
     locking_init();
@@ -572,7 +674,8 @@ int sthreads_init(void) {
 
 int create_client(SOCKET ls, CLI *arg) {
     pthread_attr_t pth_attr;
-    int error;
+    CRYPTO_RWLOCK *lock;
+    int error, cleanup_error;
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
     /* disabled on OS X due to strange problems on Mac OS X 10.5
        it seems to restore signal mask somewhere (I couldn't find where)
@@ -585,27 +688,77 @@ int create_client(SOCKET ls, CLI *arg) {
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
     /* the idea is that only the main thread handles all the signals with
      * posix threads;  signals are blocked for any other thread */
-    sigfillset(&new_set);
-    pthread_sigmask(SIG_SETMASK, &new_set, &old_set); /* block signals */
+    error=sigfillset(&new_set);
+    if(error) {
+        ioerror("sigfillset");
+        free_client(arg);
+        return -1;
+    }
+    error=pthread_sigmask(SIG_SETMASK, &new_set, &old_set);
+    if(error) {
+        errno=error;
+        ioerror("pthread_sigmask");
+        free_client(arg);
+        return -1;
+    }
 #endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
-    pthread_attr_init(&pth_attr);
-    pthread_attr_setstacksize(&pth_attr, arg->opt->stack_size);
-
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
-    error=pthread_create(&arg->thread_id, &pth_attr, client_thread, arg);
-    pthread_attr_destroy(&pth_attr);
+    error=pthread_attr_init(&pth_attr);
+    if(error) {
+        errno=error;
+        ioerror("pthread_attr_init");
 #if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
-    pthread_sigmask(SIG_SETMASK, &old_set, NULL); /* unblock signals */
-#endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__*/
+        cleanup_error=pthread_sigmask(SIG_SETMASK, &old_set, NULL);
+        if(cleanup_error) {
+            errno=cleanup_error;
+            ioerror("pthread_sigmask");
+        }
+#endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__ */
+        free_client(arg);
+        return -1;
+    }
+    error=pthread_attr_setstacksize(&pth_attr, arg->opt->stack_size);
+    if(error) {
+        errno=error;
+        ioerror("pthread_attr_setstacksize");
+        cleanup_error=pthread_attr_destroy(&pth_attr);
+        if(cleanup_error) {
+            errno=cleanup_error;
+            ioerror("pthread_attr_destroy");
+        }
+#if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
+        cleanup_error=pthread_sigmask(SIG_SETMASK, &old_set, NULL);
+        if(cleanup_error) {
+            errno=cleanup_error;
+            ioerror("pthread_sigmask");
+        }
+#endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__ */
+        free_client(arg);
+        return -1;
+    }
+
+    lock=s_write_lock(LOCK_THREAD_LIST);
+    error=pthread_create(&arg->thread_id, &pth_attr, client_thread, arg);
+    cleanup_error=pthread_attr_destroy(&pth_attr);
+    if(cleanup_error) {
+        errno=cleanup_error;
+        ioerror("pthread_attr_destroy");
+    }
+#if defined(HAVE_PTHREAD_SIGMASK) && !defined(__APPLE__)
+    cleanup_error=pthread_sigmask(SIG_SETMASK, &old_set, NULL);
+    if(cleanup_error) {
+        errno=cleanup_error;
+        ioerror("pthread_sigmask");
+    }
+#endif /* HAVE_PTHREAD_SIGMASK && !__APPLE__ */
     if(error) {
         errno=error;
         ioerror("pthread_create");
-        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+        s_unlock(lock);
         free_client(arg);
         return -1;
     }
     thread_list_add(arg);
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+    s_unlock(lock);
     return 0;
 }
 
@@ -624,20 +777,24 @@ int sthreads_init(void) {
 }
 
 int create_client(SOCKET ls, CLI *arg) {
+    CRYPTO_RWLOCK *lock;
+
     (void)ls; /* this parameter is only used with USE_FORK */
     s_log(LOG_DEBUG, "Creating a new thread");
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    lock=s_write_lock(LOCK_THREAD_LIST);
+    /* The Microsoft CRT requires converting its uintptr_t thread handle. */
+    /* cppcheck-suppress misra-c2012-11.6 */
     arg->thread_id=(HANDLE)_beginthreadex(NULL,
         (unsigned)arg->opt->stack_size, client_thread, arg,
         STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
     if(!arg->thread_id) {
         ioerror("_beginthreadex");
-        CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+        s_unlock(lock);
         free_client(arg);
         return -1;
     }
     thread_list_add(arg);
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+    s_unlock(lock);
     s_log(LOG_DEBUG, "New thread created");
     return 0;
 }

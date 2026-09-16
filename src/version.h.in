@@ -1,3 +1,5 @@
+/* version.h is generated from version.h.in by configure.  Edit version.h.in instead. */
+
 /*
  *   stunnel       TLS offloading and load-balancing proxy
  *   Copyright (C) 1998-2026 Michal Trojnara <Michal.Trojnara@stunnel.org>
@@ -54,9 +56,9 @@
 #define HOST PLATFORM "-pc-mingw32-gnu"
 #else /* __MINGW32__ */
 #ifdef _MSC_VER
-#define xstr(a) str(a)
-#define str(a) #a
-#define HOST PLATFORM "-pc-msvc-" xstr(_MSC_VER)
+#define MSVC_VERSION_STRING0(a) #a
+#define MSVC_VERSION_STRING(a) MSVC_VERSION_STRING0(a)
+#define HOST PLATFORM "-pc-msvc-" MSVC_VERSION_STRING(_MSC_VER)
 #else /* _MSC_VER */
 #define HOST PLATFORM "-pc-unknown"
 #endif /* _MSC_VER */

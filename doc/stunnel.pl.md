@@ -170,9 +170,9 @@ Parametr adres może być:
 
 -   **fips** = yes \| no
 
-    tryb FIPS 140-2
+    tryb FIPS 140-3
 
-    Opcja pozwala wyłączyć wejście w tryb FIPS, jeśli **stunnel** został skompilowany ze wsparciem dla FIPS 140-2.
+    Opcja pozwala wyłączyć wejście w tryb FIPS, jeśli **stunnel** został skompilowany ze wsparciem dla FIPS 140-3.
 
     domyślnie: no (od wersji 5.00)
 
@@ -1253,7 +1253,7 @@ albo w trybie zdalnym:
     accept = 993
     connect = 143
 
-Aby umożliwić lokalnemu klientowi poczty elektronicznej korzystanie z serwera *imapd* przez TLS należy skonfigurować pobieranie poczty z adresu localhost i portu 119, oraz użyć następującej konfiguracji:
+Aby umożliwić lokalnemu klientowi poczty elektronicznej korzystanie z serwera *imapd* przez TLS należy skonfigurować pobieranie poczty z adresu localhost i portu 143, oraz użyć następującej konfiguracji:
 
     [imap]
     client = yes

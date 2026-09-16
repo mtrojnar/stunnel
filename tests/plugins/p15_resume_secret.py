@@ -85,8 +85,8 @@ class ResumeTicketSecret(StunnelTest):
     syslog = no
 
     options = -NO_TICKET
-    ticketKeySecret = 6c:42:72:46:57:23:3a:3d:4b:54:2d:7b:55:4b:6e:8f:32:5c:21:6a:2e:6e:47:31:57:20:2f:75:26:7b:4d:25
-    ticketMacSecret = 3f:3c:77:53:32:48:79:76:75:7a:50:33:70:65:47:27:32:79:73:7e:73:2c:21:6c:3a:6f:30:28:4c:5c:27:1f
+    ticketKeySecret = 6c:42:72:46:57:23:3a:3d:00:54:2d:7b:55:4b:6e:8f:32:5c:21:6a:2e:6e:47:31:57:20:2f:75:26:7b:4d:25
+    ticketMacSecret = 3f:3c:77:53:32:48:79:76:00:7a:50:33:70:65:47:27:32:79:73:7e:73:2c:21:6c:3a:6f:30:28:4c:5c:27:1f
 
     [{service}]
     accept = 127.0.0.1:0
@@ -109,8 +109,8 @@ class ResumeTicketSecret(StunnelTest):
     debug = debug
     syslog = no
 
-    ticketKeySecret = 6c:42:72:46:57:23:3a:3d:4b:54:2d:7b:55:4b:6e:8f:32:5c:21:6a:2e:6e:47:31:57:20:2f:75:26:7b:4d:25
-    ticketMacSecret = 3f:3c:77:53:32:48:79:76:75:7a:50:33:70:65:47:27:32:79:73:7e:73:2c:21:6c:3a:6f:30:28:4c:5c:27:1f
+    ticketKeySecret = 6c:42:72:46:57:23:3a:3d:00:54:2d:7b:55:4b:6e:8f:32:5c:21:6a:2e:6e:47:31:57:20:2f:75:26:7b:4d:25
+    ticketMacSecret = 3f:3c:77:53:32:48:79:76:00:7a:50:33:70:65:47:27:32:79:73:7e:73:2c:21:6c:3a:6f:30:28:4c:5c:27:1f
 
     [server]
     accept = 127.0.0.1:{ports[1]}

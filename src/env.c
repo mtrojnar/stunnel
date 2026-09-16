@@ -41,6 +41,7 @@
 #include <sys/socket.h> /* for AF_INET */
 #include <netinet/in.h>
 #include <arpa/inet.h>  /* for inet_addr() */
+#include <errno.h>      /* for errno */
 #include <stdlib.h>     /* for getenv() */
 #ifdef __BEOS__
 #include <be/bone/arpa/inet.h> /* for AF_INET */
@@ -50,22 +51,39 @@
 #endif
 #undef getpeername
 
-int getpeername(int, struct sockaddr_in *, int *);
+int getpeername(int s, struct sockaddr_in *peer_addr, int *len);
 
-int getpeername(int s, struct sockaddr_in *name, int *len) {
-    char *value;
+/* Interposing the getpeername macro is the purpose of this library. */
+/* cppcheck-suppress misra-c2012-5.5 */
+int getpeername(int s, struct sockaddr_in *peer_addr, int *len) {
+    const char *value;
 
     (void)s; /* squash the unused parameter warning */
     (void)len; /* squash the unused parameter warning */
-    name->sin_family=AF_INET;
-    if((value=getenv("REMOTE_HOST")))
-        name->sin_addr.s_addr=inet_addr(value);
+    peer_addr->sin_family=AF_INET;
+    /* Reading the environment is the purpose of this interposition library. */
+    /* cppcheck-suppress misra-c2012-21.8 */
+    value=getenv("REMOTE_HOST");
+    if(value)
+        peer_addr->sin_addr.s_addr=inet_addr(value);
     else
-        name->sin_addr.s_addr=htonl(INADDR_ANY);
-    if((value=getenv("REMOTE_PORT")))
-        name->sin_port=htons((uint16_t)atoi(value));
-    else
-        name->sin_port=htons(0); /* dynamic port allocation */
+        peer_addr->sin_addr.s_addr=htonl(INADDR_ANY);
+    /* cppcheck-suppress misra-c2012-21.8 */
+    value=getenv("REMOTE_PORT");
+    if(value) {
+        char *end;
+        unsigned long port;
+
+        errno=0;
+        /* Cppcheck does not recognize glibc's expanded errno assignment. */
+        /* cppcheck-suppress [misra-c2012-22.8, misra-c2012-22.9] */
+        port=strtoul(value, &end, 10);
+        if(errno!=0 || end==value || *end || port>65535UL)
+            port=0; /* preserve atoi() behavior for invalid input */
+        peer_addr->sin_port=htons((uint16_t)port);
+    } else {
+        peer_addr->sin_port=htons(0); /* dynamic port allocation */
+    }
     return 0;
 }
 

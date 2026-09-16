@@ -69,8 +69,8 @@ struct sockaddr_un {
 
 NOEXPORT void terminate_threads(void);
 #if !defined(USE_WIN32) && !defined(USE_OS2)
-NOEXPORT void pid_status_nohang(const char *);
-NOEXPORT void status_info(int, int, const char *);
+NOEXPORT void pid_status_nohang(const char *info);
+NOEXPORT void status_info(int pid, int status, const char *info);
 #endif
 typedef enum {
     ACCEPT_SUCCESS,
@@ -78,27 +78,32 @@ typedef enum {
     ACCEPT_DELAY
 } ACCEPT_STATUS;
 
-NOEXPORT int accept_connection(SERVICE_OPTIONS *, unsigned);
+NOEXPORT int accept_connection(SERVICE_OPTIONS *opt, unsigned i);
 #ifdef USE_DTLS
-NOEXPORT ACCEPT_STATUS accept_udp_connection(SERVICE_OPTIONS *, SOCKET, CLI *);
-NOEXPORT int accept_udp_peer(SERVICE_OPTIONS *, SOCKET, CLI *, ssize_t *);
-NOEXPORT int connect_udp_client_socket(SERVICE_OPTIONS *, SOCKET, CLI *);
+NOEXPORT ACCEPT_STATUS accept_udp_connection(SERVICE_OPTIONS *opt,
+    SOCKET fd, CLI *c);
+NOEXPORT int accept_udp_peer(SERVICE_OPTIONS *opt, SOCKET fd, CLI *c,
+    ssize_t *len);
+NOEXPORT int connect_udp_client_socket(SERVICE_OPTIONS *opt,
+    SOCKET fd, CLI *c);
 #endif /* USE_DTLS */
-NOEXPORT ACCEPT_STATUS accept_tcp_connection(SERVICE_OPTIONS *, SOCKET, CLI *);
-NOEXPORT void start_accepted_client(SERVICE_OPTIONS *, SOCKET, CLI *);
+NOEXPORT ACCEPT_STATUS accept_tcp_connection(SERVICE_OPTIONS *opt,
+    SOCKET fd, CLI *c);
+NOEXPORT void start_accepted_client(SERVICE_OPTIONS *opt, SOCKET fd, CLI *c);
 NOEXPORT int exec_connect_start(void);
 NOEXPORT void unbind_ports(void);
-NOEXPORT void unbind_port(SERVICE_OPTIONS *, unsigned);
+NOEXPORT void unbind_port(SERVICE_OPTIONS *opt, unsigned i);
 NOEXPORT int bind_ports(void);
-NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *, int, unsigned);
+NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section,
+    unsigned i);
 #ifdef HAVE_CHROOT
 NOEXPORT int change_root(void);
 #endif
-NOEXPORT int pipe_init(SOCKET [2], const char *);
+NOEXPORT int pipe_init(SOCKET socket_vector[2], const char *name);
 NOEXPORT int signal_pipe_dispatch(void);
 NOEXPORT void reload_config(void);
 NOEXPORT int process_connections(void);
-NOEXPORT char *signal_name(int);
+NOEXPORT char *signal_name(int signum);
 
 /**************************************** global variables */
 
@@ -112,9 +117,9 @@ int max_clients=0;
 /* -1 before a valid config is loaded, then the current number of clients */
 int num_clients=-1;
 #endif
-s_poll_set *fds; /* file descriptors of listening sockets */
-int systemd_fds; /* number of file descriptors passed by systemd */
-int listen_fds_start; /* base for systemd-provided file descriptors */
+NOEXPORT s_poll_set *fds; /* file descriptors of listening sockets */
+NOEXPORT int systemd_fds; /* number of file descriptors passed by systemd */
+NOEXPORT int listen_fds_start; /* base for systemd-provided file descriptors */
 
 /**************************************** startup */
 
@@ -126,7 +131,8 @@ int stunnel_init(void) { /* basic initialization */
 
     tls_init(); /* initialize thread-local storage */
     str_init(); /* initialize memory allocator */
-    crypto_init(); /* initialize libcrypto */
+    if(crypto_init()) /* initialize libcrypto */
+        return 1;
 #ifdef USE_WIN32
     if(WSAStartup(MAKEWORD(2, 2), &wsa_state))
         return 1; /* error */
@@ -199,7 +205,7 @@ int main_configure(char *arg1, char *arg2) {
     str_canary_init(); /* needs prng initialization from options_cmdline */
     /* log_open(SINK_SYSLOG) must be called before change_root()
      * to be able to access /dev/log socket */
-    log_open(SINK_SYSLOG);
+    (void)log_open(SINK_SYSLOG);
     if(bind_ports()) { /* initial binding failed - restoring the defaults */
         unbind_ports(); /* unbind the successfully bound ports */
         options_free(1); /* free the current options */
@@ -218,10 +224,12 @@ int main_configure(char *arg1, char *arg2) {
     }
 #endif /* HAVE_CHROOT */
 
+#if !defined(USE_WIN32) && !defined(__vms) && !defined(USE_OS2)
     if(drop_privileges(1)) {
         log_flush(LOG_MODE_ERROR);
         return 1;
     }
+#endif /* standard Unix */
 
     /* log_open(SINK_OUTFILE) must be called after drop_privileges()
      * or logfile rotation won't be possible */
@@ -303,14 +311,15 @@ void main_cleanup(void) {
 NOEXPORT void terminate_threads(void) {
 #ifdef USE_TERMINATE_PIPE
     CLI *c;
+    CRYPTO_RWLOCK *lock;
     unsigned i, threads;
     THREAD_ID *thread_list;
 
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    lock=s_write_lock(LOCK_THREAD_LIST);
     threads=0;
     for(c=thread_head; c; c=c->thread_next) /* count client threads */
         threads++;
-    thread_list=str_alloc((threads+3)*sizeof(THREAD_ID));
+    thread_list=str_alloc((threads+3U)*sizeof(THREAD_ID));
     i=0;
     for(c=thread_head; c; c=c->thread_next) { /* copy client threads */
         thread_list[i++]=c->thread_id;
@@ -328,11 +337,11 @@ NOEXPORT void terminate_threads(void) {
         thread_list[threads++]=per_day_thread_id;
         s_log(LOG_DEBUG, "Terminating the per-day thread");
     }
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+    s_unlock(lock);
 
     if(threads) {
         s_log(LOG_INFO, "Terminating %u service thread(s)", threads);
-        writesocket(terminate_pipe[1], "", 1);
+        (void)writesocket(terminate_pipe[1], "", 1);
         for(i=0; i<threads; ++i) { /* join client threads */
 #ifdef USE_PTHREAD
             if(pthread_join(thread_list[i], NULL))
@@ -387,6 +396,8 @@ void pid_status_hang(const char *info) {
 
 NOEXPORT void status_info(int pid, int status, const char *info) {
 #ifdef WIFSIGNALED
+    /* Process-status macros use system-defined packed integer fields. */
+    /* cppcheck-suppress-begin misra-c2012-10.1 */
     if(WIFSIGNALED(status)) {
         char *sig_name=signal_name(WTERMSIG(status));
         s_log(LOG_INFO, "%s %d terminated on %s", info, pid, sig_name);
@@ -395,6 +406,7 @@ NOEXPORT void status_info(int pid, int status, const char *info) {
         s_log(LOG_INFO, "%s %d finished with code %d",
             info, pid, WEXITSTATUS(status));
     }
+    /* cppcheck-suppress-end misra-c2012-10.1 */
 #else
     s_log(LOG_INFO, "%s %d finished with status %d", info, pid, status);
 #endif
@@ -407,10 +419,14 @@ NOEXPORT void status_info(int pid, int status, const char *info) {
 void daemon_loop(void) {
     if(cron_init()) { /* initialize periodic events */
         s_log(LOG_CRIT, "Cron initialization failed");
+        /* The daemon cannot run without periodic maintenance. */
+        /* cppcheck-suppress misra-c2012-21.8 */
         exit(1);
     }
     if(exec_connect_start()) {
         s_log(LOG_CRIT, "Failed to start exec+connect services");
+        /* No service loop can be entered after startup fails. */
+        /* cppcheck-suppress misra-c2012-21.8 */
         exit(1);
     }
     s_log(LOG_INFO, "Accepting new connections");
@@ -429,10 +445,11 @@ void daemon_loop(void) {
                 unsigned i;
                 for(i=0; i<opt->local_addr.num; ++i) {
                     SOCKET fd=opt->local_fd[i];
-                    if(fd!=INVALID_SOCKET &&
-                            s_poll_canread(fds, fd) &&
-                            accept_connection(opt, i))
-                        temporary_lack_of_resources=1;
+
+                    if(fd!=INVALID_SOCKET && s_poll_canread(fds, fd)) {
+                        if(accept_connection(opt, i))
+                            temporary_lack_of_resources=1;
+                    }
                 }
             }
         } else {
@@ -457,7 +474,7 @@ NOEXPORT int accept_connection(SERVICE_OPTIONS *opt, unsigned i) {
 
     c=alloc_client(opt);
 #ifdef USE_DTLS
-    status=opt->sock_type==SOCK_DGRAM ?
+    status=socket_type_is_datagram(opt->sock_type) ?
         accept_udp_connection(opt, fd, c) :
         accept_tcp_connection(opt, fd, c);
 #else
@@ -512,6 +529,8 @@ NOEXPORT ACCEPT_STATUS accept_udp_connection(SERVICE_OPTIONS *opt,
          * c->ssl in handshake state.  Drain same-peer fragments. */
         if(drain_udp_datagrams(c, fd))
             return ACCEPT_FAILURE;
+    } else {
+        /* no pre-initialized DTLS state to drain */
     }
 
     if(c->ssl) {
@@ -519,11 +538,27 @@ NOEXPORT ACCEPT_STATUS accept_udp_connection(SERVICE_OPTIONS *opt,
          * Retarget BIOs from listen fd to connected client fd,
          * preserving DTLSv1_listen() handshake state. */
         rbio=SSL_get_rbio(c->ssl);
-        if(rbio)
-            BIO_set_fd(rbio, (int)c->local_rfd.fd, BIO_NOCLOSE);
+        if(rbio) {
+            long bio_result;
+
+            bio_result=BIO_set_fd(rbio,
+                (int)c->local_rfd.fd, BIO_NOCLOSE);
+            if(bio_result<=0) {
+                ssl_error(c, "BIO_set_fd");
+                return ACCEPT_FAILURE;
+            }
+        }
         wbio=SSL_get_wbio(c->ssl);
-        if(wbio && wbio!=rbio)
-            BIO_set_fd(wbio, (int)c->local_wfd.fd, BIO_NOCLOSE);
+        if(wbio && wbio!=rbio) {
+            long bio_result;
+
+            bio_result=BIO_set_fd(wbio,
+                (int)c->local_wfd.fd, BIO_NOCLOSE);
+            if(bio_result<=0) {
+                ssl_error(c, "BIO_set_fd");
+                return ACCEPT_FAILURE;
+            }
+        }
     }
 
     return ACCEPT_SUCCESS;
@@ -605,7 +640,7 @@ NOEXPORT int connect_udp_client_socket(SERVICE_OPTIONS *opt,
 #ifdef SO_REUSEPORT
     /* Best-effort UDP port sharing.  socket_options_set() failures
      * are logged as configuration problems, so keep this non-fatal. */
-    setsockopt(c->local_rfd.fd, SOL_SOCKET, SO_REUSEPORT,
+    (void)setsockopt(c->local_rfd.fd, SOL_SOCKET, SO_REUSEPORT,
         (void *)&on, sizeof on); /* non-fatal */
 #endif
     if(bind(c->local_rfd.fd, &local_addr.sa, local_addrlen)) {
@@ -669,7 +704,7 @@ NOEXPORT void start_accepted_client(SERVICE_OPTIONS *opt, SOCKET fd, CLI *c) {
         free_client(c);
         return;
     }
-    service_up_ref(opt);
+    (void)service_up_ref(opt);
 #endif
     if(create_client(fd, c)) {
         s_log(LOG_ERR, "Connection rejected: create_client failed");
@@ -689,7 +724,7 @@ NOEXPORT int exec_connect_start(void) {
             s_log(LOG_DEBUG, "Starting exec+connect service [%s]",
                 opt->servname);
 #ifndef USE_FORK
-            service_up_ref(opt);
+            (void)service_up_ref(opt);
 #endif
             if(create_client(INVALID_SOCKET,
                     alloc_client(opt))) {
@@ -744,14 +779,18 @@ NOEXPORT void unbind_port(SERVICE_OPTIONS *opt, unsigned i) {
         return;
     opt->local_fd[i]=INVALID_SOCKET;
 
+#ifdef USE_SYSTEMD
     if(fd<(SOCKET)listen_fds_start ||
             fd>=(SOCKET)(listen_fds_start+systemd_fds))
-        closesocket(fd);
+        (void)closesocket(fd);
+#else
+    (void)closesocket(fd);
+#endif /* USE_SYSTEMD */
     s_log(LOG_DEBUG, "Service [%s] closed (FD=%ld)",
         opt->servname, (long)fd);
 
 #ifdef HAVE_STRUCT_SOCKADDR_UN
-    if(addr->sa.sa_family==AF_UNIX) {
+    if(addr_family_is(addr, AF_UNIX)) {
         if(lstat(addr->un.sun_path, &sb))
             sockerror(addr->un.sun_path);
         else if(!S_ISSOCK(sb.st_mode))
@@ -776,7 +815,13 @@ NOEXPORT int bind_ports(void) {
      * but as early as possible to avoid leaking file descriptors */
     /* retry on each bind_ports() in case stunnel.conf was reloaded
        without "libwrap = no" */
-    libwrap_init();
+    {
+        int libwrap_result;
+
+        libwrap_result=libwrap_init();
+        if(libwrap_result)
+            return 1;
+    }
 #endif /* USE_LIBWRAP */
 
     s_poll_init(fds, 1);
@@ -839,12 +884,15 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
     struct stat sb; /* buffer for lstat() */
 #endif
 
+#ifdef USE_SYSTEMD
     if(listening_section<systemd_fds) {
         fd=(SOCKET)(listen_fds_start+listening_section);
         s_log(LOG_DEBUG,
             "Listening file descriptor received from systemd (FD=%ld)",
             (long)fd);
-    } else {
+    } else
+#endif /* USE_SYSTEMD */
+    {
         fd=s_socket(addr->sa.sa_family,
             opt->sock_type,
             0, 1, "accept socket");
@@ -855,17 +903,17 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
     }
 
     if(socket_options_set(opt, fd, 0)<0) {
-        closesocket(fd);
+        (void)closesocket(fd);
         return INVALID_SOCKET;
     }
 
 #ifdef SO_REUSEPORT
     /* Best-effort UDP port sharing.  It is useful where supported,
      * but should not make binding fail on platforms rejecting it. */
-    if(opt->sock_type==SOCK_DGRAM &&
-            (addr->sa.sa_family==AF_INET
+    if(socket_type_is_datagram(opt->sock_type) &&
+            (addr_family_is(addr, AF_INET)
 #ifdef AF_INET6
-            || addr->sa.sa_family==AF_INET6
+            || addr_family_is(addr, AF_INET6)
 #endif
             )) {
         if(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT,
@@ -879,29 +927,30 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
 
     /* we don't bind or listen on a socket inherited from systemd */
     if(listening_section>=systemd_fds) {
-        if(bind(fd, &addr->sa, addr_len(addr))) {
+        if(bind(fd, &addr->sa, sockaddr_len(addr))) {
             int err=get_last_socket_error();
             char *requested_bind_address;
 
             /* local socket can't be unnamed */
-            requested_bind_address=s_ntop(addr, addr_len(addr));
+            requested_bind_address=s_ntop(addr, sockaddr_len(addr));
             s_log(LOG_NOTICE, "Binding service [%s] to %s: %s (%d)",
                 opt->servname, requested_bind_address, s_strerror(err), err);
             str_free(requested_bind_address);
-            closesocket(fd);
+            (void)closesocket(fd);
             return INVALID_SOCKET;
         }
-        if(opt->sock_type!=SOCK_DGRAM &&
-                listen(fd, SOMAXCONN)) {
-            sockerror("listen");
-            closesocket(fd);
-            return INVALID_SOCKET;
+        if(!socket_type_is_datagram(opt->sock_type)) {
+            if(listen(fd, SOMAXCONN)) {
+                sockerror("listen");
+                (void)closesocket(fd);
+                return INVALID_SOCKET;
+            }
         }
     }
 
 #ifdef HAVE_STRUCT_SOCKADDR_UN
     /* chown the UNIX socket, errors are ignored */
-    if(addr->sa.sa_family==AF_UNIX &&
+    if(addr_family_is(addr, AF_UNIX) &&
             (opt->uid || opt->gid)) {
         /* fchown() does *not* work on UNIX sockets */
         if(!lchown(addr->un.sun_path, opt->uid, opt->gid))
@@ -930,10 +979,10 @@ NOEXPORT SOCKET bind_port(SERVICE_OPTIONS *opt, int listening_section, unsigned 
 
         if(getsockname(fd, &assigned_addr.sa, &assigned_addr_len)) {
             sockerror("getsockname");
-            closesocket(fd);
+            (void)closesocket(fd);
             return INVALID_SOCKET;
         }
-        assigned_bind_address=s_ntop(&assigned_addr, addr_len(&assigned_addr));
+        assigned_bind_address=s_ntop(&assigned_addr, sockaddr_len(&assigned_addr));
         s_log(LOG_INFO, "Service [%s] (FD=%ld) bound to %s",
             opt->servname, (long)fd, assigned_bind_address);
         str_free(assigned_bind_address);
@@ -1010,7 +1059,7 @@ NOEXPORT int pipe_init(SOCKET socket_vector[2], const char *name) {
 #endif /* __GNUC__ */
 void signal_post(uint8_t sig) {
     /* no meaningful way here to handle the result */
-    writesocket(signal_pipe[1], (char *)&sig, 1);
+    (void)writesocket(signal_pipe[1], (char *)&sig, 1);
 }
 #ifdef __GNUC__
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
@@ -1021,7 +1070,7 @@ void signal_post(uint8_t sig) {
 /* make a single attempt to dispatch a signal from the signal pipe */
 /* return 1 on SIGNAL_TERMINATE or a fatal error, 0 otherwise */
 NOEXPORT int signal_pipe_dispatch(void) {
-    uint8_t sig=0xff;
+    uint8_t sig=(uint8_t)0xffU;
     ssize_t num;
     char *sig_name;
 
@@ -1038,8 +1087,8 @@ NOEXPORT int signal_pipe_dispatch(void) {
             s_log(LOG_ERR, "Signal pipe closed");
         }
         s_poll_remove(fds, signal_pipe[0]);
-        closesocket(signal_pipe[0]);
-        closesocket(signal_pipe[1]);
+        (void)closesocket(signal_pipe[0]);
+        (void)closesocket(signal_pipe[1]);
         if(pipe_init(signal_pipe, "signal_pipe")) {
             s_log(LOG_ERR,
                 "Signal pipe reinitialization failed; terminating");
@@ -1073,7 +1122,7 @@ NOEXPORT int signal_pipe_dispatch(void) {
         s_log(LOG_DEBUG, "Processing SIGNAL_REOPEN_LOG");
         log_flush(LOG_MODE_BUFFER);
         log_close(SINK_OUTFILE);
-        log_open(SINK_OUTFILE);
+        (void)log_open(SINK_OUTFILE);
         log_flush(LOG_MODE_CONFIGURED);
         if(outfile)
             s_log(LOG_NOTICE, "Log file reopened");
@@ -1115,7 +1164,7 @@ NOEXPORT void reload_config(void) {
     options_apply(); /* apply the new options */
     /* we hope that a sane openlog(3) implementation won't
      * attempt to reopen /dev/log if it's already open */
-    log_open(SINK_SYSLOG|SINK_OUTFILE);
+    (void)log_open(SINK_SYSLOG|SINK_OUTFILE);
     log_flush(LOG_MODE_CONFIGURED);
     ui_config_reloaded();
     /* we use "|" instead of "||" to attempt initialization of both subsystems */
@@ -1141,10 +1190,11 @@ NOEXPORT void reload_config(void) {
 NOEXPORT int process_connections(void) {
 #ifndef USE_FORK
     CLI *c;
+    CRYPTO_RWLOCK *lock;
     int n=0;
 
     s_log(LOG_EMERG, "Active connections:");
-    CRYPTO_THREAD_write_lock(stunnel_locks[LOCK_THREAD_LIST]);
+    lock=s_write_lock(LOCK_THREAD_LIST);
     for(c=thread_head; c; c=c->thread_next) {
         s_log(LOG_EMERG, "Active connection %d: Service [%s], "
             "%llu byte(s) sent to TLS, "
@@ -1153,7 +1203,7 @@ NOEXPORT int process_connections(void) {
             (unsigned long long)c->ssl_bytes,
             (unsigned long long)c->sock_bytes);
     }
-    CRYPTO_THREAD_unlock(stunnel_locks[LOCK_THREAD_LIST]);
+    s_unlock(lock);
     s_log(LOG_EMERG, "Listed %d active connection(s)", n);
 #endif /* USE_FORK */
     return 0; /* continue execution */
@@ -1166,7 +1216,7 @@ NOEXPORT int process_connections(void) {
 
 /**************************************** signal name decoding */
 
-#define check_signal(s) if(signum==s) return str_dup(#s);
+#define check_signal(s) if(signum==(s)) return str_dup(#s);
 
 NOEXPORT char *signal_name(int signum) {
 #ifdef SIGHUP
@@ -1279,9 +1329,9 @@ NOEXPORT char *signal_name(int signum) {
 
 /**************************************** log build details */
 
-static char *str_cat(char *dst, const char *src) {
-    dst=str_realloc(dst, strlen(dst) + strlen(src) + 1);
-    strcat(dst, src);
+NOEXPORT char *str_cat(char *dst, const char *src) {
+    dst=str_realloc(dst, strlen(dst)+strlen(src)+1U);
+    (void)strcat(dst, src);
     return dst;
 }
 
@@ -1294,10 +1344,13 @@ void stunnel_info(int level) {
         s_log(level, "Compiled with " OPENSSL_VERSION_TEXT);
         s_log(level, "Running  with %s", OpenSSL_version(OPENSSL_VERSION));
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-        if((OPENSSL_version_major()<<8 | OPENSSL_version_minor()) !=
-                OPENSSL_VERSION_NUMBER>>20)
+        /* OpenSSL version fields have fixed widths defined by its API. */
+        /* cppcheck-suppress misra-c2012-10.4 */
+        if((OPENSSL_version_major()<<8U | OPENSSL_version_minor()) !=
+                /* cppcheck-suppress [misra-c2012-10.1, misra-c2012-12.2] */
+                OPENSSL_VERSION_NUMBER>>20U)
 #else /* OpenSSL version < 3.0.0 */
-        if(OpenSSL_version_num()>>12 != OPENSSL_VERSION_NUMBER>>12)
+        if(OpenSSL_version_num()>>12U != OPENSSL_VERSION_NUMBER>>12U)
 #endif /* OpenSSL version >= 3.0.0 */
             s_log(level, "Update OpenSSL shared libraries or rebuild stunnel");
     } else {
@@ -1337,6 +1390,8 @@ void stunnel_info(int level) {
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 #ifdef USE_FIPS
     if(fips_available()) {
+        /* Earlier TLS features depend on the analyzed build configuration. */
+        /* cppcheck-suppress knownConditionTrueFalse */
         if(tls_feature_found)
             features=str_cat(features, ",");
         features=str_cat(features, "FIPS");
@@ -1344,29 +1399,34 @@ void stunnel_info(int level) {
     }
 #endif /* USE_FIPS */
 #ifndef OPENSSL_NO_OCSP
+    /* cppcheck-suppress knownConditionTrueFalse */
     if(tls_feature_found)
         features=str_cat(features, ",");
     features=str_cat(features, "OCSP");
     tls_feature_found=1;
 #endif /* !defined(OPENSSL_NO_OCSP) */
 #ifndef OPENSSL_NO_PSK
+    /* cppcheck-suppress knownConditionTrueFalse */
     if(tls_feature_found)
         features=str_cat(features, ",");
     features=str_cat(features, "PSK");
     tls_feature_found=1;
 #endif /* !defined(OPENSSL_NO_PSK) */
 #ifndef OPENSSL_NO_TLSEXT
+    /* cppcheck-suppress knownConditionTrueFalse */
     if(tls_feature_found)
         features=str_cat(features, ",");
     features=str_cat(features, "SNI");
     tls_feature_found=1;
 #endif /* !defined(OPENSSL_NO_TLSEXT) */
 #ifdef USE_DTLS
+    /* cppcheck-suppress knownConditionTrueFalse */
     if(tls_feature_found)
         features=str_cat(features, ",");
     features=str_cat(features, "DTLS");
     tls_feature_found=1;
 #endif /* USE_DTLS */
+    /* cppcheck-suppress knownConditionTrueFalse */
     if(!tls_feature_found)
         features=str_cat(features, "NONE");
 
@@ -1378,9 +1438,11 @@ void stunnel_info(int level) {
     str_free(features);
 
 #ifdef errno
-#define xstr(a) str(a)
-#define str(a) #a
-    s_log(LOG_DEBUG, "errno: " xstr(errno));
+#define stringify_value(a) stringify(a)
+#define stringify(a) #a
+    s_log(LOG_DEBUG, "errno: " stringify_value(errno));
+#undef stringify_value
+#undef stringify
 #endif /* errno */
 }
 

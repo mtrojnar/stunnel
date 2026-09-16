@@ -70,12 +70,12 @@ NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, CRYPTO_EX_DATA *from,
 NOEXPORT void cb_free_addr(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
     int idx, long argl, void *argp);
 #ifndef OPENSSL_NO_COMP
-NOEXPORT int compression_set(GLOBAL_OPTIONS *);
+NOEXPORT int compression_set(GLOBAL_OPTIONS *global);
 NOEXPORT void compression_list(void);
 #endif
-NOEXPORT int prng_init(GLOBAL_OPTIONS *);
-NOEXPORT int add_rand_file(GLOBAL_OPTIONS *, const char *);
-NOEXPORT void update_rand_file(const char *);
+NOEXPORT int prng_init(GLOBAL_OPTIONS *global);
+NOEXPORT int add_rand_file(GLOBAL_OPTIONS *global, const char *filename);
+NOEXPORT void update_rand_file(const char *filename);
 
 int index_ssl_cli, index_ssl_ctx_opt;
 int index_session_authenticated, index_session_connect_address;
@@ -116,19 +116,25 @@ int fips_available(void) { /* either FIPS provider or container is available */
 #endif /* USE_FIPS */
 
 /* initialize libcrypto before invoking API functions that require it */
-void crypto_init(void) {
+int crypto_init(void) {
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     OPENSSL_INIT_SETTINGS *conf;
+    int init_result;
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 #ifdef USE_WIN32
-    TCHAR stunnel_exe_path[MAX_PATH];
+    TCHAR stunnel_exe_path[MAX_PATH]={0};
     LPTSTR c;
+    DWORD path_len;
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     char *stunnel_dir, *path;
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 
     /* identify stunnel_exe_path */
-    GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
+    path_len=GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
+    if(!path_len || path_len>=MAX_PATH) {
+        message_box(TEXT("Cannot determine the executable path"), MB_ICONERROR);
+        return 1;
+    }
     c=_tcsrchr(stunnel_exe_path, TEXT('\\')); /* last backslash */
     if(c) { /* found */
         *c=TEXT('\0'); /* truncate the program name */
@@ -144,10 +150,10 @@ void crypto_init(void) {
             stunnel_exe_path);
         message_box(errmsg, MB_ICONERROR);
         str_free(errmsg);
-        exit(1);
+        return 1;
     }
     /* try to enter the "config" subdirectory, ignore the result */
-    SetCurrentDirectory(TEXT("config"));
+    (void)SetCurrentDirectory(TEXT("config"));
 #endif
 
     stunnel_dir=tstr2str(stunnel_exe_path);
@@ -156,19 +162,21 @@ void crypto_init(void) {
 
     /* setup the environment */
     path=str_printf("%s\\engines", stunnel_dir);
-    _putenv_s("OPENSSL_ENGINES", path);
+    (void)_putenv_s("OPENSSL_ENGINES", path);
     str_free(path);
     path=str_printf("%s\\ossl-modules", stunnel_dir);
-    _putenv_s("OPENSSL_MODULES", path);
+    (void)_putenv_s("OPENSSL_MODULES", path);
     str_free(path);
     path=str_printf("%s\\config\\openssl.cnf", stunnel_dir);
-    _putenv_s("OPENSSL_CONF", path);
+    (void)_putenv_s("OPENSSL_CONF", path);
     str_free(path);
 #endif /* USE_WIN32 */
 
     /* initialize OpenSSL */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
     conf=OPENSSL_INIT_new();
+    if(!conf)
+        fatal("OPENSSL_INIT_new failed");
 #ifdef USE_WIN32
     path=str_printf("%s\\config\\openssl.cnf", stunnel_dir);
     if(!OPENSSL_INIT_set_config_filename(conf, path)) {
@@ -176,8 +184,12 @@ void crypto_init(void) {
     }
     str_free(path);
 #endif /* USE_WIN32 */
-    OPENSSL_init_crypto(
+    init_result=OPENSSL_init_crypto(
         OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_LOAD_CONFIG, conf);
+    if(!init_result) {
+        OPENSSL_INIT_free(conf);
+        fatal("OPENSSL_init_crypto failed");
+    }
     OPENSSL_INIT_free(conf);
 #else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
     OPENSSL_config(NULL);
@@ -202,6 +214,7 @@ void crypto_init(void) {
     str_free(stunnel_dir);
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 #endif /* USE_WIN32 */
+    return 0;
 }
 
 /* release libcrypto resources at shutdown */
@@ -246,7 +259,9 @@ NOEXPORT int cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
     (void)ptr; /* squash the unused parameter warning */
     (void)argl; /* squash the unused parameter warning */
     (void)argp; /* squash the unused parameter warning */
-    if(!CRYPTO_set_ex_data(ad, idx, (void *)(-1)))
+    /* OpenSSL ex_data stores this documented integer sentinel as a pointer. */
+    /* cppcheck-suppress misra-c2012-11.6 */
+    if(!CRYPTO_set_ex_data(ad, idx, (void *)(intptr_t)-1))
         ssl_error(NULL, "CRYPTO_set_ex_data");
 #if OPENSSL_VERSION_NUMBER<0x10100000L
     return 1; /* success */
@@ -272,9 +287,9 @@ NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, CRYPTO_EX_DATA *from,
     (void)argl; /* squash the unused parameter warning */
     (void)argp; /* squash the unused parameter warning */
     src=*(void **)from_d;
-    len=addr_len(src);
+    len=sockaddr_len(src);
     dst=str_alloc_detached((size_t)len);
-    memcpy(dst, src, (size_t)len);
+    (void)memcpy(dst, src, (size_t)len);
     *(void **)from_d=dst;
     return 1;
 }
@@ -292,26 +307,31 @@ NOEXPORT void cb_free_addr(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
 int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
 #ifdef USE_FIPS
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    if(global->option.fips !=
-            (OSSL_PROVIDER_available(NULL, "fips") &&
-            EVP_default_properties_is_fips_enabled(NULL))) {
-        if(global->option.fips) { /* need to enable */
-            if(!fips_available()) {
-                ssl_error(NULL, "FIPS PROVIDER");
-                return 1;
-            }
-            if(!EVP_default_properties_enable_fips(NULL, 1)) {
-                s_log(LOG_ERR, "Enabling FIPS provider failed");
-                return 1;
-            }
-        } else { /* need to disable */
-            if(fips_default()) {
-                s_log(LOG_ERR, "Refusing to override 'fips=yes' default property");
-                return 1;
-            }
-            if(!EVP_default_properties_enable_fips(NULL, 0)) {
-                s_log(LOG_ERR, "Disabling FIPS provider failed");
-                return 1;
+    {
+        unsigned fips_enabled;
+
+        fips_enabled=OSSL_PROVIDER_available(NULL, "fips") &&
+            EVP_default_properties_is_fips_enabled(NULL) ? 1U : 0U;
+        if(global->option.fips!=fips_enabled) {
+            if(global->option.fips) { /* need to enable */
+                if(!fips_available()) {
+                    ssl_error(NULL, "FIPS PROVIDER");
+                    return 1;
+                }
+                if(!EVP_default_properties_enable_fips(NULL, 1)) {
+                    s_log(LOG_ERR, "Enabling FIPS provider failed");
+                    return 1;
+                }
+            } else { /* need to disable */
+                if(fips_default()) {
+                    s_log(LOG_ERR,
+                        "Refusing to override 'fips=yes' default property");
+                    return 1;
+                }
+                if(!EVP_default_properties_enable_fips(NULL, 0)) {
+                    s_log(LOG_ERR, "Disabling FIPS provider failed");
+                    return 1;
+                }
             }
         }
     }
@@ -352,7 +372,15 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
     /* cryptographic algorithms can only be configured once,
      * after all the engines are initialized */
 #if OPENSSL_VERSION_NUMBER>=0x10100000L
-    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
+    {
+        int init_result;
+
+        init_result=OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
+        if(!init_result) {
+            ssl_error(NULL, "OPENSSL_init_ssl");
+            return 1;
+        }
+    }
 #else
     OpenSSL_add_all_algorithms();
 #endif
@@ -475,6 +503,7 @@ NOEXPORT void compression_list(void) {
 NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
     int totbytes=0;
     char filename[256];
+    const char *rand_file_name;
     const RAND_METHOD *meth=RAND_get_rand_method();
 
     /* skip PRNG initialization when no seeding methods are available */
@@ -498,8 +527,8 @@ NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
 
     /* try the $RANDFILE or $HOME/.rnd files */
     filename[0]='\0';
-    RAND_file_name(filename, sizeof filename);
-    if(filename[0]) {
+    rand_file_name=RAND_file_name(filename, sizeof filename);
+    if(rand_file_name && filename[0]) {
         totbytes+=add_rand_file(global, filename);
         if(RAND_status())
             return 0; /* success */
