@@ -53,10 +53,14 @@ NOEXPORT SOCKET setup_fd(SOCKET fd, int nonblock, const char *msg);
 /**************************************** internal limit of file descriptors */
 
 #ifndef USE_FORK
-
 NOEXPORT SOCKET max_fds;
 
 void get_limits(void) { /* set max_fds and max_clients */
+#ifdef USE_WIN32
+    /* Winsock handles are not Unix descriptor indices. */
+    max_clients=0;
+    s_log(LOG_DEBUG, "No limit detected for the number of clients");
+#else
     /* start with current ulimit */
 #if defined(HAVE_SYSCONF)
     long limit;
@@ -98,9 +102,10 @@ void get_limits(void) { /* set max_fds and max_clients */
         max_clients=0;
         s_log(LOG_DEBUG, "No limit detected for the number of clients");
     }
+#endif /* USE_WIN32 */
 }
 
-#endif
+#endif /* !USE_FORK */
 
 /**************************************** file descriptor validation */
 
@@ -205,6 +210,8 @@ NOEXPORT SOCKET setup_fd(SOCKET fd, int nonblock, const char *msg) {
         (void)closesocket(fd);
         return INVALID_SOCKET;
     }
+#else
+    (void)msg; /* squash the unused parameter warning */
 #endif
 
 #ifdef USE_NEW_LINUX_API
@@ -249,6 +256,9 @@ void set_nonblock(SOCKET fd, unsigned long nonblock) {
     if(err<0)
         sockerror("fcntl SETFL"); /* non-critical */
 #else /* WIN32 or similar */
+    /* MISRA deviation: Winsock FIONBIO encodes its command with a character
+     * shift, mixed signed masks, and an unsuffixed unsigned constant. */
+    /* cppcheck-suppress [misra-c2012-7.2, misra-c2012-10.1, misra-c2012-10.4, misra-c2012-12.2] */
     if(ioctlsocket(fd, (long)FIONBIO, &nonblock)<0)
         sockerror("ioctlsocket"); /* non-critical */
 #if 0

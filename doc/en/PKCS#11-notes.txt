@@ -1,0 +1,14 @@
+Based on https://github.com/OpenSC/OpenSC/wiki/SmartCardHSM
+
+Create a keypair:
+
+pkcs11-tool --module /usr/local/lib/opensc-pkcs11.so --login --pin 123456 --id 05 --keypairgen --key-type EC:prime256v1 --label ecc
+
+Save the public key:
+
+pkcs11-tool --module /usr/local/lib/opensc-pkcs11.so -l --pin 123456 --id 05 --read-object --type pubkey --output-file pubkey.spki
+
+Delete the private key:
+
+pkcs11-tool -l --pin 123456 --delete-object --type privkey --id 05
+

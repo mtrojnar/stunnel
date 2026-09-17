@@ -58,10 +58,10 @@
 #define system_free(p) free(p)
 #endif
 
-#define CANARY_INITIALIZED  0x0000c0ded0000000LL
-#define CANARY_UNINTIALIZED 0x0000abadbabe0000LL
-#define MAGIC_ALLOCATED     0x0000a110c8ed0000LL
-#define MAGIC_DEALLOCATED   0x0000defec8ed0000LL
+#define CANARY_INITIALIZED  UINT64_C(0x0000c0ded0000000)
+#define CANARY_UNINTIALIZED UINT64_C(0x0000abadbabe0000)
+#define MAGIC_ALLOCATED     UINT64_C(0x0000a110c8ed0000)
+#define MAGIC_DEALLOCATED   UINT64_C(0x0000defec8ed0000)
 
 /* most platforms require allocations to be aligned */
 #ifdef _MSC_VER
@@ -98,9 +98,11 @@ NOEXPORT LEAK_ENTRY leak_hash_table[LEAK_TABLE_SIZE],
     *leak_results[LEAK_TABLE_SIZE];
 NOEXPORT int leak_result_num=0;
 
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 /* OpenSSL's typed stack macro safely adapts its generic callback ABI. */
-/* cppcheck-suppress [misra-c2012-11.1, misra-c2012-11.2] */
+/* MISRA 17.7 deviation: OpenSSL-generated thunk setters return the stack
+ * already supplied as their argument; the generated code ignores that result. */
+/* cppcheck-suppress [misra-c2012-11.1, misra-c2012-11.2, misra-c2012-17.7] */
 DEFINE_STACK_OF(LEAK_ENTRY)
 #endif /* OpenSSL version >= 1.1.1 */
 
@@ -116,7 +118,7 @@ NOEXPORT ALLOC_LIST *get_alloc_list_ptr(void *ptr,
 NOEXPORT void str_leak_debug(const ALLOC_LIST *alloc_list, int change);
 
 NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *alloc_list);
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT int leak_cmp(const LEAK_ENTRY *const *a, const LEAK_ENTRY *const *b);
 #endif /* OpenSSL version >= 1.1.1 */
 NOEXPORT void leak_report(void);
@@ -254,8 +256,10 @@ void str_init(void) {
 
         hook_result=CRYPTO_set_mem_functions(str_alloc_detached_debug,
             str_realloc_detached_debug, str_free_debug);
+#if !defined(LIBRESSL_VERSION_NUMBER)
         if(!hook_result)
             fatal("CRYPTO_set_mem_functions failed");
+#endif
     }
 #else
     CRYPTO_set_mem_ex_functions(str_alloc_detached_debug,
@@ -597,7 +601,7 @@ NOEXPORT LEAK_ENTRY *leak_search(const ALLOC_LIST *alloc_list) {
 void leak_table_utilization(void) {
     int i, utilization=0;
     int64_t grand_total=0;
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
     STACK_OF(LEAK_ENTRY) *stats;
 #endif /* OpenSSL version >= 1.1.1 */
 
@@ -616,7 +620,7 @@ void leak_table_utilization(void) {
     s_log(LOG_DEBUG, "Leak detection table utilization: %d/%d (%05.2f%%)",
         utilization, LEAK_TABLE_SIZE, 100.0*utilization/LEAK_TABLE_SIZE);
 
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
     /* log up to 5 most frequently used heap allocations */
     stats=sk_LEAK_ENTRY_new_reserve(leak_cmp, utilization);
     for(i=0; i<LEAK_TABLE_SIZE; ++i)
@@ -638,7 +642,7 @@ void leak_table_utilization(void) {
 #endif /* OpenSSL version >= 1.1.1 */
 }
 
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT int leak_cmp(const LEAK_ENTRY *const *a, const LEAK_ENTRY *const *b) {
     int64_t d = (*a)->total - (*b)->total;
     if(d>0)

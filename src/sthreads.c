@@ -152,7 +152,7 @@ NOEXPORT void thread_id_init(void) {
 /**************************************** locking */
 
 /* we only need to initialize locking with OpenSSL older than 1.1.0 */
-#if OPENSSL_VERSION_NUMBER<0x10100004L
+#if OPENSSL_VERSION_NUMBER<0x10100004L || defined(LIBRESSL_VERSION_NUMBER)
 
 #ifdef USE_PTHREAD
 
@@ -315,7 +315,7 @@ int s_atomic_add_debug(int *val, int amount, int type,
     if(__atomic_is_lock_free(sizeof *val, val))
         return __atomic_add_fetch(val, amount, __ATOMIC_ACQ_REL);
 #endif
-#if OPENSSL_VERSION_NUMBER<0x10100004L
+#if OPENSSL_VERSION_NUMBER<0x10100004L || defined(LIBRESSL_VERSION_NUMBER)
     lock=s_write_lock_debug(type, file, line);
     ret=(*val+=amount);
     s_unlock_debug(lock, file, line);
@@ -337,7 +337,7 @@ int s_atomic_add_debug(int *val, int amount, int type,
 CRYPTO_RWLOCK *s_read_lock_debug(int type, const char *file, int line) {
     CRYPTO_RWLOCK *lock=stunnel_locks[type];
 
-#if OPENSSL_VERSION_NUMBER<0x10100004L
+#if OPENSSL_VERSION_NUMBER<0x10100004L || defined(LIBRESSL_VERSION_NUMBER)
 #ifdef USE_OS_THREADS
     if(lock)
         legacy_read_lock_debug(lock, file, line);
@@ -362,7 +362,7 @@ CRYPTO_RWLOCK *s_read_lock_debug(int type, const char *file, int line) {
 CRYPTO_RWLOCK *s_write_lock_debug(int type, const char *file, int line) {
     CRYPTO_RWLOCK *lock=stunnel_locks[type];
 
-#if OPENSSL_VERSION_NUMBER<0x10100004L
+#if OPENSSL_VERSION_NUMBER<0x10100004L || defined(LIBRESSL_VERSION_NUMBER)
 #ifdef USE_OS_THREADS
     if(lock)
         legacy_write_lock_debug(lock, file, line);
@@ -385,7 +385,7 @@ CRYPTO_RWLOCK *s_write_lock_debug(int type, const char *file, int line) {
 }
 
 void s_unlock_debug(CRYPTO_RWLOCK *lock, const char *file, int line) {
-#if OPENSSL_VERSION_NUMBER<0x10100004L
+#if OPENSSL_VERSION_NUMBER<0x10100004L || defined(LIBRESSL_VERSION_NUMBER)
 #ifdef USE_OS_THREADS
     if(lock)
         legacy_unlock_debug(lock, file, line);
@@ -493,7 +493,7 @@ NOEXPORT void locking_init(void) {
 
     /* initialize stunnel critical sections */
     for(i=0; i<(size_t)STUNNEL_LOCKS; i++) { /* all the mutexes */
-#if OPENSSL_VERSION_NUMBER<0x10100004L
+#if OPENSSL_VERSION_NUMBER<0x10100004L || defined(LIBRESSL_VERSION_NUMBER)
 #ifdef USE_OS_THREADS
         stunnel_locks[i]=str_alloc_detached(sizeof(CRYPTO_RWLOCK));
         s_lock_init_debug(stunnel_locks[i], __FILE__, __LINE__);

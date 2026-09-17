@@ -1033,7 +1033,7 @@ NOEXPORT void print_cipher(CLI *c) { /* print negotiated cipher */
 NOEXPORT void transfer_tcp(CLI *c) {
     int timeout; /* s_poll_wait timeout in seconds */
     int pending; /* either processed on unprocessed TLS data */
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     int has_pending=0, prev_has_pending;
 #endif
     int watchdog=0; /* a counter to detect an infinite loop */
@@ -1086,7 +1086,7 @@ NOEXPORT void transfer_tcp(CLI *c) {
 
         /****************************** wait for an event */
         pending=SSL_pending(c->ssl);
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
         /* only attempt to process SSL_has_pending() data once */
         prev_has_pending=has_pending;
         has_pending=SSL_has_pending(c->ssl);
@@ -1158,6 +1158,9 @@ NOEXPORT void transfer_tcp(CLI *c) {
              * Treat it as EOF only after FIONREAD confirms buffer is empty
              * or FIONREAD itself fails. */
             if(sock_open_rd && s_poll_hup(c->fds, c->sock_rfd->fd)) {
+                /* MISRA deviation: Winsock FIONREAD uses a character shift
+                 * and mixed signed masks to encode the platform command. */
+                /* cppcheck-suppress [misra-c2012-10.1, misra-c2012-10.4, misra-c2012-12.2] */
                 int fionread_failed=ioctlsocket(c->sock_rfd->fd, FIONREAD,
                     &bytes);
 
@@ -1220,9 +1223,10 @@ NOEXPORT void transfer_tcp(CLI *c) {
 
         /****************************** read from socket */
         if(sock_open_rd && sock_can_rd) {
+            /* sock_ptr is bounded by BUFFSIZE; available fits Winsock's int. */
+            size_t available=(size_t)BUFFSIZE-c->sock_ptr;
             ssize_t num=readsocket(c->sock_rfd->fd,
-                c->sock_buff+c->sock_ptr,
-                (size_t)BUFFSIZE-c->sock_ptr);
+                c->sock_buff+c->sock_ptr, available);
             switch(num) {
             case -1:
                 if(socket_needs_retry(c, "transfer_tcp: readsocket"))
@@ -1390,6 +1394,9 @@ NOEXPORT void transfer_tcp(CLI *c) {
         /* http://marc.info/?l=linux-man&m=128002066306087 */
         /* readsocket() must be the last sock_rfd operation before FIONREAD */
         if(sock_open_rd && s_poll_rdhup(c->fds, c->sock_rfd->fd)) {
+            /* MISRA deviation: Winsock FIONREAD uses a character shift
+             * and mixed signed masks to encode the platform command. */
+            /* cppcheck-suppress [misra-c2012-10.1, misra-c2012-10.4, misra-c2012-12.2] */
             int fionread_failed=ioctlsocket(c->sock_rfd->fd, FIONREAD,
                 &bytes);
 
@@ -1411,6 +1418,9 @@ NOEXPORT void transfer_tcp(CLI *c) {
         /* SSL_read() must be the last ssl_rfd operation before FIONREAD */
         if(!(SSL_get_shutdown(c->ssl)&SSL_RECEIVED_SHUTDOWN) &&
                 s_poll_rdhup(c->fds, c->ssl_rfd->fd)) {
+            /* MISRA deviation: Winsock FIONREAD uses a character shift
+             * and mixed signed masks to encode the platform command. */
+            /* cppcheck-suppress [misra-c2012-10.1, misra-c2012-10.4, misra-c2012-12.2] */
             int fionread_failed=ioctlsocket(c->ssl_rfd->fd, FIONREAD,
                 &bytes);
 
@@ -1472,7 +1482,7 @@ NOEXPORT void transfer_tcp(CLI *c) {
             s_log(LOG_ERR,
                 "please report the problem to Michal.Trojnara@stunnel.org");
             stunnel_info(LOG_ERR);
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
             s_log(LOG_ERR, "protocol=%s, SSL_pending=%d, SSL_has_pending=%d",
                 SSL_get_version(c->ssl),
                 SSL_pending(c->ssl), SSL_has_pending(c->ssl));
@@ -1619,7 +1629,7 @@ NOEXPORT void transfer_udp(CLI *c) {
     int shutdown_wants_read=0, shutdown_wants_write=0;
     int read_wants_read=0, read_wants_write=0;
     int write_wants_read=0, write_wants_write=0;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     int has_pending=0, prev_has_pending;
 #endif
     int sock_open=1, tls_open=1;
@@ -1717,7 +1727,7 @@ NOEXPORT void transfer_udp(CLI *c) {
         /****************************** wait for an event */
             if(tls_open) {
                 pending=SSL_pending(c->ssl);
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
                 /* only attempt to process SSL_has_pending() data once */
                 prev_has_pending=has_pending;
                 has_pending=SSL_has_pending(c->ssl);
@@ -2016,7 +2026,7 @@ NOEXPORT void transfer_udp(CLI *c) {
             s_log(LOG_ERR,
                 "please report the problem to Michal.Trojnara@stunnel.org");
             stunnel_info(LOG_ERR);
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
             s_log(LOG_ERR, "protocol=%s, SSL_pending=%d, SSL_has_pending=%d",
                 SSL_get_version(c->ssl),
                 SSL_pending(c->ssl), SSL_has_pending(c->ssl));
@@ -2161,6 +2171,9 @@ NOEXPORT SOCKET connect_local(CLI *c) { /* spawn local process */
     si.cb=sizeof si;
     si.dwFlags=STARTF_USESHOWWINDOW|STARTF_USESTDHANDLES;
     si.wShowWindow=SW_HIDE;
+    /* MISRA 11.6 deviation: Windows inherits the non-overlapped socket
+     * created by WSASocket as a standard-I/O HANDLE through CreateProcess. */
+    /* cppcheck-suppress misra-c2012-11.6 */
     si.hStdInput=si.hStdOutput=si.hStdError=(HANDLE)fd[1];
     (void)memset(&pi, 0, sizeof pi);
 

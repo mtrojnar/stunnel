@@ -41,7 +41,7 @@
  * the supported OpenSSL versions, so breakage seems unlikely in current
  * releases, but it is still an unsupported internal dependency that could
  * change, especially in a future major version */
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
 struct ssl_comp_st {
     int id;
     const char *name;
@@ -50,7 +50,7 @@ struct ssl_comp_st {
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 
     /* global OpenSSL initialization: compression, engine, entropy */
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT void cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
         int idx, long argl, void *argp);
 #else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
@@ -60,7 +60,7 @@ NOEXPORT int cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
 #if OPENSSL_VERSION_NUMBER>=0x30000000L
 NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
     void **from_d, int idx, long argl, void *argp);
-#elif OPENSSL_VERSION_NUMBER>=0x10100000L
+#elif OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
     void *from_d, int idx, long argl, void *argp);
 #else
@@ -79,7 +79,7 @@ NOEXPORT void update_rand_file(const char *filename);
 
 int index_ssl_cli, index_ssl_ctx_opt;
 int index_session_authenticated, index_session_connect_address;
-#if OPENSSL_VERSION_NUMBER<0x10100000L
+#if OPENSSL_VERSION_NUMBER<0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 int unsafe_openssl;
 #endif /* OpenSSL version < 1.1.0 */
 
@@ -117,7 +117,7 @@ int fips_available(void) { /* either FIPS provider or container is available */
 
 /* initialize libcrypto before invoking API functions that require it */
 int crypto_init(void) {
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     OPENSSL_INIT_SETTINGS *conf;
     int init_result;
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
@@ -131,7 +131,7 @@ int crypto_init(void) {
 
     /* identify stunnel_exe_path */
     path_len=GetModuleFileName(0, stunnel_exe_path, MAX_PATH);
-    if(!path_len || path_len>=MAX_PATH) {
+    if(!path_len || path_len>=(DWORD)MAX_PATH) {
         message_box(TEXT("Cannot determine the executable path"), MB_ICONERROR);
         return 1;
     }
@@ -173,7 +173,7 @@ int crypto_init(void) {
 #endif /* USE_WIN32 */
 
     /* initialize OpenSSL */
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     conf=OPENSSL_INIT_new();
     if(!conf)
         fatal("OPENSSL_INIT_new failed");
@@ -210,7 +210,7 @@ int crypto_init(void) {
     }
     str_free(path);
 #endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     str_free(stunnel_dir);
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 #endif /* USE_WIN32 */
@@ -219,7 +219,7 @@ int crypto_init(void) {
 
 /* release libcrypto resources at shutdown */
 void crypto_cleanup(void) {
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     OPENSSL_cleanup();
 #endif
 }
@@ -248,7 +248,7 @@ void ssl_cleanup(void) {
     /* no libssl cleanup is needed for now */
 }
 
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT void cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
         int idx, long argl, void *argp) {
 #else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
@@ -263,7 +263,7 @@ NOEXPORT int cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
     /* cppcheck-suppress misra-c2012-11.6 */
     if(!CRYPTO_set_ex_data(ad, idx, (void *)(intptr_t)-1))
         ssl_error(NULL, "CRYPTO_set_ex_data");
-#if OPENSSL_VERSION_NUMBER<0x10100000L
+#if OPENSSL_VERSION_NUMBER<0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
     return 1; /* success */
 #endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 }
@@ -271,7 +271,7 @@ NOEXPORT int cb_new_auth(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
 #if OPENSSL_VERSION_NUMBER>=0x30000000L
 NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
         void **from_d, int idx, long argl, void *argp) {
-#elif OPENSSL_VERSION_NUMBER>=0x10100000L
+#elif OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT int cb_dup_addr(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
         void *from_d, int idx, long argl, void *argp) {
 #else
@@ -343,7 +343,7 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
     if(FIPS_mode()!=global->option.fips) {
         RAND_set_rand_method(NULL); /* reset RAND methods */
         if(!FIPS_mode_set(global->option.fips)) {
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
             OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
 #else
             ERR_load_crypto_strings();
@@ -371,7 +371,7 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
 
     /* cryptographic algorithms can only be configured once,
      * after all the engines are initialized */
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     {
         int init_result;
 
@@ -389,7 +389,7 @@ int ssl_configure(GLOBAL_OPTIONS *global) { /* configure global TLS settings */
 
 #ifndef OPENSSL_NO_COMP
 
-#if OPENSSL_VERSION_NUMBER<0x10100000L
+#if OPENSSL_VERSION_NUMBER<0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 
 NOEXPORT int COMP_get_type(const COMP_METHOD *meth) {
     return meth->type;
@@ -536,7 +536,7 @@ NOEXPORT int prng_init(GLOBAL_OPTIONS *global) {
 
 #ifdef USE_WIN32
 
-#if OPENSSL_VERSION_NUMBER<0x10100000L
+#if OPENSSL_VERSION_NUMBER<0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
     RAND_screen();
     if(RAND_status()) {
         s_log(LOG_DEBUG, "Seeded PRNG with RAND_screen");
@@ -592,6 +592,8 @@ NOEXPORT int add_rand_file(GLOBAL_OPTIONS *global, const char *filename) {
     s_log(LOG_DEBUG, "Snagged %d random bytes from %s", readbytes, filename);
 
     /* write new random data for future seeding if it's a regular file */
+    /* MISRA 10.4 deviation: system S_ISREG uses signed mode masks. */
+    /* cppcheck-suppress misra-c2012-10.4 */
     if(global->option.rand_write && S_ISREG(sb.st_mode))
         update_rand_file(filename);
 

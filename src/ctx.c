@@ -46,7 +46,7 @@
 
 SERVICE_OPTIONS *current_section=NULL;
 
-#if OPENSSL_VERSION_NUMBER<0x10101000L
+#if OPENSSL_VERSION_NUMBER<0x10101000L || defined(LIBRESSL_VERSION_NUMBER)
 /* try an empty passphrase first */
 NOEXPORT char cached_passwd[PEM_BUFSIZE]="";
 NOEXPORT int cached_len=0;
@@ -56,7 +56,7 @@ typedef struct {
     const char *prompt_info;
 } PW_CB_DATA;
 
-#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
+#if !defined(OPENSSL_NO_ENGINE) || (OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER))
 UI_METHOD *ui_stunnel=NULL;
 #endif /* !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L */
 
@@ -76,7 +76,7 @@ NOEXPORT int matches_wildcard(const char *servername, const char *pattern);
 /* DH/ECDH */
 #ifndef OPENSSL_NO_DH
 NOEXPORT int dh_init(SERVICE_OPTIONS *section);
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT DH *dh_load_from_store(const char *uri);
 #else /* OpenSSL 1.1.1 or later */
 NOEXPORT DH *dh_read(char *cert);
@@ -99,7 +99,7 @@ NOEXPORT unsigned psk_server_callback(SSL *ssl, const char *identity,
     unsigned char *psk, unsigned max_psk_len);
 #endif /* !defined(OPENSSL_NO_PSK) */
 
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT int load_objects(SERVICE_OPTIONS *section,
     int *cert_needed, int *key_needed);
 NOEXPORT int load_objects_from_store(SSL_CTX *ctx, const char *uri,
@@ -129,7 +129,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section, const char *file,
 NOEXPORT int ui_retry(void);
 
 /* session tickets */
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT int generate_session_ticket_cb(SSL *ssl, void *arg);
 NOEXPORT int decrypt_session_ticket_cb(SSL *ssl, SSL_SESSION *sess,
     const unsigned char *keyname, size_t keyname_len,
@@ -149,7 +149,7 @@ NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess);
 NOEXPORT SSL_SESSION *SSL_SESSION_dup(SSL_SESSION *src);
 #endif
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     const
 #endif
     unsigned char *key, int key_len, int *do_copy);
@@ -176,7 +176,7 @@ NOEXPORT char *get_tls13_cipher_list(STACK_OF(SSL_CIPHER) *list);
 
 /**************************************** global initialization and cleanup */
 
-#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
+#if !defined(OPENSSL_NO_ENGINE) || (OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER))
 
 NOEXPORT void clear_cached_password(PW_CB_DATA *cb_data) {
     /* The const-qualified API field owns this mutable allocated buffer. */
@@ -190,7 +190,7 @@ NOEXPORT void clear_cached_password(PW_CB_DATA *cb_data) {
     }
 }
 
-#if OPENSSL_VERSION_NUMBER>=0x10000000L
+#if OPENSSL_VERSION_NUMBER>=0x10000000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT char *ui_prompt_constructor(UI *ui,
         const char *phrase_desc, const char *object_name) {
     PW_CB_DATA *cb_data=UI_get0_user_data(ui);
@@ -258,7 +258,7 @@ int ctx_init(void) {
         return 1; /* FAILED */
     }
 #endif /* OPENSSL_NO_DH */
-#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
+#if !defined(OPENSSL_NO_ENGINE) || (OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER))
     int ui_result;
 
     ui_stunnel=UI_create_method("stunnel UI");
@@ -266,7 +266,7 @@ int ctx_init(void) {
         ssl_error(NULL, "UI_create_method");
         return 1; /* FAILED */
     }
-#if OPENSSL_VERSION_NUMBER>=0x10000000L
+#if OPENSSL_VERSION_NUMBER>=0x10000000L && !defined(LIBRESSL_VERSION_NUMBER)
     ui_result=UI_method_set_prompt_constructor(ui_stunnel,
         ui_prompt_constructor);
     if(ui_result<0) {
@@ -302,14 +302,14 @@ void ctx_cleanup(void) {
 #ifndef OPENSSL_NO_DH
     DH_free(dh_params);
 #endif
-#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER>=0x10101000L
+#if !defined(OPENSSL_NO_ENGINE) || (OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER))
     UI_destroy_method(ui_stunnel);
 #endif
 }
 
 /**************************************** initialize section->ctx */
 
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
 typedef long unsigned SSL_OPTIONS_TYPE;
 #else
 typedef long SSL_OPTIONS_TYPE;
@@ -358,7 +358,7 @@ NOEXPORT int dtls_cookie_peer(SSL *ssl,
     CLI *c=SSL_get_ex_data(ssl, index_ssl_cli);
     BIO *bio;
     SOCKADDR_UNION peer;
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     BIO_ADDR *bio_peer;
 #endif
 
@@ -367,7 +367,7 @@ NOEXPORT int dtls_cookie_peer(SSL *ssl,
         return 0;
     }
     bio=SSL_get_rbio(ssl);
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     if(bio) {
         bio_peer=BIO_ADDR_new();
         if(!bio_peer) {
@@ -503,7 +503,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
      * and register cookie callbacks */
     if(socket_type_is_datagram(section->sock_type) &&
             !section->option.client) {
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
         if(!RAND_priv_bytes(section->dtls_cookie_secret,
 #else /* OPENSSL_VERSION_NUMBER>=0x10101000L */
         if(!RAND_bytes(section->dtls_cookie_secret,
@@ -617,7 +617,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
     /* TLS options: configure the user-specified values */
     (void)SSL_CTX_set_options(section->ctx,
         (SSL_OPTIONS_TYPE)(section->ssl_options_set));
-#if OPENSSL_VERSION_NUMBER>=0x009080dfL
+#if OPENSSL_VERSION_NUMBER>=0x009080dfL && !defined(LIBRESSL_VERSION_NUMBER)
     (void)SSL_CTX_clear_options(section->ctx,
         (SSL_OPTIONS_TYPE)(section->ssl_options_clear));
 #endif /* OpenSSL 0.9.8m or later */
@@ -650,7 +650,7 @@ int context_init(SERVICE_OPTIONS *section) { /* init TLS context */
 #endif
 
     /* setup session tickets */
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
     {
         int ticket_result;
 
@@ -916,7 +916,7 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
     if(!section->engine) /* cert is a file and not an identifier */
 #endif
         for(ptr=section->cert; ptr && !dh; ptr=ptr->next) {
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
             dh=dh_load_from_store(ptr->name);
 #else /* OpenSSL 1.1.1 or later */
             dh=dh_read(ptr->name);
@@ -955,7 +955,7 @@ NOEXPORT int dh_init(SERVICE_OPTIONS *section) {
     return 0; /* OK */
 }
 
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 NOEXPORT DH *dh_load_from_store(const char *uri)
 {
     DH *dh=NULL;
@@ -1061,7 +1061,7 @@ NOEXPORT int ecdh_init(SERVICE_OPTIONS *section) {
 /**************************************** initialize OpenSSL CONF */
 
 NOEXPORT int conf_init(SERVICE_OPTIONS *section) {
-#if OPENSSL_VERSION_NUMBER>=0x10002000L
+#if OPENSSL_VERSION_NUMBER>=0x10002000L && !defined(LIBRESSL_VERSION_NUMBER)
     SSL_CONF_CTX *cctx;
     NAME_LIST *curr;
     char *cmd, *param;
@@ -1128,7 +1128,7 @@ NOEXPORT int conf_init(SERVICE_OPTIONS *section) {
 
 NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
     int cert_needed=1, key_needed=1;
-#if !defined(OPENSSL_NO_ENGINE) || OPENSSL_VERSION_NUMBER<0x10101000L
+#if !defined(OPENSSL_NO_ENGINE) || (OPENSSL_VERSION_NUMBER<0x10101000L || defined(LIBRESSL_VERSION_NUMBER))
     NAME_LIST *ptr;
 #endif
 
@@ -1143,7 +1143,7 @@ NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
 #endif /* !defined(OPENSSL_NO_PSK) */
 
     /* initialize the client cert engine */
-#if !defined(OPENSSL_NO_ENGINE) && OPENSSL_VERSION_NUMBER>=0x0090809fL
+#if !defined(OPENSSL_NO_ENGINE) && (OPENSSL_VERSION_NUMBER>=0x0090809fL && !defined(LIBRESSL_VERSION_NUMBER))
     /* SSL_CTX_set_client_cert_engine() was introduced in OpenSSL 0.9.8i */
     if(section->option.client && section->engine) {
         if(SSL_CTX_set_client_cert_engine(section->ctx, section->engine)) {
@@ -1175,7 +1175,7 @@ NOEXPORT int auth_init(SERVICE_OPTIONS *section) {
         }
     }
 #endif
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
     if(load_objects(section, &cert_needed, &key_needed))
         return 1; /* FAILED */
 #else /* OpenSSL 1.1.1 or later */
@@ -1314,7 +1314,7 @@ PSK_KEYS *psk_find(const PSK_TABLE *table, const char *identity) {
 
 #endif /* !defined(OPENSSL_NO_PSK) */
 
-#if OPENSSL_VERSION_NUMBER<0x10101000L
+#if OPENSSL_VERSION_NUMBER<0x10101000L || defined(LIBRESSL_VERSION_NUMBER)
 
 NOEXPORT int pkcs12_extension(const char *filename) {
     const char *ext=strrchr(filename, '.');
@@ -1392,7 +1392,7 @@ NOEXPORT int load_pkcs12_file(SERVICE_OPTIONS *section, const char *file,
         return 1; /* FAILED */
     }
     *key_needed=0;
-#if OPENSSL_VERSION_NUMBER>=0x10002000L
+#if OPENSSL_VERSION_NUMBER>=0x10002000L && !defined(LIBRESSL_VERSION_NUMBER)
     if(!SSL_CTX_set0_chain(section->ctx, ca)) {
         ssl_error(NULL, "SSL_CTX_set0_chain");
         return 1; /* FAILED */
@@ -1427,7 +1427,7 @@ NOEXPORT int load_cert_file(SERVICE_OPTIONS *section, const char *file, int *cer
         *cert_needed=0;
         s_log(LOG_INFO, "Certificate loaded from file: %s", file);
     } else {
-#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L && !defined(LIBRESSL_VERSION_NUMBER)
         X509 *ca;
         BIO *bio;
 
@@ -1570,7 +1570,7 @@ NOEXPORT int load_key_engine(SERVICE_OPTIONS *section, const char *file, int *ke
 
 #endif /* !defined(OPENSSL_NO_ENGINE) */
 
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 
 NOEXPORT int load_objects(SERVICE_OPTIONS *section, int *cert_needed, int *key_needed) {
     NAME_LIST *ptr;
@@ -1821,7 +1821,7 @@ NOEXPORT int ui_retry(void) {
 
 /**************************************** session tickets */
 
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 
 typedef struct {
     void *session_authenticated;
@@ -2097,7 +2097,7 @@ NOEXPORT void session_cache_save(CLI *c, SSL_SESSION *sess) {
     if(!c->opt->option.client || !sess)
         return;
 
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
     if(!SSL_SESSION_is_resumable(sess))
         return;
 #endif
@@ -2145,7 +2145,7 @@ NOEXPORT SSL_SESSION *SSL_SESSION_dup(SSL_SESSION *src) {
 #endif
 
 NOEXPORT SSL_SESSION *sess_get_cb(SSL *ssl,
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
         const
 #endif
         unsigned char *key, int key_len, int *do_copy) {
@@ -2210,11 +2210,11 @@ NOEXPORT SSL_SESSION *cache_get(SSL *ssl,
         const unsigned char *key, int key_len) {
     unsigned char *val=NULL;
     const unsigned char *val_tmp=NULL;
-    ssize_t val_len=0;
+    size_t val_len=0;
     SSL_SESSION *sess;
 
     cache_transfer(SSL_get_SSL_CTX(ssl), CACHE_CMD_GET, 0,
-        key, (size_t)key_len, NULL, 0, &val, (size_t *)&val_len);
+        key, (size_t)key_len, NULL, 0, &val, &val_len);
     if(!val)
         return NULL;
     val_tmp=val;
@@ -2253,6 +2253,7 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
     CACHE_PACKET *packet;
     SERVICE_OPTIONS *section;
     const size_t packet_header_len=sizeof(CACHE_PACKET)-MAX_VAL_LEN;
+    size_t packet_len;
 
     if(ret) /* set error as the default result if required */
         *ret=NULL;
@@ -2293,11 +2294,13 @@ NOEXPORT void cache_transfer(SSL_CTX *ctx, const u_char type,
 
     /* retrieve pointer to the section structure of this ctx */
     section=SSL_CTX_get_ex_data(ctx, index_ssl_ctx_opt);
+    /* val_len was checked above; the fixed cache packet fits Winsock's int. */
+    packet_len=packet_header_len+val_len;
     if(sendto(s, (void *)packet,
 #ifdef USE_WIN32
             (int)
 #endif
-            (packet_header_len+val_len),
+            packet_len,
             0, &section->sessiond_addr.sa,
             sockaddr_len(&section->sessiond_addr))<0) {
         sockerror("cache_transfer: sendto");
@@ -2363,7 +2366,7 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
     CLI *c;
     SSL_CTX *ctx;
     const char *state_string;
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     OSSL_HANDSHAKE_STATE state=SSL_get_state(ssl);
 #else
     int state=SSL_get_state((SSL *)ssl);
@@ -2408,7 +2411,9 @@ NOEXPORT void info_callback(const SSL *ssl, int where, int ret) {
         c->reneg_state=RENEG_ESTABLISHED;
     } else if((where&SSL_CB_ACCEPT_LOOP)
             && c->reneg_state==RENEG_ESTABLISHED) {
-#ifndef SSL3_ST_SR_CLNT_HELLO_A
+#if defined(LIBRESSL_VERSION_NUMBER)
+        if(state==SSL3_ST_SR_CLNT_HELLO_A) {
+#elif !defined(SSL3_ST_SR_CLNT_HELLO_A)
         if(state==TLS_ST_SR_CLNT_HELLO) {
 #else
         if(state==SSL3_ST_SR_CLNT_HELLO_A

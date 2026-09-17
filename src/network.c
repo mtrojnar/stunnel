@@ -137,7 +137,16 @@ int s_poll_hup(s_poll_set *fds, SOCKET fd) {
 
     for(i=0; i<fds->nfds; i++)
         if(fds->ufds[i].fd==fd)
+#ifdef __APPLE__
+            /* macOS emulates poll() with kqueue: EV_EOF on the read filter
+             * sets POLLHUP together with POLLIN as soon as the peer
+             * half-closes the connection, while writing may still succeed;
+             * EV_EOF on the write filter reports a closed write direction
+             * as a bare POLLHUP, with POLLOUT suppressed */
+            return (fds->ufds[i].revents&(POLLHUP|POLLIN))==POLLHUP;
+#else
             return fds->ufds[i].revents&POLLHUP; /* read and write closed */
+#endif
     return 0; /* not listed in fds */
 }
 
@@ -379,7 +388,7 @@ void s_poll_init(s_poll_set *fds, int main_thread) {
 #ifndef USE_WIN32
     FD_ZERO(fds->ixfds);
 #endif
-    fds->max=0; /* no file descriptors */
+    fds->max_fd=0; /* no file descriptors */
     fds->main_thread=main_thread;
 #ifdef USE_TERMINATE_PIPE
     s_poll_add(fds, main_thread ? signal_pipe[0] : terminate_pipe[0], 1, 0);
@@ -398,20 +407,29 @@ void s_poll_add(s_poll_set *fds, SOCKET fd, int rd, int wr) {
         s_poll_realloc(fds, max_count+1U);
 #endif
     if(rd)
+        /* MISRA 10.4 deviation: Winsock FD_SET mixes unsigned counts and signed constants. */
+        /* cppcheck-suppress misra-c2012-10.4 */
         FD_SET(fd, fds->irfds);
     if(wr)
+        /* MISRA 10.4 deviation: Winsock FD_SET mixes unsigned counts and signed constants. */
+        /* cppcheck-suppress misra-c2012-10.4 */
         FD_SET(fd, fds->iwfds);
 #ifndef USE_WIN32
     /* expect errors (and the Spanish Inquisition) except for WIN32,
      * which signals tons of non-error events on exceptfds */
     FD_SET(fd, fds->ixfds);
 #endif
-    if(fd>fds->max)
-        fds->max=fd;
+    if(fd>fds->max_fd)
+        fds->max_fd=fd;
 }
 
 void s_poll_remove(s_poll_set *fds, SOCKET fd) {
+    /* MISRA deviation: Winsock FD_CLR mixes unsigned counts and signed
+     * constants and modifies its loop counter in the loop body. */
+    /* cppcheck-suppress [misra-c2012-10.4, misra-c2012-14.2] */
     FD_CLR(fd, fds->irfds);
+    /* MISRA deviation: same Winsock FD_CLR implementation as above. */
+    /* cppcheck-suppress [misra-c2012-10.4, misra-c2012-14.2] */
     FD_CLR(fd, fds->iwfds);
 #ifndef USE_WIN32
     FD_CLR(fd, fds->ixfds);
@@ -482,10 +500,10 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
             tv_ptr=&tv;
         }
 #ifdef USE_WIN32
-        retval=select((int)fds->max+1,
+        retval=select((int)fds->max_fd+1,
             fds->orfds, fds->owfds, NULL, tv_ptr);
 #else
-        retval=select((int)fds->max+1,
+        retval=select((int)fds->max_fd+1,
             fds->orfds, fds->owfds, fds->oxfds, tv_ptr);
 #endif
     } while(retval<0 && get_last_socket_error()==S_EINTR);
@@ -517,7 +535,7 @@ void s_poll_dump(s_poll_set *fds, int level) {
     int ix, ox;
 #endif
 
-    /* Avoid overflow in fds->max+1 and unsigned SOCKET wraparound. */
+    /* Avoid overflow in fds->max_fd+1 and unsigned SOCKET wraparound. */
     fd=0;
     while(1) {
         ir=FD_ISSET(fd, fds->irfds);
@@ -538,7 +556,7 @@ void s_poll_dump(s_poll_set *fds, int level) {
             s_log(level, "FD=%ld ifds=%c%c ofds=%c%c", (long)fd,
                 ir?'r':'-', iw?'w':'-', or?'r':'-', ow?'w':'-');
 #endif
-        if(fd==fds->max)
+        if(fd==fds->max_fd)
             break;
         ++fd;
     }
@@ -1239,7 +1257,7 @@ int socket_needs_retry(CLI *c, const char *text) {
 }
 
 #ifdef USE_DTLS
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
 /* copy an OpenSSL datagram peer address to the socket representation */
 int bio_addr_to_sockaddr(const BIO_ADDR *src, SOCKADDR_UNION *dst) {
     u_short family=(u_short)BIO_ADDR_family(src);
@@ -1277,7 +1295,7 @@ int bio_addr_to_sockaddr(const BIO_ADDR *src, SOCKADDR_UNION *dst) {
 int dtls_listen(CLI *c, SOCKET fd) {
     SSL *new_ssl;
     BIO *bio;
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     BIO_ADDR *peer;
     int dtls_ret;
 #else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
@@ -1361,7 +1379,7 @@ int dtls_listen(CLI *c, SOCKET fd) {
     SSL_set_bio(new_ssl, bio, bio);
     SSL_set_accept_state(new_ssl);
 
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     peer=BIO_ADDR_new();
     if(!peer) {
         s_log(LOG_ERR, "DTLSv1_listen: BIO_ADDR_new() failed");
@@ -1579,7 +1597,7 @@ fail:
 
 /* pseudo-blocking DTLS accept with cookie exchange */
 void dtls_accept(CLI *c) {
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     BIO_ADDR *peer;
     int dtls_ret;
 #else /* OPENSSL_VERSION_NUMBER>=0x10100000L */
@@ -1587,7 +1605,7 @@ void dtls_accept(CLI *c) {
     long dtls_ret;
 #endif /* OPENSSL_VERSION_NUMBER>=0x10100000L */
 
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     peer=BIO_ADDR_new();
     if(!peer) {
         s_log(LOG_ERR, "DTLS: BIO_ADDR_new() failed");

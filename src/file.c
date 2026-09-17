@@ -182,7 +182,7 @@ int file_permissions(const char *file_name) {
         ioerror(file_name);
         return 1; /* FAILED */
     }
-    if(sb.st_mode & 7)
+    if(sb.st_mode & 7U)
         s_log(LOG_WARNING,
             "Insecure file permissions on %s", file_name);
 #else

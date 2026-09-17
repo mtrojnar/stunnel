@@ -1,6 +1,13 @@
 # stunnel change log
 
 
+### Version 5.82, 2026.09.17, urgency: MEDIUM
+* Bugfixes
+  - Fixed premature connection closure on macOS when the peer half-closed
+    the plaintext connection while data still needed to be forwarded.
+* Features
+  - Build compatibility with LibreSSL 4.3.2 (thanks to Masahito Yamaga).
+
 ### Version 5.81, 2026.09.16, urgency: HIGH
 * Security bugfixes
   - OpenSSL DLLs updated to version 3.5.8.

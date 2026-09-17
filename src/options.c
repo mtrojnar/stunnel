@@ -38,7 +38,9 @@
 #include "prototypes.h"
 
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
-#if OPENSSL_VERSION_NUMBER >= 0x30500000L
+#if defined(LIBRESSL_VERSION_NUMBER)
+#define DEFAULT_CURVES "X25519:P-256:P-521:P-384"
+#elif OPENSSL_VERSION_NUMBER >= 0x30500000L
 #define DEFAULT_CURVES "X25519MLKEM768:X25519:P-256:X448:P-521:P-384"
 #else /* OPENSSL_VERSION_NUMBER>=0x30500000L */
 #define DEFAULT_CURVES "X25519:P-256:X448:P-521:P-384"
@@ -489,8 +491,15 @@ int options_cmdline(char *arg1, char *arg2) {
             return 1;
         }
         configuration_file=str_dup(real_path);
-        /* cppcheck-suppress misra-c2012-21.3 */
-        free(real_path);
+        /* When buffer was supplied, POSIX guarantees real_path==buffer:
+         * free exactly one object in each configuration. */
+        if(buffer) {
+            /* cppcheck-suppress misra-c2012-21.3 */
+            free(buffer);
+        } else {
+            /* cppcheck-suppress misra-c2012-21.3 */
+            free(real_path);
+        }
 #else
         configuration_file=str_dup(name);
 #endif
@@ -735,6 +744,8 @@ NOEXPORT int scandir(const char *dirp, struct dirent ***namelist,
     saved_errno=GetLastError();
     str_free(pattern);
     SetLastError(saved_errno);
+    /* MISRA 11.6 deviation: Windows defines its invalid HANDLE as an integer sentinel. */
+    /* cppcheck-suppress misra-c2012-11.6 */
     if(h==INVALID_HANDLE_VALUE)
         return -1;
     *namelist=NULL;
@@ -772,7 +783,7 @@ NOEXPORT int scandir(const char *dirp, struct dirent ***namelist,
         }
     } while(FindNextFile(h, &data));
     saved_errno=GetLastError();
-    if(saved_errno!=ERROR_NO_MORE_FILES)
+    if(saved_errno!=(DWORD)ERROR_NO_MORE_FILES)
         goto fail;
     (void)FindClose(h);
 
@@ -1953,7 +1964,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         break;
     }
 
-#if OPENSSL_VERSION_NUMBER>=0x10002000L
+#if OPENSSL_VERSION_NUMBER>=0x10002000L && !defined(LIBRESSL_VERSION_NUMBER)
 
     /* checkEmail */
     switch(cmd) {
@@ -2170,7 +2181,7 @@ NOEXPORT const char *parse_service_option(CMD cmd, SERVICE_OPTIONS **section_ptr
         break;
     }
 
-#if OPENSSL_VERSION_NUMBER>=0x10002000L
+#if OPENSSL_VERSION_NUMBER>=0x10002000L && !defined(LIBRESSL_VERSION_NUMBER)
 
     /* config */
     switch(cmd) {
@@ -5085,7 +5096,11 @@ NOEXPORT SOCK_OPT *socket_options_init(void) {
 #pragma warning(disable: 4996)
 #endif
     version=GetVersion();
+    /* MISRA 10.4 deviation: Windows byte/word macros mix unsigned values and signed masks. */
+    /* cppcheck-suppress misra-c2012-10.4 */
     major=LOBYTE(LOWORD(version));
+    /* MISRA 10.4 deviation: same Windows byte/word macros as above. */
+    /* cppcheck-suppress misra-c2012-10.4 */
     minor=HIBYTE(LOWORD(version));
     s_log(LOG_DEBUG, "Running on Windows %d.%d", major, minor);
 
@@ -5618,6 +5633,8 @@ NOEXPORT INCLUDE_RESULT include_config_next(INCLUDE_STACK_ENTRY *stack,
             entry->namelist[entry->include_idx]->d_name);
         ++entry->include_idx;
 
+        /* MISRA 10.4 deviation: system S_ISREG uses signed mode masks. */
+        /* cppcheck-suppress misra-c2012-10.4 */
         if(!stat(name, &sb) && S_ISREG(sb.st_mode)) {
             if(*depth>=INCLUDE_STACK_SIZE) {
                 s_log(LOG_ERR,

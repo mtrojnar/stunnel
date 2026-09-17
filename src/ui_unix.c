@@ -284,6 +284,7 @@ NOEXPORT int create_pid(void) {
     if(write(pf, pid, strlen(pid))<(int)strlen(pid)) {
         s_log(LOG_ERR, "Cannot write pid file %s", global_options.pidfile);
         ioerror("write");
+        (void)close(pf);
         return 1;
     }
     str_free(pid);

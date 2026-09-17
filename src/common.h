@@ -92,6 +92,13 @@
 typedef int                 socklen_t;
 #endif
 
+/* The threading model is selected by exactly one of these macros:
+ * configure defines one of USE_FORK/USE_PTHREAD/USE_UCONTEXT on Unix,
+ * or the platform defines USE_WIN32 (Windows and Windows CE). */
+#if defined(USE_FORK)+defined(USE_PTHREAD)+defined(USE_UCONTEXT)+defined(USE_WIN32)!=1
+#error "Please select exactly one threading model"
+#endif
+
 #ifdef USE_WIN32
 typedef signed   char       int8_t;
 typedef signed   short      int16_t;
@@ -475,7 +482,7 @@ extern char *sys_errlist[];
 #endif /* !OPENSSL_THREADS && USE_PTHREAD */
 
 /* non-blocking OCSP API is not available before OpenSSL 0.9.8h */
-#if OPENSSL_VERSION_NUMBER<0x00908080L
+#if OPENSSL_VERSION_NUMBER<0x00908080L || defined(LIBRESSL_VERSION_NUMBER)
 #ifndef OPENSSL_NO_OCSP
 #define OPENSSL_NO_OCSP
 #endif /* !defined(OPENSSL_NO_OCSP) */
@@ -494,7 +501,7 @@ extern char *sys_errlist[];
 #define OPENSSL_NO_TLS1_2
 #endif /* OpenSSL older than 1.0.1 || defined(OPENSSL_NO_TLS1) */
 
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
 #ifndef OPENSSL_NO_SSL2
 #define OPENSSL_NO_SSL2
 #endif /* !defined(OPENSSL_NO_SSL2) */
@@ -540,7 +547,7 @@ extern char *sys_errlist[];
 #ifndef OPENSSL_NO_OCSP
 #include <openssl/ocsp.h>
 #endif /* !defined(OPENSSL_NO_OCSP) */
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if OPENSSL_VERSION_NUMBER>=0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
 #include <openssl/store.h>
 #include <openssl/storeerr.h>
 #endif /* OPENSSL_VERSION_NUMBER>=0x10101000L */

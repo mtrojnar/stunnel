@@ -311,7 +311,7 @@ unsigned hostport2addrlist(SOCKADDR_LIST *addr_list,
     /* find the number of newly resolved addresses */
     num=0;
     for(cur=res; cur; cur=cur->ai_next) {
-        if(cur->ai_addrlen>(int)sizeof(SOCKADDR_UNION)) {
+        if((size_t)cur->ai_addrlen>sizeof(SOCKADDR_UNION)) {
             s_log(LOG_ERR, "INTERNAL ERROR: ai_addrlen value too big");
             freeaddrinfo(res);
             return 0; /* no results */
@@ -496,7 +496,7 @@ NOEXPORT int getaddrinfo(const char *node, const char *service,
     /* cppcheck-suppress misra-c2012-11.3 */
     ((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr=inet_addr(node);
     /* cppcheck-suppress misra-c2012-11.3 */
-    if(((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr+1) {
+    if(((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr+1U) {
     /* (signed)((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr!=-1 */
 #endif
         /* cppcheck-suppress misra-c2012-11.3 */
@@ -681,7 +681,7 @@ int getnameinfo(const struct sockaddr *sa, socklen_t salen,
             /* cppcheck-suppress misra-c2012-11.3 */
             inet_ntoa(((const struct sockaddr_in *)sa)->sin_addr), hostlen);
         s_unlock(lock);
-        host[hostlen-1]='\0';
+        host[hostlen-1U]='\0';
 #endif /* USE_IPV6 */
     }
 

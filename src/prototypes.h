@@ -72,7 +72,7 @@ typedef struct servername_list_struct SERVERNAME_LIST;
     typedef HANDLE THREAD_ID;
 #endif
 
-#if OPENSSL_VERSION_NUMBER<0x10100004L
+#if OPENSSL_VERSION_NUMBER<0x10100004L || defined(LIBRESSL_VERSION_NUMBER)
 
 #ifdef USE_OS_THREADS
 
@@ -502,7 +502,7 @@ typedef struct {
 #ifndef USE_WIN32
     fd_set *ixfds, *oxfds;
 #endif
-    SOCKET max;
+    SOCKET max_fd;
 #endif
     int main_thread;
 } s_poll_set;
@@ -771,7 +771,7 @@ int original_dst(const SOCKET fd, SOCKADDR_UNION *addr);
 int socket_needs_retry(CLI *c, const char *text);
 
 #ifdef USE_DTLS
-#if OPENSSL_VERSION_NUMBER>=0x10100000L
+#if OPENSSL_VERSION_NUMBER>=0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
 int bio_addr_to_sockaddr(const BIO_ADDR *src, SOCKADDR_UNION *dst);
 #endif
 int dtls_listen(CLI *c, SOCKET fd);

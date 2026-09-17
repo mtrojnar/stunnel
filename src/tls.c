@@ -175,6 +175,8 @@ NOEXPORT DWORD tls_index;
 
 NOEXPORT void tls_platform_init(void) {
     tls_index=TlsAlloc();
+    /* MISRA 7.2 deviation: Windows defines this unsigned sentinel without a suffix. */
+    /* cppcheck-suppress misra-c2012-7.2 */
     if(tls_index==TLS_OUT_OF_INDEXES)
         fatal("TlsAlloc failed");
 }

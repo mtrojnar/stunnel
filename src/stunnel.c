@@ -134,6 +134,8 @@ int stunnel_init(void) { /* basic initialization */
     if(crypto_init()) /* initialize libcrypto */
         return 1;
 #ifdef USE_WIN32
+    /* MISRA 10.4 deviation: Windows MAKEWORD mixes unsigned values and signed masks. */
+    /* cppcheck-suppress misra-c2012-10.4 */
     if(WSAStartup(MAKEWORD(2, 2), &wsa_state))
         return 1; /* error */
 #endif
@@ -793,6 +795,8 @@ NOEXPORT void unbind_port(SERVICE_OPTIONS *opt, unsigned i) {
     if(addr_family_is(addr, AF_UNIX)) {
         if(lstat(addr->un.sun_path, &sb))
             sockerror(addr->un.sun_path);
+        /* MISRA 10.4 deviation: system S_ISSOCK uses signed mode masks. */
+        /* cppcheck-suppress misra-c2012-10.4 */
         else if(!S_ISSOCK(sb.st_mode))
             s_log(LOG_ERR, "Not a socket: %s",
                 addr->un.sun_path);

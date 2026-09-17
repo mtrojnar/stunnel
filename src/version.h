@@ -66,7 +66,7 @@
 #endif /* HOST */
 
 #define VERSION_MAJOR 5
-#define VERSION_MINOR 81
+#define VERSION_MINOR 82
 
 /* all the following macros are ABSOLUTELY NECESSARY to have proper string
  * construction with VARIOUS C preprocessors (EVC, VC, BCC, GCC) */
